@@ -8,8 +8,9 @@ public sealed class LiveEditingSession : IEditingSession
 {
     private readonly ILiveSessionBinding _binding;
 
-    internal LiveEditingSession(string sessionId, ILiveSessionBinding binding)
+    internal LiveEditingSession(Media.FontManager fonts, string sessionId, ILiveSessionBinding binding)
     {
+        Documents = new DocumentAdapter(fonts);
         SessionId = sessionId;
         _binding = binding;
     }
@@ -19,13 +20,13 @@ public sealed class LiveEditingSession : IEditingSession
     // How long an edit waits for the user's gesture to end before it fails with user_editing.
     internal static TimeSpan EditSessionWait { get; set; } = TimeSpan.FromSeconds(10);
 
-    public static LiveEditingSession Create(ILiveSessionBinding binding)
+    public static LiveEditingSession Create(ILiveSessionBinding binding, Media.FontManager fonts)
     {
         ArgumentNullException.ThrowIfNull(binding);
         if (!binding.IsAlive || binding.ActiveScene is null || binding.ActiveHistory is null)
             throw new SessionUnavailableException();
 
-        return new LiveEditingSession(binding.ActiveScene.Id.Value.ToString(), binding);
+        return new LiveEditingSession(fonts, binding.ActiveScene.Id.Value.ToString(), binding);
     }
 
     public EditingSessionSource Source => EditingSessionSource.LiveEditor;
@@ -34,7 +35,7 @@ public sealed class LiveEditingSession : IEditingSession
 
     public HistoryManager History => _binding.ActiveHistory ?? throw new SessionUnavailableException();
 
-    public DocumentAdapter Documents { get; } = new();
+    public DocumentAdapter Documents { get; }
 
     public bool IsDirty => false;
 

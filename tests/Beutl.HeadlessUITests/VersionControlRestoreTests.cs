@@ -9,16 +9,16 @@ using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
+using static Beutl.HeadlessUITests.GitTestSupport;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
+using static Beutl.Testing.Headless.HeadlessTestHelpers;
 using Beutl.ViewModels;
 using Reactive.Bindings;
-using static Beutl.HeadlessUITests.GitTestSupport;
-using static Beutl.Testing.Headless.HeadlessTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -4989,7 +4989,7 @@ public class VersionControlRestoreTests
             {
                 HasVersionTrackingOptIn = false,
             };
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
@@ -5055,7 +5055,7 @@ public class VersionControlRestoreTests
             {
                 HasVersionTrackingOptIn = false,
             };
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
@@ -5141,7 +5141,7 @@ public class VersionControlRestoreTests
                 "version-control-new-project-prepared");
             Directory.CreateDirectory(location);
             var backends = new List<PullCycleTestBackend>();
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
             var editorService = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
             coordinator = new VersionControlCoordinator(
                 projectService,
@@ -5266,7 +5266,7 @@ public class VersionControlRestoreTests
             Directory.CreateDirectory(location);
             string projectRoot = Path.Combine(location, "interrupted");
             var backends = new List<PullCycleTestBackend>();
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
@@ -5382,7 +5382,7 @@ public class VersionControlRestoreTests
                 "version-control-new-project-reserved-path-failure");
             Directory.CreateDirectory(location);
             var backends = new List<PullCycleTestBackend>();
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
@@ -5450,7 +5450,7 @@ public class VersionControlRestoreTests
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
         Func<Project, Task> failOpening = static _ =>
             Task.FromException(new IOException("simulated editor failure"));
 
@@ -5523,7 +5523,7 @@ public class VersionControlRestoreTests
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
         var identityRequested = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         Task<Project?>? creation = null;
@@ -5635,7 +5635,7 @@ public class VersionControlRestoreTests
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
         INewProjectVersionControlSetup? setup = null;
         var releaseOpening = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -7430,7 +7430,7 @@ public class VersionControlRestoreTests
             await TestReset.ResetShellAsync();
             Project project = await CreateProjectForFakeVersionControlAsync(directoryName);
             await TestShell.Project.CloseProjectAsync();
-            return new FakeVersionControlSession(project, new ProjectService(TestShell.Configuration.ViewConfig));
+            return new FakeVersionControlSession(project, new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
         }
 
         public VersionControlCoordinator Start(
@@ -7663,7 +7663,7 @@ public class VersionControlRestoreTests
         public IReactiveProperty<bool> IsEnabled { get; } =
             new ReactivePropertySlim<bool>(true);
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext

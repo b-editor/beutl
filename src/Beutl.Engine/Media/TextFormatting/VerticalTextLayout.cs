@@ -60,7 +60,7 @@ internal sealed class VerticalTextLayout : IDisposable
 
                 void AddRun(FormattedText source, string text, bool sideways)
                 {
-                    var formatted = new FormattedText
+                    var formatted = new FormattedText(source.Fonts)
                     {
                         Text = text,
                         Font = source.Font,
@@ -121,7 +121,7 @@ internal sealed class VerticalTextLayout : IDisposable
     private static bool HasVerticalAlternate(FormattedText source, SKFont font, string cluster,
         Dictionary<(SKTypeface Typeface, string Cluster), bool> alternates, Dictionary<SKTypeface, TextShaper> shapers)
     {
-        foreach (TextFontFallback.Run run in TextFontFallback.GetRuns(cluster.AsSpan(), font, source.Style, source.Weight))
+        foreach (TextFontFallback.Run run in TextFontFallback.GetRuns(source.Fonts, cluster.AsSpan(), font, source.Style, source.Weight))
         {
             var key = (run.Typeface, cluster);
             if (alternates.TryGetValue(key, out bool hasAlternate))

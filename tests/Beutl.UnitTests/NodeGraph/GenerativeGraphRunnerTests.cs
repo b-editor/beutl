@@ -8,8 +8,8 @@ using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Generative;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.Serialization;
-using Beutl.UnitTests.TestInfrastructure;
 using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -813,6 +813,8 @@ public sealed class GenerativeGraphRunnerTests
 
     private sealed class InlineHost : IGenerativeRunHost
     {
+        public Beutl.Media.FontManager Fonts => TestFonts.Manager;
+
         public int Commits { get; private set; }
 
         public HistoryManager? History { get; init; }

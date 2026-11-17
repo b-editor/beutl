@@ -222,7 +222,7 @@ public class TimelineClosedElementActionsTests
         }
 
         public object? GetService(Type serviceType)
-            => serviceType == typeof(Element) ? element : editor.GetService(serviceType);
+            => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Element) ? element : editor.GetService(serviceType);
     }
 
     private sealed class TestVideoDecoder : IDecoderInfo

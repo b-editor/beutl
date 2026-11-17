@@ -558,7 +558,7 @@ public sealed class LosslessCompositeCoverageTests
         shape.Fill.Value = stripes;
         if (effect is not null)
             shape.FilterEffect.Value = effect;
-        return shape.ToResource(CompositionContext.Default);
+        return shape.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 
     private static int CountDarkPixels(Bitmap bitmap)
@@ -588,7 +588,7 @@ public sealed class LosslessCompositeCoverageTests
         text.Text.Value = "Phase";
         if (effect is not null)
             text.FilterEffect.Value = effect;
-        return text.ToResource(CompositionContext.Default);
+        return text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 
     private static Drawable.Resource Configure(Shape shape, FilterEffect? effect)
@@ -598,7 +598,7 @@ public sealed class LosslessCompositeCoverageTests
         shape.Fill.Value = Brushes.White;
         if (effect is not null)
             shape.FilterEffect.Value = effect;
-        return shape.ToResource(CompositionContext.Default);
+        return shape.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 
     private static FilterEffect.Resource CreateIdentityEffectResource(bool typedShader)
@@ -615,7 +615,7 @@ public sealed class LosslessCompositeCoverageTests
             effect = brightness;
         }
 
-        return effect.ToResource(CompositionContext.Default);
+        return effect.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 
     private static TransformRenderNode CreateCachedEffectTree(

@@ -82,7 +82,7 @@ public partial class ListEditor : UserControl
         {
             Type propertyType = viewModel.ItemType;
             string format = propertyType.FullName!;
-            var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
+            var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)viewModel).GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(this), ((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
                 format, propertyType, LibraryThumbnailCapture.ForObject(viewModel as IServiceProvider));
 
             return LibraryItemPickerHelper.ShowAsync(this, selectVm, format);

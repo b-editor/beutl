@@ -73,7 +73,7 @@ public class FormattedTextGeometryCacheTests
         {
             Thickness = { Value = 4f },
             Brush = { Value = Brushes.White }
-        }.ToResource(CompositionContext.Default);
+        }.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         Geometry.Resource glyph = text.ToGeometries()[0];
         Rect narrowStroke = glyph.GetRenderBounds(pen);

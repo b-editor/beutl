@@ -1,9 +1,9 @@
 ﻿using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.NodeGraph.Generative;
+using Dispatcher = Avalonia.Threading.Dispatcher;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
-using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
@@ -11,6 +11,8 @@ namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 internal sealed class EditorGenerativeRunHost(IEditorContext editorContext, IReadOnlyReactiveProperty<bool>? canEdit = null)
     : IGenerativeRunHost
 {
+    public Beutl.Media.FontManager Fonts => editorContext.GetRequiredService<Beutl.Media.FontManager>();
+
     public MediaTime CurrentTime
         => editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? MediaTime.Zero;
 

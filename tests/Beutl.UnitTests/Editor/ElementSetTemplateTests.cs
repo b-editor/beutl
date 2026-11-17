@@ -141,7 +141,7 @@ public class ElementSetTemplateTests
         Element right = AddSquare(MediaTime.FromSeconds(5), zIndex: 1, x: 300);
         ElementSet set = ElementSetFactory.Create(_harness.Scene, [left, right]);
 
-        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(set);
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(TestFonts.Manager, set);
 
         Assert.That(png, Is.Not.Null);
         int width = (int)BinaryPrimitives.ReadUInt32BigEndian(png.AsSpan(16, 4));

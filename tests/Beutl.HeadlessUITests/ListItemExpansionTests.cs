@@ -78,6 +78,7 @@ public class ListItemExpansionTests
         var factory = new PropertyEditorFactoryAdapter(extensions);
         var host = new Mock<IEditorContext>();
         host.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+        host.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         host.Setup(h => h.GetService(It.IsAny<Type>())).Returns((Type type) =>
             type == typeof(IEditorSelection) ? selection.Object :
             type == typeof(IPropertyEditorFactory) ? factory :

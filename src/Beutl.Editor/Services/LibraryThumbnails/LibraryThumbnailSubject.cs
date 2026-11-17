@@ -105,11 +105,11 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     /// It reads its media through the readers the preview has open, so nothing is opened again for it.
     /// </remarks>
     public static async Task<LibraryThumbnailSubject?> CaptureElementAsync(
-        Element element, MediaTime time, CancellationToken cancellationToken = default,
+        FontManager fonts, Element element, MediaTime time, CancellationToken cancellationToken = default,
         EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
         // The live element is read here, on the thread that edits it; the copy is drawn on the render thread.
-        if (CopyAlone(element, time, editorConfig, proxyConfig) is not { } copy)
+        if (CopyAlone(fonts, element, time, editorConfig, proxyConfig) is not { } copy)
             return null;
 
         return await RenderThread.Dispatcher.InvokeAsync(
@@ -127,14 +127,14 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     /// what a picker for the transition there shows transitions between. A side with no element is empty.
     /// </summary>
     public static async Task<LibraryThumbnailSubject?> CaptureEdgeAsync(
-        Element element, ElementEdge edge, CancellationToken cancellationToken = default,
+        FontManager fonts, Element element, ElementEdge edge, CancellationToken cancellationToken = default,
         EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
         Element? outgoing = edge == ElementEdge.Start ? ElementTransitions.FindPrevious(element) : element;
         Element? incoming = edge == ElementEdge.Start ? element : ElementTransitions.FindNext(element);
         // The outgoing side shows its last moment and the incoming side its first.
-        Copy? from = outgoing == null ? null : CopyAlone(outgoing, outgoing.Range.End - EdgeInset, editorConfig, proxyConfig);
-        Copy? to = incoming == null ? null : CopyAlone(incoming, incoming.Start.Value, editorConfig, proxyConfig);
+        Copy? from = outgoing == null ? null : CopyAlone(fonts, outgoing, outgoing.Range.End - EdgeInset, editorConfig, proxyConfig);
+        Copy? to = incoming == null ? null : CopyAlone(fonts, incoming, incoming.Start.Value, editorConfig, proxyConfig);
 
         (Picture? From, Picture? To) sides = await RenderThread.Dispatcher.InvokeAsync(
             () => (CaptureFrame(from), CaptureFrame(to)),
@@ -213,7 +213,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     // copy keeps the live element out of a second scene. It drops the element's transitions, which would fade it in or
     // out at the edge it is drawn at, and keeps its times, so an animation on the scene's clock reads the time the
     // project shows.
-    private static Copy? CopyAlone(Element element, MediaTime time, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
+    private static Copy? CopyAlone(FontManager fonts, Element element, MediaTime time, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
     {
         try
         {
@@ -236,7 +236,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
 
             Scene scene = LibraryThumbnailRenderer.CreateScene(
                 frameSize, end > MediaTime.Zero ? end : MediaTime.FromSeconds(1), copy);
-            return new Copy(scene, at, editorConfig, proxyConfig);
+            return new Copy(fonts, scene, at, editorConfig, proxyConfig);
         }
         catch (Exception ex)
         {
@@ -251,7 +251,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     {
         try
         {
-            using SceneRenderer renderer = LibraryThumbnailRenderer.CreateRenderer(copy.Scene, scale, copy.EditorConfig, copy.ProxyConfig);
+            using SceneRenderer renderer = LibraryThumbnailRenderer.CreateRenderer(copy.Scene, copy.Fonts, scale, copy.EditorConfig, copy.ProxyConfig);
             renderer.Render(renderer.Compositor.EvaluateGraphics(copy.Time));
             using Bitmap snapshot = renderer.Snapshot();
             return snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
@@ -414,5 +414,5 @@ internal sealed class LibraryThumbnailSubject : IDisposable
         }
     }
 
-    private sealed record Copy(Scene Scene, MediaTime Time, EditorConfig? EditorConfig, ProxyStoreConfig? ProxyConfig);
+    private sealed record Copy(FontManager Fonts, Scene Scene, MediaTime Time, EditorConfig? EditorConfig, ProxyStoreConfig? ProxyConfig);
 }

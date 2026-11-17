@@ -12,7 +12,7 @@ public sealed class ApplyValidatedTests
     public void ApplyValidated_resolves_validates_and_applies_in_one_dispatch()
     {
         (LiveEditingSession session, FakeLiveBinding binding, Scene scene) = CreateLiveSession();
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         ReconcileResult result = reconciler.ApplyValidated(
             session,
@@ -38,7 +38,7 @@ public sealed class ApplyValidatedTests
     {
         (LiveEditingSession session, FakeLiveBinding binding, Scene scene) = CreateLiveSession();
         MediaTime original = scene.Duration.Value;
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
 
         Assert.Throws<ReconcileException>(() => reconciler.ApplyValidated(
             session,
@@ -61,7 +61,7 @@ public sealed class ApplyValidatedTests
         Scene scene = TestWorkspace.CreateScene();
         RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new FakeLiveBinding(scene, recording.History);
-        LiveEditingSession session = LiveEditingSession.Create(binding);
+        LiveEditingSession session = LiveEditingSession.Create(binding, TestFonts.Manager);
         return (session, binding, scene);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Avalonia.Media;
 using Avalonia.Media.Fonts;
 
@@ -6,22 +7,24 @@ namespace Beutl.Controls.PropertyEditors;
 
 // The fonts Beutl reads itself, built from its own copy of each font. A family loads the face Beutl resolves for its
 // first request, so the picker's names cost one face each.
-internal sealed class BeutlFontCollection(long maxCopiedBytes = BeutlFontCollection.MaxCopiedBytes) : FontCollectionBase
+internal sealed class BeutlFontCollection(Media.FontManager fonts, long maxCopiedBytes = BeutlFontCollection.MaxCopiedBytes) : FontCollectionBase
 {
     // Each copy lives as long as the app, and the faces of a collection copy the tables they share once each, so the
     // families past this many bytes stay in the default font.
     internal const long MaxCopiedBytes = 256L * 1024 * 1024;
 
-    public static readonly Uri CollectionKey = new("fonts:Beutl");
+    private readonly Uri _key = new($"fonts:Beutl-{Guid.NewGuid():N}");
 
     private static readonly Lock s_registrationGate = new();
-    private static (FontManager Manager, BeutlFontCollection Collection)? s_registration;
+    private static readonly ConditionalWeakTable<FontManager, ConditionalWeakTable<Media.FontManager, Registration>> s_registrations = new();
+
+    private sealed record Registration(long Revision, BeutlFontCollection Collection);
 
     private readonly Lock _gate = new();
     private readonly HashSet<string> _loadedFamilies = new(StringComparer.OrdinalIgnoreCase);
     private long _copiedBytes;
 
-    public override Uri Key => CollectionKey;
+    public override Uri Key => _key;
 
     internal long CopiedBytes
     {
@@ -31,17 +34,17 @@ internal sealed class BeutlFontCollection(long maxCopiedBytes = BeutlFontCollect
         }
     }
 
-    public static BeutlFontCollection GetOrRegister(FontManager manager)
+    public static BeutlFontCollection GetOrRegister(FontManager manager, Media.FontManager fonts)
     {
         lock (s_registrationGate)
         {
-            // Adding a collection under a taken key disposes the faces of the one it replaces, which drawn text can
-            // still hold, so each manager gets a single collection.
-            if (s_registration is not { } registration || registration.Manager != manager)
+            var sources = s_registrations.GetOrCreateValue(manager);
+            long revision = fonts.Revision;
+            if (!sources.TryGetValue(fonts, out Registration? registration) || registration.Revision != revision)
             {
-                registration = (manager, new BeutlFontCollection());
+                registration = new Registration(revision, new BeutlFontCollection(fonts));
                 manager.AddFontCollection(registration.Collection);
-                s_registration = registration;
+                sources.AddOrUpdate(fonts, registration);
             }
 
             return registration.Collection;
@@ -68,7 +71,7 @@ internal sealed class BeutlFontCollection(long maxCopiedBytes = BeutlFontCollect
             return true;
 
         var typeface = new Media.Typeface(new Media.FontFamily(familyName), (Media.FontStyle)style, (Media.FontWeight)weight);
-        if (Media.FontManager.Instance.CopyFontData(typeface) is not { } data)
+        if (fonts.CopyFontData(typeface) is not { } data)
             return false;
 
         _copiedBytes += data.Length;

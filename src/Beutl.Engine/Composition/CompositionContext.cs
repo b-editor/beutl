@@ -1,6 +1,7 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Media;
 using Beutl.Media.Proxy;
 
 namespace Beutl.Composition;
@@ -46,6 +47,12 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
 
     /// <summary>The output conditions this evaluation inherits; assign it to pass every condition on at once.</summary>
     public CompositionConditions Conditions { get; set; } = CompositionConditions.Default;
+
+    public FontManager? Fonts
+    {
+        get => Conditions.Fonts;
+        set => Conditions = Conditions with { Fonts = value };
+    }
 
     /// <inheritdoc cref="CompositionConditions.FrameRate"/>
     public Rational FrameRate

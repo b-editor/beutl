@@ -12,7 +12,7 @@ public class FormattedTextHintingTests
     [Test]
     public void ToSKFont_DisablesHinting()
     {
-        using var text = new FormattedText
+        using var text = new FormattedText(TestFonts.Manager)
         {
             Font = TypefaceProvider.Typeface().FontFamily,
             Size = 28,

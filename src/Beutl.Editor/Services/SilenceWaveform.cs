@@ -16,7 +16,7 @@ namespace Beutl.Editor.Services;
 internal static class SilenceWaveform
 {
     public static async IAsyncEnumerable<WaveformChunk> GetChunksAsync(
-        Scene scene, Element element, int chunkCount, [EnumeratorCancellation] CancellationToken cancellationToken = default,
+        FontManager fonts, Scene scene, Element element, int chunkCount, [EnumeratorCancellation] CancellationToken cancellationToken = default,
         Action<Scene>? observeScene = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -104,8 +104,8 @@ internal static class SilenceWaveform
         }
 
         using var composer = new Composer { SampleRate = sampleRate, ChannelLayout = channelLayout };
-        SceneCompositor compositor = isolated ? new SceneCompositor(scene) { ForceOriginalSource = true }
-            : await Task.Factory.StartNew(() => new SceneCompositor(scene) { ForceOriginalSource = true },
+        SceneCompositor compositor = isolated ? new SceneCompositor(scene, fonts) { ForceOriginalSource = true }
+            : await Task.Factory.StartNew(() => new SceneCompositor(scene, fonts) { ForceOriginalSource = true },
                 cancellationToken, TaskCreationOptions.DenyChildAttach, owner).ConfigureAwait(false);
         try
         {

@@ -38,10 +38,10 @@ public sealed class ReadDocumentTests
     {
         using var session = new AgentToolkitTestSession(new Scene(640, 360, "Scene"));
         var manager = new AgentSessionManager();
-        var query = new QueryTools(manager, new SchemaGenerator(_library));
+        var query = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
         string name = query.ListCompositions().Value!.Compositions[1].Name;
         manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var edit = new EditTools(manager);
+        var edit = new EditTools(manager, TestFonts.Manager);
 
         ToolResult<ApplyCompositionResponse> first = edit.ApplyComposition(name: name);
         ToolResult<ApplyCompositionResponse> second = edit.ApplyComposition(name: name);
@@ -57,7 +57,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Get_started_returns_editing_entrypoints_without_a_session()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
         ToolResult<GettingStartedResponse> result = tools.GetStarted();
 
         Assert.Multiple(() =>
@@ -101,7 +101,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
             objectId: plate.Id.Value.ToString(),
@@ -146,7 +146,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
             objectId: plate.Id.Value.ToString(),
@@ -183,7 +183,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         // A time filter must not turn "found but nested (unsupported)" into an empty, successful result.
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
@@ -201,7 +201,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Get_schema_examples_leave_out_full_scene_starters()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<CapabilitySchema> result = tools.GetSchema(type: nameof(TextBlock), includeExamples: true);
 
@@ -216,7 +216,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Get_schema_surveys_several_types_without_their_usage_hints()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<CapabilitySchema> result = tools.GetSchema(
             type: $"{nameof(TextBlock)}, {nameof(RectShape)}",
@@ -236,7 +236,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Get_schema_states_a_repeated_usage_hint_once()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<CapabilitySchema> result = tools.GetSchema(type: $"{nameof(TextBlock)}, {nameof(RectShape)}");
 
@@ -256,7 +256,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Get_schema_examples_follow_every_type_in_a_list()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<CapabilitySchema> single = tools.GetSchema(type: nameof(TextBlock), includeExamples: true);
         ToolResult<CapabilitySchema> list = tools.GetSchema(type: $"{nameof(RectShape)}, {nameof(TextBlock)}", includeExamples: true);
@@ -270,7 +270,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Get_schema_names_list_entries_that_matched_nothing()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<CapabilitySchema> partly = tools.GetSchema(type: $"{nameof(TextBlock)}, PerspectveCamera");
         ToolResult<CapabilitySchema> fully = tools.GetSchema(type: $"{nameof(TextBlock)}, {nameof(RectShape)}");
@@ -286,7 +286,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Get_schema_accepts_common_low_context_type_aliases()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<CapabilitySchema> shape = tools.GetSchema(type: "Shape", includeProperties: false);
         ToolResult<CapabilitySchema> text = tools.GetSchema(type: "Text", includeProperties: false);
@@ -313,7 +313,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Get_schema_explains_timeline_element_container_requests()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<CapabilitySchema> described = tools.GetSchema(type: "Element", includeProperties: false);
         ToolResult<CapabilitySchema> misnamed = tools.GetSchema(type: "timeline element", includeProperties: false);
@@ -335,7 +335,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Get_schema_omits_examples_by_default()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<CapabilitySchema> defaultSchema = tools.GetSchema();
         ToolResult<CapabilitySchema> schemaWithExamples = tools.GetSchema(includeExamples: true);
@@ -353,7 +353,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Examples_can_be_listed_and_fetched_by_name()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<ListExamplesResponse> defaultList = tools.ListExamples(type: nameof(TextBlock));
         ToolResult<ListExamplesResponse> list = tools.ListExamples(type: nameof(TextBlock), includeStarters: true);
@@ -400,7 +400,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Composition_tools_list_detail_and_render_seeded_patch()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
         var inputProps = new JsonObject
         {
             ["title"] = "Patch title",
@@ -441,8 +441,8 @@ public sealed class ReadDocumentTests
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var queryTools = new QueryTools(manager, new SchemaGenerator(_library));
-        var editTools = new EditTools(manager);
+        var queryTools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
+        var editTools = new EditTools(manager, TestFonts.Manager);
 
         ToolResult<RenderCompositionPatchResponse> render = queryTools.RenderCompositionPatch();
         ToolResult<PlanCompositionResponse> plan = editTools.PlanComposition();
@@ -465,7 +465,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Effect_tools_list_and_fetch_recipes()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<ListEffectsResponse> effects = tools.ListEffects(intent: "glitch");
         ToolResult<ListEffectRecipesResponse> recipes = tools.ListEffectRecipes(intent: "glitch");
@@ -507,7 +507,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Validate_shader_reports_compile_status()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
         const string validSksl = "half4 main(float2 fragCoord) { return half4(1); }";
 
         ToolResult<ValidateShaderResponse> ok = tools.ValidateShader("SKSLScriptEffect", validSksl);
@@ -532,7 +532,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Validate_shader_checks_glsl_against_the_effect_pass()
     {
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
         string validGlsl = new GLSLScriptEffect().FragmentShader.Value;
         string unboundSampler = validGlsl
             .Replace("void main() {", "layout(set = 0, binding = 1) uniform sampler2D mask;\n\nvoid main() {")
@@ -558,8 +558,8 @@ public sealed class ReadDocumentTests
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var queryTools = new QueryTools(manager, new SchemaGenerator(_library));
-        var editTools = new EditTools(manager);
+        var queryTools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
+        var editTools = new EditTools(manager, TestFonts.Manager);
 
         ToolResult<ListCompositionsResponse> firstList = queryTools.ListCompositions();
         ToolResult<ListCompositionsResponse> sameList = queryTools.ListCompositions();
@@ -593,8 +593,8 @@ public sealed class ReadDocumentTests
         using var source = new VolatileLiveSessionSource(scene);
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var queryTools = new QueryTools(manager, new SchemaGenerator(_library));
-        var editTools = new EditTools(manager);
+        var queryTools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
+        var editTools = new EditTools(manager, TestFonts.Manager);
 
         ToolResult<ListCompositionsResponse> firstList = queryTools.ListCompositions();
         string selectedName = firstList.Value!.Compositions.First().Name;
@@ -634,7 +634,7 @@ public sealed class ReadDocumentTests
 
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         var full = tools.ReadDocument();
         var scoped = tools.ReadDocument(element.Id.Value.ToString());
@@ -655,7 +655,7 @@ public sealed class ReadDocumentTests
     {
         using var session = new AgentToolkitTestSession(new Scene());
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         var result = tools.ReadDocument(Guid.NewGuid().ToString());
 
@@ -708,7 +708,7 @@ public sealed class ReadDocumentTests
 
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<DocumentSummaryResponse> result = tools.ReadDocumentSummary();
         ElementSummary elementSummary = result.Value!.Elements.Single();
@@ -760,7 +760,7 @@ public sealed class ReadDocumentTests
 
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         // Scene-relative 3s = absolute 33s (inside the element); relative 1s = absolute 31s (before it).
         ToolResult<ObjectBoundsMeasurementResponse> during = tools.MeasureObjectBounds(timeSeconds: 3);
@@ -818,7 +818,7 @@ public sealed class ReadDocumentTests
 
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> all = tools.MeasureObjectBounds(timeSeconds: 0);
         ToolResult<ObjectBoundsMeasurementResponse> plateOnly = tools.MeasureObjectBounds(plate.Id.Value.ToString(), timeSeconds: 0);
@@ -890,7 +890,7 @@ public sealed class ReadDocumentTests
 
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(plate.Id.Value.ToString(), timeSeconds: 0);
         ObjectBoundsMeasurement bounds = result.Value!.Objects.Single();
@@ -929,7 +929,7 @@ public sealed class ReadDocumentTests
 
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
             objectId: drawable.Id.Value.ToString(),
@@ -1016,7 +1016,7 @@ public sealed class ReadDocumentTests
 
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
-        var tools = new QueryTools(manager, new SchemaGenerator(_library));
+        var tools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<DocumentSummaryResponse> result = tools.ReadDocumentSummary();
         ObjectSummary objectSummary = result.Value!.Elements.Single().Objects.Single();

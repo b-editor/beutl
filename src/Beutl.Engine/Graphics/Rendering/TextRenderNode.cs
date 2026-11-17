@@ -8,6 +8,8 @@ namespace Beutl.Graphics.Rendering;
 public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     : BrushRenderNode(fill, pen)
 {
+    private long _fontRevision = text.Fonts.Revision;
+
     public FormattedText Text { get; private set; } = text;
 
     public bool Update(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
@@ -15,7 +17,10 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
         bool changed = Update(fill, pen);
         var oldText = Text;
         Text = text;
-        if (changed || !oldText.Equals(text))
+        long revision = text.Fonts.Revision;
+        bool fontsChanged = _fontRevision != revision;
+        _fontRevision = revision;
+        if (changed || fontsChanged || !oldText.Equals(text))
         {
             MarkChanged();
             return true;

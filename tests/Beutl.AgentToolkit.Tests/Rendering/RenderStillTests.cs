@@ -14,8 +14,8 @@ using Beutl.Graphics3D;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
-using SkiaSharp;
 using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
+using SkiaSharp;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
 
@@ -41,7 +41,7 @@ public sealed class RenderStillTests
         string output = Path.Combine(dir, "still.png");
         Scene scene = CreateScene(dir, CreateDrawable(drawable, dir));
 
-        var renderer = new StillRenderer();
+        var renderer = new StillRenderer(TestFonts.Manager);
         RenderStillResponse result = await renderer.RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -72,7 +72,7 @@ public sealed class RenderStillTests
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
 
-        var renderer = new StillRenderer();
+        var renderer = new StillRenderer(TestFonts.Manager);
         RenderStillResponse result = await renderer.RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -91,7 +91,7 @@ public sealed class RenderStillTests
         string output = Path.Combine(dir, "confined.png");
         Scene scene = CreateConfinedChangingScene(dir);
 
-        var renderer = new StillRenderer();
+        var renderer = new StillRenderer(TestFonts.Manager);
         RenderStillResponse result = await renderer.RenderAsync(scene, MediaTime.FromSeconds(0.5), output, 1, CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -112,7 +112,7 @@ public sealed class RenderStillTests
         string output = Path.Combine(dir, "still-3d.png");
         Scene scene = CreateScene(dir, new Scene3D());
 
-        var renderer = new StillRenderer();
+        var renderer = new StillRenderer(TestFonts.Manager);
         if (TestGpu.IsAvailable)
         {
             RenderStillResponse result = await renderer.RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None);
@@ -142,7 +142,7 @@ public sealed class RenderStillTests
         string changingDir = TestWorkspace.CreateDirectory();
         Scene changingScene = CreateChangingScene(changingDir);
 
-        var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
+        var analyzer = new FrameDifferenceAnalyzer(new StillRenderer(TestFonts.Manager));
         FrameDifferenceResponse staticResult = await analyzer.AnalyzeAsync(
             staticScene,
             [MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(2.5)],
@@ -171,7 +171,7 @@ public sealed class RenderStillTests
         string dir = TestWorkspace.CreateDirectory();
         Scene confinedScene = CreateConfinedChangingScene(dir);
 
-        var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
+        var analyzer = new FrameDifferenceAnalyzer(new StillRenderer(TestFonts.Manager));
         FrameDifferenceResponse result = await analyzer.AnalyzeAsync(
             confinedScene,
             [MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(2.5)],
@@ -201,7 +201,7 @@ public sealed class RenderStillTests
         AddColorRectElement(scene, dir, "20.belm", MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), 160, 90, Color.FromRgb(20, 20, 20));
         AddColorRectElement(scene, dir, "64.belm", MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), 160, 90, Color.FromRgb(64, 64, 64));
 
-        var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
+        var analyzer = new FrameDifferenceAnalyzer(new StillRenderer(TestFonts.Manager));
         FrameDifferenceResponse result = await analyzer.AnalyzeAsync(
             scene,
             [MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(2.5)],
@@ -241,14 +241,14 @@ public sealed class RenderStillTests
         JsonObject current = session.Documents.Read(scene);
         JsonObject desired = (JsonObject)MergePatchApplier.Apply(current, example.Patch)!;
 
-        new Reconciler().Apply(session, desired);
+        new Reconciler(TestFonts.Manager).Apply(session, desired);
 
         TextBlock title = scene.Children
             .SelectMany(element => element.Objects)
             .OfType<TextBlock>()
             .Single(item => item.Text.Value == "Beutl motion");
 
-        var renderer = new StillRenderer();
+        var renderer = new StillRenderer(TestFonts.Manager);
         await renderer.RenderAsync(scene, MediaTime.FromSeconds(2), withTextPath, 1, CancellationToken.None);
 
         title.Text.Value = string.Empty;
@@ -287,7 +287,7 @@ public sealed class RenderStillTests
         element.AddObject(text);
         scene.Children.Add(element);
 
-        var renderer = new StillRenderer();
+        var renderer = new StillRenderer(TestFonts.Manager);
         using RenderedFrameAnalysis frame = await renderer.RenderFrameAnalysisAsync(
             scene, MediaTime.Zero, 1f, CancellationToken.None);
 

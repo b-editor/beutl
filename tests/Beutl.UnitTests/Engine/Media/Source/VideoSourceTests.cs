@@ -49,7 +49,7 @@ public class VideoSourceTests
     public void AudioOnlyMedia_YieldsOfflinePlaceholderAndReleasesReader(bool disableResourceShare)
     {
         VideoSource source = CreateSource();
-        var context = new CompositionContext(MediaTime.Zero) { DisableResourceShare = disableResourceShare };
+        var context = new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager, DisableResourceShare = disableResourceShare };
         using var resource = source.ToResource(context);
 
         AssertOffline(resource);
@@ -66,11 +66,11 @@ public class VideoSourceTests
     public void UnchangedAudioOnlySource_DoesNotReopenOnReconcile()
     {
         VideoSource source = CreateSource();
-        using var resource = source.ToResource(CompositionContext.Default);
+        using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         int version = resource.Version;
         bool versionBumped = false;
 
-        resource.Reconcile(source, CompositionContext.Default, ref versionBumped);
+        resource.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref versionBumped);
 
         AssertOffline(resource);
         Assert.That(_readers, Has.Count.EqualTo(1));
@@ -82,13 +82,13 @@ public class VideoSourceTests
     {
         _hasVideo = true;
         VideoSource source = CreateSource();
-        using var first = source.ToResource(CompositionContext.Default);
+        using var first = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         Mock<MediaReader> reader = _readers.Single();
         reader.SetupGet(x => x.HasVideo).Returns(false);
         reader.SetupGet(x => x.VideoInfo).Throws(new InvalidOperationException("The stream does not exist."));
         reader.Invocations.Clear();
 
-        using var second = source.ToResource(CompositionContext.Default);
+        using var second = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         AssertOffline(second);
         Assert.That(_readers, Has.Count.EqualTo(1), "The shared-reader path must check HasVideo too.");
@@ -103,14 +103,14 @@ public class VideoSourceTests
     {
         _hasVideo = true;
         VideoSource source = CreateSource();
-        using var resource = source.ToResource(CompositionContext.Default);
+        using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         Assert.That(resource.IsOffline, Is.False);
         Assert.That(resource.Duration, Is.EqualTo(MediaTime.FromSeconds(2)));
 
         _hasVideo = false;
         source.InvalidateResourceCache();
         bool versionBumped = false;
-        resource.Reconcile(source, CompositionContext.Default, ref versionBumped);
+        resource.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref versionBumped);
 
         AssertOffline(resource);
         Assert.That(_readers.All(x => x.Object.IsDisposed), Is.True);
@@ -118,7 +118,7 @@ public class VideoSourceTests
         _hasVideo = true;
         source.InvalidateResourceCache();
         versionBumped = false;
-        resource.Reconcile(source, CompositionContext.Default, ref versionBumped);
+        resource.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref versionBumped);
 
         Assert.Multiple(() =>
         {
@@ -147,7 +147,7 @@ public class VideoSourceTests
         var application = new BeutlApplication { Project = { Value = new Project() } };
         application.Project.Value!.Items.Add(scene);
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene)
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager)
         {
             DisableResourceShare = disableResourceShare,
             ForceOriginalSource = true,
@@ -176,7 +176,7 @@ public class VideoSourceTests
                 Duration = new Rational(durationSeconds),
             });
         _decoder.Setup(x => x.Open(_path, It.IsAny<MediaOptions>())).Returns(reader.Object);
-        using var resource = CreateSource().ToResource(CompositionContext.Default);
+        using var resource = CreateSource().ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         MediaTime end = MediaTime.FromSeconds(2);
         Assert.Multiple(() =>
@@ -203,7 +203,7 @@ public class VideoSourceTests
                 Duration = new Rational(durationMicroseconds, 1_000_000),
             });
         _decoder.Setup(x => x.Open(_path, It.IsAny<MediaOptions>())).Returns(reader.Object);
-        using var resource = CreateSource().ToResource(CompositionContext.Default);
+        using var resource = CreateSource().ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         MediaTime end = MediaTime.FromFrames(2, rate);
         Assert.Multiple(() =>
@@ -222,8 +222,8 @@ public class VideoSourceTests
     public void SourcesOfOneFile_ShareItsReaderUnlessEncoding(bool disableResourceShare, int expectedReaders)
     {
         _hasVideo = true;
-        using var first = CreateSource().ToResource(CompositionContext.Default);
-        using var second = CreateSource().ToResource(new CompositionContext(MediaTime.Zero) { DisableResourceShare = disableResourceShare });
+        using var first = CreateSource().ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
+        using var second = CreateSource().ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager, DisableResourceShare = disableResourceShare });
 
         Assert.That(_readers, Has.Count.EqualTo(expectedReaders));
         Assert.That(first.IsOffline || second.IsOffline, Is.False);
@@ -236,7 +236,7 @@ public class VideoSourceTests
     public void SourcesPreferringAnUnregisteredProxy_ShareTheOriginalReader()
     {
         _hasVideo = true;
-        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        var context = new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager, PreferProxy = true };
         using var first = CreateSource().ToResource(context);
         using var second = CreateSource().ToResource(context);
 
@@ -253,12 +253,12 @@ public class VideoSourceTests
         File.WriteAllBytes(other, []);
         _decoder.Setup(x => x.IsSupported(other)).Returns(true);
         _decoder.Setup(x => x.Open(other, It.IsAny<MediaOptions>())).Returns(() => CreateReader(true).Object);
-        using var held = CreateSource().ToResource(CompositionContext.Default);
+        using var held = CreateSource().ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         VideoSource relinked = CreateSource();
 
         relinked.ReadFrom(new Uri(other));
         relinked.ReadFrom(new Uri(_path));
-        using var reloaded = relinked.ToResource(CompositionContext.Default);
+        using var reloaded = relinked.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         Assert.That(SharedMediaReaders.UnderlyingOf(reloaded.MediaReader!),
             Is.Not.SameAs(SharedMediaReaders.UnderlyingOf(held.MediaReader!)));

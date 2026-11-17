@@ -9,10 +9,10 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Logging;
 using Beutl.ViewModels;
+using BtlSize = Beutl.Graphics.Size;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using BtlSize = Beutl.Graphics.Size;
 
 namespace Beutl.Views;
 
@@ -32,6 +32,7 @@ internal sealed class PresentationWindow : Window
         _player = player;
         ColorPaletteService.SetService(this, player.EditViewModel.GetService<ColorPaletteService>());
         ControlConfiguration.SetConfiguration(this, player.EditViewModel.GetRequiredService<GlobalConfiguration>());
+        ControlFonts.SetFonts(this, player.EditViewModel.GetRequiredService<Beutl.Media.FontManager>());
         Title = Strings.PresentationWindow;
         Width = 960;
         Height = 540;

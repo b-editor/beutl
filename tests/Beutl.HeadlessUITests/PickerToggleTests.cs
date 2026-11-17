@@ -21,15 +21,15 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using FluentAvalonia.UI.Controls;
-using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using Color = Avalonia.Media.Color;
 using Colors = Avalonia.Media.Colors;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -176,7 +176,7 @@ public sealed class PickerToggleTests
     [AvaloniaTest]
     public void The_font_button_closes_its_picker_and_restores_the_previewed_font()
     {
-        FontFamily initial = FontManager.Instance.FontFamilies.OrderBy(FontFamilyNames.GetDisplayName).First();
+        FontFamily initial = TestShell.FontManager.FontFamilies.OrderBy(family => FontFamilyNames.GetDisplayName(TestShell.FontManager, family)).First();
         var editor = new FontFamilyEditor { Header = "Font", Value = initial };
         var previewed = new List<FontFamily>();
         editor.ValueChanged += (_, e) => previewed.Add(((PropertyEditorValueChangedEventArgs<FontFamily>)e).NewValue);

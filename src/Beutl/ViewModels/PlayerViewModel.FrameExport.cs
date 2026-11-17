@@ -6,6 +6,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.ViewModels;
 
@@ -236,7 +237,7 @@ public partial class PlayerViewModel
                     missingSources.Count));
             }
 
-            using var renderer = ExportRendererFactory.Create(Scene, outputScale);
+            using var renderer = ExportRendererFactory.Create(Scene, EditViewModel.GetRequiredService<Beutl.Media.FontManager>(), outputScale);
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
             renderer.Render(compositionFrame);

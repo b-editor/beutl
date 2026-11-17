@@ -33,7 +33,7 @@ public class SceneEditorContextServicesTests
     public void EditorContextServices_TryGetService_resolves_by_type()
     {
         var extensionProvider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
-        var editorService = new EditorService(extensionProvider, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(extensionProvider, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
 
         Assert.Multiple(() =>

@@ -110,7 +110,7 @@ public sealed class NodeGraphMcpTests
         graph.Connect((IInputPort)pass.Items.Single(item => item.Name.Value == "In.source"), input.Output);
         graph.Connect(output.InputPort, (IOutputPort)pass.Items.Single(item => item.Name.Value == "Out.color"));
 
-        RenderStillResponse response = await new StillRenderer().RenderAsync(
+        RenderStillResponse response = await new StillRenderer(TestFonts.Manager).RenderAsync(
             RenderTools.CreateSceneSnapshot(scene.Session),
             MediaTime.Zero,
             Path.Combine(TestWorkspace.CreateDirectory(), "failed.png"),

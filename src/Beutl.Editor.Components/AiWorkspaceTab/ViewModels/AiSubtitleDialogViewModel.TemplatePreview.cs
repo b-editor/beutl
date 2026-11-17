@@ -25,14 +25,14 @@ public sealed partial class AiSubtitleDialogViewModel
         Task<byte[]?>> TemplatePreviewRenderer
     { get; set; } = null!;
 
-    private static Task<byte[]?> RenderTemplatePreviewAsync(IReadOnlyList<Element> elements, Beutl.Media.PixelSize frameSize, CancellationToken cancellationToken, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
+    private static Task<byte[]?> RenderTemplatePreviewAsync(Beutl.Media.FontManager fonts, IReadOnlyList<Element> elements, Beutl.Media.PixelSize frameSize, CancellationToken cancellationToken, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
         =>
             frameSize.Width <= 0 || frameSize.Height <= 0
                 ? Task.FromResult<byte[]?>(null)
                 // Render captions at 4x the object-template thumbnail density. The UI scales this bitmap
                 // down to its display size, preserving glyph detail that would otherwise be lost at 256x144.
                 : ObjectTemplatePreviewRenderer.RenderElementsPngAsync(
-                    elements,
+                    fonts, elements,
                     frameSize,
                     new Beutl.Media.PixelSize(1024, 576),
                     cancellationToken,

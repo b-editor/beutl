@@ -11,6 +11,7 @@ using Beutl.Audio;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Graphics;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -23,7 +24,6 @@ using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using SkiaSharp;
-using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -57,7 +57,7 @@ public sealed class AgentHostAiToolsTests
     {
         await TestReset.ResetShellAsync();
         var endpoint = new AgentHostEndpoint(
-            new ProjectService(TestShell.Configuration.ViewConfig),
+            new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager),
             new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
             UnavailableAgentAiBackend.Instance,
             AvailablePort(),

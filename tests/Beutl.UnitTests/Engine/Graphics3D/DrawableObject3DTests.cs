@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -45,7 +44,7 @@ public class DrawableObject3DTests
             element.AddObject(card);
             element.AddObject(scene3D);
             scene.Children.Add(element);
-            using var compositor = new SceneCompositor(scene);
+            using var compositor = new SceneCompositor(scene, TestFonts.Manager);
 
             CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
 
@@ -81,7 +80,7 @@ public class DrawableObject3DTests
     {
         var card = new DrawableObject3D();
         card.Children.Add(CreateRect(400, 150));
-        using var resource = (DrawableObject3D.Resource)card.ToResource(CompositionContext.Default);
+        using var resource = (DrawableObject3D.Resource)card.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         resource.UpdateLayout(new Size(1920, 1080), density: 1);
 
@@ -101,7 +100,7 @@ public class DrawableObject3DTests
         var card = new DrawableObject3D();
         card.Children.Add(CreateRect(0, 0));
         card.Material.Value = new PBRMaterial();
-        using var resource = (DrawableObject3D.Resource)card.ToResource(CompositionContext.Default);
+        using var resource = (DrawableObject3D.Resource)card.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         resource.UpdateLayout(new Size(1920, 1080), density: 1);
 
@@ -112,7 +111,7 @@ public class DrawableObject3DTests
     public void Layout_WithoutDrawables_HasNoMesh()
     {
         var card = new DrawableObject3D();
-        using var resource = (DrawableObject3D.Resource)card.ToResource(CompositionContext.Default);
+        using var resource = (DrawableObject3D.Resource)card.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         resource.UpdateLayout(new Size(1920, 1080), density: 1);
 

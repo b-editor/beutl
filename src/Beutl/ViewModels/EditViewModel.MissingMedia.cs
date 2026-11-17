@@ -17,7 +17,7 @@ public sealed partial class EditViewModel : IMediaRepairHost
     private Task _missingMediaScanTask = Task.CompletedTask;
     private bool _missingMediaScanRequested;
     private bool _missingMediaWarningDismissed;
-    private readonly MissingMediaService _missingMediaDetector = new();
+    private readonly MissingMediaService _missingMediaDetector;
     // Fed every change operation of the scene, so a query walks only the elements edited since the last one.
     private readonly MediaReferenceIndex _mediaReferences;
     private readonly EditedElements _unsavedElements;

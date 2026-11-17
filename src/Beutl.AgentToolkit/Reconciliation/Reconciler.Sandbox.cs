@@ -12,7 +12,7 @@ public sealed partial class Reconciler
 {
     // Applies the full desired document to a throwaway clone of the current root, so newly inserted subtrees exist and
     // are findable by Id here — unlike the live root the diff runs against. Internal so tests can read the clone.
-    internal static CoreObject BuildValidationSandbox(
+    internal CoreObject BuildValidationSandbox(
         IEditingSession session,
         JsonObject currentDocument,
         JsonObject desiredDocument)
@@ -35,7 +35,7 @@ public sealed partial class Reconciler
         using var appliedIncidents = DeserializationIncidents.BeginCapture();
         try
         {
-            new DeclarativeDocumentApplier().Apply(sandboxRoot, payload);
+            new DeclarativeDocumentApplier(fonts).Apply(sandboxRoot, payload);
         }
         catch (ReconcileException)
         {

@@ -19,6 +19,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using DynamicData;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -440,7 +441,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         float renderScale = Math.Max(1, supersampleFactor);
         using var providers = ExportMediaProviders.Create(
-            scene,
+            scene, _editViewModel.GetRequiredService<Beutl.Media.FontManager>(),
             videoEnabled,
             audioEnabled,
             renderScale,

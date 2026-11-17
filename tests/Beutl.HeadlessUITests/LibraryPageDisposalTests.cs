@@ -15,7 +15,7 @@ public class LibraryPageDisposalTests
         using var httpClient = new HttpClient();
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         var editorService = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
-        var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
         var viewModel = new LibraryPageViewModel(null, app, editorService, projectService);
 
         // Let the constructor-triggered refresh settle before disposing.

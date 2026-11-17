@@ -12,7 +12,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
 
-public sealed partial class StillRenderer
+public sealed partial class StillRenderer(FontManager fonts)
 {
     public async ValueTask<RenderStillResponse> RenderAsync(
         Scene scene,
@@ -89,7 +89,7 @@ public sealed partial class StillRenderer
             cancellationToken);
     }
 
-    private static async ValueTask<TResult> RenderRenderedFrameAsync<TResult>(
+    private async ValueTask<TResult> RenderRenderedFrameAsync<TResult>(
         Scene scene,
         MediaTime time,
         float renderScale,
@@ -102,7 +102,7 @@ public sealed partial class StillRenderer
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
+            using var renderer = ExportRendererFactory.Create(scene, fonts, normalizedScale);
 
             ThrowIfSourcesMissing(scene, time + scene.Start.Value);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start.Value);

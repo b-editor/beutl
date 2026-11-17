@@ -124,6 +124,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             bounds,
             scene.Time,
             scene.DisableResourceShare,
+            scene.Conditions,
             scene.BackgroundColor,
             scene.AmbientColor,
             scene.AmbientIntensity,
@@ -233,6 +234,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         Rect Bounds,
         MediaTime Time,
         bool DisableResourceShare,
+        CompositionConditions Conditions,
         Color BackgroundColor,
         Color AmbientColor,
         float AmbientIntensity,
@@ -351,6 +353,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             new CompositionContext(snapshot.Time)
             {
                 DisableResourceShare = snapshot.DisableResourceShare,
+                Conditions = snapshot.Conditions,
             },
             snapshot.Camera,
             snapshot.Objects,

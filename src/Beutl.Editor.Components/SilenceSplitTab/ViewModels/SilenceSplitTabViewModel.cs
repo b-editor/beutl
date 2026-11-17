@@ -73,7 +73,7 @@ public sealed class SilenceSplitTabViewModel : IToolContext
 
         var history = _editor.GetRequiredService<HistoryManager>();
         if (startAnalysis) history.FlushPendingMutations();
-        var model = new SilenceSplitViewModel(_scene, element, history, _editor.GetRequiredService<GlobalConfiguration>().EditorConfig, _editor.GetRequiredService<IPreviewPlayer>());
+        var model = new SilenceSplitViewModel(_editor.GetRequiredService<Beutl.Media.FontManager>(), _scene, element, history, _editor.GetRequiredService<GlobalConfiguration>().EditorConfig, _editor.GetRequiredService<IPreviewPlayer>());
         if (previous != null)
         {
             model.ThresholdDb.Value = previous.ThresholdDb.Value;

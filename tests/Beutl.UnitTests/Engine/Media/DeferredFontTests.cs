@@ -9,10 +9,9 @@ public class DeferredFontTests
     public void CatalogAndNearestWeight_LoadOnlyTheRequestedFaceAndKeepRevisionStable()
     {
         _ = TypefaceProvider.Typeface();
-        var manager = (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
         var configuration = new Beutl.Configuration.FontConfig();
         configuration.FontDirectories.Clear();
-        manager.Initialize(configuration);
+        var manager = new FontManager(configuration);
         var family = new FontFamily("Roboto");
         int regularOpens = 0;
         int mediumOpens = 0;
@@ -53,10 +52,9 @@ public class DeferredFontTests
     public void LoadedAndDeferredStyles_RemainAvailableTogether()
     {
         _ = TypefaceProvider.Typeface();
-        var manager = (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
         var configuration = new Beutl.Configuration.FontConfig();
         configuration.FontDirectories.Clear();
-        manager.Initialize(configuration);
+        var manager = new FontManager(configuration);
         var family = new FontFamily("Roboto");
         using (Stream regular = Open("Roboto-Regular.ttf"))
             manager.AddFont(regular);
@@ -81,10 +79,9 @@ public class DeferredFontTests
     public void BundledFace_ReplacesALoadedDuplicateLazilyAndKeepsOtherStyles()
     {
         _ = TypefaceProvider.Typeface();
-        var manager = (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
         var configuration = new Beutl.Configuration.FontConfig();
         configuration.FontDirectories.Clear();
-        manager.Initialize(configuration);
+        var manager = new FontManager(configuration);
         var family = new FontFamily("Roboto");
         var regular = new Typeface(family);
         var medium = new Typeface(family, weight: FontWeight.Medium);
@@ -129,10 +126,9 @@ public class DeferredFontTests
     public void LoadFailure_UsesDefaultFontWithoutRetrying(bool failOnOpen)
     {
         _ = TypefaceProvider.Typeface();
-        var manager = (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
         var configuration = new Beutl.Configuration.FontConfig();
         configuration.FontDirectories.Clear();
-        manager.Initialize(configuration);
+        var manager = new FontManager(configuration);
         var typeface = new Typeface(new FontFamily("Unavailable deferred font"));
         var fallback = manager.ResolveSkia(manager.DefaultTypeface);
         int opens = 0;

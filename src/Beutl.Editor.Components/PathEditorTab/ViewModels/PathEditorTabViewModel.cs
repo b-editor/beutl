@@ -8,10 +8,10 @@ using Beutl.Engine;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
+using BtlPoint = Beutl.Graphics.Point;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.Editor.Components.PathEditorTab.ViewModels;
 
@@ -52,7 +52,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
             .DisposeWith(_disposables)!;
 
         GeometryResource = PathGeometry
-            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
+            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c), EditorContext.GetRequiredService<FontManager>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 

@@ -90,7 +90,7 @@ public partial class MissingMediaTests
             await vm.WaitForCandidatesAsync();
             Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(selected));
             var wrongCase = new MissingMedia(MissingMediaKind.Font, null, new FontFamily("relink"), [], null);
-            await Assert.ThrowsAsync<InvalidDataException>(async () => await new MissingMediaService().ValidateAsync(wrongCase, selected));
+            await Assert.ThrowsAsync<InvalidDataException>(async () => await new MissingMediaService(TestShell.FontManager).ValidateAsync(wrongCase, selected));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             string bundled = Path.Combine(Path.GetDirectoryName(editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath)!, "resources", "fonts");
             Assert.That(Directory.GetFiles(bundled).Select(Path.GetFileName), Is.EquivalentTo(new[] { "z-selected.ttf", "medium.ttf" }));
@@ -332,7 +332,7 @@ public partial class MissingMediaTests
         string directory = NewDirectory(); string path = Path.Combine(directory, "image.png");
         File.WriteAllBytes(path, s_png);
         var scene = new Scene(); AddImage(scene, path);
-        var service = new MissingMediaService(); await service.UpdateFingerprintsAsync(scene);
+        var service = new MissingMediaService(TestShell.FontManager); await service.UpdateFingerprintsAsync(scene);
         string first = scene.MediaFingerprints[new Uri(path).AbsoluteUri].Sha256;
         DateTime time = File.GetLastWriteTimeUtc(path);
         byte[] bytes = s_png.ToArray(); bytes[^1] ^= 1;
@@ -345,8 +345,8 @@ public partial class MissingMediaTests
     public void Offline_resources_share_pixels_with_independent_disposal()
     {
         string directory = NewDirectory();
-        var first = ImageSource.Open(Path.Combine(directory, "one.png")).ToResource(CompositionContext.Default);
-        using var second = ImageSource.Open(Path.Combine(directory, "two.png")).ToResource(CompositionContext.Default);
+        var first = ImageSource.Open(Path.Combine(directory, "one.png")).ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
+        using var second = ImageSource.Open(Path.Combine(directory, "two.png")).ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         Assert.That(first.Bitmap!.Data, Is.EqualTo(second.Bitmap!.Data));
         first.Dispose();
         Assert.That(second.Bitmap.IsDisposed, Is.False);

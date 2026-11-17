@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -19,6 +18,9 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
             nameof(Value),
             defaultValue: Media.FontFamily.Default,
             defaultBindingMode: BindingMode.TwoWay);
+
+    private FontManager? Fonts => (DataContext as IServiceProvider)?.GetService(typeof(FontManager)) as FontManager
+        ?? ControlFonts.GetFonts(this);
 
     private DropDownButton? _button;
     private SearchablePickerFlyout? _flyout;
@@ -46,7 +48,7 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
         base.OnApplyTemplate(e);
         _button = e.NameScope.Get<DropDownButton>("PART_InnerButton");
         _button.AddDisposableHandler(Button.ClickEvent, OnButtonClick);
-        _button.Content = FontFamilyNames.GetDisplayName(Value);
+        _button.Content = FontFamilyNames.GetDisplayName(Fonts, Value ?? Media.FontFamily.Default);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -58,7 +60,7 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
 
     private Task<Media.FontFamily?> Select()
     {
-        var viewModel = new FontFamilyPickerFlyoutViewModel();
+        var viewModel = new FontFamilyPickerFlyoutViewModel(Fonts ?? ControlFonts.GetOrCreate(this));
         viewModel.SelectedItem.Value = viewModel.Items.FirstOrDefault(f => (Media.FontFamily)f.UserData == Value);
         var prevValue = Value;
         IDisposable preview = viewModel.SelectedItem.Subscribe(item =>
@@ -132,11 +134,11 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == ValueProperty)
+        if (change.Property == ValueProperty || change.Property == ControlFonts.FontsProperty || change.Property == DataContextProperty)
         {
             if (_button != null)
             {
-                _button.Content = FontFamilyNames.GetDisplayName(Value);
+                _button.Content = FontFamilyNames.GetDisplayName(Fonts, Value ?? Media.FontFamily.Default);
             }
         }
     }

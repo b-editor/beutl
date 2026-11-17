@@ -9,12 +9,12 @@ internal static class FontFamilyNames
     // The family's name in the UI language, else in US English, else the name the font manager reports.
     // The legacy family name of a font file can name a single weight ("Noto Sans CJK JP Medium"), so only
     // the name record the family is grouped under is used.
-    public static string GetDisplayName(FontFamily family)
-        => GetDisplayName(family, CultureInfo.CurrentUICulture);
+    public static string GetDisplayName(FontManager? fonts, FontFamily family)
+        => GetDisplayName(fonts, family, CultureInfo.CurrentUICulture);
 
-    public static string GetDisplayName(FontFamily family, CultureInfo culture)
+    public static string GetDisplayName(FontManager? fonts, FontFamily family, CultureInfo culture)
     {
-        return TryGetFontName(family) is { } name
+        return TryGetFontName(fonts, family) is { } name
             && FontName.Localize(name.GetFamilySpellings(family.Name), culture) is { Length: > 0 } localized
             ? localized
             : family.Name;
@@ -26,10 +26,10 @@ internal static class FontFamilyNames
 
     // The family's name in every language its font carries, so "游ゴシック" and "Yu Gothic" both find it
     // whatever the UI language is.
-    public static IEnumerable<string> GetSearchNames(FontFamily family)
+    public static IEnumerable<string> GetSearchNames(FontManager? fonts, FontFamily family)
     {
         yield return family.Name;
-        if (TryGetFontName(family) is { } name)
+        if (TryGetFontName(fonts, family) is { } name)
         {
             foreach (FamilyNameRecord record in name.GetFamilySpellings(family.Name))
             {
@@ -38,8 +38,8 @@ internal static class FontFamilyNames
         }
     }
 
-    private static FontName? TryGetFontName(FontFamily family)
+    private static FontName? TryGetFontName(FontManager? fonts, FontFamily family)
     {
-        return FontManager.Instance.GetFontName(family);
+        return fonts?.GetFontName(family);
     }
 }

@@ -34,7 +34,7 @@ public class CompositionEvaluationServicesTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(4) }, Value = { Value = 500 } });
         shape.Width.SetKeyFrameAnimation(animation);
         Add(scene, shape, 1);
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
         ICompositionEvaluationServices services = capture.Services!;
         var original = frame.Objects.OfType<RectShape.Resource>().Single();
@@ -67,7 +67,7 @@ public class CompositionEvaluationServicesTests
     {
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
         Add(scene, new RectShape(), 1);
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         compositor.EvaluateGraphics(MediaTime.Zero);
         EngineObject.Resource layer;
         using (var lease = capture.Services!.EvaluateLayer(1, MediaTime.Zero)) layer = lease.Resources.Single();
@@ -87,7 +87,7 @@ public class CompositionEvaluationServicesTests
         ((PortalObject)container.Objects[0]).Count.Value = 1;
         var child = new RectShape();
         Add(scene, child, 2);
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
         var original = frame.Objects.OfType<DrawableGroup.Resource>().Single();
         Assert.That(original.Children.Select(x => x.GetOriginal()), Does.Contain(child));
@@ -103,7 +103,7 @@ public class CompositionEvaluationServicesTests
     public void FailedRecursiveQueryReleasesItsPathAndDoesNotPoisonAnotherSession()
     {
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         compositor.EvaluateGraphics(MediaTime.Zero);
         ICompositionEvaluationServices services = capture.Services!;
         capture.OnEvaluate = context => context.EvaluationServices!.ReadLayer(0, context.Time, resources => resources.Count);
@@ -111,7 +111,7 @@ public class CompositionEvaluationServicesTests
             Throws.InvalidOperationException.With.Message.Contains("Circular composition query"));
         capture.OnEvaluate = null;
         using var layer = services.EvaluateLayer(0, MediaTime.Zero);
-        using var other = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = true };
+        using var other = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = true };
         other.EvaluateGraphics(MediaTime.Zero);
         ICompositionEvaluationServices independent = capture.Services!;
         Assert.That(independent.SessionIdentity, Is.Not.SameAs(services.SessionIdentity));
@@ -151,7 +151,7 @@ public class CompositionEvaluationServicesTests
                 });
             }
         };
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         try
         {
             compositor.EvaluateGraphics(MediaTime.Zero);
@@ -168,7 +168,7 @@ public class CompositionEvaluationServicesTests
     public void OverlappingLayerLeasesDoNotRemoveAnotherEvaluationsCacheOrCycleGuard()
     {
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         compositor.EvaluateGraphics(MediaTime.Zero);
         var services = capture.Services!;
         using var first = services.EvaluateLayer(0, MediaTime.Zero);
@@ -208,7 +208,7 @@ public class CompositionEvaluationServicesTests
             if (++queries > 4) throw new InvalidOperationException("cycle guard was reset");
             context.EvaluationServices!.ReadLayer(0, MediaTime.Zero, resources => resources.Count);
         };
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         Assert.That(() => compositor.EvaluateGraphics(MediaTime.Zero),
             Throws.InvalidOperationException.With.Message.Contains("Circular composition query"));
         Assert.That(queries, Is.EqualTo(2));
@@ -226,7 +226,7 @@ public class CompositionEvaluationServicesTests
             queried.Add(layer.Resources.Single());
         };
         compositor.EvaluateGraphics(MediaTime.Zero);
-        using var independent = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = true };
+        using var independent = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = true };
         independent.EvaluateGraphics(MediaTime.Zero);
         Assert.That(queried.Count, Is.EqualTo(2));
         Assert.That(queried[0], Is.Not.SameAs(queried[1]));
@@ -242,7 +242,7 @@ public class CompositionEvaluationServicesTests
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
         var sound = new EvaluationCaptureSound();
         Add(scene, sound, 1);
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         compositor.EvaluateGraphics(MediaTime.Zero);
         var services = capture.Services!;
         MediaTime duration = MediaTime.FromSeconds(0.01);
@@ -288,7 +288,7 @@ public class CompositionEvaluationServicesTests
                 using var audio = context.EvaluationServices!.ReadAudio(MediaTime.Zero, MediaTime.FromSeconds(0.01));
                 Assert.That(audio, Is.Not.Null);
             };
-            using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = forceOriginalSource };
+            using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = forceOriginalSource };
             compositor.EvaluateGraphics(MediaTime.Zero);
             Assert.That(sound.PreferProxy, Is.EqualTo(!forceOriginalSource));
             Assert.That(capture.PreferProxy, Is.EqualTo(!forceOriginalSource));
@@ -304,7 +304,7 @@ public class CompositionEvaluationServicesTests
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         int Subscriptions() => ((Delegate?)field.GetValue(capture))?.GetInvocationList().Length ?? 0;
         int initial = Subscriptions();
-        var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         compositor.EvaluateGraphics(MediaTime.Zero);
         var services = capture.Services!;
         int before = Subscriptions();
@@ -329,7 +329,7 @@ public class CompositionEvaluationServicesTests
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
         Add(scene, new QuarterLevelSound(), 1);
         scene.MasterVolume.Value = 50f;
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         compositor.EvaluateGraphics(MediaTime.Zero);
 
         using var audio = capture.Services!.ReadAudio(MediaTime.Zero, MediaTime.FromSeconds(0.01));
@@ -343,7 +343,7 @@ public class CompositionEvaluationServicesTests
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
         var sound = new EvaluationCaptureSound();
         Add(scene, sound, 1);
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
         compositor.EvaluateGraphics(MediaTime.Zero);
         MediaTime duration = MediaTime.FromSeconds(0.01);
         using (capture.Services!.ReadAudio(MediaTime.Zero, duration)) { }
@@ -358,7 +358,7 @@ public class CompositionEvaluationServicesTests
     {
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
         Add(scene, new Beutl.UnitTests.Engine.Audio.LimiterTailSound { LimiterBeforeClip = false }, 1);
-        using var compositor = new SceneCompositor(scene, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { ForceOriginalSource = true };
         compositor.EvaluateGraphics(MediaTime.Zero);
         var services = capture.Services!;
         MediaTime duration = MediaTime.FromSeconds(0.01);
@@ -390,7 +390,7 @@ public class CompositionEvaluationServicesTests
         capture.OnEvaluate = context => graphicsContext = context;
         var sound = new EvaluationCaptureSound { OnEvaluate = context => audioContext = context };
         Add(scene, sound, 1);
-        using var parent = new SceneCompositor(scene, configuration.EditorConfig, configuration.ProxyStoreConfig);
+        using var parent = new SceneCompositor(scene, TestFonts.Manager, configuration.EditorConfig, configuration.ProxyStoreConfig);
         parent.EvaluateGraphics(MediaTime.Zero);
         CompositionContext source = graphicsContext!;
         SceneCompositor? reference = null;
@@ -407,6 +407,7 @@ public class CompositionEvaluationServicesTests
                 case "forwarded-context":
                     var forwarded = new CompositionContext(source.Time)
                     {
+                        Fonts = TestFonts.Manager,
                         Conditions = source.Conditions,
                         DisableResourceShare = source.DisableResourceShare,
                     };
@@ -435,6 +436,7 @@ public class CompositionEvaluationServicesTests
             }
 
             Assert.That(derived, Is.Not.SameAs(parent));
+            Assert.That(derived.Fonts, Is.SameAs(parent.Fonts));
             foreach (var (mode, preset) in new[]
             {
                 (PreviewSourceMode.PreferProxy, ProxyPreset.Half),
@@ -447,7 +449,8 @@ public class CompositionEvaluationServicesTests
                 derived.EvaluateGraphics(MediaTime.Zero);
                 Assert.Multiple(() =>
                 {
-                    Assert.That(graphicsContext!.PreferProxy, Is.EqualTo(mode == PreviewSourceMode.PreferProxy));
+                    Assert.That(graphicsContext!.Fonts, Is.SameAs(parent.Fonts));
+                    Assert.That(graphicsContext.PreferProxy, Is.EqualTo(mode == PreviewSourceMode.PreferProxy));
                     Assert.That(graphicsContext.PreferredProxyPreset, Is.EqualTo(preset));
                 });
             }
@@ -469,8 +472,8 @@ public class CompositionEvaluationServicesTests
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
         CompositionContext? current = null;
         capture.OnEvaluate = context => current = context;
-        using var firstParent = new SceneCompositor(scene, first.EditorConfig, first.ProxyStoreConfig);
-        using var secondParent = new SceneCompositor(scene, second.EditorConfig, second.ProxyStoreConfig);
+        using var firstParent = new SceneCompositor(scene, TestFonts.Manager, first.EditorConfig, first.ProxyStoreConfig);
+        using var secondParent = new SceneCompositor(scene, TestFonts.Manager, second.EditorConfig, second.ProxyStoreConfig);
         SceneCompositor? nested = null;
         try
         {

@@ -19,7 +19,7 @@ public class FileBrowserTemplateThumbnailTests
     private ObjectTemplateService _templates = null!;
 
     [SetUp]
-    public void SetUpTemplates() => _templates = new ObjectTemplateService(
+    public void SetUpTemplates() => _templates = new ObjectTemplateService(TestFonts.Manager,
         Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), Guid.NewGuid().ToString("N")));
 
     [TearDown]

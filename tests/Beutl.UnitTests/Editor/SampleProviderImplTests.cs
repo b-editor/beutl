@@ -32,7 +32,7 @@ public class SampleProviderImplTests
             });
             scene.Children.Add(element);
 
-            using var playbackComposer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+            using var playbackComposer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true)
             {
                 SampleRate = rate,
                 ChannelLayout = project.GetChannelLayout()
@@ -49,7 +49,7 @@ public class SampleProviderImplTests
                 Assert.That(composed.GetChannelData(2).ToArray().Any(value => value != 0), Is.True);
             }
 
-            using var exportComposer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
+            using var exportComposer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true)
             {
                 SampleRate = rate,
                 ChannelLayout = project.GetChannelLayout()

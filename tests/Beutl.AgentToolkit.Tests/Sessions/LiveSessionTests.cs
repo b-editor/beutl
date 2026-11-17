@@ -16,10 +16,10 @@ public sealed class LiveSessionTests
         Scene scene = TestWorkspace.CreateScene();
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new FakeLiveBinding(scene, recording.History);
-        LiveEditingSession session = LiveEditingSession.Create(binding);
+        LiveEditingSession session = LiveEditingSession.Create(binding, TestFonts.Manager);
         var manager = new AgentSessionManager();
         manager.UseRequestTarget(() => session);
-        var tools = new EditTools(manager);
+        var tools = new EditTools(manager, TestFonts.Manager);
 
         JsonObject patch = new()
         {
@@ -43,7 +43,7 @@ public sealed class LiveSessionTests
     [Test]
     public void Missing_live_binding_reports_no_active_editor_session()
     {
-        var ex = Assert.Throws<SessionUnavailableException>(() => LiveEditingSession.Create(new FakeLiveBinding(null, null)));
+        var ex = Assert.Throws<SessionUnavailableException>(() => LiveEditingSession.Create(new FakeLiveBinding(null, null), TestFonts.Manager));
 
         ToolError error = ex!.ToError();
         Assert.Multiple(() =>
@@ -60,7 +60,7 @@ public sealed class LiveSessionTests
         var scene = new Scene(1920, 1080, "Scene");
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new FakeLiveBinding(scene, recording.History);
-        LiveEditingSession session = LiveEditingSession.Create(binding);
+        LiveEditingSession session = LiveEditingSession.Create(binding, TestFonts.Manager);
 
         Assert.That(session.ProbeIsAlive(), Is.True);
 
@@ -75,7 +75,7 @@ public sealed class LiveSessionTests
         var scene = new Scene(1920, 1080, "Scene");
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new GuardedFakeLiveBinding(scene, recording.History);
-        LiveEditingSession session = LiveEditingSession.Create(binding);
+        LiveEditingSession session = LiveEditingSession.Create(binding, TestFonts.Manager);
         binding.RequireDispatchedAccess = true;
 
         Assert.DoesNotThrow(() => session.Invoke(() => { }));

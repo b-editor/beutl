@@ -19,14 +19,14 @@ using Beutl.Graphics.Transformation;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Reactive.Bindings.Extensions;
 using BtlDrawable = Beutl.Graphics.Drawable;
 using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlRect = Beutl.Graphics.Rect;
 using BtlSize = Beutl.Graphics.Size;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
 
@@ -516,7 +516,7 @@ public partial class PlayerView : UserControl
         BtlRect? bounds = renderer.GetBoundary(target);
         if (bounds is not { Width: > 0, Height: > 0 }) return null;
 
-        var ctx = new CompositionContext(ctxTime);
+        var ctx = new CompositionContext(ctxTime) { Fonts = renderer.Compositor.Fonts };
         if (_transformHandleResource == null || _transformHandleResourceTarget != target)
         {
             _transformHandleResource?.Dispose();

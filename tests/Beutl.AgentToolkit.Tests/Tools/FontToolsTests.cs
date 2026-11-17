@@ -30,7 +30,7 @@ public sealed class FontToolsTests
     public void List_fonts_can_leave_out_typefaces_to_browse_names()
     {
         RequireRegisteredFamilies();
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         FontListResponse full = tools.ListFonts().Value!;
         FontListResponse names = tools.ListFonts(includeTypefaces: false).Value!;
@@ -46,7 +46,7 @@ public sealed class FontToolsTests
     public void List_fonts_projects_the_registered_font_registry()
     {
         FontFamily[] registered = RequireRegisteredFamilies();
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<FontListResponse> result = tools.ListFonts();
 
@@ -65,7 +65,7 @@ public sealed class FontToolsTests
             Assert.That(summary, Is.Not.Null, $"'{sample.Name}' is registered but missing from the response");
             Assert.That(
                 summary!.Typefaces,
-                Is.EquivalentTo(FontManager.Instance.GetTypefaces(sample)
+                Is.EquivalentTo(TestFonts.Manager.GetTypefaces(sample)
                     .Distinct()
                     .Select(typeface => new FontTypefaceSummary(
                         (int)typeface.Weight,
@@ -77,7 +77,7 @@ public sealed class FontToolsTests
     public void List_fonts_typeface_entry_round_trips_through_apply_edit()
     {
         _ = RequireRegisteredFamilies();
-        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
         FontFamilySummary? family = queryTools.ListFonts().Value!.Families
             .FirstOrDefault(item => item.Typefaces.Count > 0);
         if (family is null)
@@ -122,7 +122,7 @@ public sealed class FontToolsTests
     public void List_fonts_filters_by_name_case_insensitively()
     {
         FontFamily[] registered = RequireRegisteredFamilies();
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         // Take a substring of a real family name and ask for it in the opposite case, so the
         // assertion fails if the filter is dropped or made ordinal.
@@ -150,7 +150,7 @@ public sealed class FontToolsTests
     public void List_fonts_returns_nothing_for_a_family_that_is_not_registered()
     {
         _ = RequireRegisteredFamilies();
-        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager);
 
         ToolResult<FontListResponse> result = tools.ListFonts(UnregisteredFamilyName);
 
@@ -210,7 +210,7 @@ public sealed class FontToolsTests
 
     private static FontFamily[] RequireRegisteredFamilies()
     {
-        FontFamily[] families = FontManager.Instance.FontFamilies.ToArray();
+        FontFamily[] families = TestFonts.Manager.FontFamilies.ToArray();
         if (families.Length == 0)
         {
             Assert.Ignore("No fonts are registered in this environment, so font discovery cannot be exercised.");

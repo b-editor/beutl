@@ -84,7 +84,7 @@ internal static class TrimTestMedia
     }
 
     public static SceneCompositor CreateCompositor(Scene scene)
-        => new(scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        => new(scene, TestFonts.Manager) { DisableResourceShare = true, ForceOriginalSource = true };
 
     // Speed rising linearly from 100% at 0s to 200% at 10s.
     public static KeyFrameAnimation<float> CreateSpeedRamp(bool useGlobalClock)

@@ -45,6 +45,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
     }
 
     public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
+        FontManager fonts,
         int maxWidth,
         int maxHeight,
         IThumbnailCacheService? cacheService,

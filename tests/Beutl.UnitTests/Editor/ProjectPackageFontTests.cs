@@ -41,7 +41,7 @@ public class ProjectPackageFontTests
             string package = Path.Combine(root, "font.beutlpkg");
             var service = new ProjectPackageService(new ResourceRelocationService(_ => [font]));
 
-            ExportResult result = await service.ExportAsync(project, package);
+            ExportResult result = await service.ExportAsync(project, TestFonts.Manager, package);
             Assert.That(result.Success, Is.True);
             Assert.That(result.FailedResources, Is.Empty);
             File.Delete(font);
@@ -62,11 +62,11 @@ public class ProjectPackageFontTests
         {
             var configuration = new FontConfig();
             configuration.FontDirectories.Clear();
-            FontManager.Instance.Initialize(configuration);
+            var fonts = new FontManager(configuration);
             // Like the hosts, load the built-in scene types before resolving serialized discriminators.
             System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(Scene).TypeHandle);
             var family = new FontFamily("Beutl Test Variable");
-            Assert.That(FontManager.Instance.IsRegistered(family), Is.False);
+            Assert.That(fonts.IsRegistered(family), Is.False);
 
             byte[] bundled;
             using (var inputArchive = ZipFile.OpenRead(package))
@@ -80,51 +80,51 @@ public class ProjectPackageFontTests
             string hostDirectory = Directory.CreateDirectory(Path.Combine(destination, "host-fonts")).FullName;
             File.WriteAllBytes(Path.Combine(hostDirectory, "host.ttf"), host);
             configuration.FontDirectories.Add(hostDirectory);
-            using (var stream = new MemoryStream(host)) FontManager.Instance.AddFont(stream);
-            Assert.That(FontRevision(family), Is.EqualTo(0x00020000));
+            using (var stream = new MemoryStream(host)) fonts.AddFont(stream);
+            Assert.That(FontRevision(fonts, family), Is.EqualTo(0x00020000));
 
             Project project = (await ProjectPackageService.Current.ImportAsync(package, destination))!;
 
             Assert.That(project, Is.Not.Null);
-            Assert.That(FontRevision(family), Is.EqualTo(0x00020000), "Import must not change the active project's fonts.");
-            FontManager.Instance.LoadProjectFonts(project);
-            Assert.That(FontManager.Instance.IsRegistered(family), Is.True);
-            Assert.That(new Typeface(family).ToSkia().FamilyName, Is.EqualTo(family.Name));
+            Assert.That(FontRevision(fonts, family), Is.EqualTo(0x00020000), "Import must not change the active project's fonts.");
+            fonts.LoadProjectFonts(project);
+            Assert.That(fonts.IsRegistered(family), Is.True);
+            Assert.That(fonts.ResolveSkia(new Typeface(family)).FamilyName, Is.EqualTo(family.Name));
             uint bundledRevision = ReadFontRevision(bundled);
-            Assert.That(FontRevision(family), Is.EqualTo(bundledRevision));
+            Assert.That(FontRevision(fonts, family), Is.EqualTo(bundledRevision));
             string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
             string fontsRoot = Path.Combine(projectRoot, "resources", "fonts");
             Assert.That(Directory.GetFiles(fontsRoot), Has.Length.EqualTo(1));
             // Reopening/loading again must not accumulate duplicate typefaces.
-            int count = FontManager.Instance.GetTypefaces(family).Length;
-            var originalTypeface = new Typeface(family).ToSkia();
-            FontManager.Instance.LoadProjectFonts(CoreSerializer.RestoreFromUri<Project>(project.Uri));
-            Assert.That(FontManager.Instance.GetTypefaces(family).Length, Is.EqualTo(count));
-            Assert.That(new Typeface(family).ToSkia(), Is.SameAs(originalTypeface));
+            int count = fonts.GetTypefaces(family).Length;
+            var originalTypeface = fonts.ResolveSkia(new Typeface(family));
+            fonts.LoadProjectFonts(CoreSerializer.RestoreFromUri<Project>(project.Uri));
+            Assert.That(fonts.GetTypefaces(family).Length, Is.EqualTo(count));
+            Assert.That(fonts.ResolveSkia(new Typeface(family)), Is.SameAs(originalTypeface));
 
             string otherRoot = Directory.CreateDirectory(Path.Combine(destination, "other-project", "resources", "fonts")).Parent!.Parent!.FullName;
             File.WriteAllBytes(Path.Combine(otherRoot, "resources", "fonts", "custom.ttf"), WithFontRevision(bundled, 0x00030000));
-            FontManager.Instance.LoadProjectFonts(new Project { Uri = new Uri(Path.Combine(otherRoot, "other.bep")) });
-            Assert.That(FontRevision(family), Is.EqualTo(0x00030000));
-            FontManager.Instance.LoadProjectFonts(new Project { Uri = new Uri(Path.Combine(destination, "empty", "empty.bep")) });
-            Assert.That(FontRevision(family), Is.EqualTo(0x00020000));
-            FontManager.Instance.LoadProjectFonts(project);
-            Assert.That(new Typeface(family).ToSkia(), Is.SameAs(originalTypeface));
+            fonts.LoadProjectFonts(new Project { Uri = new Uri(Path.Combine(otherRoot, "other.bep")) });
+            Assert.That(FontRevision(fonts, family), Is.EqualTo(0x00030000));
+            fonts.LoadProjectFonts(new Project { Uri = new Uri(Path.Combine(destination, "empty", "empty.bep")) });
+            Assert.That(FontRevision(fonts, family), Is.EqualTo(0x00020000));
+            fonts.LoadProjectFonts(project);
+            Assert.That(fonts.ResolveSkia(new Typeface(family)), Is.SameAs(originalTypeface));
 
             string secondPackage = Path.Combine(destination, "shared-again.beutlpkg");
-            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, secondPackage);
+            ExportResult result = await ProjectPackageService.Current.ExportAsync(project,fonts,  secondPackage);
             Assert.That(result.Success, Is.True);
             Assert.That(result.FailedResources, Is.Empty);
             using var archive = ZipFile.OpenRead(secondPackage);
             Assert.That(archive.Entries.Count(entry => entry.FullName.StartsWith("resources/fonts/")), Is.EqualTo(1));
             File.Delete(Directory.GetFiles(fontsRoot).Single());
-            Assert.That(new Typeface(family).ToSkia().FamilyName, Is.EqualTo(family.Name));
+            Assert.That(fonts.ResolveSkia(new Typeface(family)).FamilyName, Is.EqualTo(family.Name));
         }
         finally { BeutlHomeIsolation.End(); }
     }
 
-    private static uint FontRevision(FontFamily family)
-        => BinaryPrimitives.ReadUInt32BigEndian(new Typeface(family).ToSkia().GetTableData(0x68656164).AsSpan(4));
+    private static uint FontRevision(FontManager fonts, FontFamily family)
+        => BinaryPrimitives.ReadUInt32BigEndian(fonts.ResolveSkia(new Typeface(family)).GetTableData(0x68656164).AsSpan(4));
 
     private static uint ReadFontRevision(byte[] font) => BinaryPrimitives.ReadUInt32BigEndian(font.AsSpan(HeadOffset(font) + 4));
 

@@ -39,7 +39,7 @@ public class RelativeFileSourceApplyTests
         Element original = scene.Children[0];
         using var session = new AgentToolkitTestSession(scene);
         var manager = session.CreateManager();
-        var read = new QueryTools(manager, new SchemaGenerator(_library)).ReadDocument();
+        var read = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager).ReadDocument();
         Assert.That(read.IsSuccess, Is.True, read.Error?.Message);
         JsonObject desired = read.Value!.Document;
         JsonArray elements = RequireArray(desired, "Elements");
@@ -47,7 +47,7 @@ public class RelativeFileSourceApplyTests
         CollectionReconciler.RemoveIds(copy);
         elements.Add(copy);
 
-        var result = new EditTools(manager).ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+        var result = new EditTools(manager, TestFonts.Manager).ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         Assert.That(scene.Children, Has.Count.EqualTo(2));
@@ -71,7 +71,7 @@ public class RelativeFileSourceApplyTests
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         Element element = CreateElement(Path.Combine(subDir, "media.belm"), imagePath);
         scene.Children.Add(element);
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         JsonObject document = adapter.Read(scene);
         adapter.Write(scene, document);
@@ -86,7 +86,7 @@ public class RelativeFileSourceApplyTests
         string subDir = CreateSubDirectory(dir);
         string imagePath = CreateImage(subDir);
         Element element = CreateElement(Path.Combine(subDir, "media.belm"), imagePath);
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         JsonObject document = adapter.Read(element);
         adapter.Write(element, document);
@@ -105,7 +105,7 @@ public class RelativeFileSourceApplyTests
         // The element does not exist on the target scene yet, so it is created detached from the
         // hierarchy and cannot reach its own .belm through HierarchicalParent.
         var target = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        new DocumentAdapter().Write(target, document);
+        new DocumentAdapter(TestFonts.Manager).Write(target, document);
 
         Assert.That(target.Children, Has.Count.EqualTo(1));
         Assert.That(SourceUriOf(target.Children[0])?.LocalPath, Is.EqualTo(imagePath));
@@ -120,7 +120,7 @@ public class RelativeFileSourceApplyTests
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         Element element = CreateElement(Path.Combine(subDir, "media.belm"), imagePath);
         scene.Children.Add(element);
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
         JsonObject document = adapter.Read(scene);
 
         // The element stays Id-matched so only the object is new: it is populated before insertion
@@ -140,7 +140,7 @@ public class RelativeFileSourceApplyTests
     {
         (Scene source, string imagePath) = CreateSceneWithMedia(folderName);
         Uri elementUri = source.Children[0].Uri!;
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         JsonObject document = adapter.Read(source);
         foreach (JsonObject item in RequireArray(document, "Elements").OfType<JsonObject>())
@@ -166,7 +166,7 @@ public class RelativeFileSourceApplyTests
         string subDir = CreateSubDirectory(dir);
         string imagePath = CreateImage(subDir);
         Element element = CreateElement(Path.Combine(subDir, "media.belm"), imagePath);
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         JsonObject document = adapter.Read(element);
         // Dropping every Id makes Objects a non-identity array, which routes the apply through the
@@ -185,7 +185,7 @@ public class RelativeFileSourceApplyTests
     {
         var source = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         source.Children.Add(CreateElement(Path.Combine(subDir, "media.belm"), imagePath));
-        return new DocumentAdapter().Read(source);
+        return new DocumentAdapter(TestFonts.Manager).Read(source);
     }
 
     private static (Scene Scene, string ImagePath) CreateSceneWithMedia(string folderName)

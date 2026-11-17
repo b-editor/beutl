@@ -12,7 +12,7 @@ public class TemplateSavingTests
     private ObjectTemplateService _templates = null!;
 
     [SetUp]
-    public void SetUpTemplates() => _templates = new ObjectTemplateService(
+    public void SetUpTemplates() => _templates = new ObjectTemplateService(TestFonts.Manager,
         Path.Combine(Path.GetTempPath(), $"beutl-templates-{Guid.NewGuid():N}"));
 
     [TearDown]

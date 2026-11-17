@@ -54,18 +54,18 @@ public class FontCollectionTests
         var project = new Project { Uri = new Uri(Path.Combine(_root, "project.bep")) };
         var typeface = new Typeface(new FontFamily("Beutl Test Variable"));
         // Another fixture may have installed the family; the project's face must replace it.
-        FontManager.Instance.TryResolveSkia(typeface, out SKTypeface? installed);
+        TestFonts.Manager.TryResolveSkia(typeface, out SKTypeface? installed);
         try
         {
-            FontManager.Instance.LoadProjectFonts(project);
+            TestFonts.Manager.LoadProjectFonts(project);
 
-            Assert.That(FontManager.Instance.TryResolveSkia(typeface, out SKTypeface face), Is.True);
+            Assert.That(TestFonts.Manager.TryResolveSkia(typeface, out SKTypeface face), Is.True);
             Assert.That(face, Is.Not.SameAs(installed));
             Assert.That(face.FamilyName, Is.EqualTo(typeface.FontFamily.Name));
         }
         finally
         {
-            FontManager.Instance.ClearProjectFonts(project);
+            TestFonts.Manager.ClearProjectFonts(project);
         }
     }
 
@@ -76,8 +76,8 @@ public class FontCollectionTests
         var project = new Project { Uri = new Uri(Path.Combine(_root, "project.bep")) };
         try
         {
-            FontManager.Instance.LoadProjectFonts(project);
-            byte[] data = FontManager.Instance.CopyFontData(new Typeface(new FontFamily(familyName)))!;
+            TestFonts.Manager.LoadProjectFonts(project);
+            byte[] data = TestFonts.Manager.CopyFontData(new Typeface(new FontFamily(familyName)))!;
 
             // A reader that opens only the first face, as Avalonia's does, must find this one there, and the copy
             // leaves the other faces of the collection behind.
@@ -91,7 +91,7 @@ public class FontCollectionTests
         }
         finally
         {
-            FontManager.Instance.ClearProjectFonts(project);
+            TestFonts.Manager.ClearProjectFonts(project);
         }
     }
 
@@ -148,8 +148,7 @@ public class FontCollectionTests
         directories.Add(fontDirectory);
         try
         {
-            var manager = (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
-            manager.Initialize(configuration);
+            var manager = new FontManager(configuration);
             return manager;
         }
         finally

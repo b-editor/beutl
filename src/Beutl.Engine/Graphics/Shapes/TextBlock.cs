@@ -255,6 +255,7 @@ public partial class TextBlock : Drawable
         private Dictionary<(SKTypeface Typeface, string Cluster), bool>? _verticalAlternates;
         private bool _isDirty = true;
         private long _fontRevision;
+        private FontManager? _fonts;
 
         internal VerticalTextLayout GetVerticalLayout()
         {
@@ -339,24 +340,25 @@ public partial class TextBlock : Drawable
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             if (_elements == null)
             {
+                FontManager fonts = _fonts ?? throw new InvalidOperationException("Text layout requires CompositionContext.Fonts.");
                 if (string.IsNullOrEmpty(Text))
                 {
-                    _elements = new TextElements([]);
+                    _elements = new TextElements(fonts, []);
                 }
                 else
                 {
                     var tokenizer = new FormattedTextTokenizer(Text);
                     tokenizer.Tokenize();
                     var options = new FormattedTextInfo(
-                        Typeface: new Typeface(FontFamily ?? FontFamily.Default, FontStyle, FontWeight),
+                        Typeface: new Typeface(FontFamily ?? fonts.DefaultTypeface.FontFamily, FontStyle, FontWeight),
                         Size: Size,
                         Brush: Fill,
                         Space: Spacing,
                         Pen: Pen);
 
-                    var builder = new TextElementsBuilder(options);
+                    var builder = new TextElementsBuilder(fonts, options);
                     builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
-                    _elements = new TextElements(builder.Items.ToArray());
+                    _elements = new TextElements(fonts, builder.Items.ToArray());
                 }
             }
 
@@ -375,9 +377,11 @@ public partial class TextBlock : Drawable
 
         partial void PreReconcile(TextBlock obj, CompositionContext context)
         {
-            long revision = FontManager.Instance.Revision;
-            if (_fontRevision != revision)
+            FontManager? fonts = context.Fonts;
+            long revision = fonts?.Revision ?? 0;
+            if (!ReferenceEquals(_fonts, fonts) || _fontRevision != revision)
             {
+                _fonts = fonts;
                 _fontRevision = revision;
                 _isDirty = true;
             }

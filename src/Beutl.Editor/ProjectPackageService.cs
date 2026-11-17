@@ -40,6 +40,7 @@ public sealed class ProjectPackageService
     /// </summary>
     public async Task<ExportResult> ExportAsync(
         Project project,
+        Media.FontManager fonts,
         string outputPath,
         IProgress<(string Message, double Progress)>? progress = null,
         CancellationToken cancellationToken = default)
@@ -99,6 +100,7 @@ public sealed class ProjectPackageService
 
             progress?.Report((Strings.ExportingProject, 0.6));
             fontResult = await _relocationService.RelocateFontsAsync(
+                fonts,
                 collector.FontFamilies,
                 tempProjectDir,
                 cancellationToken);
@@ -114,7 +116,7 @@ public sealed class ProjectPackageService
             progress?.Report((Strings.ExportingProject, 0.8));
             // Rebase and relocation are complete. Persist hashes for the packaged
             // URIs, including internal assets, instead of the original machine's paths.
-            var fingerprintService = new MissingMediaService();
+            var fingerprintService = new MissingMediaService(fonts);
             foreach (Scene scene in ExternalResourceCollector.EnumerateObjects(tempProject).OfType<Scene>())
                 await fingerprintService.UpdateFingerprintsAsync(scene, cancellationToken);
             foreach (CoreObject obj in ExternalResourceCollector.EnumerateObjects(tempProject))

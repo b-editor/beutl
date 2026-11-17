@@ -24,18 +24,18 @@ public class VerticalTextTests
     {
         _ = TypefaceProvider.Typeface();
         using var stream = typeof(VerticalTextTests).Assembly.GetManifestResourceStream("NotoColorEmoji.ttf")!;
-        FontManager.Instance.AddFont(stream);
+        TestFonts.Manager.AddFont(stream);
     }
 
     [SetUp]
     public void SetFallbacks()
     {
-        (_previousFamilies, _previousEmoji) = FontManager.Instance.GetFallbackFamilies();
-        FontManager.Instance.SetFallbackFonts([TypefaceProvider.Typeface().FontFamily], new FontFamily("Noto Color Emoji"));
+        (_previousFamilies, _previousEmoji) = TestFonts.Manager.GetFallbackFamilies();
+        TestFonts.Manager.SetFallbackFonts([TypefaceProvider.Typeface().FontFamily], new FontFamily("Noto Color Emoji"));
     }
 
     [TearDown]
-    public void RestoreFallbacks() => FontManager.Instance.SetFallbackFonts(_previousFamilies, _previousEmoji);
+    public void RestoreFallbacks() => TestFonts.Manager.SetFallbackFonts(_previousFamilies, _previousEmoji);
 
     private static TextBlock Create(string text) => new()
     {
@@ -48,7 +48,7 @@ public class VerticalTextTests
     [Test]
     public void Columns_PreserveEmptyLinesAndRotateLatinRuns()
     {
-        using var resource = Create("日本ABC123。\n\n語\n").ToResource(CompositionContext.Default);
+        using var resource = Create("日本ABC123。\n\n語\n").ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         VerticalTextLayout layout = resource.GetVerticalLayout();
         Assert.That(layout.Columns, Has.Count.EqualTo(4));
         Assert.That(layout.Columns[1].Runs, Is.Empty);
@@ -64,7 +64,7 @@ public class VerticalTextTests
     [TestCase("12", true)]
     public void ClusterOrientation_UsesEnclosingMarksAndKeepsOrdinaryDigitsSideways(string cluster, bool sideways)
     {
-        using var resource = Create(cluster).ToResource(CompositionContext.Default);
+        using var resource = Create(cluster).ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         var run = resource.GetVerticalLayout().Columns.Single().Runs.Single();
         Assert.That(run.Sideways, Is.EqualTo(sideways));
     }
@@ -73,13 +73,13 @@ public class VerticalTextTests
     public void SidewaysSpacing_AdvancesWholeCombiningClusters()
     {
         TextBlock block = Create("x\u0301x\u0301");
-        using var resource = block.ToResource(CompositionContext.Default);
+        using var resource = block.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         float before = resource.GetVerticalLayout().Size.Height;
         Rect[] unspaced = resource.GetVerticalLayout().Columns.Single().Runs.Single().Text.ToGeometries()
             .ToArray().Select(glyph => glyph.Bounds).ToArray();
         block.Spacing.Value = 10;
         bool changed = false;
-        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        resource.Reconcile(block, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref changed);
         var layout = resource.GetVerticalLayout();
         Assert.That(layout.Columns.Single().Runs.Single().Sideways, Is.True);
         Assert.That(layout.Size.Height - before, Is.EqualTo(20).Within(0.01),
@@ -120,7 +120,7 @@ public class VerticalTextTests
     [TestCase("א👩‍💻", true)]
     public void VerticalSpacing_CountsGraphemesWhenEmojiUseSeparateGlyphs(string content, bool sideways)
     {
-        FontManager.Instance.SetFallbackFonts([], null);
+        TestFonts.Manager.SetFallbackFonts([], null);
         using var text = TypefaceProvider.CreateText(content, 40);
         text.Font = new FontFamily("Beutl Test Separate Emoji");
         text.Orientation = sideways ? TextRunOrientation.Sideways : TextRunOrientation.Upright;
@@ -136,7 +136,7 @@ public class VerticalTextTests
     {
         TextBlock block = Create("ーーー");
         block.FontFamily.Value = new FontFamily("Roboto");
-        using var resource = block.ToResource(CompositionContext.Default);
+        using var resource = block.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.False,
             "the Japanese fallback supplies a vertical alternate");
         var cache = (IDictionary)typeof(TextBlock.Resource)
@@ -146,26 +146,26 @@ public class VerticalTextTests
         block.Size.Value = 60;
         block.Spacing.Value = 5;
         bool changed = false;
-        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        resource.Reconcile(block, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref changed);
         Assert.That(cache.Count, Is.EqualTo(1), "size and spacing do not invalidate alternate selection");
         Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.False);
         Assert.That(cache.Count, Is.EqualTo(1));
 
         block.Text.Value = "ーー";
-        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        resource.Reconcile(block, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref changed);
         Assert.That(cache.Count, Is.EqualTo(1), "text edits keep the typeface/cluster entries");
         Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.False);
         Assert.That(cache.Count, Is.EqualTo(1));
 
-        FontManager.Instance.SetFallbackFonts([], null);
-        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        TestFonts.Manager.SetFallbackFonts([], null);
+        resource.Reconcile(block, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref changed);
         Assert.That(cache.Count, Is.Zero, "font revisions invalidate cached selections");
         Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.True,
             "Roboto alone has no vertical alternate for this character");
         Assert.That(cache.Count, Is.EqualTo(1), "negative results are cached too");
 
         block.FontFamily.Value = TypefaceProvider.Typeface().FontFamily;
-        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        resource.Reconcile(block, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref changed);
         Assert.That(cache.Count, Is.Zero);
         Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.False);
     }
@@ -174,7 +174,7 @@ public class VerticalTextTests
     [TestCase("<size=20>日\r\n\r\n日\r\n</size>")]
     public void BlankColumns_UseTheSameFontMetricsAsOccupiedColumns(string content)
     {
-        using var resource = Create(content).ToResource(CompositionContext.Default);
+        using var resource = Create(content).ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         var columns = resource.GetVerticalLayout().Columns;
         Assert.That(columns, Has.Count.EqualTo(4));
         Assert.That(columns.Select(column => column.Width), Is.All.EqualTo(columns[0].Width).Within(0.01));
@@ -236,14 +236,14 @@ public class VerticalTextTests
     public void Layout_RebuildsForStyleChangesAndDisposesOwnedRuns()
     {
         TextBlock block = Create("日<size=60>本</size>ABCか\u3099👩‍💻");
-        using var resource = block.ToResource(CompositionContext.Default);
+        using var resource = block.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         var old = resource.GetVerticalLayout();
         var text = old.Columns[0].Runs[0].Text;
         Assert.That(old.Columns[0].Width, Is.GreaterThanOrEqualTo(60));
         Assert.That(string.Concat(old.Columns[0].Runs.Select(r => r.Text.Text.ToString())), Is.EqualTo("日本ABCか\u3099👩‍💻"));
         block.Spacing.Value = 5;
         bool changed = false;
-        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        resource.Reconcile(block, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref changed);
         Assert.That(text.IsDisposed, Is.True);
         Assert.That(resource.GetVerticalLayout(), Is.Not.SameAs(old));
     }
@@ -272,11 +272,11 @@ public class VerticalTextTests
             var block = Create("「日本語」の縦書き。\n文字とABC123、長ー音。\n<size=55>大きな</size><#e04040>文字</#>\n\n<cspace=10>x\u0301x\u0301</cspace>・1\uFE0F\u20E3😀\n<font='Roboto'><cspace=10>ffi</cspace></font>");
             block.Fill.Value = Brushes.Black;
             block.Pen.Value = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 1 } };
-            using var resource = block.ToResource(CompositionContext.Default);
+            using var resource = block.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
             using Bitmap grouped = GoldenImageHarness.RenderAtScale(resource, new PixelSize(650, 650), scale, clearColor: Colors.White);
             block.SplitByCharacters.Value = true;
             bool changed = false;
-            resource.Reconcile(block, CompositionContext.Default, ref changed);
+            resource.Reconcile(block, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref changed);
             using Bitmap split = GoldenImageHarness.RenderAtScale(resource, new PixelSize(650, 650), scale, clearColor: Colors.White);
 
             Assert.That(ImageMetrics.MeanAbsoluteError(grouped, split), Is.LessThan(0.002),

@@ -27,7 +27,7 @@ public partial class TransitionRenderTests
             outgoing.Fill.Value = CreateGradient();
             (var scene, RectShape incoming) = CreateScene(transition, withOutgoing: true, outgoing: outgoing);
             incoming.Fill.Value = CreateGradient();
-            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery, renderScale: scale);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, renderScale: scale);
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)));
             using Bitmap originalSnapshot = renderer.Snapshot();
             using Bitmap original = originalSnapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);

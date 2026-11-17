@@ -5,11 +5,11 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 using ImageBrush = Avalonia.Media.ImageBrush;
 using PixelSize = Avalonia.PixelSize;
 using Point = Avalonia.Point;
+using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.Helpers;
 
@@ -21,11 +21,11 @@ public static partial class AvaloniaTypeConverter
     }
 
     private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<MediaTime> time,
-        Func<T, CompositionContext, TResource> createResource, Action<TResource> onUpdated)
+        Func<T, CompositionContext, TResource> createResource, Action<TResource> onUpdated, FontManager? fonts = null)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
-        return obj.SubscribeEngineVersionedResource(time, createResource)
+        return obj.SubscribeEngineVersionedResource(time, createResource, fonts)
             .ObserveOnUIDispatcher()
             // The notification is marshalled to the UI thread, but the resource stays owned by the render
             // dispatcher; only Read holds that owner off for the length of the projection.
@@ -244,7 +244,7 @@ public static partial class AvaloniaTypeConverter
     }
 
     public static (Avalonia.Media.Brush?, IDisposable, Action?) ToAvaBrushSync(this Media.Brush? brush,
-        IObservable<MediaTime> time)
+        IObservable<MediaTime> time, FontManager? fonts)
     {
         switch (brush)
         {
@@ -276,7 +276,7 @@ public static partial class AvaloniaTypeConverter
                 }
                 break;
 
-            case Media.DrawableBrush db:
+            case Media.DrawableBrush db when fonts is not null:
                 {
                     var imageBrush = new ImageBrush();
                     DrawableImageBrushHandler? handler = null;
@@ -287,7 +287,7 @@ public static partial class AvaloniaTypeConverter
                         {
                             handler ??= new DrawableImageBrushHandler(r, imageBrush, RenderThread.Dispatcher);
                             handler.Update();
-                        });
+                        }, fonts);
 
                     return (
                         imageBrush,

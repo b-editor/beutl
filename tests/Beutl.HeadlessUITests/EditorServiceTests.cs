@@ -24,7 +24,7 @@ public sealed class EditorServiceTests
     [TestCase(false)]
     public async Task Project_save_uses_current_contexts_with_save_support(bool saveSucceeds)
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var project = new Project { Uri = new Uri("file:///project.bep") };
         var original = new SavableEditorContext(true);
         var replacement = new SavableEditorContext(saveSucceeds);
@@ -55,7 +55,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Project_file_writes_and_worktree_mutations_are_mutually_exclusive()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         using (IProjectFileWriteLease fileWrite = await editorService.BeginProjectFileWriteAsync(
                    CancellationToken.None))
         {
@@ -75,7 +75,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Editor_file_opens_and_worktree_mutations_are_mutually_exclusive()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         using (IDisposable open = editorService.TryBeginEditorFileOpen()!)
         using (IDisposable second = editorService.TryBeginEditorFileOpen()!)
         using (IDisposable output = editorService.TryBeginOutputOperation()!)
@@ -99,7 +99,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Project_file_write_leases_are_serialized()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         IProjectFileWriteLease first = await editorService.BeginProjectFileWriteAsync(
             CancellationToken.None);
         ValueTask<IProjectFileWriteLease> second = editorService.BeginProjectFileWriteAsync(
@@ -114,7 +114,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task A_completed_project_file_write_can_be_handed_to_a_worktree_mutation()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         IProjectFileWriteLease fileWrite = await editorService.BeginProjectFileWriteAsync(
             CancellationToken.None);
 
@@ -138,7 +138,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Handing_over_a_project_file_write_releases_it_even_when_the_mutation_cannot_start()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         using IDisposable output = editorService.BeginObservedOutputOperation();
         IProjectFileWriteLease fileWrite = await editorService.BeginProjectFileWriteAsync(
             CancellationToken.None);
@@ -154,7 +154,7 @@ public sealed class EditorServiceTests
     [Test]
     public void TryBeginWorktreeMutation_rejects_a_lease_it_did_not_issue()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         Assert.Throws<ArgumentException>(
             () => editorService.TryBeginWorktreeMutation(new ForeignLease()));
     }
@@ -162,7 +162,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task TryBeginProjectFileWrite_refuses_a_reserved_workspace()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         using (IDisposable mutation = editorService.TryBeginWorktreeMutation()!)
         {
             Assert.That(editorService.TryBeginProjectFileWrite(), Is.Null);
@@ -181,7 +181,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Clipboard_paste_reserves_the_workspace_through_the_model_update()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var pasteStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePaste = new TaskCompletionSource(
@@ -213,7 +213,7 @@ public sealed class EditorServiceTests
     public async Task Clipboard_edits_wait_for_file_writes_and_stop_when_the_editor_closes(bool cut, bool close, bool releaseBeforeClose)
     {
         using var notifications = new NotificationCapture();
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var inner = new BlockingClipboardService(new TaskCompletionSource(), Task.CompletedTask);
         using var lifetime = new CancellationTokenSource();
         var clipboard = new ProjectFileWriteClipboardService(editorService, inner, lifetime.Token);
@@ -246,7 +246,7 @@ public sealed class EditorServiceTests
     public async Task Clipboard_waiting_for_save_can_be_cancelled(bool cut)
     {
         using var notifications = new NotificationCapture();
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var inner = new BlockingClipboardService(new TaskCompletionSource(), Task.CompletedTask);
         var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
         var scene = new Scene();
@@ -280,7 +280,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Clipboard_paste_is_rejected_while_the_worktree_is_mutating()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var inner = new BlockingClipboardService(
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
             Task.CompletedTask);
@@ -300,7 +300,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Clipboard_cut_reserves_the_workspace_through_the_model_update()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var cutStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseCut = new TaskCompletionSource(
@@ -323,7 +323,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Clipboard_cut_is_rejected_while_the_worktree_is_mutating()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var inner = new BlockingClipboardService(
             new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
             Task.CompletedTask);
@@ -343,7 +343,7 @@ public sealed class EditorServiceTests
     [AvaloniaTest]
     public async Task SaveProjectFilesAsync_requires_a_project_uri()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var project = new Project();
 
         InvalidOperationException? exception = await Assert.CatchAsync<InvalidOperationException>(async () =>
@@ -358,7 +358,7 @@ public sealed class EditorServiceTests
         int serializationThread = 0;
         var editorService = new EditorService(
             new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()),
-            (_, _) => serializationThread = Environment.CurrentManagedThreadId, new Beutl.Editor.Services.EditorServiceRegistry());
+            (_, _) => serializationThread = Environment.CurrentManagedThreadId, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var project = new Project { Uri = new Uri("file:///project.bep") };
         int callingThread = Environment.CurrentManagedThreadId;
 
@@ -371,7 +371,7 @@ public sealed class EditorServiceTests
     [AvaloniaTest]
     public async Task SaveProjectFilesAsync_skips_a_tab_whose_context_is_already_torn_down()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var project = new Project { Uri = new Uri("file:///project.bep") };
         var tabItem = new EditorTabItem(new StubEditorContext());
         editorService.TabItems.Add(tabItem);
@@ -385,7 +385,7 @@ public sealed class EditorServiceTests
     [Test]
     public void SuspendEditors_keeps_editors_disabled_until_the_outermost_handle_is_disposed()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var context = new StubEditorContext();
         editorService.TabItems.Add(new EditorTabItem(context));
 
@@ -409,7 +409,7 @@ public sealed class EditorServiceTests
     [Test]
     public void SuspendEditors_supports_out_of_order_disposal()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var context = new StubEditorContext();
         editorService.TabItems.Add(new EditorTabItem(context));
 
@@ -426,7 +426,7 @@ public sealed class EditorServiceTests
     [Test]
     public void SuspendEditors_releases_every_context_when_one_restore_observer_fails()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var first = new StubEditorContext();
         var second = new StubEditorContext();
         editorService.TabItems.Add(new EditorTabItem(first));
@@ -461,7 +461,7 @@ public sealed class EditorServiceTests
             {
                 serializationStarted.TrySetResult();
                 allowSerialization.Wait();
-            }, new Beutl.Editor.Services.EditorServiceRegistry());
+            }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var project = new Project { Uri = new Uri("file:///project.bep") };
         var context = new StubEditorContext();
         editorService.TabItems.Add(new EditorTabItem(context));
@@ -500,7 +500,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Output_dispose_defers_workspace_release_until_execution_finishes()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var context = new StubEditorContext();
         editorService.TabItems.Add(new EditorTabItem(context));
         var outputContext = new StubOutputContext(context.Object);
@@ -533,7 +533,7 @@ public sealed class EditorServiceTests
     [Test]
     public async Task Running_outputs_list_a_profile_only_while_it_runs()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var context = new StubEditorContext();
         editorService.TabItems.Add(new EditorTabItem(context));
         var outputContext = new StubOutputContext(context.Object);
@@ -552,7 +552,7 @@ public sealed class EditorServiceTests
     [Test]
     public void Output_started_during_a_worktree_mutation_is_rejected_without_leaking_a_lease()
     {
-        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry());
+        var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager));
         var context = new StubEditorContext();
         editorService.TabItems.Add(new EditorTabItem(context));
         var outputContext = new StubOutputContext(context.Object);
@@ -628,7 +628,7 @@ public sealed class EditorServiceTests
 
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext

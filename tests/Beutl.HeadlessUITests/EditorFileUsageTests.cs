@@ -148,7 +148,7 @@ public sealed class EditorFileUsageTests
         }
 
         public object? GetService(Type serviceType)
-            => serviceType == typeof(IEditorFileUsage) ? usage
+            => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(IEditorFileUsage) ? usage
                 : serviceType == typeof(ObjectTemplateService) ? templates : null;
 
         public void Dispose() => IsEnabled.Dispose();

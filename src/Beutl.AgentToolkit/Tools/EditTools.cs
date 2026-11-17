@@ -10,8 +10,8 @@ using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
-using ModelContextProtocol.Server;
 using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
+using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
 
@@ -83,9 +83,9 @@ internal sealed record DuplicateObjectLocation(
 internal sealed record ResolvedEdit(JsonObject Document, HashSet<Guid> KnownNewIds);
 
 [McpServerToolType]
-public sealed partial class EditTools(AgentSessionManager sessions) : ToolBase
+public sealed partial class EditTools(AgentSessionManager sessions, Media.FontManager fonts) : ToolBase
 {
-    private readonly Reconciler _reconciler = new();
+    private readonly Reconciler _reconciler = new(fonts);
     private readonly CompositionTemplateCatalog _compositionCatalog = new();
 
     [McpServerTool(Name = "apply_edit")]

@@ -67,7 +67,7 @@ public sealed class SceneNodeTests
         node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
 
         using var snapshot = new GraphSnapshot();
-        var context = new CompositionContext(MediaTime.FromSeconds(3));
+        var context = new CompositionContext(MediaTime.FromSeconds(3)) { Fonts = TestFonts.Manager };
         snapshot.Build(model, context);
         snapshot.Evaluate(context);
         var resource = (SceneNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
@@ -114,7 +114,7 @@ public sealed class SceneNodeTests
             model.Connect(output.InputPort, node.Output);
             Scene outer = HostGraph(model, node, referenced, startSeconds: 5);
 
-            using var renderer = new SceneRenderer(outer, Beutl.Graphics.Rendering.RenderIntent.Preview);
+            using var renderer = new SceneRenderer(outer, TestFonts.Manager, Beutl.Graphics.Rendering.RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(6)));
             using Beutl.Media.Bitmap snapshot = renderer.Snapshot();
             using Beutl.Media.Bitmap srgb = snapshot.Convert(
@@ -157,7 +157,7 @@ public sealed class SceneNodeTests
         Scene scene = CreateScene(drawable);
         node.Object.Value.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, scene);
 
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager);
         Assert.DoesNotThrow(() => compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)));
         Assert.DoesNotThrow(() => Evaluate(graph, node, MediaTime.FromSeconds(0.5)));
     }
@@ -217,7 +217,7 @@ public sealed class SceneNodeTests
     private static int Evaluate(GraphModel model, SceneNode node, MediaTime time)
     {
         using var snapshot = new GraphSnapshot();
-        var context = new CompositionContext(time);
+        var context = new CompositionContext(time) { Fonts = TestFonts.Manager };
         snapshot.Build(model, context);
         snapshot.Evaluate(context);
         var resource = (SceneNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;

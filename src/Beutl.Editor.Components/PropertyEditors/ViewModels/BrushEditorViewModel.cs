@@ -19,6 +19,7 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
     private IDisposable? _revoker;
     private IDisposable? _displayStopsRevoker;
     private Action? _update;
+    private readonly ReactivePropertySlim<FontManager?> _fonts = new();
 
     public BrushEditorViewModel(IPropertyAdapter<Brush?> property)
         : base(property)
@@ -28,11 +29,12 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
             .DisposeWith(Disposables);
 
         AvaloniaBrush = new ReactiveProperty<Avalonia.Media.Brush?>();
-        Value.Subscribe(v =>
+        Value.CombineLatest(_fonts).Subscribe(pair =>
         {
+            var (v, fonts) = pair;
             _revoker?.Dispose();
             _revoker = null;
-            (AvaloniaBrush.Value, _revoker, _update) = v.ToAvaBrushSync(CurrentTime);
+            (AvaloniaBrush.Value, _revoker, _update) = v.ToAvaBrushSync(CurrentTime, fonts);
             ShowInSwatch(v);
         });
 
@@ -315,6 +317,7 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
         base.Accept(visitor);
         if (visitor is IServiceProvider)
         {
+            _fonts.Value = this.GetService<FontManager>();
             AcceptChildren(ChildContext.Value);
         }
     }

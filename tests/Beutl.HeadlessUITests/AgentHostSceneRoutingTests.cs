@@ -10,6 +10,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -21,7 +22,6 @@ using ModelContextProtocol.Client;
 using Moq;
 using Reactive.Bindings;
 using SkiaSharp;
-using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -170,6 +170,7 @@ public sealed class AgentHostSceneRoutingTests
         using var enabled = new ReactivePropertySlim<bool>(true);
         var context = new Mock<IEditorContext>();
         context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+        context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         context.SetupGet(editor => editor.Object).Returns(new Scene
         {
             Uri = new Uri(Path.Combine(directory, "disposing.scene"))

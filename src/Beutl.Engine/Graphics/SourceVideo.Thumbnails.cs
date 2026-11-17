@@ -73,18 +73,19 @@ public partial class SourceVideo : IThumbnailsProvider
     }
 
     public IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
+        FontManager fonts,
         int maxWidth,
         int maxHeight,
         IThumbnailCacheService? cacheService = null,
         CancellationToken cancellationToken = default,
         int startIndex = 0,
         int endIndex = -1)
-        => GetThumbnailStripAsync(maxWidth, maxHeight, cacheService, cancellationToken, startIndex, endIndex,
+        => GetThumbnailStripAsync(fonts, maxWidth, maxHeight, cacheService, cancellationToken, startIndex, endIndex,
             preferProxy: false,
             preferredProxyPreset: ProxyPreset.Quarter);
 
-    // preferProxy false must keep the original decode path byte-identical (shared Default context).
     public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
+        FontManager fonts,
         int maxWidth,
         int maxHeight,
         IThumbnailCacheService? cacheService,
@@ -104,13 +105,12 @@ public partial class SourceVideo : IThumbnailsProvider
         {
             // Opening the decoder can parse a large media file. Queue it with the strip's rendering
             // work so enumeration from a timeline view never performs that I/O on the UI thread.
-            resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(preferProxy
-                ? new CompositionContext(MediaTime.Zero)
-                {
-                    PreferProxy = true,
-                    PreferredProxyPreset = preferredProxyPreset,
-                }
-                : CompositionContext.Default), DispatchPriority.Low, cancellationToken);
+            resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(new CompositionContext(MediaTime.Zero)
+            {
+                Fonts = fonts,
+                PreferProxy = preferProxy,
+                PreferredProxyPreset = preferredProxyPreset,
+            }), DispatchPriority.Low, cancellationToken);
 
             if (resource.Source is not { } source)
                 yield break;
@@ -177,6 +177,7 @@ public partial class SourceVideo : IThumbnailsProvider
 
                     var ctx = new CompositionContext(time + TimeRange.Value.Start)
                     {
+                        Fonts = fonts,
                         PreferProxy = preferProxy,
                         PreferredProxyPreset = preferredProxyPreset,
                     };

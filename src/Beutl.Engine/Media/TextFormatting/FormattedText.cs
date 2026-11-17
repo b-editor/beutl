@@ -46,10 +46,13 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private SKTypeface? _fontRunsPrimary;
     private long _fontRunsRevision;
 
-    public FormattedText()
+    public FormattedText(FontManager fonts)
     {
+        Fonts = fonts ?? throw new ArgumentNullException(nameof(fonts));
         _scaledCache = new ScaledTextCache(MeasureScaledText);
     }
+
+    public FontManager Fonts { get; }
 
     public bool IsDisposed { get; private set; }
 
@@ -260,7 +263,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     {
         density = NormalizeDensity(density);
         var typeface = new Typeface(Font, Style, Weight);
-        return CreateSKFont(_shapedGlyph?.Typeface ?? typeface.ToSkia(), density);
+        return CreateSKFont(_shapedGlyph?.Typeface ?? Fonts.ResolveSkia(typeface), density);
     }
 
     private SKFont CreateSKFont(SKTypeface typeface, float density)
@@ -314,7 +317,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         if (entry.Text is null)
         {
-            entry.Text = new FormattedText
+            entry.Text = new FormattedText(Fonts)
             {
                 Font = Font,
                 Style = Style,
@@ -370,10 +373,10 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             buffer.Direction = HarfBuzzSharp.Direction.TopToBottom;
         rightToLeft = buffer.Direction == HarfBuzzSharp.Direction.RightToLeft;
         bool letterSpacing = Orientation != TextRunOrientation.Horizontal && Spacing != 0;
-        long revision = FontManager.Instance.Revision;
+        long revision = Fonts.Revision;
         if (_fontRuns is null || _fontRunsRevision != revision || !ReferenceEquals(_fontRunsPrimary, font.Typeface))
         {
-            _fontRuns = TextFontFallback.GetRuns(Text.AsSpan(), font, Style, Weight);
+            _fontRuns = TextFontFallback.GetRuns(Fonts, Text.AsSpan(), font, Style, Weight);
             _fontRunsPrimary = font.Typeface;
             _fontRunsRevision = revision;
         }
@@ -673,7 +676,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private void MeasureAndSetField()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        long revision = FontManager.Instance.Revision;
+        long revision = Fonts.Revision;
         if (_isDirty || _fontRevision != revision)
         {
             Measure();
@@ -714,7 +717,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     public bool Equals(FormattedText? other)
     {
-        return Weight == other?.Weight
+        return ReferenceEquals(Fonts, other?.Fonts)
+               && Weight == other?.Weight
                && Style == other?.Style
                && Font.Equals(other?.Font)
                && Size == other?.Size
@@ -730,6 +734,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     public override int GetHashCode()
     {
         HashCode hash = new();
+        hash.Add(Fonts);
         hash.Add(Weight);
         hash.Add(Style);
         hash.Add(Font);

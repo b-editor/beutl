@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
@@ -9,15 +8,15 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
 {
     private readonly TextElement[] _array;
 
-    public TextElements(IEnumerable<TextElement> items)
-        : this(items.ToArray())
+    public TextElements(FontManager fonts, IEnumerable<TextElement> items)
+        : this(fonts, items.ToArray())
     {
     }
 
-    internal TextElements(TextElement[] array)
+    internal TextElements(FontManager fonts, TextElement[] array)
     {
         _array = array;
-        Lines = new LineEnumerable(array);
+        Lines = new LineEnumerable(fonts, array);
     }
 
     public TextElement this[int index] => ((IReadOnlyList<TextElement>)_array)[index];
@@ -52,9 +51,11 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
     {
         private readonly TextElement[] _array;
         private FormattedText[]? _formattedTexts;
+        private readonly FontManager _fonts;
 
-        internal LineEnumerable(TextElement[] array)
+        internal LineEnumerable(FontManager fonts, TextElement[] array)
         {
+            _fonts = fonts;
             _array = array;
         }
 
@@ -94,7 +95,7 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
                 var formattedTexts = new FormattedText[count];
                 foreach (ref FormattedText item in formattedTexts.AsSpan())
                 {
-                    item = new FormattedText();
+                    item = new FormattedText(_fonts);
                 }
 
                 Span<FormattedText> span = formattedTexts;

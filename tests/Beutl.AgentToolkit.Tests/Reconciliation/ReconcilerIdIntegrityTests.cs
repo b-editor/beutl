@@ -59,7 +59,7 @@ public sealed class ReconcilerIdIntegrityTests
         JsonObject desiredElement = desired["Elements"]!.AsArray()[0]!.AsObject();
         desiredElement[nameof(Element.Objects)] = new JsonArray(repairedJson);
 
-        var reconciler = new Reconciler();
+        var reconciler = new Reconciler(TestFonts.Manager);
         ReconcileResult result = reconciler.Apply(session, desired);
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
         byte[] repairedBytes = File.ReadAllBytes(elementPath);

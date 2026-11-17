@@ -32,19 +32,19 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     private readonly IServiceProvider? _editor;
 
     public LibraryTabViewModel(IServiceProvider editor)
-        : this(editor.GetRequiredService<LibraryService>(), editor.GetRequiredService<GlobalConfiguration>().EditorConfig, editor)
+        : this(editor.GetRequiredService<Beutl.Media.FontManager>(), editor.GetRequiredService<LibraryService>(), editor.GetRequiredService<GlobalConfiguration>().EditorConfig, editor)
     {
     }
 
     // The editor gives the gallery's thumbnails the frame its preview shows; without one they show the samples.
-    public LibraryTabViewModel(LibraryService libraryService, EditorConfig configuration, IServiceProvider? editor = null)
+    public LibraryTabViewModel(Beutl.Media.FontManager fonts, LibraryService libraryService, EditorConfig configuration, IServiceProvider? editor = null)
     {
         _libraryService = libraryService;
         _configuration = configuration;
         _editor = editor;
         _lifetimeToken = _lifetimeCancellation.Token;
         _preview = LibraryPreviewCapture.Create(editor);
-        Thumbnails = new LibraryThumbnailSet(_preview == null ? null : _preview.CaptureAsync);
+        Thumbnails = new LibraryThumbnailSet(fonts, _preview == null ? null : _preview.CaptureAsync);
         _disposables.Add(Thumbnails);
         ObservePreview();
 

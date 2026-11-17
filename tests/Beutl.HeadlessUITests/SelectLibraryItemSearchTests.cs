@@ -125,7 +125,7 @@ public sealed class SelectLibraryItemSearchTests
     [AvaloniaTest]
     public async Task Show_all_lists_only_types_the_editor_can_create()
     {
-        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.Library, "Beutl.HeadlessUITests.PickerProbe", typeof(ILibraryPickerProbe));
+        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library, "Beutl.HeadlessUITests.PickerProbe", typeof(ILibraryPickerProbe));
         using var showAll = viewModel.ShowAll;
         using var searchText = viewModel.SearchText;
 
@@ -142,7 +142,7 @@ public sealed class SelectLibraryItemSearchTests
     {
         var host = new Button { Content = "Pick" };
         var window = new Window { Content = host, Width = 320, Height = 480 };
-        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
         using var showAll = viewModel.ShowAll;
         using var searchText = viewModel.SearchText;
         var flyout = new LibraryItemPickerFlyout(viewModel);
@@ -174,7 +174,7 @@ public sealed class SelectLibraryItemSearchTests
     {
         var host = new Button { Content = "Pick" };
         var window = new Window { Content = host, Width = 320, Height = 480 };
-        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
         using var showAll = viewModel.ShowAll;
         using var searchText = viewModel.SearchText;
         try
@@ -228,7 +228,7 @@ public sealed class SelectLibraryItemSearchTests
     {
         var host = new Button { Content = "Pick" };
         var window = new Window { Content = host, Width = 320, Height = 480 };
-        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
         using var showAll = viewModel.ShowAll;
         using var searchText = viewModel.SearchText;
         try
@@ -267,7 +267,7 @@ public sealed class SelectLibraryItemSearchTests
     {
         var host = new Button { Content = "Pick" };
         var window = new Window { Content = host, Width = 320, Height = 480 };
-        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
         using var showAll = viewModel.ShowAll;
         using var searchText = viewModel.SearchText;
         try
@@ -300,7 +300,7 @@ public sealed class SelectLibraryItemSearchTests
     {
         var host = new Button { Content = "Pick" };
         var window = new Window { Content = host, Width = 320, Height = 480 };
-        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
         using var showAll = viewModel.ShowAll;
         using var searchText = viewModel.SearchText;
         try
@@ -389,7 +389,7 @@ public sealed class SelectLibraryItemSearchTests
         Task<PinnableLibraryItem[]> preferred, Task<PinnableLibraryItem[]> all)
     {
         Assert.That(TestShell.Library.GetTypesFromFormat(KnownLibraryItemFormats.Drawable), Is.Not.Empty);
-        return new SelectLibraryItemDialogViewModel(TestShell.Library, KnownLibraryItemFormats.Drawable, typeof(Drawable), preferred, all);
+        return new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library, KnownLibraryItemFormats.Drawable, typeof(Drawable), preferred, all);
     }
 
     private static TaskCompletionSource<PinnableLibraryItem[]> CreateCompletion()

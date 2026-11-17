@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using AvaPoint = Avalonia.Point;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -6,7 +7,6 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Testing.Headless;
-using AvaPoint = Avalonia.Point;
 using RelativeUnit = Beutl.Graphics.RelativeUnit;
 
 namespace Beutl.HeadlessUITests;
@@ -343,6 +343,7 @@ public class VectorBoxDragTests
             editor.ValueConfirmed += (_, _) => Confirmed++;
             Window = new Window { Content = new Border { Focusable = focusableParent, Child = editor }, Width = 520, Height = 120 };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
+            Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
             Window.Show();
             HeadlessTestHelpers.Render(3);
         }

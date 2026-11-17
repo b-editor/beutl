@@ -340,7 +340,7 @@ public sealed class GpuPassFusionScaleRegionTests
             Width = { Value = requestedRegion.Width },
             Height = { Value = requestedRegion.Height },
         };
-        using Geometry.Resource geometry = ellipse.ToResource(CompositionContext.Default);
+        using Geometry.Resource geometry = ellipse.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         using var clip = canvas.PushClip(geometry);
 
         Assert.That(() => renderer.Render(canvas), Throws.Nothing);
@@ -587,7 +587,7 @@ public sealed class GpuPassFusionScaleRegionTests
         public MixedDensityNode()
         {
             Typeface typeface = TypefaceProvider.Typeface();
-            _text = new FormattedText
+            _text = new FormattedText(TestFonts.Manager)
             {
                 Font = typeface.FontFamily,
                 Style = typeface.Style,
@@ -974,7 +974,7 @@ public sealed class GpuPassFusionScaleRegionTests
         {
             _geometry = PathGeometry.Parse(
                 "M18.25,83.6 C51.75,12.4 119.5,96.2 174.4,22.75");
-            _geometryResource = _geometry.ToResource(CompositionContext.Default);
+            _geometryResource = _geometry.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
             var pen = new Pen
             {
                 Thickness = { Value = 1.25f },
@@ -982,7 +982,7 @@ public sealed class GpuPassFusionScaleRegionTests
                 StrokeCap = { Value = StrokeCap.Round },
                 StrokeJoin = { Value = StrokeJoin.Round },
             };
-            _penResource = pen.ToResource(CompositionContext.Default);
+            _penResource = pen.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
             _source = new GeometryRenderNode(_geometryResource, null, _penResource);
         }
 

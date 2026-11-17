@@ -219,7 +219,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void LineEnumerable_Dispose_DisposesContainedFormattedTexts()
     {
-        using TextElements elements = new(
+        using TextElements elements = new(TestFonts.Manager,
         [
             new TextElement { Size = 24, Text = "ABC" }
         ]);
@@ -240,7 +240,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void LineEnumerable_GetEnumerator_AfterDispose_ThrowsObjectDisposedException()
     {
-        using TextElements elements = new(
+        using TextElements elements = new(TestFonts.Manager,
         [
             new TextElement { Size = 24, Text = "ABC" }
         ]);
@@ -253,7 +253,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void TextElements_Dispose_DisposesLineEnumerable()
     {
-        using TextElements elements = new(
+        using TextElements elements = new(TestFonts.Manager,
         [
             new TextElement { Size = 24, Text = "ABC" }
         ]);
@@ -268,7 +268,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void TextElements_Dispose_IsIdempotent()
     {
-        using TextElements elements = new(
+        using TextElements elements = new(TestFonts.Manager,
         [
             new TextElement { Size = 24, Text = "ABC" }
         ]);
@@ -287,7 +287,7 @@ public class FormattedTextDisposalTests
         tb.Text.Value = "ABC";
         tb.Fill.Value = Brushes.White;
 
-        using TextBlock.Resource resource = tb.ToResource(CompositionContext.Default);
+        using TextBlock.Resource resource = tb.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         TextElements elements = resource.GetTextElements();
         foreach (Span<FormattedText> line in elements.Lines)
         {
@@ -312,12 +312,12 @@ public class FormattedTextDisposalTests
         tb.Text.Value = "ABC";
         tb.Fill.Value = Brushes.White;
 
-        using TextBlock.Resource resource = tb.ToResource(CompositionContext.Default);
+        using TextBlock.Resource resource = tb.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         TextElements elements = resource.GetTextElements();
 
         tb.Text.Value = "DEF";
         bool versionBumped = false;
-        resource.Reconcile(tb, CompositionContext.Default, ref versionBumped);
+        resource.Reconcile(tb, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref versionBumped);
 
         Assert.That(elements.IsDisposed, Is.True,
             "Old TextElements must be disposed when text changes so FormattedText Skia handles are released deterministically.");

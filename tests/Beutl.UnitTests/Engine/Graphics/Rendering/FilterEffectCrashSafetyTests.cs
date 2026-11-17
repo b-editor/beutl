@@ -41,7 +41,7 @@ public sealed class FilterEffectCrashSafetyTests
                 Fill = { Value = Brushes.Red },
                 FilterEffect = { Value = effect },
             };
-            using Drawable.Resource drawable = shape.ToResource(CompositionContext.Default);
+            using Drawable.Resource drawable = shape.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
             using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
                 drawable,
                 new PixelSize(200, 100),
@@ -88,7 +88,7 @@ public sealed class FilterEffectCrashSafetyTests
             StrengthX = { Value = float.NaN },
             StrengthY = { Value = float.MaxValue }
         };
-        feCtx.ApplyTransactional(effect.ToResource(new CompositionContext(MediaTime.Zero)));
+        feCtx.ApplyTransactional(effect.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }));
 
         using var builder = new SKImageFilterBuilder();
         using var executor = new FilterEffectExecutor(
@@ -138,7 +138,7 @@ public sealed class FilterEffectCrashSafetyTests
             };
             using var feCtx = new FilterEffectContext(new Rect(0, 0, 0, 0));
             var effect = new PixelSortEffect();
-            feCtx.ApplyTransactional(effect.ToResource(new CompositionContext(MediaTime.Zero)));
+            feCtx.ApplyTransactional(effect.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }));
 
             using var builder = new SKImageFilterBuilder();
             using var executor = new FilterEffectExecutor(
@@ -173,6 +173,6 @@ public sealed class FilterEffectCrashSafetyTests
         text.FontFamily.Value = typeface.FontFamily;
         text.FontStyle.Value = typeface.Style;
         text.FontWeight.Value = typeface.Weight;
-        return text.ToResource(CompositionContext.Default);
+        return text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 }

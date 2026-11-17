@@ -584,6 +584,7 @@ public class EditorHostFallbackTests
         using var notifications = new NotificationCapture();
 
         ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+        Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
 
         try
         {

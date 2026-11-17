@@ -41,7 +41,7 @@ public partial class TransitionRenderTests
             Scene scene = CreateStripedScene(transition);
             foreach (float scale in new[] { 1f, 0.5f })
             {
-                using var renderer = new SceneRenderer(scene, RenderIntent.Delivery, renderScale: scale);
+                using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, renderScale: scale);
                 Bgra8888[] atCut = Sample(0.42);
                 Sample(0.8);
                 Bgra8888[] afterSeek = Sample(0.42);
@@ -79,7 +79,7 @@ public partial class TransitionRenderTests
                 var halfBlue = Color.FromArgb(128, 0, 0, 255);
                 (Scene scene, RectShape incoming) = CreateScene(transition, withOutgoing, CreateRect(halfBlue));
                 incoming.Fill.Value = new SolidColorBrush(halfBlue);
-                using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
+                using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
                 renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
                 using Bitmap snapshot = renderer.Snapshot();
                 using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
@@ -105,7 +105,7 @@ public partial class TransitionRenderTests
             incoming.AlignmentX.Value = AlignmentX.Left;
             incoming.AlignmentY.Value = AlignmentY.Top;
             incoming.Transform.Value = new TranslateTransform(8, 4);
-            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.75)));
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
@@ -130,7 +130,7 @@ public partial class TransitionRenderTests
             incoming.AlignmentX.Value = AlignmentX.Left;
             incoming.AlignmentY.Value = AlignmentY.Top;
             incoming.Transform.Value = new TranslateTransform(40, 12);
-            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery, renderScale: scale);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, renderScale: scale);
             foreach (double progress in new[] { 0, 0.75, 1 })
             {
                 renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
@@ -162,7 +162,7 @@ public partial class TransitionRenderTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             Scene scene = CreateStripedScene(new WhipPanTransition { Direction = { Value = direction } });
-            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
@@ -230,7 +230,7 @@ public partial class TransitionRenderTests
             });
             scene.Children.Add(caption);
 
-            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
             string? root = Environment.GetEnvironmentVariable("BEUTL_HEADLESS_CAPTURE_DIR");
             int frameCount = root is { Length: > 0 } && zoomTileMode == null ? 61 : 3;
             string name = zoomTileMode is { } mode ? $"{type.Name}-{mode}" : type.Name;

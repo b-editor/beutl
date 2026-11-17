@@ -130,7 +130,7 @@ public sealed class ReferencedSceneApplyTests
             CreateNestedSceneSession();
         using (session)
         {
-            var reconciler = new Reconciler();
+            var reconciler = new Reconciler(TestFonts.Manager);
             JsonObject desired = session.Documents.Read(parent);
             writeReference(parent, child, GetDrawableNode(desired));
 
@@ -154,7 +154,7 @@ public sealed class ReferencedSceneApplyTests
         using (session)
         {
             IHierarchical? childParentBefore = ((IHierarchical)child).HierarchicalParent;
-            var reconciler = new Reconciler();
+            var reconciler = new Reconciler(TestFonts.Manager);
             JsonObject desired = session.Documents.Read(parent);
             GetDrawableNode(desired)["Expressions"] = new JsonObject
             {
@@ -181,7 +181,7 @@ public sealed class ReferencedSceneApplyTests
         (AgentToolkitTestSession session, Scene parent, _, _) = CreateNestedSceneSession();
         using (session)
         {
-            var reconciler = new Reconciler();
+            var reconciler = new Reconciler(TestFonts.Manager);
             JsonObject desired = session.Documents.Read(parent);
             ((JsonArray)desired["Elements"]!).Add(new JsonObject
             {
@@ -215,7 +215,7 @@ public sealed class ReferencedSceneApplyTests
         (AgentToolkitTestSession session, Scene parent, Scene child, _) = CreateNestedSceneSession();
         using (session)
         {
-            var reconciler = new Reconciler();
+            var reconciler = new Reconciler(TestFonts.Manager);
             JsonObject desired = session.Documents.Read(parent);
             ((JsonArray)desired["Elements"]!).Add(new JsonObject
             {

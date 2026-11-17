@@ -14,6 +14,7 @@ public sealed class TestApp : Application
     private const int BuiltInExtensionPackageId = 0;
 
     private MainViewModel? _mainViewModel;
+    internal Beutl.Media.FontManager Fonts { get; }
     internal GlobalConfiguration Configuration { get; } = new();
     internal Beutl.Services.LibraryService Library { get; } = new();
     internal Beutl.Editor.Services.ObjectTemplateService Templates { get; }
@@ -25,10 +26,11 @@ public sealed class TestApp : Application
     {
         Tutorials = new Beutl.Services.Tutorials.TutorialServiceHandler(Configuration.TutorialConfig);
         Beutl.Media.Decoding.DecoderRegistry.Initialize(Configuration.ExtensionConfig);
-        Beutl.Media.FontManager.Instance.Initialize(Configuration.FontConfig);
-        Templates = new(Configuration.EditorConfig, Configuration.ProxyStoreConfig);
+        Fonts = new Beutl.Media.FontManager(Configuration.FontConfig);
+        Templates = new(Fonts, Configuration.EditorConfig, Configuration.ProxyStoreConfig);
         Services = new Beutl.Editor.Services.EditorServiceRegistry()
             .Add(() => Configuration)
+            .Add(() => Fonts)
             .AddOwned(() => new Beutl.Services.AppUpdateController(Configuration.UpdateConfig))
             .Add(() => Library)
             .Add(() => Templates)
@@ -38,8 +40,15 @@ public sealed class TestApp : Application
 
     public override void Initialize()
     {
+        Beutl.Testing.Headless.ControlHost.ConfigureWindow = window =>
+        {
+            if (Beutl.Controls.ControlFonts.GetFonts(window) is null)
+                Beutl.Controls.ControlFonts.SetFonts(window, Fonts);
+            if (Beutl.Controls.ControlConfiguration.GetConfiguration(window) is null)
+                Beutl.Controls.ControlConfiguration.SetConfiguration(window, Configuration);
+        };
         AvaloniaXamlLoader.Load(this);
-        App.RegisterBundledEngineFonts();
+        App.RegisterBundledEngineFonts(Fonts);
     }
 
     public override void RegisterServices()

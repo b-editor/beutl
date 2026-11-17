@@ -41,16 +41,16 @@ public class ResourceRelocationServiceTests
     public void FontSearchDirectories_AreTheFoldersTheFontManagerLoaded()
     {
         string projectFonts = Path.Combine(_projectDir, "resources", "fonts");
-        IReadOnlyList<string> loaded = FontManager.Instance.FontDirectories;
         var configuration = new FontConfig();
-        FontManager.Instance.Initialize(configuration);
+        var fonts = new FontManager(configuration);
+        IReadOnlyList<string> loaded = fonts.FontDirectories;
         ObservableCollection<string> configured = configuration.FontDirectories;
         string added = Path.Combine(_testDir, "added-fonts");
         configured.Add(added);
         try
         {
             Assert.That(
-                ResourceRelocationService.FontSearchDirectories(projectFonts),
+                ResourceRelocationService.FontSearchDirectories(fonts, projectFonts),
                 Is.EqualTo(new[] { projectFonts }.Concat(loaded)));
         }
         finally
@@ -145,7 +145,7 @@ public class ResourceRelocationServiceTests
         var service = new ResourceRelocationService(fontFileFinder);
         var fonts = new[] { new FontFamily("UnknownFamily") };
 
-        RelocationResult result = await service.RelocateFontsAsync(fonts, _projectDir);
+        RelocationResult result = await service.RelocateFontsAsync(TestFonts.Manager, fonts, _projectDir);
 
         Assert.Multiple(() =>
         {
@@ -169,7 +169,7 @@ public class ResourceRelocationServiceTests
         });
         var fonts = new[] { new FontFamily("GoodFamily"), new FontFamily("BadFamily") };
 
-        RelocationResult result = await service.RelocateFontsAsync(fonts, _projectDir);
+        RelocationResult result = await service.RelocateFontsAsync(TestFonts.Manager, fonts, _projectDir);
 
         Assert.Multiple(() =>
         {
@@ -189,7 +189,7 @@ public class ResourceRelocationServiceTests
         var service = new ResourceRelocationService(_ => new[] { sharedPath });
         var fonts = new[] { new FontFamily("Family1"), new FontFamily("Family2") };
 
-        RelocationResult result = await service.RelocateFontsAsync(fonts, _projectDir);
+        RelocationResult result = await service.RelocateFontsAsync(TestFonts.Manager, fonts, _projectDir);
 
         Assert.Multiple(() =>
         {
@@ -266,7 +266,7 @@ public class ResourceRelocationServiceTests
         cts.Cancel();
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-            await service.RelocateFontsAsync(fonts, _projectDir, cts.Token));
+            await service.RelocateFontsAsync(TestFonts.Manager, fonts, _projectDir, cts.Token));
     }
 
     [Test]
@@ -274,7 +274,7 @@ public class ResourceRelocationServiceTests
     {
         var service = new ResourceRelocationService(_ => []);
 
-        RelocationResult result = await service.RelocateFontsAsync([], _projectDir);
+        RelocationResult result = await service.RelocateFontsAsync(TestFonts.Manager, [], _projectDir);
 
         Assert.Multiple(() =>
         {
@@ -303,7 +303,7 @@ public class ResourceRelocationServiceTests
         Environment.SetEnvironmentVariable("HOME", home);
         try
         {
-            RelocationResult result = await new ResourceRelocationService().RelocateFontsAsync(
+            RelocationResult result = await new ResourceRelocationService().RelocateFontsAsync(TestFonts.Manager,
                 [new FontFamily("Beutl Test Variable")], _projectDir);
 
             Assert.Multiple(() =>

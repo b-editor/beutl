@@ -60,7 +60,7 @@ public class MediaThumbnailThreadingTests
         async Task ReadAsync()
         {
             if (video)
-                await foreach (var (_, _, thumbnail) in provider.GetThumbnailStripAsync(100, 25, null)) thumbnail.Dispose();
+                await foreach (var (_, _, thumbnail) in provider.GetThumbnailStripAsync(TestShell.FontManager, 100, 25, null)) thumbnail.Dispose();
             else
                 await foreach (var chunk in provider.GetWaveformChunksAsync(10, 128, null)) { }
         }

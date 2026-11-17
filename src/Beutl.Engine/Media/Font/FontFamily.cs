@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
+using SkiaSharp;
 
 namespace Beutl.Media;
 
@@ -9,11 +9,23 @@ namespace Beutl.Media;
 [TypeConverter(typeof(FontFamilyConverter))]
 public class FontFamily(string familyname) : IEquatable<FontFamily?>
 {
-    public static FontFamily Default => FontManager.Instance.DefaultTypeface.FontFamily;
+    private static readonly Lazy<FontFamily> s_default = new(() =>
+    {
+        SKTypeface face = OperatingSystem.IsLinux() ? DefaultFontResolver.Resolve() : SKTypeface.Default;
+        try
+        {
+            return new FontFamily(face.FamilyName);
+        }
+        finally
+        {
+            if (!ReferenceEquals(face, SKTypeface.Default))
+                face.Dispose();
+        }
+    });
+
+    public static FontFamily Default => s_default.Value;
 
     public string Name { get; } = familyname;
-
-    public IEnumerable<Typeface> Typefaces => FontManager.Instance.GetTypefaces(this);
 
     public override bool Equals(object? obj)
     {

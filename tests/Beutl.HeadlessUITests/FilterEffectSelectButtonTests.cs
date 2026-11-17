@@ -20,15 +20,15 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using BtlPoint = Beutl.Graphics.Point;
 using Moq;
 using Reactive.Bindings;
-using static Beutl.HeadlessUITests.PropertyEditorTestHost;
-using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.HeadlessUITests;
 
@@ -326,6 +326,7 @@ public sealed class FilterEffectSelectButtonTests
         var factory = new PropertyEditorFactoryAdapter(extensions);
         var host = new Mock<IEditorContext>();
         host.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+        host.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         host.Setup(h => h.GetService(It.IsAny<Type>())).Returns((Type type) =>
             type == typeof(IEditorSelection) ? selection :
             type == typeof(IPropertyEditorFactory) ? factory :

@@ -40,7 +40,7 @@ public sealed class GeometryShapePlacementTests
         element.AddObject(shape);
         scene.Children.Add(element);
 
-        var renderer = new StillRenderer();
+        var renderer = new StillRenderer(TestFonts.Manager);
         RenderStillResponse response = await renderer.RenderAsync(
             scene,
             MediaTime.FromSeconds(1),

@@ -8,9 +8,9 @@ internal static class TextFontFallback
 {
     internal readonly record struct Run(SKTypeface Typeface, int Start, int Length);
 
-    public static List<Run> GetRuns(ReadOnlySpan<char> text, SKFont primary, FontStyle style, FontWeight weight)
+    public static List<Run> GetRuns(FontManager manager, ReadOnlySpan<char> text, SKFont primary, FontStyle style, FontWeight weight)
     {
-        (FontFamily[] families, FontFamily? emoji) = FontManager.Instance.GetFallbackFamilies();
+        (FontFamily[] families, FontFamily? emoji) = manager.GetFallbackFamilies();
         if (families.Length == 0 && emoji is null)
             return text.IsEmpty ? [] : [new Run(primary.Typeface, 0, text.Length)];
 
@@ -140,7 +140,7 @@ internal static class TextFontFallback
         {
             if (!fonts.TryGetValue(typeface, out SKFont? font))
             {
-                font = FontManager.Instance.TryResolveSkia(typeface, out SKTypeface face) ? new SKFont(face) : null;
+                font = manager.TryResolveSkia(typeface, out SKTypeface face) ? new SKFont(face) : null;
                 fonts.Add(typeface, font);
             }
             return font;

@@ -78,7 +78,7 @@ public class NodeGraphPackageTests
             project = CoreSerializer.RestoreFromUri<Project>(project.Uri);
             string package = Path.Combine(root, "shared.beutl");
 
-            ExportResult exported = await ProjectPackageService.Current.ExportAsync(project, package);
+            ExportResult exported = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, package);
 
             Assert.That(exported.Success, Is.True);
             Assert.That(exported.FailedResources, Is.Empty);

@@ -15,10 +15,10 @@ using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Logging;
 using Beutl.Pages;
 using Beutl.Views.Tools;
+using Icon = FluentIcons.Common.Icon;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Refit;
-using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.ViewModels.Tools;
 
@@ -460,6 +460,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         var dialog = new SettingsDialog { DataContext = vm };
         ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(owner));
         ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(owner));
+        ControlFonts.SetFonts(dialog, ControlFonts.GetFonts(owner));
         vm.GoToAccountSettingsPage();
         await dialog.ShowDialog(owner);
     }

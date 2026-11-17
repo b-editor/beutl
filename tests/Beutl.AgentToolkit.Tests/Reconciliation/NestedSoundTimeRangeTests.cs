@@ -19,12 +19,12 @@ public sealed class NestedSoundTimeRangeTests
     public void Nested_sound_applied_via_apply_edit_receives_element_time_range()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager);
+        var tools = new EditTools(manager, TestFonts.Manager);
 
         JsonObject addElement = new()
         {
@@ -78,12 +78,12 @@ public sealed class NestedSoundTimeRangeTests
     public void Nested_sound_inserted_together_with_its_drawable_receives_element_time_range()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager);
+        var tools = new EditTools(manager, TestFonts.Manager);
 
         JsonObject patch = new()
         {
@@ -117,7 +117,7 @@ public sealed class NestedSoundTimeRangeTests
     public void Apply_edit_keeps_existing_objects_attached_to_the_hierarchy()
     {
         string root = TestWorkspace.CreateDirectory();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
         var element = new Element

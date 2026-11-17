@@ -6,19 +6,19 @@ using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
+using static Beutl.HeadlessUITests.GitTestSupport;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
+using static Beutl.Testing.Headless.HeadlessTestHelpers;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.ExtensionsPages;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
-using static Beutl.HeadlessUITests.GitTestSupport;
-using static Beutl.Testing.Headless.HeadlessTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -152,7 +152,7 @@ public class VersionControlSaveTests
             {
                 entered.TrySetResult();
                 await release.Task.WaitAsync(token);
-                await new Beutl.Editor.MissingMediaService().UpdateFingerprintsAsync(value, token);
+                await new Beutl.Editor.MissingMediaService(TestShell.FontManager).UpdateFingerprintsAsync(value, token);
             };
             if (saveAll) await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
             else await TestShell.MainViewModel.MenuBar.Save.ExecuteAsync();
@@ -1275,7 +1275,7 @@ public class VersionControlSaveTests
 
         public ValueTask<bool> SaveAsync() => saveAsync();
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext

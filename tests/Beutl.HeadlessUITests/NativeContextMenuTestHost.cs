@@ -19,12 +19,12 @@ using Beutl.Configuration;
 using Beutl.Controls.NativeContextMenu;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Graphics.Shapes;
+using static Beutl.HeadlessUITests.MacNative;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 using Dock.Avalonia.Controls;
 using FluentAvalonia.UI.Controls;
-using static Beutl.HeadlessUITests.MacNative;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
@@ -114,6 +114,7 @@ internal static partial class NativeContextMenuTestHost
         };
         window.Position = PlaceOnLastScreen(window);
         Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+        Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
         window.Show();
         await WaitAsync(500);
 
@@ -468,6 +469,7 @@ internal static partial class NativeContextMenuTestHost
         };
         window.Position = PlaceOnLastScreen(window);
         Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+        Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
         window.Show();
 
         // A clip can run far past the window's edge.

@@ -1,14 +1,12 @@
 ﻿using System.Runtime.InteropServices;
-
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
-
 using static Beutl.Media.TextFormatting.FormattedTextParser;
 using static Beutl.Media.TextFormatting.FormattedTextTokenizer;
 
 namespace Beutl.Graphics.Shapes;
 
-public class TextElementsBuilder(FormattedTextInfo initialOptions)
+public class TextElementsBuilder(FontManager fonts, FormattedTextInfo initialOptions)
 {
     private readonly List<TextElement> _elements = [];
     private readonly Stack<FontFamily> _fontFamily = [];
@@ -137,7 +135,7 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
             if (!noParse && token.Type == TokenType.TagStart &&
                 TryParseTag(token.Text, out TagInfo tag))
             {
-                if (tag.TryGetFont(out FontFamily? font1))
+                if (tag.TryGetFont(fonts, out FontFamily? font1))
                     PushFontFamily(font1);
                 else if (tag.TryGetSize(out float size1))
                     PushSize(size1);

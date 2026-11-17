@@ -1,8 +1,6 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Editor.Components.Helpers;
 using Beutl.Extensibility;
-
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Editor;
@@ -130,7 +128,7 @@ public class ToolTabReuseTests
         {
         }
 
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : null;
 
         public void ReadFromJson(JsonObject json)
         {
@@ -149,7 +147,7 @@ public class ToolTabReuseTests
 
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext

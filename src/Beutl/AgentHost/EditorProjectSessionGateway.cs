@@ -5,6 +5,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.AgentHost;
 
@@ -165,7 +166,7 @@ public sealed class EditorProjectSessionGateway(
                 scene.Id.Value.ToString()));
         }
 
-        return LiveEditingSession.Create(new EditViewModelLiveBinding(editViewModel, follower));
+        return LiveEditingSession.Create(new EditViewModelLiveBinding(editViewModel, follower), editViewModel.GetRequiredService<Beutl.Media.FontManager>());
     }
 
     // Call only on the UI thread. An open project also exposes scenes whose tabs are closed;

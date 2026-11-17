@@ -2,8 +2,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+
 #if DEBUG
 using Avalonia.Diagnostics;
+
 #endif
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
@@ -33,9 +35,9 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
+using LibraryService = Beutl.Services.LibraryService;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl;
 
@@ -50,6 +52,7 @@ public sealed class App : Application
     private readonly ObjectTemplateService _objectTemplateService;
     private readonly ITutorialService _tutorialService;
     private readonly GlobalConfiguration _configuration;
+    private readonly Media.FontManager _fonts;
     private readonly AppUpdateController _appUpdateController;
     private readonly ColorPaletteService _colorPalettes = ColorPaletteService.CreateDefault();
     private readonly EditorServiceRegistry _appServices;
@@ -70,11 +73,12 @@ public sealed class App : Application
         _tutorialService = new TutorialServiceHandler(configuration.TutorialConfig);
         _appUpdateController = new AppUpdateController(configuration.UpdateConfig);
         Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
-        Beutl.Media.FontManager.Instance.Initialize(configuration.FontConfig);
-        _objectTemplateService = new(configuration.EditorConfig, configuration.ProxyStoreConfig);
+        _fonts = new Media.FontManager(configuration.FontConfig);
+        _objectTemplateService = new(_fonts, configuration.EditorConfig, configuration.ProxyStoreConfig);
         _sessionId = sessionId;
         _appServices = new EditorServiceRegistry()
             .Add(() => _configuration)
+            .Add(() => _fonts)
             .Add(() => _appUpdateController)
             .Add(() => _libraryService)
             .Add(() => _objectTemplateService)
@@ -98,7 +102,7 @@ public sealed class App : Application
 #if DEBUG
         this.AttachDeveloperTools();
 #endif
-        RegisterBundledEngineFonts();
+        RegisterBundledEngineFonts(_fonts);
         _startUp = GetMainViewModel().RunStartupTask();
         _sideloadExtensionTask = _startUp.GetTask<LoadSideloadExtensionTask>();
         _startUp.WaitAll().ContinueWith(_ => _startUp = null);
@@ -118,9 +122,9 @@ public sealed class App : Application
     }
 
     // The same fonts and order as the UI, shared with the standalone MCP server (Beutl.AgentToolkit).
-    internal static void RegisterBundledEngineFonts()
+    internal static void RegisterBundledEngineFonts(Media.FontManager fonts)
     {
-        Media.BundledFonts.Apply(Media.FontManager.Instance, CultureInfo.CurrentUICulture);
+        Media.BundledFonts.Apply(fonts, CultureInfo.CurrentUICulture);
     }
 
     private void ApplyDockStringOverrides()
@@ -219,6 +223,7 @@ public sealed class App : Application
 
             ColorPaletteService.SetService(desktop.MainWindow, _colorPalettes);
             ControlConfiguration.SetConfiguration(desktop.MainWindow, _configuration);
+            ControlFonts.SetFonts(desktop.MainWindow, _fonts);
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
             desktop.Exit += (_, _) =>
             {
@@ -270,6 +275,7 @@ public sealed class App : Application
                 page = new ExtensionsPage { DataContext = viewModel };
                 ColorPaletteService.SetService(page, _colorPalettes);
                 ControlConfiguration.SetConfiguration(page, _configuration);
+                ControlFonts.SetFonts(page, _fonts);
                 page.Closed += (_, _) => viewModel.Dispose();
                 page.OpenPackage(package, request.Version);
                 _ = page.ShowDialog(mainWindow);

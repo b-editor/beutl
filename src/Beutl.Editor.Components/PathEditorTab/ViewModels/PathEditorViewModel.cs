@@ -42,7 +42,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
             .DisposeWith(_disposables);
 
         var drawableResource = Drawable
-            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
+            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c), EditorContext.GetRequiredService<FontManager>())
             .Publish(null).RefCount();
 
         GeometryResource = drawableResource
@@ -147,7 +147,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         // 図形の編集用エディターを展開する。
         context.ExpandForEditing();
 
-        var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value));
+        var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value) { Fonts = EditorContext.GetRequiredService<FontManager>() });
         Avalonia.Matrix matrix = CalculateMatrix(shapeResource).ToAvaMatrix();
         if (matrix.TryInvert(out Avalonia.Matrix inverted)
             && shapeResource is GeometryShape.Resource { Data: PathGeometry.Resource pathData } geometryShapeResource

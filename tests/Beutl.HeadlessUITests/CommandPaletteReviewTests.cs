@@ -4,12 +4,12 @@ using System.Runtime.CompilerServices;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
+using static Beutl.HeadlessUITests.CommandPaletteTestHost;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Moq;
-using static Beutl.HeadlessUITests.CommandPaletteTestHost;
 
 namespace Beutl.HeadlessUITests;
 
@@ -40,6 +40,7 @@ public sealed class CommandPaletteReviewTests
             await UntilAsync(() => waiting);
             var context = new Mock<IEditorContext>();
             context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+            context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
             context.SetupGet(item => item.Object).Returns(new Scene());
             context.SetupGet(item => item.Extension).Returns(SceneEditorExtension.Instance);
             editor.SelectedTabItem.Value = new EditorTabItem(context.Object);

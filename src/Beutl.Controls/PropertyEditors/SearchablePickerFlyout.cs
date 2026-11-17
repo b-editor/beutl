@@ -27,6 +27,9 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
             NoResultsText = NoResultsText
         };
 
+        if (viewModel is FontFamilyPickerFlyoutViewModel fonts)
+            ControlFonts.SetFonts(pfp, fonts.Fonts);
+
         pfp.Pinned += viewModel.Pin;
         pfp.Unpinned += viewModel.Unpin;
         pfp.Items = viewModel.Items;

@@ -132,5 +132,5 @@ public sealed class SceneSnapshotTests
     }
 
     private static string? EvaluateText(Scene scene, int elementIndex = 0)
-        => ((TextBlock)scene.Children[elementIndex].Objects.Single()).Text.Evaluate(new CompositionContext(MediaTime.Zero));
+        => ((TextBlock)scene.Children[elementIndex].Objects.Single()).Text.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 }

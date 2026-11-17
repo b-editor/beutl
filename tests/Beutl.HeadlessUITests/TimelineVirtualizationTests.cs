@@ -735,6 +735,7 @@ public sealed class TimelineVirtualizationTests
         }
 
         public async IAsyncEnumerable<(int Index, int Count, Beutl.Media.Bitmap Thumbnail)> GetThumbnailStripAsync(
+            Beutl.Media.FontManager fonts,
             int maxWidth, int maxHeight, IThumbnailCacheService? cacheService = null,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default,
             int startIndex = 0, int endIndex = -1)
@@ -771,6 +772,7 @@ public sealed class TimelineVirtualizationTests
             buffer.SetupGet(x => x.CacheBlocks).Returns(new ReactivePropertySlim<CacheBlock[]>([]));
             var context = new Mock<IEditorContext>();
             context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+            context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
             context.Setup(x => x.GetService(typeof(ITimelineOptionsProvider))).Returns(_options);
             context.Setup(x => x.GetService(typeof(IEditorClock))).Returns(_clock);
             context.Setup(x => x.GetService(typeof(IEditorSelection))).Returns(Selection);

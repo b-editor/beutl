@@ -40,7 +40,7 @@ public class SilenceWaveformTests
         Element element = AddReference(scene, referenced);
         var observed = new HashSet<Scene>();
         var chunks = new List<WaveformChunk>();
-        await foreach (var chunk in SilenceWaveform.GetChunksAsync(scene, element, 100, observeScene: value => observed.Add(value)))
+        await foreach (var chunk in SilenceWaveform.GetChunksAsync(TestFonts.Manager, scene, element, 100, observeScene: value => observed.Add(value)))
             chunks.Add(chunk);
         Assert.That(chunks, Has.Count.EqualTo(100));
         Assert.That(chunks.All(c => c.MaxValue > 0.4f), Is.True, "The stored empty scene must not replace the expression's audio.");
@@ -71,7 +71,7 @@ public class SilenceWaveformTests
         var element = new Element { Length = { Value = MediaTime.FromSeconds(3) } };
         element.Objects.Add(new SceneSound { ReferencedScene = { Value = referenced } });
         scene.Children.Add(element);
-        await using var reader = SilenceWaveform.GetChunksAsync(scene, element, 150).GetAsyncEnumerator();
+        await using var reader = SilenceWaveform.GetChunksAsync(TestFonts.Manager, scene, element, 150).GetAsyncEnumerator();
         Assert.That(await reader.MoveNextAsync(), Is.True);
         referenced.Children.Clear();
         sound.Gain.Value = 0;
@@ -154,7 +154,7 @@ public class SilenceWaveformTests
         var element = new Element { Start = { Value = sound.TimeRange.Value.Start }, Length = { Value = sound.TimeRange.Value.Duration } };
         element.Objects.Add(sound);
         scene.Children.Add(element);
-        return SilenceWaveform.GetChunksAsync(scene, element, count, ct);
+        return SilenceWaveform.GetChunksAsync(TestFonts.Manager, scene, element, count, ct);
     }
 
     [Test, Explicit("Writes a 30 minute PCM file for an end-to-end throughput measurement.")]

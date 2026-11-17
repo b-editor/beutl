@@ -14,6 +14,7 @@ internal static class NodeGraphTestContext
     {
         var editor = new Mock<IEditorContext>();
         editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+        editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         editor.Setup(x => x.GetService(typeof(IPropertyEditorFactory)))
             .Returns(new Mock<IPropertyEditorFactory>().Object);
         if (mutation is not null)
