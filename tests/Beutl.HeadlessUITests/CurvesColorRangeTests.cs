@@ -4,6 +4,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.VisualTree;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.CurvesTab.Services;
 using Beutl.Editor.Components.CurvesTab.ViewModels;
 using Beutl.Editor.Components.CurvesTab.Views;
@@ -145,6 +147,72 @@ public sealed class CurvesColorRangeTests
             {
                 Assert.That(curves.HueVsSaturation.Value, Is.EqualTo(Level(0.5f)));
                 Assert.That(model.RangeValue.Value, Is.EqualTo(100).Within(0.1), "The box follows the undo.");
+            });
+        }
+        finally
+        {
+            curvesView.DataContext = null;
+            window.Close();
+        }
+    }
+
+    // A box being typed in keeps its text while the curve changes some other way, as by a drag of its points: the value
+    // shown would reach it as typing and shape the curve again, and the box would confirm it when it lost the focus.
+    [AvaloniaTest]
+    public async Task A_box_with_the_focus_does_not_shape_a_curve_changed_some_other_way()
+    {
+        TestGpu.RequireAnyDevice();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("curves-color-range-focus", FrameWidth, FrameHeight);
+        var curves = new Curves();
+        await TestShell.AddElementAsync(editor, () => CreateShape(curves), MediaTime.Zero, MediaTime.FromSeconds(2));
+
+        using var model = new CurvesTabViewModel(editor);
+        model.Effect.Value = curves;
+        model.SelectedGroup.Value = CurveGroup.HueVsSaturation;
+        var curvesView = new CurvesTabView { DataContext = model };
+        var playerView = new PlayerView { DataContext = editor.Player };
+        var layout = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
+        Grid.SetColumn(curvesView, 1);
+        layout.Children.Add(playerView);
+        layout.Children.Add(curvesView);
+        var window = new Window { Content = layout, Width = 1000, Height = 500 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            await RenderThread.Dispatcher.InvokeAsync(static () => { });
+            HeadlessTestHelpers.Render(2);
+            HeadlessTestHelpers.Click(curvesView.FindControl<ToggleButton>("PickColorButton")!);
+            AvaPoint left = OnFrame(playerView, window, 16, 16);
+            window.MouseMove(left);
+            window.MouseDown(left, MouseButton.Left);
+            window.MouseUp(left, MouseButton.Left);
+            await HeadlessTestHelpers.WaitUntilAsync(() => model.HasPickedColor.Value, message: "No color was picked.");
+            HeadlessTestHelpers.Render(2);
+
+            var box = curvesView.FindControl<NumberEditor<float>>("RangeValueEditor")!;
+            TextBox text = box.GetVisualDescendants().OfType<TextBox>().First();
+            text.Focus();
+            HeadlessTestHelpers.Settle();
+            Assert.That(text.IsKeyboardFocusWithin, Is.True);
+            int undoCount = editor.HistoryManager.UndoCount;
+
+            CurveMap changed = Level(0.3f);
+            curves.HueVsSaturation.Value = changed;
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(curves.HueVsSaturation.Value, Is.EqualTo(changed), "The curve was shaped again.");
+                Assert.That(text.Text, Is.EqualTo("100"), "The box keeps what it showed while it has the focus.");
+            });
+
+            curvesView.FindControl<ToggleButton>("PickColorButton")!.Focus();
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(curves.HueVsSaturation.Value, Is.EqualTo(changed), "Losing the focus confirmed a value.");
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+                Assert.That(text.Text, Is.EqualTo("60"), "The box shows the curve once it loses the focus.");
             });
         }
         finally

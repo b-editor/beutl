@@ -25,6 +25,8 @@ public partial class CurvesTabView : UserControl
         RangeWidthEditor.ValueConfirmed += (_, e) => WithFloat(e, (vm, value) => vm.ConfirmRangeWidth(value));
         RangeValueEditor.ValueChanged += (_, e) => WithFloat(e, (vm, value) => vm.PreviewRangeValue(value));
         RangeValueEditor.ValueConfirmed += (_, e) => WithFloat(e, (vm, value) => vm.ConfirmRangeValue(value));
+        RangeWidthEditor.LostFocus += (_, _) => ShowValue(RangeWidthEditor, (DataContext as CurvesTabViewModel)?.RangeWidth.Value);
+        RangeValueEditor.LostFocus += (_, _) => ShowValue(RangeValueEditor, (DataContext as CurvesTabViewModel)?.RangeValue.Value);
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -38,10 +40,10 @@ public partial class CurvesTabView : UserControl
                 .DisposeWith(_subscriptions);
             // NumberEditor<float> takes no binding from XAML.
             viewModel.RangeWidth
-                .Subscribe(width => RangeWidthEditor.Value = width)
+                .Subscribe(width => ShowValue(RangeWidthEditor, width))
                 .DisposeWith(_subscriptions);
             viewModel.RangeValue
-                .Subscribe(value => RangeValueEditor.Value = value)
+                .Subscribe(value => ShowValue(RangeValueEditor, value))
                 .DisposeWith(_subscriptions);
         }
         else
@@ -74,6 +76,15 @@ public partial class CurvesTabView : UserControl
                 RoutingStrategies.Tunnel,
                 handledEventsToo: true)
             : null;
+    }
+
+    // A value reaches a box as text, and a box with the keyboard focus takes a change of its text for typing, which it
+    // reports as an edit and confirms when it loses the focus. A box being typed in therefore keeps its text until then,
+    // so that a curve changed meanwhile, as by a drag of its points, is not shaped again with a value nobody entered.
+    private static void ShowValue(NumberEditor<float> editor, float? value)
+    {
+        if (value is { } shown && !editor.IsKeyboardFocusWithin)
+            editor.Value = shown;
     }
 
     private void WithFloat(PropertyEditorValueChangedEventArgs e, Action<CurvesTabViewModel, float> apply)
