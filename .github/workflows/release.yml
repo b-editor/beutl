@@ -55,7 +55,6 @@ jobs:
     with:
       platforms: ${{ toJSON(fromJSON(needs.determine-version.outputs.releaseMatrices).flatpak) }}
       semVer: ${{ needs.determine-version.outputs.semVer }}
-      nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
 
   build-app-bundle:
     needs: [ determine-version ]

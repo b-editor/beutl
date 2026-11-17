@@ -11,9 +11,6 @@ on:
       semVer:
         required: true
         type: string
-      nugetVer:
-        required: true
-        type: string
 
 defaults:
   run:
@@ -60,7 +57,7 @@ jobs:
       - name: Stage source for flatpak-builder
         run: |
           mkdir -p packages/flatpak/sources/Beutl-linux-standalone
-          unzip -q "${{ github.workspace }}/artifacts/Beutl-linux-${{ matrix.arch }}-standalone-${{ inputs.nugetVer }}.zip" \
+          unzip -q "${{ github.workspace }}/artifacts/Beutl-linux-${{ matrix.arch }}-standalone-${{ inputs.semVer }}.zip" \
             -d packages/flatpak/sources/Beutl-linux-standalone
 
       - name: Update asset metadata
