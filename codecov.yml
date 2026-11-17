@@ -14,8 +14,8 @@ coverage:
       default:
         threshold: 0.05%
 
-# The coverage job runs on Linux and cannot execute the Windows WebView2 COM handler, the WebView2, WKWebView and
-# WebKitGTK/WPE interop that needs a native web view, the macOS-only NSBundle read of the installed Safari's version,
+# The Windows shard covers new-window requests. The Linux shards cannot execute the WebView2 download handler,
+# the WebView2, WKWebView and WebKitGTK/WPE interop that needs a native web view, the macOS-only Safari version lookup,
 # the Windows-only loader for the FreeType font manager in Beutl's libSkiaSharp, the Windows-only DXGI and display
 # configuration queries for the HDR preview, the preview swapchain's Vulkan calls on a native window's surface, the
 # Windows-only XAudio2 playback sink, nor the macOS-only Metal/MoltenVK interop that pairs Skia's Metal queue with the

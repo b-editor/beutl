@@ -37,7 +37,8 @@ public class BrowserNewTabReferrerTests
         using var opener = new WebBrowserTabViewModel(editor.Mock.Object, page, profile);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
         { DataContext = opener, OpensPageDownloadOptionsDirectly = false };
-        beforeRequest?.Invoke(view);
+        if (beforeRequest == null) view.OnNativeNewWindowRequested(request, page.AbsoluteUri);
+        else beforeRequest(view);
         var args = new WebViewNewWindowRequestedEventArgs { Request = request };
         view.OnNewWindowRequested(null, args);
         Assert.That(args.Handled, Is.True);
@@ -135,6 +136,7 @@ public class BrowserNewTabReferrerTests
         if (webKit) view.OnNativeNavigationCommitted(s_downloadPage);
 
         var args = new WebViewNewWindowRequestedEventArgs { Request = new Uri("https://files.example/sounds/123") };
+        view.OnNativeNewWindowRequested(args.Request!, s_downloadPage.AbsoluteUri);
         view.OnNewWindowRequested(native, args);
 
         Assert.That(args.Handled, Is.True);
@@ -186,7 +188,7 @@ public class BrowserNewTabReferrerTests
         finally { window.Close(); }
     }
 
-    // macOS reports the referrer WebKit computed for the request, which a noreferrer link leaves out.
+    // WebKit reports the referrer it computed for the request, which a noreferrer link leaves out.
     [AvaloniaTest]
     [TestCase(null, null)]
     [TestCase("https://materials.example/sounds/detail/123?from=list", "https://materials.example/")]
@@ -201,10 +203,38 @@ public class BrowserNewTabReferrerTests
         Assert.That(opened.TakeOpenerReferrer(), Is.EqualTo(expected == null ? null : new Uri(expected)));
     }
 
-    // WKWebView and WebKitGTK ask only their own delegates for a page's window.open(), and the handlers report it.
-    // It opens a tab as a link with target="_blank" does: Linux sends the page's origin, macOS what WebKit computed.
     [AvaloniaTest]
-    [TestCase(false, null, "https://materials.example/")]
+    [TestCase("https://materials.example/embed/7", "https://materials.example/", (int)BrowserReferrerPolicy.SameOrigin)]
+    [TestCase("https://player.example/embed/7", "https://player.example/", (int)BrowserReferrerPolicy.Origin)]
+    [TestCase(null, null, (int)BrowserReferrerPolicy.NoReferrer)]
+    public async Task WebKitMediaDownloadsKeepTheReferrerPermissionShownByTheFirstRequest(string? reported, string? expected, int policy)
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), s_page, profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
+        { DataContext = vm };
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = s_page, IsSuccess = true });
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(temporary.Path, false));
+
+        var media = new Uri(s_origin, "/track.mp3");
+        view.OnNativeNewWindowRequested(media, reported);
+        var request = new WebViewNewWindowRequestedEventArgs { Request = media };
+        view.OnNewWindowRequested(null, request);
+        await HeadlessTestHelpers.WaitUntilAsync(() => profile.Downloads.Count == 1);
+
+        Assert.That(request.Handled, Is.True);
+        Assert.That(handler.Referrer?.AbsoluteUri, Is.EqualTo(expected));
+        Assert.That(profile.Downloads.Single().ReferrerPolicy, Is.EqualTo((BrowserReferrerPolicy)policy));
+    }
+
+    // WKWebView and WebKitGTK ask only their own delegates for a page's window.open(), and the handlers report it.
+    // Both paths use the referrer reported for this specific request.
+    [AvaloniaTest]
+    [TestCase(false, null, null)]
     [TestCase(true, null, null)]
     [TestCase(true, "https://materials.example/sounds/detail/123?from=list", "https://materials.example/")]
     public void AWindowThePageOpensBecomesANewTab(bool reported, string? referrer, string? expected)
@@ -228,14 +258,14 @@ public class BrowserNewTabReferrerTests
     }
 
     [AvaloniaTest]
-    public void AReportForAnotherRequestLeavesThePagesOrigin()
+    public void AReportForAnotherRequestDoesNotAuthorizeAReferrer()
     {
         using var temporary = new TemporaryDirectory();
         var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
         using WebBrowserTabViewModel opened = OpenFrom(profile, s_page, s_downloadPage,
-            view => view.OnNativeNewWindowRequested(new Uri("https://downloads.example/other"), null));
+            view => view.OnNativeNewWindowRequested(new Uri("https://downloads.example/other"), s_page.AbsoluteUri));
 
-        Assert.That(opened.TakeOpenerReferrer(), Is.EqualTo(s_origin));
+        Assert.That(opened.TakeOpenerReferrer(), Is.Null);
     }
 
     // On Linux the downloader requests a file again when the first navigation turns into one.
@@ -327,6 +357,27 @@ public class BrowserNewTabReferrerTests
             Assert.That(navigations, Is.EqualTo(new[] { (s_downloadPage, s_origin) }));
             Assert.That(native!.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage), "A Source would drop the referrer.");
         });
+    }
+
+    [AvaloniaTest]
+    public async Task AddressEnteredDuringWindowsAdapterStartupReplacesTheAdBlockSessionsInitialAddress()
+    {
+        using var temporary = new TemporaryDirectory();
+        using var filters = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
+        BrowserProfile profile = await CreateAdBlockingProfileAsync(temporary.Path, filters);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), s_page, profile);
+        var native = new NativeWebView();
+        using var view = new WebBrowserTabView(_ => native, () => (true, null, false)) { DataContext = vm };
+        view.OnAdapterDestroyed(native, new WebViewAdapterEventArgs(Mock.Of<IWindowsWebView2PlatformHandle>()));
+
+        vm.Address.Value = s_downloadPage.AbsoluteUri;
+        view.NavigateFromAddress();
+        view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
+        BrowserAdBlockSession session = AdBlockSessionOf(view);
+        session.Attach(s_unknownWebView);
+        await HeadlessTestHelpers.WaitUntilAsync(() => !session.IsPreparing);
+
+        Assert.That(native.Source, Is.EqualTo(s_downloadPage));
     }
 
     [AvaloniaTest]

@@ -15,6 +15,7 @@ internal static unsafe partial class WindowsReferrerNavigation
 {
     internal static bool TryNavigate(IWindowsWebView2PlatformHandle handle, Uri uri, string referrer, Action fallback)
     {
+        // The adapter lends this reference for the synchronous call.
         nint webView = handle.CoreWebView2;
         if (webView == 0) return false;
         void* completed = null;
@@ -39,7 +40,6 @@ internal static unsafe partial class WindowsReferrerNavigation
         finally
         {
             if (completed != null) ComInterfaceMarshaller<IDevToolsMethodCompletedHandler>.Free(completed);
-            Marshal.Release(webView);
         }
     }
 

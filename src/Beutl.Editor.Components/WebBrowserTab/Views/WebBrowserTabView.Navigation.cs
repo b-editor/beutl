@@ -77,6 +77,7 @@ internal partial class WebBrowserTabView
         }
 
         _latestNavigationRequest = e.Request;
+        if (_nativeBrowserHandler is WindowsBrowserDownloadHandler windows) windows.BeginDocument(e.Request);
 
         // WebKit reports subframe policy decisions here without frame identity; only the macOS delegate
         // can filter them here. The WebKit backends report main-frame load starts separately.
@@ -269,7 +270,7 @@ internal partial class WebBrowserTabView
         return title;
     }
 
-    // macOS reports the request of a new window just before Avalonia raises NewWindowRequested for it.
+    // The WebKit hook reports the request immediately before the adapter opens the window.
     internal void OnNativeNewWindowRequested(Uri request, string? referrer)
     {
         if (!_disposed) _nativeNewWindow = (request, Uri.TryCreate(referrer, UriKind.Absolute, out Uri? uri) ? uri : null);
@@ -285,42 +286,34 @@ internal partial class WebBrowserTabView
 
     internal void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
     {
+        // WebView2 delivers the window name only to its native handler, after Avalonia's callback.
+        if (_nativeBrowserHandler is WindowsBrowserDownloadHandler { HandlesNewWindows: true }) return;
         (Uri Request, Uri? Referrer)? native = _nativeNewWindow;
         _nativeNewWindow = null;
-        if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
-            && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
-        {
-            e.Handled = true;
-            return;
-        }
+        if (e.Request is { } request)
+            e.Handled = OpenWindow(request, native is { } report && report.Request == request ? report.Referrer : null);
+    }
 
-        // WebKit leaves the referrer out for a noreferrer link or a no-referrer policy. Without its report, the
-        // opening page sends its origin, as it does for downloads.
-        Uri? page = DocumentReferrer;
-        bool noReferrer = false;
-        if (native is { } reported && reported.Request == e.Request)
+    private bool OpenWindow(Uri request, Uri? page, BrowserReferrerPolicy? reportedPolicy = null)
+    {
+        if (request != WebBrowserTabViewModel.BlankPage && !BrowserMediaDownload.IsHttpUri(request)) return true;
+        // WebKit only reports the header for the first hop. A same-origin hop grants no permission for a cross-origin redirect.
+        BrowserReferrerPolicy policy = reportedPolicy ?? (page != null && BrowserMediaDownload.IsSameOrigin(page, request)
+            ? BrowserReferrerPolicy.SameOrigin : BrowserReferrerPolicy.Origin);
+        Uri? referrer = BrowserMediaDownload.NormalizeReferrer(page, request, policy);
+        if (BrowserMediaDownload.IsMediaLink(request))
         {
-            page = reported.Referrer;
-            noReferrer = page == null;
+            QueuePageDownloadRequest(request, null, referrer == null ? BrowserReferrerPolicy.NoReferrer : policy, referrer: referrer);
+            return true;
         }
-
-        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
-        {
-            e.Handled = true;
-            QueuePageDownloadRequest(mediaUri, null, noReferrer ? BrowserReferrerPolicy.NoReferrer : BrowserReferrerPolicy.Origin);
-            return;
-        }
-
-        if (e.Request is { } request
-            && _viewModel?.TryOpenNewTab(request, BrowserMediaDownload.NormalizeReferrer(page, request)) == true)
-        {
-            e.Handled = true;
-        }
+        return _viewModel?.TryOpenNewTab(request, referrer) == true;
     }
 
     // Ad blocking holds a new tab's first navigation until its rules are in place.
     private void ResumeNavigation(NativeWebView webView, Uri uri)
     {
+        // The adapter will resume the latest address entered while it was starting.
+        if (_pendingWindowsAddress != null) return;
         if (_openerNavigation?.Uri == uri)
         {
             _openerNavigationIssued = false;
@@ -449,7 +442,7 @@ internal partial class WebBrowserTabView
             }
             InvalidatePageDownloadRequests(navigationStarted: true);
             _viewModel.BeginNavigation(uri);
-            _webView.Navigate(uri);
+            if (!HoldWindowsAddress(uri)) _webView.Navigate(uri);
         }
     }
 

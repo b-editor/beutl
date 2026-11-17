@@ -12,10 +12,12 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
+using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Testing.Headless;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Moq;
 
 namespace Beutl.HeadlessUITests;
 
@@ -42,6 +44,15 @@ internal static class NativeBrowserFrameTestHost
         int exitCode = 1;
         try
         {
+            if (scenario == "--native-browser-referrers")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var referrerTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
+                await CheckNewTabReferrersAsync(window, referrerTimeout.Token);
+                exitCode = 0;
+                return;
+            }
             using var temporary = new TemporaryDirectory();
             var webView = new NativeWebView();
             webView.EnvironmentRequested += (_, e) =>
@@ -158,6 +169,261 @@ internal static class NativeBrowserFrameTestHost
         Assert.That(states, Is.EqualTo(new[] { true, false }));
     }
 
+    private static async Task CheckNewTabReferrersAsync(Window window, CancellationToken token)
+    {
+        await using var server = WebApplication.CreateSlimBuilder().Build();
+        server.Urls.Add("http://127.0.0.1:0");
+        var requests = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        var probeReferrer = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.MapGet("/referrer-probe", (HttpContext context) =>
+        {
+            probeReferrer.TrySetResult(context.Request.Headers.Referer.ToString());
+            return Results.NoContent();
+        });
+        var loading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finishLoad = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.MapGet("/defer", async () =>
+        {
+            loading.TrySetResult();
+            await finishLoad.Task.WaitAsync(token);
+            return Results.NoContent();
+        });
+        server.MapGet("/opened", (HttpContext context) =>
+        {
+            requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
+            return Results.Content("<title>Opened</title>", "text/html");
+        });
+        server.MapGet("/media.mp3", (HttpContext context) =>
+        {
+            requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
+            return Results.Redirect($"http://localhost:{context.Connection.LocalPort}/track.mp3");
+        });
+        server.MapGet("/track.mp3", (HttpContext context) =>
+        {
+            requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
+            return Results.Bytes("ID3sample"u8.ToArray(), "audio/mpeg");
+        });
+        server.MapGet("/attachment", (HttpContext context) =>
+        {
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            return Results.Bytes("file"u8.ToArray(), "application/octet-stream", "sample.zip");
+        });
+        server.MapGet("/source", (HttpContext context) =>
+        {
+            if (context.Request.Query.ContainsKey("header")) context.Response.Headers["Referrer-Policy"] = "origin, no-referrer";
+            string meta = context.Request.Query.ContainsKey("meta") ? "<meta name='referrer' content='no-referrer'>" : "";
+            string delay = context.Request.Query.ContainsKey("loading") ? "<img src='/defer'>" : "";
+            string destination = context.Request.Query.ContainsKey("same") ? "/opened" : $"http://localhost:{context.Connection.LocalPort}/opened";
+            return Results.Content($"{meta}<a href='{destination}' target='_blank'>open</a>{delay}", "text/html");
+        });
+        await server.StartAsync(token);
+        var origin = new Uri(server.Urls.Single());
+        var browser = new NativeWebView();
+        var editor = new Mock<IEditorContext>();
+        using var vm = new WebBrowserTabViewModel(editor.Object, WebBrowserTabViewModel.BlankPage);
+        using var opener = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        using var downloads = new TemporaryDirectory();
+        var attachmentOffered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        opener.DownloadOptionsSelector = (uri, _) =>
+        {
+            if (uri.AbsolutePath != "/attachment")
+                return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(downloads.Path, false));
+            attachmentOffered.TrySetResult();
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
+        var openedHost = new ContentControl();
+        window.Content = new Grid { Children = { opener, openedHost } };
+        WebBrowserTabViewModel? opened = null;
+        WebBrowserTabView? openedView = null;
+        int count = 0;
+        editor.Setup(x => x.OpenToolTab(It.IsAny<IToolContext>())).Returns<IToolContext>(tab =>
+        {
+            count++;
+            openedView?.Dispose();
+            opened?.Dispose();
+            opened = (WebBrowserTabViewModel)tab;
+            openedHost.Content = openedView = new WebBrowserTabView { DataContext = opened };
+            return true;
+        });
+
+        async Task Load(string query, Func<Task>? whileLoading = null)
+        {
+            Uri uri = new(origin, "/source?" + query);
+            var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Loaded(object? sender, WebViewNavigationCompletedEventArgs e)
+            {
+                if (e.IsSuccess && e.Request == uri) done.TrySetResult();
+            }
+            browser.NavigationCompleted += Loaded;
+            try
+            {
+                vm.Address.Value = uri.AbsoluteUri;
+                opener.NavigateFromAddress();
+                if (whileLoading != null)
+                {
+                    await loading.Task.WaitAsync(token);
+                    try { await whileLoading(); }
+                    finally { finishLoad.TrySetResult(); }
+                }
+                await done.Task.WaitAsync(token);
+            }
+            finally { browser.NavigationCompleted -= Loaded; }
+        }
+
+        async Task Check(string script, string expected)
+        {
+            int before = count;
+            await browser.InvokeScript(script);
+            string header = await requests.Reader.ReadAsync(token);
+            Assert.That(header, Is.EqualTo(expected), script);
+            Assert.That(count, Is.EqualTo(before + 1), script);
+            await opened!.IsLoading.FirstAsync(loading => !loading).ToTask(token);
+        }
+
+        async Task CheckMediaRedirect(string policy, string expectedRedirect)
+        {
+            int before = vm.Profile.Downloads.Count;
+            await browser.InvokeScript($$"""
+                (() => {
+                    const a = document.createElement('a');
+                    a.href = '/media.mp3?{{policy}}';
+                    a.target = '_blank';
+                    a.referrerPolicy = '{{policy}}';
+                    document.body.append(a);
+                    a.click();
+                    a.remove();
+                })()
+                """);
+            Assert.That(await requests.Reader.ReadAsync(token), Is.EqualTo(origin.AbsoluteUri), policy);
+            Assert.That(await requests.Reader.ReadAsync(token), Is.EqualTo(expectedRedirect), policy);
+            while (vm.Profile.Downloads.Count == before) await Task.Delay(20, token);
+        }
+
+        try
+        {
+            await Load("normal&loading", async () =>
+            {
+                await Check("window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            });
+            await Check("document.querySelector('a').click()", origin.AbsoluteUri);
+            await Check("history.pushState({}, '', '/items?view=list'); document.querySelector('a').click()", origin.AbsoluteUri);
+            await Check("history.replaceState({}, '', '/items?view=grid'); window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            await Check("document.querySelector('a').rel='noreferrer'; document.querySelector('a').click()", "");
+            await Check("document.querySelector('a').rel=''; document.querySelector('a').referrerPolicy='same-origin'; document.querySelector('a').click()", "");
+            await Check("document.querySelector('a').referrerPolicy='no-referrer'; document.querySelector('a').click()", "");
+            await Check("window.open(document.querySelector('a').href, '_blank')", origin.AbsoluteUri);
+            await Check("window.open(document.querySelector('a').href, '_blank', 'noreferrer')", "");
+            await Check("window.open(document.querySelector('a').href, '_blank', 'noopener,NoReferrer')", "");
+            await Load("same");
+            await CheckMediaRedirect("same-origin", "");
+            if (OperatingSystem.IsWindows())
+            {
+                await Check("window.open(document.querySelector('a').href, 'preview')", origin.AbsoluteUri);
+                await Check("window.open(document.querySelector('a').href, 'preview', 'noreferrer')", "");
+                await Check("document.querySelector('a').target='preview'; document.querySelector('a').click()", origin.AbsoluteUri);
+                await Check("document.querySelector('a').referrerPolicy='no-referrer'; document.querySelector('a').click()", "");
+                int beforeFrame = count;
+                await browser.InvokeScript("""
+                    const frame = document.createElement('iframe');
+                    frame.name = 'preview';
+                    const frameUrl = new URL('/source', location.href);
+                    frameUrl.hostname = 'localhost';
+                    frame.src = frameUrl;
+                    document.body.append(frame);
+                    const link = document.querySelector('a');
+                    link.href = new URL('/opened', frameUrl);
+                    link.referrerPolicy = 'origin';
+                    """);
+                while (await browser.InvokeScript("document.querySelector('iframe').contentDocument === null") != "true")
+                    await Task.Delay(20, token);
+                await browser.InvokeScript("document.querySelector('a').click()");
+                Assert.That(await requests.Reader.ReadAsync(token), Is.EqualTo(origin.AbsoluteUri));
+                Assert.That(count, Is.EqualTo(beforeFrame), "The named link should navigate the existing iframe");
+                await Check("window.open(document.querySelector('a').href, 'otherPreview')", "");
+                await Check("window.open(document.querySelector('a').href, 'preview', 'noopener')", origin.AbsoluteUri);
+                await Check("document.querySelector('a').rel='noopener'; document.querySelector('a').click()", origin.AbsoluteUri);
+                await browser.InvokeScript("""
+                    document.querySelector('iframe').remove();
+                    document.querySelector('a').href = '/opened';
+                    document.querySelector('a').target = '_blank';
+                    document.querySelector('a').rel = '';
+                    document.querySelector('a').removeAttribute('referrerpolicy');
+                    """);
+                await Check("""
+                    document.querySelector('a').addEventListener('click', e => e.stopPropagation(), {once:true});
+                    document.querySelector('a').click()
+                    """, origin.AbsoluteUri);
+                await Check("""
+                    document.body.addEventListener('click', e => e.stopPropagation(), {once:true});
+                    document.body.addEventListener('click', e => e.target.referrerPolicy='no-referrer', {once:true});
+                    document.querySelector('a').click()
+                    """, "");
+                await Check("""
+                    document.body.addEventListener('click', e => { e.stopPropagation(); e.target.referrerPolicy='origin' }, {once:true, capture:true});
+                    document.querySelector('a').click()
+                    """, origin.AbsoluteUri);
+                await browser.InvokeScript("document.querySelector('a').removeAttribute('referrerpolicy')");
+                await CheckMediaRedirect("origin", origin.AbsoluteUri);
+                await browser.InvokeScript("location.assign('/attachment')");
+                await attachmentOffered.Task.WaitAsync(token);
+                await Check("window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            }
+            await Check("document.querySelector('a').click()", origin.AbsoluteUri);
+            await Check("window.addEventListener('click', e => e.target.rel='noreferrer', {once:true}); document.querySelector('a').click()", "");
+            await Load("meta");
+            await Check("document.querySelector('a').click()", "");
+            await Check("window.open(document.querySelector('a').href)", "");
+            await Check("document.querySelector('meta').remove(); window.open(document.querySelector('a').href)", "");
+            await Check("const m=document.createElement('meta'); m.name='referrer'; m.content='origin'; document.head.append(m); window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            await Check("document.querySelector('meta').content='invalid'; window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            await Check("document.querySelector('meta').content='no-referrer'; document.querySelector('meta').content='invalid'; window.open(document.querySelector('a').href)", "");
+            if (OperatingSystem.IsWindows())
+            {
+                await Load("normal");
+                // Let the observer deliver the removal before reusing the detached subtree.
+                await browser.InvokeScript("""
+                    window.referrerWrapper = document.createElement('div');
+                    document.head.append(window.referrerWrapper);
+                    window.referrerWrapper.remove();
+                    window.referrerWrapper.append(document.createElement('meta'));
+                    """);
+                Task popup = Check("""
+                    (() => {
+                        const wrapper = window.referrerWrapper;
+                        const meta = wrapper.firstElementChild;
+                        meta.name = 'referrer';
+                        meta.content = 'no-referrer';
+                        document.head.append(wrapper);
+                        meta.remove();
+                        fetch('/referrer-probe');
+                        window.open(document.querySelector('a').href);
+                    })()
+                    """, "");
+                Assert.That(await probeReferrer.Task.WaitAsync(token), Is.Empty, "Chromium's own request after removing the nested meta");
+                await popup;
+                await Check("""
+                    const permissive = document.createElement('meta');
+                    permissive.name = 'referrer';
+                    permissive.content = 'origin';
+                    document.head.append(permissive);
+                    window.open(document.querySelector('a').href)
+                    """, origin.AbsoluteUri);
+                await Check("document.querySelector('meta[name=referrer]').remove(); window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            }
+            await Load("header");
+            await Check("document.querySelector('a').click()", "");
+            await Check("history.pushState({}, '', '/items?view=grid'); document.querySelector('a').click()", "");
+            await Check("window.open(document.querySelector('a').href)", "");
+            await Check("document.querySelector('a').referrerPolicy='origin'; document.querySelector('a').click()", origin.AbsoluteUri);
+        }
+        finally
+        {
+            finishLoad.TrySetResult();
+            openedView?.Dispose();
+            opened?.Dispose();
+        }
+    }
+
     private static async Task CheckHistoryAsync(WebBrowserTabView view, NativeWebView webView,
         WebBrowserTabViewModel vm, CancellationToken token)
     {
@@ -234,18 +500,21 @@ internal static class NativeBrowserFrameTestHost
 [TestFixture]
 public class NativeBrowserFrameTests
 {
-    [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations")]
-    [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation")]
-    [Platform("MacOSX")]
+    [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations", IncludePlatform = "MacOSX")]
+    [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation", IncludePlatform = "MacOSX")]
+    [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
     public async Task NativeNavigation(string scenario)
     {
+        if (OperatingSystem.IsLinux() && (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"))
+            || !WebBrowserTabView.GetWebViewAvailability().IsAvailable))
+            Assert.Ignore("Native browser navigation requires an X display and a WebKit runtime.");
         var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
         start.ArgumentList.Add(typeof(NativeBrowserFrameTestHost).Assembly.Location);
         start.ArgumentList.Add(scenario);
         using Process process = Process.Start(start)!;
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario == "--native-browser-referrers" ? 90 : 60));
         try { await process.WaitForExitAsync(timeout.Token); }
         catch
         {
