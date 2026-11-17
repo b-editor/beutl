@@ -134,8 +134,10 @@ public sealed partial class CurvesTabViewModel
         UpdateColorRange();
     }
 
+    // Another effect can take the tab with the same curve shown, which keeps CanPickColor on, so the pick ends here.
     private void ClearColorRange()
     {
+        IsPickingColor.Value = false;
         CancelPick();
         _pickedColor = null;
         _rangeEdit = null;

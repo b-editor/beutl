@@ -154,6 +154,34 @@ public sealed class CurvesColorRangeTests
         }
     }
 
+    // Another effect that takes the tab keeps a hue curve shown and the eyedropper offered, so the pick of the first
+    // ends with it rather than leaving the button on and the preview waiting for nothing.
+    [AvaloniaTest]
+    public async Task Moving_the_tab_to_another_effect_ends_a_pick()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("curves-color-range-retarget", FrameWidth, FrameHeight);
+        var first = new Curves();
+        var second = new Curves();
+        await TestShell.AddElementAsync(editor, () => CreateShape(first), MediaTime.Zero, MediaTime.FromSeconds(2));
+        await TestShell.AddElementAsync(editor, () => CreateShape(second), MediaTime.Zero, MediaTime.FromSeconds(2), layer: 1);
+
+        using var model = new CurvesTabViewModel(editor);
+        model.Effect.Value = first;
+        model.SelectedGroup.Value = CurveGroup.HueVsHue;
+        model.IsPickingColor.Value = true;
+        Assert.That(editor.Player.PointPick.Value, Is.Not.Null, "The preview waits for a click.");
+
+        model.Effect.Value = second;
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.CanPickColor.Value, Is.True);
+            Assert.That(model.IsPickingColor.Value, Is.False);
+            Assert.That(editor.Player.PointPick.Value, Is.Null);
+        });
+    }
+
     private static CurveMap Level(float value) => new([new CurveControlPoint(0, value), new CurveControlPoint(1, value)]);
 
     private static RectShape CreateShape(Curves curves)
