@@ -31,6 +31,9 @@ public sealed class SkslSourceReadsTests
             "ReturnsTheCoordinate",
             "float2 f(float2 c) { return c; } half4 main(float2 c) { return src.eval(c) + half4(half2(f(c)), 0, 0); }");
         yield return Case(
+            "IndexesTheCoordinate",
+            "half4 main(float2 c) { return src.eval(c) * half(c[0] + c[int(c[1]) / 2 - int(c[1]) / 2]); }");
+        yield return Case(
             "GroupsTheCoordinateInExpressions",
             """
             half4 main(float2 c) {
@@ -58,6 +61,17 @@ public sealed class SkslSourceReadsTests
         yield return Case(
             "PassesTheCoordinateToAnInoutParameter",
             "void g(inout float2 p) { p += 1.0; } half4 main(float2 c) { g(c); return src.eval(c); }");
+        yield return Case(
+            "PassesTheCoordinateToAnOutParameter",
+            "void g(out float2 p) { p = float2(0); } half4 main(float2 c) { g(c); return src.eval(c); }");
+        yield return Case("AssignsAnIndexedComponent", "half4 main(float2 c) { c[1] = 0.0; return src.eval(c); }");
+        yield return Case(
+            "DeclaresTheCoordinateAfterAComma",
+            "half4 main(float2 c) { float2 a = c, c = float2(0); return src.eval(c) + half4(half2(a), 0, 0); }");
+        yield return Case("PreDecrementsAComponent", "half4 main(float2 c) { --c.x; return src.eval(c); }");
+        yield return Case("DecrementsAComponent", "half4 main(float2 c) { c.y--; return src.eval(c); }");
+        yield return Case("ShiftsAComponent", "half4 main(float2 c) { c.x <<= 1; return src.eval(c); }");
+        yield return Case("DeclaresMainWithoutABody", "half4 main(float2 c);");
         yield return Case(
             "AssignsTheCoordinateInParentheses",
             "half4 main(float2 c) { (c) = float2(0); return src.eval(c); }");
