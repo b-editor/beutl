@@ -277,15 +277,36 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 if (policy === 'same-origin') return url.origin === self.origin ? allowed + '-same-origin' : null;
                 return policy === 'no-referrer' ? null : allowed;
             }
+            function opensNewContext(target, noopener) {
+                if (!target) return false;
+                if (target.toLowerCase() === '_blank') return true;
+                if (target.startsWith('_')) return false;
+                if (noopener) return true;
+                // Beutl opens popups in independent WebViews. Keep the native name if a frame might already own it.
+                try {
+                    if (top.opener) return false;
+                    const frames = [top];
+                    while (frames.length) {
+                        const frame = frames.pop();
+                        if (frame.name === target) return false;
+                        for (let i = 0; i < frame.length; i++) frames.push(frame[i]);
+                    }
+                    return true;
+                } catch { return false; } // A cross-origin frame can hide a named target.
+            }
             const open = window.open;
             window.open = function(url, target, features) {
-                if (this && this !== window || !url || target && String(target).toLowerCase() !== '_blank')
-                    return Reflect.apply(open, this, arguments);
+                if (this && this !== window || !url) return Reflect.apply(open, this, arguments);
                 let destination;
                 try { destination = new URL(url, document.baseURI); } catch { return Reflect.apply(open, this, arguments); }
-                const flags = String(features ?? '').matchAll(/(?:^|[\s,=])noreferrer(?=[\s,=]|$)(?:\s*=\s*([^\s,=]+))?/gi);
-                const suppress = Array.from(flags).some(([, value]) => !['0', 'no', 'false'].includes(value?.toLowerCase()));
-                const name = !suppress && windowTarget(destination);
+                const flags = new Map();
+                const tokens = /([^\t\n\f\r ,=]+)(?:[\t\n\f\r ]*=[\t\n\f\r =]*([^\t\n\f\r ,=]*))?/g;
+                for (const [, key, value] of String(features ?? '').toLowerCase().matchAll(tokens)) {
+                    if (key === 'noopener' || key === 'noreferrer')
+                        flags.set(key, !value || value === 'yes' || value === 'true' || !!parseInt(value, 10));
+                }
+                const destinationTarget = target === undefined || target === '' ? '_blank' : String(target);
+                const name = !flags.get('noreferrer') && opensNewContext(destinationTarget, flags.get('noopener')) && windowTarget(destination);
                 return name ? open.call(window, destination.href, name, features) : Reflect.apply(open, this, arguments);
             };
             const pendingTargets = new WeakMap();
@@ -293,10 +314,11 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 const pending = pendingTargets.get(link);
                 const target = link.getAttribute('target');
                 const original = pending?.assigned === target ? pending.original : target;
-                if ((original ?? document.querySelector('base[target]')?.target)?.toLowerCase() !== '_blank') return;
-                const name = windowTarget(new URL(link.href), link);
+                const effectiveTarget = original ?? document.querySelector('base[target]')?.target ?? '';
+                const noopener = link.rel.toLowerCase().split(/[\t\n\f\r ]+/).includes('noopener');
+                const name = opensNewContext(effectiveTarget, noopener) && windowTarget(new URL(link.href), link);
                 if (!name && !pending) return;
-                const mark = {original, assigned: name || '_blank'};
+                const mark = {original, assigned: name || effectiveTarget};
                 pendingTargets.set(link, mark);
                 link.target = mark.assigned;
                 setTimeout(() => {

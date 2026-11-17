@@ -318,6 +318,37 @@ internal static class NativeBrowserFrameTestHost
             await CheckMediaRedirect("same-origin", "");
             if (OperatingSystem.IsWindows())
             {
+                await Check("window.open(document.querySelector('a').href, 'preview')", origin.AbsoluteUri);
+                await Check("window.open(document.querySelector('a').href, 'preview', 'noreferrer')", "");
+                await Check("document.querySelector('a').target='preview'; document.querySelector('a').click()", origin.AbsoluteUri);
+                await Check("document.querySelector('a').referrerPolicy='no-referrer'; document.querySelector('a').click()", "");
+                int beforeFrame = count;
+                await browser.InvokeScript("""
+                    const frame = document.createElement('iframe');
+                    frame.name = 'preview';
+                    const frameUrl = new URL('/source', location.href);
+                    frameUrl.hostname = 'localhost';
+                    frame.src = frameUrl;
+                    document.body.append(frame);
+                    const link = document.querySelector('a');
+                    link.href = new URL('/opened', frameUrl);
+                    link.referrerPolicy = 'origin';
+                    """);
+                while (await browser.InvokeScript("document.querySelector('iframe').contentDocument === null") != "true")
+                    await Task.Delay(20, token);
+                await browser.InvokeScript("document.querySelector('a').click()");
+                Assert.That(await requests.Reader.ReadAsync(token), Is.EqualTo(origin.AbsoluteUri));
+                Assert.That(count, Is.EqualTo(beforeFrame), "The named link should navigate the existing iframe");
+                await Check("window.open(document.querySelector('a').href, 'otherPreview')", "");
+                await Check("window.open(document.querySelector('a').href, 'preview', 'noopener')", origin.AbsoluteUri);
+                await Check("document.querySelector('a').rel='noopener'; document.querySelector('a').click()", origin.AbsoluteUri);
+                await browser.InvokeScript("""
+                    document.querySelector('iframe').remove();
+                    document.querySelector('a').href = '/opened';
+                    document.querySelector('a').target = '_blank';
+                    document.querySelector('a').rel = '';
+                    document.querySelector('a').removeAttribute('referrerpolicy');
+                    """);
                 await Check("""
                     document.querySelector('a').addEventListener('click', e => e.stopPropagation(), {once:true});
                     document.querySelector('a').click()
