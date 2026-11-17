@@ -41,6 +41,30 @@
   <data name="SaturationVsSaturation" xml:space="preserve">
     <value>Saturation vs Saturation</value>
   </data>
+  <data name="Curves_PickColor" xml:space="preserve">
+    <value>Pick a color from the preview, as it looks before this effect</value>
+  </data>
+  <data name="Curves_PickColorPrompt" xml:space="preserve">
+    <value>Click a color in the preview. Esc cancels.</value>
+  </data>
+  <data name="Curves_PickedColorTip" xml:space="preserve">
+    <value>Picked color, before this effect: hue {0}°, saturation {1}%, value {2}%</value>
+  </data>
+  <data name="Curves_ColorRange" xml:space="preserve">
+    <value>Range</value>
+  </data>
+  <data name="Curves_ColorRangeTip" xml:space="preserve">
+    <value>How wide a range of hues around the picked color the adjustment reaches. Colors outside it stay as they are.</value>
+  </data>
+  <data name="Curves_ColorRangeAmountTip" xml:space="preserve">
+    <value>The change at the picked color. It eases off toward the edges of the range.</value>
+  </data>
+  <data name="Curves_Luminance" xml:space="preserve">
+    <value>Luminance</value>
+  </data>
+  <data name="Curves_ClearPickedColor" xml:space="preserve">
+    <value>Clear the picked color</value>
+  </data>
   <data name="CreateNew" xml:space="preserve">
     <value>Create New</value>
   </data>

@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Collections.Specialized;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -25,10 +27,26 @@ public class CurveEditor : Control
     public static readonly StyledProperty<CurveVisualizationRenderer?> VisualizationRendererProperty =
         AvaloniaProperty.Register<CurveEditor, CurveVisualizationRenderer?>(nameof(VisualizationRenderer));
 
+    public static readonly StyledProperty<double?> MarkerPositionProperty =
+        AvaloniaProperty.Register<CurveEditor, double?>(nameof(MarkerPosition));
+
+    public static readonly StyledProperty<double> MarkerRangeProperty =
+        AvaloniaProperty.Register<CurveEditor, double>(nameof(MarkerRange));
+
+    public static readonly StyledProperty<double?> HoverPositionProperty =
+        AvaloniaProperty.Register<CurveEditor, double?>(nameof(HoverPosition));
+
     private static readonly IPen s_curvePen = new Pen(new SolidColorBrush(Color.FromArgb(200, 0, 122, 204)), 2).ToImmutable();
     private static readonly IPen s_axisPen = new Pen(new SolidColorBrush(Color.FromArgb(120, 255, 255, 255)), 1).ToImmutable();
     private static readonly IPen s_handleLinePen = new Pen(new SolidColorBrush(Color.FromArgb(150, 255, 200, 100)), 1).ToImmutable();
     private static readonly IBrush s_handleBrush = new SolidColorBrush(Color.FromArgb(200, 255, 200, 100)).ToImmutable();
+    private static readonly IBrush s_markerRangeBrush = new SolidColorBrush(Color.FromArgb(36, 255, 255, 255)).ToImmutable();
+    private static readonly IPen s_markerRangeEdgePen =
+        new Pen(new SolidColorBrush(Color.FromArgb(120, 255, 255, 255)), 1, new DashStyle([3, 3], 0)).ToImmutable();
+    private static readonly IPen s_markerShadowPen = new Pen(new SolidColorBrush(Color.FromArgb(110, 0, 0, 0)), 3).ToImmutable();
+    private static readonly IPen s_markerPen = new Pen(new SolidColorBrush(Color.FromArgb(235, 255, 255, 255)), 1.5).ToImmutable();
+    private static readonly IPen s_hoverPen =
+        new Pen(new SolidColorBrush(Color.FromArgb(180, 255, 255, 255)), 1, new DashStyle([2, 2], 0)).ToImmutable();
 
     private int _draggingIndex = -1;
     private DragTarget _dragTarget = DragTarget.None;
@@ -48,7 +66,7 @@ public class CurveEditor : Control
 
     static CurveEditor()
     {
-        AffectsRender<CurveEditor>(PointsProperty);
+        AffectsRender<CurveEditor>(PointsProperty, MarkerPositionProperty, MarkerRangeProperty, HoverPositionProperty);
     }
 
     public IList<CurveControlPoint>? Points
@@ -75,11 +93,41 @@ public class CurveEditor : Control
         set => SetValue(VisualizationRendererProperty, value);
     }
 
+    // Where a picked color stands on the curve, from 0 to 1, drawn as a line; null draws none.
+    public double? MarkerPosition
+    {
+        get => GetValue(MarkerPositionProperty);
+        set => SetValue(MarkerPositionProperty, value);
+    }
+
+    // The width of the band around the marker that the color's range covers, from 0 to 1. The band goes on at the
+    // other edge where it passes one, as hue does.
+    public double MarkerRange
+    {
+        get => GetValue(MarkerRangeProperty);
+        set => SetValue(MarkerRangeProperty, value);
+    }
+
+    // Where the color under an eyedropper stands, drawn as a dashed line; null draws none.
+    public double? HoverPosition
+    {
+        get => GetValue(HoverPositionProperty);
+        set => SetValue(HoverPositionProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
 
-        if (change.Property == VisualizationRendererProperty)
+        if (change.Property == PointsProperty && VisualRoot is not null)
+        {
+            if (change.OldValue is INotifyCollectionChanged oldPoints)
+                oldPoints.CollectionChanged -= OnPointsCollectionChanged;
+
+            if (change.NewValue is INotifyCollectionChanged newPoints)
+                newPoints.CollectionChanged += OnPointsCollectionChanged;
+        }
+        else if (change.Property == VisualizationRendererProperty)
         {
             if (change.OldValue is CurveVisualizationRenderer oldRenderer)
                 oldRenderer.Updated -= OnRendererUpdated;
@@ -92,6 +140,27 @@ public class CurveEditor : Control
     }
 
     private void OnRendererUpdated(object? sender, EventArgs e)
+    {
+        InvalidateVisual();
+    }
+
+    // The points change from outside as well, as an undo or the color range in the curves tab changes the curve, so the
+    // editor follows the list while it is shown.
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (Points is INotifyCollectionChanged points)
+            points.CollectionChanged += OnPointsCollectionChanged;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (Points is INotifyCollectionChanged points)
+            points.CollectionChanged -= OnPointsCollectionChanged;
+    }
+
+    private void OnPointsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         InvalidateVisual();
     }
@@ -356,6 +425,7 @@ public class CurveEditor : Control
         VisualizationRenderer?.Draw(context, bounds, Visualization);
 
         DrawGrid(context, bounds);
+        DrawMarkers(context, bounds);
 
         if (Points is { Count: > 0 })
         {
@@ -373,6 +443,58 @@ public class CurveEditor : Control
             double y = bounds.Height / 4 * i;
             context.DrawLine(s_axisPen, new AvaPoint(x, 0), new AvaPoint(x, bounds.Height));
             context.DrawLine(s_axisPen, new AvaPoint(0, y), new AvaPoint(bounds.Width, y));
+        }
+    }
+
+    private void DrawMarkers(DrawingContext context, AvaRect bounds)
+    {
+        if (MarkerPosition is { } position && double.IsFinite(position))
+        {
+            double range = Math.Clamp(MarkerRange, 0, 1);
+            if (range > 0)
+            {
+                double start = position - range / 2;
+                double end = position + range / 2;
+                if (start < 0)
+                {
+                    DrawSpan(context, bounds, start + 1, 1);
+                    DrawSpan(context, bounds, 0, end);
+                }
+                else if (end > 1)
+                {
+                    DrawSpan(context, bounds, start, 1);
+                    DrawSpan(context, bounds, 0, end - 1);
+                }
+                else
+                {
+                    DrawSpan(context, bounds, start, end);
+                }
+
+                DrawVertical(context, bounds, s_markerRangeEdgePen, WrapPosition(start));
+                DrawVertical(context, bounds, s_markerRangeEdgePen, WrapPosition(end));
+            }
+
+            DrawVertical(context, bounds, s_markerShadowPen, position);
+            DrawVertical(context, bounds, s_markerPen, position);
+        }
+
+        if (HoverPosition is { } hover && double.IsFinite(hover))
+        {
+            DrawVertical(context, bounds, s_hoverPen, hover);
+        }
+
+        static double WrapPosition(double x) => x is >= 0 and <= 1 ? x : x - Math.Floor(x);
+
+        static void DrawSpan(DrawingContext context, AvaRect bounds, double from, double to)
+        {
+            context.DrawRectangle(s_markerRangeBrush, null,
+                new AvaRect(from * bounds.Width, 0, Math.Max(0, to - from) * bounds.Width, bounds.Height));
+        }
+
+        static void DrawVertical(DrawingContext context, AvaRect bounds, IPen pen, double x)
+        {
+            double at = Math.Clamp(x, 0, 1) * bounds.Width;
+            context.DrawLine(pen, new AvaPoint(at, 0), new AvaPoint(at, bounds.Height));
         }
     }
 

@@ -157,7 +157,7 @@ internal static class NodeGraphMembers
         if (member is INodeMonitor || member.Property is null && member is IOutputPort)
         {
             throw Rejected(
-                $"'{name}' is an {KindOf(member)}; it shows what the node makes and takes no value.",
+                $"'{name}' is {(member is INodeMonitor ? "a monitor" : "an output")}; it shows what the node makes and takes no value.",
                 "Set inputs and properties only. read_node_graph lists each member's kind.");
         }
 

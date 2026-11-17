@@ -388,9 +388,10 @@ public partial class EngineObject : Hierarchical, INotifyEdited, IExpressionJson
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             _original = obj;
-            if (IsEnabled != obj.IsEnabled.Value)
+            bool isEnabled = obj.IsEnabled.Value && !context.Conditions.Disables(obj);
+            if (IsEnabled != isEnabled)
             {
-                IsEnabled = obj.IsEnabled.Value;
+                IsEnabled = isEnabled;
                 BumpVersion(ref versionBumped);
             }
         }
