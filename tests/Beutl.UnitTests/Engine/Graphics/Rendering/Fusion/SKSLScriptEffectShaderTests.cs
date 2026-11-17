@@ -49,7 +49,8 @@ public sealed class SKSLScriptEffectShaderTests
             Assert.That(items.OfType<IFEItem_Custom>(), Is.Empty);
             Assert.That(shader.Description.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
             Assert.That(shader.Description.SourceTileMode, Is.EqualTo(SKShaderTileMode.Clamp));
-            Assert.That(shader.Description.Bounds.RequiresFullInput, Is.True);
+            // The script samples src only where it draws, so it needs no more of its input than of its output.
+            Assert.That(shader.Description.Bounds, Is.EqualTo(RenderBoundsContract.Identity));
             Assert.That(shader.Description.Resources, Is.Empty);
             Assert.That(
                 shader.Description.Uniforms.Select(static binding => binding.Name),
@@ -60,6 +61,32 @@ public sealed class SKSLScriptEffectShaderTests
                 secondShader.Description.StructuralIdentity,
                 Is.EqualTo(shader.Description.StructuralIdentity));
         });
+    }
+
+    [Test]
+    public void MainScriptSamplingAroundItsCoordinate_RequiresItsWholeInput()
+    {
+        var effect = new SKSLScriptEffect
+        {
+            Script =
+            {
+                Value =
+                    """
+                    uniform shader src;
+
+                    half4 main(float2 fragCoord) {
+                        return src.eval(fragCoord + float2(4.0, 0.0));
+                    }
+                    """,
+            },
+        };
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var context = new FilterEffectContext(s_bounds);
+
+        context.ApplyTransactional(resource);
+
+        var shader = (FEItem_Shader)context.GetOrderedItems().Single();
+        Assert.That(shader.Description.Bounds.RequiresFullInput, Is.True);
     }
 
     [Test]

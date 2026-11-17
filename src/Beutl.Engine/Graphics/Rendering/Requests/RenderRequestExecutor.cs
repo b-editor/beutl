@@ -341,6 +341,7 @@ internal sealed partial class RenderRequestExecutor
         private readonly ShaderBackendPreference _shaderBackendPreference;
         private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
         private Dictionary<RenderFragmentId, Rect>? _resolvedExecutionDomains;
+        private Dictionary<RenderFragmentReference, bool>? _ownTargetReaders;
         private readonly Dictionary<RenderFragmentReference, IReadOnlyList<MaterializedRenderValue>> _values =
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<MaterializedRenderValue> _ownedValues =

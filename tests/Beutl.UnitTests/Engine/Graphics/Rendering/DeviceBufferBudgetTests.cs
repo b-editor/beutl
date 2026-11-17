@@ -1033,6 +1033,18 @@ public sealed class DeviceBufferBudgetTests
             Spread = { Value = 0 },
             ParticleSize = { Value = 40 },
             ParticleColor = { Value = Colors.OrangeRed },
+            // An effect that may read its input anywhere needs the whole union, which a frame alone would only
+            // draw the visible part of.
+            FilterEffect =
+            {
+                Value = new SKSLScriptEffect
+                {
+                    Script =
+                    {
+                        Value = "uniform shader src;\nhalf4 main(float2 c) { return src.eval(c + float2(1.0, 0.0)); }",
+                    },
+                },
+            },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
             new CompositionContext(MediaTime.FromSeconds(1)));

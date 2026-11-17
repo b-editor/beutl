@@ -264,7 +264,10 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             => source.Kind == ShaderDescriptionKind.WholeSource
                 ? ShaderDescription.WholeSource(
                     source,
-                    RenderBoundsContract.FullInput,
+                    // A script that samples src only where it draws needs no more of its input than of its output.
+                    source.ReadsSourceOnlyAtEntryCoordinate
+                        ? RenderBoundsContract.Identity
+                        : RenderBoundsContract.FullInput,
                     builder => BindUniforms(builder, source, state, isWholeSource: true),
                     SKShaderTileMode.Clamp,
                     hitTest: RenderHitTestContract.OutputBounds)
