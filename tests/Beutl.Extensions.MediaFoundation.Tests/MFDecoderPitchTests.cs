@@ -65,6 +65,41 @@ public class MFDecoderPitchTests
         }
     }
 
+    [TestCase("row-marker-pal.mp4", 768)]
+    [TestCase("row-marker-square.mp4", 720)]
+    public void ReadVideo_PixelAspectRatio_PreservesRowMarkersAtDisplaySize(string fixture, int displayWidth)
+    {
+        const int storedWidth = 720;
+        const int height = 576;
+        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture);
+        var extension = new MFDecodingExtension();
+        MFMediaInfo info = MFThread.Dispatcher.Invoke(() =>
+        {
+            using var decoder = new MFDecoder(path, extension);
+            return decoder.GetMediaInfo();
+        });
+        Assert.That(info.StorageSize, Is.EqualTo(new PixelSize(storedWidth, height)));
+        Assert.That(info.Yuy2BufferSize, Is.EqualTo(storedWidth * height * 2));
+
+        using MediaReader? reader = new MFDecoderInfo(extension).Open(path, new MediaOptions(MediaMode.Video));
+        Assert.That(reader, Is.Not.Null);
+        Assert.That(reader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(displayWidth, height)));
+        Assert.That(reader.ReadVideo(0, out var decoded), Is.True);
+        using (decoded)
+        {
+            Bitmap image = decoded!.Value;
+            Assert.That(new PixelSize(image.Width, image.Height), Is.EqualTo(reader.VideoInfo.FrameSize));
+            double scaleX = (double)displayWidth / storedWidth;
+            for (int row = 0; row < height; row++)
+            {
+                // In the stored frame the white bar spans [60 + row, 90 + row).
+                (int first, int last) = FindBar(image, row);
+                Assert.That(first, Is.EqualTo((60 + row) * scaleX).Within(1), $"row {row}, left edge");
+                Assert.That(last, Is.EqualTo((90 + row) * scaleX - 1).Within(1), $"row {row}, right edge");
+            }
+        }
+    }
+
     // The first and last columns brighter than mid gray, or (-1, -1) when the row has none.
     private static (int First, int Last) FindBar(Bitmap image, int row)
     {

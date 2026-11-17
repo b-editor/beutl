@@ -1,8 +1,6 @@
 ﻿using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Media.Decoding;
 
-using Vortice.Win32;
-
 using Windows.Win32.Media.MediaFoundation;
 
 namespace Beutl.Extensions.MediaFoundation.Tests;
@@ -128,7 +126,8 @@ public class MFReaderTests
                 VideoStreamIndex = 0,
                 Fps = new MFRatio { Numerator = 30, Denominator = 1 },
                 TotalFrameCount = 1,
-                ImageFormat = new BitmapInfoHeader { Width = 16, Height = 16 },
+                StorageSize = new(16, 16),
+                DisplaySize = new(16, 16),
                 VideoFormatName = "YUY2",
             };
         }
