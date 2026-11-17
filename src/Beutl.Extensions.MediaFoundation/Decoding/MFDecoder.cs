@@ -5,9 +5,7 @@ using System.Runtime.InteropServices;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using SharpGen.Runtime;
-using Vortice;
 using Vortice.MediaFoundation;
-using Vortice.Win32;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using MFRatio = Windows.Win32.Media.MediaFoundation.MFRatio;
@@ -119,8 +117,8 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
             return SampleUtilities.SampleCopyToBuffer(
                 sample,
                 buf,
-                _mediaInfo.OutImageBufferSize,
-                _mediaInfo.ImageFormat.Width * (_mediaInfo.ImageFormat.BitCount / 8));
+                _mediaInfo.Yuy2BufferSize,
+                _mediaInfo.StorageSize.Width * MFFrameBufferSize.Yuy2BytesPerPixel);
         }
 
         frame = Math.Max(frame, _firstFrame);
@@ -301,8 +299,6 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         _mediaInfo.HnsDuration = (long)(ulong)sourceReader.GetPresentationAttribute(SourceReaderIndex.MediaSource,
             PresentationDescriptionAttributeKeys.Duration).Value;
 
-        BitmapInfoHeader bih = default;
-
         using IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
         IntPtr pMFVF = IntPtr.Zero;
@@ -311,16 +307,19 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
             MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out pMFVF, out var pcbSize);
             var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
 
-            bih.Width = (int)ppMFVF->videoInfo.dwWidth;
-            bih.Height = (int)ppMFVF->videoInfo.dwHeight;
+            int width = (int)ppMFVF->videoInfo.dwWidth;
+            int height = (int)ppMFVF->videoInfo.dwHeight;
+            _mediaInfo.StorageSize = new(width, height);
+            _mediaInfo.Yuy2BufferSize = MFFrameBufferSize.CalculateYuy2(width, height);
 
-            RECT rcSrc = RECT.FromXYWH(0, 0, bih.Width, bih.Height);
+            RECT rcSrc = RECT.FromXYWH(0, 0, width, height);
             RECT destRect = AspectRatioUtilities.CorrectAspectRatio(
                 rcSrc,
                 ppMFVF->videoInfo.PixelAspectRatio,
                 new MFRatio { Denominator = 1, Numerator = 1 });
-            bih.Width = destRect.right;
-            bih.Height = destRect.bottom;
+            _mediaInfo.DisplaySize = new(destRect.right, destRect.bottom);
+            // Validate the BGRA display allocation separately from the packed YUY2 sample.
+            _ = MFFrameBufferSize.Calculate(destRect.right, destRect.bottom, 4);
 
             _mediaInfo.Fps = ppMFVF->videoInfo.FramesPerSecond;
         }
@@ -330,17 +329,8 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         }
 
         Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
-        // YUY2
-        bih.Compression = new FourCC("YUY2");
-        bih.BitCount = 16;
-
-        _mediaInfo.ImageFormat = bih;
         _mediaInfo.TotalFrameCount =
             TimestampUtilities.ConvertFrameFromTimeStamp(_mediaInfo.HnsDuration, _mediaInfo.Fps);
-        _mediaInfo.OutImageBufferSize = MFFrameBufferSize.Calculate(
-            bih.Width,
-            bih.Height,
-            bih.BitCount / 8);
         _mediaInfo.VideoFormatName = VideoFormatName.GetName(subType) ?? subType.ToString();
 
         // The source reports the container/bitstream tags on the native type.

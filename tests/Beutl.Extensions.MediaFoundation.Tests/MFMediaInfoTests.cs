@@ -2,7 +2,6 @@
 using Beutl.Media;
 
 using Vortice.MediaFoundation;
-using Vortice.Win32;
 
 using Windows.Win32.Media.MediaFoundation;
 
@@ -20,7 +19,8 @@ public class MFMediaInfoTests
             Fps = new MFRatio { Numerator = 30, Denominator = 1 },
             HnsDuration = 10_000_000,
             TotalFrameCount = 30,
-            ImageFormat = new BitmapInfoHeader { Width = 1920, Height = 1080 },
+            StorageSize = new PixelSize(720, 576),
+            DisplaySize = new PixelSize(768, 576),
             VideoFormatName = "YUY2",
         };
 
@@ -29,7 +29,8 @@ public class MFMediaInfoTests
         Assert.Multiple(() =>
         {
             Assert.That(text, Does.Contain("VideoStreamIndex: 0"));
-            Assert.That(text, Does.Contain("FrameSize: 1920x1080"));
+            Assert.That(text, Does.Contain("FrameSize: 720x576"));
+            Assert.That(text, Does.Contain("DisplaySize: 768x576"));
             Assert.That(text, Does.Contain("Fps: 30"));
             Assert.That(text, Does.Contain("TotalFrameCount: 30"));
         });

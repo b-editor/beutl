@@ -12,6 +12,7 @@ using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 
 using NAudio.Wave;
+using SkiaSharp;
 using Vortice.MediaFoundation;
 
 using static NAudio.Wave.MediaFoundationReader;
@@ -69,7 +70,7 @@ public class MFReader : MediaReader
                     _videoInfo = new VideoStreamInfo(
                         info.VideoFormatName ?? "Unknown",
                         info.TotalFrameCount,
-                        new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
+                        info.DisplaySize,
                         new Rational(info.Fps.Numerator, info.Fps.Denominator));
                     _colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(info.Color.Transfer, info.Color.Primaries);
                     HasVideo = true;
@@ -200,40 +201,50 @@ public class MFReader : MediaReader
             return false;
 
         MFMediaInfo info = _decoder.GetMediaInfo();
-        int w = info.ImageFormat.Width;
-        int h = info.ImageFormat.Height;
-
-        int yuy2Size = MFFrameBufferSize.CalculateYuy2(w, h);
-        byte[] yuy2Buffer = ArrayPool<byte>.Shared.Rent(yuy2Size);
+        byte[] yuy2Buffer = ArrayPool<byte>.Shared.Rent(info.Yuy2BufferSize);
+        Bitmap? result = null;
         try
         {
-            int r;
             fixed (byte* ptr = yuy2Buffer)
             {
-                r = _decoder.ReadFrame(frame, (nint)ptr);
+                if (_decoder.ReadFrame(frame, (nint)ptr) == 0)
+                    return false;
+
+                result = new Bitmap(info.DisplaySize.Width, info.DisplaySize.Height, colorSpace: _colorSpace);
+                if (!ConvertFrame(ptr, info, result))
+                    return false;
             }
 
-            if (r != 0)
-            {
-                var result = new Bitmap(w, h, colorSpace: _colorSpace);
-                fixed (byte* srcPtr = yuy2Buffer)
-                {
-                    YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h,
-                        info.Color.Matrix == VideoColorMatrix.Bt709, info.Color.Range == VideoColorRange.Full);
-                }
-
-                image = Ref<Bitmap>.Create(result);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            image = Ref<Bitmap>.Create(result);
+            return true;
         }
         finally
         {
+            if (image == null)
+                result?.Dispose();
             ArrayPool<byte>.Shared.Return(yuy2Buffer);
         }
+    }
+
+    private static unsafe bool ConvertFrame(byte* yuy2, MFMediaInfo info, Bitmap display)
+    {
+        int width = info.StorageSize.Width;
+        int height = info.StorageSize.Height;
+        if (width == display.Width && height == display.Height)
+        {
+            ConvertToBgra(display.Data, display.RowBytes);
+            return true;
+        }
+
+        // Convert the stored rows before stretching their opaque BGRA pixels to the display size.
+        using var stored = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Opaque);
+        ConvertToBgra(stored.GetPixels(), stored.RowBytes);
+        using var destination = new SKPixmap(stored.Info.WithSize(display.Width, display.Height), display.Data, display.RowBytes);
+        return stored.ScalePixels(destination, new SKSamplingOptions(SKFilterMode.Linear));
+
+        void ConvertToBgra(nint pixels, int rowBytes) =>
+            YuvConversion.Yuy2ToBgra(yuy2, (byte*)pixels, rowBytes, width, height,
+                info.Color.Matrix == VideoColorMatrix.Bt709, info.Color.Range == VideoColorRange.Full);
     }
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)

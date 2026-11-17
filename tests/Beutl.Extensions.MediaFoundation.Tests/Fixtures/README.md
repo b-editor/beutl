@@ -1,5 +1,20 @@
 # Test fixtures
 
+## `row-marker-pal.mp4` and `row-marker-square.mp4`
+
+Both clips store one 720×576 H.264 frame. On each row `y`, columns `60 + y` through
+`89 + y` are white on black. The PAL clip has 16:15 pixels and displays at 768×576.
+The square-pixel control displays at 720×576.
+
+```sh
+ffmpeg -f lavfi \
+  -i "nullsrc=s=720x576:r=25,geq=lum='if(between(X-Y,60,89),235,16)':cb=128:cr=128" \
+  -frames:v 1 -vf setsar=16/15 -c:v libx264 -pix_fmt yuv420p -profile:v baseline \
+  -crf 10 -threads 1 -movflags +faststart row-marker-pal.mp4 \
+  -frames:v 1 -vf setsar=1/1 -c:v libx264 -pix_fmt yuv420p -profile:v baseline \
+  -crf 10 -threads 1 -movflags +faststart row-marker-square.mp4
+```
+
 ## `sample.mp4`
 
 A tiny, synthetic H.264 + AAC clip used by `MFReaderIntegrationTests` to exercise the real

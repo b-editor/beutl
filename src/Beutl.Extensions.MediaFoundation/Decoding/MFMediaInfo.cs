@@ -1,6 +1,5 @@
 ﻿using System.Text;
 using Beutl.Media;
-using Vortice.Win32;
 using Windows.Win32.Media.MediaFoundation;
 
 #if MF_BUILD_IN
@@ -16,8 +15,9 @@ internal struct MFMediaInfo
     public MFRatio Fps;
     public long HnsDuration;    // 100ns units
     public int TotalFrameCount;
-    public BitmapInfoHeader ImageFormat;
-    public int OutImageBufferSize;
+    public PixelSize StorageSize;
+    public PixelSize DisplaySize;
+    public int Yuy2BufferSize;
     public string VideoFormatName;
 
     // The stream's color tags; untagged streams keep the BT.601 limited-range sRGB reading.
@@ -34,7 +34,8 @@ internal struct MFMediaInfo
         sb.AppendLine($"VideoStreamIndex: {VideoStreamIndex}");
         sb.AppendLine($"  Fps: {fps}");
         sb.AppendLine($"  TotalFrameCount: {TotalFrameCount}");
-        sb.AppendLine($"  FrameSize: {ImageFormat.Width}x{ImageFormat.Height}");
+        sb.AppendLine($"  FrameSize: {StorageSize.Width}x{StorageSize.Height}");
+        sb.AppendLine($"  DisplaySize: {DisplaySize.Width}x{DisplaySize.Height}");
 
         return sb.ToString();
     }
