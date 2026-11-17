@@ -172,8 +172,6 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnWheelDragDelta(object? sender, VectorEventArgs e)
     {
-        if (_ignoreColorChange) return;
-
         if (sender is GradingWheel wheel)
         {
             float delta = (float)(e.Vector.X / wheel.Bounds.Width);
