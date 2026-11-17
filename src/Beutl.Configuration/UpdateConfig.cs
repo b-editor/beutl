@@ -20,7 +20,7 @@ public sealed partial class UpdateConfig : ConfigurationBase
     // for the user.
     public IProperty<bool> AutoDownload { get; } = Property.CreateValue(true);
 
-    public IProperty<ExtensionUpdateMode> ExtensionUpdates { get; } = Property.CreateValue(ExtensionUpdateMode.WithAppUpdate);
+    public IProperty<ExtensionUpdateMode> ExtensionUpdates { get; } = Property.CreateValue(ExtensionUpdateMode.Always);
 
     public bool ShouldUpdateExtensions(bool appUpdate)
         => ExtensionUpdates.Value == ExtensionUpdateMode.Always

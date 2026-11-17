@@ -185,8 +185,6 @@ public sealed class GlobalConfiguration
             if (!File.Exists(file))
                 return;
 
-            // Existing installations updated extensions manually. A saved preference overrides this migration default.
-            UpdateConfig.ExtensionUpdates.Value = ExtensionUpdateMode.NotifyOnly;
             if (!TryParse(file, out JsonObject? json, out Exception? unreadable))
             {
                 // Nothing can be read, and the next save replaces the whole file, so it is copied aside first.
