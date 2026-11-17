@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.Services;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
@@ -16,11 +17,11 @@ internal static class FileSystemEnumerator
             .Where(IsVisible).Select(entry => (entry.Name, entry is DirectoryInfo)));
     }
 
-    public static IEnumerable<FileSystemItemViewModel> EnumerateDirectory(string path)
+    public static IEnumerable<FileSystemItemViewModel> EnumerateDirectory(ObjectTemplateService templates, string path)
     {
         foreach (var entry in EnumerateEntries(path))
         {
-            yield return new FileSystemItemViewModel(entry.Path, entry.IsDirectory);
+            yield return new FileSystemItemViewModel(templates, entry.Path, entry.IsDirectory);
         }
     }
 
@@ -30,12 +31,12 @@ internal static class FileSystemEnumerator
             .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => (entry.FullName, entry is DirectoryInfo));
 
-    internal static void RefreshCollection(ObservableCollection<FileSystemItemViewModel> collection, string path,
+    internal static void RefreshCollection(ObjectTemplateService templates, ObservableCollection<FileSystemItemViewModel> collection, string path,
         bool includeChildren = true)
-        => RefreshCollection(collection, EnumerateEntries(path), includeChildren);
+        => RefreshCollection(templates, collection, EnumerateEntries(path), includeChildren);
 
     // Reconcile startup snapshots without replacing selected or expanded items that still exist.
-    internal static void RefreshCollection(ObservableCollection<FileSystemItemViewModel> collection,
+    internal static void RefreshCollection(ObjectTemplateService templates, ObservableCollection<FileSystemItemViewModel> collection,
         IEnumerable<(string Path, bool IsDirectory)> entries, bool includeChildren = true)
     {
         var desired = entries.ToArray();
@@ -59,7 +60,7 @@ internal static class FileSystemEnumerator
                 item.RefreshLoadedEntries(includeChildren);
             }
             else
-                collection.Insert(i, new FileSystemItemViewModel(desired[i].Path, desired[i].IsDirectory));
+                collection.Insert(i, new FileSystemItemViewModel(templates, desired[i].Path, desired[i].IsDirectory));
         }
     }
 
@@ -73,11 +74,11 @@ internal static class FileSystemEnumerator
         collection.Clear();
     }
 
-    public static void PopulateCollection(ObservableCollection<FileSystemItemViewModel> collection, string path)
+    public static void PopulateCollection(ObjectTemplateService templates, ObservableCollection<FileSystemItemViewModel> collection, string path)
     {
         DisposeAndClear(collection);
 
-        foreach (var item in EnumerateDirectory(path))
+        foreach (var item in EnumerateDirectory(templates, path))
         {
             collection.Add(item);
         }

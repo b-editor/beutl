@@ -45,7 +45,7 @@ public sealed partial class SchemaGenerator
         return new ShaderCompilationCheck(type.Name, status, result.Error);
     }
 
-    private static Type? ResolveFilterEffectType(string token)
+    private Type? ResolveFilterEffectType(string token)
     {
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -60,13 +60,13 @@ public sealed partial class SchemaGenerator
                 || string.Equals(IdentityHelper.WriteDiscriminator(type), trimmed, StringComparison.Ordinal));
     }
 
-    private static IEnumerable<Type> EnumerateFilterEffectTypes()
+    private IEnumerable<Type> EnumerateFilterEffectTypes()
         => EnumerateRegisteredTypes()
             .Where(item => MatchesCategory(KnownLibraryItemFormats.FilterEffect, item.Category))
             .Select(item => item.Type)
             .Distinct();
 
-    private static EffectSummary CreateEffectSummary(Type type, bool includePropertyNames)
+    private EffectSummary CreateEffectSummary(Type type, bool includePropertyNames)
     {
         string discriminator = IdentityHelper.WriteDiscriminator(type);
         TypeDescriptor descriptor = CreateDescriptor(KnownLibraryItemFormats.FilterEffect, type, discriminator, includeProperties: includePropertyNames);

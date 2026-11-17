@@ -82,7 +82,7 @@ public class FileBrowserAutoSaveTests
         string image = Path.Combine(directory, "image.png");
         File.WriteAllBytes(image, Convert.FromBase64String(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+iWZkAAAAASUVORK5CYII="));
-        var context = new Mock<IEditorContext>();
+        var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Scene)))
             .Returns(new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) });
         var browser = new FileBrowserTabViewModel(context.Object);
@@ -109,7 +109,7 @@ public class FileBrowserAutoSaveTests
         // Seed an existing directory too: its deletion cannot be classified with Directory.Exists.
         Directory.CreateDirectory(original);
         File.WriteAllText(Path.Combine(original, "nested.belm"), "{}");
-        var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        var browser = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         try
         {
             browser.RootPath.Value = root;
@@ -140,7 +140,7 @@ public class FileBrowserAutoSaveTests
         string document = Path.Combine(folderPath, "first.belm");
         string temporary = $"{document}.{Guid.NewGuid():N}.tmp";
         File.WriteAllText(temporary, "{}");
-        var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        var browser = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         var window = new Window
         {
             Content = new FileBrowserTabView { DataContext = browser },
@@ -189,7 +189,7 @@ public class FileBrowserAutoSaveTests
         File.WriteAllText(Path.Combine(saving, temporaryName), "{}");
         File.WriteAllText(Path.Combine(ordinary, "notes.tmp"), "{}");
         Directory.CreateDirectory(Path.Combine(directory, temporaryName));
-        var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        var browser = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         var window = new Window
         {
             Content = new FileBrowserTabView { DataContext = browser },
@@ -253,7 +253,7 @@ public class FileBrowserAutoSaveTests
             File.WriteAllText(path, "{}");
 
         var scene = new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) };
-        var context = new Mock<IEditorContext>();
+        var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
         var browser = new FileBrowserTabViewModel(context.Object);
         var window = new Window
@@ -276,7 +276,7 @@ public class FileBrowserAutoSaveTests
             Assert.That(items.Select(x => x.Name.Value), Is.EquivalentTo(visibleNames));
 
             // Expanding a folder uses the same enumeration path as the top-level listing.
-            using var folder = new FileSystemItemViewModel(root, isDirectory: true);
+            using var folder = new FileSystemItemViewModel(TestShell.Templates, root, isDirectory: true);
             folder.LoadChildren();
             Assert.That(folder.Children!.Select(x => x.Name.Value), Is.EquivalentTo(visibleNames));
 
@@ -312,7 +312,7 @@ public class FileBrowserAutoSaveTests
         string asset = Path.Combine(root, "asset.txt");
         File.WriteAllText(asset, "asset");
 
-        var context = new Mock<IEditorContext>();
+        var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
         var browser = new FileBrowserTabViewModel(context.Object);
         var view = new FileBrowserTabView { DataContext = browser };

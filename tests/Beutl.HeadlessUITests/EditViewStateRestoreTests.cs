@@ -51,7 +51,7 @@ public class EditViewStateRestoreTests
         string stateFile = Path.Combine(EditorConstants.GetViewStateDirectory(scene.Uri), "main.config");
         File.WriteAllText(stateFile, """{"current-time":"00:00:01.0333333","bpm-grid":{"offset":"00:00:01.0333333"}}""");
         var extensions = new ExtensionProvider();
-        var editor = new EditViewModel(scene, extensions, new EditorService(extensions));
+        var editor = new EditViewModel(scene, extensions, new EditorService(extensions, TestShell.MainViewModel.AppServices));
         try
         {
             MediaTime frame = MediaTime.FromFrames(31, new Rational(30));
@@ -115,7 +115,7 @@ public class EditViewStateRestoreTests
 
         EditViewModel editor;
         using (lockWhileOpening ? new FileStream(stateFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None) : null)
-            editor = new EditViewModel(scene, extensions, new EditorService(extensions));
+            editor = new EditViewModel(scene, extensions, new EditorService(extensions, TestShell.MainViewModel.AppServices));
         await editor.DisposeAsync();
         return stateFile;
     }

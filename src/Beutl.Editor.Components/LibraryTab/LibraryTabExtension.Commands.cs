@@ -39,7 +39,7 @@ public sealed partial class LibraryTabExtension
 
     private static async Task AddElementAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
-        ContextCommandPickItem<Type>[] items = EnumerateEngineObjects(LibraryService.Current.Items, null).ToArray();
+        ContextCommandPickItem<Type>[] items = EnumerateEngineObjects(editorContext.GetRequiredService<LibraryService>().Items, null).ToArray();
         if (await interaction.ShowQuickPickAsync(items) is not { Value: { } type }) return;
 
         await AddAtPlayheadAsync(editorContext, scene, interaction.CancellationToken, (start, layer) => new ElementDescription(
@@ -47,7 +47,7 @@ public sealed partial class LibraryTabExtension
             new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!)));
     }
 
-    private static async Task AddElementFromTemplateAsync(
+    private async Task AddElementFromTemplateAsync(
         IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
         ContextCommandPickItem<ObjectTemplateItem>[] items = FindElementTemplates()
@@ -59,9 +59,9 @@ public sealed partial class LibraryTabExtension
             (start, layer) => ElementTemplateResolver.CreateDescription(template, start, layer));
     }
 
-    private static ObjectTemplateItem[] FindElementTemplates()
+    private ObjectTemplateItem[] FindElementTemplates()
     {
-        return ElementTemplateResolver.FindElementTemplates().ToArray();
+        return ElementTemplateResolver.FindElementTemplates(Services.GetRequiredService<ObjectTemplateService>()).ToArray();
     }
 
     // Flattens the library the way the timeline's "Add element" menu does; the group path goes in the

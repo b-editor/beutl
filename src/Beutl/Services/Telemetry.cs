@@ -82,8 +82,6 @@ internal class Telemetry : IDisposable
 
     public static ActivitySource Applilcation { get; } = new("Beutl.Application", s_version);
 
-    public static Telemetry Instance { get; private set; } = null!;
-
     // The names of the ActivitySources the tracer listens to under the given consent.
     internal static List<string> GetActivitySourceNames(TelemetryConfig t)
     {
@@ -144,8 +142,7 @@ internal class Telemetry : IDisposable
 
     public static IDisposable GetDisposable(string? sessionId = null)
     {
-        Instance = new Telemetry(sessionId);
-        return Instance;
+        return new Telemetry(sessionId);
     }
 
     public static Activity? StartActivity([CallerMemberName] string name = "",

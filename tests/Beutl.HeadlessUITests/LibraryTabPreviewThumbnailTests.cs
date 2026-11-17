@@ -45,7 +45,7 @@ public class LibraryTabPreviewThumbnailTests
     public async Task The_frame_the_thumbnails_were_drawn_on_is_not_taken_again()
     {
         var player = new FakePlayer();
-        using var library = new LibraryTabViewModel(new Editor(player, new Scene(1920, 1080, string.Empty)));
+        using var library = new LibraryTabViewModel(TestShell.Library, new Editor(player, new Scene(1920, 1080, string.Empty)));
         var source = (LibraryThumbnailSource)library.Thumbnails.GetSource(typeof(Invert))!;
         using IDisposable request = source.RequestStill();
         using Ref<Bitmap> first = CreateFrame();

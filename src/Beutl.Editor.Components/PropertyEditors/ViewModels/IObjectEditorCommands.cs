@@ -104,8 +104,8 @@ internal static class ObjectEditorCommands
         }
     }
 
-    public static IEnumerable<ObjectTemplateItem> GetApplicableTemplates(this IObjectEditorCommands editor)
-        => editor.TemplateBaseType is { } t ? ObjectTemplateService.Instance.FindByBaseType(t) : [];
+    public static IEnumerable<ObjectTemplateItem> GetApplicableTemplates(this IObjectEditorCommands editor, ObjectTemplateService templates)
+        => editor.TemplateBaseType is { } t ? templates.FindByBaseType(t) : [];
 
     public static string GetTemplateDefaultName(this IObjectEditorCommands editor)
     {

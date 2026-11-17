@@ -26,6 +26,9 @@ internal static class PropertyEditorTestHost
         };
         IPropertyEditorContext? context = PropertyEditorResolver.CreateContext(adapter, [PropertyEditorExtension.Instance], place);
         Assert.That(context, Is.Not.Null);
+        context!.Accept(new ServiceVisitor(
+            (typeof(Beutl.Services.LibraryService), TestShell.Library),
+            (typeof(Beutl.Editor.Services.ObjectTemplateService), TestShell.Templates)));
         Assert.That(PropertyEditorHost.TryCreateControl(context!, place, out Control? control), Is.True);
         control!.DataContext = context;
         return ((PropertyEditorViewModel)context!, control);
@@ -85,14 +88,25 @@ internal static class PropertyEditorTestHost
         }
     }
 
-    // A visitor whose GetService answers with the services it was given, by type.
+    // A visitor whose GetService answers with the services it was given, by type, and with the test shell's
+    // library and templates when they are not given.
     public sealed class ServiceVisitor(params (Type Type, object? Service)[] services) : IServiceProvider, IPropertyEditorContextVisitor
     {
         // The history and, when given, the element that the property editors ask for.
         public static ServiceVisitor For(HistoryManager history, Element? element = null)
             => new((typeof(HistoryManager), history), (typeof(Element), element));
 
-        public object? GetService(Type type) => Array.Find(services, service => service.Type == type).Service;
+        public object? GetService(Type type)
+        {
+            int index = Array.FindIndex(services, service => service.Type == type);
+            if (index >= 0)
+                return services[index].Service;
+            if (type == typeof(Beutl.Services.LibraryService))
+                return TestShell.Library;
+            if (type == typeof(Beutl.Editor.Services.ObjectTemplateService))
+                return TestShell.Templates;
+            return null;
+        }
 
         public void Visit(IPropertyEditorContext context) { }
     }

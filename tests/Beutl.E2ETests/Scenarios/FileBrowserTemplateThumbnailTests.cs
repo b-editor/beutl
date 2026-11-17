@@ -16,19 +16,32 @@ namespace Beutl.E2ETests.Scenarios;
 [NonParallelizable]
 public class FileBrowserTemplateThumbnailTests
 {
+    private ObjectTemplateService _templates = null!;
+
+    [SetUp]
+    public void SetUpTemplates() => _templates = new ObjectTemplateService(
+        Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), Guid.NewGuid().ToString("N")));
+
+    [TearDown]
+    public void DisposeTemplates()
+    {
+        _templates.Dispose();
+        Directory.Delete(_templates.DirectoryPath, recursive: true);
+    }
+
     [Test]
     public void IsObjectTemplateFile_OnlyMatchesJsonUnderTheTemplatesDirectory()
     {
         FileThumbnailService service = FileThumbnailService.Instance;
-        string templates = ObjectTemplateService.Instance.DirectoryPath;
+        string templates = _templates.DirectoryPath;
 
         Assert.Multiple(() =>
         {
-            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "a.json")), Is.True);
-            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "pkg", "a.json")), Is.True);
-            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "a.png")), Is.False);
+            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "a.json"), _templates), Is.True);
+            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "pkg", "a.json"), _templates), Is.True);
+            Assert.That(service.IsObjectTemplateFile(Path.Combine(templates, "a.png"), _templates), Is.False);
             Assert.That(
-                service.IsObjectTemplateFile(Path.Combine(Path.GetTempPath(), "elsewhere.json")),
+                service.IsObjectTemplateFile(Path.Combine(Path.GetTempPath(), "elsewhere.json"), _templates),
                 Is.False);
         });
     }
@@ -37,7 +50,7 @@ public class FileBrowserTemplateThumbnailTests
     public void CanGenerateThumbnail_CoversImagesVideosAndTemplates()
     {
         FileThumbnailService service = FileThumbnailService.Instance;
-        string templates = ObjectTemplateService.Instance.DirectoryPath;
+        string templates = _templates.DirectoryPath;
         var decoder = new FakeDecoderInfo();
         DecoderRegistry.Register(decoder);
 
@@ -45,11 +58,11 @@ public class FileBrowserTemplateThumbnailTests
         {
             Assert.Multiple(() =>
             {
-                Assert.That(service.CanGenerateThumbnail("a.png"), Is.True);
-                Assert.That(service.CanGenerateThumbnail("a.fakevid"), Is.True);
-                Assert.That(service.CanGenerateThumbnail(Path.Combine(templates, "a.json")), Is.True);
-                Assert.That(service.CanGenerateThumbnail("a.fakeaud"), Is.False);
-                Assert.That(service.CanGenerateThumbnail("a.txt"), Is.False);
+                Assert.That(service.CanGenerateThumbnail("a.png", _templates), Is.True);
+                Assert.That(service.CanGenerateThumbnail("a.fakevid", _templates), Is.True);
+                Assert.That(service.CanGenerateThumbnail(Path.Combine(templates, "a.json"), _templates), Is.True);
+                Assert.That(service.CanGenerateThumbnail("a.fakeaud", _templates), Is.False);
+                Assert.That(service.CanGenerateThumbnail("a.txt", _templates), Is.False);
             });
         }
         finally
@@ -63,12 +76,12 @@ public class FileBrowserTemplateThumbnailTests
     {
         RectShape shape = CreateRedRect();
 
-        ObjectTemplateItem? item = await ObjectTemplateService.Instance
+        ObjectTemplateItem? item = await _templates
             .AddFromInstanceAsync(shape, $"thumb-{Guid.NewGuid():N}");
 
         Assert.That(item?.Preview, Is.Not.Null.And.Not.Empty);
 
-        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item!.FilePath!);
+        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item!.FilePath!, _templates);
 
         Assert.That(thumbnail, Is.Not.Null);
         Assert.That(thumbnail!.PixelSize.Width, Is.GreaterThan(0));
@@ -77,12 +90,12 @@ public class FileBrowserTemplateThumbnailTests
     [AvaloniaTest]
     public async Task GetThumbnailAsync_TemplateWithoutAPreview_ReturnsNull()
     {
-        ObjectTemplateItem? item = await ObjectTemplateService.Instance
+        ObjectTemplateItem? item = await _templates
             .AddFromInstanceAsync(new Audio.Effects.AudioEffectGroup(), $"nothumb-{Guid.NewGuid():N}");
 
         Assert.That(item?.Preview, Is.Null);
 
-        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item!.FilePath!);
+        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item!.FilePath!, _templates);
 
         Assert.That(thumbnail, Is.Null);
     }
@@ -127,7 +140,7 @@ public class FileBrowserTemplateThumbnailTests
         {
             await File.WriteAllBytesAsync(path, [0]);
             await FileThumbnailService.Instance.GetMediaInfoAsync(path);
-            await FileThumbnailService.Instance.GetThumbnailAsync(path);
+            await FileThumbnailService.Instance.GetThumbnailAsync(path, _templates);
         }
         finally
         {
@@ -144,14 +157,14 @@ public class FileBrowserTemplateThumbnailTests
     [AvaloniaTest]
     public async Task GetThumbnailAsync_DownscalesAnOversizedTemplatePreview()
     {
-        ObjectTemplateItem? item = await ObjectTemplateService.Instance
+        ObjectTemplateItem? item = await _templates
             .AddFromInstanceAsync(CreateRedRect(), $"large-{Guid.NewGuid():N}");
         Assert.That(item?.Preview, Is.Not.Null);
 
         await File.WriteAllTextAsync(item!.FilePath!, BuildTemplateJsonWithPreview(item, 1024, 1024));
         FileThumbnailService.Instance.ClearCache();
 
-        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item.FilePath!);
+        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item.FilePath!, _templates);
 
         Assert.That(thumbnail, Is.Not.Null);
         Assert.That(thumbnail!.PixelSize.Width, Is.LessThanOrEqualTo(FileThumbnailService.Instance.ThumbnailSize));

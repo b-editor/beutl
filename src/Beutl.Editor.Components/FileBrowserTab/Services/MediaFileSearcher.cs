@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -8,7 +9,7 @@ using Reactive.Bindings;
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 // プロジェクトディレクトリ内のメディアファイルを再帰的に検索する。
-internal sealed class MediaFileSearcher : IDisposable
+internal sealed class MediaFileSearcher(ObjectTemplateService templates) : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<MediaFileSearcher>();
     private CancellationTokenSource? _searchCts;
@@ -62,7 +63,7 @@ internal sealed class MediaFileSearcher : IDisposable
                         return;
 
                     // A startup rescan keeps displayed results and selection while it runs.
-                    FileSystemEnumerator.RefreshCollection(MediaFileItems, results.Select(path => (path, false)));
+                    FileSystemEnumerator.RefreshCollection(templates, MediaFileItems, results.Select(path => (path, false)));
 
                     IsLoadingMediaFiles.Value = false;
                     HasNoMediaFiles.Value = MediaFileItems.Count == 0;

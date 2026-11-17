@@ -42,6 +42,7 @@ public sealed class EasingEditorTests
         using var _ = vm;
 
         Assert.That(vm, Is.TypeOf<EasingEditorViewModel<Easing>>());
+        Assert.That(vm.GetService(typeof(LibraryService)), Is.SameAs(TestShell.Library));
         Assert.That(control, Is.TypeOf<EasingEditor>());
         var editor = (EasingEditor)control;
         Assert.Multiple(() =>

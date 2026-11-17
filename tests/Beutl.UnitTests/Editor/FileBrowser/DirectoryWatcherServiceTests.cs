@@ -528,8 +528,8 @@ public class DirectoryWatcherServiceTests
         {
             Assert.Multiple(() =>
             {
-                Assert.That(service.IsObjectTemplateFile(Path.Combine(directory, "one.json")), Is.True);
-                Assert.That(service.IsObjectTemplateFile(Path.Combine(directory, "two.json")), Is.True);
+                Assert.That(service.IsObjectTemplateFile(Path.Combine(directory, "one.json"), directory), Is.True);
+                Assert.That(service.IsObjectTemplateFile(Path.Combine(directory, "two.json"), directory), Is.True);
             });
         }
         finally
@@ -700,7 +700,7 @@ public class DirectoryWatcherServiceTests
             Assert.Multiple(() =>
             {
                 Assert.That(watcher.ShouldExcludePath(Path.Combine(alias, "item.bep")), Is.False);
-                Assert.That(thumbnails.IsObjectTemplateFile(Path.Combine(alias, "item.json")), Is.True);
+                Assert.That(thumbnails.IsObjectTemplateFile(Path.Combine(alias, "item.json"), templatesRoot), Is.True);
             });
 
             Directory.Delete(alias);
@@ -709,7 +709,7 @@ public class DirectoryWatcherServiceTests
             Assert.Multiple(() =>
             {
                 Assert.That(watcher.ShouldExcludePath(Path.Combine(alias, "item.bep")), Is.True);
-                Assert.That(thumbnails.IsObjectTemplateFile(Path.Combine(alias, "item.json")), Is.False);
+                Assert.That(thumbnails.IsObjectTemplateFile(Path.Combine(alias, "item.json"), templatesRoot), Is.False);
             });
         }
         finally

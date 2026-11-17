@@ -5,10 +5,12 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Transformation;
 using Beutl.Models;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -42,7 +44,7 @@ public partial class TransformEditor : UserControl
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel) return;
 
         if (EditorDragDropHelper.TryHandleEditorDrop<Transform>(
-                e,
+                viewModel.GetRequiredService<ObjectTemplateService>(), e,
                 BeutlDataFormats.Transform,
                 tryPasteJson: viewModel.TryPasteJson,
                 onTemplateInstance: instance => viewModel.AddItem(instance),

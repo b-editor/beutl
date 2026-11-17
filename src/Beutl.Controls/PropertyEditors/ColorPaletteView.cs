@@ -27,7 +27,6 @@ public sealed class ColorPaletteView : TemplatedControl
         AvaloniaProperty.Register<ColorPaletteView, Color>(nameof(CurrentColor));
 
     private readonly List<ColorPaletteItem> _items = [];
-    private ColorPaletteService? _service;
     private ColorPaletteService? _subscribedService;
     private StackPanel? _sections;
 
@@ -46,20 +45,10 @@ public sealed class ColorPaletteView : TemplatedControl
         set => SetValue(CurrentColorProperty, value);
     }
 
-    // The shared service unless a test gives the view one of its own.
-    internal ColorPaletteService Service
+    internal ColorPaletteService? Service
     {
-        get => _service ?? ColorPaletteService.Instance;
-        set
-        {
-            _service = value;
-            if (_subscribedService != null)
-            {
-                Subscribe();
-            }
-
-            Rebuild();
-        }
+        get => ColorPaletteService.GetService(this);
+        set => ColorPaletteService.SetService(this, value);
     }
 
     // Rings the color the picker shows and hands a color picked here to pick, until the result is disposed.
@@ -104,13 +93,19 @@ public sealed class ColorPaletteView : TemplatedControl
         {
             UpdateSelection();
         }
+        else if (change.Property == ColorPaletteService.ServiceProperty)
+        {
+            if (VisualRoot != null) Subscribe();
+            Rebuild();
+        }
     }
 
     private void Subscribe()
     {
         Unsubscribe();
         _subscribedService = Service;
-        _subscribedService.Changed += OnServiceChanged;
+        if (_subscribedService != null)
+            _subscribedService.Changed += OnServiceChanged;
     }
 
     private void Unsubscribe()
@@ -133,12 +128,13 @@ public sealed class ColorPaletteView : TemplatedControl
 
         _sections.Children.Clear();
         _items.Clear();
-        ColorPaletteService service = Service;
+        ColorPaletteService? service = Service;
 
         // First, so that it stays in reach however many palettes there are.
-        _sections.Children.Add(CreateNewPaletteButton());
+        if (service != null)
+            _sections.Children.Add(CreateNewPaletteButton());
 
-        if (!service.RecentColors.IsEmpty)
+        if (service != null && !service.RecentColors.IsEmpty)
         {
             AddHeader(Strings.ColorPalette_RecentColors, new PaletteHeader(SwatchKind.Recent, default, -1));
             AddSwatches(service.RecentColors
@@ -161,7 +157,7 @@ public sealed class ColorPaletteView : TemplatedControl
     {
         var header = new PaletteHeader(SwatchKind.Editable, scope, index);
         Button add = CreateHeaderButton(Icon.Add, Strings.ColorPalette_AddCurrentColor);
-        add.Click += (_, _) => Service.EditPalette(scope, index, p => p.AddColor(new PaletteColor(CurrentColor.ToUInt32())));
+        add.Click += (_, _) => Service?.EditPalette(scope, index, p => p.AddColor(new PaletteColor(CurrentColor.ToUInt32())));
         Button actions = CreateHeaderButton(Icon.MoreHorizontal, Strings.ColorPalette_PaletteActions);
         actions.Click += (_, _) => CreatePaletteMenu(header).ShowAt(actions);
         AddHeader(palette.Name, header, scope == PaletteScope.Project, add, actions);
@@ -239,8 +235,12 @@ public sealed class ColorPaletteView : TemplatedControl
                 }
             }
         };
-        button.Click += (_, _) => AskName(button, Strings.ColorPalette_NewPalette, Service.CreatePaletteName(),
-            name => Service.AddPalette(PaletteScope.User, new ColorPalette(name, [])));
+        button.Click += (_, _) =>
+        {
+            if (Service is { } service)
+                AskName(button, Strings.ColorPalette_NewPalette, service.CreatePaletteName(),
+                    name => service.AddPalette(PaletteScope.User, new ColorPalette(name, [])));
+        };
         return button;
     }
 
@@ -314,7 +314,7 @@ public sealed class ColorPaletteView : TemplatedControl
     private FAMenuFlyout CreatePaletteMenu(PaletteHeader header)
     {
         var menu = new FAMenuFlyout();
-        ColorPaletteService service = Service;
+        if (Service is not { } service) return menu;
         if (header.Kind == SwatchKind.Recent)
         {
             menu.Items.Add(CreateItem(Strings.ColorPalette_ClearRecent, Icon.Eraser, service.ClearRecentColors));
@@ -355,7 +355,7 @@ public sealed class ColorPaletteView : TemplatedControl
     private FAMenuFlyout CreateSwatchMenu(Control target, Swatch swatch)
     {
         var menu = new FAMenuFlyout();
-        ColorPaletteService service = Service;
+        if (Service is not { } service) return menu;
         if (swatch.Kind == SwatchKind.Editable)
         {
             (PaletteScope scope, int palette, int index) = (swatch.Scope, swatch.Palette, swatch.Index);
@@ -427,9 +427,10 @@ public sealed class ColorPaletteView : TemplatedControl
 
     private IEnumerable<(PaletteScope Scope, int Index, ColorPalette Palette)> GetEditablePalettes()
     {
+        if (Service is not { } service) yield break;
         foreach (PaletteScope scope in (PaletteScope[])[PaletteScope.Project, PaletteScope.User])
         {
-            ImmutableArray<ColorPalette> palettes = Service.GetPalettes(scope);
+            ImmutableArray<ColorPalette> palettes = service.GetPalettes(scope);
             for (int i = 0; i < palettes.Length; i++)
             {
                 yield return (scope, i, palettes[i]);

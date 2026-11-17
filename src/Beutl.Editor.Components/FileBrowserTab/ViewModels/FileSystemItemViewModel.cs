@@ -17,6 +17,7 @@ namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
 public class FileSystemItemViewModel : IDisposable
 {
+    private readonly ObjectTemplateService _templates;
     private readonly CompositeDisposable _disposables = new();
     private CancellationTokenSource? _thumbnailCts;
     private readonly CancellationTokenSource _metadataCts = new();
@@ -25,13 +26,14 @@ public class FileSystemItemViewModel : IDisposable
     private int _mediaInfoLoad;
     private (long Length, DateTime LastWriteTime)? _detailsStamp;
 
-    public FileSystemItemViewModel(string fullPath, bool isDirectory)
-        : this(fullPath, isDirectory, loadDetails: true)
+    public FileSystemItemViewModel(ObjectTemplateService templates, string fullPath, bool isDirectory)
+        : this(templates, fullPath, isDirectory, loadDetails: true)
     {
     }
 
-    private FileSystemItemViewModel(string fullPath, bool isDirectory, bool loadDetails)
+    private FileSystemItemViewModel(ObjectTemplateService templates, string fullPath, bool isDirectory, bool loadDetails)
     {
+        _templates = templates;
         FullPath = fullPath;
         IsDirectory = isDirectory;
         Name = new ReactiveProperty<string>(Path.GetFileName(fullPath));
@@ -94,7 +96,7 @@ public class FileSystemItemViewModel : IDisposable
     {
         try
         {
-            var item = await Task.Run(() => ObjectTemplateService.Instance.TryLoadFromFile(FullPath));
+            var item = await Task.Run(() => _templates.TryLoadFromFile(FullPath));
             if (item == null)
                 return false;
 
@@ -131,7 +133,7 @@ public class FileSystemItemViewModel : IDisposable
     {
         int load = Interlocked.Increment(ref _mediaInfoLoad);
         var service = FileThumbnailService.Instance;
-        if (service.IsObjectTemplateFile(FullPath))
+        if (service.IsObjectTemplateFile(FullPath, _templates))
         {
             if (await LoadTemplateInfoAsync(load) || _disposed || load != _mediaInfoLoad)
                 return;
@@ -179,7 +181,7 @@ public class FileSystemItemViewModel : IDisposable
     private async Task LoadThumbnailAsync()
     {
         var service = FileThumbnailService.Instance;
-        if (!service.CanGenerateThumbnail(FullPath))
+        if (!service.CanGenerateThumbnail(FullPath, _templates))
             return;
 
         try
@@ -188,7 +190,7 @@ public class FileSystemItemViewModel : IDisposable
             _thumbnailCts?.Dispose();
             _thumbnailCts = new CancellationTokenSource();
             CancellationToken token = _thumbnailCts.Token;
-            var bitmap = await service.GetThumbnailAsync(FullPath, token);
+            var bitmap = await service.GetThumbnailAsync(FullPath, _templates, token);
             if (!token.IsCancellationRequested)
             {
                 Thumbnail.Value = bitmap;
@@ -252,7 +254,7 @@ public class FileSystemItemViewModel : IDisposable
         // A folder that cannot be read is shown without children.
         try
         {
-            foreach (var item in FileSystemEnumerator.EnumerateDirectory(FullPath))
+            foreach (var item in FileSystemEnumerator.EnumerateDirectory(_templates, FullPath))
             {
                 Children.Add(item);
             }
@@ -317,7 +319,7 @@ public class FileSystemItemViewModel : IDisposable
         {
             if (_childrenLoaded && Children is not null)
             {
-                FileSystemEnumerator.RefreshCollection(Children, FullPath);
+                FileSystemEnumerator.RefreshCollection(_templates, Children, FullPath);
                 return;
             }
             RefreshEntriesForDirectory(FullPath);
@@ -377,7 +379,7 @@ public class FileSystemItemViewModel : IDisposable
             if (dirInfo.EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible))
             {
                 // プレースホルダーを追加して展開矢印を表示させる
-                Children!.Add(new FileSystemItemViewModel(FullPath, false, loadDetails: false));
+                Children!.Add(new FileSystemItemViewModel(_templates, FullPath, false, loadDetails: false));
             }
         }
         catch

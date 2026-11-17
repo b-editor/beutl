@@ -107,8 +107,9 @@ public sealed class McpToolBindingTests
         string[] listed = document.RootElement.GetProperty("value").GetProperty("types").EnumerateArray()
             .Select(type => type.GetProperty("type").GetString()!)
             .ToArray();
+        using var libraryService = Beutl.AgentToolkit.Schema.TypeRegistration.CreateLibraryService();
         string[] library = typeof(KnownLibraryItemFormats).GetFields()
-            .SelectMany(field => LibraryService.Current.GetTypesFromFormat((string)field.GetValue(null)!))
+            .SelectMany(field => libraryService.GetTypesFromFormat((string)field.GetValue(null)!))
             .Select(type => type.FullName!)
             .ToArray();
         Assert.Multiple(() =>

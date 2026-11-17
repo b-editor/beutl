@@ -24,6 +24,7 @@ public static class AnimationEditTutorial
 
     public static TutorialDefinition Create(EditorService editorService, ProjectService projectService)
     {
+        ITutorialService tutorials = editorService.AppServices.GetRequiredService<ITutorialService>();
         var step1Subscription = new TutorialStepSubscription();
         var step2Subscription = new TutorialStepSubscription();
         var step3Subscription = new TutorialStepSubscription();
@@ -77,7 +78,7 @@ public static class AnimationEditTutorial
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         step1Subscription.Current = TutorialHelpers.SubscribeToElementSelection(
                             editVm,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => tutorials.AdvanceStep());
                     },
                     OnDismissed = step1Subscription.Release,
                 },
@@ -106,7 +107,7 @@ public static class AnimationEditTutorial
                             // A new drawable holds it in a closed section. The next step points at the X editor,
                             // which appears with the layout after the section and the row open.
                             TutorialHelpers.OpenTransformRow(editVm, drawable, translate);
-                            Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep(), DispatcherPriority.Loaded);
+                            Dispatcher.UIThread.Post(() => tutorials.AdvanceStep(), DispatcherPriority.Loaded);
                             return;
                         }
 
@@ -117,7 +118,7 @@ public static class AnimationEditTutorial
                             {
                                 if (t is TranslateTransform)
                                 {
-                                    Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
+                                    Dispatcher.UIThread.Post(() => tutorials.AdvanceStep());
                                 }
                             }
 
@@ -154,7 +155,7 @@ public static class AnimationEditTutorial
 
                         step3Subscription.Current = TutorialHelpers.SubscribeToAnimationEnabled(
                             translateTransform.X,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => tutorials.AdvanceStep());
                     },
                     OnDismissed = step3Subscription.Release,
                 },
@@ -195,7 +196,7 @@ public static class AnimationEditTutorial
                         if (animation.KeyFrames.Count >= 2)
                         {
                             editorClock.Seek(animation.ToScene(animation.KeyFrames[1].KeyTime.Value));
-                            Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
+                            Dispatcher.UIThread.Post(() => tutorials.AdvanceStep());
                         }
                         else
                         {
@@ -203,7 +204,7 @@ public static class AnimationEditTutorial
                             step4Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
-                                () => TutorialService.Current.AdvanceStep());
+                                () => tutorials.AdvanceStep());
                         }
                     },
                     OnDismissed = step4Subscription.Release,
@@ -245,7 +246,7 @@ public static class AnimationEditTutorial
 
                         step5Subscription.Current = TutorialHelpers.SubscribeToEasingChanged(
                             animation,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => tutorials.AdvanceStep());
                     },
                     OnDismissed = step5Subscription.Release,
                 },
@@ -331,7 +332,7 @@ public static class AnimationEditTutorial
 
                         step10Subscription.Current = TutorialHelpers.SubscribeToAnimationEnabled(
                             translateTransform.Y,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => tutorials.AdvanceStep());
                     },
                     OnDismissed = step10Subscription.Release,
                 },
@@ -360,7 +361,7 @@ public static class AnimationEditTutorial
                             step11Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
-                                () => TutorialService.Current.AdvanceStep());
+                                () => tutorials.AdvanceStep());
                         }
                     },
                     OnDismissed = step11Subscription.Release,

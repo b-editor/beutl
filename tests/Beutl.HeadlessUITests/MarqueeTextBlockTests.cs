@@ -115,7 +115,7 @@ public sealed class MarqueeTextBlockTests
     [AvaloniaTest]
     public async Task The_picker_scrolls_the_names_of_the_selected_and_hovered_items()
     {
-        Assert.That(LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.Drawable), Is.Not.Empty);
+        Assert.That(TestShell.Library.GetTypesFromFormat(KnownLibraryItemFormats.Drawable), Is.Not.Empty);
         PinnableLibraryItem[] items =
         [
             CreateItem(typeof(RectShape), LongName),
@@ -124,7 +124,7 @@ public sealed class MarqueeTextBlockTests
         ];
         var host = new Button { Content = "Pick" };
         var window = new Window { Content = host, Width = 320, Height = 480 };
-        var viewModel = new SelectLibraryItemDialogViewModel(
+        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.Library,
             KnownLibraryItemFormats.Drawable, typeof(Drawable), Task.FromResult(items), Task.FromResult(items));
         using var showAll = viewModel.ShowAll;
         using var searchText = viewModel.SearchText;

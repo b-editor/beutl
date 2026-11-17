@@ -14,6 +14,14 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 
 public sealed class FontToolsTests
 {
+    private Beutl.Services.LibraryService _library = null!;
+
+    [SetUp]
+    public void SetUpLibrary() => _library = TypeRegistration.CreateLibraryService();
+
+    [TearDown]
+    public void DisposeLibrary() => _library.Dispose();
+
     // A name no installed font can carry, so "unregistered" holds on any machine. Real subfamily
     // names such as "Inter 28pt" are registered families on some systems and cannot serve here.
     private static readonly string UnregisteredFamilyName = $"Beutl Test Missing {Guid.NewGuid():N}";
@@ -22,7 +30,7 @@ public sealed class FontToolsTests
     public void List_fonts_can_leave_out_typefaces_to_browse_names()
     {
         RequireRegisteredFamilies();
-        var tools = new QueryTools(new AgentSessionManager());
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
 
         FontListResponse full = tools.ListFonts().Value!;
         FontListResponse names = tools.ListFonts(includeTypefaces: false).Value!;
@@ -38,7 +46,7 @@ public sealed class FontToolsTests
     public void List_fonts_projects_the_registered_font_registry()
     {
         FontFamily[] registered = RequireRegisteredFamilies();
-        var tools = new QueryTools(new AgentSessionManager());
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
 
         ToolResult<FontListResponse> result = tools.ListFonts();
 
@@ -69,7 +77,7 @@ public sealed class FontToolsTests
     public void List_fonts_typeface_entry_round_trips_through_apply_edit()
     {
         _ = RequireRegisteredFamilies();
-        var queryTools = new QueryTools(new AgentSessionManager());
+        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
         FontFamilySummary? family = queryTools.ListFonts().Value!.Families
             .FirstOrDefault(item => item.Typefaces.Count > 0);
         if (family is null)
@@ -114,7 +122,7 @@ public sealed class FontToolsTests
     public void List_fonts_filters_by_name_case_insensitively()
     {
         FontFamily[] registered = RequireRegisteredFamilies();
-        var tools = new QueryTools(new AgentSessionManager());
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
 
         // Take a substring of a real family name and ask for it in the opposite case, so the
         // assertion fails if the filter is dropped or made ordinal.
@@ -142,7 +150,7 @@ public sealed class FontToolsTests
     public void List_fonts_returns_nothing_for_a_family_that_is_not_registered()
     {
         _ = RequireRegisteredFamilies();
-        var tools = new QueryTools(new AgentSessionManager());
+        var tools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
 
         ToolResult<FontListResponse> result = tools.ListFonts(UnregisteredFamilyName);
 

@@ -87,19 +87,25 @@ public sealed partial class EditorService
         });
     }
 
-    public EditorService(ExtensionProvider extensionProvider)
+    internal IServiceProvider AppServices { get; }
+
+    public EditorService(ExtensionProvider extensionProvider, IServiceProvider appServices)
         : this(
             extensionProvider,
-            static (project, uri) => CoreSerializer.StoreToUri(project, uri))
+            static (project, uri) => CoreSerializer.StoreToUri(project, uri),
+            appServices)
     {
     }
 
     internal EditorService(
         ExtensionProvider extensionProvider,
-        Action<Project, Uri> serializeProject)
+        Action<Project, Uri> serializeProject,
+        IServiceProvider appServices)
     {
         ArgumentNullException.ThrowIfNull(extensionProvider);
         ArgumentNullException.ThrowIfNull(serializeProject);
+        ArgumentNullException.ThrowIfNull(appServices);
+        AppServices = appServices;
 
         _extensionProvider = extensionProvider;
         _serializeProject = serializeProject;

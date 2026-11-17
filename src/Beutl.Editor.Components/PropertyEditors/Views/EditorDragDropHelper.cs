@@ -4,19 +4,20 @@ using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 internal static class EditorDragDropHelper
 {
     public static bool TryHandleEditorDrop<TItem>(
-        DragEventArgs e,
+        ObjectTemplateService templates, DragEventArgs e,
         DataFormat<string> dataFormat,
         Func<string, bool> tryPasteJson,
         Action<TItem> onTemplateInstance,
         Func<Type, bool> onTypePayload) where TItem : class
     {
-        if (TryLoadDroppedTemplate(e, out ObjectTemplateItem? template)
+        if (TryLoadDroppedTemplate(templates, e, out ObjectTemplateItem? template)
             && template.CreateInstance() is TItem instance)
         {
             onTemplateInstance(instance);
@@ -41,11 +42,11 @@ internal static class EditorDragDropHelper
         return false;
     }
 
-    public static bool TryLoadDroppedTemplate(DragEventArgs e, [NotNullWhen(true)] out ObjectTemplateItem? template)
+    public static bool TryLoadDroppedTemplate(ObjectTemplateService templates, DragEventArgs e, [NotNullWhen(true)] out ObjectTemplateItem? template)
     {
         if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
             && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
-            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } loaded)
+            && templates.TryLoadFromFile(droppedFile) is { } loaded)
         {
             template = loaded;
             return true;
@@ -57,7 +58,8 @@ internal static class EditorDragDropHelper
 
     public static bool TryApplyDroppedTemplate(DragEventArgs e, IObjectEditorCommands viewModel)
     {
-        return TryLoadDroppedTemplate(e, out ObjectTemplateItem? template)
+        var templates = ((IServiceProvider)viewModel).GetRequiredService<ObjectTemplateService>();
+        return TryLoadDroppedTemplate(templates, e, out ObjectTemplateItem? template)
             && viewModel.ApplyTemplate(template);
     }
 

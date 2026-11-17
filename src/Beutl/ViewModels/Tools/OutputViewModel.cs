@@ -87,7 +87,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 if (s == null) return null;
 
                 s.SourceSize.Value = Model.FrameSize.Value;
-                return new EncoderSettingsViewModel(s, _editViewModel.ExtensionProvider);
+                return new EncoderSettingsViewModel(s, _editViewModel.ExtensionProvider, _editViewModel);
             })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
@@ -95,7 +95,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         AudioSettings = Controller.Select(c => c?.AudioSettings)
             .DistinctUntilChanged()
-            .Select(s => s == null ? null : new EncoderSettingsViewModel(s, _editViewModel.ExtensionProvider))
+            .Select(s => s == null ? null : new EncoderSettingsViewModel(s, _editViewModel.ExtensionProvider, _editViewModel))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);

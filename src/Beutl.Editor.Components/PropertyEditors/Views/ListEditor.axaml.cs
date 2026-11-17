@@ -11,6 +11,7 @@ using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -81,7 +82,7 @@ public partial class ListEditor : UserControl
         {
             Type propertyType = viewModel.ItemType;
             string format = propertyType.FullName!;
-            var selectVm = new SelectLibraryItemDialogViewModel(
+            var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
                 format, propertyType, LibraryThumbnailCapture.ForObject(viewModel as IServiceProvider));
 
             return LibraryItemPickerHelper.ShowAsync(this, selectVm, format);

@@ -5,8 +5,10 @@ using Avalonia.Platform.Storage;
 using Beutl.Audio.Effects;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -33,7 +35,7 @@ public partial class AudioEffectEditor : UserControl
         if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
         if (EditorDragDropHelper.TryHandleEditorDrop<AudioEffect>(
-                e,
+                viewModel.GetRequiredService<ObjectTemplateService>(), e,
                 BeutlDataFormats.AudioEffect,
                 tryPasteJson: viewModel.TryPasteJson,
                 onTemplateInstance: instance => viewModel.AddItem(instance),
@@ -74,7 +76,7 @@ public partial class AudioEffectEditor : UserControl
     {
         return PickerGuard.RunAsync(this, button, async () =>
         {
-            var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.AudioEffect, typeof(AudioEffect));
+            var viewModel = new SelectLibraryItemDialogViewModel(((IServiceProvider)DataContext!).GetRequiredService<LibraryService>(), KnownLibraryItemFormats.AudioEffect, typeof(AudioEffect));
             return await LibraryItemPickerHelper.ShowAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect) as Type;
         });
     }

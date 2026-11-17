@@ -5,6 +5,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Helpers;
 using Beutl.Services;
 using DynamicData;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -311,7 +312,7 @@ public partial class MainViewModel
 
         try
         {
-            if (ProxyMediaServices.Current is { } proxyMediaServices)
+            if (AppServices.GetService<ProxyMediaServices>() is { } proxyMediaServices)
             {
                 await proxyMediaServices.DisposeAsync();
             }
@@ -518,7 +519,7 @@ public partial class MainViewModel
     private void PerformShutdownHandoff(BeutlApiApplication clients)
     {
         PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
-        if (CreateHandoffStartInfo(queue, IsRestartRequested, () => Telemetry.Instance._sessionId) is { } startInfo)
+        if (CreateHandoffStartInfo(queue, IsRestartRequested, () => SessionId) is { } startInfo)
         {
             using Process? _ = Process.Start(startInfo);
         }

@@ -25,7 +25,7 @@ public sealed class EncoderOptionsEditorViewModelTests
     {
         var provider = new ExtensionProvider();
         var commands = new ContextCommandManager(new ContextCommandSettingsStore());
-        var manager = new PackageManager(new InstalledPackageRepository(), provider, commands, apiApplication: null!);
+        var manager = new PackageManager(new InstalledPackageRepository(), provider, commands, apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry());
         var loaded = manager.LoadPackageExtensions([typeof(FFmpegEncoderSpecializedPropertyExtension)]);
         var extension = (PropertyEditorExtension)loaded.Single();
         provider.AddExtensions(1, loaded);

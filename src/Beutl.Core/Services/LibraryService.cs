@@ -171,19 +171,21 @@ public static class KnownLibraryItemFormats
     public const string ClipTransition = "Beutl.Graphics.Transitions.ClipTransition";
 }
 
-public sealed class LibraryService
+public sealed class LibraryService : IDisposable
 {
     private readonly List<LibraryItem> _items = [];
     private readonly Dictionary<string, HashSet<Type>> _formatToType = [];
     private readonly object _lock = new();
 
-    private LibraryService()
+    public LibraryService()
     {
         TypeUnloadNotifier.TypesUnloading += Unregister;
     }
 
-
-    public static LibraryService Current { get; } = new();
+    public void Dispose()
+    {
+        TypeUnloadNotifier.TypesUnloading -= Unregister;
+    }
 
     // A copy, since a registration or an unload on another thread can change the items while they are read.
     public IReadOnlyList<LibraryItem> Items

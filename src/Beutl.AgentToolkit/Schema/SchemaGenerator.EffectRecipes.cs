@@ -21,7 +21,7 @@ public sealed partial class SchemaGenerator
     public IReadOnlyList<EffectRecipeSummary> ListEffectRecipes(string? intent = null)
     {
         TypeRegistration.EnsureRegistered();
-        return s_effectRecipeSpecs.Value
+        return _effectRecipeSpecs.Value
             .Select(spec => new { spec.Summary, Score = ScoreRecipe(spec.Summary, intent) })
             .Where(item => item.Score > 0)
             .OrderByDescending(item => item.Score)
@@ -34,10 +34,10 @@ public sealed partial class SchemaGenerator
     {
         TypeRegistration.EnsureRegistered();
         EffectRecipeSpec? spec = !string.IsNullOrWhiteSpace(name)
-            ? s_effectRecipeSpecs.Value.FirstOrDefault(item => string.Equals(item.Summary.Name, name, StringComparison.OrdinalIgnoreCase))
+            ? _effectRecipeSpecs.Value.FirstOrDefault(item => string.Equals(item.Summary.Name, name, StringComparison.OrdinalIgnoreCase))
             : string.IsNullOrWhiteSpace(intent)
-                ? s_effectRecipeSpecs.Value.FirstOrDefault()
-            : s_effectRecipeSpecs.Value
+                ? _effectRecipeSpecs.Value.FirstOrDefault()
+            : _effectRecipeSpecs.Value
                 .Select(item => new { Spec = item, Score = ScoreRecipe(item.Summary, intent) })
                 .Where(item => item.Score > 0)
                 .OrderByDescending(item => item.Score)
@@ -70,7 +70,7 @@ public sealed partial class SchemaGenerator
     private const string ClipTransitionSidesNote =
         "The incoming EnterTransition decides the blend, and the outgoing ExitTransition adds its Duration before the cut. Set one side alone to keep the whole transition on that side, or set a side to null to clear it.";
 
-    private static EffectRecipeSpec[] CreateEffectRecipeSpecs()
+    private EffectRecipeSpec[] CreateEffectRecipeSpecs()
     {
         const string duplicateInputHint = "Apply to a COPY, never the original. Inspect the source location: for a direct Element.Objects drawable, call duplicate_object with wrapInGroup=false and arrange [original, copy, PortalObject(Count=0, Clear=false), DrawableGroup] with empty group Children, or use captured timeline layers. Keep unrelated content in separate Elements outside the portal span, preserving timing and draw order. For a drawable already nested in DrawableGroup.Children, use wrapInGroup=true to copy inside the existing group; the false path searches only direct objects. Apply this recipe's drawable patch to the returned copy ID at its actual path from read_document, preserving all parent groups when the copy is nested.";
         EffectRecipeSpec[] curated =

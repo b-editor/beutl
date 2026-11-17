@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Services;
@@ -20,8 +21,9 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserTabViewModel>();
     private readonly IEditorContext _editorContext;
     private readonly DirectoryWatcherService _directoryWatcher;
-    private readonly FavoritesManager _favoritesManager = new();
-    private readonly MediaFileSearcher _mediaSearcher = new();
+    private readonly ObjectTemplateService _templates;
+    private readonly FavoritesManager _favoritesManager;
+    private readonly MediaFileSearcher _mediaSearcher;
     // Canceled when the tab closes, which stops a copy or move before its next entry.
     private readonly CancellationTokenSource _transferCancellation = new();
     private string? _projectDirectory;
@@ -49,6 +51,9 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         DirectoryWatcherService? directoryWatcher = null)
     {
         _editorContext = editorContext;
+        _templates = editorContext.GetRequiredService<ObjectTemplateService>();
+        _favoritesManager = new FavoritesManager(_templates);
+        _mediaSearcher = new MediaFileSearcher(_templates);
         _directoryWatcher = directoryWatcher ?? new();
         InitializeStorage(storageProviders);
 
@@ -141,7 +146,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             else
             {
                 bool tree = ViewMode.Value == FileBrowserViewMode.Tree;
-                FileSystemEnumerator.RefreshCollection(tree ? TreeRootItems : Items, path, includeChildren: tree);
+                FileSystemEnumerator.RefreshCollection(_templates, tree ? TreeRootItems : Items, path, includeChildren: tree);
             }
         }
         catch (DirectoryNotFoundException)
@@ -302,11 +307,11 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         {
             if (ViewMode.Value == FileBrowserViewMode.Tree)
             {
-                FileSystemEnumerator.PopulateCollection(TreeRootItems, RootPath.Value);
+                FileSystemEnumerator.PopulateCollection(_templates, TreeRootItems, RootPath.Value);
             }
             else
             {
-                FileSystemEnumerator.PopulateCollection(Items, RootPath.Value);
+                FileSystemEnumerator.PopulateCollection(_templates, Items, RootPath.Value);
             }
         }
         catch (UnauthorizedAccessException ex)
@@ -397,9 +402,9 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             try
             {
                 if (preserveExisting)
-                    FileSystemEnumerator.RefreshCollection(ProjectDirectoryItems, _projectDirectory);
+                    FileSystemEnumerator.RefreshCollection(_templates, ProjectDirectoryItems, _projectDirectory);
                 else
-                    FileSystemEnumerator.PopulateCollection(ProjectDirectoryItems, _projectDirectory);
+                    FileSystemEnumerator.PopulateCollection(_templates, ProjectDirectoryItems, _projectDirectory);
             }
             catch (Exception ex)
             {

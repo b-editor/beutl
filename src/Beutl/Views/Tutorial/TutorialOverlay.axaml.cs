@@ -5,12 +5,12 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Services.Tutorials;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Tutorial;
 
@@ -288,26 +288,28 @@ public partial class TutorialOverlay : UserControl
         e.Handled = true;
     }
 
+    private ITutorialService? Service => (DataContext as MainViewModel)?.AppServices.GetRequiredService<ITutorialService>();
+
     private void OnSkipClick(object? sender, RoutedEventArgs e)
     {
-        TutorialService.Current?.CancelTutorial();
+        Service?.CancelTutorial();
     }
 
     private void OnPreviousClick(object? sender, RoutedEventArgs e)
     {
-        TutorialService.Current?.PreviousStep();
+        Service?.PreviousStep();
     }
 
     private void OnNextClick(object? sender, RoutedEventArgs e)
     {
-        TutorialState? state = TutorialService.Current.GetCurrentState();
+        TutorialState? state = Service?.GetCurrentState();
         if (state?.IsLastStep == true)
         {
-            TutorialService.Current?.CancelTutorial();
+            Service?.CancelTutorial();
         }
         else
         {
-            TutorialService.Current?.AdvanceStep();
+            Service?.AdvanceStep();
         }
     }
 }

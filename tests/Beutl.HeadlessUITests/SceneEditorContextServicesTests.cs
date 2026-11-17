@@ -33,7 +33,7 @@ public class SceneEditorContextServicesTests
     public void EditorContextServices_TryGetService_resolves_by_type()
     {
         var extensionProvider = new ExtensionProvider();
-        var editorService = new EditorService(extensionProvider);
+        var editorService = new EditorService(extensionProvider, new Beutl.Editor.Services.EditorServiceRegistry());
         IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
 
         Assert.Multiple(() =>
@@ -63,7 +63,7 @@ public class SceneEditorContextServicesTests
         };
 
         var extensionProvider = new ExtensionProvider();
-        var editorService = new EditorService(extensionProvider);
+        var editorService = new EditorService(extensionProvider, TestShell.MainViewModel.AppServices);
         IEditorContextServices services = new FakeEditorContextServices(editorService, extensionProvider);
 
         bool created = SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context);

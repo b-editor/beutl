@@ -253,6 +253,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
 
         foreach (Extension extension in extensions)
         {
+            extension.Services = _manager.Services;
             extension.Load();
         }
 

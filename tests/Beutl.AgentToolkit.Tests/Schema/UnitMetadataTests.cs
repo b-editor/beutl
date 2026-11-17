@@ -13,6 +13,14 @@ namespace Beutl.AgentToolkit.Tests.Schema;
 
 public class UnitMetadataTests
 {
+    private Beutl.Services.LibraryService _library = null!;
+
+    [SetUp]
+    public void SetUpLibrary() => _library = TypeRegistration.CreateLibraryService();
+
+    [TearDown]
+    public void DisposeLibrary() => _library.Dispose();
+
     [TestCase(typeof(ScaleTransform), nameof(ScaleTransform.Scale), "percent")]
     [TestCase(typeof(ScaleTransform), nameof(ScaleTransform.ScaleX), "percent")]
     [TestCase(typeof(ScaleTransform), nameof(ScaleTransform.ScaleY), "percent")]
@@ -25,7 +33,7 @@ public class UnitMetadataTests
     [TestCase(typeof(RectShape), nameof(RectShape.Width), null)]
     public void Schema_reads_declared_and_inherited_units_without_guessing_from_the_name(Type type, string name, string? unit)
     {
-        var schema = new SchemaGenerator().Generate(typeFilter: type.Name, includeExamples: false);
+        var schema = new SchemaGenerator(_library).Generate(typeFilter: type.Name, includeExamples: false);
         PropertyDescriptor property = schema.Types.Single(item => item.Type == type.FullName)
             .Properties.Single(item => item.Name == name);
         Assert.That(property.Unit, Is.EqualTo(unit));
@@ -45,7 +53,7 @@ public class UnitMetadataTests
         var rotation = new RotationMatrixNode();
         Assert.That(rotation.Rotation.Property!.GetAttributes().OfType<UnitAttribute>().Single().Unit, Is.EqualTo(PropertyUnit.Degrees));
         Assert.That(rotation.Rotation.Property.GetValue(), Is.Zero);
-        var property = new SchemaGenerator().Generate(typeFilter: nameof(ScaleTransform), includeExamples: false)
+        var property = new SchemaGenerator(_library).Generate(typeFilter: nameof(ScaleTransform), includeExamples: false)
             .Types.Single(item => item.Type == typeof(ScaleTransform).FullName).Properties.Single(item => item.Name == nameof(ScaleTransform.Scale));
         Assert.That(property.Default, Is.EqualTo(100f));
     }

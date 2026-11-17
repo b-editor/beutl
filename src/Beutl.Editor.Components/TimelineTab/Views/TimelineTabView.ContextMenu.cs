@@ -7,6 +7,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -14,7 +15,9 @@ public sealed partial class TimelineTabView
 {
     private void PopulateAddElementSubMenu()
     {
-        foreach (LibraryItem item in LibraryService.Current.Items)
+        AddElementSubMenu.Items.Clear();
+        if (ViewModel is not { } viewModel) return;
+        foreach (LibraryItem item in viewModel.GetRequiredService<LibraryService>().Items)
         {
             Control? menuItem = CreateMenuItemForLibraryItem(item);
             if (menuItem != null)
@@ -103,7 +106,8 @@ public sealed partial class TimelineTabView
     private void PopulateAddFromTemplateSubMenu()
     {
         AddFromTemplateSubMenu.Items.Clear();
-        foreach (ObjectTemplateItem template in ElementTemplateResolver.FindElementTemplates())
+        if (ViewModel is not { } viewModel) return;
+        foreach (ObjectTemplateItem template in ElementTemplateResolver.FindElementTemplates(viewModel.GetRequiredService<ObjectTemplateService>()))
         {
             var menuItem = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
             menuItem.Click += AddElementFromTemplateClick;

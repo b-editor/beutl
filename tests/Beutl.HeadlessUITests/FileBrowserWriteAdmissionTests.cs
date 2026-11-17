@@ -77,7 +77,7 @@ public sealed class FileBrowserWriteAdmissionTests
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         using var notifications = new NotificationCapture();
-        var secondHost = new EditorService(TestShell.Extensions);
+        var secondHost = new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices);
 
         // The second host is free; the first, which owns the editor, is mid-mutation.
         using (IDisposable? mutation = TestShell.Editor.TryBeginWorktreeMutation())
@@ -102,7 +102,7 @@ public sealed class FileBrowserWriteAdmissionTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-delete", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
-        using var item = new FileSystemItemViewModel(fixture.CopySource, isDirectory: false);
+        using var item = new FileSystemItemViewModel(TestShell.Templates, fixture.CopySource, isDirectory: false);
         using var notifications = new NotificationCapture();
 
         // The mutation starts while the confirmation is open, and the user confirms into it.
@@ -136,8 +136,8 @@ public sealed class FileBrowserWriteAdmissionTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-multi-delete", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
-        using var first = new FileSystemItemViewModel(fixture.CopySource, isDirectory: false);
-        using var second = new FileSystemItemViewModel(fixture.MoveSource, isDirectory: false);
+        using var first = new FileSystemItemViewModel(TestShell.Templates, fixture.CopySource, isDirectory: false);
+        using var second = new FileSystemItemViewModel(TestShell.Templates, fixture.MoveSource, isDirectory: false);
         using var notifications = new NotificationCapture();
 
         using (var confirmation = new ConfirmationDuringMutation(browser))
@@ -457,7 +457,7 @@ public sealed class FileBrowserWriteAdmissionTests
         string resourcesDir = Path.Combine(browser.ProjectDirectory ?? projectRoot, "resources");
         browser.RootPath.Value = fixture.TargetDir;
         HeadlessTestHelpers.Settle();
-        using var renameItem = new FileSystemItemViewModel(fixture.RenameSource, isDirectory: false);
+        using var renameItem = new FileSystemItemViewModel(TestShell.Templates, fixture.RenameSource, isDirectory: false);
         using var notifications = new NotificationCapture();
 
         IDisposable? mutation = TestShell.Editor.TryBeginWorktreeMutation();
@@ -671,7 +671,7 @@ public sealed class FileBrowserWriteAdmissionTests
         {
         }
 
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => TestShell.MainViewModel.AppServices.GetService(serviceType);
 
         public void Dispose() => IsEnabled.Dispose();
     }

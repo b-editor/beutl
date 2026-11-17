@@ -24,7 +24,6 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
-using Moq;
 using Reactive.Bindings;
 using static Beutl.HeadlessUITests.CloudStorageTests;
 
@@ -392,7 +391,7 @@ public sealed class FileBrowserStorageTests
     }
 
     private static FileBrowserTabViewModel Create(params IFileBrowserStorageProvider[] providers) =>
-        new(new Mock<IEditorContext>().Object, new(providers));
+        new(TestShell.CreateEditorContextMock().Object, new(providers));
 
     private static BeutlStorageProvider BeutlProvider(BeutlApiApplication clients) =>
         new(clients, () => throw new InvalidOperationException("Not used by this test"));

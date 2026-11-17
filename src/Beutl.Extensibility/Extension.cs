@@ -2,6 +2,9 @@
 
 public abstract class Extension
 {
+    /// <summary>Host services available during loading, use, and unloading.</summary>
+    public IServiceProvider Services { get; internal set; } = null!;
+
     public virtual string Name => GetType().Name;
 
     public virtual string DisplayName => TypeDisplayHelpers.GetLocalizedName(GetType());

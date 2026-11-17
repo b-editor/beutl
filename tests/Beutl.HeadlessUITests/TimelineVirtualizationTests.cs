@@ -774,6 +774,8 @@ public sealed class TimelineVirtualizationTests
             context.Setup(x => x.GetService(typeof(IEditorClock))).Returns(_clock);
             context.Setup(x => x.GetService(typeof(IEditorSelection))).Returns(Selection);
             context.Setup(x => x.GetService(typeof(IBufferStatus))).Returns(buffer.Object);
+            context.Setup(x => x.GetService(typeof(Beutl.Services.LibraryService))).Returns(TestShell.Library);
+            context.Setup(x => x.GetService(typeof(Beutl.Editor.Services.ObjectTemplateService))).Returns(TestShell.Templates);
             Model = new TimelineTabViewModel(context.Object);
             View = new TimelineTabView { DataContext = Model };
             Window = new Window { Content = View, Width = 960, Height = 420 };

@@ -347,7 +347,7 @@ public class UpdateShutdownTests
     {
         await TestReset.ResetShellAsync();
         MainViewModel? shell = null;
-        var main = new MainViewModel(_ => handoff?.Invoke(shell!));
+        var main = new MainViewModel(TestShell.MainViewModel.AppServices, TestShell.MainViewModel.SessionId, _ => handoff?.Invoke(shell!));
         shell = main;
         main.ExtensionProvider.AddExtensions(0, LoadPrimitiveExtensionTask.PrimitiveExtensions);
         string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "update-shutdown-" + Guid.NewGuid().ToString("N"));

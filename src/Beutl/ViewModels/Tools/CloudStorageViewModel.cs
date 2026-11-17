@@ -7,6 +7,7 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Logging;
@@ -455,6 +456,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
     {
         using var vm = _createSettings();
         var dialog = new SettingsDialog { DataContext = vm };
+        ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(owner));
         vm.GoToAccountSettingsPage();
         await dialog.ShowDialog(owner);
     }

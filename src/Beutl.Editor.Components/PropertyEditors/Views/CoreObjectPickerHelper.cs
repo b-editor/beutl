@@ -3,6 +3,7 @@ using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -14,7 +15,7 @@ internal static class CoreObjectPickerHelper
     {
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
         string format = propertyType.FullName!;
-        var selectVm = new SelectLibraryItemDialogViewModel(
+        var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
             format, propertyType, LibraryThumbnailCapture.ForObject(viewModel as IServiceProvider));
 
         if (PresenterTypeAttribute.GetPresenterType(propertyType) != null)

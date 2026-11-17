@@ -6,6 +6,7 @@ using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TransitionTab.ViewModels;
 using Beutl.Graphics.Transitions;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TransitionTab.Views;
 
@@ -24,7 +25,7 @@ public partial class TransitionTabView : UserControl
         {
             try
             {
-                var selectVm = new SelectLibraryItemDialogViewModel(
+                var selectVm = new SelectLibraryItemDialogViewModel(viewModel.GetRequiredService<LibraryService>(),
                     KnownLibraryItemFormats.ClipTransition,
                     typeof(ClipTransition),
                     LibraryThumbnailCapture.ForEdge(viewModel.ShownElement, viewModel.ShownEdge));

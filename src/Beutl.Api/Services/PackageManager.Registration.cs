@@ -355,6 +355,7 @@ public sealed partial class PackageManager
 
     internal void SetupExtensionSettings(Extension extension)
     {
+        extension.Services = _services;
         if (extension.Settings is { } settings)
         {
             _settingsStore.Restore(extension, settings);

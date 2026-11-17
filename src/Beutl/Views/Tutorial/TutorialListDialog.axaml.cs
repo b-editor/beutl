@@ -9,8 +9,11 @@ namespace Beutl.Views.Tutorial;
 
 public partial class TutorialListDialog : FAContentDialog
 {
-    public TutorialListDialog()
+    private readonly ITutorialService _service;
+
+    public TutorialListDialog(ITutorialService service)
     {
+        _service = service;
         InitializeComponent();
         LoadTutorials();
     }
@@ -19,11 +22,7 @@ public partial class TutorialListDialog : FAContentDialog
 
     private void LoadTutorials()
     {
-        ITutorialService service = TutorialService.Current;
-        if (service == null)
-            return;
-
-        TutorialList.ItemsSource = service.GetAvailableTutorials();
+        TutorialList.ItemsSource = _service.GetAvailableTutorials();
     }
 
     private async void OnTutorialItemClick(object? sender, RoutedEventArgs e)
@@ -31,7 +30,7 @@ public partial class TutorialListDialog : FAContentDialog
         if (sender is Button { Tag: string tutorialId })
         {
             Hide();
-            await TutorialService.Current.StartTutorial(tutorialId, autoFulfillPrerequisites: true);
+            await _service.StartTutorial(tutorialId, autoFulfillPrerequisites: true);
         }
     }
 }

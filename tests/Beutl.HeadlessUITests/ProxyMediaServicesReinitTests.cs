@@ -9,7 +9,7 @@ namespace Beutl.HeadlessUITests;
 // ProxyMediaServices rebuilds its backing store/eviction when StoreRootPath or MaxTotalBytes changes at
 // runtime, and hands editors swap-stable facades so a cached reference keeps hitting the current store.
 [TestFixture]
-[NonParallelizable] // drives the ProxyMediaServices.Current singleton + GlobalConfiguration.Instance
+[NonParallelizable] // changes GlobalConfiguration.Instance
 public sealed class ProxyMediaServicesReinitTests
 {
     private static (string Root, long Cap) Snapshot(ProxyStoreConfig config) => (config.StoreRootPath.Value, config.MaxTotalBytes.Value);
@@ -197,7 +197,7 @@ public sealed class ProxyMediaServicesReinitTests
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
         (string Root, long Cap) prior = Snapshot(config);
         // A bad store path persisted to settings.json from a previous session: startup must still bring up
-        // proxy services (on the default location) rather than leaving Current null until another restart.
+        // proxy services (on the default location) and allow a later path correction.
         string badFile = Path.Combine(Path.GetTempPath(), $"proxy-init-file-{Guid.NewGuid():N}");
         File.WriteAllBytes(badFile, [1]);
         config.StoreRootPath.Value = badFile;
@@ -205,12 +205,12 @@ public sealed class ProxyMediaServicesReinitTests
         ProxyMediaServices services = null!;
         try
         {
-            Assert.DoesNotThrow(() => services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance));
+            Assert.DoesNotThrow(() => services = new ProxyMediaServices(GlobalConfiguration.Instance));
 
             string defaultRoot = Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath);
             Assert.Multiple(() =>
             {
-                Assert.That(ProxyMediaServices.Current, Is.Not.Null);
+                Assert.That(Beutl.Media.Decoding.DecoderRegistry.ProxyResolver, Is.SameAs(services.Resolver));
                 Assert.That(services.Store.StoreRootPath, Is.EqualTo(defaultRoot));
                 Assert.That(config.StoreRootPath.Value, Is.EqualTo(defaultRoot), "the bad persisted path must be repaired to the default");
             });
@@ -257,7 +257,7 @@ public sealed class ProxyMediaServicesReinitTests
             if (maxTotalBytes is { } cap)
                 Config.MaxTotalBytes.Value = cap;
 
-            Services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
+            Services = new ProxyMediaServices(GlobalConfiguration.Instance);
         }
 
         public ProxyStoreConfig Config { get; } = GlobalConfiguration.Instance.ProxyStoreConfig;

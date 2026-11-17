@@ -16,7 +16,7 @@ public static class DecoderRegistry
 
     private static IProxyResolver? s_proxyResolver;
 
-    // Written from the UI thread (ProxyMediaServices.Initialize / ReinitializeStore) and read
+    // Written from the UI thread (ProxyMediaServices construction / ReinitializeStore) and read
     // unsynchronized on background decode threads. Volatile access gives the store-root swap prompt
     // cross-thread visibility so a decode thread cannot keep reading a register-cached old resolver
     // (notably on ARM64) after the swap.

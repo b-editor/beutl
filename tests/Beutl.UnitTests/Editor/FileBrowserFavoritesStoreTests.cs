@@ -1,12 +1,14 @@
 ﻿using System.Globalization;
 using Beutl.Configuration;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.Services;
 
 namespace Beutl.UnitTests.Editor;
 
 [TestFixture]
 public class FileBrowserFavoritesStoreTests
 {
+    private ObjectTemplateService _templates = null!;
     private string _scratch = null!;
 
     [SetUp]
@@ -14,11 +16,13 @@ public class FileBrowserFavoritesStoreTests
     {
         _scratch = Path.Combine(Path.GetTempPath(), $"beutl-favorites-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_scratch);
+        _templates = new ObjectTemplateService(Path.Combine(_scratch, "templates"));
     }
 
     [TearDown]
     public void TearDown()
     {
+        _templates.Dispose();
         if (Directory.Exists(_scratch))
         {
             Directory.Delete(_scratch, true);
@@ -53,8 +57,8 @@ public class FileBrowserFavoritesStoreTests
     public void Two_managers_share_the_same_favorite_list()
     {
         var store = new FileBrowserFavoritesStore(new FakePreferences());
-        using var first = new FavoritesManager(store);
-        using var second = new FavoritesManager(store);
+        using var first = new FavoritesManager(_templates, store);
+        using var second = new FavoritesManager(_templates, store);
         int secondChanged = 0;
         second.Changed += () => secondChanged++;
 
@@ -73,7 +77,7 @@ public class FileBrowserFavoritesStoreTests
     {
         var preferences = new FakePreferences();
         var store = new FileBrowserFavoritesStore(preferences);
-        using var manager = new FavoritesManager(store);
+        using var manager = new FavoritesManager(_templates, store);
         int changed = 0;
         manager.Changed += () => changed++;
 
@@ -115,8 +119,8 @@ public class FileBrowserFavoritesStoreTests
     public void Dispose_unsubscribes_the_manager_from_the_store()
     {
         var store = new FileBrowserFavoritesStore(new FakePreferences());
-        var disposed = new FavoritesManager(store);
-        using var alive = new FavoritesManager(store);
+        var disposed = new FavoritesManager(_templates, store);
+        using var alive = new FavoritesManager(_templates, store);
         int disposedChanged = 0;
         int aliveChanged = 0;
         disposed.Changed += () => disposedChanged++;
@@ -136,13 +140,13 @@ public class FileBrowserFavoritesStoreTests
     public void Dispose_leaves_the_shared_list_intact_for_other_managers()
     {
         var store = new FileBrowserFavoritesStore(new FakePreferences());
-        var disposed = new FavoritesManager(store);
-        using var alive = new FavoritesManager(store);
+        var disposed = new FavoritesManager(_templates, store);
+        using var alive = new FavoritesManager(_templates, store);
         disposed.ToggleFavorite("/kept");
 
         disposed.Dispose();
 
-        using var late = new FavoritesManager(store);
+        using var late = new FavoritesManager(_templates, store);
         Assert.Multiple(() =>
         {
             Assert.That(alive.Favorites, Is.EqualTo(new[] { "/kept" }));
@@ -182,8 +186,8 @@ public class FileBrowserFavoritesStoreTests
         var store = new FileBrowserFavoritesStore(new FakePreferences());
         string directory = NewDirectory("shared-favorite");
         store.AddRange([directory]);
-        using var first = new FavoritesManager(store);
-        using var second = new FavoritesManager(store);
+        using var first = new FavoritesManager(_templates, store);
+        using var second = new FavoritesManager(_templates, store);
 
         first.RefreshFavoriteItems();
         second.RefreshFavoriteItems();
@@ -208,8 +212,8 @@ public class FileBrowserFavoritesStoreTests
         string directory = NewDirectory("expandable");
         Directory.CreateDirectory(Path.Combine(directory, "child"));
         store.AddRange([directory]);
-        var disposed = new FavoritesManager(store);
-        using var alive = new FavoritesManager(store);
+        var disposed = new FavoritesManager(_templates, store);
+        using var alive = new FavoritesManager(_templates, store);
         disposed.RefreshFavoriteItems();
         alive.RefreshFavoriteItems();
 
@@ -227,7 +231,7 @@ public class FileBrowserFavoritesStoreTests
     public void RefreshFavoriteItems_after_dispose_is_a_no_op()
     {
         var store = new FileBrowserFavoritesStore(new FakePreferences());
-        var manager = new FavoritesManager(store);
+        var manager = new FavoritesManager(_templates, store);
         manager.Dispose();
 
         manager.RefreshFavoriteItems();

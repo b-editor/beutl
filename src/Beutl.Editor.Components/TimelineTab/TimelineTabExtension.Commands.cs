@@ -304,25 +304,26 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         Element[] targets = GetTemplateTargets(editorContext, scene, element);
         string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
-            Value = GetDefaultTemplateName(element),
+            Value = GetDefaultTemplateName(element, editorContext.GetRequiredService<ObjectTemplateService>()),
             Validate = ValidateTemplateName
         });
         if (name is null) return;
 
         // Switching editors cancels the command, which stops rendering the preview and saving.
         await TemplateSaving.SaveAsync(
+            editorContext.GetRequiredService<ObjectTemplateService>(),
             TemplateSaving.CreateElementTemplate(scene, targets),
             name.Trim(),
             cancellationToken: interaction.CancellationToken);
     }
 
     // The element's name, or its type's when it has none, made unique among the templates.
-    internal static string GetDefaultTemplateName(Element element)
+    internal static string GetDefaultTemplateName(Element element, ObjectTemplateService templates)
     {
         string defaultName = !string.IsNullOrWhiteSpace(element.Name.Value)
             ? element.Name.Value
             : TypeDisplayHelpers.GetLocalizedName(element.GetType());
-        return ObjectTemplateService.Instance.GetUniqueName(defaultName);
+        return templates.GetUniqueName(defaultName);
     }
 
     // The template is stored under its name, so the name has to be a valid file name.

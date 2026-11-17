@@ -21,6 +21,14 @@ namespace Beutl.AgentToolkit.Tests.Rendering;
 
 public sealed class RenderStillTests
 {
+    private Beutl.Services.LibraryService _library = null!;
+
+    [SetUp]
+    public void SetUpLibrary() => _library = TypeRegistration.CreateLibraryService();
+
+    [TearDown]
+    public void DisposeLibrary() => _library.Dispose();
+
 
     [TestCase(CpuSafeDrawable.Shape)]
     [TestCase(CpuSafeDrawable.Text)]
@@ -226,7 +234,7 @@ public sealed class RenderStillTests
         };
         using var session = new AgentToolkitTestSession(scene);
 
-        DeclarativeExample example = new SchemaGenerator()
+        DeclarativeExample example = new SchemaGenerator(_library)
             .Generate(typeFilter: nameof(TextBlock))
             .Examples
             .Single(item => item.Name == "create-empty-scene-kinetic-ribbon-title");

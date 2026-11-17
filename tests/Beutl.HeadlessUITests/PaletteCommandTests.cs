@@ -279,13 +279,13 @@ public class PaletteCommandTests
         }));
 
         // Saving a template is refused for a name that cannot be a file name; cancelling saves nothing.
-        int templates = ObjectTemplateService.Instance.FindByBaseType(typeof(Element)).Count();
+        int templates = TestShell.Templates.FindByBaseType(typeof(Element)).Count();
         await RunAsync(timeline, Execution("timeline.saveAsTemplate", editor, new ScriptedInteraction().Input(options =>
         {
             Assert.That(options.Validate!("a/b"), Is.EqualTo(MessageStrings.InvalidString));
             return null;
         })));
-        Assert.That(ObjectTemplateService.Instance.FindByBaseType(typeof(Element)).Count(), Is.EqualTo(templates));
+        Assert.That(TestShell.Templates.FindByBaseType(typeof(Element)).Count(), Is.EqualTo(templates));
 
         element.IsLocked.Value = true;
         Assert.Multiple(() =>
@@ -338,7 +338,7 @@ public class PaletteCommandTests
             "timeline.saveAsTemplate", editor, new ScriptedInteraction().Input(_ => name)));
 
         // The selection takes the clip grouped with one of its clips along, as copying does, and nothing else.
-        ObjectTemplateItem saved = ObjectTemplateService.Instance.FindByBaseType(typeof(ElementSet))
+        ObjectTemplateItem saved = TestShell.Templates.FindByBaseType(typeof(ElementSet))
             .Single(item => item.Name.Value == name);
         try
         {
@@ -360,7 +360,7 @@ public class PaletteCommandTests
         finally
         {
             File.Delete(saved.FilePath!);
-            ObjectTemplateService.Instance.RefreshFromFileSystem();
+            TestShell.Templates.RefreshFromFileSystem();
         }
     }
 
@@ -381,7 +381,7 @@ public class PaletteCommandTests
             "timeline.saveAsTemplate", editor, new ScriptedInteraction().Input(_ => name)));
 
         // The selection outlives the timeline, so both clips are saved, not only the selected element.
-        ObjectTemplateItem saved = ObjectTemplateService.Instance.FindByBaseType(typeof(ElementSet))
+        ObjectTemplateItem saved = TestShell.Templates.FindByBaseType(typeof(ElementSet))
             .Single(item => item.Name.Value == name);
         try
         {
@@ -393,7 +393,7 @@ public class PaletteCommandTests
         finally
         {
             File.Delete(saved.FilePath!);
-            ObjectTemplateService.Instance.RefreshFromFileSystem();
+            TestShell.Templates.RefreshFromFileSystem();
         }
     }
 

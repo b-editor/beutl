@@ -7,6 +7,7 @@ using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -25,8 +26,9 @@ public static class TemplateMenuHelper
         {
             if (control.DataContext is not IObjectEditorCommands { IsDisposed: false } vm || vm.GetTemplateTarget() is not { } target) return;
 
+            var templates = ((IServiceProvider)vm).GetRequiredService<ObjectTemplateService>();
             TemplateSaving.ShowSaveFlyout(
-                control, target, ObjectTemplateService.Instance.GetUniqueName(vm.GetTemplateDefaultName()), showAtPointer: true,
+                templates, control, target, templates.GetUniqueName(vm.GetTemplateDefaultName()), showAtPointer: true,
                 () => NotificationService.ShowInformation(Strings.Templates, Strings.TemplateSaved));
         };
 
@@ -63,7 +65,7 @@ public static class TemplateMenuHelper
 
         bool isListItem = vm.IsListItemAdapter();
         bool isGroup = vm.IsTemplateGroup;
-        var templates = vm.GetApplicableTemplates().ToList();
+        var templates = vm.GetApplicableTemplates(((IServiceProvider)vm).GetRequiredService<ObjectTemplateService>()).ToList();
 
         if (isListItem)
         {

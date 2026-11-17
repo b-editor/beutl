@@ -21,6 +21,14 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 
 public sealed class SessionToolsTests
 {
+    private Beutl.Services.LibraryService _library = null!;
+
+    [SetUp]
+    public void SetUpLibrary() => _library = TypeRegistration.CreateLibraryService();
+
+    [TearDown]
+    public void DisposeLibrary() => _library.Dispose();
+
     private sealed class RegisteredOptionalTransformElement : Element
     {
         public RegisteredOptionalTransformElement()
@@ -618,7 +626,7 @@ public sealed class SessionToolsTests
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
         SessionTools sessionTools = TestSessions.CreateSessionTools(source, manager);
-        var queryTools = new QueryTools(manager);
+        var queryTools = new QueryTools(manager, new SchemaGenerator(_library));
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             Path.Combine(root, "motion.bep"),

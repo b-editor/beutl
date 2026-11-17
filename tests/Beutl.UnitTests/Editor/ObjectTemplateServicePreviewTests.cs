@@ -6,24 +6,36 @@ using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
-// BEUTL_HOME is redirected to a temp directory by AssemblySetUp, so these write into a throwaway
-// templates directory rather than the developer's own.
+// Each test owns a temporary templates directory and its watcher.
 [TestFixture]
 [NonParallelizable]
 public class ObjectTemplateServicePreviewTests
 {
+    private ObjectTemplateService _templates = null!;
+
+    [SetUp]
+    public void SetUpTemplates() => _templates = new ObjectTemplateService(
+        Path.Combine(Path.GetTempPath(), $"beutl-templates-{Guid.NewGuid():N}"));
+
+    [TearDown]
+    public void DisposeTemplates()
+    {
+        _templates.Dispose();
+        Directory.Delete(_templates.DirectoryPath, recursive: true);
+    }
+
     [TestCase("../escape")]
     [TestCase("folder/name")]
     [TestCase("folder\\name")]
     public async Task TemplateNames_CannotEscapeTheTemplateDirectory(string name)
     {
-        Assert.That(await ObjectTemplateService.Instance.AddFromInstanceAsync(new Audio.Effects.AudioEffectGroup(), name), Is.Null);
+        Assert.That(await _templates.AddFromInstanceAsync(new Audio.Effects.AudioEffectGroup(), name), Is.Null);
     }
 
     [Test]
     public async Task DirectoryRename_RefreshesPackagedTemplates()
     {
-        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateService service = _templates;
         string name = "watch-" + Guid.NewGuid().ToString("N");
         string staging = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), name);
         string destination = Path.Combine(service.DirectoryPath, name);
@@ -43,7 +55,6 @@ public class ObjectTemplateServicePreviewTests
         {
             if (Directory.Exists(staging)) Directory.Delete(staging, true);
             if (Directory.Exists(destination)) Directory.Delete(destination, true);
-            service.RefreshFromFileSystem();
         }
     }
 
@@ -57,7 +68,7 @@ public class ObjectTemplateServicePreviewTests
             Fill = { Value = new SolidColorBrush(Colors.Red) }
         };
 
-        ObjectTemplateItem? item = await ObjectTemplateService.Instance
+        ObjectTemplateItem? item = await _templates
             .AddFromInstanceAsync(shape, $"preview-{Guid.NewGuid():N}");
 
         Assert.That(item, Is.Not.Null);
@@ -71,7 +82,7 @@ public class ObjectTemplateServicePreviewTests
     [Test]
     public async Task AddFromInstanceAsync_SavesTheTemplateEvenWithoutAPreview()
     {
-        ObjectTemplateItem? item = await ObjectTemplateService.Instance
+        ObjectTemplateItem? item = await _templates
             .AddFromInstanceAsync(new Audio.Effects.AudioEffectGroup(), $"silent-{Guid.NewGuid():N}");
 
         Assert.That(item, Is.Not.Null);
@@ -82,13 +93,13 @@ public class ObjectTemplateServicePreviewTests
     [Test]
     public async Task TryLoadFromFile_ReturnsNullForMalformedPathWhenItemsAreCached()
     {
-        ObjectTemplateItem? item = await ObjectTemplateService.Instance
+        ObjectTemplateItem? item = await _templates
             .AddFromInstanceAsync(
                 new Audio.Effects.AudioEffectGroup(),
                 $"malformed-path-{Guid.NewGuid():N}");
         Assert.That(item, Is.Not.Null);
 
-        ObjectTemplateItem? result = ObjectTemplateService.Instance.TryLoadFromFile("\0");
+        ObjectTemplateItem? result = _templates.TryLoadFromFile("\0");
 
         Assert.That(result, Is.Null);
     }
@@ -96,7 +107,7 @@ public class ObjectTemplateServicePreviewTests
     [Test]
     public async Task GetUniqueName_keeps_display_names_case_insensitively_unique()
     {
-        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateService service = _templates;
         string name = $"DisplayName-{Guid.NewGuid():N}";
         ObjectTemplateItem? item = await service.AddFromInstanceAsync(
             new Audio.Effects.AudioEffectGroup(),
@@ -111,7 +122,7 @@ public class ObjectTemplateServicePreviewTests
     [Test]
     public async Task RefreshFromFileSystem_tracks_case_distinct_files_independently()
     {
-        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateService service = _templates;
         string name = $"CaseSensitive-{Guid.NewGuid():N}";
         ObjectTemplateItem? item = await service.AddFromInstanceAsync(
             new Audio.Effects.AudioEffectGroup(),
@@ -178,7 +189,7 @@ public class ObjectTemplateServicePreviewTests
     [Test]
     public async Task RefreshFromFileSystem_removes_a_template_hidden_by_a_dangling_link()
     {
-        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateService service = _templates;
         ObjectTemplateItem? item = await service.AddFromInstanceAsync(
             new Audio.Effects.AudioEffectGroup(),
             $"Dangling-{Guid.NewGuid():N}");
@@ -209,8 +220,8 @@ public class ObjectTemplateServicePreviewTests
     [Test]
     public void RefreshFromFileSystem_reloads_a_retargeted_alias_even_when_target_is_older()
     {
-        ObjectTemplateService service = ObjectTemplateService.Instance;
-        string templates = BeutlEnvironment.GetTemplatesDirectoryPath();
+        ObjectTemplateService service = _templates;
+        string templates = service.DirectoryPath;
         string tempRoot = Path.Combine(
             Path.GetTempPath(),
             $"template-retarget-{Guid.NewGuid():N}");
@@ -257,7 +268,7 @@ public class ObjectTemplateServicePreviewTests
     [Test]
     public async Task RestoreItems_deduplicates_a_template_and_its_symbolic_link_alias()
     {
-        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateService service = _templates;
         ObjectTemplateItem? item = await service.AddFromInstanceAsync(
             new Audio.Effects.AudioEffectGroup(),
             $"deduplicate-{Guid.NewGuid():N}");
@@ -289,13 +300,13 @@ public class ObjectTemplateServicePreviewTests
     [Test]
     public void RefreshFromFileSystem_removes_an_alias_whose_target_was_deleted()
     {
-        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateService service = _templates;
         string targetRoot = Path.Combine(
             Path.GetTempPath(),
             $"template-dangling-target-{Guid.NewGuid():N}");
         string targetPath = Path.Combine(targetRoot, "target.json");
         string aliasPath = Path.Combine(
-            BeutlEnvironment.GetTemplatesDirectoryPath(),
+            service.DirectoryPath,
             $"dangling-alias-{Guid.NewGuid():N}.json");
         Directory.CreateDirectory(targetRoot);
         Directory.CreateDirectory(Path.GetDirectoryName(aliasPath)!);
@@ -330,7 +341,7 @@ public class ObjectTemplateServicePreviewTests
     [Test]
     public async Task RefreshFromFileSystem_deduplicates_paths_that_converge_on_one_identity()
     {
-        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateService service = _templates;
         ObjectTemplateItem? first = await service.AddFromInstanceAsync(
             new Audio.Effects.AudioEffectGroup(),
             $"converging-first-{Guid.NewGuid():N}");

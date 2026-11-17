@@ -22,6 +22,7 @@ using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.ExtensionsPages;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -30,6 +31,9 @@ namespace Beutl.ViewModels;
 public sealed partial class MainViewModel : BasePageViewModel
 {
     internal readonly BeutlApiApplication _beutlClients;
+    private readonly ObjectTemplateService _objectTemplateService;
+    internal IServiceProvider AppServices { get; }
+    internal string SessionId { get; }
     private readonly HttpClient _authHttpClient;
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
@@ -54,36 +58,40 @@ public sealed partial class MainViewModel : BasePageViewModel
     private readonly ProjectColorPaletteHost _projectColorPalettes;
     private readonly IDisposable _projectColorPalettesAttachment;
 
-    public MainViewModel()
-        : this(null)
+    public MainViewModel(IServiceProvider appServices, string sessionId)
+        : this(appServices, sessionId, null)
     {
     }
 
-    // Test seam: the app uses the parameterless constructor; only tests pass these arguments.
     internal MainViewModel(
+        IServiceProvider appServices,
+        string sessionId,
         Action<BeutlApiApplication>? shutdownHandoff,
         Func<TimeSpan, Task>? waitForPackageInstallerIdle = null)
     {
+        AppServices = appServices;
+        SessionId = sessionId;
+        _objectTemplateService = appServices.GetRequiredService<ObjectTemplateService>();
         _shutdownHandoff = shutdownHandoff ?? PerformShutdownHandoff;
         _authHttpClient = new HttpClient();
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
-        _editorService = new EditorService(_extensionProvider);
+        _editorService = new EditorService(_extensionProvider, AppServices);
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
         _ = new ProjectThumbnailService(_projectService, _editorService);
         _projectColorPalettes = new ProjectColorPaletteHost(_projectService, _editorService);
-        _projectColorPalettesAttachment = Beutl.Controls.PropertyEditors.ColorPaletteService.Instance
+        _projectColorPalettesAttachment = appServices.GetRequiredService<Beutl.Controls.PropertyEditors.ColorPaletteService>()
             .AttachProjectHost(_projectColorPalettes);
         _captionCatalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             Beutl.Language.Strings.AiSubtitle_DefaultTemplate,
-            Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(
+            _objectTemplateService.FindByBaseType(
                 typeof(Beutl.Graphics.Drawable)),
             CaptionPresentationDefaults.ElementFactory);
         _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
-        _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider, AppServices);
         // Agents generate with the signed-in account and the AI nodes' executor.
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService, new AgentHostAiBackend(
             () => _beutlClients.AuthenticatedUser.Value,

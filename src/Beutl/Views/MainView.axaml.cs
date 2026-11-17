@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Pages;
@@ -19,6 +20,7 @@ using Beutl.ViewModels.SettingsPages;
 using Beutl.Views.Tutorial;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
 
@@ -226,6 +228,7 @@ public sealed partial class MainView : UserControl
         {
             using var dialogViewModel = viewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
+            ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(window));
             navigate(dialogViewModel);
             await dialog.ShowDialog(window);
         }
@@ -233,7 +236,8 @@ public sealed partial class MainView : UserControl
 
     private void OpenFeedbackClick(object? sender, RoutedEventArgs e)
     {
-        string url = $"https://beutl.beditor.net/feedback?traceId={Telemetry.Instance._sessionId}";
+        if (DataContext is not MainViewModel viewModel) return;
+        string url = $"https://beutl.beditor.net/feedback?traceId={viewModel.SessionId}";
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
@@ -254,7 +258,8 @@ public sealed partial class MainView : UserControl
 
     internal async Task ShowTutorialsDialogAsync()
     {
-        var dialog = new TutorialListDialog();
+        if (DataContext is not MainViewModel viewModel) return;
+        var dialog = new TutorialListDialog(viewModel.AppServices.GetRequiredService<Beutl.Services.Tutorials.ITutorialService>());
         await ShowMainDialogAsync(dialog);
     }
 

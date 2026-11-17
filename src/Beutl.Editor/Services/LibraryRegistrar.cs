@@ -19,75 +19,60 @@ using Beutl.Services;
 
 namespace Beutl.Editor.Services;
 
-// The built-in library items. The app, the installed agent server and the tests all run it, once per process.
+// The built-in items registered in each host's library.
 internal static class LibraryRegistrar
 {
-    private static readonly Lock s_lock = new();
-    private static bool s_registered;
-
-    public static void RegisterAll()
+    public static void RegisterAll(LibraryService library)
     {
-        lock (s_lock)
-        {
-            if (s_registered)
-                return;
-
-            Register();
-            s_registered = true;
-        }
-    }
-
-    private static void Register()
-    {
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.EllipseShape, m => m
                 .BindDrawable<Graphics.Shapes.EllipseShape>()
                 .BindGeometry<EllipseGeometry>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.RectShape, m => m
                 .BindDrawable<Graphics.Shapes.RectShape>()
                 .BindGeometry<RectGeometry>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.RoundedRectShape, m => m
                 .BindDrawable<Graphics.Shapes.RoundedRectShape>()
                 .BindGeometry<RoundedRectGeometry>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.GeometryShape, m => m
                 .BindDrawable<Graphics.Shapes.GeometryShape>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.TextBlock, m => m
                 .BindDrawable<Graphics.Shapes.TextBlock>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.SourceVideo, m => m
                 .BindDrawable<SourceVideo>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.SourceImage, m => m
                 .BindDrawable<SourceImage>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.SourceBackdrop, m => m
                 .BindDrawable<SourceBackdrop>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(AudioStrings.SourceSound, m => m
                 .BindSound<SourceSound>()
             );
 
-        LibraryService.Current.RegisterGroup($"3D ({Strings.Experimental})", g => g
+        library.RegisterGroup($"3D ({Strings.Experimental})", g => g
             .AddMultiple(GraphicsStrings.Scene3D, m => m
                 .BindDrawable<Scene3D>()
             )
@@ -118,52 +103,52 @@ internal static class LibraryRegistrar
             )
         );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.ParticleEmitter, m => m
                 .BindDrawable<ParticleEmitter>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.NodeGraphDrawable, m => m
                 .BindDrawable<NodeGraphDrawable>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(Strings.Portal, m => m
                 .BindEngineObject<PortalObject>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.SceneDrawable, m => m
                 .BindDrawable<SceneDrawable>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(AudioStrings.SceneSound, m => m
                 .BindSound<SceneSound>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.DrawableDecorator, m => m
                 .BindDrawable<DrawableDecorator>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.Group, m => m
                 .BindDrawable<DrawableGroup>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(AudioStrings.SoundGroup, m => m
                 .BindSound<SoundGroup>()
             );
 
-        LibraryService.Current
+        library
             .AddMultiple(GraphicsStrings.DrawableTimeController, m => m
                 .BindDrawable<DrawableTimeController>()
             );
 
-        LibraryService.Current.RegisterGroup(GraphicsStrings.AudioVisualizer, g => g
+        library.RegisterGroup(GraphicsStrings.AudioVisualizer, g => g
             .AddMultiple(GraphicsStrings.AudioWaveform, m => m
                 .BindDrawable<AudioWaveformDrawable>()
             )
@@ -175,7 +160,7 @@ internal static class LibraryRegistrar
             )
         );
 
-        LibraryService.Current
+        library
             .RegisterGroup(GraphicsStrings.Transform, g => g
                 .AddTransform<TranslateTransform>(GraphicsStrings.TranslateTransform)
                 .AddTransform<SkewTransform>(GraphicsStrings.SkewTransform)
@@ -184,7 +169,7 @@ internal static class LibraryRegistrar
                 .AddTransform<Rotation3DTransform>(GraphicsStrings.Rotation3DTransform)
             );
 
-        LibraryService.Current
+        library
             .RegisterGroup(GraphicsStrings.FilterEffect, g => g
                 .AddFilterEffect<Blur>(GraphicsStrings.Blur)
                 .AddFilterEffect<Sharpen>(GraphicsStrings.Sharpen)
@@ -240,7 +225,7 @@ internal static class LibraryRegistrar
                 )
             );
 
-        LibraryService.Current
+        library
             .RegisterGroup(GraphicsStrings.ClipTransition, g => g
                 .AddClipTransition<CrossDissolveTransition>(GraphicsStrings.CrossDissolveTransition)
                 .AddClipTransition<FadeTransition>(GraphicsStrings.FadeTransition)
@@ -260,7 +245,7 @@ internal static class LibraryRegistrar
                 .AddClipTransition<LightLeakTransition>(GraphicsStrings.LightLeakTransition)
             );
 
-        LibraryService.Current
+        library
             .RegisterGroup(AudioStrings.AudioEffect, g => g
                 .AddAudioEffect<DelayEffect>(AudioStrings.DelayEffect)
                 .AddAudioEffect<EqualizerEffect>(AudioStrings.Equalizer)

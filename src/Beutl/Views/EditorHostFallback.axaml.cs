@@ -18,8 +18,8 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views.Tutorial;
 using FluentAvalonia.Styling;
-
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views;
@@ -267,7 +267,8 @@ public partial class EditorHostFallback : UserControl
 
     private async void StartTutorial_Click(object? sender, RoutedEventArgs e)
     {
-        var dialog = new TutorialListDialog();
+        if (DataContext is not MainViewModel viewModel) return;
+        var dialog = new TutorialListDialog(viewModel.AppServices.GetRequiredService<Beutl.Services.Tutorials.ITutorialService>());
         await dialog.ShowAsync();
     }
 

@@ -2,7 +2,7 @@
 
 // An editor's services, found by their exact type. Lookups are read on each request; owned services are
 // created on first request and disposed with the registry.
-internal sealed class EditorServiceRegistry : IDisposable
+internal sealed class EditorServiceRegistry : IServiceProvider, IDisposable
 {
     private readonly Dictionary<Type, Func<object?>> _services = [];
     private readonly List<Lazy<object>> _owned = [];

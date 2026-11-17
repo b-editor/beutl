@@ -46,7 +46,7 @@ internal static class Program
         ViewConfig view = config.ViewConfig;
         CultureInfo.CurrentUICulture = view.UICulture.Value;
 
-        using IDisposable _ = Telemetry.GetDisposable();
+        using var telemetry = new Telemetry();
         config.LogRestoreFailures();
 
         string jitProfiles = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "jitProfiles");
@@ -55,18 +55,20 @@ internal static class Program
         ProfileOptimization.SetProfileRoot(jitProfiles);
         ProfileOptimization.StartProfile("beutl.jitprofile");
 
-        UnhandledExceptionHandler.Initialize();
+        UnhandledExceptionHandler.Initialize(telemetry._sessionId);
 
         PackageInstaller.RecoverDataPackageInstalls();
-        BuildAvaloniaApp()
+        BuildAvaloniaApp(telemetry._sessionId)
             .StartWithClassicDesktopLifetime(args);
 
         UnhandledExceptionHandler.Exit();
     }
 
-    public static AppBuilder BuildAvaloniaApp()
+    public static AppBuilder BuildAvaloniaApp() => BuildAvaloniaApp(string.Empty);
+
+    private static AppBuilder BuildAvaloniaApp(string sessionId)
     {
-        return AppBuilder.Configure<App>()
+        return AppBuilder.Configure(() => new App(sessionId))
             .UsePlatformDetect()
             .UseReactiveUI(builder => builder.WithMainThreadScheduler(UiThreadScheduler.Instance))
             .With(new Win32PlatformOptions()

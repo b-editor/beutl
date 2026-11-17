@@ -1110,7 +1110,9 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     private static ServiceVisitor Services(Element element, HistoryManager history)
-        => new((typeof(Element), element), (typeof(HistoryManager), history), (typeof(ExtensionProvider), TestShell.Extensions));
+        => new((typeof(Element), element), (typeof(HistoryManager), history), (typeof(ExtensionProvider), TestShell.Extensions),
+            (typeof(Beutl.Services.LibraryService), TestShell.Library),
+            (typeof(Beutl.Editor.Services.ObjectTemplateService), TestShell.Templates));
 
     private static RectShape CreateAnimatedShape()
     {

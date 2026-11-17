@@ -123,7 +123,7 @@ public sealed class MainMenuBuilderTests
     [AvaloniaTest]
     public async Task A_disposed_view_model_stops_following_the_dock_layout_presets()
     {
-        var viewModel = new MainViewModel();
+        var viewModel = new MainViewModel(TestShell.MainViewModel.AppServices, TestShell.MainViewModel.SessionId);
         DockLayoutPresetService presets = DockLayoutPresetService.Instance;
         IReadOnlyList<MainMenuItem> entries = viewModel.MenuItems.Single(item => item.Header == Strings.View).Items!
             .Single(item => item.Header == Strings.ApplyDockLayout).Items!;

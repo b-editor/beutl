@@ -16,16 +16,18 @@ internal sealed class FavoritesManager : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<FavoritesManager>();
     private readonly FileBrowserFavoritesStore _store;
+    private readonly ObjectTemplateService _templates;
     private readonly Action _onStoreChanged;
     private bool _disposed;
 
-    public FavoritesManager()
-        : this(FileBrowserFavoritesStore.Instance)
+    public FavoritesManager(ObjectTemplateService templates)
+        : this(templates, FileBrowserFavoritesStore.Instance)
     {
     }
 
-    internal FavoritesManager(FileBrowserFavoritesStore store)
+    internal FavoritesManager(ObjectTemplateService templates, FileBrowserFavoritesStore store)
     {
+        _templates = templates;
         _store = store;
         _onStoreChanged = () => Changed?.Invoke();
         _store.Changed += _onStoreChanged;
@@ -49,7 +51,7 @@ internal sealed class FavoritesManager : IDisposable
         {
             IEnumerable<string> paths = new[]
             {
-                ObjectTemplateService.Instance.DirectoryPath, BeutlEnvironment.GetMaterialsDirectoryPath()
+                _templates.DirectoryPath, BeutlEnvironment.GetMaterialsDirectoryPath()
             }.Concat(Favorites).Where(path => Directory.Exists(path) || File.Exists(path));
             if (FavoriteItems.Select(item => item.FullPath).SequenceEqual(paths, StringComparer.Ordinal)
                 && FavoriteItems.All(item => item.IsDirectory == Directory.Exists(item.FullPath)))
@@ -62,7 +64,7 @@ internal sealed class FavoritesManager : IDisposable
 
         FileSystemEnumerator.DisposeAndClear(FavoriteItems);
 
-        AddFixedFolder(ObjectTemplateService.Instance.DirectoryPath, Strings.Templates);
+        AddFixedFolder(_templates.DirectoryPath, Strings.Templates);
 
         AddFixedFolder(BeutlEnvironment.GetMaterialsDirectoryPath(), Strings.Materials);
 
@@ -70,11 +72,11 @@ internal sealed class FavoritesManager : IDisposable
         {
             if (Directory.Exists(path))
             {
-                FavoriteItems.Add(new FileSystemItemViewModel(path, true));
+                FavoriteItems.Add(new FileSystemItemViewModel(_templates, path, true));
             }
             else if (File.Exists(path))
             {
-                FavoriteItems.Add(new FileSystemItemViewModel(path, false));
+                FavoriteItems.Add(new FileSystemItemViewModel(_templates, path, false));
             }
         }
     }
@@ -95,7 +97,7 @@ internal sealed class FavoritesManager : IDisposable
             return;
         }
 
-        var item = new FileSystemItemViewModel(directory, true);
+        var item = new FileSystemItemViewModel(_templates, directory, true);
         item.Name.Value = localizedName;
         FavoriteItems.Add(item);
     }

@@ -28,7 +28,7 @@ public sealed class CommandPaletteInteractionTests
         ClosedToolExtension extension, int packageId)
     {
         var provider = new ExtensionProvider();
-        var editor = new EditorService(provider);
+        var editor = new EditorService(provider, TestShell.MainViewModel.AppServices);
         provider.AddExtensions(packageId, [extension]);
         var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);

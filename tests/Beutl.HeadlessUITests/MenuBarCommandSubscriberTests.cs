@@ -16,7 +16,7 @@ public sealed class MenuBarCommandSubscriberTests
     public async Task Every_menu_bar_command_has_a_subscriber_once_MainView_is_built()
     {
         // A fresh view model, so a MainView that another test left attached cannot hide a missing subscriber.
-        var viewModel = new MainViewModel();
+        var viewModel = new MainViewModel(TestShell.MainViewModel.AppServices, TestShell.MainViewModel.SessionId);
         var view = new MainView { DataContext = viewModel };
         try
         {

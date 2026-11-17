@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reactive.Disposables;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Media;
 using Beutl.Configuration;
 using Beutl.Language;
@@ -52,8 +53,13 @@ internal sealed class ColorPaletteService
         _userPalettes = LoadUserPalettes();
     }
 
-    // Settable so that a test can give the views a service of its own.
-    public static ColorPaletteService Instance { get; internal set; } = CreateDefault();
+    public static readonly AttachedProperty<ColorPaletteService?> ServiceProperty =
+        AvaloniaProperty.RegisterAttached<ColorPaletteService, StyledElement, ColorPaletteService?>(
+            "Service", inherits: true);
+
+    public static ColorPaletteService? GetService(AvaloniaObject element) => element.GetValue(ServiceProperty);
+
+    public static void SetService(AvaloniaObject element, ColorPaletteService? service) => element.SetValue(ServiceProperty, service);
 
     public event EventHandler? Changed;
 
@@ -230,7 +236,7 @@ internal sealed class ColorPaletteService
     }
 
     // Avoids poisoning the shared service when the preferences cannot be read.
-    private static ColorPaletteService CreateDefault()
+    internal static ColorPaletteService CreateDefault()
     {
         try
         {

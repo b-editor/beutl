@@ -1,4 +1,5 @@
 ﻿using Beutl.Services.Tutorials;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Extensibility;
 
@@ -11,7 +12,7 @@ public abstract class TutorialExtension : Extension
         base.Load();
         foreach (TutorialDefinition tutorial in GetTutorials())
         {
-            TutorialService.Current.Register(tutorial);
+            Services.GetRequiredService<ITutorialService>().Register(tutorial);
         }
     }
 
@@ -19,7 +20,7 @@ public abstract class TutorialExtension : Extension
     {
         foreach (TutorialDefinition tutorial in GetTutorials())
         {
-            TutorialService.Current.Unregister(tutorial.Id);
+            Services.GetRequiredService<ITutorialService>().Unregister(tutorial.Id);
         }
         base.Unload();
     }

@@ -18,6 +18,7 @@ public static class TimelineBasicsTutorial
 
     public static TutorialDefinition Create(EditorService editorService, ProjectService projectService)
     {
+        ITutorialService tutorials = editorService.AppServices.GetRequiredService<ITutorialService>();
         var step1Subscription = new TutorialStepSubscription();
         var step2Subscription = new TutorialStepSubscription();
         var step3Subscription = new TutorialStepSubscription();
@@ -54,7 +55,7 @@ public static class TimelineBasicsTutorial
 
                         step1Subscription.Current = TutorialHelpers.SubscribeToElementAdded<EllipseShape>(
                             editVm.Scene,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => tutorials.AdvanceStep());
                     },
                     OnDismissed = step1Subscription.Release,
                 },
@@ -73,7 +74,7 @@ public static class TimelineBasicsTutorial
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         step2Subscription.Current = TutorialHelpers.SubscribeToElementSelection(
                             editVm,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => tutorials.AdvanceStep());
                     },
                     OnDismissed = step2Subscription.Release,
                 },
@@ -108,7 +109,7 @@ public static class TimelineBasicsTutorial
 
                         step3Subscription.Current = TutorialHelpers.SubscribeToAnimationEnabled(
                             ellipseOp.Width,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => tutorials.AdvanceStep());
                     },
                     OnDismissed = step3Subscription.Release,
                 },
@@ -141,7 +142,7 @@ public static class TimelineBasicsTutorial
                         if (animation.KeyFrames.Count >= 2)
                         {
                             clock.Seek(animation.ToScene(animation.KeyFrames[1].KeyTime.Value));
-                            Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
+                            Dispatcher.UIThread.Post(() => tutorials.AdvanceStep());
                         }
                         else
                         {
@@ -149,7 +150,7 @@ public static class TimelineBasicsTutorial
                             step4Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
-                                () => TutorialService.Current.AdvanceStep());
+                                () => tutorials.AdvanceStep());
                         }
                     },
                     OnDismissed = step4Subscription.Release,

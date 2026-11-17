@@ -37,7 +37,7 @@ public class FileBrowserMediaSearchTests
 
         var decoder = new RecordingDecoderInfo();
         DecoderRegistry.Register(decoder);
-        var context = new Mock<IEditorContext>();
+        var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Scene)))
             .Returns(new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) });
         var browser = new FileBrowserTabViewModel(context.Object);

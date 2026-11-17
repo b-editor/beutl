@@ -17,6 +17,10 @@ internal static class TestShell
 {
     public static MainViewModel MainViewModel => ((TestApp)Application.Current!).GetMainViewModel();
 
+    public static Beutl.Services.LibraryService Library => ((TestApp)Application.Current!).Library;
+
+    public static ObjectTemplateService Templates => ((TestApp)Application.Current!).Templates;
+
     public static ProjectService Project => MainViewModel.ProjectService;
 
     public static EditorService Editor => MainViewModel.EditorService;
@@ -24,6 +28,14 @@ internal static class TestShell
     public static VersionControlCoordinator VersionControl => MainViewModel.VersionControlCoordinator;
 
     public static ExtensionProvider Extensions => MainViewModel.ExtensionProvider;
+
+    public static Moq.Mock<IEditorContext> CreateEditorContextMock()
+    {
+        var context = new Moq.Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(Beutl.Services.LibraryService))).Returns(Library);
+        context.Setup(x => x.GetService(typeof(ObjectTemplateService))).Returns(Templates);
+        return context;
+    }
 
     public static async Task WaitForProjectWritesAsync()
     {

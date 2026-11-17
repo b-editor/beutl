@@ -5,7 +5,7 @@ using Beutl.Editor.Services;
 namespace Beutl.Editor.Components.PropertyEditors.Services;
 
 // The services a standalone property-editor host (not an EditViewModel) offers to the editors it creates.
-internal sealed class PropertyEditorHostServices(HistoryManager history, ExtensionProvider extensionProvider)
+internal sealed class PropertyEditorHostServices(HistoryManager history, ExtensionProvider extensionProvider, IServiceProvider? parent = null)
 {
     private PropertyEditorFactoryAdapter? _propertyEditorFactory;
     private PropertiesEditorFactoryImpl? _propertiesEditorFactory;
@@ -29,6 +29,6 @@ internal sealed class PropertyEditorHostServices(HistoryManager history, Extensi
         if (serviceType.IsAssignableTo(typeof(IPropertiesEditorFactory)))
             return _propertiesEditorFactory ??= new PropertiesEditorFactoryImpl(extensionProvider);
 
-        return null;
+        return parent?.GetService(serviceType);
     }
 }

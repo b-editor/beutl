@@ -14,11 +14,16 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
     private readonly ExtensionProvider _extensionProvider;
 
     public EncoderSettingsViewModel(MediaEncoderSettings settings, ExtensionProvider extensionProvider)
+        : this(settings, extensionProvider, null)
+    {
+    }
+
+    public EncoderSettingsViewModel(MediaEncoderSettings settings, ExtensionProvider extensionProvider, IServiceProvider? services)
     {
         Settings = settings;
         _extensionProvider = extensionProvider;
         var sequenceGenerator = new OperationSequenceGenerator();
-        _services = new PropertyEditorHostServices(new HistoryManager(sequenceGenerator), extensionProvider);
+        _services = new PropertyEditorHostServices(new HistoryManager(sequenceGenerator), extensionProvider, services);
         InitializeCoreObject(settings);
     }
 

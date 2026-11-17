@@ -418,6 +418,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             builder.Services.Configure<SocketTransportOptions>(options => options.CreateBoundListenSocket = createBoundListenSocket);
 
         builder.Services
+            .AddSingleton(_ => new Beutl.AgentToolkit.Schema.SchemaGenerator(
+                _editorService.AppServices.GetRequiredService<Beutl.Services.LibraryService>()))
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)
             .AddSingleton(InstanceRouter)

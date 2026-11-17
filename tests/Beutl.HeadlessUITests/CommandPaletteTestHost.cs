@@ -14,7 +14,7 @@ internal static class CommandPaletteTestHost
         Func<ContextCommandExecution, Task> execute)
     {
         var provider = new ExtensionProvider();
-        var editor = new EditorService(provider);
+        var editor = new EditorService(provider, new Beutl.Editor.Services.EditorServiceRegistry());
         var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(new PromptExtension());
         var service = new CommandPaletteService(

@@ -275,6 +275,73 @@ public sealed class ColorPaletteViewTests
         });
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void A_reused_picker_inherits_the_palette_scope_of_each_opening(bool overlay)
+    {
+        var first = new ColorPaletteService(new TestPreferences());
+        var second = new ColorPaletteService(new TestPreferences());
+        var firstTarget = new Button { Content = "First" };
+        var secondTarget = new Button { Content = "Second" };
+        var firstWindow = new Window { Content = firstTarget, Width = 600, Height = 900 };
+        var secondWindow = new Window { Content = secondTarget, Width = 600, Height = 900 };
+        ColorPaletteService.SetService(firstWindow, first);
+        ColorPaletteService.SetService(secondWindow, second);
+        var flyout = new SimpleColorPickerFlyout();
+        flyout.Popup.ShouldUseOverlayLayer = overlay;
+        try
+        {
+            firstWindow.Show();
+            secondWindow.Show();
+            flyout.ShowAt(firstTarget);
+            HeadlessTestHelpers.Render(3);
+            ColorPaletteView palette = flyout.Popup.Child!.GetVisualDescendants().OfType<ColorPaletteView>().Single();
+            Assert.That(palette.Service, Is.SameAs(first));
+            Assert.That(ColorPaletteService.GetService(flyout.ColorPicker), Is.SameAs(first));
+            flyout.Hide();
+
+            flyout.ShowAt(secondTarget);
+            HeadlessTestHelpers.Render(3);
+            palette = flyout.Popup.Child!.GetVisualDescendants().OfType<ColorPaletteView>().Single();
+            Assert.That(palette.Service, Is.SameAs(second));
+            Assert.That(ColorPaletteService.GetService(flyout.ColorPicker), Is.SameAs(second));
+
+            ColorPaletteService.SetService(secondWindow, first);
+            Assert.That(palette.Service, Is.SameAs(first), "A changed inherited scope also reaches an open popup.");
+        }
+        finally
+        {
+            flyout.Hide();
+            firstWindow.Close();
+            secondWindow.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void An_unscoped_color_editor_applies_a_default_swatch_without_recording_recents()
+    {
+        var editor = new ColorEditor { Value = s_red, IsLivePreviewEnabled = true };
+        var window = new Window { Content = editor, Width = 1000, Height = 900 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Button open = editor.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_ColorPickerButton");
+            ClickWhenReachable(window, open);
+            var presenter = window.GetVisualDescendants().OfType<SimpleColorPickerFlyoutPresenter>().Single();
+            ClickWhenReachable(window, presenter.GetVisualDescendants().OfType<RadioButton>().Single(b => b.Name == "PaletteTabButton"));
+            var palette = presenter.GetVisualDescendants().OfType<ColorPaletteView>().Single();
+            Assert.That(palette.Service, Is.Null);
+            ColorPaletteItem teal = palette.GetVisualDescendants().OfType<ColorPaletteItem>().First(i => i.Color == s_teal);
+            teal.BringIntoView();
+            ClickWhenReachable(window, teal);
+            ClickWhenReachable(window, open);
+            Assert.That(editor.Value, Is.EqualTo(s_teal));
+        }
+        finally { window.Close(); }
+    }
+
     // Types a name into the open name box, which shows the expected name first, and confirms it with Enter.
     private static void Rename(Window window, string expected, string typed)
     {
@@ -291,9 +358,7 @@ public sealed class ColorPaletteViewTests
     [AvaloniaTest]
     public void A_color_picked_in_the_palette_tab_of_a_color_editor_applies_and_becomes_recent()
     {
-        ColorPaletteService previous = ColorPaletteService.Instance;
         var service = new ColorPaletteService(new TestPreferences());
-        ColorPaletteService.Instance = service;
         var editor = new ColorEditor
         {
             Header = "Color",
@@ -302,6 +367,7 @@ public sealed class ColorPaletteViewTests
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
         };
         var window = new Window { Content = editor, Width = 1000, Height = 900 };
+        ColorPaletteService.SetService(window, service);
         try
         {
             window.Show();
@@ -326,7 +392,6 @@ public sealed class ColorPaletteViewTests
         finally
         {
             window.Close();
-            ColorPaletteService.Instance = previous;
         }
 
     }
@@ -335,9 +400,7 @@ public sealed class ColorPaletteViewTests
     [AvaloniaTest]
     public void A_color_picked_in_the_palette_tab_of_a_brush_editor_applies_and_becomes_recent()
     {
-        ColorPaletteService previous = ColorPaletteService.Instance;
         var service = new ColorPaletteService(new TestPreferences());
-        ColorPaletteService.Instance = service;
         var brush = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.White);
         var shape = new Beutl.Graphics.Shapes.RectShape { Fill = { Value = brush } };
         using var history = new PropertyEditorTestHost.HistoryScope(shape);
@@ -353,6 +416,7 @@ public sealed class ColorPaletteViewTests
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
         };
         var window = new Window { Content = editor, Width = 900, Height = 900 };
+        ColorPaletteService.SetService(window, service);
         try
         {
             window.Show();
@@ -375,7 +439,6 @@ public sealed class ColorPaletteViewTests
         finally
         {
             window.Close();
-            ColorPaletteService.Instance = previous;
         }
     }
 
@@ -384,9 +447,7 @@ public sealed class ColorPaletteViewTests
     [AvaloniaTest]
     public void A_color_picked_in_the_palette_tab_without_a_brush_makes_a_solid_brush_of_it()
     {
-        ColorPaletteService previous = ColorPaletteService.Instance;
         var service = new ColorPaletteService(new TestPreferences());
-        ColorPaletteService.Instance = service;
         var shape = new Beutl.Graphics.Shapes.RectShape { Fill = { Value = null } };
         using var history = new PropertyEditorTestHost.HistoryScope(shape);
         using var viewModel = new Beutl.Editor.Components.PropertyEditors.ViewModels.BrushEditorViewModel(
@@ -401,6 +462,7 @@ public sealed class ColorPaletteViewTests
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
         };
         var window = new Window { Content = editor, Width = 900, Height = 900 };
+        ColorPaletteService.SetService(window, service);
         try
         {
             window.Show();
@@ -431,7 +493,6 @@ public sealed class ColorPaletteViewTests
         finally
         {
             window.Close();
-            ColorPaletteService.Instance = previous;
         }
     }
 
@@ -489,9 +550,7 @@ public sealed class ColorPaletteViewTests
     [AvaloniaTest]
     public void A_color_button_without_alpha_applies_the_confirmed_color_as_opaque()
     {
-        ColorPaletteService previous = ColorPaletteService.Instance;
         var service = new ColorPaletteService(new TestPreferences());
-        ColorPaletteService.Instance = service;
         Color black = Color.FromUInt32(0xFF000000);
         var button = new SimpleColorPickerButton
         {
@@ -502,6 +561,7 @@ public sealed class ColorPaletteViewTests
         var confirmed = new List<(Color OldValue, Color NewValue)>();
         button.ColorConfirmed += (_, args) => confirmed.Add(args);
         var window = new Window { Content = button, Width = 600, Height = 900, RequestedThemeVariant = ThemeVariant.Dark };
+        ColorPaletteService.SetService(window, service);
         try
         {
             window.Show();
@@ -534,7 +594,6 @@ public sealed class ColorPaletteViewTests
         finally
         {
             window.Close();
-            ColorPaletteService.Instance = previous;
         }
     }
 

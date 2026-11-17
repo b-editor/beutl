@@ -935,7 +935,7 @@ public class ElementAddEntryPointTests
     public async Task TimelineView_SubtitleFileDrop_AsksNothingWithOnlyTheDefaultLook()
     {
         await TestReset.ResetShellAsync();
-        Assume.That(CaptionFileDrop.GetTemplates(), Has.Count.EqualTo(1));
+        Assume.That(CaptionFileDrop.GetTemplates(TestShell.Templates), Has.Count.EqualTo(1));
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-subtitle-default");
         var view = new TimelineTabView { DataContext = timeline };
@@ -964,7 +964,7 @@ public class ElementAddEntryPointTests
     {
         var text = new Beutl.Graphics.Shapes.TextBlock();
         text.Size.Value = 123f;
-        ObjectTemplateItem? saved = await ObjectTemplateService.Instance.AddFromInstanceAsync(text, $"subtitle-look-{Guid.NewGuid():N}");
+        ObjectTemplateItem? saved = await TestShell.Templates.AddFromInstanceAsync(text, $"subtitle-look-{Guid.NewGuid():N}");
         Assert.That(saved, Is.Not.Null);
         return saved!;
     }
@@ -972,7 +972,7 @@ public class ElementAddEntryPointTests
     private static void RemoveTemplate(ObjectTemplateItem template)
     {
         File.Delete(template.FilePath!);
-        ObjectTemplateService.Instance.RefreshFromFileSystem();
+        TestShell.Templates.RefreshFromFileSystem();
     }
 
     // Drops at the middle of the timeline through the window, as the platform does.
@@ -1266,7 +1266,7 @@ public class ElementAddEntryPointTests
     public async Task TimelineStorageDrop_SubtitleFile_AddsOneTextClipPerCueAndKeepsNoCopy()
     {
         await TestReset.ResetShellAsync();
-        Assume.That(CaptionFileDrop.GetTemplates(), Has.Count.EqualTo(1));
+        Assume.That(CaptionFileDrop.GetTemplates(TestShell.Templates), Has.Count.EqualTo(1));
         (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("storage-drop-subtitle");
         string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
         string subtitle = Path.Combine(directory, "movie.srt");

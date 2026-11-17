@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Installation;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 
@@ -6,10 +7,18 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 
 public sealed class GetStartedSkillPointerTests
 {
+    private Beutl.Services.LibraryService _library = null!;
+
+    [SetUp]
+    public void SetUpLibrary() => _library = TypeRegistration.CreateLibraryService();
+
+    [TearDown]
+    public void DisposeLibrary() => _library.Dispose();
+
     [Test]
     public void Get_started_recommends_the_bundled_agent_skills()
     {
-        var queryTools = new QueryTools(new AgentSessionManager());
+        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
 
         GettingStartedResponse response = queryTools.GetStarted().Value!;
 
@@ -24,7 +33,7 @@ public sealed class GetStartedSkillPointerTests
     [Test]
     public void Get_started_names_the_easings_keyframes_accept()
     {
-        var queryTools = new QueryTools(new AgentSessionManager());
+        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
 
         string essentials = string.Join(" ", queryTools.GetStarted().Value!.Essentials);
 
@@ -34,7 +43,7 @@ public sealed class GetStartedSkillPointerTests
     [Test]
     public void Get_started_skill_names_match_the_bundled_skill_set()
     {
-        var queryTools = new QueryTools(new AgentSessionManager());
+        var queryTools = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library));
         string[] recommended = queryTools.GetStarted().Value!
             .RecommendedSkills.Select(s => s.Name).ToArray();
 
