@@ -25,14 +25,16 @@ struct AudioOutputLayout {
                 : channelCount == 2 ? [kAudioChannelLabel_Left, kAudioChannelLabel_Right] : nil
         }
 
-        let hasRearSurround = labels?.contains {
-            $0 == kAudioChannelLabel_RearSurroundLeft || $0 == kAudioChannelLabel_RearSurroundRight
-        } ?? false
         var channels: [(bit: UInt32, label: AudioChannelLabel)] = []
         var mask: UInt32 = 0
         if let labels = labels, labels.count == channelCount {
+            // In standard 6.1, Cs is at the back and Ls/Rs are at the sides. A bitmap specifies its WAVE bits explicitly.
+            let surroundsAreSides = labels.contains(kAudioChannelLabel_RearSurroundLeft)
+                || labels.contains(kAudioChannelLabel_RearSurroundRight)
+                || (channelCount == 7 && sourceLayout?.pointee.mChannelLayoutTag != kAudioChannelLayoutTag_UseChannelBitmap
+                    && Set(labels) == Self.surround61Labels)
             for label in labels {
-                let bit = Self.speakerBit(label, hasRearSurround: hasRearSurround)
+                let bit = Self.speakerBit(label, surroundsAreSides: surroundsAreSides)
                 guard bit != 0, mask & bit == 0 else {
                     channels.removeAll()
                     break
@@ -58,6 +60,10 @@ struct AudioOutputLayout {
         }
     }
 
+    private static let surround61Labels: Set<AudioChannelLabel> = [
+        kAudioChannelLabel_Left, kAudioChannelLabel_Right, kAudioChannelLabel_Center, kAudioChannelLabel_LFEScreen,
+        kAudioChannelLabel_CenterSurround, kAudioChannelLabel_LeftSurround, kAudioChannelLabel_RightSurround
+    ]
     private static let descriptionsOffset = MemoryLayout<AudioChannelLayout>.offset(of: \.mChannelDescriptions)!
 
     private static func channelLabels(_ layout: UnsafePointer<AudioChannelLayout>, size: Int) -> [AudioChannelLabel]? {
@@ -89,12 +95,12 @@ struct AudioOutputLayout {
         return channelLabels(UnsafePointer(expanded), size: Int(outputSize))
     }
 
-    private static func speakerBit(_ label: AudioChannelLabel, hasRearSurround: Bool) -> UInt32 {
+    private static func speakerBit(_ label: AudioChannelLabel, surroundsAreSides: Bool) -> UInt32 {
         switch label {
         case kAudioChannelLabel_LeftSurround:
-            return hasRearSurround ? 0x200 : 0x10
+            return surroundsAreSides ? 0x200 : 0x10
         case kAudioChannelLabel_RightSurround:
-            return hasRearSurround ? 0x400 : 0x20
+            return surroundsAreSides ? 0x400 : 0x20
         case kAudioChannelLabel_RearSurroundLeft:
             return 0x10
         case kAudioChannelLabel_RearSurroundRight:

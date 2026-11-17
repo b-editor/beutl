@@ -1,8 +1,8 @@
 {
-  "sources": "d5f2fd63abaf7b553d4270ff710c6b8ec4eca51dbdf08fc4c877d7dc430214fc",
-  "toolchain": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+  "sources": "8e47065b5b8239f78a41a092d5c39d5ed4ec75b035819a11d4df26530bb7c3c3",
+  "toolchain": "Apple Swift version 6.4.2 (swiftlang-6.4.2.1.9 clang-2100.4.1.1)",
   "dylibs": {
-    "osx-arm64": "bdc008287a2843a8ede5cf4138483a4f9891e4982ff67a6ec606efcc7c0b5ac3",
-    "osx-x64": "bdc008287a2843a8ede5cf4138483a4f9891e4982ff67a6ec606efcc7c0b5ac3"
+    "osx-arm64": "f646856ee96cc1c4d58ddbba25b6e988cb9a1e72385373e61d85656e11708785",
+    "osx-x64": "f646856ee96cc1c4d58ddbba25b6e988cb9a1e72385373e61d85656e11708785"
   }
 }

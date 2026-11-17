@@ -215,6 +215,10 @@ public class AVFEncodingController : EncodingController
         // AVAssetWriter can accept AAC 7.1 settings while silently losing or relabeling speakers.
         if (format == AVFAudioEncoderSettings.AudioFormatType.MPEG4AAC && channels is not (1 or 2 or 6))
             throw new NotSupportedException("AVFoundation AAC supports 1, 2 or 6 channels. Choose Linear PCM, or the FFmpeg encoder, for other channel counts.");
+
+        // Apple Lossless uses different speakers for its 4.0 and 7.1 layouts than Beutl does.
+        if (format == AVFAudioEncoderSettings.AudioFormatType.AppleLossless && channels is 4 or 8)
+            throw new NotSupportedException($"AVFoundation Apple Lossless cannot encode Beutl's {channels}-channel speaker layout. Choose Linear PCM or the FFmpeg encoder to preserve these speakers.");
     }
 
     internal BeutlAudioEncoderConfig BuildAudioConfig(int sourceSampleRate, AudioChannelLayout inputLayout)
