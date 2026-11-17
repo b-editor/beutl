@@ -180,6 +180,9 @@ public sealed class HueRangeCurveTests
         });
     }
 
+    private static readonly CurveMap s_threeWithoutEnds = new(
+        [new CurveControlPoint(0.2f, 0.3f), new CurveControlPoint(0.4f, 0.5f), new CurveControlPoint(0.8f, 0.7f)]);
+
     private static IEnumerable<TestCaseData> CurvesWithoutEnds()
     {
         var straight = new CurveMap([new CurveControlPoint(0.2f, 0.3f), new CurveControlPoint(0.8f, 0.7f)]);
@@ -193,6 +196,36 @@ public sealed class HueRangeCurveTests
         yield return new TestCaseData(straight, 0.1f, 0.4f).SetArgDisplayNames("straight", "across the ends");
         yield return new TestCaseData(bent, 0.5f, 0.2f).SetArgDisplayNames("bent", "inside");
         yield return new TestCaseData(bent, 0.9f, 0.1f).SetArgDisplayNames("bent", "past the last point");
+        yield return new TestCaseData(s_threeWithoutEnds, 0.5f, 0.2f).SetArgDisplayNames("three", "edge at the second point");
+        yield return new TestCaseData(s_threeWithoutEnds, 0.65f, 0.1f).SetArgDisplayNames("three", "past the second point");
+    }
+
+    // A range past the second point leaves the first piece straight, so the curve keeps its start, hue 0 included.
+    [Test]
+    public void A_range_past_the_second_point_leaves_the_start_alone()
+    {
+        CurveMap shaped = Shape(s_threeWithoutEnds, 0.65f, 0.1f, 0.95f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shaped.Points[0], Is.EqualTo(s_threeWithoutEnds.Points[0]));
+            Assert.That(shaped.Evaluate(0), Is.EqualTo(s_threeWithoutEnds.Evaluate(0)));
+        });
+    }
+
+    // A first piece whose handle turns back before its first point reaches the hues in front of it, where
+    // CurveMap.Evaluate reads one of its crossings. No point at hue 0 continues that, so a range that needs one there
+    // leaves the curve alone.
+    [Test]
+    public void A_first_piece_turning_back_before_its_point_leaves_a_curve_without_ends_as_it_is()
+    {
+        var turning = new CurveMap(
+        [
+            new CurveControlPoint(new Point(0.2f, 0.3f), default, new Point(-1, 0)),
+            new CurveControlPoint(new Point(0.8f, 0.7f), new Point(-0.1f, 0), default),
+        ]);
+
+        Assert.That(HueRangeCurve.Shape(turning, 0.05f, 0.02f, 0.9f), Is.Null);
     }
 
     [Test]

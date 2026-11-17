@@ -20,7 +20,8 @@ internal static class HueRangeCurve
     private const float SlopeStep = 1e-3f;
     private const float MaxSlope = 4;
 
-    // The shaped curve, or null where an edge of the range falls inside a curved piece whose x goes back and forth.
+    // The shaped curve, or null where an edge of the range falls inside a curved piece whose x goes back and forth, or
+    // where the range needs a point at hue 0 in front of such a piece.
     public static CurveMap? Shape(CurveMap curve, float center, float width, float value)
     {
         float half = Math.Clamp(width, MinWidth, MaxWidth) / 2;
@@ -40,12 +41,13 @@ internal static class HueRangeCurve
         float rightSlope = Slope(curve, rightX, 1);
 
         // A point at an end only where the range cuts past the first or last point or crosses the ends, or bends a
-        // straight first piece, whose line carries on back towards hue 0 only while it stays straight.
+        // straight first piece, whose line carries on back towards hue 0 only while it stays straight. The left edge
+        // bends that piece from the second point on, as the bump's handle there makes it a curved piece.
         IReadOnlyList<CurveControlPoint> source = curve.Points;
-        bool start = crossesEnds || source.Count < 2 || leftX < source[1].Point.X - Tolerance;
+        bool start = crossesEnds || source.Count < 2 || leftX <= source[1].Point.X + Tolerance;
         bool end = crossesEnds || source.Count == 0 || rightX > source[^1].Point.X + Tolerance;
-        List<CurveControlPoint> points = WithEnds(source, start, end);
-        if (!SplitAt(points, leftX) || !SplitAt(points, rightX))
+        List<CurveControlPoint>? points = WithEnds(source, start, end);
+        if (points is null || !SplitAt(points, leftX) || !SplitAt(points, rightX))
             return null;
 
         points.RemoveAll(point => crossesEnds
@@ -141,8 +143,8 @@ internal static class HueRangeCurve
     // holds the first value of a curved one. The points added at the ends continue the curve that way, so the hues
     // outside the range keep their values, but for hue 0 itself, where Evaluate jumps to the first value before a
     // straight piece. The first point's left handle and the last point's right handle bent nothing until now, and
-    // would bend the new end pieces, so they go.
-    private static List<CurveControlPoint> WithEnds(IReadOnlyList<CurveControlPoint> source, bool start, bool end)
+    // would bend the new end pieces, so they go. Null where no point at hue 0 can continue the curve.
+    private static List<CurveControlPoint>? WithEnds(IReadOnlyList<CurveControlPoint> source, bool start, bool end)
     {
         var points = new List<CurveControlPoint>(source.Count + 7);
         if (source.Count == 0)
@@ -155,8 +157,11 @@ internal static class HueRangeCurve
         points.AddRange(source);
         if (start && source[0].Point.X > 0)
         {
+            if (ValueBeforeFirst(source) is not { } before)
+                return null;
+
             points[0] = points[0].WithLeftHandle(default);
-            points.Insert(0, new CurveControlPoint(0, ValueBeforeFirst(source)));
+            points.Insert(0, new CurveControlPoint(0, before));
         }
 
         if (end && source[^1].Point.X < 1)
@@ -168,15 +173,20 @@ internal static class HueRangeCurve
         return points;
     }
 
-    // What CurveMap.Evaluate gives between hue 0 and a first point past it.
-    private static float ValueBeforeFirst(IReadOnlyList<CurveControlPoint> source)
+    // What CurveMap.Evaluate gives between hue 0 and a first point past it, or null where that is not one line: a
+    // curved first piece whose x goes back and forth can cross those hues itself, and Evaluate then reads it there.
+    private static float? ValueBeforeFirst(IReadOnlyList<CurveControlPoint> source)
     {
         Point first = source[0].Point;
-        if (source.Count < 2 || source[0].HasHandles || source[1].HasHandles || source[1].Point.X <= first.X)
+        if (source.Count < 2 || source[1].Point.X <= first.X)
             return first.Y;
 
         Point second = source[1].Point;
-        return first.Y - (second.Y - first.Y) * first.X / (second.X - first.X);
+        if (!source[0].HasHandles && !source[1].HasHandles)
+            return first.Y - (second.Y - first.Y) * first.X / (second.X - first.X);
+
+        var piece = new Cubic(first, source[0].AbsoluteRightHandle, source[1].AbsoluteLeftHandle, second);
+        return piece.IsMonotonicInX ? first.Y : null;
     }
 
     private static int IndexAt(List<CurveControlPoint> points, float x)
