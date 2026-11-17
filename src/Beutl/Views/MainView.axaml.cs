@@ -107,7 +107,9 @@ public sealed partial class MainView : UserControl
     {
         var topLevel = (TopLevel)sender!;
         topLevel.Opened -= OnParentWindowOpened;
-        var cm = (DataContext as MainViewModel)?.ContextCommandManager;
+        var viewModel = DataContext as MainViewModel;
+        GlobalConfiguration? configuration = viewModel?.Configuration ?? ControlConfiguration.GetConfiguration(topLevel);
+        var cm = viewModel?.ContextCommandManager;
         cm?.Attach(this, MainViewExtension.Instance);
 
         if (sender is FAAppWindow cw)
@@ -121,10 +123,13 @@ public sealed partial class MainView : UserControl
             NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
         }
 
-        StartupNotificationService.ShowTelemetryConsent(((MainViewModel)DataContext!).Configuration.TelemetryConfig);
-        await CheckDifferentVersion();
-        StartupNotificationService.ShowReleaseNotes(((MainViewModel)DataContext!).Configuration.LastStartedVersion, BeutlApplication.Version);
-        await CheckAgentToolkitUpdateAsync();
+        if (configuration != null)
+        {
+            StartupNotificationService.ShowTelemetryConsent(configuration.TelemetryConfig);
+            await CheckDifferentVersion(configuration);
+            StartupNotificationService.ShowReleaseNotes(configuration.LastStartedVersion, BeutlApplication.Version);
+            await CheckAgentToolkitUpdateAsync();
+        }
 
         _logger.LogInformation("Window opened.");
     }
@@ -183,9 +188,9 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    private async Task CheckDifferentVersion()
+    private async Task CheckDifferentVersion(GlobalConfiguration configuration)
     {
-        if (NuGetVersion.TryParse(((MainViewModel)DataContext!).Configuration.LastStartedVersion, out var lastStartedVersion) &&
+        if (NuGetVersion.TryParse(configuration.LastStartedVersion, out var lastStartedVersion) &&
             NuGetVersion.TryParse(BeutlApplication.Version, out var currentVersion))
         {
             if (lastStartedVersion.IsPrerelease || currentVersion.IsPrerelease)

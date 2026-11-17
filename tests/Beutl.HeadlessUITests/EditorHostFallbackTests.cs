@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Collections;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Language;
 using Beutl.Media;
@@ -529,6 +530,42 @@ public class EditorHostFallbackTests
     }
 
     [AvaloniaTest]
+    public void An_unbound_host_follows_its_windows_configuration_and_releases_the_old_source()
+    {
+        string[] files = CreateProjectFiles("configuration-source", 2);
+        var first = new GlobalConfiguration();
+        first.ViewConfig.RecentProjects.Add(files[0]);
+        first.ViewConfig.RecentProjectsLayout.Value = RecentProjectsLayout.List;
+        var second = new GlobalConfiguration();
+        second.ViewConfig.RecentProjects.Add(files[1]);
+        var view = new EditorHostFallback();
+        var window = new Window { Content = view, Width = 1200, Height = 800 };
+        ControlConfiguration.SetConfiguration(window, first);
+        Assert.That(LayoutTabs(view).SelectedIndex, Is.EqualTo(1));
+        Assert.That(Shown(view), Is.Empty);
+        try
+        {
+            window.Show();
+            Assert.That(Shown(view), Is.EqualTo(new[] { files[0] }));
+            ControlConfiguration.SetConfiguration(window, second);
+            Assert.That(LayoutTabs(view).SelectedIndex, Is.Zero);
+            Assert.That(Shown(view), Is.EqualTo(new[] { files[1] }));
+            first.ViewConfig.RecentProjects.Add(files[1]);
+            Assert.That(Shown(view), Is.EqualTo(new[] { files[1] }));
+
+            ControlConfiguration.SetConfiguration(window, null);
+            second.ViewConfig.RecentProjects.Add(files[0]);
+            Assert.That(Shown(view), Is.Empty);
+            Assert.That(LayoutTabs(view).SelectedIndex, Is.Zero);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task The_menu_shows_the_project_file_in_the_file_manager()
     {
         string[] files = CreateProjectFiles("file-manager", 2);
@@ -545,6 +582,8 @@ public class EditorHostFallbackTests
         };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
         using var notifications = new NotificationCapture();
+
+        ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
 
         try
         {

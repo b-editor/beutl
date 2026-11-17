@@ -11,6 +11,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
@@ -73,6 +74,7 @@ public partial class EditorHostFallback : UserControl
         recentList.AddHandler(KeyDownEvent, OnRecentListKeyDown, RoutingStrategies.Tunnel);
 
         layoutTabs.GetObservable(SelectingItemsControl.SelectedIndexProperty).Subscribe(OnLayoutChanged);
+        BindConfiguration();
 
         OnActualThemeVariantChanged(null, EventArgs.Empty);
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
@@ -82,7 +84,6 @@ public partial class EditorHostFallback : UserControl
     {
         base.OnAttachedToVisualTree(e);
         BindConfiguration();
-        SyncRecentItems();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -90,36 +91,37 @@ public partial class EditorHostFallback : UserControl
         base.OnDetachedFromVisualTree(e);
         if (_configuration != null)
             _configuration.RecentProjects.CollectionChanged -= OnRecentProjectsChanged;
-        _configuration = null;
         SyncRecentItems();
     }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (this.IsAttachedToVisualTree())
-        {
-            BindConfiguration();
-            SyncRecentItems();
-        }
+        BindConfiguration();
     }
 
     private void BindConfiguration()
     {
+        if (layoutTabs == null) return;
+
         if (_configuration != null)
             _configuration.RecentProjects.CollectionChanged -= OnRecentProjectsChanged;
-        _configuration = (DataContext as MainViewModel)?.Configuration.ViewConfig;
-        if (_configuration != null)
-        {
-            layoutTabs.SelectedIndex = _configuration.RecentProjectsLayout.Value == RecentProjectsLayout.List ? 1 : 0;
+        _configuration = (DataContext as MainViewModel)?.Configuration.ViewConfig
+            ?? ControlConfiguration.GetConfiguration(this)?.ViewConfig;
+        layoutTabs.SelectedIndex = _configuration?.RecentProjectsLayout.Value == RecentProjectsLayout.List ? 1 : 0;
+        if (_configuration != null && this.IsAttachedToVisualTree())
             _configuration.RecentProjects.CollectionChanged += OnRecentProjectsChanged;
-        }
+        SyncRecentItems();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == IsVisibleProperty)
+        if (change.Property == ControlConfiguration.ConfigurationProperty)
+        {
+            BindConfiguration();
+        }
+        else if (change.Property == IsVisibleProperty)
         {
             SyncRecentItems();
         }
