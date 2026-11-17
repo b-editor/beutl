@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using System.Runtime.InteropServices;
-
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -9,7 +8,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
-
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Controls;
@@ -23,9 +21,7 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPixelSize = Beutl.Media.PixelSize;
 
@@ -1082,7 +1078,7 @@ public sealed class PlayerViewControlsTests
     [AvaloniaTest]
     public async Task The_checkerboard_command_turns_the_setting_on_and_off()
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         bool saved = config.IsPreviewCheckerboardEnabled.Value;
         config.IsPreviewCheckerboardEnabled.Value = false;
         EditViewModel editor = await OpenEditor();
@@ -1108,7 +1104,7 @@ public sealed class PlayerViewControlsTests
     [AvaloniaTest]
     public async Task The_view_toggles_and_the_settings_stay_in_step()
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         bool guides = config.IsPreviewGuideEnabled.Value;
         bool onion = config.IsOnionSkinEnabled.Value;
         bool checkerboard = config.IsPreviewCheckerboardEnabled.Value;

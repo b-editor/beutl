@@ -63,8 +63,11 @@ internal class Telemetry : IDisposable
         ];
     }
 
-    public Telemetry(string? sessionId = null)
+    private readonly TelemetryConfig _configuration;
+
+    public Telemetry(TelemetryConfig configuration, string? sessionId = null)
     {
+        _configuration = configuration;
         _sessionId = sessionId ?? Guid.NewGuid().ToString();
         _resourceBuilder = new(() =>
         {
@@ -76,7 +79,7 @@ internal class Telemetry : IDisposable
 
         SetupLogger();
 #if !Beutl_PackageTools
-        UsageTelemetry.Current = _usageTelemetry = new(GlobalConfiguration.Instance.TelemetryConfig);
+        UsageTelemetry.Current = _usageTelemetry = new(_configuration);
 #endif
     }
 
@@ -105,7 +108,7 @@ internal class Telemetry : IDisposable
 
     private TracerProvider? CreateTracer()
     {
-        List<string> list = GetActivitySourceNames(GlobalConfiguration.Instance.TelemetryConfig);
+        List<string> list = GetActivitySourceNames(_configuration);
         if (list.Count == 0)
         {
             return null;
@@ -115,7 +118,7 @@ internal class Telemetry : IDisposable
             return Sdk.CreateTracerProviderBuilder()
                 .SetResourceBuilder(_resourceBuilder.Value)
 #if !Beutl_PackageTools
-                .SetSampler(new UsageSampler())
+                .SetSampler(new UsageSampler(_configuration))
 #endif
                 .AddProcessor(new AddVersionActivityProcessor())
                 .AddProcessor(new RemoveSensitiveDataProcessor())
@@ -140,9 +143,9 @@ internal class Telemetry : IDisposable
             : DefaultBaseUrl;
     }
 
-    public static IDisposable GetDisposable(string? sessionId = null)
+    public static IDisposable GetDisposable(TelemetryConfig configuration, string? sessionId = null)
     {
-        return new Telemetry(sessionId);
+        return new Telemetry(configuration, sessionId);
     }
 
     public static Activity? StartActivity([CallerMemberName] string name = "",
@@ -169,14 +172,14 @@ internal class Telemetry : IDisposable
     }
 
 #if !Beutl_PackageTools
-    private sealed class UsageSampler : Sampler
+    private sealed class UsageSampler(TelemetryConfig configuration) : Sampler
     {
         private readonly ParentBasedSampler _default = new(new AlwaysOnSampler());
 
         public override SamplingResult ShouldSample(in SamplingParameters samplingParameters)
         {
             if (samplingParameters.Name == "Usage.Summary")
-                return new SamplingResult(UsageTelemetry.HasConsent(GlobalConfiguration.Instance.TelemetryConfig)
+                return new SamplingResult(UsageTelemetry.HasConsent(configuration)
                     ? SamplingDecision.RecordAndSample : SamplingDecision.Drop);
             return _default.ShouldSample(samplingParameters);
         }
@@ -210,7 +213,7 @@ internal class Telemetry : IDisposable
             // Serilogへ行くログはデフォルトでTrace以上
             builder.AddSerilog(Log.Logger, true);
 
-            TelemetryConfig telemetryConfig = GlobalConfiguration.Instance.TelemetryConfig;
+            TelemetryConfig telemetryConfig = _configuration;
             if (IsConsentConfigured(telemetryConfig) && telemetryConfig.Beutl_Logging.Value == true)
             {
                 builder.SetMinimumLevel(LogLevel.Information);

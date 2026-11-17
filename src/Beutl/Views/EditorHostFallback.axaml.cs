@@ -50,6 +50,7 @@ public partial class EditorHostFallback : UserControl
 
     private readonly ObservableCollection<RecentProjectItem> _recentItems = [];
     private RecentProjectItem? _pressedItem;
+    private ViewConfig? _configuration;
 
     // "Show in Finder", "Show in Explorer" or "Open in File Manager", as the platform calls it.
     public static string FileManagerMenuHeader => FileManagerLauncher.MenuHeader;
@@ -71,7 +72,6 @@ public partial class EditorHostFallback : UserControl
         recentList.AddHandler(PointerReleasedEvent, OnRecentListPointerReleased, RoutingStrategies.Tunnel);
         recentList.AddHandler(KeyDownEvent, OnRecentListKeyDown, RoutingStrategies.Tunnel);
 
-        layoutTabs.SelectedIndex = GlobalConfiguration.Instance.ViewConfig.RecentProjectsLayout.Value == RecentProjectsLayout.List ? 1 : 0;
         layoutTabs.GetObservable(SelectingItemsControl.SelectedIndexProperty).Subscribe(OnLayoutChanged);
 
         OnActualThemeVariantChanged(null, EventArgs.Empty);
@@ -81,15 +81,39 @@ public partial class EditorHostFallback : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        GlobalConfiguration.Instance.ViewConfig.RecentProjects.CollectionChanged += OnRecentProjectsChanged;
+        BindConfiguration();
         SyncRecentItems();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        GlobalConfiguration.Instance.ViewConfig.RecentProjects.CollectionChanged -= OnRecentProjectsChanged;
+        if (_configuration != null)
+            _configuration.RecentProjects.CollectionChanged -= OnRecentProjectsChanged;
+        _configuration = null;
         SyncRecentItems();
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (this.IsAttachedToVisualTree())
+        {
+            BindConfiguration();
+            SyncRecentItems();
+        }
+    }
+
+    private void BindConfiguration()
+    {
+        if (_configuration != null)
+            _configuration.RecentProjects.CollectionChanged -= OnRecentProjectsChanged;
+        _configuration = (DataContext as MainViewModel)?.Configuration.ViewConfig;
+        if (_configuration != null)
+        {
+            layoutTabs.SelectedIndex = _configuration.RecentProjectsLayout.Value == RecentProjectsLayout.List ? 1 : 0;
+            _configuration.RecentProjects.CollectionChanged += OnRecentProjectsChanged;
+        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -128,7 +152,8 @@ public partial class EditorHostFallback : UserControl
     {
         RecentProjectsLayout layout = index == 1 ? RecentProjectsLayout.List : RecentProjectsLayout.Grid;
         recentList.Classes.Set("grid", layout == RecentProjectsLayout.Grid);
-        GlobalConfiguration.Instance.ViewConfig.RecentProjectsLayout.Value = layout;
+        if (_configuration != null)
+            _configuration.RecentProjectsLayout.Value = layout;
     }
 
     private async void CreateNewProject_Click(object? sender, RoutedEventArgs e)
@@ -161,7 +186,7 @@ public partial class EditorHostFallback : UserControl
     {
         if (sender is FAMenuFlyoutItem { DataContext: RecentProjectItem item })
         {
-            ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+            if (_configuration is not { } viewConfig) return;
 
             viewConfig.RecentFiles.Remove(item.FullName);
             viewConfig.RecentProjects.Remove(item.FullName);
@@ -288,8 +313,8 @@ public partial class EditorHostFallback : UserControl
     // pictures would only sit in memory behind the editor, and the next showing reads the ones the close just wrote.
     private void SyncRecentItems()
     {
-        string[] files = this.IsAttachedToVisualTree() && IsVisible
-            ? [.. GlobalConfiguration.Instance.ViewConfig.RecentProjects.Distinct().Take(MaxShownProjects)]
+        string[] files = this.IsAttachedToVisualTree() && IsVisible && _configuration != null
+            ? [.. _configuration.RecentProjects.Distinct().Take(MaxShownProjects)]
             : [];
 
         for (int i = _recentItems.Count - 1; i >= 0; i--)

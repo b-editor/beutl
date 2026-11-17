@@ -1,7 +1,9 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
+using Beutl.Configuration;
 using Dock.Model.Controls;
 using Dock.Model.Core;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels.Dock;
@@ -52,7 +54,7 @@ internal sealed class DockLayoutJsonReader
             "tool_dock" => RestoreToolDock(obj),
             "tool" => RestoreBeutlTool(obj),
             "player" => RestorePlayerDockable(),
-            "new_tab" => new NewToolTabDockable(),
+            "new_tab" => new NewToolTabDockable(_editViewModel.GetRequiredService<GlobalConfiguration>().ViewConfig),
             _ => null,
         };
     }

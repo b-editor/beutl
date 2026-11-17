@@ -12,7 +12,7 @@ public sealed class CrashRecoveryPromptTask : StartupTask
 {
     private readonly ILogger<CrashRecoveryPromptTask> _logger = Log.CreateLogger<CrashRecoveryPromptTask>();
 
-    public CrashRecoveryPromptTask()
+    public CrashRecoveryPromptTask(ViewConfig configuration)
     {
         Task = Task.Run(async () =>
         {
@@ -23,7 +23,7 @@ public sealed class CrashRecoveryPromptTask : StartupTask
                 return;
             }
 
-            string? lastProjectFile = GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile.Value;
+            string? lastProjectFile = configuration.LastOpenedProjectFile.Value;
             bool canRestoreProject = !string.IsNullOrEmpty(lastProjectFile) && File.Exists(lastProjectFile);
             LastProjectFile = canRestoreProject ? lastProjectFile : null;
 
@@ -87,7 +87,7 @@ public sealed class CrashRecoveryPromptTask : StartupTask
 
             if (canRestoreProject && !restoreProject)
             {
-                GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile.Value = null;
+                configuration.LastOpenedProjectFile.Value = null;
             }
         });
     }

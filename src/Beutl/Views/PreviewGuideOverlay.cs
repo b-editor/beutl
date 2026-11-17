@@ -1,14 +1,15 @@
 ﻿using System.ComponentModel;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
-
+using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
+using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
@@ -63,9 +64,7 @@ internal sealed class PreviewGuideOverlay : Control
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _config = GlobalConfiguration.Instance.EditorConfig;
-        _config.PropertyChanged += OnConfigPropertyChanged;
-        Refresh();
+        BindConfiguration();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -76,6 +75,25 @@ internal sealed class PreviewGuideOverlay : Control
             config.PropertyChanged -= OnConfigPropertyChanged;
         }
         _config = null;
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (this.IsAttachedToVisualTree())
+            BindConfiguration();
+    }
+
+    private void BindConfiguration()
+    {
+        if (_config != null)
+            _config.PropertyChanged -= OnConfigPropertyChanged;
+        _config = (DataContext as PlayerViewModel)?.EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig;
+        if (_config != null)
+            _config.PropertyChanged += OnConfigPropertyChanged;
+        else
+            IsVisible = false;
+        Refresh();
     }
 
     private void OnConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)

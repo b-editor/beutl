@@ -24,7 +24,7 @@ public sealed class SceneReferenceEditTests
         _harness = new SceneHistoryHarness("beutl_scene_reference", start: MediaTime.Zero, duration: Seconds(60));
         _referenced = new Scene { Duration = { Value = Seconds(5) } };
         _slip = new ElementSlipService(_harness.History);
-        _resize = new ElementResizeService(_harness.History);
+        _resize = new ElementResizeService(_harness.History, new Beutl.Configuration.EditorConfig());
     }
 
     [TearDown]

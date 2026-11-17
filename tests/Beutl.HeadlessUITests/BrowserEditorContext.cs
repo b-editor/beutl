@@ -34,6 +34,7 @@ internal sealed class BrowserEditorContext(
 
     public object? GetService(Type serviceType)
     {
+        if (serviceType == typeof(Beutl.Configuration.GlobalConfiguration)) return TestShell.Configuration;
         if (serviceType == typeof(IElementAdder))
             return this;
         if (serviceType == typeof(IExtensionProvider))

@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
@@ -33,7 +34,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
     private static async Task<IReadOnlyList<PackageUpdate>> CheckAndPrepareAsync(
         Startup startup, PackageManager manager, CancellationToken token, bool appUpdate = false)
     {
-        if (!GlobalConfiguration.Instance.UpdateConfig.ShouldUpdateExtensions(appUpdate)
+        if (!startup.Configuration.UpdateConfig.ShouldUpdateExtensions(appUpdate)
             || startup.GetTask<CrashRecoveryPromptTask>().IsRestrictedMode)
             return await manager.CheckUpdate(token);
 
@@ -47,7 +48,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
         using var lifetime = app.CreateLifetimeLinkedTokenSource(default);
         CancellationToken token = lifetime.Token;
         using var changed = new SemaphoreSlim(0);
-        var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+        var setting = startup.Configuration.UpdateConfig.ExtensionUpdates;
         using var subscription = setting.GetObservable().Skip(1)
             .Where(mode => mode == ExtensionUpdateMode.Always).Subscribe(_ => changed.Release());
         try
@@ -187,6 +188,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
 
                 window.DataContext = context;
                 ColorPaletteService.SetService(window, ColorPaletteService.GetService(topLevel));
+                ControlConfiguration.SetConfiguration(window, ControlConfiguration.GetConfiguration(topLevel));
                 if (window is Pages.ExtensionsPage page)
                 {
                     page.OpenLibraryWithUpdates();

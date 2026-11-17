@@ -8,6 +8,7 @@ using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -47,7 +48,7 @@ internal class PackageOperationHandler
     // registration only after the extension has loaded, so a failure leaves the old version available.
     internal async Task<bool> TryApplyStagedExtensionUpdateAsync(PackageIdentity installed, NuGetVersion host, Func<Task> loadPreceding)
     {
-        UpdateConfig policy = GlobalConfiguration.Instance.UpdateConfig;
+        UpdateConfig policy = _editorService.AppServices.GetRequiredService<GlobalConfiguration>().UpdateConfig;
         if (!policy.ShouldUpdateExtensions(true)) return false;
         using var lifetime = _app.CreateLifetimeLinkedTokenSource(default);
         CancellationToken token = lifetime.Token;

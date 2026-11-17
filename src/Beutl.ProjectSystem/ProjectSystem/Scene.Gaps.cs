@@ -54,7 +54,7 @@ public partial class Scene
     /// acts as an immovable barrier that halts the shift. Does not commit history;
     /// the caller owns the single <c>HistoryManager.Commit</c> boundary.
     /// </summary>
-    public bool CloseGapAfter(Element anchor)
+    public bool CloseGapAfter(Element anchor, bool autoAdjustDuration = true)
     {
         ArgumentNullException.ThrowIfNull(anchor);
         if (anchor.HierarchicalParent is not Scene scene || !ReferenceEquals(scene, this))
@@ -73,7 +73,7 @@ public partial class Scene
         // Moving by anything but the gap's width would not close this gap, so a clip that would still land on what
         // stays keeps it open rather than fitting around it.
         Element[] toShift = ShiftableAfter(z, gap.Range.End);
-        return toShift.Length != 0 && MoveChildrenCore(toShift, 0, -gap.Range.Duration, fitAroundConflicts: false);
+        return toShift.Length != 0 && MoveChildrenCore(toShift, 0, -gap.Range.Duration, fitAroundConflicts: false, autoAdjustDuration);
     }
 
     /// <summary>
@@ -84,7 +84,7 @@ public partial class Scene
     /// an immovable barrier that halts the shift. Does not commit history; the
     /// caller owns the single commit boundary.
     /// </summary>
-    public int CloseAllGaps()
+    public int CloseAllGaps(bool autoAdjustDuration = true)
     {
         int closed = 0;
         MediaTime? movedEnd = null;
@@ -96,7 +96,7 @@ public partial class Scene
             }
         }
 
-        if (movedEnd is { } end) ExtendDurationToCover(end);
+        if (movedEnd is { } end) ExtendDurationToCover(end, autoAdjustDuration);
 
         return closed;
     }

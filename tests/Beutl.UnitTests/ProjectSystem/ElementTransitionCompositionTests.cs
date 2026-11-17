@@ -517,7 +517,7 @@ public class ElementTransitionCompositionTests
         cut.Outgoing.ExitTransition.Value = Transition(0.25);
         cut.Incoming.EnterTransition.Value = Transition(0.25);
         harness.History.Commit("transition");
-        var service = new ElementResizeService(harness.History);
+        var service = new ElementResizeService(harness.History, new Beutl.Configuration.EditorConfig());
 
         bool rolled = service.Roll(harness.Scene, [new ElementTrimPair(cut.Outgoing, cut.Incoming)], Seconds(0.5));
 

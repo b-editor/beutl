@@ -31,7 +31,7 @@ public sealed class ProfileTests
                 """));
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         Profile profile = ApiTestAuthentication.SignIn(app).Profile;
         string? nameObservedWithResponse = null;
         using IDisposable subscription = profile.Response.Skip(1).Subscribe(_ =>
@@ -59,7 +59,7 @@ public sealed class ProfileTests
             return TestHttp.Json(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         Profile profile = ApiTestAuthentication.SignIn(app).Profile;
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -96,7 +96,7 @@ public sealed class ProfileTests
             return await secondResponse.Task.WaitAsync(cancellationToken);
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var profile = new Profile(CreateProfileResponse("test", "Original"), app);
 
         Task olderRefresh = profile.RefreshAsync(CancellationToken.None);
@@ -149,7 +149,7 @@ public sealed class ProfileTests
             return TestHttp.Json(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var profile = new Profile(CreateProfileResponse("test", "Test User"), app);
 
         Package[] packages = await profile.GetPackagesAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));

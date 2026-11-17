@@ -40,6 +40,6 @@ internal static class FontFamilyNames
 
     private static FontName? TryGetFontName(FontFamily family)
     {
-        return FontManager.Instance._fontNames.GetValueOrDefault(family);
+        return FontManager.Instance.GetFontName(family);
     }
 }

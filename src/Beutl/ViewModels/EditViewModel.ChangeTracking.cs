@@ -11,6 +11,7 @@ using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Dispatcher = Avalonia.Threading.Dispatcher;
 
@@ -47,7 +48,7 @@ public partial class EditViewModel
                      or nameof(EditorConfig.NodeCacheMinPixels))
             {
                 _logger.LogInformation("Updating RenderNodeCacheHelper options due to EditorConfig change.");
-                ApplyNodeCacheOptions(Renderer.Value, RenderCacheOptions.CreateFromGlobalConfiguration());
+                ApplyNodeCacheOptions(Renderer.Value, RenderCacheOptions.CreateFromConfiguration(this.GetRequiredService<GlobalConfiguration>().EditorConfig));
             }
         }
     }

@@ -54,7 +54,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private long _toolsVersion;
 
     internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, IAgentAiBackend aiBackend)
-        : this(projectService, editorService, aiBackend, GlobalConfiguration.Instance.AiAgentConfig)
+        : this(projectService, editorService, aiBackend, editorService.AppServices.GetRequiredService<GlobalConfiguration>().AiAgentConfig)
     {
     }
 
@@ -88,7 +88,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             aiBackend,
             preferredPort,
             token,
-            GlobalConfiguration.Instance.AiAgentConfig,
+            editorService.AppServices.GetRequiredService<GlobalConfiguration>().AiAgentConfig,
             beforeStart,
             registryDirectory,
             createBoundListenSocket: createBoundListenSocket)

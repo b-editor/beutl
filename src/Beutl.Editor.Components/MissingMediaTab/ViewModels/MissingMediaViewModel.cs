@@ -234,7 +234,7 @@ public sealed class MissingMediaViewModel : IToolContext
                 }
 
                 string directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
-                GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value = directory;
+                _editor.GetRequiredService<GlobalConfiguration>().EditorConfig.LastMediaDirectory.Value = directory;
                 _candidateCancellation?.Cancel();
                 _candidateCancellation?.Dispose();
                 _candidateCancellation = CancellationTokenSource.CreateLinkedTokenSource(_token);

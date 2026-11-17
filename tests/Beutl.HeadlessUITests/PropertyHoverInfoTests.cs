@@ -104,6 +104,7 @@ public class PropertyHoverInfoTests
         var factory = new FactoryNode<RectShape>();
         graph.Nodes.Add(factory);
         var services = new Mock<IEditorContext>();
+        services.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         services.Setup(x => x.GetService(typeof(IPropertyEditorFactory)))
             .Returns(new Mock<IPropertyEditorFactory>().Object);
         using var graphModel = new NodeGraphViewModel(graph, services.Object);

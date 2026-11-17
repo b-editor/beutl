@@ -24,10 +24,10 @@ public class ElementViewDragCancellationTests
     [AvaloniaTest]
     public async Task GroupResize_ShowsTheModelWhenAnAnimationFails()
     {
-        bool originalRipple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value;
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = false;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
+        bool originalRipple = TestShell.Configuration.EditorConfig.IsRippleEnabled.Value;
+        bool originalSnap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsRippleEnabled.Value = false;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = false;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -60,8 +60,8 @@ public class ElementViewDragCancellationTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = originalRipple;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TestShell.Configuration.EditorConfig.IsRippleEnabled.Value = originalRipple;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
             TimelineTestHost.Close(view, window);
         }
     }
@@ -79,10 +79,10 @@ public class ElementViewDragCancellationTests
     [TestCase("move", false, true)]
     public async Task CaptureLost_ConfirmsTheDragWhereItReached(string kind, bool grouped, bool snapping)
     {
-        bool originalRipple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value;
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = false;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = snapping;
+        bool originalRipple = TestShell.Configuration.EditorConfig.IsRippleEnabled.Value;
+        bool originalSnap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsRippleEnabled.Value = false;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = snapping;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -199,8 +199,8 @@ public class ElementViewDragCancellationTests
         finally
         {
             TimelineTestHost.Close(view, window);
-            GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = originalRipple;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TestShell.Configuration.EditorConfig.IsRippleEnabled.Value = originalRipple;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
         }
     }
 
@@ -209,8 +209,8 @@ public class ElementViewDragCancellationTests
     [TestCase(RawInputModifiers.Shift)]
     public async Task CaptureLost_ModifierDrag_MovesTheSelectionAndKeepsTheUnselectedPressedClip(RawInputModifiers modifiers)
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
+        bool originalSnap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = false;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -267,7 +267,7 @@ public class ElementViewDragCancellationTests
         finally
         {
             TimelineTestHost.Close(view, window);
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
         }
     }
 
@@ -279,8 +279,8 @@ public class ElementViewDragCancellationTests
     [TestCase(DragEnd.Playback)]
     public async Task Escape_and_Undo_cancel_the_drag_and_playback_start_confirms_it(DragEnd end)
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
+        bool originalSnap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = false;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -338,7 +338,7 @@ public class ElementViewDragCancellationTests
         finally
         {
             TimelineTestHost.Close(view, window);
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
         }
     }
 

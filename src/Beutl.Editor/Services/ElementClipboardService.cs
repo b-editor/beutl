@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
@@ -20,6 +21,7 @@ public sealed class ElementClipboardService : IElementClipboardService
     private static readonly ILogger s_logger = Log.CreateLogger<ElementClipboardService>();
 
     private readonly HistoryManager _historyManager;
+    private readonly EditorConfig _configuration;
     private readonly IClipboardGateway _clipboard;
     private readonly IElementDuplicateService _duplicateService;
     private readonly IElementAdder? _elementAdder;
@@ -29,12 +31,13 @@ public sealed class ElementClipboardService : IElementClipboardService
     /// from a bitmap paste. Production passes <c>ElementAccentColorGenerator.GenerateColor</c>;
     /// tests can pass a fixed color.</param>
     public ElementClipboardService(
-        HistoryManager historyManager,
+        HistoryManager historyManager, EditorConfig configuration,
         IClipboardGateway clipboard,
         IElementDuplicateService duplicateService,
         Func<Color> imageAccentColorFactory,
         IElementAdder? elementAdder = null)
     {
+        _configuration = configuration;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
         _duplicateService = duplicateService ?? throw new ArgumentNullException(nameof(duplicateService));
@@ -383,7 +386,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         newElement.Start.Value = start;
         newElement.ZIndex.Value = zIndex;
         newElement.Uri = ElementFileNaming.GetUri(scene.Uri!, newElement.Id.Value);
-        scene.AddChild(newElement, ElementOverlapHandling.Allow);
+        scene.AddChild(newElement, ElementOverlapHandling.Allow, _configuration.AutoAdjustSceneDuration.Value);
         _historyManager.Commit(CommandNames.PasteElement);
 
         return new ElementPasteOutcome(

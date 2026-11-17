@@ -19,6 +19,8 @@ namespace Beutl.UnitTests.Graphics;
 [NonParallelizable]
 public class ProxyVideoLogicalSizeTests
 {
+    private GlobalConfiguration _testConfiguration = new();
+
     private IProxyResolver? _oldResolver;
     private PreviewSourceMode _originalPreviewSourceMode;
 
@@ -31,17 +33,18 @@ public class ProxyVideoLogicalSizeTests
     [SetUp]
     public void SetUp()
     {
+        _testConfiguration = new();
         _oldResolver = DecoderRegistry.ProxyResolver;
         DecoderRegistry.ProxyResolver = null;
-        _originalPreviewSourceMode = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
+        _originalPreviewSourceMode = _testConfiguration.EditorConfig.PreviewSourceMode.Value;
+        _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
     }
 
     [TearDown]
     public void TearDown()
     {
         DecoderRegistry.ProxyResolver = _oldResolver;
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = _originalPreviewSourceMode;
+        _testConfiguration.EditorConfig.PreviewSourceMode.Value = _originalPreviewSourceMode;
     }
 
     [Test]
@@ -318,7 +321,7 @@ public class ProxyVideoLogicalSizeTests
 
     // Renders a scene with the 100x80 video through its Half proxy and checks that the video covers (90, 70) and
     // leaves the outside point black.
-    private static void AssertSceneDrawsProxyAtOriginalFootprint(
+    private void AssertSceneDrawsProxyAtOriginalFootprint(
         Func<FilterEffect>? createEffect, PixelSize sceneSize, PixelPoint outside)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -350,7 +353,7 @@ public class ProxyVideoLogicalSizeTests
             };
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(1d / 30d)));
 
             using Bitmap snapshot = renderer.Snapshot();

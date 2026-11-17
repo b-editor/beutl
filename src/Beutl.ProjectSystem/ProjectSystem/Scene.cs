@@ -243,11 +243,11 @@ public partial class Scene : ProjectItem, INotifyEdited
 
     // Expects element.Uri to be set.
     public void AddChild(Element element,
-        ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto)
+        ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto, bool autoAdjustDuration = true)
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        AddChildCore(element, overlapHandling);
+        AddChildCore(element, overlapHandling, autoAdjustDuration);
     }
 
     public void RemoveChild(Element element)
@@ -259,7 +259,7 @@ public partial class Scene : ProjectItem, INotifyEdited
         Children.Remove(element);
     }
 
-    public void MoveChild(int zIndex, MediaTime start, MediaTime length, Element element)
+    public void MoveChild(int zIndex, MediaTime start, MediaTime length, Element element, bool autoAdjustDuration = true)
     {
         ArgumentNullException.ThrowIfNull(element);
 
@@ -269,17 +269,17 @@ public partial class Scene : ProjectItem, INotifyEdited
         if (length <= MediaTime.Zero)
             throw new ArgumentOutOfRangeException(nameof(length));
 
-        MoveChildCore(zIndex, start, length, element);
+        MoveChildCore(zIndex, start, length, element, autoAdjustDuration);
     }
 
-    public void MoveChildren(int deltaIndex, MediaTime deltaStart, Element[] elements)
+    public void MoveChildren(int deltaIndex, MediaTime deltaStart, Element[] elements, bool autoAdjustDuration = true)
     {
         if (elements.Length < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(elements));
         }
 
-        MoveChildrenCore(elements, deltaIndex, deltaStart, fitAroundConflicts: true);
+        MoveChildrenCore(elements, deltaIndex, deltaStart, fitAroundConflicts: true, autoAdjustDuration);
     }
 
     private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

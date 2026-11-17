@@ -65,7 +65,7 @@ public sealed class PublicApiCancellationTests
     public async Task PackageManagerCheckUpdateOperations_ObservePreCanceledTokens()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
         PackageManager manager = app.GetResource<PackageManager>();
@@ -81,7 +81,7 @@ public sealed class PublicApiCancellationTests
     {
         using var handler = new BlockingHandler();
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var cancellationTokenSource = new CancellationTokenSource();
         var service = new DiscoverService(app);
 
@@ -101,7 +101,7 @@ public sealed class PublicApiCancellationTests
     {
         using var handler = new BlockingHandler();
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var cancellationTokenSource = new CancellationTokenSource();
         var service = new LibraryService(app);
         Package package = CreatePackage(app);
@@ -123,7 +123,7 @@ public sealed class PublicApiCancellationTests
     {
         using var handler = new BlockingHandler();
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var cancellationTokenSource = new CancellationTokenSource();
         Package package = CreatePackage(app);
 
@@ -143,7 +143,7 @@ public sealed class PublicApiCancellationTests
     {
         using var handler = new BlockingHandler();
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var cancellationTokenSource = new CancellationTokenSource();
         Release release = CreateRelease(app);
 
@@ -162,7 +162,7 @@ public sealed class PublicApiCancellationTests
     {
         using var handler = new BlockingHandler();
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         Release release = CreateRelease(app);
 
         Task operation = operationName switch
@@ -188,7 +188,7 @@ public sealed class PublicApiCancellationTests
                 ? TestHttp.Json(HttpStatusCode.OK, $"[{SimplePackageJson}]")
                 : null);
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var service = new DiscoverService(app);
 
         Package[] packages = await service.GetFeatured(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
@@ -205,7 +205,7 @@ public sealed class PublicApiCancellationTests
                 ? TestHttp.Json(HttpStatusCode.OK, $"[{{\"package\":{SimplePackageJson},\"latestRelease\":null}}]")
                 : null);
         using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var service = new LibraryService(app);
 
         Package[] packages = await service.GetPackages(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));

@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Input;
-
 using Beutl.Configuration;
 
 namespace Beutl.Controls;
@@ -13,11 +12,13 @@ internal class PointerLockHelper
     private static uint s_macDisplay;
     private static PixelPoint s_savedScreenPosition;
 
-    public static void Pressed(Visual visual, Point dragStart)
+    internal static bool IsEnabled(Visual visual)
+        => ControlConfiguration.GetConfiguration(visual)?.EditorConfig.EnablePointerLockInProperty.Value ?? true;
+
+    public static bool Pressed(Visual visual, Point dragStart)
     {
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        if (!editorConfig.EnablePointerLockInProperty.Value)
-            return;
+        if (!IsEnabled(visual))
+            return false;
 
         if (OperatingSystem.IsWindows())
         {
@@ -32,12 +33,12 @@ internal class PointerLockHelper
             // ここでCGGetLastMouseDeltaを呼び出さない場合、最初のMovedで大きなデルタが発生してしまう
             CoreGraphics.CGGetLastMouseDelta(out _, out _);
         }
+        return OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
     }
 
-    public static void Released()
+    public static void Released(bool locked)
     {
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        if (!editorConfig.EnablePointerLockInProperty.Value)
+        if (!locked)
             return;
 
         if (OperatingSystem.IsWindows())
@@ -58,8 +59,7 @@ internal class PointerLockHelper
 
     public static Point Moved(Visual visual, Point point, ref Point dragStart)
     {
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        if (editorConfig.EnablePointerLockInProperty.Value)
+        if (IsEnabled(visual))
         {
             if (OperatingSystem.IsWindows())
             {

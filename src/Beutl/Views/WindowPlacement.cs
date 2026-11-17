@@ -8,9 +8,8 @@ namespace Beutl.Views;
 // Restores, fits and saves the bounds of a main window through ViewConfig.
 internal static class WindowPlacement
 {
-    public static void Restore(Window window)
+    public static void Restore(Window window, ViewConfig viewConfig)
     {
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         (int X, int Y)? pos = viewConfig.WindowPosition.Value;
         (int Width, int Height)? size = viewConfig.WindowSize.Value;
 
@@ -56,9 +55,8 @@ internal static class WindowPlacement
         window.Height = rect.Height / scaling;
     }
 
-    public static void Save(Window window)
+    public static void Save(Window window, ViewConfig viewConfig)
     {
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.WindowSize.Value = ((int)window.ClientSize.Width, (int)window.ClientSize.Height);
         viewConfig.WindowPosition.Value = (window.Position.X, window.Position.Y);
         viewConfig.IsWindowMaximized.Value = window.WindowState == WindowState.Maximized;

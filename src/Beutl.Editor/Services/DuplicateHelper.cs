@@ -146,10 +146,10 @@ public static class DuplicateHelper
         Element[] newElements,
         Element[] sourceElements,
         MediaTime anchorStart,
-        int anchorZIndex)
-        => PlaceDuplicates(scene, newElements, sourceElements, anchorStart, anchorZIndex, ElementOverlapHandling.Auto);
+        int anchorZIndex, bool autoAdjustDuration = true)
+        => PlaceDuplicates(scene, newElements, sourceElements, anchorStart, anchorZIndex, ElementOverlapHandling.Auto, autoAdjustDuration: autoAdjustDuration);
 
-    /// <inheritdoc cref="PlaceDuplicates(Scene, Element[], Element[], MediaTime, int)"/>
+    /// <inheritdoc cref="PlaceDuplicates(Scene, Element[], Element[], MediaTime, int, bool)"/>
     /// <remarks>
     /// Writes no file, and is not atomic. <paramref name="overlapHandling"/> applies to each duplicate as it is
     /// added: a caller that found the anchor free for the whole set passes <see cref="ElementOverlapHandling.Allow"/>,
@@ -162,7 +162,7 @@ public static class DuplicateHelper
         MediaTime anchorStart,
         int anchorZIndex,
         ElementOverlapHandling overlapHandling,
-        IEnumerable<ImmutableHashSet<Guid>>? sourceGroups = null)
+        IEnumerable<ImmutableHashSet<Guid>>? sourceGroups = null, bool autoAdjustDuration = true)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(newElements);
@@ -200,7 +200,7 @@ public static class DuplicateHelper
 
         foreach (Element newElement in newElements)
         {
-            scene.AddChild(newElement, overlapHandling);
+            scene.AddChild(newElement, overlapHandling, autoAdjustDuration);
         }
 
         // A matte follows a source copied with it, to the layer that copy ended up on: fitting it around what it

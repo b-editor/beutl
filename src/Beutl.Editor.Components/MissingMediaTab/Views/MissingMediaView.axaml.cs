@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Configuration;
 using Beutl.Editor.Components.MissingMediaTab.ViewModels;
 using Beutl.Language;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.MissingMediaTab.Views;
 
@@ -19,7 +20,7 @@ public partial class MissingMediaView : UserControl
         if (DataContext is not MissingMediaViewModel vm || sender is not Control { DataContext: MissingMediaRowViewModel row }
             || TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage) return;
         var options = new FilePickerOpenOptions { Title = MissingMediaStrings.Replace, AllowMultiple = false };
-        string? directory = GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value;
+        string? directory = vm.GetRequiredService<GlobalConfiguration>().EditorConfig.LastMediaDirectory.Value;
         if (directory != null && Directory.Exists(directory))
             options.SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(directory);
         var result = await storage.OpenFilePickerAsync(options);

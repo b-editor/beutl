@@ -30,7 +30,7 @@ public class ExtensionConfigFormerNameTests
         {
             ["Extension"] = new JsonObject { ["DecoderPriority"] = new JsonArray(saved) },
         }.ToJsonString());
-        var config = (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
+        var config = new GlobalConfiguration();
 
         config.Restore(path);
 

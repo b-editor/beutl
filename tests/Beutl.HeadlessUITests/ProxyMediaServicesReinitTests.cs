@@ -9,7 +9,7 @@ namespace Beutl.HeadlessUITests;
 // ProxyMediaServices rebuilds its backing store/eviction when StoreRootPath or MaxTotalBytes changes at
 // runtime, and hands editors swap-stable facades so a cached reference keeps hitting the current store.
 [TestFixture]
-[NonParallelizable] // changes GlobalConfiguration.Instance
+[NonParallelizable] // changes TestShell.Configuration
 public sealed class ProxyMediaServicesReinitTests
 {
     private static (string Root, long Cap) Snapshot(ProxyStoreConfig config) => (config.StoreRootPath.Value, config.MaxTotalBytes.Value);
@@ -194,7 +194,7 @@ public sealed class ProxyMediaServicesReinitTests
     [AvaloniaTest]
     public void Initialize_invalidPersistedPath_fallsBackToDefaultStore()
     {
-        ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        ProxyStoreConfig config = TestShell.Configuration.ProxyStoreConfig;
         (string Root, long Cap) prior = Snapshot(config);
         // A bad store path persisted to settings.json from a previous session: startup must still bring up
         // proxy services (on the default location) and allow a later path correction.
@@ -205,7 +205,7 @@ public sealed class ProxyMediaServicesReinitTests
         ProxyMediaServices services = null!;
         try
         {
-            Assert.DoesNotThrow(() => services = new ProxyMediaServices(GlobalConfiguration.Instance));
+            Assert.DoesNotThrow(() => services = new ProxyMediaServices(TestShell.Configuration));
 
             string defaultRoot = Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath);
             Assert.Multiple(() =>
@@ -257,10 +257,10 @@ public sealed class ProxyMediaServicesReinitTests
             if (maxTotalBytes is { } cap)
                 Config.MaxTotalBytes.Value = cap;
 
-            Services = new ProxyMediaServices(GlobalConfiguration.Instance);
+            Services = new ProxyMediaServices(TestShell.Configuration);
         }
 
-        public ProxyStoreConfig Config { get; } = GlobalConfiguration.Instance.ProxyStoreConfig;
+        public ProxyStoreConfig Config { get; } = TestShell.Configuration.ProxyStoreConfig;
 
         public string First { get; } = NewTempPath();
 

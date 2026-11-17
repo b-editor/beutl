@@ -106,7 +106,7 @@ public class CopiedFileBackedObjectsTests
     private Element Split(Element target, double seconds)
     {
         Element[] before = [.. _harness.Scene.Children];
-        new ElementStructureService(_harness.History).Split(_harness.Scene, [target], MediaTime.FromSeconds(seconds));
+        new ElementStructureService(_harness.History, new Beutl.Configuration.EditorConfig()).Split(_harness.Scene, [target], MediaTime.FromSeconds(seconds));
         return _harness.Scene.Children.Except(before).Single();
     }
 

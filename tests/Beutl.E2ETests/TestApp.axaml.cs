@@ -5,6 +5,8 @@ namespace Beutl.E2ETests;
 
 public sealed class TestApp : Application
 {
+    internal Beutl.Configuration.GlobalConfiguration Configuration { get; } = new();
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);

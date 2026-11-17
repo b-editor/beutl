@@ -113,6 +113,7 @@ internal static partial class NativeContextMenuTestHost
             Content = new StackPanel { Children = { host, liveHost, contextMenuHost, customHost, button, textBox } }
         };
         window.Position = PlaceOnLastScreen(window);
+        Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
         window.Show();
         await WaitAsync(500);
 
@@ -187,7 +188,7 @@ internal static partial class NativeContextMenuTestHost
         Check(log.SequenceEqual(["Opening", "Opened", "Closed"]), $"Dismissing raises no click: {string.Join(", ", log)}");
 
         // The setting takes effect on the next menu.
-        ViewConfig view = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig view = TestShell.Configuration.ViewConfig;
         view.UseNativeContextMenus.Value = false;
         await WaitForHitAsync(window, host, new Point(12, 12));
         RightClick(window, host, new Point(12, 12));
@@ -466,6 +467,7 @@ internal static partial class NativeContextMenuTestHost
             Content = new EditView { DataContext = editor }
         };
         window.Position = PlaceOnLastScreen(window);
+        Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
         window.Show();
 
         // A clip can run far past the window's edge.

@@ -168,7 +168,7 @@ public sealed partial class SettingsDialog : FAAppWindow
             CreateItem: () => NavigationItem(
                 Strings.Terminal, typeof(TerminalSettingsPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.WindowConsole }),
-            GetContext: _ => GlobalConfiguration.Instance.TerminalConfig),
+            GetContext: settings => settings.Terminal),
         new(typeof(InformationPage), "InformationPageViewModel", 9,
             CreateItem: () => NavigationItem(
                 Strings.Info, typeof(InformationPage),

@@ -1,16 +1,13 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Platform;
 using Avalonia.Threading;
-
 using Beutl.Configuration;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Controls.NativeContextMenu;
@@ -25,7 +22,7 @@ internal static class NativeContextMenus
     private static readonly Dictionary<AvaloniaObject, Session> s_sessions = [];
     private static bool s_installed;
 
-    private static bool IsEnabled => GlobalConfiguration.Instance.ViewConfig.UseNativeContextMenus.Value;
+    internal static bool IsEnabled(Control target) => ControlConfiguration.GetConfiguration(target)?.ViewConfig.UseNativeContextMenus.Value ?? true;
 
     public static void Install()
     {
@@ -46,8 +43,8 @@ internal static class NativeContextMenus
             End(flyout);
         }
         // Setting IsOpen directly opens the popup before this runs, and it has been seen by then.
-        else if (IsEnabled
-                 && flyout.Target is { } target
+        else if (flyout.Target is { } target
+                 && IsEnabled(target)
                  && ReferenceEquals(target.ContextFlyout, flyout)
                  && !flyout.Popup.IsOpen
                  && GetReader(flyout) is { } read)
@@ -70,7 +67,7 @@ internal static class NativeContextMenus
         {
             End(menu);
         }
-        else if (IsEnabled && menu.Parent is Popup { PlacementTarget: { } target, IsOpen: false } popup)
+        else if (menu.Parent is Popup { PlacementTarget: { } target, IsOpen: false } popup && IsEnabled(target))
         {
             Begin(menu, popup, target, () => ContextMenuEntry.TryRead(menu), menu.Close);
         }

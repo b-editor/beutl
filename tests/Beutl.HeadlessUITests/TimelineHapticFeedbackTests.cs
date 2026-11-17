@@ -26,7 +26,7 @@ public class TimelineHapticFeedbackTests
     [TestCase("slide")]
     public async Task Drag_OnlyPulsesForReachableSnaps_AndResetsAfterCancellation(string kind)
     {
-        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig config = TestShell.Configuration.EditorConfig;
         bool originalSnap = config.IsTimelineSnapEnabled.Value;
         bool originalRipple = config.IsRippleEnabled.Value;
         config.IsTimelineSnapEnabled.Value = true;

@@ -57,7 +57,7 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
         _store = editorContext.GetService<IProxyStore>();
         _queue = editorContext.GetService<IProxyJobQueue>();
         _storeCapInfo = editorContext.GetService<IProxyStoreCapInfo>();
-        _config = GlobalConfiguration.Instance.ProxyStoreConfig;
+        _config = editorContext.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig;
 
         ClipSummary = new ReactiveProperty<string>()
             .DisposeWith(_disposables);

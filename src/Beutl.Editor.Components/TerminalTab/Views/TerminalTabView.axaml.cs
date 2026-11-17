@@ -30,7 +30,15 @@ public partial class TerminalTabView : UserControl, IDisposable
     {
         InitializeComponent();
         Loaded += OnLoaded;
-        TerminalConfig settings = GlobalConfiguration.Instance.TerminalConfig;
+        Terminal.AddHandler(KeyDownEvent, (_, args) =>
+        {
+            if (args.Key == Key.Enter)
+                UsageTelemetry.Current?.Record("tool.command", "Terminal", "SubmitInput");
+        }, RoutingStrategies.Tunnel);
+    }
+
+    private void ApplySettings(TerminalConfig settings)
+    {
         settings.FontFamily.GetObservable().Subscribe(name =>
             Terminal.FontFamilyName = string.IsNullOrWhiteSpace(name)
                 ? TerminalControl.FontFamilyNameProperty.GetDefaultValue(Terminal) : name.Trim())
@@ -49,11 +57,6 @@ public partial class TerminalTabView : UserControl, IDisposable
                 _ => applicationTheme
             })
             .Switch().Subscribe(Terminal.ApplyTheme).DisposeWith(_settingsSubscriptions);
-        Terminal.AddHandler(KeyDownEvent, (_, args) =>
-        {
-            if (args.Key == Key.Enter)
-                UsageTelemetry.Current?.Record("tool.command", "Terminal", "SubmitInput");
-        }, RoutingStrategies.Tunnel);
     }
 
     private IObservable<ISolidColorBrush> ObserveBrush(string key) =>
@@ -83,6 +86,9 @@ public partial class TerminalTabView : UserControl, IDisposable
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        _settingsSubscriptions.Clear();
+        if (!_disposed && DataContext is TerminalTabViewModel owner)
+            ApplySettings(owner.Settings);
         TryStartSession();
     }
 

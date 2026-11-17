@@ -204,7 +204,7 @@ public class EditorSwitchMenuTests
         public EditorExtension Extension => extension;
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
         public int DisposeCalls { get; private set; }
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
         public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
         public T? FindToolTab<T>() where T : IToolContext => default;
         public bool OpenToolTab(IToolContext item) => false;

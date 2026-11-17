@@ -39,6 +39,7 @@ public sealed class CommandPaletteReviewTests
             if (betweenSteps) await palette.ExecuteSelectedAsync();
             await UntilAsync(() => waiting);
             var context = new Mock<IEditorContext>();
+            context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             context.SetupGet(item => item.Object).Returns(new Scene());
             context.SetupGet(item => item.Extension).Returns(SceneEditorExtension.Instance);
             editor.SelectedTabItem.Value = new EditorTabItem(context.Object);
@@ -162,7 +163,7 @@ public sealed class CommandPaletteReviewTests
         var assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("PaletteCollectible" + Guid.NewGuid().ToString("N")), AssemblyBuilderAccess.RunAndCollect);
         Type type = assembly.DefineDynamicModule("Palette").DefineType("CollectibleCommand", TypeAttributes.Public, typeof(CollectibleCommandExtensionBase)).CreateType()!;
         var extension = (ViewExtension)Activator.CreateInstance(type)!;
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         provider.AddExtensions(-43004, [extension]);
         var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);

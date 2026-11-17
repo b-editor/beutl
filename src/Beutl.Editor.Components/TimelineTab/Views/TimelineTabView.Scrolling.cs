@@ -10,6 +10,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Media;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -62,7 +63,7 @@ public sealed partial class TimelineTabView
         }
         else
         {
-            Avalonia.Vector delta = TimelineHelper.GetScrollOffsetDelta(e, _usesGestureAxes(e));
+            Avalonia.Vector delta = TimelineHelper.GetScrollOffsetDelta(e, _usesGestureAxes(e), viewModel.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig);
             offset.X += (float)delta.X;
             offset.Y += (float)delta.Y;
         }

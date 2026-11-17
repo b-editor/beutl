@@ -63,8 +63,6 @@ public sealed partial class NewToolTabView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         Subscribe();
-        // A pin made on another page shows here too.
-        GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs.CollectionChanged += OnDockablesChanged;
         Show(NewTab);
         NewTab?.Refresh();
     }
@@ -73,7 +71,6 @@ public sealed partial class NewToolTabView : UserControl
     {
         base.OnDetachedFromVisualTree(e);
         Unsubscribe();
-        GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs.CollectionChanged -= OnDockablesChanged;
         Show(null);
     }
 
@@ -82,8 +79,12 @@ public sealed partial class NewToolTabView : UserControl
     {
         if (ReferenceEquals(_shownTab, newTab)) return;
 
+        if (_shownTab != null)
+            _shownTab.Configuration.PinnedToolTabs.CollectionChanged -= OnDockablesChanged;
         _shownTab?.ReleaseItems();
         _shownTab = newTab;
+        if (_shownTab != null)
+            _shownTab.Configuration.PinnedToolTabs.CollectionChanged += OnDockablesChanged;
     }
 
     protected override void OnLoaded(RoutedEventArgs e)

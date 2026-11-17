@@ -252,7 +252,7 @@ public class UpdateExtractionTests
             DownloadUrl = null,
             IsLatest = false,
             MustLatest = false,
-        });
+        }, new Beutl.Configuration.UpdateConfig());
         var metadata = new AssetMetadataJson
         {
             Id = "test",

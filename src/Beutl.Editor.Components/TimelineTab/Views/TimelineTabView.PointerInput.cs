@@ -8,6 +8,7 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
 using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
@@ -218,7 +219,7 @@ public sealed partial class TimelineTabView
 
             // With seeking on a click turned off, only the ruler and a drag of the bar itself move the playhead,
             // which leaves the rest free to select.
-            bool seeks = GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick.Value || IsOnRuler(e);
+            bool seeks = viewModel.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.SeekOnTimelineClick.Value || IsOnRuler(e);
             bool command = e.KeyModifiers == KeyGestureHelper.GetCommandModifier();
             if (!command && IsOnSeekBar(viewModel, e, pointerPt))
             {
@@ -249,7 +250,7 @@ public sealed partial class TimelineTabView
 
     // With seeking on a click turned off, the playhead's line takes a drag wherever a clip or a keyframe does not.
     private bool IsOnSeekBar(TimelineTabViewModel viewModel, PointerEventArgs e, PointerPoint pointerPt)
-        => !GlobalConfiguration.Instance.EditorConfig.SeekOnTimelineClick.Value
+        => !viewModel.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.SeekOnTimelineClick.Value
            && Math.Abs(pointerPt.Position.X - viewModel.SeekBarMargin.Value.Left) <= SeekBarGrabDistance
            && !IsOnRuler(e)
            && !IsOnClip(e);

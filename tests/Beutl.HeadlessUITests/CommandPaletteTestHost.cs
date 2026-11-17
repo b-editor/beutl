@@ -13,7 +13,7 @@ internal static class CommandPaletteTestHost
     public static (CommandPaletteViewModel Palette, EditorService Editor) CreatePalette(
         Func<ContextCommandExecution, Task> execute)
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         var editor = new EditorService(provider, new Beutl.Editor.Services.EditorServiceRegistry());
         var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(new PromptExtension());

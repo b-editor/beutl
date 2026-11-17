@@ -33,8 +33,11 @@ public sealed class NewToolTabDockable : Tool
     private bool _showsToolsHeader;
     private string _searchText = string.Empty;
 
-    public NewToolTabDockable()
+    internal ViewConfig Configuration { get; }
+
+    public NewToolTabDockable(ViewConfig configuration)
     {
+        Configuration = configuration;
         Id = $"{nameof(NewToolTabDockable)}#{Guid.NewGuid():N}";
         Title = Strings.NewTab;
         // Fully qualified: the usual `Icon` alias for the enum would be shadowed by this type's
@@ -113,7 +116,7 @@ public sealed class NewToolTabDockable : Tool
         }
         else
         {
-            IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+            IListProperty<string> pins = Configuration.PinnedToolTabs;
             ToolTabExtension[] extensions = factory.EnumerateToolTabExtensions().ToArray();
             // Drop what a removed package left behind, so the page does not keep its tools alive.
             PruneCache(_icons, extensions);
@@ -135,7 +138,7 @@ public sealed class NewToolTabDockable : Tool
     /// <remarks>Pins are a user preference, so they persist across projects.</remarks>
     public void TogglePin(ToolTabExtension extension)
     {
-        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = Configuration.PinnedToolTabs;
         if (IndexOfPin(pins, extension) < 0)
         {
             pins.Add(GetPinKey(extension));
@@ -234,7 +237,7 @@ public sealed class NewToolTabDockable : Tool
         NewToolTabItem[] matches = query.Length == 0
             ? _items
             : _items.Where(item => Matches(item, query)).ToArray();
-        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = Configuration.PinnedToolTabs;
         PinnedItems = matches
             .Where(item => item.IsEnabled && item.IsPinned)
             .OrderBy(item => IndexOfPin(pins, item.Extension))

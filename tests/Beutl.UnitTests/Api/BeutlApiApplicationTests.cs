@@ -17,7 +17,7 @@ public sealed class BeutlApiApplicationTests
     public async Task Resource_admission_keeps_the_application_cancellation_token_with_the_resource()
     {
         using var http = new HttpClient();
-        var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var (resource, lifetime) = app.GetResourceWithLifetime<DiscoverService>(CancellationToken.None);
         using (lifetime)
         {
@@ -33,8 +33,8 @@ public sealed class BeutlApiApplicationTests
     public async Task Constructor_RegistersProvidedExtensionProvider()
     {
         using var httpClient = new HttpClient();
-        var extensionProvider = new ExtensionProvider();
-        await using var app = new BeutlApiApplication(httpClient, extensionProvider);
+        var extensionProvider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
+        await using var app = new BeutlApiApplication(httpClient, extensionProvider, new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
 
         ExtensionProvider registeredProvider = app.GetResource<ExtensionProvider>();
         PackageManager packageManager = app.GetResource<PackageManager>();
@@ -54,7 +54,7 @@ public sealed class BeutlApiApplicationTests
         var packageHandler = new DisposalTrackingHandler();
         var app = new BeutlApiApplication(
             apiHttpClient,
-            new ExtensionProvider(),
+            new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig(),
             () => new HttpClient(packageHandler));
         _ = app.GetResource<PackageInstaller>();
 
@@ -70,7 +70,7 @@ public sealed class BeutlApiApplicationTests
         Assume.That(Environment.GetEnvironmentVariable("BEUTL_API_BASE_URL"), Is.Null);
         using var httpClient = new HttpClient();
 
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
 
         using (Assert.EnterMultipleScope())
         {
@@ -83,7 +83,7 @@ public sealed class BeutlApiApplicationTests
     public async Task Constructor_RegistersBuiltInJobBehaviors()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         IAiJobKindRegistry registry = app.GetResource<IAiJobKindRegistry>();
         var runningVideo = new AiJob(
             new AiJobId("job-1"),
@@ -111,9 +111,9 @@ public sealed class BeutlApiApplicationTests
     [Test]
     public void Constructor_NullHttpClient_Throws()
     {
-        var extensionProvider = new ExtensionProvider();
+        var extensionProvider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
 
-        Assert.Throws<ArgumentNullException>(() => _ = new BeutlApiApplication(null!, extensionProvider));
+        Assert.Throws<ArgumentNullException>(() => _ = new BeutlApiApplication(null!, extensionProvider, new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig()));
     }
 
     [Test]
@@ -121,7 +121,7 @@ public sealed class BeutlApiApplicationTests
     {
         using var httpClient = new HttpClient();
 
-        Assert.Throws<ArgumentNullException>(() => _ = new BeutlApiApplication(httpClient, null!));
+        Assert.Throws<ArgumentNullException>(() => _ = new BeutlApiApplication(httpClient, null!, new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig()));
     }
 
     [Test]
@@ -142,7 +142,7 @@ public sealed class BeutlApiApplicationTests
                 """);
             var handler = new CapturingHandler();
             using var httpClient = new HttpClient(handler);
-            await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
 
             var (v1, v3) = await app.CheckForUpdatesAsync("2.0.0-preview.6", CancellationToken.None);
 
@@ -170,7 +170,7 @@ public sealed class BeutlApiApplicationTests
     public async Task ReadUserAsync_PreCanceledRequestStopsBeforeFileAccess()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -182,7 +182,7 @@ public sealed class BeutlApiApplicationTests
     public async Task Dispose_IsIdempotentAndRejectsFurtherResourceResolution()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         _ = app.GetResource<IAiJobMonitor>();
 
         await Assert.DoesNotThrowAsync(async () => await app.DisposeAsync());
@@ -194,7 +194,7 @@ public sealed class BeutlApiApplicationTests
     public async Task DisposeAsync_PublishesOneTaskBeforeLifetimeCancellationCanReenter()
     {
         using var httpClient = new HttpClient();
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var resource = new ProbeResource();
         RegisterResource(app, resource);
         using CancellationTokenSource lifetime =
@@ -217,7 +217,7 @@ public sealed class BeutlApiApplicationTests
     public async Task DisposeAsync_SynchronousLifetimeCallbackWaitCompletesAtTheSharedDeadline()
     {
         using var httpClient = new HttpClient();
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider())
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig())
         {
             DisposalDeadline = TimeSpan.FromMilliseconds(100),
         };
@@ -249,7 +249,7 @@ public sealed class BeutlApiApplicationTests
     public async Task DisposeAsync_CancellationCallbackFailureCannotSkipResources()
     {
         using var httpClient = new HttpClient();
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         var resource = new ProbeResource();
         RegisterResource(app, resource);
         using CancellationTokenSource lifetime =
@@ -267,7 +267,7 @@ public sealed class BeutlApiApplicationTests
     public async Task DisposeAsync_DeadlineLeavesAnActiveResourceAliveUntilItsLeaseDrains()
     {
         using var httpClient = new HttpClient();
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider())
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig())
         {
             DisposalDeadline = TimeSpan.FromMilliseconds(100),
         };
@@ -290,7 +290,7 @@ public sealed class BeutlApiApplicationTests
     public async Task AuthenticatedRequest_KeepsCapturedBearerAndEndsWithItsSession()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app, "first-user", "first-token");
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         string? authorization = null;
@@ -321,7 +321,7 @@ public sealed class BeutlApiApplicationTests
     public async Task AuthenticatedRequestScopeRejectsAccountSwitchBeforeDispatch()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         AuthenticatedUser first = ApiTestAuthentication.SignIn(app, "first-user", "first-token");
         using IDisposable scope = AiAuthenticatedRequestScope.Enter(first);
         ApiTestAuthentication.SignIn(app, "second-user", "second-token");
@@ -346,7 +346,7 @@ public sealed class BeutlApiApplicationTests
     public async Task AuthenticatedRequest_AccountSwitchAfterSendKeepsReservationOutcomeUnknown()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app, "first-user", "first-token");
 
         AuthenticationRequiredException? failure =
@@ -366,7 +366,7 @@ public sealed class BeutlApiApplicationTests
     public async Task Dispose_CancelsActiveAuthenticatedRequestAndDisposesAiCapabilities()
     {
         using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         ApiTestAuthentication.SignIn(app, "test-user", "token");
         IAiEntitlementService service = app.GetResource<IAiEntitlementService>();
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -120,7 +120,7 @@ public sealed class ExternalReviewRegressionTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("legacy-auto-save-off", 320, 180)).Editor;
         // Configs written before auto save became mandatory may still carry the old opt-out.
         CoreSerializer.PopulateFromJsonObject(
-            Beutl.Configuration.GlobalConfiguration.Instance.EditorConfig,
+            TestShell.Configuration.EditorConfig,
             new JsonObject { ["IsAutoSaveEnabled"] = false });
 
         ElementAddResult result = await TestShell.AddElementAsync(

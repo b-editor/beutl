@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -369,14 +370,15 @@ internal static class LibraryThumbnailRenderer
     }
 
     // Thumbnails and the content they show are drawn at preview quality, sharing resources, without a render cache.
-    internal static SceneRenderer CreateRenderer(Scene scene, float scale)
+    internal static SceneRenderer CreateRenderer(Scene scene, float scale, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
         var renderer = new SceneRenderer(
             scene,
             RenderIntent.Preview,
             scale,
             disableResourceShare: false,
-            maxWorkingScale: WorkingScaleCeiling.Preview(scale));
+            maxWorkingScale: WorkingScaleCeiling.Preview(scale),
+            editorConfig: editorConfig, proxyConfig: proxyConfig);
         try
         {
             renderer.CacheOptions = RenderCacheOptions.Disabled;

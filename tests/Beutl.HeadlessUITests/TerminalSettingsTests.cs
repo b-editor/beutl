@@ -24,7 +24,7 @@ public class TerminalSettingsTests
     [AvaloniaTest]
     public async Task Settings_menu_changes_display_on_open_and_new_terminals()
     {
-        var settings = GlobalConfiguration.Instance.TerminalConfig;
+        var settings = TestShell.Configuration.TerminalConfig;
         var previous = (settings.ColorScheme.Value, settings.FontSize.Value, settings.FontFamily.Value, settings.ScrollbackLines.Value);
         var culture = CultureInfo.CurrentUICulture;
         using var model = TestShell.MainViewModel.CreateSettingsDialog();
@@ -97,7 +97,7 @@ public class TerminalSettingsTests
     [AvaloniaTest]
     public async Task Shell_edits_take_effect_on_restart_of_an_open_tab()
     {
-        var settings = GlobalConfiguration.Instance.TerminalConfig;
+        var settings = TestShell.Configuration.TerminalConfig;
         var previous = (settings.ShellPath.Value, settings.ShellArguments.Value, settings.FontSize.Value);
         try
         {
@@ -109,7 +109,7 @@ public class TerminalSettingsTests
             settings.ShellArguments.Value = windows
                 ? $"/D\n/Q\n/C\necho {ready} & set /p input="
                 : $"-c\nprintf '{ready}\\n'; read -r input";
-            using var owner = new TerminalTabViewModel(Mock.Of<IEditorContext>());
+            using var owner = new TerminalTabViewModel(TestShell.CreateEditorContextMock().Object);
             using var view = new TerminalTabView { DataContext = owner };
             using var host = new ControlHost(view, 640, 240);
             var terminal = view.FindControl<TerminalControl>("Terminal")!;

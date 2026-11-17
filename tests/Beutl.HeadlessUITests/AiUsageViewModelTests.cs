@@ -21,7 +21,7 @@ public sealed class AiUsageViewModelTests
                 clients.GetResource<IAiEntitlementService>(),
                 clients.GetResource<IAiOperationAvailabilityService>(),
                 clients.GetResource<IAiModelCatalogService>(),
-                new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
+                new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>(), new Beutl.Configuration.ViewConfig()),
                 clients.GetResource<IAiVideoService>(),
                 clients.GetResource<IAuthenticatedContentService>(),
                 clients.GetResource<IAiJobKindRegistry>(),

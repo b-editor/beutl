@@ -69,7 +69,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             _captionCatalog,
             CaptionDraftStoreProvider.Current,
             CreateCaptionDraftScopes(editViewModel),
-            editViewModel);
+            editViewModel, Configuration.EditorConfig, Configuration.ProxyStoreConfig);
     }
 
     private IObservable<CaptionDraftScope?> CreateCaptionDraftScopes(EditViewModel? editViewModel)

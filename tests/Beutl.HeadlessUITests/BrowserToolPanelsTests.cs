@@ -1,5 +1,4 @@
 ﻿using System.Net.Http;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -10,7 +9,6 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-
 using Beutl.Controls;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -21,7 +19,6 @@ using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
-
 using FluentAvalonia.UI.Controls;
 using Moq;
 
@@ -497,6 +494,7 @@ public class BrowserToolPanelsTests
         var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
         project.Items.Add(scene);
         var context = new Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         context.SetupGet(value => value.Object).Returns(scene);
         context.Setup(value => value.GetService(typeof(IElementAdder))).Returns(new Mock<IElementAdder>().Object);
         return context.Object;

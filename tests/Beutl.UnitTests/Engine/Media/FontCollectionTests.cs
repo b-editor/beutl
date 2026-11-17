@@ -142,11 +142,15 @@ public class FontCollectionTests
 
     private static FontManager CreateManager(string fontDirectory)
     {
-        var directories = GlobalConfiguration.Instance.FontConfig.FontDirectories;
+        var configuration = new FontConfig();
+        var directories = configuration.FontDirectories;
+        directories.Clear();
         directories.Add(fontDirectory);
         try
         {
-            return (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
+            var manager = (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
+            manager.Initialize(configuration);
+            return manager;
         }
         finally
         {

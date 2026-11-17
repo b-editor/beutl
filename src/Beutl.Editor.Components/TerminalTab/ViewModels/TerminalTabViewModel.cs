@@ -1,8 +1,7 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
-
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.TerminalTab.ViewModels;
@@ -12,12 +11,14 @@ public sealed class TerminalTabViewModel : IToolContext
     // Number instances; shell and working directory are not unique, so numbers are not persisted.
     private static int s_lastInstanceNumber;
 
-    private readonly TerminalConfig _settings = GlobalConfiguration.Instance.TerminalConfig;
+    private readonly TerminalConfig _settings;
+    internal TerminalConfig Settings => _settings;
     private readonly ReadOnlyReactivePropertySlim<string> _header;
     private bool _disposed;
 
     public TerminalTabViewModel(IEditorContext editorContext)
     {
+        _settings = editorContext.GetRequiredService<GlobalConfiguration>().TerminalConfig;
         WorkingDirectory = EditorContextDirectories.GetProjectOrSceneDirectory(editorContext);
         LangFallback = ResolveLangFallback(
             Environment.GetEnvironmentVariable,

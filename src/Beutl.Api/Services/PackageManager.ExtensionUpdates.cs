@@ -10,7 +10,7 @@ public sealed partial class PackageManager
     internal async Task<(int Staged, IReadOnlyList<PackageUpdate> Remaining)> StageExtensionUpdatesAsync(
         NuGetVersion host, bool appUpdate, CancellationToken cancellationToken, IReadOnlyList<PackageIdentity>? packages = null)
     {
-        UpdateConfig policy = GlobalConfiguration.Instance.UpdateConfig;
+        UpdateConfig policy = _updateConfig;
         if (!policy.ShouldUpdateExtensions(appUpdate)) return (0, []);
 
         using var lifetime = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);

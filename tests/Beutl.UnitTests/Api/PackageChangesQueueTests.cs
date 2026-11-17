@@ -6,7 +6,6 @@ using Beutl.PackageTools.UI.ViewModels;
 using Beutl.UnitTests.TestInfrastructure;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
-
 using PackageToolsMainViewModel = Beutl.PackageTools.UI.ViewModels.MainViewModel;
 
 namespace Beutl.UnitTests.Api;
@@ -115,7 +114,7 @@ public sealed class PackageChangesQueueTests
             new PackageChangesQueue(path).UninstallQueue(s_uninstall);
             using var handler = new DelegateHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
             using var httpClient = new HttpClient(handler);
-            await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+            await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
             var viewModel = new PackageToolsMainViewModel(
                 httpClient, app, new ChangesModel(), [], [], disposeResources: () => ValueTask.CompletedTask);
 

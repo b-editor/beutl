@@ -8,6 +8,7 @@ using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -210,7 +211,7 @@ public sealed partial class EditorService
 
     public void ActivateTabItem(CoreObject obj)
     {
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = AppServices.GetRequiredService<GlobalConfiguration>().ViewConfig;
         string path = obj.Uri!.LocalPath;
         viewConfig.UpdateRecentFile(path);
 

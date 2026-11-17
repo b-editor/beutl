@@ -25,7 +25,7 @@ public class ExtensionsPageInitialNavigationTests
         MainViewModel mainViewModel = TestShell.MainViewModel;
 
         using var httpClient = new HttpClient(new EmptyJsonArrayHandler());
-        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         using var vm = new ExtensionsPageViewModel(
             clients,
             mainViewModel.EditorService,

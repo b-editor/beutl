@@ -15,7 +15,7 @@ public sealed class ActivitySourceNameTests
     public async Task Every_activity_source_is_subscribed_and_every_subscription_names_a_source()
     {
         using var httpClient = new HttpClient();
-        await using var api = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var api = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         HashSet<string> sources = [api.ActivitySource.Name];
         List<string> instanceOwners = [];
         foreach (FieldInfo field in BeutlAssemblies()

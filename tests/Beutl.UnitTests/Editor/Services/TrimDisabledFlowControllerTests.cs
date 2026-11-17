@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Audio;
 using Beutl.Composition;
+using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -19,6 +20,8 @@ namespace Beutl.UnitTests.Editor.Services;
 [NonParallelizable]
 public class TrimDisabledFlowControllerTests
 {
+    private GlobalConfiguration _testConfiguration = new();
+
     private SceneHistoryHarness _harness = null!;
     private ClampResizeToOriginalLengthScope _clamp = null!;
 
@@ -28,7 +31,8 @@ public class TrimDisabledFlowControllerTests
     [SetUp]
     public void SetUp()
     {
-        _clamp = new ClampResizeToOriginalLengthScope(true);
+        _testConfiguration = new();
+        _clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
         _harness = new SceneHistoryHarness("beutl_disabled_flow_trim", duration: Seconds(30));
     }
 
@@ -97,7 +101,7 @@ public class TrimDisabledFlowControllerTests
         var controller = AddDisabledController(element, offset: 1);
         var constraints = SlippableMedia.CreateResizeConstraints(element);
         MediaTime preview = leftEdge ? constraints.ClampStart(MediaTime.Zero) : constraints.ClampLength(Seconds(4.5));
-        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene,
             [new(element, MediaTime.Zero, Seconds(leftEdge ? 4 : 4.5), 0)]);
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = Videos(compositor.EvaluateGraphics(element.Range.End - Seconds(0.1)).Objects.Single()).Single();
@@ -123,9 +127,9 @@ public class TrimDisabledFlowControllerTests
         var controller = AddDisabledController(front, offset: 1);
         Element? middle = slide ? _harness.AddElement(Seconds(3), Seconds(1)) : null;
         Element back = AddElement(slide ? 4 : 3, 4, CreateVideo(20));
-        var service = new ElementResizeService(_harness.History);
+        var service = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig);
         var pairs = new[] { new ElementTrimPair(front, back) };
-        MediaTime preview = ElementResizeService.CreateTrimConstraints(_harness.Scene, pairs, middle == null ? null : [middle]).Clamp(Seconds(2));
+        MediaTime preview = ElementResizeService.CreateTrimConstraints(_harness.Scene, pairs, _testConfiguration.EditorConfig, middle == null ? null : [middle]).Clamp(Seconds(2));
         bool applied = slide
             ? service.Slide(_harness.Scene, [new(front, [middle!], back)], Seconds(2))
             : service.Roll(_harness.Scene, pairs, Seconds(2));

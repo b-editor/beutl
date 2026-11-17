@@ -101,7 +101,7 @@ internal sealed class IsolatedGitEnvironment : IDisposable
 internal sealed class RealGitScope : IAsyncDisposable
 {
     private readonly IsolatedGitEnvironment _environment;
-    private readonly VersionControlConfig _config = GlobalConfiguration.Instance.VersionControlConfig;
+    private readonly VersionControlConfig _config = TestShell.Configuration.VersionControlConfig;
     private readonly string? _oldGitPath;
     private readonly bool _oldAutoCommitOnSave;
     private readonly bool _oldAutoCommitOnClose;

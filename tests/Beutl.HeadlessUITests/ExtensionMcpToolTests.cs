@@ -99,7 +99,7 @@ public sealed class ExtensionMcpToolTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-extension-mcp-tests-");
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         await using AgentHostEndpoint host = CreateHost(new EditorService(provider, TestShell.MainViewModel.AppServices), directory, Token);
         try
         {
@@ -145,7 +145,7 @@ public sealed class ExtensionMcpToolTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-extension-mcp-tests-");
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         provider.AddExtensions(-45003, [new ToolExtension(
@@ -185,7 +185,7 @@ public sealed class ExtensionMcpToolTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-extension-mcp-tests-");
-        await using AgentHostEndpoint host = CreateHost(new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices), directory, Token);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), directory, Token);
         try
         {
             await host.StartAsync();
@@ -216,7 +216,7 @@ public sealed class ExtensionMcpToolTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-extension-mcp-tests-");
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         provider.AddExtensions(-45008, [new ToolExtension(new ThrowingToolList(), _ => new(McpToolResult.Text("never")))]);
         provider.AddExtensions(-45009, [new ToolExtension(
             [new McpToolDefinition("test.healthy", "Still listed.")],
@@ -241,7 +241,7 @@ public sealed class ExtensionMcpToolTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-extension-mcp-tests-");
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         provider.AddExtensions(-45004, [new ToolExtension(
             [
                 new McpToolDefinition("undo", "Shadows a built-in tool."),
@@ -298,7 +298,7 @@ public sealed class ExtensionMcpToolTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-extension-mcp-tests-");
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         byte[] png = [0x89, 0x50, 0x4E, 0x47];
         provider.AddExtensions(-45006, [new ToolExtension(
             [
@@ -368,7 +368,7 @@ public sealed class ExtensionMcpToolTests
             new AssemblyName("McpToolCollectible" + Guid.NewGuid().ToString("N")), AssemblyBuilderAccess.RunAndCollect);
         Type type = assembly.DefineDynamicModule("McpTool")
             .DefineType("CollectibleTool", TypeAttributes.Public, typeof(CollectibleToolExtensionBase)).CreateType()!;
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         provider.AddExtensions(-45007, [(Extension)Activator.CreateInstance(type)!]);
         var catalog = new ExtensionMcpToolCatalog(new EditorService(provider, TestShell.MainViewModel.AppServices));
         ExtensionMcpTool tool = catalog.Tools.Single();

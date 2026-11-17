@@ -401,7 +401,7 @@ public sealed class FileBrowserStorageTests
     {
         var handler = new Handler();
         var http = new HttpClient(handler);
-        var clients = new BeutlApiApplication(http, new ExtensionProvider());
+        var clients = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         SignIn(clients, "a");
         BeutlStorageProvider provider = BeutlProvider(clients);
         return new BeutlStorage(handler, http, clients, provider, Create(provider));

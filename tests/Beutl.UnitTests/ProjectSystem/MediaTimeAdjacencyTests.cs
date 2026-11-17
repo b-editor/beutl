@@ -20,7 +20,7 @@ public sealed class MediaTimeAdjacencyTests
         var project = new Project();
         project.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         project.Items.Add(harness.Scene);
-        var service = new ElementResizeService(harness.History);
+        var service = new ElementResizeService(harness.History, new Beutl.Configuration.EditorConfig());
         var mismatches = new List<string>();
         for (int first = 0; first < 60; first++)
         {

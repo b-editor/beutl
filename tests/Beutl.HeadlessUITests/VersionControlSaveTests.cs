@@ -519,7 +519,7 @@ public class VersionControlSaveTests
             };
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                TestShell.VersionControl);
+                TestShell.VersionControl, TestShell.Configuration);
             await WaitUntilAsync(() => viewModel.IsGitAvailable.Value);
             viewModel.Location.Value = location;
             viewModel.Name.Value = "dialog-tracked";
@@ -948,7 +948,7 @@ public class VersionControlSaveTests
     public async Task Expected_project_close_does_not_close_a_queued_replacement_project()
     {
         await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose.Value;
 
         try
@@ -1159,7 +1159,7 @@ public class VersionControlSaveTests
             autoCommitOnSave: false,
             autoCommitOnClose: true,
             useLfsWhenAvailable: false);
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
 
         try
         {
@@ -1275,7 +1275,7 @@ public class VersionControlSaveTests
 
         public ValueTask<bool> SaveAsync() => saveAsync();
 
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext

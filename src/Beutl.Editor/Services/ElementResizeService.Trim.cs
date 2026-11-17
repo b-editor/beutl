@@ -18,7 +18,7 @@ public sealed partial class ElementResizeService
         // operation — a partial roll would desync the grouped cuts it was asked to keep together.
         if (!CanRollPairs(scene, pairs)) return false;
 
-        TrimConstraints constraints = CreateTrimConstraints(scene, pairs);
+        TrimConstraints constraints = CreateTrimConstraints(scene, pairs, _configuration);
         MediaTime clamped = constraints.Clamp(delta);
         if (clamped == MediaTime.Zero || !constraints.TryGetOffsetChanges(clamped, out var changes)) return false;
 
@@ -51,7 +51,7 @@ public sealed partial class ElementResizeService
         if (!CanSlideLanes(scene, lanes)) return false;
 
         TrimConstraints constraints = CreateTrimConstraints(scene,
-            lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(),
+            lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(), _configuration,
             lanes.SelectMany(l => l.Middles));
         MediaTime clamped = constraints.Clamp(delta);
         if (clamped == MediaTime.Zero || !constraints.TryGetOffsetChanges(clamped, out var changes)) return false;
@@ -122,7 +122,7 @@ public sealed partial class ElementResizeService
 
     // The view keeps this snapshot for the gesture, including its integral caches.
     // Commit creates a fresh snapshot after validating membership and locks.
-    internal static TrimConstraints CreateTrimConstraints(Scene scene, IReadOnlyList<ElementTrimPair> pairs,
+    internal static TrimConstraints CreateTrimConstraints(Scene scene, IReadOnlyList<ElementTrimPair> pairs, EditorConfig configuration,
         IEnumerable<Element>? fixedElements = null)
     {
         var fronts = new List<SlippableMedia.Target>();
@@ -148,7 +148,7 @@ public sealed partial class ElementResizeService
             fronts.AddRange(frontTargets);
             backs.AddRange(backTargets);
             fixedOffsets.UnionWith(frontTargets.Select(t => t.Offset));
-            (MediaTime pairMin, MediaTime pairMax) = ComputeTrimDeltaBounds(scene, front, back, frontTargets, backTargets);
+            (MediaTime pairMin, MediaTime pairMax) = ComputeTrimDeltaBounds(scene, front, back, frontTargets, backTargets, configuration);
             if (i == 0 || pairMin > min) min = pairMin;
             if (i == 0 || pairMax < max) max = pairMax;
         }
@@ -159,7 +159,7 @@ public sealed partial class ElementResizeService
             fixedOffsets.UnionWith(middles.Select(t => t.Offset));
         }
         return new TrimConstraints(min, max, fronts, backs, middles, fixedOffsets,
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value);
+            configuration.ClampResizeToOriginalLength.Value);
     }
 
     private static void ThrowIfAnyNullParticipant(IReadOnlyList<ElementTrimPair> pairs)
@@ -244,7 +244,7 @@ public sealed partial class ElementResizeService
     private static (MediaTime Min, MediaTime Max) ComputeTrimDeltaBounds(
         Scene scene, Element front, Element back,
         IReadOnlyList<SlippableMedia.Target> frontTargets,
-        IReadOnlyList<SlippableMedia.Target> backTargets)
+        IReadOnlyList<SlippableMedia.Target> backTargets, EditorConfig configuration)
     {
         MediaTime minDuration = SceneTimeRangeService.GetFrameDuration(scene);
         // Clip ends within a tick of a frame, as a template's can be, count from that frame.
@@ -259,14 +259,14 @@ public sealed partial class ElementResizeService
         MediaTime min = minDuration - frontLength;
         MediaTime max = backLength - minDuration;
 
-        if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value
+        if (configuration.ClampResizeToOriginalLength.Value
             && frontTargets.All(t => !t.HasVariableDuration))
         {
             MediaTime outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length.Value, max);
             if (outRoom < max) max = outRoom;
         }
 
-        bool clampEnd = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value;
+        bool clampEnd = configuration.ClampResizeToOriginalLength.Value;
         if (backTargets.All(t => !t.HasVariableDuration))
         {
             min = SlippableMedia.ClampInPointDelta(backTargets, min, clampEnd);

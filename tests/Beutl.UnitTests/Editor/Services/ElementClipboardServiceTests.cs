@@ -28,14 +28,14 @@ public class ElementClipboardServiceTests
         _scene = _harness.Scene;
         _history = _harness.History;
         _clipboard = new InMemoryClipboardGateway();
-        _duplicateService = new ElementDuplicateService(_history);
+        _duplicateService = new ElementDuplicateService(_history, new Beutl.Configuration.EditorConfig());
         _service = CreateService();
     }
 
     private ElementClipboardService CreateService(IElementAdder? elementAdder = null)
     {
         return new ElementClipboardService(
-            _history,
+            _history, new Beutl.Configuration.EditorConfig(),
             _clipboard,
             _duplicateService,
             imageAccentColorFactory: () => Colors.Magenta,
@@ -187,7 +187,7 @@ public class ElementClipboardServiceTests
         await _service.CopyAsync([e1, e2]);
         using var other = new SceneHistoryHarness("beutl_clip_other", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         var service = new ElementClipboardService(
-            other.History, _clipboard, new ElementDuplicateService(other.History), imageAccentColorFactory: () => Colors.Magenta);
+            other.History, new Beutl.Configuration.EditorConfig(), _clipboard, new ElementDuplicateService(other.History, new Beutl.Configuration.EditorConfig()), imageAccentColorFactory: () => Colors.Magenta);
 
         await service.PasteAsync(other.Scene, MediaTime.FromSeconds(20), 0);
 

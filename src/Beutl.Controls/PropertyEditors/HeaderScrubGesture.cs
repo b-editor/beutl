@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-
 using Avalonia;
 using Avalonia.Input;
 
@@ -15,6 +14,7 @@ internal struct HeaderScrubGesture
     private const double ClickTolerance = 3;
 
     private Point _dragStart;
+    private bool _pointerLocked;
     private double _accumulator;
     // The travel of an armed press before its scrub began, which the scrub's first move adds.
     private Point _travel;
@@ -71,7 +71,7 @@ internal struct HeaderScrubGesture
         _dragStart = position;
         _accumulator = 0;
         _travel = default;
-        PointerLockHelper.Pressed(header, _dragStart);
+        _pointerLocked = PointerLockHelper.Pressed(header, _dragStart);
         IsActive = true;
         ActiveCount++;
     }
@@ -94,7 +94,7 @@ internal struct HeaderScrubGesture
 
     public void End()
     {
-        PointerLockHelper.Released();
+        PointerLockHelper.Released(_pointerLocked);
         IsActive = false;
         ActiveCount--;
     }

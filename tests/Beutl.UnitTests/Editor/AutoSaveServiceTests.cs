@@ -70,7 +70,7 @@ public class AutoSaveServiceTests
                 {
                     await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
                     Assert.That(File.Exists(blocked.Uri.LocalPath), Is.False);
-                    new ElementStructureService(harness.History).Delete(scene, [blocked, removed]);
+                    new ElementStructureService(harness.History, new Beutl.Configuration.EditorConfig()).Delete(scene, [blocked, removed]);
                 }
             }
             finally
@@ -81,7 +81,7 @@ public class AutoSaveServiceTests
         }
         Assert.That(errors, Is.Empty);
         if (!removeWhileSaving)
-            new ElementStructureService(harness.History).Delete(scene, [blocked, removed]);
+            new ElementStructureService(harness.History, new Beutl.Configuration.EditorConfig()).Delete(scene, [blocked, removed]);
         IList<ChangeOperation> deletion = operations;
 
         // The editor serializes saves with its write lease. Fail the queued deletion only after
@@ -177,7 +177,7 @@ public class AutoSaveServiceTests
         if (undoAddition)
             harness.History.Undo();
         else
-            new ElementStructureService(harness.History).Delete(scene, [element]);
+            new ElementStructureService(harness.History, new Beutl.Configuration.EditorConfig()).Delete(scene, [element]);
         await pendingSave;
 
         Assert.Multiple(() =>
@@ -237,7 +237,7 @@ public class AutoSaveServiceTests
             .Buffer(harness.History.StateChanged)
             .Subscribe(operations => pendingSave = SaveBatch(service, operations, asynchronous));
 
-        new ElementStructureService(harness.History).Split(scene, [element], MediaTime.FromSeconds(4));
+        new ElementStructureService(harness.History, new Beutl.Configuration.EditorConfig()).Split(scene, [element], MediaTime.FromSeconds(4));
         await pendingSave;
 
         Element back = scene.Children.Single(child => child != element);

@@ -14,7 +14,7 @@ public sealed class ExtensionProviderTests
     [Test]
     public void IExtensionProvider_ExtensionsExposeCopiedMetadataOnly()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         IExtensionProvider abstraction = provider;
 
         Assert.That(abstraction.Extensions, Is.Empty);
@@ -33,7 +33,7 @@ public sealed class ExtensionProviderTests
     [Test]
     public void IExtensionProvider_GetDescriptorsFiltersByTypeAndRequiresLeaseForExecution()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         IExtensionProvider abstraction = provider;
 
         var first = new StubExtension();
@@ -58,7 +58,7 @@ public sealed class ExtensionProviderTests
     [Test]
     public void IExtensionProvider_TryAcquireReturnsFalseForUnknownDescriptor()
     {
-        IExtensionProvider abstraction = new ExtensionProvider();
+        IExtensionProvider abstraction = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
 
         Assert.That(
             abstraction.TryAcquire(
@@ -71,7 +71,7 @@ public sealed class ExtensionProviderTests
     [Test]
     public void IExtensionProvider_ChangeNotificationPublishesOnlyCommittedMetadata()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         IExtensionProvider abstraction = provider;
         var extension = new StubExtension();
         var snapshots = new List<(ExtensionDescriptor[] Descriptors, bool CanAcquire)>();
@@ -108,7 +108,7 @@ public sealed class ExtensionProviderTests
     [Test]
     public void IExtensionProvider_ObserverFailureCannotAbortPackageMutation()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         IExtensionProvider abstraction = provider;
         abstraction.ExtensionsChanged += (_, _) =>
             throw new InvalidOperationException("public observer failure");
@@ -122,7 +122,7 @@ public sealed class ExtensionProviderTests
     [Test]
     public async Task IExtensionProvider_FailedInternalCompositionNeverPublishesProvisionalMetadata()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         IExtensionProvider abstraction = provider;
         using var observerStarted = new ManualResetEventSlim();
         using var releaseObserver = new ManualResetEventSlim();
@@ -168,7 +168,7 @@ public sealed class ExtensionProviderTests
     [Test]
     public void AddExtensions_ObserverFailureRollsBackAuthoritativeState()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         provider.AllExtensions.CollectionChanged += (_, _) =>
             throw new InvalidOperationException("observer failure");
 
@@ -186,7 +186,7 @@ public sealed class ExtensionProviderTests
     [Test]
     public async Task AddExtensions_ObserverFailureProvidesDrainTicketForRetiredLeases()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         var extension = new StubExtension();
         var releaseLease = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -226,7 +226,7 @@ public sealed class ExtensionProviderTests
     [Test]
     public async Task RemoveExtensions_ObserverFailureStillSealsDrainTicket()
     {
-        var provider = new ExtensionProvider();
+        var provider = new ExtensionProvider(new Beutl.Configuration.ExtensionConfig());
         var extension = new StubExtension();
         provider.AddExtensions(1, [extension]);
         provider.AllExtensions.CollectionChanged += (_, _) =>

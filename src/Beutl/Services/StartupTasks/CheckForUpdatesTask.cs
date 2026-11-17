@@ -6,6 +6,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.ViewModels.Dialogs;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.StartupTasks;
@@ -15,16 +16,17 @@ public sealed class CheckForUpdatesTask : StartupTask
     private static readonly ILogger<CheckForUpdatesTask> s_logger = Log.CreateLogger<CheckForUpdatesTask>();
     private readonly BeutlApiApplication _beutlApiApplication;
 
-    public CheckForUpdatesTask(BeutlApiApplication beutlApiApplication)
+    public CheckForUpdatesTask(BeutlApiApplication beutlApiApplication, IServiceProvider services)
     {
         _beutlApiApplication = beutlApiApplication;
+        var controller = services.GetRequiredService<AppUpdateController>();
         Task = Task.Run(async () =>
         {
             using Activity? activity = Telemetry.StartActivity("CheckForUpdatesTask");
             activity?.AddEvent(new("Checking for updates"));
             var (v1, v3) = await CheckForUpdates(activity);
             activity?.AddEvent(new("Checked for updates"));
-            await HandleUpdateCheckAsync(v1, v3, AppUpdateController.Instance, activity);
+            await HandleUpdateCheckAsync(v1, v3, controller, activity);
         });
     }
 

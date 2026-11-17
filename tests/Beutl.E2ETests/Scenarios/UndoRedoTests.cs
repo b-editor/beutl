@@ -28,7 +28,7 @@ public class UndoRedoTests
     public void Undo_reverts_each_edit_and_redo_replays_to_final_state()
     {
         var attributes = new ElementAttributeService(_history);
-        var move = new ElementMoveService(_history, new ElementDuplicateService(_history));
+        var move = new ElementMoveService(_history, new Beutl.Configuration.EditorConfig(), new ElementDuplicateService(_history, new Beutl.Configuration.EditorConfig()));
         Element element = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
 
         bool originalEnabled = element.IsEnabled.Value;
@@ -118,7 +118,7 @@ public class UndoRedoTests
     public void JumpTo_moves_directly_across_several_entries()
     {
         var attributes = new ElementAttributeService(_history);
-        var resize = new ElementResizeService(_history);
+        var resize = new ElementResizeService(_history, new Beutl.Configuration.EditorConfig());
         Element element = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
         MediaTime originalLength = element.Length.Value;
 

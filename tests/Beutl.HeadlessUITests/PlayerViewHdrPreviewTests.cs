@@ -27,7 +27,7 @@ public sealed class PlayerViewHdrPreviewTests
 {
     private (bool Hdr, bool Guides, PreviewGuideKinds Kinds, string Color, float Opacity) _saved;
 
-    private static EditorConfig Config => GlobalConfiguration.Instance.EditorConfig;
+    private static EditorConfig Config => TestShell.Configuration.EditorConfig;
 
     [SetUp]
     public void SetUp()

@@ -417,7 +417,7 @@ public class VersionControlRestoreTests
                 "branch",
                 "blocked-branch");
 
-            var editorService = new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices);
+            var editorService = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
             coordinator = new VersionControlCoordinator(TestShell.Project, editorService);
             await WaitUntilAsync(() => coordinator.CurrentService?.Repository is not null);
             coordinator.ConfirmSwitchBranchAsync = (_, _) =>
@@ -1178,7 +1178,7 @@ public class VersionControlRestoreTests
             ProjectLifecycleActivity activityWhileSaving = ProjectLifecycleActivity.None;
             commands.Saving = () => activityWhileSaving = session.EditorService.LifecycleActivity.Value;
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1264,7 +1264,7 @@ public class VersionControlRestoreTests
             session.EditorService.TabItems.Add(new EditorTabItem(context));
             using var presentation = new EditorPresentationRecorder(session.EditorService, context);
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1346,7 +1346,7 @@ public class VersionControlRestoreTests
         session.EditorService.TabItems.Add(new EditorTabItem(context));
         using var presentation = new EditorPresentationRecorder(session.EditorService, context);
         VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
+            TestShell.Configuration.VersionControlConfig,
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1392,7 +1392,7 @@ public class VersionControlRestoreTests
         session.EditorService.TabItems.Add(new EditorTabItem(context));
         using var presentation = new EditorPresentationRecorder(session.EditorService, context);
         VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
+            TestShell.Configuration.VersionControlConfig,
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1444,7 +1444,7 @@ public class VersionControlRestoreTests
             }
         });
         VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
+            TestShell.Configuration.VersionControlConfig,
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1500,7 +1500,7 @@ public class VersionControlRestoreTests
                 .Subscribe(_ => editorChangesOnUiThread.Add(
                     Avalonia.Threading.Dispatcher.UIThread.CheckAccess()));
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1645,7 +1645,7 @@ public class VersionControlRestoreTests
         };
 
         VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
+            TestShell.Configuration.VersionControlConfig,
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1692,7 +1692,7 @@ public class VersionControlRestoreTests
         };
         var identity = new GitIdentity("Identity Retry", "identity-retry@example.invalid");
         VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
+            TestShell.Configuration.VersionControlConfig,
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1723,7 +1723,7 @@ public class VersionControlRestoreTests
             discoveredRepository: null,
             MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
+            TestShell.Configuration.VersionControlConfig,
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1755,7 +1755,7 @@ public class VersionControlRestoreTests
                 RequireIdentityForInitialization = true,
             };
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1830,7 +1830,7 @@ public class VersionControlRestoreTests
                 },
             };
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 candidate => candidate is null ? discovery : tracked);
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await activationTokenObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -2016,7 +2016,7 @@ public class VersionControlRestoreTests
                 RequireIdentityForInitialization = true,
             };
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -2096,7 +2096,7 @@ public class VersionControlRestoreTests
         {
             var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -2328,7 +2328,7 @@ public class VersionControlRestoreTests
         {
             var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -2433,7 +2433,7 @@ public class VersionControlRestoreTests
                 RequireIdentityForInitialization = true,
             };
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -2513,7 +2513,7 @@ public class VersionControlRestoreTests
                 discoveredRepository: null,
                 MainTip);
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
             coordinator.WarnConflictMarkersAsync = async _ =>
@@ -2572,7 +2572,7 @@ public class VersionControlRestoreTests
                 RetirementRelease = releaseRetirement.Task,
             };
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
@@ -3612,7 +3612,7 @@ public class VersionControlRestoreTests
         var probe = new BlockingGitInstallationProbe();
         var config = new VersionControlConfig();
         var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
-        var editorService = new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices);
+        var editorService = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
         int servicePublications = 0;
         using IDisposable subscription = editorService.ProjectVersionControlService.Subscribe(
             _ => servicePublications++);
@@ -3657,7 +3657,7 @@ public class VersionControlRestoreTests
             "version-control-lock-manual-removal-only");
         var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            GlobalConfiguration.Instance.VersionControlConfig,
+            TestShell.Configuration.VersionControlConfig,
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
         var lockInfo = new RepositoryLockInfo(
@@ -3701,7 +3701,7 @@ public class VersionControlRestoreTests
                 RetirementRelease = releaseRetirement.Task,
             };
             VersionControlCoordinator coordinator = session.Start(
-                GlobalConfiguration.Instance.VersionControlConfig,
+                TestShell.Configuration.VersionControlConfig,
                 _ => backend);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
@@ -3753,7 +3753,7 @@ public class VersionControlRestoreTests
         {
             await CreateTrackedProjectAsync("version-control-reentrant-disposal");
 
-            var editorService = new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices);
+            var editorService = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
             var disposed = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable subscription = editorService.ProjectVersionControlService.Subscribe(
@@ -3792,7 +3792,7 @@ public class VersionControlRestoreTests
         {
             await CreateTrackedProjectAsync("version-control-publication-exception");
 
-            var editorService = new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices);
+            var editorService = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
             var throwingPublication = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable subscription = editorService.ProjectVersionControlService.Subscribe(
@@ -4989,10 +4989,10 @@ public class VersionControlRestoreTests
             {
                 HasVersionTrackingOptIn = false,
             };
-            var projectService = new ProjectService();
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
             coordinator = new VersionControlCoordinator(
                 projectService,
-                new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices),
+                new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
                 new VersionControlConfig
                 {
                     AutoCommitOnSave = { Value = true },
@@ -5055,10 +5055,10 @@ public class VersionControlRestoreTests
             {
                 HasVersionTrackingOptIn = false,
             };
-            var projectService = new ProjectService();
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
             coordinator = new VersionControlCoordinator(
                 projectService,
-                new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices),
+                new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
                 new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 installationLocator: null,
                 serviceFactory: candidate =>
@@ -5141,8 +5141,8 @@ public class VersionControlRestoreTests
                 "version-control-new-project-prepared");
             Directory.CreateDirectory(location);
             var backends = new List<PullCycleTestBackend>();
-            var projectService = new ProjectService();
-            var editorService = new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
+            var editorService = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 editorService,
@@ -5266,10 +5266,10 @@ public class VersionControlRestoreTests
             Directory.CreateDirectory(location);
             string projectRoot = Path.Combine(location, "interrupted");
             var backends = new List<PullCycleTestBackend>();
-            var projectService = new ProjectService();
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
             coordinator = new VersionControlCoordinator(
                 projectService,
-                new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices),
+                new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
                 new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 installationLocator: null,
                 serviceFactory: candidate =>
@@ -5382,10 +5382,10 @@ public class VersionControlRestoreTests
                 "version-control-new-project-reserved-path-failure");
             Directory.CreateDirectory(location);
             var backends = new List<PullCycleTestBackend>();
-            var projectService = new ProjectService();
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
             coordinator = new VersionControlCoordinator(
                 projectService,
-                new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices),
+                new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
                 new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 installationLocator: null,
                 serviceFactory: candidate =>
@@ -5450,7 +5450,7 @@ public class VersionControlRestoreTests
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        var projectService = new ProjectService();
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
         Func<Project, Task> failOpening = static _ =>
             Task.FromException(new IOException("simulated editor failure"));
 
@@ -5461,7 +5461,7 @@ public class VersionControlRestoreTests
                 "version-control-new-project-not-opened");
             Directory.CreateDirectory(location);
             var backends = new List<PullCycleTestBackend>();
-            var editorService = new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices);
+            var editorService = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 editorService,
@@ -5523,7 +5523,7 @@ public class VersionControlRestoreTests
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        var projectService = new ProjectService();
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
         var identityRequested = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         Task<Project?>? creation = null;
@@ -5538,7 +5538,7 @@ public class VersionControlRestoreTests
             var backends = new List<PullCycleTestBackend>();
             coordinator = new VersionControlCoordinator(
                 projectService,
-                new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices),
+                new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
                 new VersionControlConfig { AutoCommitOnClose = { Value = true } },
                 installationLocator: null,
                 serviceFactory: candidate =>
@@ -5635,7 +5635,7 @@ public class VersionControlRestoreTests
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        var projectService = new ProjectService();
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig);
         INewProjectVersionControlSetup? setup = null;
         var releaseOpening = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -5650,7 +5650,7 @@ public class VersionControlRestoreTests
             var backends = new List<PullCycleTestBackend>();
             coordinator = new VersionControlCoordinator(
                 projectService,
-                new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices),
+                new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
                 new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 installationLocator: null,
                 serviceFactory: candidate =>
@@ -7414,7 +7414,7 @@ public class VersionControlRestoreTests
         // The project root as a repository of its own.
         public RepositoryInfo Repository { get; }
 
-        public EditorService EditorService { get; } = new(new ExtensionProvider(), TestShell.MainViewModel.AppServices);
+        public EditorService EditorService { get; } = new(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
 
         // The project stays open in the shell.
         public static async Task<FakeVersionControlSession> CreateAsync(string directoryName)
@@ -7430,7 +7430,7 @@ public class VersionControlRestoreTests
             await TestReset.ResetShellAsync();
             Project project = await CreateProjectForFakeVersionControlAsync(directoryName);
             await TestShell.Project.CloseProjectAsync();
-            return new FakeVersionControlSession(project, new ProjectService());
+            return new FakeVersionControlSession(project, new ProjectService(TestShell.Configuration.ViewConfig));
         }
 
         public VersionControlCoordinator Start(
@@ -7663,7 +7663,7 @@ public class VersionControlRestoreTests
         public IReactiveProperty<bool> IsEnabled { get; } =
             new ReactivePropertySlim<bool>(true);
 
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext

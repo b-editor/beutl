@@ -95,8 +95,8 @@ public class ElementViewMoveSnappingTests
     [AvaloniaTest]
     public async Task Move_DoesNotSnapToTheOldEdgesOfTheClipsMovingWithIt()
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = true;
+        bool originalSnap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = true;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -139,7 +139,7 @@ public class ElementViewMoveSnappingTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
             TimelineTestHost.Close(view, window);
         }
     }
@@ -148,8 +148,8 @@ public class ElementViewMoveSnappingTests
     [AvaloniaTest]
     public async Task Duplicate_SnapsToTheEdgesOfTheClipsItCopies()
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = true;
+        bool originalSnap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = true;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -184,7 +184,7 @@ public class ElementViewMoveSnappingTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
             TimelineTestHost.Close(view, window);
         }
     }
@@ -197,8 +197,8 @@ public class ElementViewMoveSnappingTests
     [TestCase(151, 1f, true)]
     public async Task Move_SnapsTheClipStartRegardlessOfGrabOffset(double grabOffset, float scale, bool grouped)
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = true;
+        bool originalSnap = TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value;
+        TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = true;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -320,7 +320,7 @@ public class ElementViewMoveSnappingTests
         finally
         {
             TimelineTestHost.Close(view, window);
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
+            TestShell.Configuration.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
         }
     }
 }

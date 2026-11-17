@@ -1,17 +1,15 @@
 ﻿using System.Collections.ObjectModel;
-
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class FontSettingsPageViewModel : PageContext, IDisposable
 {
-    public FontSettingsPageViewModel()
+    public FontSettingsPageViewModel(FontConfig configuration)
     {
-        FontDirectories = GlobalConfiguration.Instance.FontConfig.FontDirectories;
+        FontDirectories = configuration.FontDirectories;
 
         Remove.Subscribe(str => FontDirectories.Remove(str));
     }

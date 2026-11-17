@@ -58,7 +58,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
             Scene, _editorClock, Scale, _disposables);
 
-        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(_disposables);
+        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, _disposables);
 
         AddElement.WithSubscribe(AddElementCore).AddTo(_disposables);
 
@@ -119,7 +119,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         CloseAllGaps = new ReactiveCommandSlim().WithSubscribe(CloseAllSceneGaps).DisposeWith(_disposables);
         GoToNextGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: true)).DisposeWith(_disposables);
         GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false)).DisposeWith(_disposables);
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        EditorConfig editorConfig = EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig;
 
         AutoAdjustSceneDuration = editorConfig.AutoAdjustSceneDuration.GetObservable()
             .ToReactiveProperty()
@@ -210,7 +210,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             ThumbnailsEnabledElements.Detached -= ThumbnailsOverrideChanged;
         }).AddTo(_disposables);
 
-        GlobalConfiguration.Instance.EditorConfig.ShowTimelineThumbnailsByDefault.GetObservable()
+        EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.ShowTimelineThumbnailsByDefault.GetObservable()
             .Skip(1).DistinctUntilChanged().ObserveOnUIDispatcher()
             .Subscribe(_ =>
             {
@@ -224,13 +224,13 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         // A source-mode change invalidates filmstrips. Subscribe once per tab so opening/closing
         // a large scene does not add/remove tens of thousands of global configuration handlers.
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.GetObservable()
+        EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.PreviewSourceMode.GetObservable()
             .Skip(1).DistinctUntilChanged().ObserveOnUIDispatcher()
             .Subscribe(_ => RefreshThumbnails()).AddTo(_disposables);
-        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.GetObservable()
+        EditorContext.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig.DefaultPreset.GetObservable()
             .Skip(1).DistinctUntilChanged()
             .Where(_ => ElementViewModel.ShouldRefreshThumbnailsForDefaultPresetChange(
-                GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value))
+                EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.PreviewSourceMode.Value))
             .ObserveOnUIDispatcher()
             .Subscribe(_ => RefreshThumbnails()).AddTo(_disposables);
     }

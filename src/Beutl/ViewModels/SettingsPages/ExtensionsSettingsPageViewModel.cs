@@ -2,10 +2,8 @@
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
-
 using DynamicData;
 using DynamicData.Binding;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
@@ -17,8 +15,11 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
     private EditorExtensionPriorityPageViewModel? _editorPriority;
     private DecoderPriorityPageViewModel? _decoderPriority;
 
-    public ExtensionsSettingsPageViewModel(ExtensionProvider extensionProvider)
+    private readonly GlobalConfiguration _configuration;
+
+    public ExtensionsSettingsPageViewModel(ExtensionProvider extensionProvider, GlobalConfiguration configuration)
     {
+        _configuration = configuration;
         _extensionProvider = extensionProvider;
 
         NavigateToEditorPriority = new AsyncReactiveCommand()
@@ -63,11 +64,11 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
         Extensions = extensions;
     }
 
-    public EditorExtensionPriorityPageViewModel EditorPriority => _editorPriority ??= new(_extensionProvider);
+    public EditorExtensionPriorityPageViewModel EditorPriority => _editorPriority ??= new(_extensionProvider, _configuration.ExtensionConfig);
 
-    public DecoderPriorityPageViewModel DecoderPriority => _decoderPriority ??= new();
+    public DecoderPriorityPageViewModel DecoderPriority => _decoderPriority ??= new(_configuration.ExtensionConfig);
 
-    public IProperty<ExtensionUpdateMode> ExtensionUpdates => GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
+    public IProperty<ExtensionUpdateMode> ExtensionUpdates => _configuration.UpdateConfig.ExtensionUpdates;
 
     public AsyncReactiveCommand NavigateToEditorPriority { get; }
 

@@ -1,8 +1,6 @@
 ﻿using System.Reactive.Linq;
-
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
@@ -22,7 +20,7 @@ public class CreateNewProjectDialogTests
     [AvaloniaTest]
     public void NumericInputs_show_unit_suffixes()
     {
-        CreateNewProjectViewModel vm = CreateViewModel(new ProjectService());
+        CreateNewProjectViewModel vm = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig));
         var dialog = new CreateNewProject { DataContext = vm };
 
         var carousel = dialog.Content as Carousel;
@@ -121,7 +119,7 @@ public class CreateNewProjectDialogTests
     [AvaloniaTest]
     public void Audio_layout_choice_is_bound_and_visible()
     {
-        var vm = CreateViewModel(new ProjectService());
+        var vm = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig));
         var dialog = new CreateNewProject { DataContext = vm };
         var carousel = (Carousel)dialog.Content!;
         var page = (Panel)carousel.Items[1]!;
@@ -149,7 +147,7 @@ public class CreateNewProjectDialogTests
     [AvaloniaTest]
     public void A_frame_rate_that_is_not_a_rate_blocks_creation()
     {
-        CreateNewProjectViewModel viewModel = CreateViewModel(new ProjectService());
+        CreateNewProjectViewModel viewModel = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig));
         viewModel.FrameRate.Value = "fast";
         Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
 
@@ -164,12 +162,12 @@ public class CreateNewProjectDialogTests
     public async Task Track_history_uses_the_configured_default_and_is_present_in_the_dialog()
     {
         await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         bool oldValue = config.EnableForNewProjects.Value;
         try
         {
             config.EnableForNewProjects.Value = false;
-            CreateNewProjectViewModel vm = CreateViewModel(new ProjectService());
+            CreateNewProjectViewModel vm = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig));
             var dialog = new CreateNewProject { DataContext = vm };
             var carousel = (Carousel)dialog.Content!;
             var optionsPage = (Panel)carousel.Items[1]!;
@@ -192,7 +190,7 @@ public class CreateNewProjectDialogTests
     public async Task Enable_version_control_command_is_gated_by_the_open_project_state_and_mapped_as_a_context_command()
     {
         await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         string? previousPath = config.GitExecutablePath.Value;
         try
         {
@@ -233,7 +231,7 @@ public class CreateNewProjectDialogTests
     public async Task Enable_version_control_command_is_disabled_when_git_is_unavailable()
     {
         await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         string? previousPath = config.GitExecutablePath.Value;
         try
         {
@@ -263,7 +261,7 @@ public class CreateNewProjectDialogTests
     public async Task Tracking_default_is_applied_only_after_git_availability_is_visible()
     {
         await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         bool previousDefault = config.EnableForNewProjects.Value;
         var availabilitySource = new TaskCompletionSource<GitAvailability>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -275,7 +273,7 @@ public class CreateNewProjectDialogTests
                 (_, _) => Task.FromResult(true));
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer);
+                initializer, TestShell.Configuration);
 
             Assert.Multiple(() =>
             {
@@ -301,7 +299,7 @@ public class CreateNewProjectDialogTests
     public async Task Creation_during_git_detection_does_not_enable_tracking_without_visible_opt_in()
     {
         await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        VersionControlConfig config = TestShell.Configuration.VersionControlConfig;
         bool previousDefault = config.EnableForNewProjects.Value;
         var availabilitySource = new TaskCompletionSource<GitAvailability>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -319,7 +317,7 @@ public class CreateNewProjectDialogTests
                 });
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer);
+                initializer, TestShell.Configuration);
             var availabilityPublished = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable availabilitySubscription = viewModel.IsGitAvailable
@@ -390,7 +388,7 @@ public class CreateNewProjectDialogTests
                 });
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer);
+                initializer, TestShell.Configuration);
             string location = Path.Combine(
                 Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
                 "create-detection-failure");
@@ -443,7 +441,7 @@ public class CreateNewProjectDialogTests
                 });
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer);
+                initializer, TestShell.Configuration);
             await Beutl.Testing.Headless.HeadlessTestHelpers.WaitUntilAsync(
                 () => viewModel.IsGitAvailable.Value, TimeSpan.FromSeconds(10));
             string location = Path.Combine(
@@ -515,7 +513,7 @@ public class CreateNewProjectDialogTests
                 });
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer);
+                initializer, TestShell.Configuration);
             await Beutl.Testing.Headless.HeadlessTestHelpers.WaitUntilAsync(
                 () => viewModel.IsGitAvailable.Value, TimeSpan.FromSeconds(10));
             string location = Path.Combine(
@@ -558,7 +556,7 @@ public class CreateNewProjectDialogTests
             projectService,
             new TestVersionControlInitializer(
                 _ => Task.FromResult(GitAvailability.NotInstalled),
-                (_, _) => Task.FromResult(true)));
+                (_, _) => Task.FromResult(true)), TestShell.Configuration);
     }
 
     private sealed class TestVersionControlInitializer(

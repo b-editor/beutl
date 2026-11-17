@@ -23,6 +23,7 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
         Editor = editor;
         Sink = new Button { Content = "sink" };
         _host = new ControlHost(new StackPanel { Children = { editor, Sink } }, width, height);
+        Beutl.Controls.ControlConfiguration.SetConfiguration(Window, ((TestApp)Application.Current!).Configuration);
     }
 
     public void Dispose() => _host.Dispose();

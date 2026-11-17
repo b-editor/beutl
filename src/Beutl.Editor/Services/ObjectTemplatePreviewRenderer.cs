@@ -2,6 +2,7 @@
 using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Composition;
+using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -45,14 +46,15 @@ public static class ObjectTemplatePreviewRenderer
     /// The live object is only ever read; anything that has to be re-parented is cloned first.
     /// </remarks>
     public static async ValueTask<byte[]?> RenderPngAsync(
-        ICoreSerializable instance, CancellationToken cancellationToken = default)
+        ICoreSerializable instance, CancellationToken cancellationToken = default,
+        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
         ArgumentNullException.ThrowIfNull(instance);
 
         try
         {
             byte[]? png = await RenderThread.Dispatcher.InvokeAsync(
-                () => Render(instance), ct: cancellationToken).ConfigureAwait(false);
+                () => Render(instance, editorConfig, proxyConfig), ct: cancellationToken).ConfigureAwait(false);
 
             if (png is { Length: > MaxPreviewBytes })
             {
@@ -83,14 +85,15 @@ public static class ObjectTemplatePreviewRenderer
         IReadOnlyList<Element> elements,
         PixelSize frameSize,
         PixelSize outputSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
         if (elements.Count == 0) return null;
         ValidateOutputSize(outputSize);
         try
         {
             return await RenderThread.Dispatcher.InvokeAsync(
-                () => RenderElements(elements, frameSize, outputSize, cancellationToken), ct: cancellationToken)
+                () => RenderElements(elements, frameSize, outputSize, cancellationToken, editorConfig, proxyConfig), ct: cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
@@ -101,30 +104,30 @@ public static class ObjectTemplatePreviewRenderer
         }
     }
 
-    private static byte[]? Render(ICoreSerializable instance)
+    private static byte[]? Render(ICoreSerializable instance, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
     {
         return instance switch
         {
-            Element element => RenderElement(element),
-            ElementSet set => RenderElementSet(set),
+            Element element => RenderElement(element, editorConfig, proxyConfig),
+            ElementSet set => RenderElementSet(set, editorConfig, proxyConfig),
             Sound or AudioEffect => null,
             Drawable drawable => RenderDrawable(drawable),
             _ => RenderNonDrawable(instance)
         };
     }
 
-    private static byte[]? RenderElement(Element element)
+    private static byte[]? RenderElement(Element element, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
     {
-        return RenderElements([element], default, new PixelSize(PreviewWidth, PreviewHeight));
+        return RenderElements([element], default, new PixelSize(PreviewWidth, PreviewHeight), editorConfig: editorConfig, proxyConfig: proxyConfig);
     }
 
     // Every element shows at once, as a caption's cues do, in the frame the set was saved from: its copies left
     // their scene, so the frame cannot be read from them.
-    private static byte[]? RenderElementSet(ElementSet set)
+    private static byte[]? RenderElementSet(ElementSet set, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
     {
         return set.Elements.Count == 0
             ? null
-            : RenderElements([.. set.Elements], set.FrameSize.Value, new PixelSize(PreviewWidth, PreviewHeight));
+            : RenderElements([.. set.Elements], set.FrameSize.Value, new PixelSize(PreviewWidth, PreviewHeight), editorConfig: editorConfig, proxyConfig: proxyConfig);
     }
 
     // The elements belong to the edited scene, so the throwaway scene gets clones. Start is
@@ -133,7 +136,8 @@ public static class ObjectTemplatePreviewRenderer
         IReadOnlyList<Element> elements,
         PixelSize requestedFrameSize,
         PixelSize outputSize,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
         var copies = new List<Element>(elements.Count);
         foreach (Element element in elements)
@@ -176,7 +180,7 @@ public static class ObjectTemplatePreviewRenderer
         // The compositor, not a hand-rolled walk, is what resolves the flow operators an element
         // may carry (DrawableGroup / DrawableDecorator populate their children from the flow).
         // Its resources are owned by it, so nothing here disposes them.
-        using var compositor = new SceneCompositor(scene) { DisableResourceShare = true };
+        using var compositor = new SceneCompositor(scene, editorConfig, proxyConfig) { DisableResourceShare = true };
         CompositionFrame frame = compositor.EvaluateGraphics(scene.FromWindowTime(time));
 
         return RenderResources(

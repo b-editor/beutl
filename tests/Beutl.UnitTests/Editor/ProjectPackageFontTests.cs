@@ -60,7 +60,9 @@ public class ProjectPackageFontTests
         BeutlHomeIsolation.Begin("beutl-font-worker");
         try
         {
-            GlobalConfiguration.Instance.FontConfig.FontDirectories.Clear();
+            var configuration = new FontConfig();
+            configuration.FontDirectories.Clear();
+            FontManager.Instance.Initialize(configuration);
             // Like the hosts, load the built-in scene types before resolving serialized discriminators.
             System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(Scene).TypeHandle);
             var family = new FontFamily("Beutl Test Variable");
@@ -77,7 +79,7 @@ public class ProjectPackageFontTests
             byte[] host = WithFontRevision(bundled, 0x00020000);
             string hostDirectory = Directory.CreateDirectory(Path.Combine(destination, "host-fonts")).FullName;
             File.WriteAllBytes(Path.Combine(hostDirectory, "host.ttf"), host);
-            GlobalConfiguration.Instance.FontConfig.FontDirectories.Add(hostDirectory);
+            configuration.FontDirectories.Add(hostDirectory);
             using (var stream = new MemoryStream(host)) FontManager.Instance.AddFont(stream);
             Assert.That(FontRevision(family), Is.EqualTo(0x00020000));
 

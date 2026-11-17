@@ -42,7 +42,7 @@ public class EditorHostFallbackTests
     // Replaces the recent projects and the layout for the test, and puts them back when disposed.
     private sealed class RecentProjectsScope : IDisposable
     {
-        private readonly ViewConfig _viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        private readonly ViewConfig _viewConfig = TestShell.Configuration.ViewConfig;
         private readonly string[] _files;
         private readonly RecentProjectsLayout _layout;
 
@@ -87,7 +87,7 @@ public class EditorHostFallbackTests
     public void The_sheet_takes_the_room_beside_the_rail_on_a_wide_window()
     {
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
 
         try
@@ -117,7 +117,7 @@ public class EditorHostFallbackTests
     public void The_rail_moves_above_the_sheet_on_a_narrow_window(int width)
     {
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = width, Height = 600 };
 
         try
@@ -154,7 +154,7 @@ public class EditorHostFallbackTests
     {
         string[] files = CreateProjectFiles("grid", 6);
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, files);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = width, Height = 900 };
 
         try
@@ -185,13 +185,13 @@ public class EditorHostFallbackTests
     [AvaloniaTest]
     public void Recent_list_follows_whole_list_replacements()
     {
-        IListProperty<string> recentProjects = GlobalConfiguration.Instance.ViewConfig.RecentProjects;
+        IListProperty<string> recentProjects = TestShell.Configuration.ViewConfig.RecentProjects;
         string[] original = [.. recentProjects];
         string directory = Path.Combine(Path.GetTempPath(), "beutl-recent-projects");
         string a = Path.Combine(directory, "a.bep");
         string b = Path.Combine(directory, "b.bep");
         string c = Path.Combine(directory, "c.bep");
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
 
         try
@@ -229,10 +229,10 @@ public class EditorHostFallbackTests
     [AvaloniaTest]
     public void The_project_opened_last_comes_first()
     {
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = TestShell.Configuration.ViewConfig;
         string[] files = CreateProjectFiles("order", 3);
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, files);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
 
         try
@@ -260,7 +260,7 @@ public class EditorHostFallbackTests
         string[] files = [.. Enumerable.Range(0, EditorHostFallback.MaxShownProjects + 5)
             .Select(i => Path.Combine(directory, $"p{i}.bep"))];
         using var recent = new RecentProjectsScope(RecentProjectsLayout.List, files);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
 
         try
@@ -280,11 +280,11 @@ public class EditorHostFallbackTests
     [AvaloniaTest]
     public void Scenes_opened_on_their_own_are_not_listed()
     {
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = TestShell.Configuration.ViewConfig;
         string[] savedFiles = [.. viewConfig.RecentFiles];
         string project = CreateProjectFiles("only-projects", 1)[0];
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, project);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
 
         try
@@ -315,7 +315,7 @@ public class EditorHostFallbackTests
         }
 
         using var recent = new RecentProjectsScope(layout, files);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
 
         try
@@ -344,10 +344,10 @@ public class EditorHostFallbackTests
     [AvaloniaTest]
     public async Task The_layout_choice_is_kept_and_keeps_the_entries()
     {
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        ViewConfig viewConfig = TestShell.Configuration.ViewConfig;
         string[] files = CreateProjectFiles("layout", 2);
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, files);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
 
         try
@@ -372,7 +372,7 @@ public class EditorHostFallbackTests
                 Assert.That(Row(list, files[0]).Bounds.Width, Is.EqualTo(list.Bounds.Width).Within(8));
             });
 
-            var next = new EditorHostFallback();
+            var next = new EditorHostFallback { DataContext = TestShell.MainViewModel };
             Assert.Multiple(() =>
             {
                 Assert.That(LayoutTabs(next).SelectedIndex, Is.EqualTo(1));
@@ -397,7 +397,7 @@ public class EditorHostFallbackTests
         }
 
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, file);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
 
         try
@@ -433,7 +433,7 @@ public class EditorHostFallbackTests
         string file = CreateProjectFiles("gone", 1)[0];
         File.Delete(file);
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, file);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
 
         try
@@ -492,7 +492,7 @@ public class EditorHostFallbackTests
     {
         string file = CreateProjectFiles("menu", 1)[0];
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, file);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var window = new Window { Content = view, Width = 640, Height = 480 };
 
         try
@@ -614,7 +614,7 @@ public class EditorHostFallbackTests
         File.WriteAllText(otherFile, "{}");
 
         using var recent = new RecentProjectsScope(layout, projectFile, otherFile);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var host = new MainView { DataContext = TestShell.MainViewModel, Content = view };
         var window = new Window { Width = width, Height = 720 };
         TestShell.Project.Opening += opening;
@@ -727,7 +727,7 @@ public class EditorHostFallbackTests
         };
 
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, file);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var host = new MainView { DataContext = TestShell.MainViewModel, Content = view };
         var window = new Window { Width = 1200, Height = 720 };
         TestShell.Project.Opening += opening;
@@ -776,7 +776,7 @@ public class EditorHostFallbackTests
         };
 
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, files);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var host = new MainView { DataContext = TestShell.MainViewModel, Content = view };
         var window = new Window { Width = 1200, Height = 720 };
         TestShell.Project.Opening += opening;
@@ -829,7 +829,7 @@ public class EditorHostFallbackTests
         };
 
         using var recent = new RecentProjectsScope(RecentProjectsLayout.Grid, file);
-        var view = new EditorHostFallback();
+        var view = new EditorHostFallback { DataContext = TestShell.MainViewModel };
         var host = new MainView { DataContext = TestShell.MainViewModel, Content = view };
         var window = new Window { Width = 1200, Height = 720 };
         TestShell.Project.Opening += opening;

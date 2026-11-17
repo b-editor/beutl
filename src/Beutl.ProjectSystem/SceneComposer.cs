@@ -1,5 +1,6 @@
 ﻿using Beutl.Audio;
 using Beutl.Audio.Composing;
+using Beutl.Configuration;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -9,14 +10,14 @@ public sealed class SceneComposer : Composer
 {
     private readonly SceneCompositor _compositor;
 
-    public SceneComposer(Scene scene, bool disableResourceShare = false)
-        : this(scene, disableResourceShare, forceOriginalSource: false)
+    public SceneComposer(Scene scene, bool disableResourceShare = false, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+        : this(scene, disableResourceShare, forceOriginalSource: false, editorConfig, proxyConfig)
     {
     }
 
-    public SceneComposer(Scene scene, bool disableResourceShare, bool forceOriginalSource)
+    public SceneComposer(Scene scene, bool disableResourceShare, bool forceOriginalSource, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
-        _compositor = new SceneCompositor(scene)
+        _compositor = new SceneCompositor(scene, editorConfig, proxyConfig)
         {
             DisableResourceShare = disableResourceShare,
             ForceOriginalSource = forceOriginalSource,

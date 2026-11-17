@@ -1,4 +1,5 @@
 ﻿using Beutl.Audio;
+using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
@@ -13,6 +14,11 @@ namespace Beutl.UnitTests.Editor.Services;
 [NonParallelizable]
 public class PortalResizeTests
 {
+    [SetUp]
+    public void InitializeConfiguration() => _testConfiguration = new();
+
+    private GlobalConfiguration _testConfiguration = new();
+
     [OneTimeSetUp]
     public void RegisterDecoder() => TestMediaHelper.RegisterTestDecoder();
 
@@ -38,14 +44,14 @@ public class PortalResizeTests
     [TestCase(false, 2d, 1d)]
     public void CountTen_PreviewCommitAndUndoPreserveRequestedEdges(bool leftEdge, double start, double length)
     {
-        using var clamp = new ClampResizeToOriginalLengthScope(true);
+        using var clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
         using var harness = new SceneHistoryHarness("beutl_portal_resize");
         Element element = AddPortal(harness, 2);
         var constraints = SlippableMedia.CreateResizeConstraints(element);
         Assert.That(leftEdge ? constraints.ClampStart(Seconds(start)) : constraints.ClampLength(Seconds(length)),
             Is.EqualTo(Seconds(leftEdge ? start : length)));
 
-        new ElementResizeService(harness.History).Resize(harness.Scene, [new(element, Seconds(start), Seconds(length), 0)]);
+        new ElementResizeService(harness.History, _testConfiguration.EditorConfig).Resize(harness.Scene, [new(element, Seconds(start), Seconds(length), 0)]);
         Assert.Multiple(() =>
         {
             Assert.That(element.Start.Value, Is.EqualTo(Seconds(start)));
@@ -66,7 +72,7 @@ public class PortalResizeTests
     [TestCase("SourceSound", 0, true)]
     public void LocalMedia_KeepsItsOwnDurationLimit(string mediaType, int disabledControllers, bool soundGroup)
     {
-        using var clamp = new ClampResizeToOriginalLengthScope(true);
+        using var clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
         using var harness = new SceneHistoryHarness("beutl_portal_resize");
         Element element = AddPortal(harness, 2);
         var (_, offset) = AddMedia(element, mediaType, speed: 200, offsetSeconds: 1, durationSeconds: 6);
@@ -75,13 +81,13 @@ public class PortalResizeTests
             element.Objects.Add(new DrawableTimeController { IsEnabled = { Value = false } });
         Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(2.5)));
 
-        new ElementResizeService(harness.History).Resize(harness.Scene, [new(element, Seconds(2), Seconds(5), 0)]);
+        new ElementResizeService(harness.History, _testConfiguration.EditorConfig).Resize(harness.Scene, [new(element, Seconds(2), Seconds(5), 0)]);
         Assert.Multiple(() =>
         {
             Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)), "An existing overrun can shrink but must not grow.");
             Assert.That(offset.Value, Is.EqualTo(Seconds(1)));
         });
-        IElementResizeService resize = new ElementResizeService(harness.History);
+        IElementResizeService resize = new ElementResizeService(harness.History, _testConfiguration.EditorConfig);
         Assert.That(resize.ResizeToOriginalDuration(harness.Scene, element), Is.True);
         Assert.That(element.Length.Value, Is.EqualTo(Seconds(2.5)));
     }
@@ -120,7 +126,7 @@ public class PortalResizeTests
     [TestCase(true, 2)]
     public void Controller_PreservesLimitsForUnconsumedLocalVideo(bool videoInputs, int controllers)
     {
-        using var clamp = new ClampResizeToOriginalLengthScope(true);
+        using var clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
         using var harness = new SceneHistoryHarness("beutl_portal_resize");
         Element element = AddPortal(harness, 2);
         element.Length.Value = Seconds(0.5);
@@ -150,7 +156,7 @@ public class PortalResizeTests
         harness.History.Commit();
         foreach (bool leftEdge in new[] { false, true })
         {
-            new ElementResizeService(harness.History).Resize(harness.Scene,
+            new ElementResizeService(harness.History, _testConfiguration.EditorConfig).Resize(harness.Scene,
                 [new(element, Seconds(leftEdge ? 1 : 2), Seconds(leftEdge ? 1.5 : 2), 0)]);
             Assert.That(element.Start.Value, Is.EqualTo(Seconds(leftEdge ? 1.5 : 2)));
             Assert.That(element.Length.Value, Is.EqualTo(Seconds(1)));

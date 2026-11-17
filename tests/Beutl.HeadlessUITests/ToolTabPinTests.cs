@@ -482,7 +482,7 @@ public class ToolTabPinTests
     // Stands in for the property editor that opened an object, after it was disposed: it answers nothing.
     private sealed class DisposedSourceEditor : IServiceProvider
     {
-        public object? GetService(Type serviceType) => null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
     }
 
     [AvaloniaTest]

@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Markup.Xaml;
+using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Helpers;
 using Beutl.Services.StartupTasks;
@@ -13,15 +14,22 @@ public sealed class TestApp : Application
     private const int BuiltInExtensionPackageId = 0;
 
     private MainViewModel? _mainViewModel;
+    internal GlobalConfiguration Configuration { get; } = new();
     internal Beutl.Services.LibraryService Library { get; } = new();
-    internal Beutl.Editor.Services.ObjectTemplateService Templates { get; } = new();
-    internal Beutl.Services.Tutorials.ITutorialService Tutorials { get; } = new Beutl.Services.Tutorials.TutorialServiceHandler();
+    internal Beutl.Editor.Services.ObjectTemplateService Templates { get; }
+    internal Beutl.Services.Tutorials.ITutorialService Tutorials { get; }
     internal Beutl.Controls.PropertyEditors.ColorPaletteService Palettes { get; } = Beutl.Controls.PropertyEditors.ColorPaletteService.CreateDefault();
     internal IServiceProvider Services { get; }
 
     public TestApp()
     {
+        Tutorials = new Beutl.Services.Tutorials.TutorialServiceHandler(Configuration.TutorialConfig);
+        Beutl.Media.Decoding.DecoderRegistry.Initialize(Configuration.ExtensionConfig);
+        Beutl.Media.FontManager.Instance.Initialize(Configuration.FontConfig);
+        Templates = new(Configuration.EditorConfig, Configuration.ProxyStoreConfig);
         Services = new Beutl.Editor.Services.EditorServiceRegistry()
+            .Add(() => Configuration)
+            .AddOwned(() => new Beutl.Services.AppUpdateController(Configuration.UpdateConfig))
             .Add(() => Library)
             .Add(() => Templates)
             .Add(() => Tutorials)

@@ -42,9 +42,9 @@ public sealed class PackageCompatibilityTests
         Compile(directory, "MismatchedPlugin", "public class Uses { public System.Type Type = typeof(Beutl.Extensibility.NotInHost); }", extensibility);
         var manager = new PackageManager(
             new InstalledPackageRepository(),
-            new ExtensionProvider(),
+            new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()),
             new ContextCommandManager(new ContextCommandSettingsStore()),
-            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry());
+            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry(), updateConfig: new Beutl.Configuration.UpdateConfig());
         var package = new LocalPackage { Name = "MismatchedPlugin", InstalledPath = directory, SideLoad = true };
 
         PackageApiMismatchException exception = Assert.Throws<PackageApiMismatchException>(() => manager.Load(package))!;

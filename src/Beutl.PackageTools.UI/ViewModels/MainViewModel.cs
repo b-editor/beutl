@@ -1,14 +1,12 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.Reactive.Linq;
-
+using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
 using Beutl.PackageTools.UI.Services;
-
 using NuGet.Packaging.Core;
-
 using Reactive.Bindings;
 
 namespace Beutl.PackageTools.UI.ViewModels;
@@ -34,17 +32,17 @@ public class MainViewModel : IAsyncDisposable
     private volatile bool _initializationFailed;
     private volatile bool _startBeutlWhenClosed;
 
-    public MainViewModel()
-        : this(new HttpClient())
+    public MainViewModel(GlobalConfiguration configuration)
+        : this(new HttpClient(), configuration)
     {
     }
 
     // This standalone package-tools process owns its own extension provider; it never
     // loads editor extensions, so a fresh instance is sufficient for the API resource graph.
-    private MainViewModel(HttpClient httpClient)
+    private MainViewModel(HttpClient httpClient, GlobalConfiguration configuration)
         : this(
             httpClient,
-            new BeutlApiApplication(httpClient, new ExtensionProvider()),
+            new BeutlApiApplication(httpClient, new ExtensionProvider(configuration.ExtensionConfig), configuration.ViewConfig, configuration.UpdateConfig),
             new ChangesModel(),
             [
                 .. Process.GetProcessesByName("Beutl"),
