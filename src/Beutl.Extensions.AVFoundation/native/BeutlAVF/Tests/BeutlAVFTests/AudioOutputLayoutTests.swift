@@ -33,6 +33,9 @@ final class AudioOutputLayoutTests: XCTestCase {
             kAudioChannelLabel_Center, kAudioChannelLabel_LFEScreen,
             kAudioChannelLabel_LeftSurround, kAudioChannelLabel_RightSurround,
             kAudioChannelLabel_LeftSurroundDirect, kAudioChannelLabel_RightSurroundDirect])
+
+        layout.mChannelBitmap = AudioChannelBitmap(rawValue: 0x13f)
+        XCTAssertEqual(makeOutput(&layout, channels: 7).speakerMask, 0x13f)
     }
 
     func testConcreteTagsKeepSourceLabelsInWaveOrder() {
@@ -73,7 +76,7 @@ final class AudioOutputLayoutTests: XCTestCase {
             kAudioChannelLabel_LeftSurround, kAudioChannelLabel_RightSurround])
     }
 
-    func testDescriptionsMapSurroundPairsByPresenceOfRearLabels() {
+    func testDescriptionsMapSurroundsToTheirWavePositions() {
         let front: [AudioChannelLabel] = [kAudioChannelLabel_Left, kAudioChannelLabel_Right,
             kAudioChannelLabel_Center, kAudioChannelLabel_LFEScreen]
         let surround: [AudioChannelLabel] = [kAudioChannelLabel_LeftSurround, kAudioChannelLabel_RightSurround]
@@ -81,6 +84,10 @@ final class AudioOutputLayoutTests: XCTestCase {
         let fiveOne = makeOutput(labels: front + surround)
         XCTAssertEqual(fiveOne.speakerMask, 0x3f)
         XCTAssertEqual(outputLabels(fiveOne), front + surround)
+        let centerBack = [kAudioChannelLabel_CenterSurround]
+        let sixOne = makeOutput(labels: front + surround + centerBack)
+        XCTAssertEqual(sixOne.speakerMask, 0x70f)
+        XCTAssertEqual(outputLabels(sixOne), front + centerBack + surround)
         let sevenOne = makeOutput(labels: front + surround + rear)
         XCTAssertEqual(sevenOne.speakerMask, 0x63f)
         XCTAssertEqual(outputLabels(sevenOne), front + rear + surround)

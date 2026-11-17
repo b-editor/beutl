@@ -27,19 +27,24 @@ public class EncodeDecodeRoundTripTests
         catch { /* best-effort cleanup */ }
     }
 
-    [Test]
-    public async Task EightChannelAacIsRejectedBeforeWriterCreation()
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.MPEG4AAC, 8, "AAC")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 4, "Apple Lossless")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 8, "Apple Lossless")]
+    public async Task UnsupportedSpeakerLayoutIsRejectedBeforeWriterCreation(
+        AVFAudioEncoderSettings.AudioFormatType format, int channels, string codecName)
     {
-        string path = Path.Combine(_workDir, "speakers-8.mp4");
+        string path = Path.Combine(_workDir, "speakers.mov");
         await File.WriteAllTextAsync(path, "existing output");
         var controller = new AVFEncodingController(path);
-        controller.AudioSettings.Channels.Value = 8;
+        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 64);
+        controller.AudioSettings.Format.Value = format;
+        controller.AudioSettings.Channels.Value = channels;
         using var frames = new GradientFrameProvider(0, new Rational(30), 64, 64);
         using var samples = new SpeakerToneSampleProvider(0, 48000, AudioChannelLayout.Surround71);
 
         Assert.That(async () => await controller.Encode(frames, samples, CancellationToken.None),
-            Throws.TypeOf<NotSupportedException>().With.Message.EqualTo(
-                "AVFoundation AAC supports 1, 2 or 6 channels. Choose Linear PCM, or the FFmpeg encoder, for other channel counts."));
+            Throws.TypeOf<NotSupportedException>().With.Message.Contains(codecName)
+                .And.Message.Contains("Linear PCM"));
         Assert.That(await File.ReadAllTextAsync(path), Is.EqualTo("existing output"));
     }
 
@@ -47,9 +52,11 @@ public class EncodeDecodeRoundTripTests
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 3, ".mov")]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 4, ".mov")]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 5, ".mov")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 7, ".mov")]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 8, ".mov")]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 2, ".mov")]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 6, ".mov")]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 7, ".mov")]
     public async Task AudioRoundTripPreservesEachSpeakerTone(AVFAudioEncoderSettings.AudioFormatType format, int channels, string extension)
     {
         const int rate = 48000;
@@ -91,15 +98,14 @@ public class EncodeDecodeRoundTripTests
         }
     }
 
-    // An output with more channels than its input takes Beutl's default layout for its count, and the input's pair
-    // lands on its front pair. Apple Lossless offers no 4.0 layout with those speakers, as it offered none for the
-    // discrete layout these counts got before, so a four-channel Apple Lossless output still fails (#4319). Seven
-    // channels are written as 6.1 but read back with back surrounds for the side pair (#4318).
+    // An upmix uses Beutl's default layout for the output channel count.
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 3)]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 4)]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 5)]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 7)]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 3)]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 5)]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 7)]
     public async Task StereoInAnOutputWithMoreChannelsKeepsItsFrontPair(
         AVFAudioEncoderSettings.AudioFormatType format,
         int channels)

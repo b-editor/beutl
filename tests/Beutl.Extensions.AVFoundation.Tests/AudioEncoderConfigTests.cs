@@ -15,13 +15,14 @@ public class AudioEncoderConfigTests
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.MPEG4AAC, 8, false)]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 8, true)]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.LinearPCM, 12, true)]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 4, false)]
     [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 6, true)]
-    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 8, true)]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 7, true)]
+    [TestCase(AVFAudioEncoderSettings.AudioFormatType.AppleLossless, 8, false)]
     public void ChannelValidationFollowsTheCodec(AVFAudioEncoderSettings.AudioFormatType format, int channels, bool accepted)
     {
         Assert.That(() => AVFEncodingController.ValidateAudioChannels(format, channels),
-            accepted ? Throws.Nothing : Throws.TypeOf<NotSupportedException>().With.Message.EqualTo(
-                "AVFoundation AAC supports 1, 2 or 6 channels. Choose Linear PCM, or the FFmpeg encoder, for other channel counts."));
+            accepted ? Throws.Nothing : Throws.TypeOf<NotSupportedException>());
     }
 
     // ABI 6 dropped the sample rate converter quality AVFoundation never applied, and carries the output's default
