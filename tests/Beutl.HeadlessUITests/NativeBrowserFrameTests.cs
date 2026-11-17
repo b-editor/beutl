@@ -187,6 +187,21 @@ internal static class NativeBrowserFrameTestHost
             requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
             return Results.Content("<title>Opened</title>", "text/html");
         });
+        server.MapGet("/media.mp3", (HttpContext context) =>
+        {
+            requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
+            return Results.Redirect($"http://localhost:{context.Connection.LocalPort}/track.mp3");
+        });
+        server.MapGet("/track.mp3", (HttpContext context) =>
+        {
+            requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
+            return Results.Bytes("ID3sample"u8.ToArray(), "audio/mpeg");
+        });
+        server.MapGet("/attachment", (HttpContext context) =>
+        {
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            return Results.Bytes("file"u8.ToArray(), "application/octet-stream", "sample.zip");
+        });
         server.MapGet("/source", (HttpContext context) =>
         {
             if (context.Request.Query.ContainsKey("header")) context.Response.Headers["Referrer-Policy"] = "origin, no-referrer";
@@ -201,6 +216,15 @@ internal static class NativeBrowserFrameTestHost
         var editor = new Mock<IEditorContext>();
         using var vm = new WebBrowserTabViewModel(editor.Object, WebBrowserTabViewModel.BlankPage);
         using var opener = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        using var downloads = new TemporaryDirectory();
+        var attachmentOffered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        opener.DownloadOptionsSelector = (uri, _) =>
+        {
+            if (uri.AbsolutePath != "/attachment")
+                return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(downloads.Path, false));
+            attachmentOffered.TrySetResult();
+            return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        };
         var openedHost = new ContentControl();
         window.Content = new Grid { Children = { opener, openedHost } };
         WebBrowserTabViewModel? opened = null;
@@ -250,6 +274,25 @@ internal static class NativeBrowserFrameTestHost
             await opened!.IsLoading.FirstAsync(loading => !loading).ToTask(token);
         }
 
+        async Task CheckMediaRedirect(string policy, string expectedRedirect)
+        {
+            int before = vm.Profile.Downloads.Count;
+            await browser.InvokeScript($$"""
+                (() => {
+                    const a = document.createElement('a');
+                    a.href = '/media.mp3?{{policy}}';
+                    a.target = '_blank';
+                    a.referrerPolicy = '{{policy}}';
+                    document.body.append(a);
+                    a.click();
+                    a.remove();
+                })()
+                """);
+            Assert.That(await requests.Reader.ReadAsync(token), Is.EqualTo(origin.AbsoluteUri), policy);
+            Assert.That(await requests.Reader.ReadAsync(token), Is.EqualTo(expectedRedirect), policy);
+            while (vm.Profile.Downloads.Count == before) await Task.Delay(20, token);
+        }
+
         try
         {
             await Load("normal&loading", async () =>
@@ -266,6 +309,14 @@ internal static class NativeBrowserFrameTestHost
             await Check("window.open(document.querySelector('a').href, '_blank', 'noreferrer')", "");
             await Check("window.open(document.querySelector('a').href, '_blank', 'noopener,NoReferrer')", "");
             await Load("same");
+            await CheckMediaRedirect("same-origin", "");
+            if (OperatingSystem.IsWindows())
+            {
+                await CheckMediaRedirect("origin", origin.AbsoluteUri);
+                await browser.InvokeScript("location.assign('/attachment')");
+                await attachmentOffered.Task.WaitAsync(token);
+                await Check("window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            }
             await Check("document.querySelector('a').click()", origin.AbsoluteUri);
             await Check("window.addEventListener('click', e => e.target.rel='noreferrer', {once:true}); document.querySelector('a').click()", "");
             await Load("meta");

@@ -203,6 +203,34 @@ public class BrowserNewTabReferrerTests
         Assert.That(opened.TakeOpenerReferrer(), Is.EqualTo(expected == null ? null : new Uri(expected)));
     }
 
+    [AvaloniaTest]
+    [TestCase("https://materials.example/embed/7", "https://materials.example/", (int)BrowserReferrerPolicy.SameOrigin)]
+    [TestCase("https://player.example/embed/7", "https://player.example/", (int)BrowserReferrerPolicy.Origin)]
+    [TestCase(null, null, (int)BrowserReferrerPolicy.NoReferrer)]
+    public async Task WebKitMediaDownloadsKeepTheReferrerPermissionShownByTheFirstRequest(string? reported, string? expected, int policy)
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), s_page, profile);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
+        { DataContext = vm };
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = s_page, IsSuccess = true });
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(temporary.Path, false));
+
+        var media = new Uri(s_origin, "/track.mp3");
+        view.OnNativeNewWindowRequested(media, reported);
+        var request = new WebViewNewWindowRequestedEventArgs { Request = media };
+        view.OnNewWindowRequested(null, request);
+        await HeadlessTestHelpers.WaitUntilAsync(() => profile.Downloads.Count == 1);
+
+        Assert.That(request.Handled, Is.True);
+        Assert.That(handler.Referrer?.AbsoluteUri, Is.EqualTo(expected));
+        Assert.That(profile.Downloads.Single().ReferrerPolicy, Is.EqualTo((BrowserReferrerPolicy)policy));
+    }
+
     // WKWebView and WebKitGTK ask only their own delegates for a page's window.open(), and the handlers report it.
     // Both paths use the referrer reported for this specific request.
     [AvaloniaTest]

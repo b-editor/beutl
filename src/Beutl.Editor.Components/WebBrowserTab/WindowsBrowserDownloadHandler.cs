@@ -22,7 +22,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
 
     private unsafe WindowsBrowserDownloadHandler(IWindowsWebView2PlatformHandle handle,
         Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload,
-        Func<Uri, Uri?, bool> onWindowOpened)
+        Func<Uri, Uri?, BrowserReferrerPolicy, bool> onWindowOpened)
     {
         _onDownload = onDownload;
         _onGeneratedDownload = onGeneratedDownload;
@@ -61,7 +61,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
 
     internal static WindowsBrowserDownloadHandler? TryAttach(IPlatformHandle? handle,
         Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload,
-        Func<Uri, Uri?, bool> onWindowOpened)
+        Func<Uri, Uri?, BrowserReferrerPolicy, bool> onWindowOpened)
     {
         if (handle is not IWindowsWebView2PlatformHandle windows) return null;
         try { return new WindowsBrowserDownloadHandler(windows, onDownload, onGeneratedDownload, onWindowOpened); }

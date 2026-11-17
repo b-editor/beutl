@@ -324,7 +324,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         else if (OperatingSystem.IsWindows())
         {
             var windows = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
-                OnGeneratedDownload, (uri, source) => IsCurrent() && OpenWindow(uri, source));
+                OnGeneratedDownload, (uri, source, policy) => IsCurrent() && OpenWindow(uri, source, policy));
             _nativeBrowserHandler = windows;
             if (windows is { HandlesNewWindows: true })
             {

@@ -294,14 +294,16 @@ internal partial class WebBrowserTabView
             e.Handled = OpenWindow(request, native is { } report && report.Request == request ? report.Referrer : null);
     }
 
-    private bool OpenWindow(Uri request, Uri? page)
+    private bool OpenWindow(Uri request, Uri? page, BrowserReferrerPolicy? reportedPolicy = null)
     {
         if (request != WebBrowserTabViewModel.BlankPage && !BrowserMediaDownload.IsHttpUri(request)) return true;
-        Uri? referrer = BrowserMediaDownload.NormalizeReferrer(page, request);
+        // WebKit only reports the header for the first hop. A same-origin hop grants no permission for a cross-origin redirect.
+        BrowserReferrerPolicy policy = reportedPolicy ?? (page != null && BrowserMediaDownload.IsSameOrigin(page, request)
+            ? BrowserReferrerPolicy.SameOrigin : BrowserReferrerPolicy.Origin);
+        Uri? referrer = BrowserMediaDownload.NormalizeReferrer(page, request, policy);
         if (BrowserMediaDownload.IsMediaLink(request))
         {
-            QueuePageDownloadRequest(request, null, referrer == null ? BrowserReferrerPolicy.NoReferrer : BrowserReferrerPolicy.Origin,
-                referrer: referrer);
+            QueuePageDownloadRequest(request, null, referrer == null ? BrowserReferrerPolicy.NoReferrer : policy, referrer: referrer);
             return true;
         }
         return _viewModel?.TryOpenNewTab(request, referrer) == true;

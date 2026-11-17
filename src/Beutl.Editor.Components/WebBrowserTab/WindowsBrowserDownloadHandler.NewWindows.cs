@@ -12,11 +12,10 @@ internal sealed partial class WindowsBrowserDownloadHandler
     private long _windowToken, _responseToken, _contentToken;
     private bool _observingResponses, _observingContent;
     private string? _scriptId;
-    private Uri? _expectedDocument, _committedDocument;
-    private (Uri Page, BrowserReferrerPolicy Policy)? _documentPolicy;
+    private Document? _pendingDocument, _committedDocument;
     internal bool HandlesNewWindows { get; private set; }
 
-    private void AttachNewWindowHandlers(Func<Uri, Uri?, bool> open)
+    private void AttachNewWindowHandlers(Func<Uri, Uri?, BrowserReferrerPolicy, bool> open)
     {
         // ICoreWebView2_2::add_WebResourceResponseReceived and ICoreWebView2::add_NewWindowRequested.
         _observingResponses = Subscribe<IDocumentResponseHandler>(61, new DocumentResponseHandler(this), out _responseToken) >= 0;
@@ -68,20 +67,20 @@ internal sealed partial class WindowsBrowserDownloadHandler
     }
 
     [GeneratedComClass]
-    private sealed partial class NewWindowHandler(WindowsBrowserDownloadHandler owner, Func<Uri, Uri?, bool> open) : INewWindowHandler
+    private sealed partial class NewWindowHandler(WindowsBrowserDownloadHandler owner, Func<Uri, Uri?, BrowserReferrerPolicy, bool> open) : INewWindowHandler
     {
         public unsafe void Invoke(nint sender, nint args)
         {
             if (!Uri.TryCreate(GetString(args, 3), UriKind.Absolute, out Uri? uri)) return;
-            Uri? referrer = null;
-            try { referrer = owner.ReadWindowReferrer(args, uri); }
+            (Uri Source, BrowserReferrerPolicy Policy)? referrer = null;
+            try { referrer = owner.ReadWindowReferrer(args); }
             catch (Exception ex) { Trace.TraceError("WebView2 could not read a new window's referrer: {0}", ex.Message); }
-            if (open(uri, referrer))
+            if (open(uri, referrer?.Source, referrer?.Policy ?? BrowserReferrerPolicy.NoReferrer))
                 _ = ((delegate* unmanaged[Stdcall]<nint, int, int>)Method(args, 6))(args, 1); // put_Handled
         }
     }
 
-    private Uri? ReadWindowReferrer(nint args, Uri uri)
+    private (Uri Source, BrowserReferrerPolicy Policy)? ReadWindowReferrer(nint args)
     {
         // Args3 inherits Args2::get_Name (11) and adds get_OriginalSourceFrameInfo (12).
         var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
@@ -90,35 +89,39 @@ internal sealed partial class WindowsBrowserDownloadHandler
         {
             string? name = GetString(named, 11);
             bool inherit = name == _windowTarget + "-document";
-            if (!inherit && name != _windowTarget) return null;
+            bool sameOrigin = name == _windowTarget + "-same-origin";
+            if (!inherit && !sameOrigin && name != _windowTarget) return null;
             nint frame = GetObject(named, 12);
             if (frame == 0) return null;
             try
             {
                 if (!Uri.TryCreate(GetString(frame, 4), UriKind.Absolute, out Uri? source)) return null;
-                if (!inherit) return source;
-                if (_documentPolicy is not { } document) return null;
-                // A same-document history change updates the frame URL while its response policy still applies.
-                if (document.Page != source && (document.Page != _committedDocument
-                    || !BrowserMediaDownload.IsSameOrigin(document.Page, source) || source != GetDocument())) return null;
-                return BrowserMediaDownload.NormalizeReferrer(source, uri, document.Policy);
+                if (!inherit) return (source, sameOrigin ? BrowserReferrerPolicy.SameOrigin : BrowserReferrerPolicy.Origin);
+                // History changes the displayed URL, but the committed document keeps its HTTP response policy.
+                if (_committedDocument is not { Policy: { } policy } document || source != GetDocument()
+                    || !BrowserMediaDownload.IsSameOrigin(document.Address, source)) return null;
+                return (source, policy);
             }
             finally { Marshal.Release(frame); }
         }
         finally { Marshal.Release(named); }
     }
 
-    internal void BeginDocument(Uri? request)
+    // An attachment can finish a navigation without replacing the displayed document.
+    internal void BeginDocument(Uri? request) => _pendingDocument = request == null ? null : new Document(request);
+
+    // The response may arrive before or after ContentLoading. Both callbacks update the same document.
+    private sealed class Document(Uri address)
     {
-        _expectedDocument = request;
-        _committedDocument = null;
-        _documentPolicy = null;
+        internal Uri Address { get; } = address;
+        internal BrowserReferrerPolicy? Policy { get; set; }
     }
 
     [GeneratedComClass]
     private sealed partial class ContentLoadingHandler(WindowsBrowserDownloadHandler owner) : IContentLoadingHandler
     {
-        public void Invoke(nint sender, nint args) => owner._committedDocument = owner.GetDocument();
+        public void Invoke(nint sender, nint args) =>
+            owner._committedDocument = owner._pendingDocument is { } pending && pending.Address == owner.GetDocument() ? pending : null;
     }
 
     [GeneratedComClass]
@@ -129,16 +132,15 @@ internal sealed partial class WindowsBrowserDownloadHandler
             nint request = 0, requestHeaders = 0, response = 0, responseHeaders = 0;
             try
             {
-                if (owner._expectedDocument == null) return;
+                if (owner._pendingDocument is not { Policy: null } pending) return;
                 request = GetObject(args, 3);
-                if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || page != owner._expectedDocument) return;
+                if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || page != pending.Address) return;
                 // Subresources and inline frames can have different policies, even at the same URL.
                 requestHeaders = GetObject(request, 9);
                 if (!IsDocumentRequest(requestHeaders)) return;
                 response = GetObject(args, 4);
                 responseHeaders = GetObject(response, 3);
-                owner._documentPolicy = (page, ReadDocumentPolicy(responseHeaders));
-                owner._expectedDocument = null;
+                pending.Policy = ReadDocumentPolicy(responseHeaders);
             }
             catch (Exception ex)
             {
@@ -255,7 +257,8 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 applyChanges(observer.takeRecords());
                 const policy = link?.referrerPolicy || documentPolicy;
                 if (!policy) return self === top ? allowed + '-document' : null;
-                return policy === 'no-referrer' || policy === 'same-origin' && url.origin !== self.origin ? null : allowed;
+                if (policy === 'same-origin') return url.origin === self.origin ? allowed + '-same-origin' : null;
+                return policy === 'no-referrer' ? null : allowed;
             }
             const open = window.open;
             window.open = function(url, target, features) {
