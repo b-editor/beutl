@@ -337,7 +337,21 @@ internal sealed partial class NodeGraphEditor(GraphModel root, Rational? frameRa
             }
 
             (GraphNode node, string? name) = ParseEnd(portText, graph);
-            INodePort port = FindPort(node, name ?? throw Rejected($"'{portText}' names no port.", "Write it as '<node>.<port>'."), output: null);
+            if (name is null)
+            {
+                throw Rejected($"'{portText}' names no port.", "Write it as '<node>.<port>'.");
+            }
+
+            // A group shows an inner input and output under one name; which wires to cut is then the caller's to say.
+            int sameName = node.EnumerateMembers().Count(member => member is INodePort && NodeGraphMembers.NameOf(node, member) == name);
+            if (sameName > 1)
+            {
+                throw Rejected(
+                    $"'{portText}' names {sameName} ports of '{Describe(node)}'.",
+                    "Give from and to instead: from picks the output of that name, and to the input.");
+            }
+
+            INodePort port = FindPort(node, name, output: null);
             Connection[] connections = ConnectionsOf(graph, port);
             if (connections.Length == 0)
             {
@@ -374,26 +388,56 @@ internal sealed partial class NodeGraphEditor(GraphModel root, Rational? frameRa
 
     private void ApplyValues(GraphNode node, JsonObject values)
     {
-        // Setting one member can add others, as code adds the ports it declares, so a name not found yet waits for
-        // the rest and is tried again until a round finds nothing new.
+        // Setting one member can add, replace or remove others: code declares ports, and a mode chooses them. So the
+        // order of the values must not matter. A name not found yet, or a value its member does not take yet, waits
+        // for the rest, and a value whose member a later one replaced, such as a port that new code declares with
+        // another type, goes again to the member in its place, until a round changes nothing.
+        var written = new Dictionary<string, (INodeMember Member, JsonNode? Value)>(StringComparer.Ordinal);
+        var refused = new Dictionary<string, ReconcileException>(StringComparer.Ordinal);
         List<KeyValuePair<string, JsonNode?>> pending = [.. values];
-        while (pending.Count > 0)
+        for (int round = 0; pending.Count > 0; round++)
         {
             var waiting = new List<KeyValuePair<string, JsonNode?>>();
+            bool progressed = false;
             foreach (KeyValuePair<string, JsonNode?> pair in pending)
             {
-                if (NodeGraphMembers.Find(node, pair.Key, NodeGraphMembers.IsSettable) is { } member)
+                if (NodeGraphMembers.Find(node, pair.Key, NodeGraphMembers.IsSettable) is not { } member)
+                {
+                    waiting.Add(pair);
+                    continue;
+                }
+
+                try
                 {
                     NodeGraphMembers.WriteValue(member, pair.Key, pair.Value?.DeepClone(), frameRate);
+                    written[pair.Key] = (member, pair.Value);
+                    refused.Remove(pair.Key);
+                    progressed = true;
                 }
-                else
+                catch (ReconcileException ex)
                 {
+                    refused[pair.Key] = ex;
                     waiting.Add(pair);
                 }
             }
 
-            if (waiting.Count == pending.Count)
+            HashSet<INodeMember> members = [.. node.EnumerateMembers()];
+            foreach ((string name, (INodeMember member, JsonNode? value)) in written.ToArray())
             {
+                if (!members.Contains(member))
+                {
+                    written.Remove(name);
+                    waiting.Add(new(name, value));
+                }
+            }
+
+            if (waiting.Count > 0 && (!progressed || round > values.Count))
+            {
+                if (waiting.Select(pair => refused.GetValueOrDefault(pair.Key)).FirstOrDefault(error => error is not null) is { } failure)
+                {
+                    throw failure;
+                }
+
                 string[] settable = node.EnumerateMembers()
                     .Where(NodeGraphMembers.IsSettable)
                     .Select(member => NodeGraphMembers.NameOf(node, member))

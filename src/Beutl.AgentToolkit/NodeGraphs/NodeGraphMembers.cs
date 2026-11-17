@@ -89,8 +89,10 @@ internal static class NodeGraphMembers
         return null;
     }
 
+    // Whether the member holds a value of its own: an input or a property, or an output that carries an authored value,
+    // such as a graph input of LayerInputNode. An output that carries what the node makes has no adapter.
     public static bool IsSettable(INodeMember member)
-        => member is not (IOutputPort or INodeMonitor) && member.Property is { IsReadOnly: false };
+        => member is not INodeMonitor && member.Property is { IsReadOnly: false };
 
     public static bool IsCode(INodeMember member)
         => member.Property?.GetAttributes().OfType<DataTypeAttribute>().Any(attribute => attribute.IsCode()) == true;
@@ -120,7 +122,7 @@ internal static class NodeGraphMembers
             return text.Value is { } message ? JsonValue.Create(message) : null;
         }
 
-        if (member is IOutputPort or INodeMonitor || member.Property is not { } adapter)
+        if (member is INodeMonitor || member.Property is not { } adapter)
         {
             return null;
         }
@@ -152,7 +154,7 @@ internal static class NodeGraphMembers
 
     public static void WriteValue(INodeMember member, string name, JsonNode? json, Rational? frameRate)
     {
-        if (member is IOutputPort or INodeMonitor)
+        if (member is INodeMonitor || member.Property is null && member is IOutputPort)
         {
             throw Rejected(
                 $"'{name}' is an {KindOf(member)}; it shows what the node makes and takes no value.",
@@ -289,14 +291,58 @@ internal static class NodeGraphMembers
 
     private static IKeyFrameAnimation ReadKeyFrames(JsonObject json, Type valueType, string name, Rational? frameRate)
     {
+        // The shorthand names an easing; one with settings of its own, such as a spline's control points, comes as the
+        // object a keyframe saves, and goes into the keyframe it belongs to after expanding.
+        var shorthand = (JsonObject)json.DeepClone();
+        var easingObjects = new Dictionary<int, JsonObject>();
+        if (shorthand[KeyFrameShorthand.PropertyName] is JsonArray entries)
+        {
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (entries[i] is JsonArray { Count: 3 } tuple && tuple[2] is JsonObject tupleEasing)
+                {
+                    easingObjects[i] = (JsonObject)tupleEasing.DeepClone();
+                    tuple.RemoveAt(2);
+                }
+                else if (entries[i] is JsonObject entry && (entry["easing"] ?? entry["Easing"]) is JsonObject entryEasing)
+                {
+                    easingObjects[i] = (JsonObject)entryEasing.DeepClone();
+                    entry.Remove("easing");
+                    entry.Remove("Easing");
+                }
+            }
+        }
+
         JsonObject expanded;
         try
         {
-            expanded = KeyFrameShorthand.Expand(json, valueType);
+            expanded = KeyFrameShorthand.Expand(shorthand, valueType);
         }
         catch (ReconcileException ex)
         {
             throw Rejected($"'{name}': {ex.Error.Message}", ex.Error.Hint);
+        }
+
+        if (expanded[nameof(IKeyFrameAnimation.KeyFrames)] is JsonArray keyFrames)
+        {
+            for (int i = 0; i < keyFrames.Count; i++)
+            {
+                if (keyFrames[i] is not JsonObject keyFrame)
+                {
+                    continue;
+                }
+
+                // An enum takes its name here too, as a plain value does.
+                if (keyFrame["Value"] is { } value)
+                {
+                    keyFrame["Value"] = EnumJsonValueNormalizer.Normalize(value, valueType);
+                }
+
+                if (easingObjects.TryGetValue(i, out JsonObject? easing))
+                {
+                    keyFrame[nameof(IKeyFrame.Easing)] = easing;
+                }
+            }
         }
 
         try
@@ -314,6 +360,7 @@ internal static class NodeGraphMembers
         }
     }
 
+    // In the form edit_node_graph takes, so that writing it back keeps the motion.
     private static JsonObject WriteKeyFrames(IKeyFrameAnimation animation)
     {
         var entries = new JsonArray();
@@ -326,13 +373,28 @@ internal static class NodeGraphMembers
             };
             if (keyFrame.Easing.Value is { } easing and not LinearEasing)
             {
-                entry.Add(easing.GetType().Name);
+                entry.Add(WriteEasing(easing));
             }
 
             entries.Add(entry);
         }
 
-        return new JsonObject { [KeyFrameShorthand.PropertyName] = entries };
+        var json = new JsonObject { [KeyFrameShorthand.PropertyName] = entries };
+        if (animation.UseGlobalClock.Value)
+        {
+            json[nameof(IKeyFrameAnimation.UseGlobalClock)] = true;
+        }
+
+        return json;
+    }
+
+    // An easing by its name, or, when it has settings of its own such as a spline's control points, as a keyframe saves it.
+    private static JsonNode WriteEasing(Easing easing)
+    {
+        JsonNode? saved = Serialize(easing);
+        return saved is JsonObject settings && settings.Any(pair => pair.Key != "$type")
+            ? settings
+            : JsonValue.Create(easing.GetType().Name);
     }
 
     private static ReconcileException Rejected(string message, string? hint)

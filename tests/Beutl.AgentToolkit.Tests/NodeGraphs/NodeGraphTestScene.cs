@@ -121,6 +121,20 @@ internal sealed class NodeGraphTestScene : IDisposable
         }
         """;
 
+    // TintCode with an integer amount, in quarters.
+    public const string IntegerAmountCode = """
+        #version 450
+        layout(location = 0) in vec2 uv;
+        layout(location = 0) out vec4 color;
+        layout(set = 0, binding = 0) uniform sampler2D source;
+        layout(set = 0, binding = 1) uniform Params { vec4 tint; int amount; } params;
+
+        void main() {
+            vec4 c = texture(source, uv);
+            color = vec4(mix(c.rgb, c.rgb * params.tint.rgb, float(params.amount) / 4.0), c.a);
+        }
+        """;
+
     // Line 4 of the fragment stage uses a name nothing declares.
     public const string BrokenCode = """
         #version 450

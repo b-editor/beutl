@@ -3,6 +3,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.NodeGraphs;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Extensibility;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
@@ -267,7 +268,9 @@ public sealed class EditNodeGraphTests
 
         ToolResult<EditNodeGraphResponse> plain = scene.Edit(new NodeGraphOperation
         {
-            Op = "update", Node = pass.Id.Value.ToString(), Values = new JsonObject { ["In.params.amount"] = 0.25 }
+            Op = "update",
+            Node = pass.Id.Value.ToString(),
+            Values = new JsonObject { ["In.params.amount"] = 0.25 }
         });
 
         Assert.That(plain.IsSuccess, Is.True, plain.Error?.Message);
@@ -323,6 +326,164 @@ public sealed class EditNodeGraphTests
             Assert.That(loop.Group.Value.AllConnections, Has.Count.EqualTo(2));
             Assert.That(scene.Graph.AllConnections, Has.Count.EqualTo(2));
             Assert.That(result.Value.Ports["loop"].Select(port => port.Name), Does.Contain("In.source").And.Contain("Out.color"));
+        });
+    }
+
+    // At the start of its element a replay has run no steps, so checking there would not record its body.
+    [Test]
+    public void An_error_inside_a_replay_body_is_refused()
+    {
+        using var scene = new NodeGraphTestScene();
+        string before = scene.Capture();
+
+        ToolResult<EditNodeGraphResponse> result = scene.Edit(
+            Add("input", "FilterEffectInputNode"),
+            Add("replay", "ShaderReplayNode"),
+            Add("output", "OutputNode"),
+            Connect("input.Output", "replay.Image"),
+            Connect("replay.Image", "output.Output"),
+            Add("step", "ShaderFullscreenPassNode", new JsonObject { ["Code"] = NeedsBufferCode }, graph: "replay"),
+            Connect("@ShaderLoopInput.Image", "step.In.source", graph: "replay"),
+            Connect("step.Out.color", "@ShaderLoopOutput.Image", graph: "replay"));
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.Applied, Is.False);
+            Assert.That(result.Value.Diagnostics.Where(d => d.IsNew == true && d.Severity == "error").Select(d => d.NodeLabel), Does.Contain("step"));
+            Assert.That(scene.Capture(), Is.EqualTo(before));
+        });
+    }
+
+    // A value written before the code that redeclares its port with another type reaches the new port.
+    [TestCase(TintCode, IntegerAmountCode, 3, 3)]
+    [TestCase(IntegerAmountCode, TintCode, 0.75, 0.75f)]
+    public void Values_apply_whatever_their_order(string code, string newCode, double value, object expected)
+    {
+        using var scene = new NodeGraphTestScene();
+        ToolResult<EditNodeGraphResponse> built = scene.Edit(OnePass(code));
+        Assert.That(built.IsSuccess, Is.True, built.Error?.Message);
+        string pass = built.Value!.Created.Single(node => node.Ref == "pass").Id;
+
+        ToolResult<EditNodeGraphResponse> result = scene.Edit(new NodeGraphOperation
+        {
+            Op = "update",
+            Node = pass,
+            Values = new JsonObject { ["In.params.amount"] = value, ["Code"] = newCode }
+        });
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(Value(scene.Node(pass), "In.params.amount"), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void A_graph_input_holds_a_value_that_can_be_set_and_read()
+    {
+        using var scene = new NodeGraphTestScene();
+        NodeGraphOperation[] pass = OnePass(TintCode);
+        Assert.That(scene.Edit([.. pass, Add("inputs", "LayerInputNode"), Connect("inputs", "pass.In.params.amount")]).IsSuccess, Is.True);
+        string inputs = scene.Graph.Nodes.Single(node => node is Beutl.NodeGraph.Nodes.LayerInputNode).Id.Value.ToString();
+
+        ToolResult<EditNodeGraphResponse> result = scene.Edit(new NodeGraphOperation
+        {
+            Op = "update",
+            Node = inputs,
+            Values = new JsonObject { ["In.params.amount"] = 0.75 }
+        });
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        MemberView member = scene.Tools.ReadNodeGraph(scene.GraphId).Value!.Nodes!.Single(node => node.Id == inputs).Members.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(member.Kind, Is.EqualTo("output"));
+            Assert.That(member.Value!.GetValue<double>(), Is.EqualTo(0.75).Within(1e-6));
+            Assert.That(result.Value!.Ports[inputs].Single().Name, Is.EqualTo("In.params.amount"));
+        });
+    }
+
+    [Test]
+    public void Disconnecting_a_port_name_that_names_two_ports_is_refused()
+    {
+        using var scene = new NodeGraphTestScene();
+        Assert.That(scene.Edit(
+            Add("input", "FilterEffectInputNode"),
+            Add("loop", "ShaderRepeatNode"),
+            Add("output", "OutputNode"),
+            Connect("input.Output", "loop.Image"),
+            Connect("loop.Image", "output.Output")).IsSuccess, Is.True);
+        string loop = scene.Graph.Nodes.OfType<ShaderRepeatNode>().Single().Id.Value.ToString();
+        string before = scene.Capture();
+
+        ToolResult<EditNodeGraphResponse> result = scene.Edit(new NodeGraphOperation { Op = "disconnect", Port = $"{loop}.Image" });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error?.Message, Does.Contain("names 2 ports"));
+            Assert.That(scene.Capture(), Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Keyframes_read_back_keep_their_clock_and_spline()
+    {
+        using var scene = new NodeGraphTestScene();
+        Assert.That(scene.Edit(OnePass(TintCode)).IsSuccess, Is.True);
+        GraphNode pass = scene.Graph.Nodes.OfType<ShaderFullscreenPassNode>().Single();
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = true } };
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0f } }, out _);
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = { Value = MediaTime.FromSeconds(1) },
+                Value = { Value = 1f },
+                Easing = { Value = new SplineEasing(0.1f, 0.2f, 0.3f, 0.9f) }
+            },
+            out _);
+        ((IAnimatablePropertyAdapter)Member(pass, "In.params.amount").Property!).Animation = animation;
+        JsonNode read = scene.Tools.ReadNodeGraph(scene.GraphId).Value!.Nodes!
+            .Single(node => node.Id == pass.Id.Value.ToString()).Members.Single(member => member.Name == "In.params.amount").Value!;
+
+        ToolResult<EditNodeGraphResponse> result = scene.Edit(new NodeGraphOperation
+        {
+            Op = "update",
+            Node = pass.Id.Value.ToString(),
+            Values = new JsonObject { ["In.params.amount"] = read.DeepClone() }
+        });
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        var written = (KeyFrameAnimation<float>)((IAnimatablePropertyAdapter)Member(pass, "In.params.amount").Property!).Animation!;
+        var spline = (SplineEasing)written.KeyFrames[1].Easing.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(written, Is.Not.SameAs(animation));
+            Assert.That(written.UseGlobalClock.Value, Is.True);
+            Assert.That((spline.X1, spline.Y1, spline.X2, spline.Y2), Is.EqualTo((0.1f, 0.2f, 0.3f, 0.9f)));
+        });
+    }
+
+    [Test]
+    public void Enum_keyframes_apply_as_they_read()
+    {
+        using var scene = new NodeGraphTestScene();
+        ToolResult<EditNodeGraphResponse> built = scene.Edit(Add("blend", "ShaderBlendNode", new JsonObject
+        {
+            ["SourceColor"] = new JsonObject { ["$kf"] = new JsonArray(new JsonArray(0, "One"), new JsonArray(1, "OneMinusSrcAlpha")) }
+        }));
+        Assert.That(built.IsSuccess, Is.True, built.Error?.Message);
+        string blend = built.Value!.Created.Single().Id;
+        JsonNode read = scene.Tools.ReadNodeGraph(scene.GraphId).Value!.Nodes!.Single().Members.Single(member => member.Name == "SourceColor").Value!;
+
+        ToolResult<EditNodeGraphResponse> again = scene.Edit(new NodeGraphOperation
+        {
+            Op = "update",
+            Node = blend,
+            Values = new JsonObject { ["SourceColor"] = read.DeepClone() }
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(read["$kf"]![1]![1]!.GetValue<string>(), Is.EqualTo("OneMinusSrcAlpha"));
+            Assert.That(again.IsSuccess, Is.True, again.Error?.Message);
         });
     }
 

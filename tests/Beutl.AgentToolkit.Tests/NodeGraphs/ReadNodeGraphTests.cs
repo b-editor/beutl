@@ -65,7 +65,9 @@ public sealed class ReadNodeGraphTests
         // What read_node_graph returns for keyframes applies again as it is.
         ToolResult<EditNodeGraphResponse> again = scene.Edit(new NodeGraphOperation
         {
-            Op = "update", Node = pass, Values = new JsonObject { ["In.params.amount"] = amount.Value!.DeepClone() }
+            Op = "update",
+            Node = pass,
+            Values = new JsonObject { ["In.params.amount"] = amount.Value!.DeepClone() }
         });
         Assert.That(again.IsSuccess, Is.True, again.Error?.Message);
     }

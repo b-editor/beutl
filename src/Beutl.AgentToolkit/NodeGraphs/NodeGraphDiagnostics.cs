@@ -46,12 +46,17 @@ internal static partial class NodeGraphDiagnostics
         NodeGraphTarget target, Func<GraphNode, string> label, Action? whileEvaluated = null)
     {
         var diagnostics = new List<NodeGraphDiagnostic>();
+        // At the middle of the element, as a render there would record it: at its first instant a replay has run no
+        // steps, so nothing inside its body would be recorded or checked.
+        MediaTime time = target.Element is { } element
+            ? element.Start.Value + MediaTime.FromSeconds(element.Length.Value.ToSeconds() / 2)
+            : MediaTime.Zero;
         using (var snapshot = new GraphSnapshot())
         {
             try
             {
-                snapshot.Build(target.Root, CompositionContext.Default);
-                snapshot.Evaluate(CompositionContext.Default);
+                snapshot.Build(target.Root, new CompositionContext(time));
+                snapshot.Evaluate(new CompositionContext(time));
             }
             catch (Exception ex)
             {
