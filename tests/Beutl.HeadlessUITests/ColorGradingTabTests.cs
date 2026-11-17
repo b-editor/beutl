@@ -546,6 +546,45 @@ public sealed class ColorGradingTabTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(420, 560)]
+    [TestCase(550, 674)]
+    public async Task The_wrapped_tonal_range_leaves_room_for_the_pads_after_redocking(int width, int height)
+    {
+        using TabHost host = await TabHost.OpenAsync("grading-wrapped-range", width, height, mode: 0);
+        var scroller = host.View.FindControl<ScrollViewer>("AdjustmentsScroller")!;
+        var range = host.View.FindControl<Grid>("TonalRangeRow")!;
+        var boxes = host.View.FindControl<WrapPanel>("TonalRangeEditors")!;
+        AssertWrappedLayout();
+
+        host.Window.Width = 1080;
+        host.Window.Height = 360;
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.View.CurrentPlacement, Is.EqualTo(ColorGradingTabView.AdjustmentsPlacement.Beside));
+
+        host.Model.WheelMode.Value = host.Model.AvailableWheelModes[1];
+        host.Window.Width = width;
+        host.Window.Height = height;
+        HeadlessTestHelpers.Render(3);
+        Assert.That(range.IsEffectivelyVisible, Is.False);
+        host.Model.WheelMode.Value = host.Model.AvailableWheelModes[0];
+        HeadlessTestHelpers.Render(3);
+        AssertWrappedLayout();
+
+        void AssertWrappedLayout()
+        {
+            Assert.That(host.View.CurrentPlacement, Is.EqualTo(ColorGradingTabView.AdjustmentsPlacement.Above));
+            Assert.That(Grid.GetRow(boxes), Is.EqualTo(1));
+            Assert.That(scroller.Extent.Height, Is.GreaterThan(scroller.Viewport.Height));
+            Assert.That(host.Wheels.PadSize, Is.GreaterThanOrEqualTo(95.5));
+            foreach (ColorGradingWheel wheel in host.Wheels.Children.OfType<ColorGradingWheel>())
+            {
+                AvaPoint bottom = wheel.TranslatePoint(new AvaPoint(0, wheel.Bounds.Height), range)!.Value;
+                Assert.That(bottom.Y, Is.LessThanOrEqualTo(0), wheel.Header);
+            }
+        }
+    }
+
     // A drag that lengthened a wheel's numbers used to widen its boxes and break the row of wheels. The wheels now stay
     // where they are, in the middle of the height they have, and the numbers are whole.
     [AvaloniaTest]
@@ -555,7 +594,7 @@ public sealed class ColorGradingTabTests
         ColorWheelsPanel wheels = host.Wheels;
         ColorGradingWheel[] shown = [.. wheels.Children.OfType<ColorGradingWheel>()];
         Rect[] before = [.. shown.Select(wheel => wheel.Bounds)];
-        var area = (Control)wheels.GetVisualParent()!.GetVisualParent()!;
+        var area = (Control)wheels.GetVisualParent()!;
         AvaPoint top = wheels.TranslatePoint(default, area)!.Value;
         Assert.Multiple(() =>
         {

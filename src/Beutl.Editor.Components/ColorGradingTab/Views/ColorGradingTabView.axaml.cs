@@ -10,33 +10,15 @@ namespace Beutl.Editor.Components.ColorGradingTab.Views;
 
 public partial class ColorGradingTabView : UserControl
 {
-    // A tab this much wider than high, and wide enough to spare the column, leaves the wheels more room with the
-    // sliders beside them than above them, as one docked at the bottom does.
-    private const double BesideAspectRatio = 2.4;
-    private const double BesideMinWidth = 860;
-    // Above the wheels, the sliders scroll rather than push the wheels out of a low tab. The wheels keep a pad of
-    // MinPadSize with their header, jog and boxes, as the wheels measure them, the gap above them (the scroller's
-    // bottom margin) and the tonal range row in its mode; the sliders keep at least two rows.
-    private const double MinPadSize = 96;
-    private const double AdjustmentsGap = 12;
-    private const double TonalRangeHeight = 48;
-    private const double MinAdjustmentsHeight = 72;
     private readonly CompositeDisposable _subscriptions = [];
-    private readonly Control[] _sliderRows;
     private float _rangeStart;
 
     public ColorGradingTabView()
     {
         InitializeComponent();
-        _sliderRows = [TemperatureEditor, TintEditor, ExposureEditor, ContrastEditor, ContrastPivotEditor, SaturationEditor, VibranceEditor, HueEditor];
+        ContentPanel.SliderRows = [TemperatureEditor, TintEditor, ExposureEditor, ContrastEditor, ContrastPivotEditor, SaturationEditor, VibranceEditor, HueEditor];
 
         DataContextChanged += OnDataContextChanged;
-        // The placement follows the content's size and, since whether the sliders fit above the wheels is known once
-        // they are laid out, theirs; a scroll that only moves the sliders changes neither.
-        ContentGrid.SizeChanged += (_, _) => UpdateAdjustmentsPlacement();
-        AdjustmentGroups.SizeChanged += (_, _) => UpdateAdjustmentsPlacement();
-        UpdateAdjustmentsPlacement();
-
         // The tonal range slider shows the two editors' values and edits through them, so that its drags preview,
         // confirm and undo as a scrub of either header does. Both ranges step alike.
         LowRangeEditor.GetObservable(NumberEditor<float>.ValueProperty).Subscribe(value => TonalRangeSlider.Low = value);
@@ -58,47 +40,11 @@ public partial class ColorGradingTabView : UserControl
     // Where the sliders stand; null decides by the shape of the tab, and tests fix it.
     internal AdjustmentsPlacement? Placement
     {
-        get;
-        set
-        {
-            field = value;
-            UpdateAdjustmentsPlacement();
-        }
+        get => ContentPanel.Placement;
+        set => ContentPanel.Placement = value;
     }
 
-    internal AdjustmentsPlacement CurrentPlacement { get; private set; }
-
-    // The content's size comes from the tab rather than from what it holds, so moving the sliders does not change it.
-    private void UpdateAdjustmentsPlacement()
-    {
-        Size size = ContentGrid.Bounds.Size;
-        // Both modes' wheels have the same header, jog and boxes, so whichever were laid out tell their height.
-        double chrome = Math.Max(LiftWheels.ChromeHeight, LogWheels.ChromeHeight);
-        bool log = (DataContext as ColorGradingTabViewModel)?.IsLogMode.Value == true;
-        double reserve = MinPadSize + chrome + AdjustmentsGap + (log ? TonalRangeHeight : 0);
-        double aboveHeight = Math.Max(MinAdjustmentsHeight, size.Height - reserve);
-        AdjustmentsPlacement placement = Placement ?? ChoosePlacement(size, aboveHeight);
-        bool compact = placement == AdjustmentsPlacement.Compact;
-        CurrentPlacement = placement;
-        ContentGrid.Classes.Set("beside", placement != AdjustmentsPlacement.Above);
-        ContentGrid.Classes.Set("compact", compact);
-        foreach (Control row in _sliderRows)
-            row.Classes.Set("compact", compact);
-
-        AdjustmentsScroller.MaxHeight = placement == AdjustmentsPlacement.Above ? aboveHeight : double.PositiveInfinity;
-    }
-
-    private AdjustmentsPlacement ChoosePlacement(Size size, double aboveHeight)
-    {
-        if (size.Width >= BesideMinWidth && size.Width >= size.Height * BesideAspectRatio)
-            return AdjustmentsPlacement.Beside;
-
-        // A tab no higher than wide that cannot show all the sliders above the wheels shows their names and boxes
-        // beside the wheels instead, which leaves the wheels the whole height and the numbers in view.
-        return size.Width >= size.Height && AdjustmentGroups.HeightAt(size.Width) > aboveHeight
-            ? AdjustmentsPlacement.Compact
-            : AdjustmentsPlacement.Above;
-    }
+    internal AdjustmentsPlacement CurrentPlacement => ContentPanel.CurrentPlacement;
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
@@ -124,7 +70,6 @@ public partial class ColorGradingTabView : UserControl
             _subscriptions.Add(vm.GammaEditor.Subscribe(v => BindEditor(GammaPicker, v)));
             _subscriptions.Add(vm.GainEditor.Subscribe(v => BindEditor(GainPicker, v)));
             _subscriptions.Add(vm.OffsetEditor.Subscribe(v => BindEditor(OffsetPicker, v)));
-            _subscriptions.Add(vm.IsLogMode.Subscribe(_ => UpdateAdjustmentsPlacement()));
         }
     }
 

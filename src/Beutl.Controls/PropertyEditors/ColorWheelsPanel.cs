@@ -52,8 +52,30 @@ public sealed class ColorWheelsPanel : Panel
 
     internal double PadSize => _arrangement.Pad;
 
-    // The height a wheel needs besides its pad, as the last measure found it.
-    internal double ChromeHeight => _chromeHeight;
+    // The sliders can scroll above the wheels. Reserve the shortest arrangement that fits the requested pads.
+    internal double MeasureHeightForPad(double width, double pad)
+    {
+        ColorGradingWheel[] wheels = VisibleWheels();
+        if (wheels.Length == 0)
+            return 0;
+
+        MeasureChrome(wheels[0]);
+        pad = Math.Min(pad, Math.Min(width, MaxPadSize));
+        return Arrangements(wheels.Length, width, double.PositiveInfinity, pad)
+            .Where(candidate => candidate.Pad >= pad)
+            .Min(candidate => HeightFor(wheels.Length, candidate));
+    }
+
+    private void MeasureChrome(ColorGradingWheel first)
+    {
+        if (first != _chromeSource || !first.IsMeasureValid)
+        {
+            first.Measure(Size.Infinity);
+            _chromeHeight = first.ChromeHeight;
+            _chromeWidth = first.ChromeWidth;
+            _chromeSource = first;
+        }
+    }
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -66,20 +88,10 @@ public sealed class ColorWheelsPanel : Panel
             ? availableSize.Width
             : (wheels.Length * (MaxPadSize + spacing)) - spacing;
 
-        // Measured with no limits only when its parts may have changed, the first wheel keeps its measure cached across
-        // passes that only resize the panel.
-        ColorGradingWheel first = wheels[0];
-        if (first != _chromeSource || !first.IsMeasureValid)
-        {
-            first.Measure(Size.Infinity);
-            _chromeHeight = first.ChromeHeight;
-            _chromeWidth = first.ChromeWidth;
-            _chromeSource = first;
-        }
-
+        MeasureChrome(wheels[0]);
         _arrangement = Choose(wheels.Length, width, availableSize.Height);
 
-        Size wheelSize = WheelSize();
+        Size wheelSize = WheelSize(_arrangement);
         foreach (ColorGradingWheel wheel in wheels)
         {
             wheel.IsSideBySide = _arrangement.SideBySide;
@@ -87,11 +99,10 @@ public sealed class ColorWheelsPanel : Panel
         }
 
         // The cells share the whole width; without one, the wheels side by side are as wide as the row gets.
-        int rows = RowCount(wheels.Length);
         double desiredWidth = double.IsFinite(availableSize.Width)
             ? availableSize.Width
             : (_arrangement.Columns * wheelSize.Width) + ((_arrangement.Columns - 1) * spacing);
-        return new Size(desiredWidth, (rows * wheelSize.Height) + ((rows - 1) * spacing));
+        return new Size(desiredWidth, HeightFor(wheels.Length, _arrangement));
     }
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -103,9 +114,9 @@ public sealed class ColorWheelsPanel : Panel
         double spacing = Spacing;
         int columns = _arrangement.Columns;
         double cellWidth = CellWidth(finalSize.Width);
-        Size wheelSize = WheelSize();
+        Size wheelSize = WheelSize(_arrangement);
         double wheelWidth = Math.Min(wheelSize.Width, cellWidth);
-        int rows = RowCount(wheels.Length);
+        int rows = RowCount(wheels.Length, columns);
         for (int i = 0; i < wheels.Length; i++)
         {
             int row = i / columns;
@@ -122,15 +133,21 @@ public sealed class ColorWheelsPanel : Panel
 
     private ColorGradingWheel[] VisibleWheels() => [.. Children.OfType<ColorGradingWheel>().Where(wheel => wheel.IsVisible)];
 
-    private int RowCount(int count) => (count + _arrangement.Columns - 1) / _arrangement.Columns;
+    private static int RowCount(int count, int columns) => (count + columns - 1) / columns;
+
+    private double HeightFor(int count, Arrangement arrangement)
+    {
+        int rows = RowCount(count, arrangement.Columns);
+        return (rows * WheelSize(arrangement).Height) + ((rows - 1) * Spacing);
+    }
 
     private double CellWidth(double width)
         => Math.Max((width - (Spacing * (_arrangement.Columns - 1))) / _arrangement.Columns, 0);
 
-    private Size WheelSize()
+    private Size WheelSize(Arrangement arrangement)
     {
-        double pad = _arrangement.Pad;
-        return _arrangement.SideBySide
+        double pad = arrangement.Pad;
+        return arrangement.SideBySide
             ? new Size(pad + SideGap + _chromeWidth, Math.Max(pad, _chromeHeight))
             : new Size(Math.Max(pad, _chromeWidth), pad + _chromeHeight);
     }
@@ -139,9 +156,27 @@ public sealed class ColorWheelsPanel : Panel
     {
         Arrangement? best = null;
         double bestScore = double.NegativeInfinity;
+        foreach (Arrangement candidate in Arrangements(count, width, height, MaxPadSize))
+        {
+            // Earlier arrangements, with more columns, win ties.
+            int rows = RowCount(count, candidate.Columns);
+            double score = candidate.Pad / (candidate.SideBySide ? SidePreference : 1) / (rows > 1 ? RowPreference : 1);
+            if (score > bestScore + 0.5)
+            {
+                best = candidate;
+                bestScore = score;
+            }
+        }
+
+        Arrangement chosen = best ?? new Arrangement(1, MinPadSize, false);
+        return chosen with { Pad = Math.Max(chosen.Pad, MinPadSize) };
+    }
+
+    private IEnumerable<Arrangement> Arrangements(int count, double width, double height, double maxPad)
+    {
         foreach (int columns in new[] { count, (count + 1) / 2, 1 }.Distinct())
         {
-            int rows = (count + columns - 1) / columns;
+            int rows = RowCount(count, columns);
             double cellWidth = (width - (Spacing * (columns - 1))) / columns;
             double cellHeight = double.IsFinite(height)
                 ? (height - (Spacing * (rows - 1))) / rows
@@ -149,26 +184,12 @@ public sealed class ColorWheelsPanel : Panel
 
             // A wheel narrower than its controls would cut them, so only one column may be that narrow.
             if (cellWidth >= _chromeWidth || columns == 1)
-                Consider(new Arrangement(columns, Math.Min(Math.Min(cellWidth, cellHeight - _chromeHeight), MaxPadSize), false), rows);
+                yield return new Arrangement(columns, Math.Min(Math.Min(cellWidth, cellHeight - _chromeHeight), maxPad), false);
 
             if (cellHeight >= _chromeHeight)
             {
-                double pad = Math.Min(Math.Min(cellHeight, cellWidth - SideGap - _chromeWidth), MaxPadSize);
-                Consider(new Arrangement(columns, pad, true), rows);
-            }
-        }
-
-        Arrangement chosen = best ?? new Arrangement(1, MinPadSize, false);
-        return chosen with { Pad = Math.Max(chosen.Pad, MinPadSize) };
-
-        // Earlier arrangements, with more columns, win ties.
-        void Consider(Arrangement candidate, int rows)
-        {
-            double score = candidate.Pad / (candidate.SideBySide ? SidePreference : 1) / (rows > 1 ? RowPreference : 1);
-            if (score > bestScore + 0.5)
-            {
-                best = candidate;
-                bestScore = score;
+                double pad = Math.Min(Math.Min(cellHeight, cellWidth - SideGap - _chromeWidth), maxPad);
+                yield return new Arrangement(columns, pad, true);
             }
         }
     }
