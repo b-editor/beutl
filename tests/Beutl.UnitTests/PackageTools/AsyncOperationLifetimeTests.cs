@@ -93,7 +93,8 @@ public sealed class AsyncOperationLifetimeTests
             });
         Task operation = lifetime.RunAsync(async cancellationToken =>
         {
-            using CancellationTokenRegistration registration = cancellationToken.Register(() =>
+            // The operation can finish while cancellation is still dispatching this callback.
+            _ = cancellationToken.Register(() =>
                 reentrantDisposal = lifetime.DisposeAsync().AsTask());
             operationStarted.TrySetResult();
             try
@@ -133,7 +134,8 @@ public sealed class AsyncOperationLifetimeTests
             TimeSpan.FromMilliseconds(100));
         Task operation = lifetime.RunAsync(async cancellationToken =>
         {
-            using CancellationTokenRegistration registration = cancellationToken.Register(() =>
+            // The operation can finish while cancellation is still dispatching this callback.
+            _ = cancellationToken.Register(() =>
             {
                 lifetime.DisposeAsync().AsTask().GetAwaiter().GetResult();
                 callbackReturned.TrySetResult();
