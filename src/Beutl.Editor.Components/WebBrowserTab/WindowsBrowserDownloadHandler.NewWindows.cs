@@ -211,6 +211,17 @@ internal sealed partial class WindowsBrowserDownloadHandler
             const allowed = '{{target}}';
             const policyValue = document.createElement('a');
             let documentPolicy = '';
+            const observedMetas = new WeakSet();
+            function* metasIn(nodes) {
+                for (const node of nodes) {
+                    if (node instanceof HTMLMetaElement) yield node;
+                    if (node.firstElementChild) {
+                        for (const meta of node.getElementsByTagName('meta')) {
+                            if (meta instanceof HTMLMetaElement) yield meta;
+                        }
+                    }
+                }
+            }
             const legacy = { never: 'no-referrer', always: 'unsafe-url', default: 'strict-origin-when-cross-origin',
                 'origin-when-crossorigin': 'origin-when-cross-origin' };
 
@@ -220,15 +231,16 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 if (!records.length) return;
                 const states = new Map();
                 const updates = new Map();
+                const renamedReferrers = new Set();
                 for (let i = records.length - 1; i >= 0; i--) {
                     const record = records[i], meta = record.target;
                     if (record.type !== 'attributes' || !(meta instanceof HTMLMetaElement)) continue;
+                    if (record.attributeName === 'name' && record.oldValue?.toLowerCase() === 'referrer') renamedReferrers.add(meta);
                     const state = states.get(meta) ?? { name: meta.name, content: meta.content };
                     updates.set(record, state);
                     states.set(meta, { ...state, [record.attributeName]: record.oldValue ?? '' });
                 }
                 function applyMeta(meta) {
-                    if (!(meta instanceof HTMLMetaElement)) return;
                     const state = states.get(meta) ?? meta;
                     if (state.name.toLowerCase() !== 'referrer') return;
                     const value = state.content.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '').toLowerCase();
@@ -240,11 +252,14 @@ internal sealed partial class WindowsBrowserDownloadHandler
                         states.set(record.target, updates.get(record));
                         applyMeta(record.target);
                     } else {
-                        for (const node of record.addedNodes) {
-                            applyMeta(node);
-                            if (node.firstElementChild) {
-                                for (const meta of node.getElementsByTagName('meta')) applyMeta(meta);
-                            }
+                        for (const meta of metasIn(record.removedNodes)) {
+                            // An inserted wrapper may already have lost this meta when its addition is replayed.
+                            if (!observedMetas.delete(meta) && (meta.name.toLowerCase() === 'referrer' || renamedReferrers.has(meta)))
+                                documentPolicy = 'no-referrer';
+                        }
+                        for (const meta of metasIn(record.addedNodes)) {
+                            observedMetas.add(meta);
+                            applyMeta(meta);
                         }
                     }
                 }

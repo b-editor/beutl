@@ -174,6 +174,12 @@ internal static class NativeBrowserFrameTestHost
         await using var server = WebApplication.CreateSlimBuilder().Build();
         server.Urls.Add("http://127.0.0.1:0");
         var requests = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        var probeReferrer = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.MapGet("/referrer-probe", (HttpContext context) =>
+        {
+            probeReferrer.TrySetResult(context.Request.Headers.Referer.ToString());
+            return Results.NoContent();
+        });
         var loading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var finishLoad = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         server.MapGet("/defer", async () =>
@@ -340,6 +346,30 @@ internal static class NativeBrowserFrameTestHost
             await Check("const m=document.createElement('meta'); m.name='referrer'; m.content='origin'; document.head.append(m); window.open(document.querySelector('a').href)", origin.AbsoluteUri);
             await Check("document.querySelector('meta').content='invalid'; window.open(document.querySelector('a').href)", origin.AbsoluteUri);
             await Check("document.querySelector('meta').content='no-referrer'; document.querySelector('meta').content='invalid'; window.open(document.querySelector('a').href)", "");
+            if (OperatingSystem.IsWindows())
+            {
+                await Load("normal");
+                Task popup = Check("""
+                    (() => {
+                        const wrapper = document.createElement('div');
+                        wrapper.innerHTML = '<meta name="referrer" content="no-referrer">';
+                        document.head.append(wrapper);
+                        wrapper.firstElementChild.remove();
+                        fetch('/referrer-probe');
+                        window.open(document.querySelector('a').href);
+                    })()
+                    """, "");
+                Assert.That(await probeReferrer.Task.WaitAsync(token), Is.Empty, "Chromium's own request after removing the nested meta");
+                await popup;
+                await Check("""
+                    const permissive = document.createElement('meta');
+                    permissive.name = 'referrer';
+                    permissive.content = 'origin';
+                    document.head.append(permissive);
+                    window.open(document.querySelector('a').href)
+                    """, origin.AbsoluteUri);
+                await Check("document.querySelector('meta[name=referrer]').remove(); window.open(document.querySelector('a').href)", origin.AbsoluteUri);
+            }
             await Load("header");
             await Check("document.querySelector('a').click()", "");
             await Check("history.pushState({}, '', '/items?view=grid'); document.querySelector('a').click()", "");
