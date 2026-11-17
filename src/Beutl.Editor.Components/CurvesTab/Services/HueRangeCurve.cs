@@ -39,7 +39,12 @@ internal static class HueRangeCurve
         float leftSlope = Slope(curve, leftX, -1);
         float rightSlope = Slope(curve, rightX, 1);
 
-        List<CurveControlPoint> points = WithEnds(curve.Points);
+        // A point at an end only where the range cuts past the first or last point or crosses the ends, or bends a
+        // straight first piece, whose line carries on back towards hue 0 only while it stays straight.
+        IReadOnlyList<CurveControlPoint> source = curve.Points;
+        bool start = crossesEnds || source.Count < 2 || leftX < source[1].Point.X - Tolerance;
+        bool end = crossesEnds || source.Count == 0 || rightX > source[^1].Point.X + Tolerance;
+        List<CurveControlPoint> points = WithEnds(source, start, end);
         if (!SplitAt(points, leftX) || !SplitAt(points, rightX))
             return null;
 
@@ -131,9 +136,13 @@ internal static class HueRangeCurve
         return float.IsFinite(slope) ? Math.Clamp(slope, -MaxSlope, MaxSlope) : 0;
     }
 
-    // The curve holds its first value before its first point and its last after its last, so points at both ends
-    // change nothing; the range needs them to cross the ends.
-    private static List<CurveControlPoint> WithEnds(IReadOnlyList<CurveControlPoint> source)
+    // A curve made outside the editor, as by an agent, can start after hue 0 or end before hue 1. CurveMap.Evaluate
+    // holds the last value after the last point; before the first point it carries a straight first piece on back and
+    // holds the first value of a curved one. The points added at the ends continue the curve that way, so the hues
+    // outside the range keep their values, but for hue 0 itself, where Evaluate jumps to the first value before a
+    // straight piece. The first point's left handle and the last point's right handle bent nothing until now, and
+    // would bend the new end pieces, so they go.
+    private static List<CurveControlPoint> WithEnds(IReadOnlyList<CurveControlPoint> source, bool start, bool end)
     {
         var points = new List<CurveControlPoint>(source.Count + 7);
         if (source.Count == 0)
@@ -143,12 +152,31 @@ internal static class HueRangeCurve
             return points;
         }
 
-        if (source[0].Point.X > 0)
-            points.Add(new CurveControlPoint(0, source[0].Point.Y));
         points.AddRange(source);
-        if (source[^1].Point.X < 1)
+        if (start && source[0].Point.X > 0)
+        {
+            points[0] = points[0].WithLeftHandle(default);
+            points.Insert(0, new CurveControlPoint(0, ValueBeforeFirst(source)));
+        }
+
+        if (end && source[^1].Point.X < 1)
+        {
+            points[^1] = points[^1].WithRightHandle(default);
             points.Add(new CurveControlPoint(1, source[^1].Point.Y));
+        }
+
         return points;
+    }
+
+    // What CurveMap.Evaluate gives between hue 0 and a first point past it.
+    private static float ValueBeforeFirst(IReadOnlyList<CurveControlPoint> source)
+    {
+        Point first = source[0].Point;
+        if (source.Count < 2 || source[0].HasHandles || source[1].HasHandles || source[1].Point.X <= first.X)
+            return first.Y;
+
+        Point second = source[1].Point;
+        return first.Y - (second.Y - first.Y) * first.X / (second.X - first.X);
     }
 
     private static int IndexAt(List<CurveControlPoint> points, float x)

@@ -158,6 +158,43 @@ public sealed class HueRangeCurveTests
         });
     }
 
+    // Curves made outside the editor, as by an agent, need not have points at hue 0 and hue 1. CurveMap.Evaluate carries a
+    // straight first piece on back towards hue 0 and holds the last value after the last point, and the range keeps both;
+    // a first point's left handle or a last point's right handle, which bent nothing, stays out of the new end pieces.
+    [TestCaseSource(nameof(CurvesWithoutEnds))]
+    public void A_curve_without_end_points_keeps_its_values_outside_the_range(CurveMap curve, float center, float width)
+    {
+        CurveMap shaped = Shape(curve, center, width, 0.95f);
+
+        Assert.Multiple(() =>
+        {
+            // Hue 0 itself is left out: before a straight first piece, Evaluate jumps there to the first value.
+            foreach (float x in Samples().Skip(1))
+            {
+                float distance = MathF.Abs(x - center);
+                if (MathF.Min(distance, 1 - distance) > width / 2 + 1e-3f)
+                    Assert.That(shaped.Evaluate(x), Is.EqualTo(curve.Evaluate(x)).Within(1e-4f), $"x = {x}");
+            }
+
+            Assert.That(shaped.Evaluate(center), Is.EqualTo(0.95f).Within(1e-3f));
+        });
+    }
+
+    private static IEnumerable<TestCaseData> CurvesWithoutEnds()
+    {
+        var straight = new CurveMap([new CurveControlPoint(0.2f, 0.3f), new CurveControlPoint(0.8f, 0.7f)]);
+        var bent = new CurveMap(
+        [
+            new CurveControlPoint(new Point(0.2f, 0.3f), new Point(-0.1f, 0.2f), new Point(0.1f, 0)),
+            new CurveControlPoint(new Point(0.8f, 0.7f), new Point(-0.1f, 0), new Point(0.1f, 0.2f)),
+        ]);
+        yield return new TestCaseData(straight, 0.5f, 0.2f).SetArgDisplayNames("straight", "inside");
+        yield return new TestCaseData(straight, 0.9f, 0.1f).SetArgDisplayNames("straight", "past the last point");
+        yield return new TestCaseData(straight, 0.1f, 0.4f).SetArgDisplayNames("straight", "across the ends");
+        yield return new TestCaseData(bent, 0.5f, 0.2f).SetArgDisplayNames("bent", "inside");
+        yield return new TestCaseData(bent, 0.9f, 0.1f).SetArgDisplayNames("bent", "past the last point");
+    }
+
     [Test]
     public void A_range_wider_than_the_widest_is_held_to_it()
     {
