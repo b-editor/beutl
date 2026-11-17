@@ -34,6 +34,35 @@ public sealed class ColorPickerDragTests
 {
     public enum DragEnd { CaptureLoss, Playback, Escape, Undo }
 
+    [AvaloniaTest]
+    public void The_grading_picker_previews_a_component_wheel_drag_and_confirms_it_on_release()
+    {
+        var initial = new GradingColor(0.2f, 0.3f, 0.4f);
+        var picker = new GradingColorPicker { Color = initial };
+        using var host = new ControlHost(picker, 360, 650);
+        picker.ShowDetails = true;
+        HeadlessTestHelpers.Render(3);
+
+        (GradingColor, GradingColor)? changed = null;
+        List<(GradingColor, GradingColor)> confirmed = [];
+        picker.ColorChanged += (_, e) => changed = e;
+        picker.ColorConfirmed += (_, e) => confirmed.Add(e);
+        GradingWheel red = picker.GetVisualDescendants().OfType<GradingWheel>().Single(w => w.Name == "FirstComponentWheel");
+        Point start = red.TranslatePoint(new Point(red.Bounds.Width / 2, red.Bounds.Height / 2), host.Window)!.Value;
+        Point end = start + new Vector(30, 0);
+        host.Window.MouseMove(start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+
+        GradingColor preview = picker.Color;
+        Assert.That(preview.R, Is.GreaterThan(initial.R));
+        Assert.That((preview.G, preview.B), Is.EqualTo((initial.G, initial.B)));
+        Assert.That(changed, Is.EqualTo((initial, preview)));
+        Assert.That(confirmed, Is.Empty);
+        host.Window.MouseUp(end, MouseButton.Left);
+        Assert.That(confirmed, Is.EqualTo(new[] { (initial, preview) }));
+    }
+
     // Avalonia's spectrum maps points to colors only once it has built its color map in the background.
     private static Task WaitForColorMapAsync(ColorSpectrum spectrum)
     {
