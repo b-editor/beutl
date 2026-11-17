@@ -349,12 +349,21 @@ internal static class NativeBrowserFrameTestHost
             if (OperatingSystem.IsWindows())
             {
                 await Load("normal");
+                // Let the observer deliver the removal before reusing the detached subtree.
+                await browser.InvokeScript("""
+                    window.referrerWrapper = document.createElement('div');
+                    document.head.append(window.referrerWrapper);
+                    window.referrerWrapper.remove();
+                    window.referrerWrapper.append(document.createElement('meta'));
+                    """);
                 Task popup = Check("""
                     (() => {
-                        const wrapper = document.createElement('div');
-                        wrapper.innerHTML = '<meta name="referrer" content="no-referrer">';
+                        const wrapper = window.referrerWrapper;
+                        const meta = wrapper.firstElementChild;
+                        meta.name = 'referrer';
+                        meta.content = 'no-referrer';
                         document.head.append(wrapper);
-                        wrapper.firstElementChild.remove();
+                        meta.remove();
                         fetch('/referrer-probe');
                         window.open(document.querySelector('a').href);
                     })()

@@ -245,7 +245,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
                     if (state.name.toLowerCase() !== 'referrer') return;
                     const value = state.content.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '').toLowerCase();
                     policyValue.referrerPolicy = Object.hasOwn(legacy, value) ? legacy[value] : value;
-                    if (policyValue.referrerPolicy) documentPolicy = meta.isConnected ? policyValue.referrerPolicy : 'no-referrer';
+                    if (policyValue.referrerPolicy) documentPolicy = document.contains(meta) ? policyValue.referrerPolicy : 'no-referrer';
                 }
                 for (const record of records) {
                     if (updates.has(record)) {
@@ -258,7 +258,9 @@ internal sealed partial class WindowsBrowserDownloadHandler
                                 documentPolicy = 'no-referrer';
                         }
                         for (const meta of metasIn(record.addedNodes)) {
-                            observedMetas.add(meta);
+                            // The observer can still report additions inside a removed subtree until delivery.
+                            if (document.contains(meta)) observedMetas.add(meta);
+                            else observedMetas.delete(meta);
                             applyMeta(meta);
                         }
                     }
