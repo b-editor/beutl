@@ -14,7 +14,7 @@ public class LibraryPageDisposalTests
     {
         using var httpClient = new HttpClient();
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var editorService = new EditorService(new ExtensionProvider());
+        var editorService = new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices);
         var projectService = new ProjectService();
         var viewModel = new LibraryPageViewModel(null, app, editorService, projectService);
 

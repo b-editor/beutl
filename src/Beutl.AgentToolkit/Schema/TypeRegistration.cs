@@ -35,6 +35,14 @@ public static class TypeRegistration
 
     internal static string? FindDescription(Type type) => s_descriptions.GetValueOrDefault(type);
 
+    public static LibraryService CreateLibraryService()
+    {
+        var library = new LibraryService();
+        LibraryRegistrar.RegisterAll(library);
+        EnsureRegistered();
+        return library;
+    }
+
     public static void EnsureRegistered()
     {
         lock (s_lock)
@@ -44,8 +52,6 @@ public static class TypeRegistration
                 return;
             }
 
-            // The editor's library items first, so this host describes the same types as the app.
-            LibraryRegistrar.RegisterAll();
             RegisterTransforms();
             RegisterFilterEffects();
             RegisterAudioEffects();

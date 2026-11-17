@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.Components.Helpers;
+﻿using Beutl.Editor.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Language;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -8,13 +9,26 @@ namespace Beutl.UnitTests.Editor;
 [NonParallelizable]
 public class TemplateSavingTests
 {
+    private ObjectTemplateService _templates = null!;
+
+    [SetUp]
+    public void SetUpTemplates() => _templates = new ObjectTemplateService(
+        Path.Combine(Path.GetTempPath(), $"beutl-templates-{Guid.NewGuid():N}"));
+
+    [TearDown]
+    public void DisposeTemplates()
+    {
+        _templates.Dispose();
+        Directory.Delete(_templates.DirectoryPath, recursive: true);
+    }
+
     [Test]
     public async Task A_saved_template_calls_back_without_an_error()
     {
         using var notifications = NotificationCapture.Install();
         int saved = 0;
 
-        bool result = await TemplateSaving.SaveAsync(
+        bool result = await TemplateSaving.SaveAsync(_templates,
             new Audio.Effects.AudioEffectGroup(), $"saving-{Guid.NewGuid():N}", () => saved++);
 
         Assert.That(result, Is.True);
@@ -28,7 +42,7 @@ public class TemplateSavingTests
         using var notifications = NotificationCapture.Install();
         int saved = 0;
 
-        bool result = await TemplateSaving.SaveAsync(new Audio.Effects.AudioEffectGroup(), "a/b", () => saved++);
+        bool result = await TemplateSaving.SaveAsync(_templates, new Audio.Effects.AudioEffectGroup(), "a/b", () => saved++);
 
         Assert.That(result, Is.False);
         Assert.That(saved, Is.Zero);

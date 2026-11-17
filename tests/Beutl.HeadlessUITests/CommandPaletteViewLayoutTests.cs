@@ -93,7 +93,7 @@ public class CommandPaletteViewLayoutTests
         var extension = new SearchExtension();
         var provider = new ExtensionProvider();
         provider.AddExtensions(-45009, [extension]);
-        var editor = new EditorService(provider);
+        var editor = new EditorService(provider, TestShell.MainViewModel.AppServices);
         var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);
         var handler = new Handler(async execution =>

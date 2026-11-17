@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using Beutl.Editor.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -33,7 +35,7 @@ public partial class AudioEffectEditor : UserControl
         if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
         if (EditorDragDropHelper.TryHandleEditorDrop<AudioEffect>(
-                e,
+                viewModel.GetRequiredService<ObjectTemplateService>(), e,
                 BeutlDataFormats.AudioEffect,
                 tryPasteJson: viewModel.TryPasteJson,
                 onTemplateInstance: instance => viewModel.AddItem(instance),
@@ -74,7 +76,7 @@ public partial class AudioEffectEditor : UserControl
     {
         return PickerGuard.RunAsync(this, button, async () =>
         {
-            var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.AudioEffect, typeof(AudioEffect));
+            var viewModel = new SelectLibraryItemDialogViewModel(((IServiceProvider)DataContext!).GetRequiredService<LibraryService>(), KnownLibraryItemFormats.AudioEffect, typeof(AudioEffect));
             return await LibraryItemPickerHelper.ShowAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect) as Type;
         });
     }

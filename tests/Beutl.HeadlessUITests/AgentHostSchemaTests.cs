@@ -28,7 +28,7 @@ public sealed class AgentHostSchemaTests
             string[] library =
             [
                 .. typeof(KnownLibraryItemFormats).GetFields()
-                    .SelectMany(field => LibraryService.Current.GetTypesFromFormat((string)field.GetValue(null)!))
+                    .SelectMany(field => TestShell.Library.GetTypesFromFormat((string)field.GetValue(null)!))
                     .Select(type => type.FullName!)
             ];
 

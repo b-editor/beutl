@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Live;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Extensibility;
@@ -28,6 +29,8 @@ public static class AgentToolkitMcpServer
         BundledFontRegistration.EnsureRegistered();
 
         services
+            .AddSingleton(_ => TypeRegistration.CreateLibraryService())
+            .AddSingleton<SchemaGenerator>()
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
             .AddAgentToolkitRendering()
             .AddSingleton<FileSessionSource>()

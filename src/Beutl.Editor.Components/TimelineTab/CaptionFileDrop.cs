@@ -20,10 +20,11 @@ internal static class CaptionFileDrop
     public static bool IsCaptionFile(string file) => s_catalog.Value.Codecs.TryGetByFileName(file, out _);
 
     // The default look and the text templates saved so far, which change while Beutl runs.
-    public static IReadOnlyList<CaptionTemplate> GetTemplates()
+    public static IReadOnlyList<CaptionTemplate> GetTemplates(ObjectTemplateService templates)
     {
-        CaptionCatalog catalog = s_catalog.Value;
-        catalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates());
+        CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            Strings.AiSubtitle_DefaultTemplate, CaptionCatalog.FindObjectTemplates(templates),
+            CaptionPresentationDefaults.ElementFactory);
         return [.. catalog.Templates.Templates.Select(item => catalog.Templates.GetTemplate(item.Id))];
     }
 

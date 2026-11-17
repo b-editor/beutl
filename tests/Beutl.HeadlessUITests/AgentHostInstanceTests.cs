@@ -191,8 +191,8 @@ public sealed class AgentHostInstanceTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-instance-tests-");
-        var firstEditor = new EditorService(TestShell.Extensions);
-        var secondEditor = new EditorService(TestShell.Extensions);
+        var firstEditor = new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices);
+        var secondEditor = new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices);
         Scene firstScene = OpenScene(firstEditor, directory, "first");
         Scene secondScene = OpenScene(secondEditor, directory, "second");
         int preferredPort = AvailablePort();
@@ -268,10 +268,10 @@ public sealed class AgentHostInstanceTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-instance-tests-");
-        var editor = new EditorService(TestShell.Extensions);
+        var editor = new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices);
         Scene scene = OpenScene(editor, directory, "replacement");
-        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
-        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
+        await using var first = CreateHost(new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices), directory, AgentHostInstanceTestWorker.Token);
+        await using var second = CreateHost(new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices), directory, AgentHostInstanceTestWorker.Token);
         try
         {
             await first.StartAsync();
@@ -314,8 +314,8 @@ public sealed class AgentHostInstanceTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-instance-tests-");
-        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
-        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
+        await using var first = CreateHost(new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices), directory, AgentHostInstanceTestWorker.Token);
+        await using var second = CreateHost(new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices), directory, AgentHostInstanceTestWorker.Token);
         try
         {
             await first.StartAsync();

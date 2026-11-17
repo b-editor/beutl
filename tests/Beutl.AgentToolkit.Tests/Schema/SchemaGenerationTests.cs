@@ -28,11 +28,32 @@ namespace Beutl.AgentToolkit.Tests.Schema;
 
 public sealed class SchemaGenerationTests
 {
+    private Beutl.Services.LibraryService _library = null!;
+
+    [SetUp]
+    public void SetUpLibrary() => _library = TypeRegistration.CreateLibraryService();
+
+    [TearDown]
+    public void DisposeLibrary() => _library.Dispose();
+
+    [Test]
+    public void Schema_generators_read_only_their_own_library()
+    {
+        using var other = TypeRegistration.CreateLibraryService();
+        _library.Register<FakeExtensionDrawable>("Fake.Extension.Drawable", "Fake Extension");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(new SchemaGenerator(_library).Generate(typeFilter: nameof(FakeExtensionDrawable)).Types, Has.Count.EqualTo(1));
+            Assert.That(new SchemaGenerator(other).Generate(typeFilter: nameof(FakeExtensionDrawable)).Types, Is.Empty);
+        });
+    }
+
     // #2885 step 3: a time property names Beutl.MediaTime, and its default still writes as TimeSpan text.
     [Test]
     public void A_time_property_names_MediaTime_and_writes_its_default_as_text()
     {
-        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(SourceVideo));
+        CapabilitySchema schema = new SchemaGenerator(_library).Generate(typeFilter: nameof(SourceVideo));
         PropertyDescriptor offset = schema.Types.Single(type => type.Type == typeof(SourceVideo).FullName)
             .Properties.Single(property => property.Name == nameof(SourceVideo.OffsetPosition));
 
@@ -46,7 +67,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void A_property_declared_as_a_base_class_names_the_types_that_fit()
     {
-        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(Scene3D), includeExamples: false);
+        CapabilitySchema schema = new SchemaGenerator(_library).Generate(typeFilter: nameof(Scene3D), includeExamples: false);
         IReadOnlyList<PropertyDescriptor> properties = schema.Types.Single().Properties;
         IReadOnlyList<string>? Fits(string name) => properties.Single(property => property.Name == name).ConcreteTypes;
 
@@ -81,7 +102,7 @@ public sealed class SchemaGenerationTests
             .Select(type => type.FullName!)
             .ToArray();
 
-        string[] listedTypes = new SchemaGenerator()
+        string[] listedTypes = new SchemaGenerator(_library)
             .Generate(includeProperties: false, includeExamples: false)
             .Types.Select(type => type.Type)
             .ToArray();
@@ -92,7 +113,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void A_visualizer_shape_property_names_every_builtin_shape()
     {
-        CapabilitySchema schema = new SchemaGenerator().Generate(
+        CapabilitySchema schema = new SchemaGenerator(_library).Generate(
             typeFilter: $"{nameof(AudioSpectrumDrawable)},{nameof(AudioWaveformDrawable)}",
             includeExamples: false);
 
@@ -120,7 +141,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void An_element_is_described_with_the_names_its_enum_fields_take()
     {
-        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(Element), includeExamples: false);
+        CapabilitySchema schema = new SchemaGenerator(_library).Generate(typeFilter: nameof(Element), includeExamples: false);
         TypeDescriptor element = schema.Types.Single();
         FieldDescriptor Field(string name) => element.BaseFields.Single(field => field.Name == name);
 
@@ -137,7 +158,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void A_vector_default_is_written_the_way_documents_write_it()
     {
-        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: "Cube3D", includeExamples: false);
+        CapabilitySchema schema = new SchemaGenerator(_library).Generate(typeFilter: "Cube3D", includeExamples: false);
         PropertyDescriptor position = schema.Types.Single().Properties.Single(property => property.Name == "Position");
 
         Assert.That(position.Default, Is.EqualTo("0,0,0"));
@@ -146,7 +167,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void DiagonalClipping_ExposesSignedWidthAndAnimatedParametersWithoutMode()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         CapabilitySchema schema = generator.Generate(typeFilter: nameof(DiagonalClipping));
         TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(DiagonalClipping).FullName);
         PropertyDescriptor width = descriptor.Properties.Single(property => property.Name == nameof(DiagonalClipping.Width));
@@ -167,7 +188,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Base_fields_exclude_non_serialized_scalars_but_keep_explicit_lists()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         CapabilitySchema schema = generator.Generate(typeFilter: nameof(TextBlock));
 
         TypeDescriptor textBlock = schema.Types.Single(type => type.Type == typeof(TextBlock).FullName);
@@ -180,9 +201,9 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Schema_contains_builtin_parameters_and_fake_extension_type()
     {
-        LibraryService.Current.Register<FakeExtensionDrawable>("Fake.Extension.Drawable", "Fake Extension");
+        _library.Register<FakeExtensionDrawable>("Fake.Extension.Drawable", "Fake Extension");
 
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         CapabilitySchema schema = generator.Generate();
 
         TypeDescriptor textBlock = schema.Types.Single(type => type.Type == typeof(TextBlock).FullName);
@@ -332,7 +353,7 @@ public sealed class SchemaGenerationTests
         scene.Duration.Value = MediaTime.FromSeconds(8);
         using var session = new AgentToolkitTestSession(scene);
 
-        DeclarativeExample example = new SchemaGenerator()
+        DeclarativeExample example = new SchemaGenerator(_library)
             .GenerateExamples(nameFilter: "insert-camera-rig-push-in")
             .Single();
         JsonObject current = session.Documents.Read(scene);
@@ -365,7 +386,7 @@ public sealed class SchemaGenerationTests
         scene.Duration.Value = MediaTime.FromSeconds(8);
         using var session = new AgentToolkitTestSession(scene);
 
-        DeclarativeExample example = new SchemaGenerator()
+        DeclarativeExample example = new SchemaGenerator(_library)
             .GenerateExamples(nameFilter: "insert-camera-rig-portal")
             .Single();
         JsonObject current = session.Documents.Read(scene);
@@ -442,7 +463,7 @@ public sealed class SchemaGenerationTests
             Assert.That(TransformGroupsUseCanonicalOrder(liquidRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(dataRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(glitchRender.Patch), Is.True);
-            Assert.That(TransformGroupsUseCanonicalOrder(new SchemaGenerator()
+            Assert.That(TransformGroupsUseCanonicalOrder(new SchemaGenerator(_library)
                 .GenerateExamples(nameFilter: "create-empty-scene-orbital-radar-map")
                 .Single()
                 .Patch), Is.True);
@@ -453,7 +474,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void The_time_controller_target_is_described_as_a_reference()
     {
-        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(DrawableTimeController));
+        CapabilitySchema schema = new SchemaGenerator(_library).Generate(typeFilter: nameof(DrawableTimeController));
         PropertyDescriptor target = schema.Types.Single(type => type.Type == typeof(DrawableTimeController).FullName)
             .Properties.Single(property => property.Name == nameof(DrawableTimeController.Target));
 
@@ -463,7 +484,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Animatable_property_usage_hint_shows_concrete_angle_bracket_keyframe_discriminator()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         CapabilitySchema schema = generator.Generate(typeFilter: nameof(TextBlock));
         TypeDescriptor textBlock = schema.Types.Single(type => type.Type == typeof(TextBlock).FullName);
         PropertyDescriptor size = textBlock.Properties.Single(property => property.Name == nameof(TextBlock.Size));
@@ -480,7 +501,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Grain_and_organic_effect_recipes_use_distinct_shader_scripts()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         string grain = generator.GetEffectRecipe("fine-film-grain-field").Patch.ToJsonString();
         string organic = generator.GetEffectRecipe("organic-shader-field").Patch.ToJsonString();
 
@@ -496,7 +517,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Organic_shader_recipe_modulates_source_color_and_compiles()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         EffectRecipe organicRecipe = generator.GetEffectRecipe("organic-shader-field");
         string script = FindRequiredStringProperty(organicRecipe.Patch, nameof(SKSLScriptEffect.Script));
 
@@ -519,7 +540,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Single_sksl_effect_recipe_uses_neutral_pass_through_scaffold()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         EffectRecipe scaffoldRecipe = generator.GetEffectRecipe("effect-sksl-script-effect");
         string scaffold = scaffoldRecipe.Patch.ToJsonString();
         string organic = generator.GetEffectRecipe("organic-shader-field").Patch.ToJsonString();
@@ -548,7 +569,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Effect_recipe_polish_defaults_and_notes_are_agent_safe()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         EffectRecipe dropShadowRecipe = generator.GetEffectRecipe("effect-drop-shadow");
         JsonObject dropShadowEffect = FindRequiredEffectObject(dropShadowRecipe.Patch, typeof(DropShadow));
         (float shadowX, float shadowY) = FindRequiredPointProperty(dropShadowEffect, nameof(DropShadow.Position));
@@ -575,7 +596,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Additive_bloom_recipe_sets_plus_blend_opacity_and_guides_duplicate_object()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         EffectRecipe bloom = generator.GetEffectRecipe("additive-bloom");
         string bloomJson = bloom.Patch.ToJsonString();
         string glowJson = generator.GetEffectRecipe("glow-depth").Patch.ToJsonString();
@@ -593,7 +614,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Glow_depth_recipe_uses_drop_shadow_glow_without_source_blur()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         EffectRecipe glow = generator.GetEffectRecipe("glow-depth");
         string glowJson = glow.Patch.ToJsonString();
         string blurDiscriminator = IdentityHelper.WriteDiscriminator(typeof(Blur));
@@ -613,7 +634,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void New_curated_effect_recipes_cover_screen_multiply_and_lite_chromatic_gaps()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         string bloomJson = generator.GetEffectRecipe("additive-bloom").Patch.ToJsonString();
         string screenJson = generator.GetEffectRecipe("screen-light-leak").Patch.ToJsonString();
         string multiplyJson = generator.GetEffectRecipe("multiply-contrast-glaze").Patch.ToJsonString();
@@ -636,7 +657,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Transition_recipe_catalog_lists_semantic_transition_templates()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         IReadOnlyList<EffectRecipeSummary> recipes = generator.ListEffectRecipes("transition");
         string[] names =
         [
@@ -680,7 +701,7 @@ public sealed class SchemaGenerationTests
         scene.Children.Add(outgoing);
         scene.Children.Add(incoming);
         using var session = new AgentToolkitTestSession(scene);
-        JsonObject patch = new SchemaGenerator().GetEffectRecipe(name).Patch;
+        JsonObject patch = new SchemaGenerator(_library).GetEffectRecipe(name).Patch;
         patch["Elements"]![0]![nameof(CoreObject.Id)] = outgoing.Id.Value.ToString();
         patch["Elements"]![1]![nameof(CoreObject.Id)] = incoming.Id.Value.ToString();
 
@@ -708,7 +729,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void The_recipes_keep_the_values_a_transition_recipe_sets()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         JsonNode wipe = generator.GetEffectRecipe("transition-directional-sweep-wipe").Patch["Elements"]![1]![nameof(Element.EnterTransition)]!;
         JsonNode dip = generator.GetEffectRecipe("transition-dip-to-color").Patch["Elements"]![1]![nameof(Element.EnterTransition)]!;
 
@@ -726,13 +747,13 @@ public sealed class SchemaGenerationTests
     [Test]
     public void A_dissolve_intent_finds_the_built_in_transition_first()
     {
-        Assert.That(new SchemaGenerator().GetEffectRecipe(intent: "dissolve").Name, Is.EqualTo("transition-cross-dissolve"));
+        Assert.That(new SchemaGenerator(_library).GetEffectRecipe(intent: "dissolve").Name, Is.EqualTo("transition-cross-dissolve"));
     }
 
     [Test]
     public void Restrained_warm_grade_uses_positive_temperature_color_grading()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         EffectRecipe warm = generator.GetEffectRecipe("restrained-warm-grade");
         string warmJson = warm.Patch.ToJsonString();
         string editorialJson = generator.GetEffectRecipe("editorial-color-grade").Patch.ToJsonString();
@@ -751,7 +772,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Starter_examples_do_not_ship_long_all_caps_display_text()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         string[] starterJson = generator
             .GenerateExamples()
             .Where(example => example.Name.StartsWith("create-empty-scene-", StringComparison.Ordinal))
@@ -791,7 +812,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Engine_object_schema_exposes_drawable_object_3d()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         CapabilitySchema schema = generator.Generate(typeFilter: nameof(DrawableObject3D));
 
         TypeDescriptor? drawableObject3D = schema.Types.SingleOrDefault(type => type.Type == typeof(DrawableObject3D).FullName);
@@ -804,13 +825,13 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Schema_types_the_app_does_not_register_stay_out_of_the_library_service()
     {
-        CapabilitySchema schema = new SchemaGenerator().Generate(includeProperties: false, includeExamples: false);
+        CapabilitySchema schema = new SchemaGenerator(_library).Generate(includeProperties: false, includeExamples: false);
 
         Assert.Multiple(() =>
         {
-            Assert.That(LibraryService.Current.FindItem(typeof(SolidColorBrush)), Is.Null);
-            Assert.That(LibraryService.Current.FindItem(typeof(LinearEasing)), Is.Null);
-            Assert.That(LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.Brush), Is.Empty);
+            Assert.That(_library.FindItem(typeof(SolidColorBrush)), Is.Null);
+            Assert.That(_library.FindItem(typeof(LinearEasing)), Is.Null);
+            Assert.That(_library.GetTypesFromFormat(KnownLibraryItemFormats.Brush), Is.Empty);
             Assert.That(schema.Types.Single(type => type.Type == typeof(SolidColorBrush).FullName).DisplayName,
                 Is.EqualTo(nameof(SolidColorBrush)));
             Assert.That(schema.Types.Single(type => type.Type == typeof(LinearEasing).FullName).Category,
@@ -821,11 +842,11 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Effect_catalog_exposes_recipe_for_every_registered_filter_effect()
     {
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         string[] registeredEffectNames = TypeRegistration.Types
             .Where(entry => entry.Format == KnownLibraryItemFormats.FilterEffect)
             .Select(entry => entry.Type)
-            .Concat(LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect))
+            .Concat(_library.GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect))
             .Select(type => type.Name)
             .Distinct(StringComparer.Ordinal)
             .OrderBy(name => name, StringComparer.Ordinal)
@@ -857,7 +878,7 @@ public sealed class SchemaGenerationTests
                            && !typeof(IFallback).IsAssignableFrom(type))
             .Select(type => type.FullName!)
             .ToArray();
-        var generator = new SchemaGenerator();
+        var generator = new SchemaGenerator(_library);
         CapabilitySchema audioSchema = generator.Generate(categoryFilter: "AudioEffect");
         string[] listedTypes = audioSchema.Types.Select(type => type.Type).ToArray();
 
@@ -880,7 +901,7 @@ public sealed class SchemaGenerationTests
                            && !typeof(IFallback).IsAssignableFrom(type))
             .Select(type => type.FullName!)
             .ToArray();
-        CapabilitySchema schema = new SchemaGenerator().Generate(categoryFilter: category);
+        CapabilitySchema schema = new SchemaGenerator(_library).Generate(categoryFilter: category);
         string[] PropertiesOf<T>() => schema.Types
             .Single(type => type.Type == typeof(T).FullName)
             .Properties.Select(property => property.Name)

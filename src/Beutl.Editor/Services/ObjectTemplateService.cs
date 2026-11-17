@@ -7,12 +7,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Services;
 
-public sealed partial class ObjectTemplateService
+public sealed partial class ObjectTemplateService : IDisposable
 {
-    public static readonly ObjectTemplateService Instance = new();
     private readonly CoreList<ObjectTemplateItem> _items = [];
 
-    private readonly string _directoryPath = BeutlEnvironment.GetTemplatesDirectoryPath();
+    private readonly string _directoryPath;
 
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
 
@@ -20,11 +19,31 @@ public sealed partial class ObjectTemplateService
     private readonly Lock _lock = new();
     private FileSystemWatcher? _watcher;
     private CancellationTokenSource? _debounceCts;
+    private bool _disposed;
 
-    private ObjectTemplateService()
+    public ObjectTemplateService()
+        : this(BeutlEnvironment.GetTemplatesDirectoryPath())
     {
+    }
+
+    public ObjectTemplateService(string directoryPath)
+    {
+        _directoryPath = directoryPath;
         RestoreItems();
         StartWatching();
+    }
+
+    public void Dispose()
+    {
+        lock (_lock)
+        {
+            _disposed = true;
+            _watcher?.Dispose();
+            _watcher = null;
+            _debounceCts?.Cancel();
+            _debounceCts?.Dispose();
+            _debounceCts = null;
+        }
     }
 
     public string DirectoryPath => _directoryPath;
@@ -385,6 +404,8 @@ public sealed partial class ObjectTemplateService
     {
         lock (_lock)
         {
+            if (_disposed) return;
+
             _debounceCts?.Cancel();
             _debounceCts?.Dispose();
             _debounceCts = new CancellationTokenSource();

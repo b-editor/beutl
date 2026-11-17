@@ -1,4 +1,5 @@
-﻿using Beutl.Animation.Easings;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Logging;
@@ -42,7 +43,7 @@ public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : Pr
         base.Accept(visitor);
         if (visitor is EasingEditor editor && !Disposables.IsDisposed)
         {
-            editor.Items = EasingEditorItems.Create(typeof(T));
+            editor.Items = EasingEditorItems.Create(typeof(T), this.GetRequiredService<LibraryService>());
         }
     }
 }
@@ -90,9 +91,8 @@ internal static class EasingEditorItems
     ];
 
     // Built at each Accept so easings registered by extensions loaded later are offered too.
-    public static EasingItem[] Create(Type baseType)
+    public static EasingItem[] Create(Type baseType, LibraryService library)
     {
-        LibraryService library = LibraryService.Current;
         return Create(baseType, library.GetTypesFromFormat(KnownLibraryItemFormats.Easing), library.FindItem);
     }
 

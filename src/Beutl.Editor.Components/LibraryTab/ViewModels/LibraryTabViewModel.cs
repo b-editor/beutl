@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
@@ -29,14 +30,19 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     private int _refreshQueued;
     private string? _query;
 
-    public LibraryTabViewModel()
-        : this(null)
+    private readonly LibraryService _libraryService;
+    private readonly IServiceProvider? _editor;
+
+    public LibraryTabViewModel(IServiceProvider editor)
+        : this(editor.GetRequiredService<LibraryService>(), editor)
     {
     }
 
     // The editor gives the gallery's thumbnails the frame its preview shows; without one they show the samples.
-    public LibraryTabViewModel(IServiceProvider? editor)
+    public LibraryTabViewModel(LibraryService libraryService, IServiceProvider? editor = null)
     {
+        _libraryService = libraryService;
+        _editor = editor;
         _lifetimeToken = _lifetimeCancellation.Token;
         _preview = LibraryPreviewCapture.Create(editor);
         Thumbnails = new LibraryThumbnailSet(_preview == null ? null : _preview.CaptureAsync);
@@ -44,12 +50,12 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         ObservePreview();
 
         // Subscribed before the items are read, so that nothing registered in between is missed.
-        LibraryService.Current.ItemsChanged += OnLibraryItemsChanged;
-        _disposables.Add(Disposable.Create(() => LibraryService.Current.ItemsChanged -= OnLibraryItemsChanged));
+        _libraryService.ItemsChanged += OnLibraryItemsChanged;
+        _disposables.Add(Disposable.Create(() => _libraryService.ItemsChanged -= OnLibraryItemsChanged));
         GraphNodeRegistry.Changed += OnLibraryItemsChanged;
         _disposables.Add(Disposable.Create(() => GraphNodeRegistry.Changed -= OnLibraryItemsChanged));
 
-        IReadOnlyList<LibraryItem> libItems = LibraryService.Current.Items;
+        IReadOnlyList<LibraryItem> libItems = _libraryService.Items;
         LibraryItems = new CoreList<LibraryItemViewModel>(libItems.Count);
         LibraryItems.AddRange(libItems.Select(x => LibraryItemViewModel.CreateFromLibraryItem(x)));
 
@@ -185,7 +191,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         if (Volatile.Read(ref _disposed) != 0)
             return;
 
-        SyncItems(LibraryItems, LibraryService.Current.Items, null,
+        SyncItems(LibraryItems, _libraryService.Items, null,
             item => item,
             LibraryItemViewModel.CreateFromLibraryItem,
             item => (item as GroupLibraryItem)?.Items);
@@ -378,7 +384,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
     public object? GetService(Type serviceType)
     {
-        return null;
+        return serviceType == typeof(LibraryService) ? _libraryService : _editor?.GetService(serviceType);
     }
 
     public ToolTabExtension Extension => LibraryTabExtension.Instance;

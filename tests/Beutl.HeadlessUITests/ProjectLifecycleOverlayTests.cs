@@ -154,7 +154,7 @@ public sealed class ProjectLifecycleOverlayTests
     [AvaloniaTest]
     public void Lifecycle_activity_can_end_from_a_worker_thread()
     {
-        var editorService = new EditorService(new Beutl.Api.Services.ExtensionProvider());
+        var editorService = new EditorService(new Beutl.Api.Services.ExtensionProvider(), TestShell.MainViewModel.AppServices);
         IDisposable activity = editorService.BeginLifecycleActivity(ProjectLifecycleActivity.ClosingProject);
         Assert.That(
             editorService.LifecycleActivity.Value,

@@ -26,6 +26,9 @@ internal static class PropertyEditorTestHost
         };
         IPropertyEditorContext? context = PropertyEditorResolver.CreateContext(adapter, [PropertyEditorExtension.Instance], place);
         Assert.That(context, Is.Not.Null);
+        context!.Accept(new ServiceVisitor(
+            (typeof(Beutl.Services.LibraryService), TestShell.Library),
+            (typeof(Beutl.Editor.Services.ObjectTemplateService), TestShell.Templates)));
         Assert.That(PropertyEditorHost.TryCreateControl(context!, place, out Control? control), Is.True);
         control!.DataContext = context;
         return ((PropertyEditorViewModel)context!, control);

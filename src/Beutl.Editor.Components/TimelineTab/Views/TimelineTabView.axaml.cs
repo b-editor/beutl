@@ -69,12 +69,11 @@ public sealed partial class TimelineTabView : UserControl
 
         this.SubscribeDataContextChange<TimelineTabViewModel>(OnDataContextAttached, OnDataContextDetached);
 
-        PopulateAddElementSubMenu();
-
         if (TimelinePanel.ContextFlyout is FAMenuFlyout contextFlyout)
         {
             contextFlyout.Opening += (_, _) =>
             {
+                PopulateAddElementSubMenu();
                 PopulateAddFromTemplateSubMenu();
                 if (ViewModel is { } timeline)
                 {
@@ -128,6 +127,7 @@ public sealed partial class TimelineTabView : UserControl
     private void OnDataContextAttached(TimelineTabViewModel vm)
     {
         ViewModel = vm;
+        PopulateAddElementSubMenu();
 
         TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e }));
 

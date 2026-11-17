@@ -16,6 +16,7 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 public class SelectLibraryItemDialogViewModel
 {
+    private readonly LibraryService _libraryService = null!;
     private readonly string _format;
     private readonly Type _baseType;
     private readonly Task<PinnableLibraryItem[]> _itemsTask;
@@ -26,23 +27,24 @@ public class SelectLibraryItemDialogViewModel
     private string? _appliedSearchText;
     private string? _appliedReferenceSearchText;
 
-    public SelectLibraryItemDialogViewModel(string format, Type baseType)
-        : this(format, baseType, null, null)
+    public SelectLibraryItemDialogViewModel(LibraryService libraryService, string format, Type baseType)
+        : this(libraryService, format, baseType, null, null)
     {
     }
 
     // `thumbnailContent` captures what the tiles show each type on: the object or edge the picked type is added to.
     // Without it, they show the samples.
-    internal SelectLibraryItemDialogViewModel(string format, Type baseType,
+    internal SelectLibraryItemDialogViewModel(LibraryService libraryService, string format, Type baseType,
         Func<CancellationToken, Task<LibraryThumbnailSubject?>>? thumbnailContent)
-        : this(format, baseType, null, null, thumbnailContent)
+        : this(libraryService, format, baseType, null, null, thumbnailContent)
     {
     }
 
-    internal SelectLibraryItemDialogViewModel(string format, Type baseType,
+    internal SelectLibraryItemDialogViewModel(LibraryService libraryService, string format, Type baseType,
         Task<PinnableLibraryItem[]>? itemsTask, Task<PinnableLibraryItem[]>? allItemsTask,
         Func<CancellationToken, Task<LibraryThumbnailSubject?>>? thumbnailContent = null)
     {
+        _libraryService = libraryService;
         _format = format;
         _baseType = baseType;
         _allItemsTask = allItemsTask;
@@ -50,7 +52,7 @@ public class SelectLibraryItemDialogViewModel
         Thumbnails = HasThumbnails ? new LibraryThumbnailSet(thumbnailContent) : null;
         ShowTiles.Value = Preferences.Default.Get(ShowTilesKey, true);
         ShowTiles.Skip(1).Subscribe(value => Preferences.Default.Set(ShowTilesKey, value));
-        IReadOnlySet<Type> items = LibraryService.Current.GetTypesFromFormat(_format);
+        IReadOnlySet<Type> items = _libraryService.GetTypesFromFormat(_format);
         if (items.Count == 0)
         {
             ShowAll.Value = true;
@@ -67,7 +69,7 @@ public class SelectLibraryItemDialogViewModel
             try
             {
                 IsBusy.Value = true;
-                return items.Select(i => LibraryService.Current.FindItem(i))
+                return items.Select(i => _libraryService.FindItem(i))
                     .Where(i => i != null)
                     .Select(i => new PinnableLibraryItem(i!.DisplayName, false, i, i.Description))
                     .ToArray();
@@ -150,7 +152,7 @@ public class SelectLibraryItemDialogViewModel
     {
         if (type == null) return;
 
-        if (!LibraryService.Current.GetTypesFromFormat(_format).Contains(type))
+        if (!_libraryService.GetTypesFromFormat(_format).Contains(type))
             ShowAll.Value = true;
 
         await SearchTask;
@@ -176,7 +178,7 @@ public class SelectLibraryItemDialogViewModel
                 return availableTypes
                     .Select(type =>
                     {
-                        LibraryItem? item = LibraryService.Current.FindItem(type);
+                        LibraryItem? item = _libraryService.FindItem(type);
                         item ??= new SingleTypeLibraryItem(
                             _format, type,
                             TypeDisplayHelpers.GetLocalizedName(type));

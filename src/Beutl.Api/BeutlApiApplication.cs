@@ -20,6 +20,11 @@ namespace Beutl.Api;
 
 public partial class BeutlApiApplication : IAsyncDisposable
 {
+    private sealed class EmptyServiceProvider : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => null;
+    }
+
     private const string DefaultBaseUrl = "https://beutl.beditor.net";
 
     // BEUTL_API_BASE_URL points the client at another server, such as a local one at http://localhost:3001.
@@ -31,6 +36,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         : $"user.{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(BaseUrl)))[..16]}.json";
     private readonly HttpClient _httpClient;
     private readonly ExtensionProvider _extensionProvider;
+    private readonly IServiceProvider _extensionServices;
     private readonly Func<HttpClient> _packageInstallerHttpClientFactory;
     private readonly Action<AuthenticatedUser> _persistAuthenticatedUser;
     private readonly ReactivePropertySlim<AuthenticatedUser?> _authenticatedUser = new();
@@ -68,11 +74,17 @@ public partial class BeutlApiApplication : IAsyncDisposable
     {
     }
 
+    public BeutlApiApplication(HttpClient httpClient, ExtensionProvider extensionProvider, IServiceProvider services)
+        : this(httpClient, extensionProvider, static () => new HttpClient(), services: services)
+    {
+    }
+
     internal BeutlApiApplication(
         HttpClient httpClient,
         ExtensionProvider extensionProvider,
         Func<HttpClient> packageInstallerHttpClientFactory,
-        Action<AuthenticatedUser>? persistAuthenticatedUser = null)
+        Action<AuthenticatedUser>? persistAuthenticatedUser = null,
+        IServiceProvider? services = null)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentNullException.ThrowIfNull(extensionProvider);
@@ -87,6 +99,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         foreach (var header in httpClient.DefaultRequestHeaders)
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
         _extensionProvider = extensionProvider;
+        _extensionServices = services ?? new EmptyServiceProvider();
         _packageInstallerHttpClientFactory = packageInstallerHttpClientFactory;
         _persistAuthenticatedUser = persistAuthenticatedUser ?? PersistAuthenticatedUser;
         _authenticationSubscription = _authenticatedUser.Subscribe(HandleAuthenticatedUserChanged);
@@ -405,7 +418,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Register(CreatePackageInstaller);
         Register(() => new PackageManager(
             GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
-            GetResource<ContextCommandManager>(), this));
+            GetResource<ContextCommandManager>(), this, _extensionServices));
     }
 
     private void Register<T>(Func<T> factory)

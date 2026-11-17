@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using Beutl.Editor.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -38,7 +40,7 @@ public partial class FilterEffectEditor : UserControl
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
         if (EditorDragDropHelper.TryHandleEditorDrop<FilterEffect>(
-                e,
+                viewModel.GetRequiredService<ObjectTemplateService>(), e,
                 BeutlDataFormats.FilterEffect,
                 tryPasteJson: viewModel.TryPasteJson,
                 onTemplateInstance: instance => viewModel.AddItem(instance),
@@ -89,7 +91,7 @@ public partial class FilterEffectEditor : UserControl
     {
         return PickerGuard.RunAsync(this, button, () =>
         {
-            var selectVm = new SelectLibraryItemDialogViewModel(
+            var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)DataContext!).GetRequiredService<LibraryService>(),
                 KnownLibraryItemFormats.FilterEffect,
                 typeof(FilterEffect),
                 LibraryThumbnailCapture.ForObject(DataContext as IServiceProvider));

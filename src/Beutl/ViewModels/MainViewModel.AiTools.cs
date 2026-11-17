@@ -58,7 +58,7 @@ public partial class MainViewModel : IAiWorkspaceHost
 
     internal AiSubtitleDialogViewModel CreateAiSubtitleToolViewModel(EditViewModel? editViewModel)
     {
-        _captionCatalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates());
+        _captionCatalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates(_objectTemplateService));
         return new AiSubtitleDialogViewModel(
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),

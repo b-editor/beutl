@@ -84,7 +84,7 @@ public class FileBrowserMultipleTabsTests
     [AvaloniaTest]
     public void A_non_string_root_path_is_ignored_and_the_rest_of_the_view_state_restores()
     {
-        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        using var browser = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         string rootPath = browser.RootPath.Value;
 
         browser.ReadFromJson(new JsonObject

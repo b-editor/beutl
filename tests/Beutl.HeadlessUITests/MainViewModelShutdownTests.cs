@@ -18,7 +18,7 @@ public sealed class MainViewModelShutdownTests
     public async Task CleanupFailure_AfterCloseWasAccepted_StillClosesWindow(bool mac)
     {
         await TestReset.ResetShellAsync();
-        var viewModel = new MainViewModel();
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates);
         Avalonia.Controls.Window window = mac ? new MacWindow() : HeadlessAppWindow.Create(() => new MainWindow());
         window.DataContext = viewModel;
         window.Content = null;
@@ -51,7 +51,7 @@ public sealed class MainViewModelShutdownTests
     public async Task CloseVeto_KeepsWindowOpenAndAllowsRetry(bool mac)
     {
         await TestReset.ResetShellAsync();
-        var viewModel = new MainViewModel();
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates);
         Avalonia.Controls.Window window = mac ? new MacWindow() : HeadlessAppWindow.Create(() => new MainWindow());
         window.DataContext = viewModel;
         window.Content = null;
@@ -91,7 +91,7 @@ public sealed class MainViewModelShutdownTests
         var releaseInstaller = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var installerWaitStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         bool handedOff = false;
-        var viewModel = new MainViewModel(
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates,
             _ => handedOff = true,
             _ =>
             {
@@ -114,7 +114,7 @@ public sealed class MainViewModelShutdownTests
     {
         await TestReset.ResetShellAsync();
         bool handedOff = false;
-        var viewModel = new MainViewModel(
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates,
             _ => handedOff = true,
             _ => Task.FromException(new InvalidOperationException("wait failed")));
         viewModel.Dispose();
@@ -129,7 +129,7 @@ public sealed class MainViewModelShutdownTests
         await TestReset.ResetShellAsync();
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
         PackageChangesQueue? handedOffQueue = null;
-        var viewModel = new MainViewModel(clients =>
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates, clients =>
             handedOffQueue = clients.GetResource<PackageChangesQueue>());
         var window = HeadlessAppWindow.Create(() => new MainWindow());
         window.DataContext = viewModel;
@@ -168,7 +168,7 @@ public sealed class MainViewModelShutdownTests
     {
         await TestReset.ResetShellAsync();
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
-        var viewModel = new MainViewModel();
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates);
         var window = HeadlessAppWindow.Create(() => new MainWindow());
         window.DataContext = viewModel;
         window.Content = null;
@@ -208,7 +208,7 @@ public sealed class MainViewModelShutdownTests
         await TestReset.ResetShellAsync();
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
         int handoffs = 0;
-        var viewModel = new MainViewModel(_ => handoffs++);
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates, _ => handoffs++);
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-request-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
         await viewModel.ProjectService.CreateProject(640, 480, new Rational(30), 44100, "drain", location);
@@ -275,7 +275,7 @@ public sealed class MainViewModelShutdownTests
     {
         await TestReset.ResetShellAsync();
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
-        var viewModel = new MainViewModel();
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates);
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-veto-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
         await viewModel.ProjectService.CreateProject(640, 480, new Rational(30), 44100, "veto", location);
@@ -327,7 +327,7 @@ public sealed class MainViewModelShutdownTests
         await TestReset.ResetShellAsync();
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
         int handoffs = 0;
-        var viewModel = new MainViewModel(_ => handoffs++);
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates, _ => handoffs++);
         var window = HeadlessAppWindow.Create(() => new MainWindow());
         window.DataContext = viewModel;
         window.Content = null;
@@ -391,7 +391,7 @@ public sealed class MainViewModelShutdownTests
         await TestReset.ResetShellAsync();
         bool handedOff = false;
         var releaseInstaller = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var viewModel = new MainViewModel(
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates,
             _ => handedOff = true,
             _ =>
             {
@@ -425,7 +425,7 @@ public sealed class MainViewModelShutdownTests
     public async Task ForcedExit_DuringInFlightAsyncClose_JoinsTheSharedCloseWithoutPromptingAgain()
     {
         await TestReset.ResetShellAsync();
-        var viewModel = new MainViewModel();
+        var viewModel = new MainViewModel(TestShell.Library, TestShell.Templates);
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-join-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
         await viewModel.ProjectService.CreateProject(640, 480, new Rational(30), 44100, "join", location);

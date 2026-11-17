@@ -543,15 +543,19 @@ public sealed class ApplyEditHistoryScopeTests
             : operation.GetType().Name;
     }
 
-    // The library's types and TypeRegistration's schema-only ones. Other tests add library types of their own.
-    private static Type[] RegisteredTypes() =>
-    [
+    // The built-in library types and TypeRegistration's schema-only ones.
+    private static Type[] RegisteredTypes()
+    {
+        using var library = TypeRegistration.CreateLibraryService();
+        return
+        [
         .. TypeRegistration.Types.Select(entry => entry.Type)
             .Concat(typeof(KnownLibraryItemFormats).GetFields()
-                .SelectMany(field => LibraryService.Current.GetTypesFromFormat((string)field.GetValue(null)!)))
+                .SelectMany(field => library.GetTypesFromFormat((string)field.GetValue(null)!)))
             .Where(type => type.Assembly != typeof(ApplyEditHistoryScopeTests).Assembly)
             .Distinct()
-    ];
+        ];
+    }
 
     private static Scene CreateSceneWithEveryRegisteredType()
     {

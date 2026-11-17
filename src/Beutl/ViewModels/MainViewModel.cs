@@ -30,6 +30,8 @@ namespace Beutl.ViewModels;
 public sealed partial class MainViewModel : BasePageViewModel
 {
     internal readonly BeutlApiApplication _beutlClients;
+    private readonly ObjectTemplateService _objectTemplateService;
+    internal IServiceProvider AppServices { get; }
     private readonly HttpClient _authHttpClient;
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
@@ -54,23 +56,28 @@ public sealed partial class MainViewModel : BasePageViewModel
     private readonly ProjectColorPaletteHost _projectColorPalettes;
     private readonly IDisposable _projectColorPalettesAttachment;
 
-    public MainViewModel()
-        : this(null)
+    public MainViewModel(Beutl.Services.LibraryService libraryService, ObjectTemplateService objectTemplateService)
+        : this(libraryService, objectTemplateService, null)
     {
     }
 
-    // Test seam: the app uses the parameterless constructor; only tests pass these arguments.
     internal MainViewModel(
+        Beutl.Services.LibraryService libraryService,
+        ObjectTemplateService objectTemplateService,
         Action<BeutlApiApplication>? shutdownHandoff,
         Func<TimeSpan, Task>? waitForPackageInstallerIdle = null)
     {
+        AppServices = new EditorServiceRegistry()
+            .Add<Beutl.Services.LibraryService>(() => libraryService)
+            .Add<ObjectTemplateService>(() => objectTemplateService);
+        _objectTemplateService = objectTemplateService;
         _shutdownHandoff = shutdownHandoff ?? PerformShutdownHandoff;
         _authHttpClient = new HttpClient();
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
-        _editorService = new EditorService(_extensionProvider);
+        _editorService = new EditorService(_extensionProvider, AppServices);
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
         _ = new ProjectThumbnailService(_projectService, _editorService);
@@ -79,11 +86,11 @@ public sealed partial class MainViewModel : BasePageViewModel
             .AttachProjectHost(_projectColorPalettes);
         _captionCatalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             Beutl.Language.Strings.AiSubtitle_DefaultTemplate,
-            Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(
+            _objectTemplateService.FindByBaseType(
                 typeof(Beutl.Graphics.Drawable)),
             CaptionPresentationDefaults.ElementFactory);
         _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
-        _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider, AppServices);
         // Agents generate with the signed-in account and the AI nodes' executor.
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService, new AgentHostAiBackend(
             () => _beutlClients.AuthenticatedUser.Value,

@@ -44,7 +44,7 @@ public sealed class PackageCompatibilityTests
             new InstalledPackageRepository(),
             new ExtensionProvider(),
             new ContextCommandManager(new ContextCommandSettingsStore()),
-            apiApplication: null!);
+            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry());
         var package = new LocalPackage { Name = "MismatchedPlugin", InstalledPath = directory, SideLoad = true };
 
         PackageApiMismatchException exception = Assert.Throws<PackageApiMismatchException>(() => manager.Load(package))!;

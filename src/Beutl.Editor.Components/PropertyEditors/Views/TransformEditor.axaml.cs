@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using Beutl.Editor.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -42,7 +44,7 @@ public partial class TransformEditor : UserControl
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel) return;
 
         if (EditorDragDropHelper.TryHandleEditorDrop<Transform>(
-                e,
+                viewModel.GetRequiredService<ObjectTemplateService>(), e,
                 BeutlDataFormats.Transform,
                 tryPasteJson: viewModel.TryPasteJson,
                 onTemplateInstance: instance => viewModel.AddItem(instance),

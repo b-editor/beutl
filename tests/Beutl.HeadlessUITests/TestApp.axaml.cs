@@ -13,6 +13,8 @@ public sealed class TestApp : Application
     private const int BuiltInExtensionPackageId = 0;
 
     private MainViewModel? _mainViewModel;
+    internal Beutl.Services.LibraryService Library { get; } = new();
+    internal Beutl.Editor.Services.ObjectTemplateService Templates { get; } = new();
 
     public override void Initialize()
     {
@@ -24,7 +26,8 @@ public sealed class TestApp : Application
     {
         base.RegisterServices();
 
-        App.RegisterProcessServices(() => GetMainViewModel().ContextCommandManager);
+        App.RegisterProcessServices(Library, () => GetMainViewModel().ContextCommandManager);
+        _ = GetMainViewModel();
         foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)
         {
             item.Load();
@@ -35,12 +38,13 @@ public sealed class TestApp : Application
     {
         if (_mainViewModel is null)
         {
-            _mainViewModel = new MainViewModel();
+            _mainViewModel = new MainViewModel(Library, Templates);
 
             // ContextCommandManager.Attach is a no-op unless each ViewExtension was registered first;
             // AddExtensions alone wires up resolution but not keyboard/command gestures.
             foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)
             {
+                item.Services = _mainViewModel.AppServices;
                 if (item is ViewExtension viewExtension)
                 {
                     _mainViewModel.ContextCommandManager?.Register(viewExtension);

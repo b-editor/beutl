@@ -67,7 +67,7 @@ public sealed class EditorFileUsageTests
     {
         var usage = new RecordingUsage(true);
         (string, bool)[] files = [(Touch("a.txt"), false), (Touch("b.txt"), false), (_directory, true)];
-        using var context = new Context(usage);
+        using var context = new Context(usage, TestShell.Templates);
         using var browser = new FileBrowserTabViewModel(context);
         using var notifications = new NotificationCapture();
 
@@ -87,11 +87,11 @@ public sealed class EditorFileUsageTests
         string first = Touch("a.txt");
         string second = Touch("b.txt");
         var usage = new RecordingUsage(false, true);
-        using var context = new Context(usage);
+        using var context = new Context(usage, TestShell.Templates);
         using var browser = new FileBrowserTabViewModel(context);
         browser.ConfirmAsync = _ => Task.FromResult(FAContentDialogResult.Primary);
-        using var firstItem = new FileSystemItemViewModel(first, isDirectory: false);
-        using var secondItem = new FileSystemItemViewModel(second, isDirectory: false);
+        using var firstItem = new FileSystemItemViewModel(TestShell.Templates, first, isDirectory: false);
+        using var secondItem = new FileSystemItemViewModel(TestShell.Templates, second, isDirectory: false);
         using var notifications = new NotificationCapture();
 
         await browser.DeleteItemsAsync([firstItem, secondItem]);
@@ -129,7 +129,7 @@ public sealed class EditorFileUsageTests
         }
     }
 
-    private sealed class Context(IEditorFileUsage usage) : IEditorContext
+    private sealed class Context(IEditorFileUsage usage, ObjectTemplateService templates) : IEditorContext
     {
         public CoreObject Object { get; } = new Document();
 
@@ -147,7 +147,9 @@ public sealed class EditorFileUsageTests
         {
         }
 
-        public object? GetService(Type serviceType) => serviceType == typeof(IEditorFileUsage) ? usage : null;
+        public object? GetService(Type serviceType)
+            => serviceType == typeof(IEditorFileUsage) ? usage
+                : serviceType == typeof(ObjectTemplateService) ? templates : null;
 
         public void Dispose() => IsEnabled.Dispose();
 

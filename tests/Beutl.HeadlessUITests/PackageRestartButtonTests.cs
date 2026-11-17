@@ -144,7 +144,7 @@ public class PackageRestartButtonTests
         var provider = new ExtensionProvider();
         await using var app = new BeutlApiApplication(http, provider);
         var package = await app.GetResource<DiscoverService>().GetPackage(response.Name, CancellationToken.None);
-        using var viewModel = new PackageDetailsPageViewModel(package, app, new EditorService(provider), new ProjectService());
+        using var viewModel = new PackageDetailsPageViewModel(package, app, new EditorService(provider, TestShell.MainViewModel.AppServices), new ProjectService());
         await viewModel.IsBusy.FirstAsync(busy => !busy).ToTask().WaitAsync(TimeSpan.FromSeconds(10));
         PackageChangesQueue queue = app.GetResource<PackageChangesQueue>();
         var page = new PackageDetailsPage { DataContext = viewModel };

@@ -58,7 +58,7 @@ public sealed class AgentHostAiToolsTests
         await TestReset.ResetShellAsync();
         var endpoint = new AgentHostEndpoint(
             new ProjectService(),
-            new EditorService(new ExtensionProvider()),
+            new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices),
             UnavailableAgentAiBackend.Instance,
             AvailablePort(),
             "test-token",
@@ -664,7 +664,7 @@ public sealed class AgentHostAiToolsTests
     {
         await TestReset.ResetShellAsync();
         using var jobs = new AgentAiJobManager();
-        var tools = CreateTools(new EditorService(new ExtensionProvider()), jobs, new FakeBackend());
+        var tools = CreateTools(new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices), jobs, new FakeBackend());
 
         ToolResult<AgentAiJobSnapshot> result = await tools.GenerateImage("a lighthouse", waitSeconds: 0);
 

@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
@@ -24,7 +25,7 @@ public partial class TransitionTabView : UserControl
         {
             try
             {
-                var selectVm = new SelectLibraryItemDialogViewModel(
+                var selectVm = new SelectLibraryItemDialogViewModel(viewModel.GetRequiredService<LibraryService>(),
                     KnownLibraryItemFormats.ClipTransition,
                     typeof(ClipTransition),
                     LibraryThumbnailCapture.ForEdge(viewModel.ShownElement, viewModel.ShownEdge));

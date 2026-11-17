@@ -91,7 +91,8 @@ public sealed class FileBrowserFileManagerTests
         Directory.CreateDirectory(appPath);
         try
         {
-            using FileSystemItemViewModel item = FileSystemEnumerator.EnumerateDirectory(root).Single();
+            using var templates = new Beutl.Editor.Services.ObjectTemplateService(root);
+            using FileSystemItemViewModel item = FileSystemEnumerator.EnumerateDirectory(templates, root).Single();
             Assert.That(item.IsDirectory, Is.True);
 
             ProcessStartInfo startInfo = FileManagerLauncher.CreateStartInfo(item.FullPath, item.IsDirectory, OSPlatform.OSX);
@@ -113,7 +114,7 @@ public sealed class FileBrowserFileManagerTests
         string directory = Path.Combine(root, "folder");
         Directory.CreateDirectory(directory);
 
-        var vm = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        var vm = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         var view = new FileBrowserTabView { DataContext = vm };
         var window = new Window { Content = view, Width = 400, Height = 360 };
         using var notifications = new NotificationCapture();
@@ -185,8 +186,8 @@ public sealed class FileBrowserFileManagerTests
         Directory.CreateDirectory(root);
         string file = Path.Combine(root, "sample.txt");
         File.WriteAllText(file, "sample");
-        using var vm = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
-        using var item = new FileSystemItemViewModel(file, isDirectory: false);
+        using var vm = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
+        using var item = new FileSystemItemViewModel(TestShell.Templates, file, isDirectory: false);
         using var notifications = new NotificationCapture();
         int launches = 0;
         try
@@ -227,7 +228,7 @@ public sealed class FileBrowserFileManagerTests
         {
             string link = Path.Combine(root, "lost.txt");
             File.CreateSymbolicLink(link, Path.Combine(root, "missing.txt"));
-            using var vm = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+            using var vm = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
             vm.RootPath.Value = root;
             FileSystemItemViewModel item = vm.Items.Single(x => x.FullPath == link);
             using var notifications = new NotificationCapture();

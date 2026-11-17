@@ -90,6 +90,6 @@ public sealed class PackageManagementTelemetryTests
             new InstalledPackageRepository(),
             new ExtensionProvider(),
             new ContextCommandManager(new ContextCommandSettingsStore()),
-            apiApplication: null!);
+            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry());
     }
 }

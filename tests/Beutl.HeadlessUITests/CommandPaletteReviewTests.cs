@@ -166,7 +166,7 @@ public sealed class CommandPaletteReviewTests
         provider.AddExtensions(-43004, [extension]);
         var manager = new ContextCommandManager(new ContextCommandSettingsStore());
         manager.Register(extension);
-        var service = new CommandPaletteService(manager, new FixedHandlerProvider(new Handler(_ => Task.CompletedTask)), () => null, new EditorService(provider), provider);
+        var service = new CommandPaletteService(manager, new FixedHandlerProvider(new Handler(_ => Task.CompletedTask)), () => null, new EditorService(provider, TestShell.MainViewModel.AppServices), provider);
         IReadOnlyList<PaletteCommand> snapshot = service.EnumerateCommands();
         manager.Unregister(extension);
         provider.RemoveExtensions(-43004).DrainAsync().AsTask().GetAwaiter().GetResult();

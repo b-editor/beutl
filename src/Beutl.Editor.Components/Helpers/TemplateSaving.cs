@@ -16,23 +16,23 @@ internal static class TemplateSaving
         => elements.Count == 1 ? elements[0] : ElementSetFactory.Create(scene, elements);
 
     internal static SaveAsTemplateFlyout ShowSaveFlyout(
-        Control target, ICoreSerializable instance, string name, bool showAtPointer, Action? onSaved = null)
+        ObjectTemplateService templates, Control target, ICoreSerializable instance, string name, bool showAtPointer, Action? onSaved = null)
     {
         var flyout = new SaveAsTemplateFlyout { Text = name };
-        flyout.Confirmed += async (_, confirmed) => await SaveAsync(instance, confirmed, onSaved);
+        flyout.Confirmed += async (_, confirmed) => await SaveAsync(templates, instance, confirmed, onSaved);
         flyout.ShowAt(target, showAtPointer);
         return flyout;
     }
 
     // A refused or failed save shows the same error; a cancelled one is not reported as a failure.
     internal static async Task<bool> SaveAsync(
-        ICoreSerializable instance, string? name, Action? onSaved = null, CancellationToken cancellationToken = default)
+        ObjectTemplateService templates, ICoreSerializable instance, string? name, Action? onSaved = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
 
         try
         {
-            if (await ObjectTemplateService.Instance.AddFromInstanceAsync(instance, name, cancellationToken) is not null)
+            if (await templates.AddFromInstanceAsync(instance, name, cancellationToken) is not null)
             {
                 onSaved?.Invoke();
                 return true;

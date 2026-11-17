@@ -32,7 +32,7 @@ public class FileBrowserWatchingTests
                 instance.EnableRaisingEvents = true;
                 started.Enqueue(instance);
             });
-        var context = new Mock<IEditorContext>();
+        var context = TestShell.CreateEditorContextMock();
         var scene = new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) };
         var browser = new FileBrowserTabViewModel(context.Object, null, watcher);
         var window = new Window
@@ -100,7 +100,7 @@ public class FileBrowserWatchingTests
         File.WriteAllText(file, "a");
         WriteImage(image, SKColors.Red);
         using var startup = new PausedWatcher();
-        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object, null, startup.Service);
+        using var browser = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, null, startup.Service);
         try
         {
             browser.ViewMode.Value = mode;
@@ -146,7 +146,7 @@ public class FileBrowserWatchingTests
         string removedProjectFile = Path.Combine(root, "removed.txt");
         string addedProjectDirectory = Path.Combine(root, "a-added");
         if (changeProject) File.WriteAllText(removedProjectFile, "removed");
-        var context = new Mock<IEditorContext>();
+        var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Scene))).Returns(new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) });
         using var startup = new PausedWatcher();
         using var browser = new FileBrowserTabViewModel(context.Object, null, startup.Service);
@@ -214,7 +214,7 @@ public class FileBrowserWatchingTests
         string root = Directory.CreateDirectory(Path.Combine(scratch, "watched")).FullName;
         File.WriteAllText(Path.Combine(root, "file.txt"), "selected");
         using var startup = new PausedWatcher(enableNativeWatcher: false);
-        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object, null, startup.Service);
+        using var browser = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, null, startup.Service);
         var window = new Window { Content = new FileBrowserTabView { DataContext = browser }, Width = 480, Height = 400 };
         try
         {
@@ -254,7 +254,7 @@ public class FileBrowserWatchingTests
         // Linux reports an Error for an unreadable inotify child and rearms the watcher. This test
         // isolates entry catch-up; native watching and error recovery are covered separately.
         using var startup = new PausedWatcher(enableNativeWatcher: false);
-        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object, null, startup.Service);
+        using var browser = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, null, startup.Service);
         try
         {
             File.SetUnixFileMode(blocked, UnixFileMode.None);
@@ -349,7 +349,7 @@ public class FileBrowserWatchingTests
                     instance.EnableRaisingEvents = true;
                 }
             });
-        var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object, null, watcher);
+        var browser = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, null, watcher);
         var window = new Window
         {
             Content = new FileBrowserTabView { DataContext = browser },

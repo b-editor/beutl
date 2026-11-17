@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
@@ -36,7 +37,7 @@ public sealed partial class TimelineTabView
             return;
         }
 
-        ObjectTemplateItem? template = TryResolveDroppedTemplate(e);
+        ObjectTemplateItem? template = TryResolveDroppedTemplate(viewModel.GetRequiredService<ObjectTemplateService>(), e);
 
         if (template != null)
         {
@@ -81,12 +82,12 @@ public sealed partial class TimelineTabView
     // whole drop, along with any files dropped beside the subtitles. With no subtitle files, or only the default look,
     // there is nothing to ask. The last choice comes first.
     private async Task<(string[] Captions, CaptionTemplate? Template)?> ChooseDroppedCaptionsAsync(
-        IEnumerable<string> paths)
+        ObjectTemplateService objectTemplates, IEnumerable<string> paths)
     {
         string[] captions = [.. paths.Where(CaptionFileDrop.IsCaptionFile)];
         if (captions.Length == 0) return (captions, null);
 
-        IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates();
+        IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates(objectTemplates);
         if (templates.Count == 1) return (captions, templates[0]);
 
         CaptionTemplate? chosen = await CaptionTemplateChooser.ShowAsync(
@@ -110,7 +111,7 @@ public sealed partial class TimelineTabView
         int layer = viewModel.CalculateClickedLayer();
         try
         {
-            if (await ChooseDroppedCaptionsAsync(files) is not { } choice) return;
+            if (await ChooseDroppedCaptionsAsync(viewModel.GetRequiredService<ObjectTemplateService>(), files) is not { } choice) return;
             (string[] captions, CaptionTemplate? template) = choice;
 
             // The layout can have to open the files.
@@ -146,14 +147,14 @@ public sealed partial class TimelineTabView
         {
             using var import = await storage.ImportToSceneAsync(scene);
             // Dismissing the menu gives up the whole drop, as it does for files from the disk.
-            if (await ChooseDroppedCaptionsAsync(import.Paths) is not { } choice) return;
+            if (await ChooseDroppedCaptionsAsync(viewModel.GetRequiredService<ObjectTemplateService>(), import.Paths) is not { } choice) return;
             (string[] captions, CaptionTemplate? template) = choice;
 
             foreach (string path in import.Paths.Except(captions))
             {
                 ElementAddResult result;
                 if (string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase)
-                    && ObjectTemplateService.Instance.TryLoadFromFile(path) is { } storageTemplate)
+                    && viewModel.GetRequiredService<ObjectTemplateService>().TryLoadFromFile(path) is { } storageTemplate)
                 {
                     result = await viewModel.AddElementWithResultAsync(ElementTemplateResolver.CreateDescription(storageTemplate, dropFrame, dropLayer));
                     if (result.IsSuccess) import.RetainAll();
@@ -176,20 +177,20 @@ public sealed partial class TimelineTabView
         catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
     }
 
-    private static ObjectTemplateItem? TryResolveDroppedTemplate(DragEventArgs e)
+    private static ObjectTemplateItem? TryResolveDroppedTemplate(ObjectTemplateService templates, DragEventArgs e)
     {
         ObjectTemplateItem? template = null;
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.ObjectTemplate) is { } idStr
             && Guid.TryParse(idStr, out Guid templateId))
         {
-            template = ObjectTemplateService.Instance.FindById(templateId);
+            template = templates.FindById(templateId);
         }
 
         // テンプレートファイルのドロップもテンプレート経路で処理
         if (template == null && e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
             && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase))
         {
-            template = ObjectTemplateService.Instance.TryLoadFromFile(droppedFile);
+            template = templates.TryLoadFromFile(droppedFile);
         }
 
         return template;

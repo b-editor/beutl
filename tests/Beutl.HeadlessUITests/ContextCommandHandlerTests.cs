@@ -23,7 +23,7 @@ public sealed class ContextCommandHandlerTests
         manager.Attach(element, extension);
         var provider = new ExtensionProvider();
         var palette = new CommandPaletteService(
-            manager, new CommandPaletteTestHost.FixedHandlerProvider(counter), () => null, new EditorService(provider), provider);
+            manager, new CommandPaletteTestHost.FixedHandlerProvider(counter), () => null, new EditorService(provider, TestShell.MainViewModel.AppServices), provider);
 
         var key = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.F5 };
         element.RaiseEvent(key);

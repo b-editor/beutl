@@ -24,7 +24,7 @@ public sealed class ProcessServicesTests
             Assert.That(NotificationService.Handler, Is.InstanceOf<NotificationServiceHandler>());
             Assert.That(TutorialService.Current, Is.InstanceOf<TutorialServiceHandler>());
             Assert.That(AppHelper.GetContextCommandManager?.Invoke(), Is.SameAs(TestShell.MainViewModel.ContextCommandManager));
-            Assert.That(LibraryService.Current.FindItem(typeof(CrossDissolveTransition)), Is.Not.Null);
+            Assert.That(TestShell.Library.FindItem(typeof(CrossDissolveTransition)), Is.Not.Null);
             Assert.That(GraphNodeRegistry.GetRegistered(), Is.Not.Empty);
             Assert.That(ReactivePropertyScheduler.Default, Is.SameAs(UiThreadScheduler.Instance));
         });

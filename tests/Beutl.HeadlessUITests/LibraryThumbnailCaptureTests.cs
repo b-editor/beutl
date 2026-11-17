@@ -59,11 +59,11 @@ public class LibraryThumbnailCaptureTests
 
         var objectServices = new Services(title, editor.GetRequiredService<IEditorClock>());
         await CapturePickerAsync(
-            new SelectLibraryItemDialogViewModel(
+            new SelectLibraryItemDialogViewModel(TestShell.Library,
                 KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect), LibraryThumbnailCapture.ForObject(objectServices)),
             "picker-effects");
         await CapturePickerAsync(
-            new SelectLibraryItemDialogViewModel(
+            new SelectLibraryItemDialogViewModel(TestShell.Library,
                 KnownLibraryItemFormats.ClipTransition,
                 typeof(ClipTransition),
                 LibraryThumbnailCapture.ForEdge(second, ElementEdge.Start)),

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Graphics3D.Textures;
@@ -35,7 +36,7 @@ public sealed class TextureSourceEditorViewModel : PropertyEditorViewModel
 
         DrawableName = Value.Select(v => v as DrawableTextureSource)
             .Select(x => x?.Drawable.Value?.GetType())
-            .Select(GetDrawableDisplayName)
+            .CombineLatest(ObserveExtensionProvider(), (type, _) => GetDrawableDisplayName(type))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -53,14 +54,14 @@ public sealed class TextureSourceEditorViewModel : PropertyEditorViewModel
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
-    private static string GetDrawableDisplayName(Type? type)
+    private string GetDrawableDisplayName(Type? type)
     {
         if (type == null)
         {
             return Strings.CreateNew;
         }
 
-        return LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+        return this.GetService<LibraryService>()?.FindItem(type)?.DisplayName ?? type.Name;
     }
 
     private void AcceptChildren(PropertiesEditorViewModel? obj)

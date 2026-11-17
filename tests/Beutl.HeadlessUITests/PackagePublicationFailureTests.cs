@@ -32,7 +32,7 @@ public class PackagePublicationFailureTests
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
         var installer = app.GetResource<PackageInstaller>();
         var repository = app.GetResource<InstalledPackageRepository>();
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices), new ProjectService());
         string materials = Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name);
         string templates = Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name);
         bool extensionRegistered = false;
@@ -95,7 +95,7 @@ public class PackagePublicationFailureTests
         LocalPackage package = TestPackages.CreateExtracted(identity, data: true);
         var installer = app.GetResource<PackageInstaller>();
         var repository = app.GetResource<InstalledPackageRepository>();
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices), new ProjectService());
         Task? nested = null;
         bool completedInCallback = false;
         using var subscription = repository.GetPackageObservable(name).Subscribe(value =>

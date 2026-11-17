@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Avalonia.Controls;
 using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
@@ -14,7 +15,7 @@ internal static class CoreObjectPickerHelper
     {
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
         string format = propertyType.FullName!;
-        var selectVm = new SelectLibraryItemDialogViewModel(
+        var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
             format, propertyType, LibraryThumbnailCapture.ForObject(viewModel as IServiceProvider));
 
         if (PresenterTypeAttribute.GetPresenterType(propertyType) != null)

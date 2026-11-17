@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
@@ -14,7 +15,9 @@ public sealed partial class TimelineTabView
 {
     private void PopulateAddElementSubMenu()
     {
-        foreach (LibraryItem item in LibraryService.Current.Items)
+        AddElementSubMenu.Items.Clear();
+        if (ViewModel is not { } viewModel) return;
+        foreach (LibraryItem item in viewModel.GetRequiredService<LibraryService>().Items)
         {
             Control? menuItem = CreateMenuItemForLibraryItem(item);
             if (menuItem != null)
@@ -103,7 +106,8 @@ public sealed partial class TimelineTabView
     private void PopulateAddFromTemplateSubMenu()
     {
         AddFromTemplateSubMenu.Items.Clear();
-        foreach (ObjectTemplateItem template in ElementTemplateResolver.FindElementTemplates())
+        if (ViewModel is not { } viewModel) return;
+        foreach (ObjectTemplateItem template in ElementTemplateResolver.FindElementTemplates(viewModel.GetRequiredService<ObjectTemplateService>()))
         {
             var menuItem = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
             menuItem.Click += AddElementFromTemplateClick;

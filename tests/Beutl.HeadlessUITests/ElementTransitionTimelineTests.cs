@@ -156,7 +156,7 @@ public class ElementTransitionTimelineTests
             ];
             foreach ((Type type, string[] properties) in choices)
             {
-                Assert.That(LibraryService.Current.FindItem(type), Is.Not.Null, "available in the type picker");
+                Assert.That(TestShell.Library.FindItem(type), Is.Not.Null, "available in the type picker");
                 Type? previousType = model.Transition.Value?.GetType();
                 model.ChangeType(type);
                 HeadlessTestHelpers.Render(3);

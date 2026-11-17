@@ -20,6 +20,7 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class LibraryThumbnailTests
 {
+    private LibraryService _library = null!;
     private string _directory = null!;
 
     [SetUp]
@@ -27,12 +28,14 @@ public class LibraryThumbnailTests
     {
         _directory = Path.Combine(Path.GetTempPath(), $"library-thumbnail-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_directory);
-        LibraryRegistrar.RegisterAll();
+        _library = new LibraryService();
+        LibraryRegistrar.RegisterAll(_library);
     }
 
     [TearDown]
     public void TearDown()
     {
+        _library.Dispose();
         Directory.Delete(_directory, recursive: true);
     }
 
@@ -425,7 +428,7 @@ public class LibraryThumbnailTests
     [Test]
     public void Every_builtin_recipe_is_for_a_listed_effect()
     {
-        IReadOnlySet<Type> effects = LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect);
+        IReadOnlySet<Type> effects = _library.GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect);
         Type[] withRecipes = typeof(FilterEffect).Assembly.GetTypes()
             .Where(type => LibraryThumbnailRecipes.Find(type) != null)
             .ToArray();
@@ -437,10 +440,10 @@ public class LibraryThumbnailTests
         });
     }
 
-    private static IEnumerable<Type> LibraryTypes()
+    private IEnumerable<Type> LibraryTypes()
     {
-        return LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect)
-            .Concat(LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.ClipTransition))
+        return _library.GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect)
+            .Concat(_library.GetTypesFromFormat(KnownLibraryItemFormats.ClipTransition))
             .OrderBy(type => type.FullName);
     }
 

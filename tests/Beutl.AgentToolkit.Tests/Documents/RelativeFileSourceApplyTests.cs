@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using Beutl.AgentToolkit.Schema;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
@@ -20,6 +21,14 @@ namespace Beutl.AgentToolkit.Tests.Documents;
 [TestFixture]
 public class RelativeFileSourceApplyTests
 {
+    private Beutl.Services.LibraryService _library = null!;
+
+    [SetUp]
+    public void SetUpLibrary() => _library = TypeRegistration.CreateLibraryService();
+
+    [TearDown]
+    public void DisposeLibrary() => _library.Dispose();
+
     [TestCase("plain")]
     [TestCase("shot #1")]
     [TestCase("shot ?1")]
@@ -30,7 +39,7 @@ public class RelativeFileSourceApplyTests
         Element original = scene.Children[0];
         using var session = new AgentToolkitTestSession(scene);
         var manager = session.CreateManager();
-        var read = new QueryTools(manager).ReadDocument();
+        var read = new QueryTools(manager, new SchemaGenerator(_library)).ReadDocument();
         Assert.That(read.IsSuccess, Is.True, read.Error?.Message);
         JsonObject desired = read.Value!.Document;
         JsonArray elements = RequireArray(desired, "Elements");

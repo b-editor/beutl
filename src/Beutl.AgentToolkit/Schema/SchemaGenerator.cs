@@ -18,6 +18,15 @@ namespace Beutl.AgentToolkit.Schema;
 
 public sealed partial class SchemaGenerator
 {
+    private readonly LibraryService _libraryService;
+    private readonly Lazy<EffectRecipeSpec[]> _effectRecipeSpecs;
+
+    public SchemaGenerator(LibraryService libraryService)
+    {
+        _libraryService = libraryService;
+        _effectRecipeSpecs = new Lazy<EffectRecipeSpec[]>(CreateEffectRecipeSpecs);
+    }
+
     private static readonly Dictionary<string, string[]> s_typeAliases = new(StringComparer.OrdinalIgnoreCase)
     {
         ["text"] = [nameof(TextBlock)],
@@ -97,7 +106,6 @@ public sealed partial class SchemaGenerator
     ];
 
     private static readonly Lazy<ExampleSpec[]> s_exampleSpecs = new(CreateExampleSpecs);
-    private static readonly Lazy<EffectRecipeSpec[]> s_effectRecipeSpecs = new(CreateEffectRecipeSpecs);
     private static readonly Dictionary<Type, EffectMetadata> s_effectMetadata = CreateEffectMetadata();
 
     private static readonly (string[] Keywords, string[] Tags)[] s_inferredEffectTagRules =
@@ -120,7 +128,7 @@ public sealed partial class SchemaGenerator
         (typeFilter, categoryFilter) = NormalizeFilters(typeFilter, categoryFilter);
 
         List<TypeDescriptor> types = [];
-        var concreteTypes = new ConcreteTypeLookup();
+        var concreteTypes = new ConcreteTypeLookup(EnumerateRegisteredTypes().Select(item => item.Type));
         List<string> unmatched = typeFilter?.Contains(',') == true ? [.. SplitTypeList(typeFilter)] : [];
         foreach ((string category, Type type) in EnumerateRegisteredTypes()
                      .Where(item => MatchesCategory(categoryFilter, item.Category))
@@ -145,17 +153,17 @@ public sealed partial class SchemaGenerator
         };
     }
 
-    private static IEnumerable<(string Category, Type Type)> EnumerateRegisteredTypes()
+    private IEnumerable<(string Category, Type Type)> EnumerateRegisteredTypes()
     {
         foreach (string format in s_formats)
         {
-            foreach (Type type in LibraryService.Current.GetTypesFromFormat(format))
+            foreach (Type type in _libraryService.GetTypesFromFormat(format))
             {
                 yield return (format, type);
             }
         }
 
-        foreach ((string category, Type type) in EnumerateLibraryItems(LibraryService.Current.Items))
+        foreach ((string category, Type type) in EnumerateLibraryItems(_libraryService.Items))
         {
             yield return (category, type);
         }
@@ -191,14 +199,14 @@ public sealed partial class SchemaGenerator
         }
     }
 
-    private static TypeDescriptor CreateDescriptor(
+    private TypeDescriptor CreateDescriptor(
         string category,
         Type type,
         string discriminator,
         bool includeProperties,
         ConcreteTypeLookup? concreteTypes = null)
     {
-        LibraryItem? item = LibraryService.Current.FindItem(type);
+        LibraryItem? item = _libraryService.FindItem(type);
         string? description = item?.Description ?? TypeRegistration.FindDescription(type);
         if (typeof(IFlowOperator).IsAssignableFrom(type))
         {
@@ -487,13 +495,13 @@ public sealed partial class SchemaGenerator
     // A property declared as a base class says nothing about what can go in it, and agents went to
     // Beutl's source to find names such as Cube3D. Families too large to repeat on every property
     // (effects, drawables) have listings of their own.
-    private sealed class ConcreteTypeLookup
+    private sealed class ConcreteTypeLookup(IEnumerable<Type> types)
     {
         private const int MaxListed = 24;
 
         private readonly Type[] _types =
         [
-            .. EnumerateRegisteredTypes().Select(item => item.Type).Where(type => !type.IsAbstract).Distinct(),
+            .. types.Where(type => !type.IsAbstract).Distinct(),
         ];
 
         private readonly Dictionary<Type, IReadOnlyList<string>?> _byBase = [];

@@ -23,6 +23,7 @@ public sealed partial class PackageManager : IBeutlApiResource
     private readonly IExtensionRegistry extensionRegistry;
     private readonly ContextCommandManager commandManager;
     private readonly BeutlApiApplication apiApplication;
+    private readonly IServiceProvider _services;
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
     private readonly Dictionary<int, Task<bool>> _unloadOperations = [];
@@ -36,15 +37,19 @@ public sealed partial class PackageManager : IBeutlApiResource
         InstalledPackageRepository installedPackageRepository,
         IExtensionRegistry extensionRegistry,
         ContextCommandManager commandManager,
-        BeutlApiApplication apiApplication)
+        BeutlApiApplication apiApplication,
+        IServiceProvider services)
     {
         this.installedPackageRepository = installedPackageRepository;
         this.extensionRegistry = extensionRegistry;
         this.commandManager = commandManager;
         this.apiApplication = apiApplication;
+        _services = services;
     }
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
+
+    internal IServiceProvider Services => _services;
 
     internal IExtensionRegistry ExtensionRegistry => extensionRegistry;
 

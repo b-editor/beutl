@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Specialized;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -19,6 +20,46 @@ public class PackageManagerExtensionLifecycleTests
         FaultedDrainMcpToolExtension.Reset();
         LeaseManagedMcpToolExtension.Reset();
         MaterializingElementSourceHandlerExtension.Reset();
+    }
+
+    [Test]
+    public void LoadPackageExtensions_provides_host_services_before_Load()
+    {
+        using var library = new Beutl.Services.LibraryService();
+        string directory = Path.Combine(Path.GetTempPath(), $"extension-templates-{Guid.NewGuid():N}");
+        using var templates = new ObjectTemplateService(directory);
+        using var services = new EditorServiceRegistry()
+            .Add(() => library)
+            .Add(() => templates);
+        PackageManager manager = CreatePackageManager(out _, out _, services);
+        try
+        {
+            var extension = (RegisteringExtension)manager.LoadPackageExtensions([typeof(RegisteringExtension)]).Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(extension.Services, Is.SameAs(services));
+                Assert.That(extension.Templates, Is.SameAs(templates));
+                Assert.That(library.FindItem(typeof(RegisteringExtension)), Is.Not.Null);
+            });
+        }
+        finally
+        {
+            templates.Dispose();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Export]
+    private sealed class RegisteringExtension : Extension
+    {
+        public ObjectTemplateService? Templates { get; private set; }
+
+        public override void Load()
+        {
+            Services.GetRequiredService<Beutl.Services.LibraryService>()
+                .Register<RegisteringExtension>("test.extension", "Test extension");
+            Templates = Services.GetRequiredService<ObjectTemplateService>();
+        }
     }
 
     [Test]
@@ -484,7 +525,8 @@ public class PackageManagerExtensionLifecycleTests
 
     private static PackageManager CreatePackageManager(
         out ContextCommandManager commandManager,
-        out ExtensionProvider extensionProvider)
+        out ExtensionProvider extensionProvider,
+        IServiceProvider? services = null)
     {
         commandManager = new ContextCommandManager(new ContextCommandSettingsStore());
         extensionProvider = new ExtensionProvider();
@@ -493,7 +535,7 @@ public class PackageManagerExtensionLifecycleTests
             new InstalledPackageRepository(),
             extensionProvider,
             commandManager,
-            apiApplication: null!);
+            apiApplication: null!, services: services ?? new EditorServiceRegistry());
     }
 
     // Nested + private so the app's exported-type scan never picks these up; [Export] stays because

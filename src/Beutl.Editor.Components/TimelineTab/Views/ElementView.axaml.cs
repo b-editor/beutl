@@ -433,10 +433,11 @@ public sealed partial class ElementView : UserControl
         if (DataContext is not ElementViewModel viewModel) return;
 
         // The clips Copy takes: the selection, each clip with its group.
+        var templates = viewModel.Timeline.EditorContext.GetRequiredService<ObjectTemplateService>();
         KeepRealizedWhileOpen(TemplateSaving.ShowSaveFlyout(
-            this,
+            templates, this,
             TemplateSaving.CreateElementTemplate(viewModel.Scene, viewModel.GetGroupOrSelectedModelsOrSelf()),
-            TimelineTabExtension.GetDefaultTemplateName(viewModel.Model),
+            TimelineTabExtension.GetDefaultTemplateName(viewModel.Model, templates),
             showAtPointer: true));
     }
 

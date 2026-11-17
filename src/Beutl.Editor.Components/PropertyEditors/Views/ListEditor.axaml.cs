@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -81,7 +82,7 @@ public partial class ListEditor : UserControl
         {
             Type propertyType = viewModel.ItemType;
             string format = propertyType.FullName!;
-            var selectVm = new SelectLibraryItemDialogViewModel(
+            var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
                 format, propertyType, LibraryThumbnailCapture.ForObject(viewModel as IServiceProvider));
 
             return LibraryItemPickerHelper.ShowAsync(this, selectVm, format);

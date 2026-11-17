@@ -61,7 +61,7 @@ public sealed class IncompatiblePackageInstallTests
         using var store = new ServedPackage(TestPackages.CreateIncompatibleNupkg(identity, _cleanup));
         using var http = new HttpClient(store, disposeHandler: false);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(), () => new HttpClient(store, disposeHandler: false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices), new ProjectService());
         using var notifications = new NotificationCapture();
 
         await operation.InstallOrQueueAsync(
@@ -86,7 +86,7 @@ public sealed class IncompatiblePackageInstallTests
         using var store = new ServedPackage(TestPackages.CreateIncompatibleNupkg(newId, _cleanup));
         using var http = new HttpClient(store, disposeHandler: false);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(), () => new HttpClient(store, disposeHandler: false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider()), new ProjectService());
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices), new ProjectService());
         var manager = app.GetResource<PackageManager>();
         var repository = app.GetResource<InstalledPackageRepository>();
         LocalPackage old = TestPackages.CreateExtracted(oldId, data: false, loadable: true, cleanup: _cleanup);

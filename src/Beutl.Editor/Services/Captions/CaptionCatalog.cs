@@ -43,10 +43,10 @@ public sealed class CaptionCatalog
     /// <summary>
     /// The saved templates a caption can be made from, for <see cref="RefreshObjectTemplates"/>.
     /// </summary>
-    internal static IEnumerable<ObjectTemplateItem> FindObjectTemplates()
+    internal static IEnumerable<ObjectTemplateItem> FindObjectTemplates(ObjectTemplateService templates)
     {
-        return ObjectTemplateService.Instance.FindByBaseType(typeof(Beutl.Graphics.Drawable))
-            .Concat(ElementTemplateResolver.FindElementTemplates());
+        return templates.FindByBaseType(typeof(Beutl.Graphics.Drawable))
+            .Concat(ElementTemplateResolver.FindElementTemplates(templates));
     }
 
     /// <summary>

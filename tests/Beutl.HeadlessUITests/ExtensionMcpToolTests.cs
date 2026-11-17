@@ -30,7 +30,7 @@ public sealed class ExtensionMcpToolTests
         string directory = CreateDirectory("beutl-extension-mcp-tests-");
         // The shared provider carries the scene editor extension that opening a tab needs.
         ExtensionProvider provider = TestShell.Extensions;
-        var editor = new EditorService(provider);
+        var editor = new EditorService(provider, TestShell.MainViewModel.AppServices);
         Scene scene = OpenScene(editor, directory, "extension-scene");
         bool? ranOnUIThread = null;
         object? editedObject = null;
@@ -100,7 +100,7 @@ public sealed class ExtensionMcpToolTests
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-extension-mcp-tests-");
         var provider = new ExtensionProvider();
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider, TestShell.MainViewModel.AppServices), directory, Token);
         try
         {
             await host.StartAsync();
@@ -156,7 +156,7 @@ public sealed class ExtensionMcpToolTests
                 await release.Task;
                 return McpToolResult.Text("finished");
             })]);
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider, TestShell.MainViewModel.AppServices), directory, Token);
         try
         {
             await host.StartAsync();
@@ -185,7 +185,7 @@ public sealed class ExtensionMcpToolTests
     {
         await TestReset.ResetShellAsync();
         string directory = CreateDirectory("beutl-extension-mcp-tests-");
-        await using AgentHostEndpoint host = CreateHost(new EditorService(new ExtensionProvider()), directory, Token);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(new ExtensionProvider(), TestShell.MainViewModel.AppServices), directory, Token);
         try
         {
             await host.StartAsync();
@@ -221,7 +221,7 @@ public sealed class ExtensionMcpToolTests
         provider.AddExtensions(-45009, [new ToolExtension(
             [new McpToolDefinition("test.healthy", "Still listed.")],
             _ => new(McpToolResult.Text("healthy")))]);
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider, TestShell.MainViewModel.AppServices), directory, Token);
         try
         {
             await host.StartAsync();
@@ -255,7 +255,7 @@ public sealed class ExtensionMcpToolTests
                     """{"type":"object","properties":{"instanceId":{"type":"string"}}}"""))
             ],
             _ => new(McpToolResult.Text("second")))]);
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider, TestShell.MainViewModel.AppServices), directory, Token);
         try
         {
             await host.StartAsync();
@@ -312,7 +312,7 @@ public sealed class ExtensionMcpToolTests
                 "test.reject" => new(McpToolResult.Error("bad input")),
                 _ => throw new InvalidOperationException("boom")
             })]);
-        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory, Token);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider, TestShell.MainViewModel.AppServices), directory, Token);
         try
         {
             await host.StartAsync();
@@ -370,7 +370,7 @@ public sealed class ExtensionMcpToolTests
             .DefineType("CollectibleTool", TypeAttributes.Public, typeof(CollectibleToolExtensionBase)).CreateType()!;
         var provider = new ExtensionProvider();
         provider.AddExtensions(-45007, [(Extension)Activator.CreateInstance(type)!]);
-        var catalog = new ExtensionMcpToolCatalog(new EditorService(provider));
+        var catalog = new ExtensionMcpToolCatalog(new EditorService(provider, TestShell.MainViewModel.AppServices));
         ExtensionMcpTool tool = catalog.Tools.Single();
         provider.RemoveExtensions(-45007).DrainAsync().AsTask().GetAwaiter().GetResult();
         return (catalog, tool, new WeakReference(type.Assembly));

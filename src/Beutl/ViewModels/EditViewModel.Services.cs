@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Beutl.Editor;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.VersionControl;
@@ -25,6 +26,8 @@ public partial class EditViewModel
     internal IReadOnlyCollection<Type> ServiceTypes => _services.Types;
 
     private EditorServiceRegistry CreateServices() => new EditorServiceRegistry()
+        .Add<LibraryService>(() => EditorService.AppServices.GetRequiredService<LibraryService>())
+        .Add<ObjectTemplateService>(() => EditorService.AppServices.GetRequiredService<ObjectTemplateService>())
         .Add<Beutl.Api.BeutlApiApplication>(() => MainViewModel.TryGetCurrent(out MainViewModel? main) ? main._beutlClients : null)
         .Add<IEditorFileUsage>(() => EditorService)
         .Add<Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost>(() => EditorService.BrowserSettingsHost)

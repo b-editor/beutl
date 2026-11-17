@@ -33,6 +33,7 @@ using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl;
 
@@ -43,6 +44,8 @@ public sealed class App : Application
     private FluentAvaloniaTheme? _theme;
     private ThemeService? _themeService;
     private MainViewModel? _mainViewModel;
+    private readonly LibraryService _libraryService = new();
+    private readonly ObjectTemplateService _objectTemplateService = new();
     private Startup? _startUp;
     private LoadSideloadExtensionTask? _sideloadExtensionTask;
     private readonly SemaphoreSlim _packageLinkGate = new(1, 1);
@@ -118,7 +121,7 @@ public sealed class App : Application
 
         UiExceptionBoundary.Install(Dispatcher.UIThread);
         // After the shared hooks, whose notification handler the proxy store's warnings need.
-        RegisterProcessServices(GetContextCommandManager, () =>
+        RegisterProcessServices(_libraryService, GetContextCommandManager, () =>
         {
             try
             {
@@ -134,7 +137,7 @@ public sealed class App : Application
     }
 
     // The process-wide hooks and registrations that the app and the UI tests share.
-    internal static void RegisterProcessServices(Func<ContextCommandManager?> commands, Action? alongside = null)
+    internal static void RegisterProcessServices(LibraryService libraryService, Func<ContextCommandManager?> commands, Action? alongside = null)
     {
         PropertyEditorControls.Install();
         NotificationService.Handler = new NotificationServiceHandler();
@@ -150,8 +153,8 @@ public sealed class App : Application
 
         // They are slow, so alongside runs with them, first: Parallel.Invoke runs that one on the calling thread.
         Action[] actions = alongside is null
-            ? [LibraryRegistrar.RegisterAll, NodesRegistrar.RegisterAll]
-            : [alongside, LibraryRegistrar.RegisterAll, NodesRegistrar.RegisterAll];
+            ? [() => LibraryRegistrar.RegisterAll(libraryService), NodesRegistrar.RegisterAll]
+            : [alongside, () => LibraryRegistrar.RegisterAll(libraryService), NodesRegistrar.RegisterAll];
         Parallel.Invoke(actions);
 
         ReactivePropertyScheduler.SetDefault(UiThreadScheduler.Instance);
@@ -184,7 +187,12 @@ public sealed class App : Application
             }
 
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
-            desktop.Exit += (_, _) => _activationCts.Cancel();
+            desktop.Exit += (_, _) =>
+            {
+                _activationCts.Cancel();
+                _objectTemplateService.Dispose();
+                _libraryService.Dispose();
+            };
             foreach (string argument in desktop.Args ?? [])
                 HandlePackageLink(argument);
         }
@@ -294,7 +302,7 @@ public sealed class App : Application
 
     private MainViewModel GetMainViewModel()
     {
-        return _mainViewModel ??= new MainViewModel();
+        return _mainViewModel ??= new MainViewModel(_libraryService, _objectTemplateService);
     }
 
     private void AboutBeutlClicked(object? sender, EventArgs e)
