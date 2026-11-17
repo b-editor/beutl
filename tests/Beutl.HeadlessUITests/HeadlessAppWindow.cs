@@ -20,6 +20,8 @@ internal static class HeadlessAppWindow
             T window = factory();
             if (ControlConfiguration.GetConfiguration(window) == null)
                 ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+            if (ControlFonts.GetFonts(window) == null)
+                ControlFonts.SetFonts(window, TestShell.FontManager);
             return window;
         }
 

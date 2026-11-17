@@ -14,8 +14,8 @@ public class ValidationEvaluatorTests
     {
         var target = new RangedCoreObject();
 
-        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target.Amount, 50, options: null);
-        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target.Amount, "bad", options: null);
+        ValidationOutcome coerced = ValidationEvaluator.Evaluate(TestFonts.Manager, target.Amount, 50, options: null);
+        ValidationOutcome rejected = ValidationEvaluator.Evaluate(TestFonts.Manager, target.Amount, "bad", options: null);
 
         Assert.Multiple(() =>
         {
@@ -31,8 +31,8 @@ public class ValidationEvaluatorTests
     {
         var target = new RangedEngineObject();
 
-        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target.Amount, 50, options: null);
-        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target.Amount, "bad", options: null);
+        ValidationOutcome coerced = ValidationEvaluator.Evaluate(TestFonts.Manager, target.Amount, 50, options: null);
+        ValidationOutcome rejected = ValidationEvaluator.Evaluate(TestFonts.Manager, target.Amount, "bad", options: null);
 
         Assert.Multiple(() =>
         {
@@ -47,8 +47,8 @@ public class ValidationEvaluatorTests
     {
         var target = new TypedEngineObject();
 
-        ValidationOutcome color = ValidationEvaluator.Evaluate(target.Color, "Amber", options: null);
-        ValidationOutcome pen = ValidationEvaluator.Evaluate(target.Pen, new object(), options: null);
+        ValidationOutcome color = ValidationEvaluator.Evaluate(TestFonts.Manager, target.Color, "Amber", options: null);
+        ValidationOutcome pen = ValidationEvaluator.Evaluate(TestFonts.Manager, target.Pen, new object(), options: null);
 
         Assert.Multiple(() =>
         {
@@ -66,7 +66,7 @@ public class ValidationEvaluatorTests
     {
         IExpressionProperty<int> property = Property.CreateAnimatable(0, new RejectingValidator());
 
-        ValidationOutcome outcome = ValidationEvaluator.Evaluate(
+        ValidationOutcome outcome = ValidationEvaluator.Evaluate(TestFonts.Manager,
             property,
             42,
             options: null);
@@ -84,7 +84,7 @@ public class ValidationEvaluatorTests
         var validator = new RejectingFontValidator();
         IExpressionProperty<FontFamily> property = Property.CreateExpression(new FontFamily("default"), validator);
 
-        ValidationOutcome outcome = ValidationEvaluator.Evaluate(
+        ValidationOutcome outcome = ValidationEvaluator.Evaluate(TestFonts.Manager,
             property,
             new FontFamily($"missing-{Guid.NewGuid():N}"),
             options: null);

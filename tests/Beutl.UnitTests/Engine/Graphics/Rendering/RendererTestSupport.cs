@@ -27,7 +27,7 @@ internal static class RendererTestSupport
     public static CompositionFrame CreateFrame(PixelSize size, params Drawable[] drawables)
         => new(
             [.. drawables.Select(static drawable =>
-                (EngineObject.Resource)drawable.ToResource(CompositionContext.Default))],
+                (EngineObject.Resource)drawable.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }))],
             new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
             size,
             null);

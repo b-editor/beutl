@@ -215,7 +215,7 @@ public sealed class NodeGraphEdgeCaseTests
         var drawable = new NodeGraphDrawable();
         element.AddObject(drawable);
         using var session = new AgentToolkitTestSession(scene);
-        var tools = new NodeGraphTools(session.CreateManager());
+        var tools = new NodeGraphTools(session.CreateManager(), TestFonts.Manager);
 
         NodeGraphSummary listed = tools.ReadNodeGraph().Value!.Graphs!.Single();
         ToolResult<ReadNodeGraphResponse> read = tools.ReadNodeGraph(drawable.Id.Value.ToString());

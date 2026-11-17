@@ -210,6 +210,7 @@ internal sealed partial class DeclarativeDocumentApplier
 
             object? value = keyFrame.Value;
             ValidationOutcome outcome = ValidationEvaluator.Evaluate(
+                fonts,
                 property,
                 value,
                 options,

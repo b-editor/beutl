@@ -29,7 +29,7 @@ public sealed class LibraryTabRegistrationTests
     [AvaloniaTest]
     public void An_item_registered_after_the_tab_opens_is_listed_until_its_type_unloads()
     {
-        using var viewModel = new LibraryTabViewModel(_library, TestShell.Configuration.EditorConfig);
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
         LibraryItemViewModel[] before = [.. viewModel.LibraryItems];
         try
         {
@@ -61,7 +61,7 @@ public sealed class LibraryTabRegistrationTests
     [AvaloniaTest]
     public void A_node_registered_after_the_tab_opens_is_listed_until_its_type_unloads()
     {
-        using var viewModel = new LibraryTabViewModel(_library, TestShell.Configuration.EditorConfig);
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
         LibraryItemViewModel[] before = [.. viewModel.Nodes];
         try
         {
@@ -93,7 +93,7 @@ public sealed class LibraryTabRegistrationTests
     [AvaloniaTest]
     public void A_node_registered_into_a_group_goes_with_its_type()
     {
-        using var viewModel = new LibraryTabViewModel(_library, TestShell.Configuration.EditorConfig);
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
         LibraryItemViewModel[] before = [.. viewModel.Nodes];
         try
         {
@@ -127,7 +127,7 @@ public sealed class LibraryTabRegistrationTests
     [AvaloniaTest]
     public async Task A_search_runs_again_when_a_node_is_registered()
     {
-        using var viewModel = new LibraryTabViewModel(_library, TestShell.Configuration.EditorConfig);
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
         await viewModel.Search(LateName, CancellationToken.None);
         Assert.That(viewModel.SearchResult, Is.Empty);
         try
@@ -146,7 +146,7 @@ public sealed class LibraryTabRegistrationTests
     [AvaloniaTest]
     public void An_item_registered_into_a_group_goes_with_its_type()
     {
-        using var viewModel = new LibraryTabViewModel(_library, TestShell.Configuration.EditorConfig);
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
         LibraryItemViewModel[] before = [.. viewModel.LibraryItems];
         try
         {
@@ -172,7 +172,7 @@ public sealed class LibraryTabRegistrationTests
     [AvaloniaTest]
     public async Task A_search_runs_again_when_an_item_is_registered()
     {
-        using var viewModel = new LibraryTabViewModel(_library, TestShell.Configuration.EditorConfig);
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
         await viewModel.Search(LateName, CancellationToken.None);
         Assert.That(viewModel.SearchResult, Is.Empty);
         try

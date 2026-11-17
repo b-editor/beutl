@@ -460,6 +460,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         var dialog = new SettingsDialog { DataContext = vm };
         ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(owner));
         ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(owner));
+        ControlFonts.SetFonts(dialog, ControlFonts.GetFonts(owner));
         vm.GoToAccountSettingsPage();
         await dialog.ShowDialog(owner);
     }

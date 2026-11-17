@@ -26,7 +26,7 @@ public class DocumentRoundTripTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 } }, out _);
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 100 } }, out _);
         text.Opacity.SetKeyFrameAnimation(animation);
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         JsonObject document = adapter.Read(text);
         // A present-but-non-object Animations map is malformed, not an omission; it must be rejected
@@ -53,7 +53,7 @@ public class DocumentRoundTripTests
             Uri = new Uri(Path.Combine(dir, "first.belm")),
         };
         scene.Children.Add(element);
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         JsonObject document = adapter.Read(scene);
         adapter.Write(scene, document);
@@ -74,7 +74,7 @@ public class DocumentRoundTripTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         scene.Children.Add(new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(dir, "first.belm")) });
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         JsonObject document = adapter.Read(scene);
         // A present-but-non-array Elements is a malformed document, not an intentional omission; it
@@ -91,7 +91,7 @@ public class DocumentRoundTripTests
         var equalizer = new EqualizerEffect();
         int originalBandCount = equalizer.Bands.Count;
         Assert.That(originalBandCount, Is.GreaterThan(0));
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         JsonObject document = adapter.Read(equalizer);
         // A non-object, no-Id entry forces the wholesale ReplaceList path and fails validation; the
@@ -107,7 +107,7 @@ public class DocumentRoundTripTests
     public void Write_applies_animation_coercion_with_the_owner_property_context()
     {
         var target = new ContextValidatedEngineObject();
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
         JsonObject document = adapter.Read(target);
         document["Animations"] = new JsonObject
         {
@@ -147,7 +147,7 @@ public class DocumentRoundTripTests
     public void WriteThenRead_EmitsOnlyCurrentSerializedContent()
     {
         var root = new TestModel { Value = { Value = 3 } };
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         var document = adapter.Read(root);
         document["FutureField"] = "kept";
@@ -168,7 +168,7 @@ public class DocumentRoundTripTests
         var group = new GroupNode();
         GraphGroup inner = group.Group.Value;
         inner.Nodes.Add(new RectGeometryNode());
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
 
         // GroupNode saves Group as node-tree, so a document without "Group" does not ask to clear it.
         adapter.Write(group, adapter.Read(group));
@@ -187,7 +187,7 @@ public class DocumentRoundTripTests
                 && type.IsAssignableTo(typeof(EngineObject))
                 && !type.IsAssignableTo(typeof(IFallback))
                 && type.GetConstructor(Type.EmptyTypes) != null)];
-        var adapter = new DocumentAdapter();
+        var adapter = new DocumentAdapter(TestFonts.Manager);
         var lost = new List<string>();
 
         foreach (Type type in types)

@@ -145,7 +145,7 @@ public sealed class Scene3DCoordinateRenderTests
             }
 
             scene.Children.Add(element);
-            using Bitmap bitmap = await new StillRenderer().RenderBitmapAsync(
+            using Bitmap bitmap = await new StillRenderer(TestFonts.Manager).RenderBitmapAsync(
                 scene, MediaTime.Zero, RenderScale, CancellationToken.None);
             Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
             return bitmap.GetPixelSpan<Half>().ToArray().Select(static v => (float)v).ToArray();

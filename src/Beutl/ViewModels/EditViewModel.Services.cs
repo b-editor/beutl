@@ -27,6 +27,7 @@ public partial class EditViewModel
     internal IReadOnlyCollection<Type> ServiceTypes => _services.Types;
 
     private EditorServiceRegistry CreateServices() => new EditorServiceRegistry()
+        .Add<Beutl.Media.FontManager>(() => EditorService.AppServices.GetRequiredService<Beutl.Media.FontManager>())
         .Add<GlobalConfiguration>(() => EditorService.AppServices.GetRequiredService<GlobalConfiguration>())
         .Add<LibraryService>(() => EditorService.AppServices.GetRequiredService<LibraryService>())
         .Add<ObjectTemplateService>(() => EditorService.AppServices.GetRequiredService<ObjectTemplateService>())

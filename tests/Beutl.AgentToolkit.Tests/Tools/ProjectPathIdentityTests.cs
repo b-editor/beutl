@@ -17,7 +17,7 @@ public sealed class ProjectPathIdentityTests
         {
             string original = Path.Combine(root, "Project.bep");
             string destination = Path.Combine(root, "project.bep");
-            using var source = new FileSessionSource();
+            using var source = new FileSessionSource(TestFonts.Manager);
             var manager = new AgentSessionManager();
             using var jobs = new RenderJobManager();
             var tools = new SessionTools(

@@ -83,19 +83,16 @@ public class ConfigurationOwnershipTests
             decoderConfig.DecoderPriority.Add(new(TypeFormat.ToString(typeof(SecondDecoder))));
             if (explicitInitialization)
             {
-                FontManager.Instance.Initialize(fontConfig);
                 DecoderRegistry.Initialize(decoderConfig);
             }
 
-            FontFamily[] families = FontManager.Instance.FontFamilies.ToArray();
+            var fonts = new FontManager(explicitInitialization ? fontConfig : new FontConfig());
+            FontFamily[] families = fonts.FontFamilies.ToArray();
             Assert.That(families, Does.Contain(FontFamily.Default));
-            Assert.That(FontManager.Instance.IsRegistered(FontFamily.Default), Is.True);
+            Assert.That(fonts.IsRegistered(FontFamily.Default), Is.True);
             string[] expectedDirectories = [.. (explicitInitialization ? fontConfig : new FontConfig()).FontDirectories,
                 BeutlEnvironment.GetMaterialsDirectoryPath()];
-            Assert.That(FontManager.Instance.FontDirectories, Is.EqualTo(expectedDirectories));
-            FontManager.Instance.Initialize(new FontConfig());
-            FontManager.Instance.Initialize(fontConfig);
-            Assert.That(FontManager.Instance.FontDirectories, Is.EqualTo(expectedDirectories));
+            Assert.That(fonts.FontDirectories, Is.EqualTo(expectedDirectories));
 
             var first = new FirstDecoder();
             var second = new SecondDecoder();

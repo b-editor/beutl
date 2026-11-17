@@ -91,7 +91,7 @@ public partial class FilterEffectEditor : UserControl
     {
         return PickerGuard.RunAsync(this, button, () =>
         {
-            var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)DataContext!).GetRequiredService<LibraryService>(),
+            var selectVm = new SelectLibraryItemDialogViewModel((DataContext as IServiceProvider)?.GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(this), ((IServiceProvider)DataContext!).GetRequiredService<LibraryService>(),
                 KnownLibraryItemFormats.FilterEffect,
                 typeof(FilterEffect),
                 LibraryThumbnailCapture.ForObject(DataContext as IServiceProvider));

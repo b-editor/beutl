@@ -29,8 +29,8 @@ public sealed class ShaderGraphExportTests
         Scene scene = Populate(files, lightRays);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
-        using var original = new SceneRenderer(scene, RenderIntent.Preview, scale);
-        using var preview = new SceneRenderer(restored, RenderIntent.Preview, scale);
+        using var original = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, scale);
+        using var preview = new SceneRenderer(restored, TestFonts.Manager, RenderIntent.Preview, scale);
         var frames = new Dictionary<int, ushort[]>();
 
         foreach (int index in new[] { 2, 0, 3, 1, 2 })
@@ -46,7 +46,7 @@ public sealed class ShaderGraphExportTests
         Assert.That(frames[0], Is.Not.EqualTo(frames[2]), "The saved animations must actually change the image.");
         Assert.That(frames[0], Has.Some.Not.EqualTo((ushort)0), "An empty frame is not a valid parity result.");
 
-        using SceneRenderer export = ExportRendererFactory.Create(restored, scale);
+        using SceneRenderer export = ExportRendererFactory.Create(restored, TestFonts.Manager, scale);
         using var progress = new Subject<MediaTime>();
         using var provider = new FrameProviderImpl(restored, new Rational(4), export, progress);
         for (int index = 0; index < 4; index++)
@@ -89,7 +89,7 @@ public sealed class ShaderGraphExportTests
         VulkanTestEnvironment.EnsureAvailable();
         using var files = new SceneHistoryHarness("shader-graph-cancel", duration: MediaTime.FromSeconds(20));
         Scene scene = Populate(files);
-        using (SceneRenderer renderer = ExportRendererFactory.Create(scene))
+        using (SceneRenderer renderer = ExportRendererFactory.Create(scene, TestFonts.Manager))
         using (var progress = new Subject<MediaTime>())
         {
             var provider = new FrameProviderImpl(scene, new Rational(30), renderer, progress);
@@ -101,7 +101,7 @@ public sealed class ShaderGraphExportTests
         }
 
         scene.Duration.Value = MediaTime.FromFrames(1, new Rational(30));
-        using SceneRenderer next = ExportRendererFactory.Create(scene);
+        using SceneRenderer next = ExportRendererFactory.Create(scene, TestFonts.Manager);
         using var nextProgress = new Subject<MediaTime>();
         using var nextProvider = new FrameProviderImpl(scene, new Rational(30), next, nextProgress);
         using Bitmap? frame = await nextProvider.ReadNextFrame().AsTask().WaitAsync(TimeSpan.FromSeconds(15));

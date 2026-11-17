@@ -48,6 +48,7 @@ public partial class PlayerViewModel : IPreviewEyedropper
         float scale = EditViewModel.Renderer.Value.OutputScale;
         // The preview's settings, so the pick reads the media the preview shows, original or proxy.
         GlobalConfiguration configuration = EditViewModel.GetRequiredService<GlobalConfiguration>();
+        Beutl.Media.FontManager fonts = EditViewModel.GetRequiredService<Beutl.Media.FontManager>();
 
         return await RenderThread.Dispatcher.InvokeAsync<(Bitmap Frame, float Scale)?>(() =>
         {
@@ -57,6 +58,7 @@ public partial class PlayerViewModel : IPreviewEyedropper
             cancellationToken.ThrowIfCancellationRequested();
             using var renderer = new SceneRenderer(
                 scene,
+                fonts,
                 RenderIntent.Preview,
                 scale,
                 disableResourceShare: true,

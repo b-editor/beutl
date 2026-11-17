@@ -26,7 +26,7 @@ public class VariableFontWeightTests
     [TestCase(FontWeight.UltraBlack, 900f)]
     public void ResolveSkia_MovesAVariableFontToTheRequestedWeight(FontWeight weight, float expected)
     {
-        SKTypeface resolved = new Typeface(s_variable, FontStyle.Normal, weight).ToSkia();
+        SKTypeface resolved = TestFonts.Manager.ResolveSkia(new Typeface(s_variable, FontStyle.Normal, weight));
 
         Assert.That(WeightOf(resolved), Is.EqualTo(expected));
     }
@@ -34,21 +34,21 @@ public class VariableFontWeightTests
     [Test]
     public void ResolveSkia_ReturnsTheRegisteredFace_AtItsOwnWeight()
     {
-        SKTypeface registered = FontManager.Instance._fonts[s_variable].Values.Single();
+        SKTypeface registered = TestFonts.Manager._fonts[s_variable].Values.Single();
 
-        Assert.That(new Typeface(s_variable).ToSkia(), Is.SameAs(FontManager.Instance.GetRenderFace(registered)));
+        Assert.That(TestFonts.Manager.ResolveSkia(new Typeface(s_variable)), Is.SameAs(TestFonts.Manager.GetRenderFace(registered)));
     }
 
     [Test]
     public void ResolveSkia_ReusesOneInstancePerRenderedWeight()
     {
-        SKTypeface black = new Typeface(s_variable, FontStyle.Normal, FontWeight.Black).ToSkia();
+        SKTypeface black = TestFonts.Manager.ResolveSkia(new Typeface(s_variable, FontStyle.Normal, FontWeight.Black));
 
         Assert.Multiple(() =>
         {
-            Assert.That(new Typeface(s_variable, FontStyle.Normal, FontWeight.Black).ToSkia(), Is.SameAs(black));
+            Assert.That(TestFonts.Manager.ResolveSkia(new Typeface(s_variable, FontStyle.Normal, FontWeight.Black)), Is.SameAs(black));
             // The axis stops at 900, so UltraBlack renders the same instance as Black.
-            Assert.That(new Typeface(s_variable, FontStyle.Normal, FontWeight.UltraBlack).ToSkia(), Is.SameAs(black));
+            Assert.That(TestFonts.Manager.ResolveSkia(new Typeface(s_variable, FontStyle.Normal, FontWeight.UltraBlack)), Is.SameAs(black));
         });
     }
 
@@ -56,11 +56,11 @@ public class VariableFontWeightTests
     public void ResolveSkia_LeavesStaticFontsAtTheNearestRegisteredFace()
     {
         var roboto = new FontFamily("Roboto");
-        SKTypeface medium = FontManager.Instance._fonts[roboto][new Typeface(roboto, FontStyle.Normal, FontWeight.Medium)];
+        SKTypeface medium = TestFonts.Manager._fonts[roboto][new Typeface(roboto, FontStyle.Normal, FontWeight.Medium)];
 
-        SKTypeface resolved = new Typeface(roboto, FontStyle.Normal, FontWeight.Bold).ToSkia();
+        SKTypeface resolved = TestFonts.Manager.ResolveSkia(new Typeface(roboto, FontStyle.Normal, FontWeight.Bold));
 
-        Assert.That(resolved, Is.SameAs(FontManager.Instance.GetRenderFace(medium)));
+        Assert.That(resolved, Is.SameAs(TestFonts.Manager.GetRenderFace(medium)));
     }
 
     [TestCase("Noto Sans JP", "こんにちは、世界！ Hello", 1f)]
@@ -68,7 +68,7 @@ public class VariableFontWeightTests
     [TestCase("Roboto", "é مرحبا 👍🏽", 1.25f)]
     public void TextShaper_ShapesAStaticFontExactlyAsSKShaper(string family, string text, float scaleX)
     {
-        using var font = new SKFont(new Typeface(new FontFamily(family)).ToSkia(), 37.5f) { ScaleX = scaleX };
+        using var font = new SKFont(TestFonts.Manager.ResolveSkia(new Typeface(new FontFamily(family))), 37.5f) { ScaleX = scaleX };
 
         SKShaper.Result expected = Shape(text, buffer =>
         {
@@ -98,7 +98,7 @@ public class VariableFontWeightTests
     public void TextShaper_AdvancesByTheWeightTheTypefaceRenders(FontWeight weight)
     {
         const string Text = "IIII";
-        using var font = new SKFont(new Typeface(s_variable, FontStyle.Normal, weight).ToSkia(), 100f)
+        using var font = new SKFont(TestFonts.Manager.ResolveSkia(new Typeface(s_variable, FontStyle.Normal, weight)), 100f)
         {
             Subpixel = true,
             LinearMetrics = true,
@@ -119,7 +119,7 @@ public class VariableFontWeightTests
     [TestCase(FontWeight.Bold, 488f)]
     public void FormattedText_LaysOutTheRequestedWeight(FontWeight weight, float advanceUnits)
     {
-        using var text = new FormattedText { Font = s_variable, Weight = weight, Size = 100f, Text = "II" };
+        using var text = new FormattedText(TestFonts.Manager) { Font = s_variable, Weight = weight, Size = 100f, Text = "II" };
 
         // At 100 px per em a unit is 0.1 px, and HarfBuzz rounds each advance to 1/512 em.
         Assert.That(text.Bounds.Width, Is.EqualTo(2 * advanceUnits / 10f).Within(2 * 100f / 1024f));
@@ -128,8 +128,8 @@ public class VariableFontWeightTests
     [Test]
     public void FormattedText_DrawsTheOutlinesOfTheRequestedWeight()
     {
-        using var regular = new FormattedText { Font = s_variable, Weight = FontWeight.Regular, Size = 100f, Text = "II" };
-        using var bold = new FormattedText { Font = s_variable, Weight = FontWeight.Bold, Size = 100f, Text = "II" };
+        using var regular = new FormattedText(TestFonts.Manager) { Font = s_variable, Weight = FontWeight.Regular, Size = 100f, Text = "II" };
+        using var bold = new FormattedText(TestFonts.Manager) { Font = s_variable, Weight = FontWeight.Bold, Size = 100f, Text = "II" };
 
         // From the left edge of the first stem to the right edge of the second: 32 + 12 = 44 px at wght 400,
         // and 48.8 + 28.8 = 77.6 px at wght 700.

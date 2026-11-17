@@ -30,7 +30,7 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
 
     public HistoryManager History => _recording.History;
 
-    public DocumentAdapter Documents { get; } = new();
+    public DocumentAdapter Documents { get; } = new(TestFonts.Manager);
 
     public bool IsDirty => false;
 
@@ -38,7 +38,7 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
 
     public AgentSessionManager CreateManager() => TestSessions.CreateManager(this);
 
-    public EditTools CreateEditTools() => new(CreateManager());
+    public EditTools CreateEditTools() => new(CreateManager(), TestFonts.Manager);
 
     public void Dispose()
     {

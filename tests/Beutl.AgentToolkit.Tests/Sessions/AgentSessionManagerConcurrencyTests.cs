@@ -75,7 +75,7 @@ public sealed class AgentSessionManagerConcurrencyTests
     public void Concurrent_plan_store_get_remove_does_not_throw_or_corrupt()
     {
         var manager = new AgentSessionManager();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         manager.UseSource(source);
         const string sessionKey = "host";
 

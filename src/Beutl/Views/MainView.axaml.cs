@@ -236,6 +236,7 @@ public sealed partial class MainView : UserControl
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
             ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(window));
             ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(window));
+            ControlFonts.SetFonts(dialog, ControlFonts.GetFonts(window));
             navigate(dialogViewModel);
             await dialog.ShowDialog(window);
         }

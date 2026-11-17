@@ -1,89 +1,220 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using Avalonia.Media;
 using Avalonia.Media.Fonts;
 
 namespace Beutl.Controls.PropertyEditors;
 
-// The fonts Beutl reads itself, built from its own copy of each font. A family loads the face Beutl resolves for its
-// first request, so the picker's names cost one face each.
-internal sealed class BeutlFontCollection(long maxCopiedBytes = BeutlFontCollection.MaxCopiedBytes) : FontCollectionBase
+// Copies are shared across catalog revisions and kept alive for text already using them. Once the budget is
+// reached, previews use an existing copy or the platform fallback; revisiting a copied font costs nothing more.
+internal sealed class BeutlFontCollection(Media.FontManager fonts, long maxCopiedBytes = BeutlFontCollection.MaxCopiedBytes) : IFontCollection
 {
-    // Each copy lives as long as the app, and the faces of a collection copy the tables they share once each, so the
-    // families past this many bytes stay in the default font.
     internal const long MaxCopiedBytes = 256L * 1024 * 1024;
 
-    public static readonly Uri CollectionKey = new("fonts:Beutl");
-
     private static readonly Lock s_registrationGate = new();
-    private static (FontManager Manager, BeutlFontCollection Collection)? s_registration;
-
+    private static readonly ConditionalWeakTable<FontManager, ConditionalWeakTable<Media.FontManager, BeutlFontCollection>> s_registrations = new();
     private readonly Lock _gate = new();
+    private readonly Dictionary<string, CopiedFont> _copies = [];
+    private readonly Dictionary<string, CopiedFont> _familyCopies = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _loadedFamilies = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<GlyphTypeface, CopiedFont> _owners = [];
+    private long _revision = -1;
     private long _copiedBytes;
 
-    public override Uri Key => CollectionKey;
+    public Uri Key { get; } = new($"fonts:Beutl-{Guid.NewGuid():N}");
+
+    public int Count => GetFamilies().Length;
+
+    public FontFamily this[int index] => GetFamilies()[index];
 
     internal long CopiedBytes
     {
-        get
-        {
-            lock (_gate) return _copiedBytes;
-        }
+        get { lock (_gate) return _copiedBytes; }
     }
 
-    public static BeutlFontCollection GetOrRegister(FontManager manager)
+    internal int CopiedFontCount
+    {
+        get { lock (_gate) return _copies.Count; }
+    }
+
+    public static BeutlFontCollection GetOrRegister(FontManager manager, Media.FontManager fonts, long maxCopiedBytes = MaxCopiedBytes)
     {
         lock (s_registrationGate)
         {
-            // Adding a collection under a taken key disposes the faces of the one it replaces, which drawn text can
-            // still hold, so each manager gets a single collection.
-            if (s_registration is not { } registration || registration.Manager != manager)
+            var sources = s_registrations.GetOrCreateValue(manager);
+            if (!sources.TryGetValue(fonts, out BeutlFontCollection? collection))
             {
-                registration = (manager, new BeutlFontCollection());
-                manager.AddFontCollection(registration.Collection);
-                s_registration = registration;
+                collection = new BeutlFontCollection(fonts, maxCopiedBytes);
+                manager.AddFontCollection(collection);
+                sources.Add(fonts, collection);
             }
-
-            return registration.Collection;
+            return collection;
         }
     }
 
-    public override bool TryGetGlyphTypeface(string familyName, FontStyle style, FontWeight weight, FontStretch stretch,
+    public bool TryGetGlyphTypeface(string familyName, FontStyle style, FontWeight weight, FontStretch stretch,
         [NotNullWhen(true)] out GlyphTypeface? glyphTypeface)
+        => TryGetTypeface(familyName, style, weight, stretch, nearest: false, out glyphTypeface);
+
+    public bool TryGetNearestMatch(string familyName, FontStyle style, FontWeight weight, FontStretch stretch,
+        [NotNullWhen(true)] out GlyphTypeface? glyphTypeface)
+        => TryGetTypeface(familyName, style, weight, stretch, nearest: true, out glyphTypeface);
+
+    private bool TryGetTypeface(string familyName, FontStyle style, FontWeight weight, FontStretch stretch,
+        bool nearest, [NotNullWhen(true)] out GlyphTypeface? glyphTypeface)
     {
         lock (_gate)
         {
-            if (!_loadedFamilies.Contains(familyName) && LoadFamily(familyName, style, weight))
-                _loadedFamilies.Add(familyName);
+            Refresh();
+            CopiedFont? requested = LoadFamily(familyName, style, weight);
+            IEnumerable<CopiedFont> candidates = requested is null ? _familyCopies.Values : [requested];
+            foreach (CopiedFont copy in candidates)
+            {
+                bool found = nearest
+                    ? copy.TryGetNearestMatch(familyName, style, weight, stretch, out glyphTypeface)
+                    : copy.TryGetGlyphTypeface(familyName, style, weight, stretch, out glyphTypeface);
+                if (found && glyphTypeface is not null)
+                {
+                    _owners[glyphTypeface] = copy;
+                    return true;
+                }
+            }
+            glyphTypeface = null;
+            return false;
         }
-
-        return base.TryGetGlyphTypeface(familyName, style, weight, stretch, out glyphTypeface);
     }
 
-    // False when Beutl has no such family yet, as before the project that bundles it opens.
-    private bool LoadFamily(string familyName, FontStyle style, FontWeight weight)
+    public bool TryMatchCharacter(int codepoint, FontStyle fontStyle, FontWeight fontWeight,
+        FontStretch fontStretch, string? familyName, CultureInfo? culture, out Typeface typeface)
     {
-        // Past the budget no family is copied again, so a later lookup would find nothing new.
-        if (_copiedBytes >= maxCopiedBytes)
-            return true;
-
-        var typeface = new Media.Typeface(new Media.FontFamily(familyName), (Media.FontStyle)style, (Media.FontWeight)weight);
-        if (Media.FontManager.Instance.CopyFontData(typeface) is not { } data)
-            return false;
-
-        _copiedBytes += data.Length;
-        using var stream = new MemoryStream(data, writable: false);
-        // Adds the face under the names in its tables. Beutl names the family as the OS's font stack does, which can be
-        // another name, and a lookup drops its style words, as "Light" from "Foo Light".
-        bool added = TryAddGlyphTypeface(stream, out GlyphTypeface? glyphTypeface);
-        new Typeface(familyName).Normalize(out string lookupName);
-        if (glyphTypeface is not null
-            && !TryAddGlyphTypeface(lookupName, new FontCollectionKey(glyphTypeface.Style, glyphTypeface.Weight, glyphTypeface.Stretch), glyphTypeface)
-            && !added)
+        lock (_gate)
         {
-            glyphTypeface.Dispose();
+            Refresh();
+            if (familyName != null) LoadFamily(familyName, fontStyle, fontWeight);
+            foreach (CopiedFont copy in _familyCopies.Values.Distinct())
+                if (copy.TryMatchCharacter(codepoint, fontStyle, fontWeight, fontStretch, familyName, culture, out typeface))
+                    return true;
+            typeface = default;
+            return false;
+        }
+    }
+
+    public bool TryGetFamilyTypefaces(string familyName, [NotNullWhen(true)] out IReadOnlyList<Typeface>? familyTypefaces)
+    {
+        lock (_gate)
+        {
+            Refresh();
+            LoadFamily(familyName, FontStyle.Normal, FontWeight.Normal);
+            foreach (CopiedFont copy in _familyCopies.Values.Distinct())
+                if (copy.TryGetFamilyTypefaces(familyName, out familyTypefaces))
+                    return true;
+            familyTypefaces = null;
+            return false;
+        }
+    }
+
+    public bool TryCreateSyntheticGlyphTypeface(GlyphTypeface glyphTypeface, FontStyle style, FontWeight weight,
+        FontStretch stretch, [NotNullWhen(true)] out GlyphTypeface? syntheticGlyphTypeface)
+    {
+        lock (_gate)
+        {
+            if (_owners.TryGetValue(glyphTypeface, out CopiedFont? copy)
+                && copy.TryCreateSyntheticGlyphTypeface(glyphTypeface, style, weight, stretch, out syntheticGlyphTypeface))
+            {
+                _owners[syntheticGlyphTypeface] = copy;
+                return true;
+            }
+            syntheticGlyphTypeface = null;
+            return false;
+        }
+    }
+
+    private void Refresh()
+    {
+        long revision = fonts.Revision;
+        if (_revision != revision)
+        {
+            _loadedFamilies.Clear();
+            _revision = revision;
+        }
+    }
+
+    private CopiedFont? LoadFamily(string familyName, FontStyle style, FontWeight weight)
+    {
+        _familyCopies.TryGetValue(familyName, out CopiedFont? previous);
+        if (!_loadedFamilies.Add(familyName)) return previous;
+        if (_copiedBytes >= maxCopiedBytes && previous is null) return null;
+        var typeface = new Media.Typeface(new Media.FontFamily(familyName), (Media.FontStyle)style, (Media.FontWeight)weight);
+        if (fonts.CopyFontData(typeface) is not { } data) return previous;
+        string hash = Convert.ToHexString(SHA256.HashData(data));
+        if (!_copies.TryGetValue(hash, out CopiedFont? copy))
+        {
+            // As with the original budget, the last admitted font can cross the limit.
+            if (_copiedBytes >= maxCopiedBytes) return previous;
+            copy = new CopiedFont(Key);
+            using var stream = new MemoryStream(data, writable: false);
+            if (!copy.Load(stream, familyName))
+            {
+                ((IDisposable)copy).Dispose();
+                return null;
+            }
+            _copies.Add(hash, copy);
+            _copiedBytes += data.Length;
+        }
+        copy.AddAlias(familyName);
+        _familyCopies[familyName] = copy;
+        return copy;
+    }
+
+    private FontFamily[] GetFamilies()
+    {
+        lock (_gate)
+        {
+            Refresh();
+            return _familyCopies.Values.Distinct().SelectMany(copy => copy).Distinct().ToArray();
+        }
+    }
+
+    public IEnumerator<FontFamily> GetEnumerator() => ((IEnumerable<FontFamily>)GetFamilies()).GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            foreach (CopiedFont copy in _copies.Values) ((IDisposable)copy).Dispose();
+            _copies.Clear();
+            _familyCopies.Clear();
+            _loadedFamilies.Clear();
+            _owners.Clear();
+        }
+    }
+
+    private sealed class CopiedFont(Uri key) : FontCollectionBase
+    {
+        private GlyphTypeface? _primary;
+
+        public override Uri Key => key;
+
+        public bool Load(Stream stream, string familyName)
+        {
+            bool added = TryAddGlyphTypeface(stream, out _primary);
+            if (_primary == null) return false;
+            if (AddAlias(familyName) || added) return true;
+            _primary.Dispose();
+            _primary = null;
+            return false;
         }
 
-        return true;
+        public bool AddAlias(string familyName)
+        {
+            new Typeface(familyName).Normalize(out string lookupName);
+            return TryAddGlyphTypeface(lookupName,
+                new FontCollectionKey(_primary!.Style, _primary.Weight, _primary.Stretch), _primary);
+        }
     }
 }

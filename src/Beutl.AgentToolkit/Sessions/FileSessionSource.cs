@@ -3,7 +3,7 @@ using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Sessions;
 
-public sealed class FileSessionSource : ISessionSource, IDisposable
+public sealed class FileSessionSource(Media.FontManager fonts) : ISessionSource, IDisposable
 {
     // Concurrent open_project/create_project calls race on the current-session swap; each caller
     // must get back the session IT created (never the shared field, which another call may have
@@ -22,6 +22,7 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
                       ?? throw new InvalidOperationException("The project does not contain a scene.");
 
         var session = new FileEditingSession(
+            fonts,
             Guid.NewGuid().ToString("N"),
             project,
             scene,
@@ -36,7 +37,7 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
     {
         Project project = ProjectOperations.CreateProject(options);
         Scene scene = project.Items.OfType<Scene>().First();
-        var session = new FileEditingSession(Guid.NewGuid().ToString("N"), project, scene, DateTime.MinValue);
+        var session = new FileEditingSession(fonts, Guid.NewGuid().ToString("N"), project, scene, DateTime.MinValue);
         session.MarkDirty();
         return session;
     }
@@ -56,7 +57,7 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
             current = _currentSession;
             _currentSession = null;
             if (current is not null)
-                Media.FontManager.Instance.ClearProjectFonts(current.Project);
+                fonts.ClearProjectFonts(current.Project);
         }
 
         current?.Dispose();
@@ -72,7 +73,7 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
             previous = disposedRace ? null : _currentSession;
             if (!disposedRace)
             {
-                Media.FontManager.Instance.LoadProjectFonts(session.Project);
+                fonts.LoadProjectFonts(session.Project);
                 _currentSession = session;
             }
         }

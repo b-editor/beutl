@@ -24,7 +24,7 @@ public class EditorViewModelDisposeRaceTests
         }
 
         public object? GetService(Type serviceType)
-            => serviceType == typeof(IEditorClock) ? clock : editViewModel.GetService(serviceType);
+            => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(IEditorClock) ? clock : editViewModel.GetService(serviceType);
     }
 
     [AvaloniaTest]

@@ -15,6 +15,19 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class SelectedDrawableRenderTests
 {
+    [AvaloniaTest]
+    public async Task Selected_text_uses_the_editors_fonts_for_detached_measurement()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-text-fonts", 320, 240);
+        var text = new TextBlock { Text = { Value = "Selected text" }, Size = { Value = 32 } };
+
+        PixelSize measured = await editor.Player.MeasureSelectedDrawable(text);
+
+        Assert.That(measured.Width, Is.GreaterThan(0));
+        Assert.That(measured.Height, Is.GreaterThan(0));
+    }
+
     // A 48x32 red rectangle with its top-left corner moved to (x, y).
     private static RectShape CreateRedRect(float x, float y)
         => new()

@@ -31,7 +31,7 @@ public class FormattedTextDeviceScaleTests
         {
             Thickness = { Value = 2f },
             Brush = { Value = Brushes.White }
-        }.ToResource(CompositionContext.Default);
+        }.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         Rect logicalActualBounds = text.ActualBounds;
 
         SKPath logicalStroke = text.GetStrokePath()!;

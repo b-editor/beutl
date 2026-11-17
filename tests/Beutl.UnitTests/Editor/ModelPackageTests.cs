@@ -38,7 +38,7 @@ public class ModelPackageTests
             project.Items.Add(scene);
             CoreSerializer.StoreToUri(project, project.Uri);
 
-            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, Path.Combine(root, "shared.beutl"));
+            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, Path.Combine(root, "shared.beutl"));
 
             Assert.That(result.Success, Is.True);
             Assert.That(result.FailedResources, Is.Not.Empty);
@@ -100,7 +100,7 @@ public class ModelPackageTests
             byte[] original = File.ReadAllBytes(element.Uri.LocalPath);
             string package = Path.Combine(root, "shared.beutl");
 
-            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, package);
+            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, package);
 
             Assert.That(result.Success, Is.True);
             Assert.That(result.FailedResources, Is.Empty);

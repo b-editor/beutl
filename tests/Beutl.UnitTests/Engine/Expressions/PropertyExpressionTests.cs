@@ -55,11 +55,11 @@ public class PropertyExpressionTests
         IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
         property.SetAttributes("Value", []);
         property.Expression = new StringExpression<float>("10 / (int)Time");
-        var failingContext = new CompositionContext(MediaTime.Zero);
+        var failingContext = new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager };
 
         Assert.That(property.Evaluate(failingContext), Is.EqualTo(7));
         Assert.That(property.Evaluate(failingContext), Is.EqualTo(7));
-        Assert.That(property.Evaluate(new CompositionContext(MediaTime.FromSeconds(2))), Is.EqualTo(5));
+        Assert.That(property.Evaluate(new CompositionContext(MediaTime.FromSeconds(2)) { Fonts = TestFonts.Manager }), Is.EqualTo(5));
         Assert.That(property.ExpressionError, Is.Null);
         Assert.That(property.Evaluate(failingContext), Is.EqualTo(7));
         Assert.That(logs.Entries, Has.Count.EqualTo(1));
@@ -91,21 +91,21 @@ public class PropertyExpressionTests
                 throw new TimeoutException("The pending evaluation was not released.");
             return oldFailure ? throw new ExpressionException("Old failure") : 42;
         });
-        Task<float> pending = Task.Run(() => property.Evaluate(new CompositionContext(MediaTime.Zero)));
+        Task<float> pending = Task.Run(() => property.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }));
         try
         {
             Assert.That(started.Wait(TimeSpan.FromSeconds(10)), Is.True);
             property.Expression = new TestExpression(() => throw new ExpressionException("New failure"));
             if (!oldFailure)
             {
-                Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero)), Is.EqualTo(7));
+                Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }), Is.EqualTo(7));
                 Assert.That(property.ExpressionError, Is.EqualTo("New failure"));
             }
 
             release.Set();
             Assert.That(await pending.WaitAsync(TimeSpan.FromSeconds(10)), Is.EqualTo(oldFailure ? 7 : 42));
             Assert.That(property.ExpressionError, Is.EqualTo(oldFailure ? null : "New failure"));
-            Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero)), Is.EqualTo(7));
+            Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }), Is.EqualTo(7));
             Assert.That(property.ExpressionError, Is.EqualTo("New failure"));
             Assert.That(logs.Entries.Count(entry => entry.Exception?.Message == "New failure"), Is.EqualTo(1));
         }
@@ -124,7 +124,7 @@ public class PropertyExpressionTests
         IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
         property.Expression = new SoundExpressionTests.CountingExpression<float>(result);
 
-        Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero)), Is.EqualTo(7));
+        Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }), Is.EqualTo(7));
         Assert.That(property.ExpressionError, Is.Not.Empty);
     }
 
@@ -134,7 +134,7 @@ public class PropertyExpressionTests
     {
         var property = new AnimatableProperty<double>(7) { Expression = new SoundExpressionTests.CountingExpression<double>(result) };
 
-        Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero)), Is.EqualTo(7));
+        Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }), Is.EqualTo(7));
     }
 
     // A range would otherwise clamp infinity to a bound, a valid-looking value the failure could not be told from.
@@ -145,7 +145,7 @@ public class PropertyExpressionTests
         var delay = new DelayEffect();
         delay.Feedback.Expression = new SoundExpressionTests.CountingExpression<float>(result);
 
-        Assert.That(delay.Feedback.Evaluate(new CompositionContext(MediaTime.Zero)), Is.EqualTo(delay.Feedback.Value));
+        Assert.That(delay.Feedback.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }), Is.EqualTo(delay.Feedback.Value));
         Assert.That(delay.Feedback.ExpressionError, Is.Not.Empty);
     }
 
@@ -180,7 +180,7 @@ public class PropertyExpressionTests
         property.SetKeyFrameAnimation(animation);
         property.Expression = new StringExpression<float>("throw new InvalidOperationException();");
 
-        Assert.That(property.Evaluate(new CompositionContext(MediaTime.FromSeconds(1))), Is.EqualTo(50));
+        Assert.That(property.Evaluate(new CompositionContext(MediaTime.FromSeconds(1)) { Fonts = TestFonts.Manager }), Is.EqualTo(50));
         Assert.That(property.GetKeyFrameAnimation(), Is.SameAs(animation));
     }
 
@@ -194,7 +194,7 @@ public class PropertyExpressionTests
         var element = new Element { Length = { Value = scene.Duration.Value } };
         element.Objects.Add(shape);
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager);
 
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
 

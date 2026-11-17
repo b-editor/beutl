@@ -37,8 +37,9 @@ public sealed partial class SceneCompositor : ICompositor
     private readonly EditorConfig? _editorConfig;
     private readonly ProxyStoreConfig? _proxyConfig;
 
-    public SceneCompositor(Scene scene, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+    public SceneCompositor(Scene scene, FontManager? fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
+        Fonts = fonts;
         _editorConfig = editorConfig;
         _proxyConfig = proxyConfig;
         Scene = scene;
@@ -54,6 +55,8 @@ public sealed partial class SceneCompositor : ICompositor
             ObserveLayer(layer);
         }
     }
+
+    public FontManager? Fonts { get; }
 
     public Scene Scene { get; }
 
@@ -78,6 +81,7 @@ public sealed partial class SceneCompositor : ICompositor
         if (field?.Scene != scene
             || field?.DisableResourceShare != context.DisableResourceShare
             || field?.ForceOriginalSource != forceOriginalSource
+            || !ReferenceEquals(field?.Fonts, context.Fonts)
             || !ReferenceEquals(field?._editorConfig, editorConfig)
             || !ReferenceEquals(field?._proxyConfig, proxyConfig))
         {
@@ -87,7 +91,7 @@ public sealed partial class SceneCompositor : ICompositor
 
         if (scene != null && field == null)
         {
-            field = new SceneCompositor(scene, editorConfig, proxyConfig)
+            field = new SceneCompositor(scene, context.Fonts, editorConfig, proxyConfig)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 ForceOriginalSource = forceOriginalSource,
@@ -115,6 +119,7 @@ public sealed partial class SceneCompositor : ICompositor
             DisableResourceShare = compositor.DisableResourceShare;
             Conditions = new CompositionConditions
             {
+                Fonts = compositor.Fonts,
                 PreferProxy = !compositor.ForceOriginalSource
                     && (compositor._editorConfig?.PreviewSourceMode.Value ?? PreviewSourceMode.PreferProxy) == PreviewSourceMode.PreferProxy,
                 PreferredProxyPreset = ToPreset(compositor._proxyConfig?.DefaultPreset.Value ?? ProxyStoreConfig.DefaultPresetValue),

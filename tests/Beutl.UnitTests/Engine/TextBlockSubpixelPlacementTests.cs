@@ -61,7 +61,7 @@ public class TextBlockSubpixelPlacementTests
         group.Children.Add(transform);
         textBlock.Transform.Value = group;
 
-        using Drawable.Resource resource = (Drawable.Resource)textBlock.ToResource(CompositionContext.Default);
+        using Drawable.Resource resource = (Drawable.Resource)textBlock.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         using var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, new Size(CanvasWidth, CanvasHeight)))
         {

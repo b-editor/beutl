@@ -95,6 +95,7 @@ public class NumberSliderFieldTests
         try
         {
             Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+            Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
             window.Show();
             HeadlessTestHelpers.Render(3);
             (byte[] pixels, int rowBytes, _) = HeadlessTestHelpers.CaptureFramePixels(window);
@@ -348,6 +349,7 @@ public class NumberSliderFieldTests
         try
         {
             Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+            Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
             window.Show();
             HeadlessTestHelpers.Render(3);
             ValueSliderField firstSlider = first.GetVisualDescendants().OfType<ValueSliderField>().Single();
@@ -586,6 +588,7 @@ public class NumberSliderFieldTests
         try
         {
             Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+            Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
             window.Show();
             HeadlessTestHelpers.Render(3);
             (byte[] pixels, int rowBytes, _) = HeadlessTestHelpers.CaptureFramePixels(window);
@@ -662,6 +665,7 @@ public class NumberSliderFieldTests
                 RequestedThemeVariant = theme,
             };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
+            Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
             Window.Show();
             HeadlessTestHelpers.Render(3);
             Slider = Editor.GetVisualDescendants().OfType<ValueSliderField>().Single();

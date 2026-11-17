@@ -56,11 +56,11 @@ public class LibraryThumbnailCaptureTests
 
         var objectServices = new Services(title, editor.GetRequiredService<IEditorClock>());
         await CapturePickerAsync(
-            new SelectLibraryItemDialogViewModel(TestShell.Library,
+            new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library,
                 KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect), LibraryThumbnailCapture.ForObject(objectServices)),
             "picker-effects");
         await CapturePickerAsync(
-            new SelectLibraryItemDialogViewModel(TestShell.Library,
+            new SelectLibraryItemDialogViewModel(TestShell.FontManager, TestShell.Library,
                 KnownLibraryItemFormats.ClipTransition,
                 typeof(ClipTransition),
                 LibraryThumbnailCapture.ForEdge(second, ElementEdge.Start, editor)),
@@ -227,6 +227,7 @@ public class LibraryThumbnailCaptureTests
     {
         public object? GetService(Type serviceType)
         {
+            if (serviceType == typeof(Beutl.Media.FontManager)) return TestShell.FontManager;
             if (serviceType == typeof(Beutl.Configuration.GlobalConfiguration)) return TestShell.Configuration;
             if (serviceType == typeof(Element))
                 return element;

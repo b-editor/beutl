@@ -12,7 +12,7 @@ public sealed class ExportRendererFactoryTests
     {
         var scene = new Scene(240, 120, "Export");
 
-        using SceneRenderer renderer = ExportRendererFactory.Create(scene, renderScale: 2f);
+        using SceneRenderer renderer = ExportRendererFactory.Create(scene, TestFonts.Manager, renderScale: 2f);
 
         Assert.Multiple(() =>
         {

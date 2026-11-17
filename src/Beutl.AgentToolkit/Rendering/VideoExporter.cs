@@ -15,7 +15,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
 
-public sealed class VideoExporter(EncoderRegistration encoders)
+public sealed class VideoExporter(EncoderRegistration encoders, FontManager fonts)
 {
     // True only when FFmpeg is the sole encoder for this container, so a missing worker leaves no
     // fallback. AVFoundation (macOS .mp4/.mov) makes this false and the export must not preflight-reject.
@@ -74,7 +74,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             await ThrowIfExportSourcesMissingAsync(scene, frameRate, videoEnabled, audioEnabled, cancellationToken).ConfigureAwait(false);
 
             using var providers = ExportMediaProviders.Create(
-                scene,
+                scene, fonts,
                 videoEnabled,
                 audioEnabled,
                 normalizedScale,

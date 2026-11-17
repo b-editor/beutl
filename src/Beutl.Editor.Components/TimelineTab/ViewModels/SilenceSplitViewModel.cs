@@ -12,6 +12,7 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 public sealed class SilenceSplitViewModel : IDisposable
 {
     private readonly Scene _scene;
+    private readonly Beutl.Media.FontManager _fonts;
     private readonly Element _element;
     private readonly SilenceSplitService _service;
     private readonly IPreviewPlayer? _player;
@@ -27,8 +28,9 @@ public sealed class SilenceSplitViewModel : IDisposable
     private bool _disposed;
     private bool _applying;
 
-    public SilenceSplitViewModel(Scene scene, Element element, HistoryManager history, EditorConfig configuration, IPreviewPlayer? player = null)
+    public SilenceSplitViewModel(Beutl.Media.FontManager fonts, Scene scene, Element element, HistoryManager history, EditorConfig configuration, IPreviewPlayer? player = null)
     {
+        _fonts = fonts;
         _scene = scene;
         _element = element;
         _service = new SilenceSplitService(history, configuration, player);
@@ -96,7 +98,7 @@ public sealed class SilenceSplitViewModel : IDisposable
                 int reported = 0;
                 // Keep the million-bin enumeration off the UI context. Only percentage changes
                 // return to its scheduler, and are awaited so none can arrive after completion.
-                await foreach (WaveformChunk chunk in SilenceWaveform.GetChunksAsync(_scene, _element, count, ct, ObserveScene).ConfigureAwait(false))
+                await foreach (WaveformChunk chunk in SilenceWaveform.GetChunksAsync(_fonts, _scene, _element, count, ct, ObserveScene).ConfigureAwait(false))
                 {
                     chunks[chunk.Index] = chunk;
                     int progress = (int)((long)(chunk.Index + 1) * 100 / count);

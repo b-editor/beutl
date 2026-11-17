@@ -43,8 +43,8 @@ internal sealed class LibraryThumbnailSet : IDisposable
     /// <param name="capture">
     /// Captures the content the thumbnails show types on, or is <see langword="null"/> to show them on the samples.
     /// </param>
-    public LibraryThumbnailSet(Func<CancellationToken, Task<LibraryThumbnailSubject?>>? capture)
-        : this(capture, LibraryThumbnailRenderer.RenderAsync)
+    public LibraryThumbnailSet(Beutl.Media.FontManager fonts, Func<CancellationToken, Task<LibraryThumbnailSubject?>>? capture)
+        : this(capture, (type, subject, stillOnly, cancellationToken) => LibraryThumbnailRenderer.RenderAsync(fonts, type, subject, stillOnly, cancellationToken))
     {
     }
 

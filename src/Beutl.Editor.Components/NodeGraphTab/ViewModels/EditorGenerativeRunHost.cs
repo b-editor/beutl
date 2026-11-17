@@ -11,6 +11,8 @@ namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 internal sealed class EditorGenerativeRunHost(IEditorContext editorContext, IReadOnlyReactiveProperty<bool>? canEdit = null)
     : IGenerativeRunHost
 {
+    public Beutl.Media.FontManager Fonts => editorContext.GetRequiredService<Beutl.Media.FontManager>();
+
     public MediaTime CurrentTime
         => editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? MediaTime.Zero;
 

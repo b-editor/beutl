@@ -28,7 +28,7 @@ public sealed class UnknownDataApplyTests
         using var session = new AgentToolkitTestSession(scene);
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        var tools = new EditTools(manager, TestFonts.Manager);
         JsonObject document = session.Documents.Read(scene);
         JsonObject documentElement = document["Elements"]!.AsArray()[0]!.AsObject();
         documentElement[nameof(Element.Start)] = TimeSpan.FromSeconds(1).ToString("c");
@@ -66,7 +66,7 @@ public sealed class UnknownDataApplyTests
         JsonObject document = session.Documents.Read(scene);
         document["Elements"]![0]![nameof(Element.Objects)]![1]!["PluginValue"] = 7;
 
-        var exception = Assert.Throws<ReconcileException>(() => new Reconciler().Apply(session, document));
+        var exception = Assert.Throws<ReconcileException>(() => new Reconciler(TestFonts.Manager).Apply(session, document));
 
         Assert.Multiple(() =>
         {
@@ -86,7 +86,7 @@ public sealed class UnknownDataApplyTests
         JsonObject document = session.Documents.Read(scene);
         document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(RectShape.Width)] = 50;
 
-        new Reconciler().Apply(session, document);
+        new Reconciler(TestFonts.Manager).Apply(session, document);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonObject savedShape = saved[nameof(Element.Objects)]![0]!.AsObject();
@@ -110,7 +110,7 @@ public sealed class UnknownDataApplyTests
         document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(Shape.Fill)]![nameof(SolidColorBrush.Color)] =
             CoreSerializer.SerializeToJsonNode(Colors.Red);
 
-        new Reconciler().Apply(session, document);
+        new Reconciler(TestFonts.Manager).Apply(session, document);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         JsonObject savedFill = ReadSavedFill(elementPath);
 
@@ -139,7 +139,7 @@ public sealed class UnknownDataApplyTests
             fill[nameof(Brush.Transform)]![nameof(TranslateTransform.X)] = 20;
         }
 
-        new Reconciler().Apply(session, document);
+        new Reconciler(TestFonts.Manager).Apply(session, document);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         JsonObject savedFill = ReadSavedFill(elementPath);
 
@@ -167,7 +167,7 @@ public sealed class UnknownDataApplyTests
         document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(Shape.Fill)]!["Animations"]!.AsObject()
             .Remove(nameof(Brush.Opacity));
 
-        new Reconciler().Apply(session, document);
+        new Reconciler(TestFonts.Manager).Apply(session, document);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
         Brush reloadedBrush = ((RectShape)reloaded.Children.Single().Objects[0]).Fill.Value!;
@@ -221,7 +221,7 @@ public sealed class UnknownDataApplyTests
         documentElement["AgentClip"] = 1;
         documentElement[nameof(Element.Objects)]![0]![nameof(RectShape.Width)] = 50;
 
-        new Reconciler().Apply(session, document);
+        new Reconciler(TestFonts.Manager).Apply(session, document);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
 
@@ -245,7 +245,7 @@ public sealed class UnknownDataApplyTests
         JsonObject document = session.Documents.Read(scene);
         document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(RectShape.Width)] = 50;
 
-        new Reconciler().Apply(session, document);
+        new Reconciler(TestFonts.Manager).Apply(session, document);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
 
@@ -266,7 +266,7 @@ public sealed class UnknownDataApplyTests
         JsonObject document = session.Documents.Read(scene);
         document["Elements"]![0]![nameof(Element.Objects)]![1]!["Uri"] = "elsewhere.json";
 
-        var exception = Assert.Throws<ReconcileException>(() => new Reconciler().Apply(session, document));
+        var exception = Assert.Throws<ReconcileException>(() => new Reconciler(TestFonts.Manager).Apply(session, document));
 
         Assert.Multiple(() =>
         {

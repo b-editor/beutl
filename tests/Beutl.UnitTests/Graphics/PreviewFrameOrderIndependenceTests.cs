@@ -82,7 +82,7 @@ public class PreviewFrameOrderIndependenceTests
             using var media = new SceneMedia(_testConfiguration.EditorConfig, preferProxy, withEffect, withBackdrops);
 
             string[] baseline = new string[FrameCount];
-            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default })
             {
                 for (int frame = 0; frame < FrameCount; frame++)
                 {
@@ -96,7 +96,7 @@ public class PreviewFrameOrderIndependenceTests
             Assert.That(baseline.Distinct().Count(), Is.EqualTo(FrameCount),
                 "the scene has to look different on every frame or the comparisons below prove nothing");
 
-            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default })
             {
                 var rendered = new HashSet<int>();
                 foreach (int frame in s_scrub)
@@ -146,7 +146,7 @@ public class PreviewFrameOrderIndependenceTests
             group.Children.Add(glass);
 
             Scene scene = media.NewSceneWith(group);
-            using var renderer = new SceneRenderer(scene, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default };
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default };
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
 
             using Bitmap snapshot = renderer.Snapshot();

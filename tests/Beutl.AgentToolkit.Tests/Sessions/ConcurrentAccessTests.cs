@@ -12,7 +12,7 @@ public sealed class ConcurrentAccessTests
     {
         string root = TestWorkspace.CreateDirectory();
         string projectPath = Path.Combine(root, "conflict.bep");
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath,
             320,
@@ -45,8 +45,8 @@ public sealed class ConcurrentAccessTests
             // Keep the initial revision distinct even on filesystems with coarse timestamp precision.
             File.SetLastWriteTimeUtc(projectPath, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
-            using var firstSource = new FileSessionSource();
-            using var secondSource = new FileSessionSource();
+            using var firstSource = new FileSessionSource(TestFonts.Manager);
+            using var secondSource = new FileSessionSource(TestFonts.Manager);
             FileEditingSession first = firstSource.OpenProject(projectPath);
             FileEditingSession second = secondSource.OpenProject(projectPath);
             second.Scene.Children.Single(e => e.Id.Value == firstElement.Id.Value).Name.Value = "Saved by second session";

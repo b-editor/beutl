@@ -61,11 +61,12 @@ public sealed partial class EditViewModel
 
         _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id.Value);
 
-        _services = CreateServices();
         Scene = scene;
         ExtensionProvider = extensionProvider;
         EditorService = editorService;
         SceneId = scene.Id.Value.ToString();
+        _services = CreateServices();
+        _missingMediaDetector = new MissingMediaService(this.GetRequiredService<Beutl.Media.FontManager>());
 
         _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
             .DisposeWith(_disposables);
@@ -88,7 +89,7 @@ public sealed partial class EditViewModel
                 .DistinctUntilChanged();
 
         Renderer = frameSizeAndScale
-            .Select(t => new SceneRenderer(Scene, RenderIntent.Preview, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale),
+            .Select(t => new SceneRenderer(Scene, this.GetRequiredService<Beutl.Media.FontManager>(), RenderIntent.Preview, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale),
                 editorConfig: this.GetRequiredService<GlobalConfiguration>().EditorConfig,
                 proxyConfig: this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig))
             .DisposePreviousValue()
@@ -98,7 +99,7 @@ public sealed partial class EditViewModel
         var channelLayout = new ReactivePropertySlim<AudioChannelLayout>(project.GetChannelLayout())
             .DisposeWith(_disposables);
         Composer = scene.FrameSize.GetObservable().CombineLatest(channelLayout)
-            .Select(t => new SceneComposer(Scene, editorConfig: this.GetRequiredService<GlobalConfiguration>().EditorConfig,
+            .Select(t => new SceneComposer(Scene, this.GetRequiredService<Beutl.Media.FontManager>(), editorConfig: this.GetRequiredService<GlobalConfiguration>().EditorConfig,
                 proxyConfig: this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig)
             {
                 SampleRate = project.GetSampleRate(),

@@ -15,7 +15,7 @@ public class TextElementsTests
     [Test]
     public void LinesEnumerator()
     {
-        using var items = new TextElements(
+        using var items = new TextElements(TestFonts.Manager,
         [
             new TextElement()
             {

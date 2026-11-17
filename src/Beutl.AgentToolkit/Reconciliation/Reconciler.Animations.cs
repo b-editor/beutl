@@ -332,7 +332,7 @@ public sealed partial class Reconciler
         return prototype;
     }
 
-    private static void ValidateChangedAnimationValues(
+    private void ValidateChangedAnimationValues(
         ObjectLookup sandbox,
         JsonObject currentDocument,
         JsonObject desiredDocument,
@@ -347,7 +347,7 @@ public sealed partial class Reconciler
             validation);
     }
 
-    private static void ValidateChangedAnimationValuesInNode(
+    private void ValidateChangedAnimationValuesInNode(
         ObjectLookup sandbox,
         JsonNode? currentNode,
         JsonNode? desiredNode,
@@ -385,7 +385,7 @@ public sealed partial class Reconciler
         }
     }
 
-    private static void ValidateOwnerAnimations(
+    private void ValidateOwnerAnimations(
         ObjectLookup sandbox,
         JsonObject? currentObject,
         JsonObject desiredObject,
@@ -436,7 +436,7 @@ public sealed partial class Reconciler
         }
     }
 
-    private static void ValidateAnimationKeyFrameValues(
+    private void ValidateAnimationKeyFrameValues(
         ObjectLookup sandbox,
         EngineObject engineObject,
         IProperty property,
@@ -475,7 +475,7 @@ public sealed partial class Reconciler
         }
     }
 
-    private static void ValidateKeyFrameValue(
+    private void ValidateKeyFrameValue(
         IProperty property,
         JsonObject keyFrame,
         JsonNode? valueNode,
@@ -487,7 +487,7 @@ public sealed partial class Reconciler
             object? value = valueNode is null
                 ? null
                 : EnumJsonValueNormalizer.Deserialize(valueNode, property.ValueType, options);
-            ValidationOutcome outcome = ValidationEvaluator.Evaluate(
+            ValidationOutcome outcome = ValidationEvaluator.Evaluate(fonts,
                 property,
                 value,
                 options);
@@ -510,7 +510,7 @@ public sealed partial class Reconciler
         }
     }
 
-    private static void ValidateChangedAnimationValuesInArray(
+    private void ValidateChangedAnimationValuesInArray(
         ObjectLookup sandbox,
         JsonArray? currentArray,
         JsonArray desiredArray,

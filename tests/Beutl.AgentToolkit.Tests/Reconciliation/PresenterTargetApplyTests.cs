@@ -61,7 +61,7 @@ public sealed class PresenterTargetApplyTests
                 ["$type"] = ObjectNode(desired, "target")["$type"]!.DeepClone(),
             };
 
-            ReconcileException? ex = Assert.Throws<ReconcileException>(() => new Reconciler().Apply(session, desired));
+            ReconcileException? ex = Assert.Throws<ReconcileException>(() => new Reconciler(TestFonts.Manager).Apply(session, desired));
 
             using (Assert.EnterMultipleScope())
             {
@@ -85,7 +85,7 @@ public sealed class PresenterTargetApplyTests
                 ["Target"] = new JsonObject { ["ObjectId"] = JsonValue.Create(target.Id.Value) },
             };
 
-            new Reconciler().Apply(session, desired);
+            new Reconciler(TestFonts.Manager).Apply(session, desired);
 
             Assert.That((presenter.Target.Expression as IReferenceExpression)?.ObjectId, Is.EqualTo(target.Id.Value));
         }

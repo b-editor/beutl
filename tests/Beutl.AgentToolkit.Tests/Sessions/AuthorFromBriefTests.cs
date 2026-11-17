@@ -15,7 +15,7 @@ public sealed class AuthorFromBriefTests
     {
         string root = TestWorkspace.CreateDirectory();
         string projectPath = Path.Combine(root, "promo.bep");
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath,
             1920,
@@ -42,7 +42,7 @@ public sealed class AuthorFromBriefTests
 
         ((JsonArray)desired["Elements"]!).Add(elementJson);
 
-        new Reconciler().Apply(session, desired);
+        new Reconciler(TestFonts.Manager).Apply(session, desired);
         session.Save(skipConflictCheck: true);
 
         Project reloaded = CoreSerializer.RestoreFromUri<Project>(new Uri(projectPath));
@@ -67,7 +67,7 @@ public sealed class AuthorFromBriefTests
     {
         string root = TestWorkspace.CreateDirectory();
         string projectPath = Path.Combine(root, "multi.bep");
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath,
             1280,

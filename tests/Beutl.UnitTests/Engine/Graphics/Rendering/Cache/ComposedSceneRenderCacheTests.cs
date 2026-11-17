@@ -90,7 +90,7 @@ public sealed class ComposedSceneRenderCacheTests
                 AlignmentX = { Value = AlignmentX.Left },
                 AlignmentY = { Value = AlignmentY.Top },
             };
-            using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
+            using Drawable.Resource resource = text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
             AssertCacheAdmissionParity<TextRenderNode>(resource);
         });
@@ -121,7 +121,7 @@ public sealed class ComposedSceneRenderCacheTests
                 Text = { Value = "ab" },
                 Transform = { Value = new TranslateTransform(0, 0) },
             };
-            using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
+            using Drawable.Resource resource = text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
             AssertProductionCacheSequence(resource, RenderCacheOptions.Enabled);
         });
@@ -149,7 +149,7 @@ public sealed class ComposedSceneRenderCacheTests
                 Fill = { Value = Brushes.White },
                 BlendMode = { Value = blendMode },
             });
-            using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
+            using Drawable.Resource resource = group.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
             AssertProductionCacheSequence(resource, RenderCacheOptions.Enabled);
         });
@@ -168,7 +168,7 @@ public sealed class ComposedSceneRenderCacheTests
                 Height = { Value = 160 },
                 Fill = { Value = Brushes.White },
             });
-            using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
+            using Drawable.Resource resource = group.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
             AssertProductionCacheSequence(resource, RenderCacheOptions.Enabled);
         });
@@ -186,7 +186,7 @@ public sealed class ComposedSceneRenderCacheTests
                 Height = { Value = 160 },
                 Fill = { Value = Brushes.White },
             });
-            using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
+            using Drawable.Resource resource = group.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, s_frameSize.ToSize(1)))
             {
@@ -231,7 +231,7 @@ public sealed class ComposedSceneRenderCacheTests
                 Height = { Value = 73 },
                 Fill = { Value = Brushes.White },
             };
-            using Drawable.Resource resource = ellipse.ToResource(CompositionContext.Default);
+            using Drawable.Resource resource = ellipse.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
             AssertProductionCacheSequence(resource, RenderCacheOptions.Default);
         });
@@ -313,7 +313,7 @@ public sealed class ComposedSceneRenderCacheTests
             Fill = { Value = brush },
             Transform = { Value = new TranslateTransform(translation, translation) },
         };
-        return host.ToResource(CompositionContext.Default);
+        return host.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 
     private static void AssertCacheAdmissionParity<TNode>(Drawable.Resource resource)

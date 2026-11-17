@@ -386,11 +386,11 @@ public sealed class MissingMediaViewModel : IToolContext
                 {
                     var paths = fontRows.ToDictionary(row => row.Media.FontFamily!.Name, row => row.FontReplacementFiles);
                     var relocation = new ResourceRelocationService(family => paths[family]);
-                    RelocationResult result = await relocation.RelocateFontsAsync(fontRows.Select(row => row.Media.FontFamily!),
+                    RelocationResult result = await relocation.RelocateFontsAsync(_editor.GetRequiredService<FontManager>(), fontRows.Select(row => row.Media.FontFamily!),
                         projectDirectory, _token);
                     if (result.FailedResources.Count > 0) throw new IOException(MissingMediaStrings.FontCopyFailed);
                     var project = _scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _scene.Uri };
-                    FontManager.Instance.LoadProjectFonts(project);
+                    _editor.GetRequiredService<FontManager>().LoadProjectFonts(project);
                 }
                 using (history.SuppressRecording())
                 {
@@ -420,7 +420,7 @@ public sealed class MissingMediaViewModel : IToolContext
                         if (Directory.Exists(fontsDirectory))
                             foreach (string file in Directory.GetFiles(fontsDirectory).Where(file => !originalFonts.Contains(file)))
                                 File.Delete(file);
-                        FontManager.Instance.LoadProjectFonts(_scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _scene.Uri });
+                        _editor.GetRequiredService<FontManager>().LoadProjectFonts(_scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _scene.Uri });
                     }
                     catch (Exception ex) { s_logger.LogWarning(ex, "Could not roll back copied repair fonts."); }
                 }

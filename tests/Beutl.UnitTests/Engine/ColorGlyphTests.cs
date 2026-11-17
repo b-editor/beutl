@@ -65,7 +65,7 @@ public class ColorGlyphTests
             Spacing = { Value = 12f },
             SplitByCharacters = { Value = split },
         };
-        using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
+        using TextBlock.Resource resource = block.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         using var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, new Size(400, 160)))
             resource.Render(context);
@@ -113,7 +113,7 @@ public class ColorGlyphTests
     [Test]
     public void OutlineGlyphs_KeepTheirGeometryAndHitTesting()
     {
-        using var text = new FormattedText { Text = "I", Font = new FontFamily("Roboto"), Size = 64f };
+        using var text = new FormattedText(TestFonts.Manager) { Text = "I", Font = new FontFamily("Roboto"), Size = 64f };
         using var node = new TextRenderNode(text, Brushes.Resource.White, null);
         using var renderer = new RenderNodeRenderer(node, Request());
         Assert.Multiple(() =>
@@ -212,7 +212,7 @@ public class ColorGlyphTests
         };
         gradient.GradientStops.Add(new GradientStop(Colors.Red, 0));
         gradient.GradientStops.Add(new GradientStop(Colors.Blue, 1));
-        using Brush.Resource fill = gradient.ToResource(CompositionContext.Default);
+        using Brush.Resource fill = gradient.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         SKColor firstStart = SampleGlyphBrush(first, fill, scale, 0.25f, vertical);
         SKColor lastStart = SampleGlyphBrush(last, fill, scale, 0.25f, vertical);
@@ -270,7 +270,7 @@ public class ColorGlyphTests
         return SKBitmap.FromImage(image);
     }
 
-    private static FormattedText CreateText(string value) => new()
+    private static FormattedText CreateText(string value) => new(TestFonts.Manager)
     {
         Font = s_font,
         Text = value,

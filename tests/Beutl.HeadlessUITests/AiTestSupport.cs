@@ -187,7 +187,7 @@ internal static class AiTestSupport
         IObservable<CaptionDraftScope?>? draftScopes = null,
         IAiOperationAvailabilityService? availabilityService = null,
         CaptionCatalog? captionCatalog = null)
-        => new(
+        => new(TestShell.FontManager,
             clients.GetResource<IAiEntitlementService>(),
             availabilityService ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),

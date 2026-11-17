@@ -41,7 +41,7 @@ public class TextBlockTests
     public void ParseAndDraw(string str)
     {
         TextBlock tb = CreateTextBlock(str);
-        using var resource = tb.ToResource(CompositionContext.Default);
+        using var resource = tb.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
 
         using var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, new(1920, 1080)))
@@ -63,7 +63,7 @@ public class TextBlockTests
     [Test]
     public void Parse_AppliesEachTagToTheTextItEncloses()
     {
-        using TextBlock.Resource resource = CreateTextBlock(Case1).ToResource(CompositionContext.Default);
+        using TextBlock.Resource resource = CreateTextBlock(Case1).ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         TextElements elements = resource.GetTextElements();
         TextElement Element(string text) => elements.Single(element => element.Text == text);
 
@@ -113,7 +113,7 @@ public class TextBlockTests
         block.TextAlignment.Value = alignment;
         block.SplitByCharacters.Value = split;
         block.Spacing.Value = spacing;
-        using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
+        using TextBlock.Resource resource = block.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         using var node = new DrawableRenderNode(resource);
         Record(resource, node);
 
@@ -145,7 +145,7 @@ public class TextBlockTests
     {
         TextBlock block = CreateTextBlock("HHHHHH\nHH", 40);
         block.SplitByCharacters.Value = split;
-        using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
+        using TextBlock.Resource resource = block.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         using var node = new DrawableRenderNode(resource);
         Record(resource, node);
         Rect[] before = RenderLineBounds(node);
@@ -154,7 +154,7 @@ public class TextBlockTests
 
         block.TextAlignment.Value = TextAlignment.End;
         bool changed = false;
-        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        resource.Reconcile(block, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref changed);
         node.Update(resource);
         Record(resource, node);
         Rect[] after = RenderLineBounds(node);
@@ -194,8 +194,8 @@ public class TextBlockTests
         var graph = new GraphModel();
         graph.Nodes.Add(node);
         using var snapshot = new GraphSnapshot();
-        snapshot.Build(graph, CompositionContext.Default);
-        snapshot.Evaluate(CompositionContext.Default);
+        snapshot.Build(graph, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
+        snapshot.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         var resource = (TextNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
 
         Assert.That(node.Object.Value.TextAlignment.Value, Is.EqualTo(TextAlignment.Center));
@@ -210,7 +210,7 @@ public class TextBlockTests
         block.WritingMode.Value = WritingMode.VerticalRl;
         block.TextAlignment.Value = alignment;
         block.SplitByCharacters.Value = split;
-        using var resource = block.ToResource(CompositionContext.Default);
+        using var resource = block.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         using var node = new DrawableRenderNode(resource);
         Record(resource, node);
         Rect[] columns = RenderLineBounds(node, vertical: true);
@@ -236,7 +236,7 @@ public class TextBlockTests
 
         block.WritingMode.Value = WritingMode.HorizontalTb;
         bool changed = false;
-        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        resource.Reconcile(block, new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }, ref changed);
         node.Update(resource);
         Record(resource, node);
         Assert.That(RenderLineBounds(node), Has.Length.EqualTo(3));

@@ -6,6 +6,8 @@ namespace Beutl.Testing.Headless;
 // clean up before the window closes does that in a finally inside the host's using scope.
 public sealed class ControlHost : IDisposable
 {
+    public static Action<Window>? ConfigureWindow { get; set; }
+
     public ControlHost(Control content, double width = 320, double height = 200)
         : this(new Window { Width = width, Height = height, Content = content })
     {
@@ -13,6 +15,7 @@ public sealed class ControlHost : IDisposable
 
     public ControlHost(Window window)
     {
+        ConfigureWindow?.Invoke(window);
         Window = window;
         Window.Show();
         HeadlessTestHelpers.Settle();

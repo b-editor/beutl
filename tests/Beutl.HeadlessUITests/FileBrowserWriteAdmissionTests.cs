@@ -671,7 +671,7 @@ public sealed class FileBrowserWriteAdmissionTests
         {
         }
 
-        public object? GetService(Type serviceType) => TestShell.MainViewModel.AppServices.GetService(serviceType);
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : TestShell.MainViewModel.AppServices.GetService(serviceType);
 
         public void Dispose() => IsEnabled.Dispose();
     }

@@ -26,8 +26,8 @@ public sealed class SceneCompositorDisabledObjectsTests
         element.Objects.Add(shape);
         scene.Children.Add(element);
 
-        using var preview = new SceneCompositor(scene);
-        using var sampling = new SceneCompositor(scene) { DisabledObjects = new HashSet<EngineObject> { curves } };
+        using var preview = new SceneCompositor(scene, TestFonts.Manager);
+        using var sampling = new SceneCompositor(scene, TestFonts.Manager) { DisabledObjects = new HashSet<EngineObject> { curves } };
 
         Assert.Multiple(() =>
         {

@@ -121,7 +121,7 @@ public class ThumbnailSchedulingTests
         if (video)
         {
             // Exercise decoder initialization and cleanup without requiring GPU rasterization.
-            await foreach (var (_, _, thumbnail) in provider.GetThumbnailStripAsync(
+            await foreach (var (_, _, thumbnail) in provider.GetThumbnailStripAsync(TestFonts.Manager,
                                100, 25, null, token, startIndex: 1, endIndex: 0))
             {
                 thumbnail.Dispose();

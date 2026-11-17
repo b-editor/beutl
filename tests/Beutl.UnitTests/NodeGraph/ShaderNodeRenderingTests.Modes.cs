@@ -479,7 +479,7 @@ public partial class ShaderNodeRenderingTests
         var output = graph.Add(new OutputNode());
         graph.Connect(output.InputPort, pass.Out("color"));
         Populate(files, effect);
-        using var renderer = new SceneRenderer(files.Scene, RenderIntent.Preview, 1);
+        using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
         // The rectangle is centered in the frame, and an effect works in its coordinates.
         float Alpha(ushort[] pixels, int x, int y) => Channel(pixels, ((y + 12) * 48 + x + 12) * 4 + 3);
 

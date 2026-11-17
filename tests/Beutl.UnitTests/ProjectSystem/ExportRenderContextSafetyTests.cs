@@ -114,7 +114,7 @@ public sealed class ExportRenderContextSafetyTests
             Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
         };
         scene.Children.Add(element);
-        return new SceneCompositor(scene)
+        return new SceneCompositor(scene, TestFonts.Manager)
         {
             DisableResourceShare = true,
             ForceOriginalSource = true,

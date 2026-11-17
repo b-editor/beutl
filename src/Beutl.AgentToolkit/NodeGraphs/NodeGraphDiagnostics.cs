@@ -43,7 +43,7 @@ internal static partial class NodeGraphDiagnostics
     // reports. Evaluating writes to the graph's monitors and connection statuses, so run it on a copy, on the thread
     // that owns the document, where the statuses are written at once. whileEvaluated reads the graph in that state.
     public static List<NodeGraphDiagnostic> Evaluate(
-        NodeGraphTarget target, Func<GraphNode, string> label, Action? whileEvaluated = null)
+        Media.FontManager fonts, NodeGraphTarget target, Func<GraphNode, string> label, Action? whileEvaluated = null)
     {
         var diagnostics = new List<NodeGraphDiagnostic>();
         // At the middle of the element, as a render there would record it: at its first instant a replay has run no
@@ -55,8 +55,8 @@ internal static partial class NodeGraphDiagnostics
         {
             try
             {
-                snapshot.Build(target.Root, new CompositionContext(time));
-                snapshot.Evaluate(new CompositionContext(time));
+                snapshot.Build(target.Root, new CompositionContext(time) { Fonts = fonts });
+                snapshot.Evaluate(new CompositionContext(time) { Fonts = fonts });
             }
             catch (Exception ex)
             {

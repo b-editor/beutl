@@ -76,7 +76,7 @@ public partial class AudioEffectEditor : UserControl
     {
         return PickerGuard.RunAsync(this, button, async () =>
         {
-            var viewModel = new SelectLibraryItemDialogViewModel(((IServiceProvider)DataContext!).GetRequiredService<LibraryService>(), KnownLibraryItemFormats.AudioEffect, typeof(AudioEffect));
+            var viewModel = new SelectLibraryItemDialogViewModel((DataContext as IServiceProvider)?.GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(this), ((IServiceProvider)DataContext!).GetRequiredService<LibraryService>(), KnownLibraryItemFormats.AudioEffect, typeof(AudioEffect));
             return await LibraryItemPickerHelper.ShowAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect) as Type;
         });
     }

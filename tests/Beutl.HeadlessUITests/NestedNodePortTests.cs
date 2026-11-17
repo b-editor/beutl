@@ -188,7 +188,7 @@ public class NestedNodePortTests
             else
                 root.Animation = new KeyFrameAnimation<Pen?>();
             using (var snapshot = new GraphSnapshot())
-                snapshot.Build(graph, CompositionContext.Default);
+                snapshot.Build(graph, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
             HeadlessTestHelpers.Render(3);
             Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Error));
             Assert.That(member.CanConnect.Value, Is.False);
@@ -1108,7 +1108,7 @@ public class NestedNodePortTests
 
     private sealed record EditorVisitor(IEditorContext Context) : IPropertyEditorContextVisitor, IServiceProvider
     {
-        public object? GetService(Type serviceType) => Context.GetService(serviceType);
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : Context.GetService(serviceType);
         public void Visit(IPropertyEditorContext context) { }
     }
 

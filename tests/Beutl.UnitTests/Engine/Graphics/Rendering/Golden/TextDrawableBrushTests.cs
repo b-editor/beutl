@@ -83,6 +83,6 @@ public sealed class TextDrawableBrushTests
         text.AlignmentY.Value = AlignmentY.Center;
         text.SplitByCharacters.Value = splitByCharacters;
         text.Fill.Value = fill;
-        return text.ToResource(CompositionContext.Default);
+        return text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
     }
 }

@@ -45,7 +45,7 @@ public class SilenceSplitTests
             element.Objects.Add(group);
         }
         else element.Objects.Add(embed);
-        using (var model = new SilenceSplitViewModel(h.Scene, element, h.History, new Beutl.Configuration.EditorConfig()))
+        using (var model = new SilenceSplitViewModel(TestFonts.Manager, h.Scene, element, h.History, new Beutl.Configuration.EditorConfig()))
         {
             await model.AnalyzeAsync();
             Assert.That(model.CanApply.Value, Is.True, model.Status.Value);
@@ -55,7 +55,7 @@ public class SilenceSplitTests
             Assert.That(h.Scene.Children, Is.EqualTo(new[] { element }));
         }
         // Refreshing re-evaluates the now-audible source; normal editing remains available.
-        using var refreshed = new SilenceSplitViewModel(h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
+        using var refreshed = new SilenceSplitViewModel(TestFonts.Manager, h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
         await refreshed.AnalyzeAsync();
         Assert.That(refreshed.Ranges, Is.Empty);
     }
@@ -95,7 +95,7 @@ public class SilenceSplitTests
         }
         var element = h.AddElement(Seconds(7), Seconds(2));
         element.Objects.Add(new SceneSound { ReferencedScene = { Value = nested }, OffsetPosition = { Value = Seconds(offset) }, Speed = { Value = speed } });
-        using var model = new SilenceSplitViewModel(h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
+        using var model = new SilenceSplitViewModel(TestFonts.Manager, h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
         await model.AnalyzeAsync();
         Assert.That(model.CanApply.Value, Is.EqualTo(readable), model.Status.Value);
         Assert.That(model.Ranges.Count, Is.EqualTo(readable ? 1 : 0));
@@ -131,7 +131,7 @@ public class SilenceSplitTests
             else element.Objects.Add(sound);
             var video = h.AddElement(Seconds(0), Seconds(3), 1);
             h.Scene.Groups.Add([element.Id.Value, video.Id.Value]);
-            using var model = new SilenceSplitViewModel(h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
+            using var model = new SilenceSplitViewModel(TestFonts.Manager, h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
             await model.AnalyzeAsync();
             Assert.That(decoder.SuccessfulReads, Is.GreaterThan(0));
             Assert.That(decoder.FailedReads > 0, Is.EqualTo(fail));
@@ -145,7 +145,7 @@ public class SilenceSplitTests
             }
 
             // Normal playback still uses its silent fallback, even after analysis failed.
-            using var compositor = new SceneCompositor(h.Scene);
+            using var compositor = new SceneCompositor(h.Scene, TestFonts.Manager);
             using var composer = new Composer();
             using var output = composer.Compose(Range(1, 2), compositor.EvaluateAudio(Range(1, 2)));
             Assert.That(output, Is.Not.Null);
@@ -179,7 +179,7 @@ public class SilenceSplitTests
         element.Objects.Add(new SceneSound { ReferencedScene = { Value = nested } });
         var video = h.AddElement(Seconds(0), Seconds(2), 1);
         h.Scene.Groups.Add([element.Id.Value, video.Id.Value]);
-        using var model = new SilenceSplitViewModel(h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
+        using var model = new SilenceSplitViewModel(TestFonts.Manager, h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
         await model.AnalyzeAsync();
         Assert.That(model.CanApply.Value, Is.EqualTo(disabled || muted));
         Assert.That(model.Ranges.Count, Is.EqualTo(disabled || muted ? 1 : 0));
@@ -190,7 +190,7 @@ public class SilenceSplitTests
     {
         using var h = new SceneHistoryHarness("silence-long");
         var element = h.AddElement(Seconds(0), Seconds(36000));
-        using var model = new SilenceSplitViewModel(h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
+        using var model = new SilenceSplitViewModel(TestFonts.Manager, h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
         var chunks = Enumerable.Range(0, 1800000).Select(i => new WaveformChunk(i, -0.5f, 0.5f)).ToArray();
         chunks[^1] = new(chunks.Length - 1, -0.8f, 0.9f);
         model.SetWaveform(chunks);
@@ -219,7 +219,7 @@ public class SilenceSplitTests
         using var h = new SceneHistoryHarness("silence-progress");
         var element = h.AddElement(Seconds(0), Seconds(3));
         element.Objects.Add(new SceneSound { ReferencedScene = { Value = new Scene(100, 100, "empty") } });
-        using var model = new SilenceSplitViewModel(h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
+        using var model = new SilenceSplitViewModel(TestFonts.Manager, h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
         var progress = new List<int>();
         using var subscription = model.Progress.Subscribe(value =>
         {
@@ -277,7 +277,7 @@ public class SilenceSplitTests
         element.Objects.Add(new SourceSound { Source = { Value = source }, Gain = { Value = gain } });
         element.Objects.Add(new SoundGroup { Gain = { Value = groupGain }, IsEnabled = { Value = groupEnabled } });
         h.AddElement(Seconds(0), Seconds(2), 1).Objects.Add(new SourceSound { Source = { Value = source } });
-        using var model = new SilenceSplitViewModel(h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
+        using var model = new SilenceSplitViewModel(TestFonts.Manager, h.Scene, element, h.History, new Beutl.Configuration.EditorConfig());
         await model.AnalyzeAsync();
         Assert.That(model.Ranges.Count, Is.EqualTo(silent ? 1 : 0));
     }

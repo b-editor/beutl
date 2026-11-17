@@ -19,8 +19,8 @@ public sealed class FontFamilyEditorTests
     [AvaloniaTest]
     public void A_search_still_waiting_when_the_picker_closes_does_not_change_the_font()
     {
-        FontFamily target = FontManager.Instance.DefaultTypeface.FontFamily;
-        FontFamily initial = FontManager.Instance.FontFamilies.First(family => family != target);
+        FontFamily target = TestShell.FontManager.DefaultTypeface.FontFamily;
+        FontFamily initial = TestShell.FontManager.FontFamilies.First(family => family != target);
         var editor = new FontFamilyEditor { Header = "Font", Value = initial };
         var window = new Window { Width = 600, Height = 500, Content = editor };
         var previewed = new List<FontFamily>();

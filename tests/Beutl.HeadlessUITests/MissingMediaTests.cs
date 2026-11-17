@@ -311,19 +311,19 @@ public partial class MissingMediaTests
         File.WriteAllText(first, "LUT_1D_SIZE 2\n0 0 0\n1 1 1\n");
         File.WriteAllText(second, "LUT_1D_SIZE 2\n1 0 0\n0 1 1\n");
         var source = CubeSource.Open(first);
-        using var resource = source.ToResource(CompositionContext.Default);
+        using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         CubeFile original = resource.Cube!;
         Assert.That(original, Is.Not.Null);
         ResourceRelocationService.RelinkFileSource(source, new Uri(second));
         bool versionBumped = false;
-        resource.Reconcile(source, CompositionContext.Default, ref versionBumped);
+        resource.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
         Assert.That(resource.Cube, Is.Not.SameAs(original));
         Assert.That(resource.Cube!.Data[0].X, Is.EqualTo(1));
         string invalid = Path.Combine(directory, "truncated.cube");
         File.WriteAllText(invalid, "LUT_1D_SIZE 2\n0 0 0\n");
         var missing = new MissingMedia(MissingMediaKind.Cube, new Uri(Path.Combine(directory, "missing.cube")), null, [], null);
         await Assert.ThrowsAsync<InvalidDataException>(async () =>
-            await new MissingMediaService().ValidateAsync(missing, invalid).WaitAsync(TimeSpan.FromSeconds(3)));
+            await new MissingMediaService(TestShell.FontManager).ValidateAsync(missing, invalid).WaitAsync(TimeSpan.FromSeconds(3)));
     }
 
     [AvaloniaTest]
@@ -359,7 +359,7 @@ public partial class MissingMediaTests
             element.Objects.Clear();
             element.Objects.Add(text);
         }
-        using var textResource = text.ToResource(CompositionContext.Default);
+        using var textResource = text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         var fallbackText = textResource.GetTextElements();
         using var vm = new MissingMediaViewModel(editor);
         Assert.That(vm.Rows.Single().Media.Kind, Is.EqualTo(MissingMediaKind.Font));
@@ -367,14 +367,14 @@ public partial class MissingMediaTests
         await vm.WaitForCandidatesAsync();
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
         bool versionBumped = false;
-        textResource.Reconcile(text, CompositionContext.Default, ref versionBumped);
+        textResource.Reconcile(text, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
         Assert.That(textResource.GetTextElements(), Is.Not.SameAs(fallbackText), "Relinking refreshes a cached fallback font without changing the text.");
         string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
         Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts", "renamed-font.ttf")), Is.True);
         await TestReset.ResetShellAsync();
         await TestShell.Project.OpenProject(projectPath);
-        Assert.That(FontManager.Instance.IsRegistered(family), Is.True);
-        Assert.That(new MissingMediaService().FindMissing(BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single()), Is.Empty);
+        Assert.That(TestShell.FontManager.IsRegistered(family), Is.True);
+        Assert.That(new MissingMediaService(TestShell.FontManager).FindMissing(BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single()), Is.Empty);
         await TestReset.ResetShellAsync();
     }
 
@@ -413,7 +413,7 @@ public partial class MissingMediaTests
         await TestReset.ResetShellAsync();
         await TestShell.Project.OpenProject(projectPath);
         Scene reopened = BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single(scene => scene.Id.Value == sceneId);
-        Assert.That(new MissingMediaService().FindMissing(reopened), Is.Empty);
+        Assert.That(new MissingMediaService(TestShell.FontManager).FindMissing(reopened), Is.Empty);
         Assert.That(reopened.Children, Has.Count.EqualTo(300));
         Assert.That(reopened.MediaFingerprints, Has.Count.EqualTo(300));
         await TestReset.ResetShellAsync();
@@ -424,9 +424,9 @@ public partial class MissingMediaTests
     {
         string directory = NewDirectory();
         var image = ImageSource.Open(Path.Combine(directory, "absent.png"));
-        using var imageResource = image.ToResource(CompositionContext.Default);
+        using var imageResource = image.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         var video = VideoSource.Open(Path.Combine(directory, "absent.mp4"));
-        using var videoResource = video.ToResource(CompositionContext.Default);
+        using var videoResource = video.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         Assert.Multiple(() =>
         {
             Assert.That(imageResource.IsOffline, Is.True);
@@ -439,7 +439,7 @@ public partial class MissingMediaTests
         File.WriteAllBytes(Path.Combine(directory, "restored.png"), s_png);
         ResourceRelocationService.RelinkFileSource(image, new Uri(Path.Combine(directory, "restored.png")));
         bool versionBumped = false;
-        imageResource.Reconcile(image, CompositionContext.Default, ref versionBumped);
+        imageResource.Reconcile(image, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
         Assert.That(imageResource.IsOffline, Is.False);
         Assert.That(imageResource.FrameSize.Width, Is.EqualTo(1));
     }
@@ -489,7 +489,7 @@ public partial class MissingMediaTests
         using var vm = new MissingMediaViewModel(editor);
         File.WriteAllBytes(path, s_png);
         // A second consumer can populate the shared cache before the relink is applied.
-        using var shared = source.ToResource(CompositionContext.Default);
+        using var shared = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         Assert.That(shared.IsOffline, Is.False);
         await vm.SetReplacementAsync(vm.Rows.Single(), path);
         await vm.WaitForCandidatesAsync();
@@ -514,18 +514,18 @@ public partial class MissingMediaTests
     {
         string path = Path.Combine(NewDirectory(), "restored.cube");
         var source = CubeSource.Open(path);
-        using var existing = source.ToResource(CompositionContext.Default);
+        using var existing = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         Assert.That(existing.Cube, Is.Null);
         File.WriteAllText(path, "LUT_1D_SIZE 2\n0 0 0\n1 1 1\n");
-        using var shared = source.ToResource(CompositionContext.Default);
+        using var shared = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
         Assert.That(shared.Cube, Is.Not.Null);
         ResourceRelocationService.RelinkFileSource(source, source.Uri);
         bool versionBumped = false;
-        existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
+        existing.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
         Assert.That(existing.Cube, Is.Not.Null);
         Assert.That(existing.Cube, Is.Not.SameAs(shared.Cube));
         CubeFile recovered = existing.Cube!;
-        existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
+        existing.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
         Assert.That(existing.Cube, Is.SameAs(recovered), "An unchanged source should not reopen on every frame.");
     }
 
@@ -540,8 +540,8 @@ public partial class MissingMediaTests
         try
         {
             MediaSource source = video ? VideoSource.Open(path) : SoundSource.Open(path);
-            using var existing = source.ToResource(CompositionContext.Default);
-            using var second = source.ToResource(CompositionContext.Default);
+            using var existing = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
+            using var second = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
             static MediaReader? Reader(EngineObject.Resource resource) => resource switch
             {
                 VideoSource.Resource v => v.MediaReader,
@@ -555,20 +555,20 @@ public partial class MissingMediaTests
             File.WriteAllBytes(path, [1]);
             ResourceRelocationService.RelinkFileSource(source, source.Uri);
             bool versionBumped = false;
-            existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
-            second.Reconcile(source, CompositionContext.Default, ref versionBumped);
+            existing.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
+            second.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
             Assert.That(Reader(existing), Is.Not.Null);
             Assert.That(Opened(second), Is.SameAs(Opened(existing)));
             Assert.That(decoder.OpenCount, Is.EqualTo(1));
-            using var shared = source.ToResource(CompositionContext.Default);
+            using var shared = source.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager });
             object previous = Opened(shared)!;
             ResourceRelocationService.RelinkFileSource(source, source.Uri);
-            existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
-            second.Reconcile(source, CompositionContext.Default, ref versionBumped);
+            existing.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
+            second.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
             Assert.That(Opened(existing), Is.Not.SameAs(previous));
             Assert.That(decoder.OpenCount, Is.EqualTo(2));
-            existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
-            second.Reconcile(source, CompositionContext.Default, ref versionBumped);
+            existing.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
+            second.Reconcile(source, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }, ref versionBumped);
             Assert.That(decoder.OpenCount, Is.EqualTo(2), "The relink should cause a single shared reopen, not repeated opens per frame.");
         }
         finally { DecoderRegistry.Unregister(decoder); }
@@ -800,7 +800,7 @@ public partial class MissingMediaTests
         var scene = new Scene();
         foreach (string name in new[] { "clip.png", "broken.png", "hidden.png" })
             AddImage(scene, Path.Combine(NewDirectory(), name));
-        var service = new MissingMediaService();
+        var service = new MissingMediaService(TestShell.FontManager);
 
         var matches = await service.FindMatchesAsync(service.FindMissing(scene), library);
 
@@ -817,7 +817,7 @@ public partial class MissingMediaTests
         string link = Path.Combine(directory, "link.png");
         CreateFileLink(link, real);
         var scene = new Scene(); AddImage(scene, link);
-        var service = new MissingMediaService();
+        var service = new MissingMediaService(TestShell.FontManager);
 
         await service.UpdateFingerprintsAsync(scene);
 
@@ -838,7 +838,7 @@ public partial class MissingMediaTests
         string original = Path.Combine(directory, "original.png");
         File.WriteAllBytes(original, s_png);
         var scene = new Scene(); AddImage(scene, original);
-        var service = new MissingMediaService();
+        var service = new MissingMediaService(TestShell.FontManager);
         await service.UpdateFingerprintsAsync(scene);
         string elsewhere = NewDirectory();
         string real = Path.Combine(elsewhere, "real.png");
@@ -871,7 +871,7 @@ public partial class MissingMediaTests
         string path = Path.Combine(directory, "original.jpeg");
         File.WriteAllBytes(path, s_png);
         var scene = new Scene(); AddImage(scene, path);
-        var service = new MissingMediaService();
+        var service = new MissingMediaService(TestShell.FontManager);
         await service.UpdateFingerprintsAsync(scene);
         string renamed = Path.Combine(directory, "renamed.jpg");
         File.Move(path, renamed);
@@ -891,7 +891,7 @@ public partial class MissingMediaTests
         var video = VideoSource.Open(original); var sound = SoundSource.Open(original);
         element.Objects.Add(new SourceVideo { Source = { Value = video } });
         element.Objects.Add(new SourceSound { Source = { Value = sound } });
-        var service = new MissingMediaService();
+        var service = new MissingMediaService(TestShell.FontManager);
         await service.UpdateFingerprintsAsync(scene);
         string replacement = Path.Combine(directory, "different.mp4");
         File.WriteAllText(replacement, "replaced");
@@ -919,7 +919,7 @@ public partial class MissingMediaTests
         {
             entered.TrySetResult();
             await release.Task.WaitAsync(token);
-            await new MissingMediaService().UpdateFingerprintsAsync(scene, token);
+            await new MissingMediaService(TestShell.FontManager).UpdateFingerprintsAsync(scene, token);
         };
         try
         {
@@ -954,7 +954,7 @@ public partial class MissingMediaTests
         File.WriteAllBytes(path, s_png);
         Element element;
         using (editor.HistoryManager.SuppressRecording()) element = AddImage(editor.Scene, path);
-        await new MissingMediaService().UpdateFingerprintsAsync(editor.Scene);
+        await new MissingMediaService(TestShell.FontManager).UpdateFingerprintsAsync(editor.Scene);
         var fingerprint = editor.Scene.MediaFingerprints[new Uri(path).AbsoluteUri];
         await editor.SaveAsync();
         await editor.WaitForMediaFingerprintsAsync();
@@ -993,7 +993,7 @@ public partial class MissingMediaTests
         {
             entered.TrySetResult();
             await release.Task.WaitAsync(token);
-            await new MissingMediaService().UpdateFingerprintsAsync(scene, token);
+            await new MissingMediaService(TestShell.FontManager).UpdateFingerprintsAsync(scene, token);
         };
         try
         {
@@ -1018,7 +1018,7 @@ public partial class MissingMediaTests
             await editor.WaitForMediaFingerprintsAsync();
             string renamed = Path.Combine(directory, "renamed.png"); File.Move(path, renamed);
             var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
-            var service = new MissingMediaService();
+            var service = new MissingMediaService(TestShell.FontManager);
             var missing = service.FindMissing(saved).Single();
             Assert.That(missing.Fingerprint, Is.Not.Null);
             Assert.That((await service.FindMatchesAsync([missing], directory))[missing].Single(), Is.EqualTo(renamed));
@@ -1090,7 +1090,7 @@ public partial class MissingMediaTests
         {
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear(); element.Objects.Add(model);
         }
-        var service = new MissingMediaService(); await service.UpdateFingerprintsAsync(editor.Scene);
+        var service = new MissingMediaService(TestShell.FontManager); await service.UpdateFingerprintsAsync(editor.Scene);
         await editor.SaveAsync(); await editor.WaitForMediaFingerprintsAsync();
         var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
         Assert.That(saved.MediaFingerprints[new Uri(original).AbsoluteUri].Dependencies!.Keys, Does.Contain("buffer.bin"));
@@ -1167,7 +1167,7 @@ public partial class MissingMediaTests
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
             element.Objects.Add(model);
         }
-        await new MissingMediaService().UpdateFingerprintsAsync(editor.Scene);
+        await new MissingMediaService(TestShell.FontManager).UpdateFingerprintsAsync(editor.Scene);
         File.Delete(original);
         try
         {
@@ -1288,7 +1288,7 @@ public partial class MissingMediaTests
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
             element.Objects.Add(model);
         }
-        if (withFingerprint) await new MissingMediaService().UpdateFingerprintsAsync(editor.Scene);
+        if (withFingerprint) await new MissingMediaService(TestShell.FontManager).UpdateFingerprintsAsync(editor.Scene);
         string moved = Path.Combine(NewDirectory(), "shapes.obj"); File.Move(original, moved);
         await editor.SaveAsync(); await editor.WaitForMediaFingerprintsAsync();
         string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
@@ -1374,15 +1374,15 @@ public partial class MissingMediaTests
             await vm.WaitForCandidatesAsync();
             Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(path));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
-            Assert.That(FontManager.Instance.IsRegistered(family), Is.True);
-            Assert.That(FontManager.Instance.IsRegistered(firstFamily), Is.True);
-            var firstFaces = FontManager.Instance.GetTypefaces(firstFamily);
-            var secondFaces = FontManager.Instance.GetTypefaces(family);
+            Assert.That(TestShell.FontManager.IsRegistered(family), Is.True);
+            Assert.That(TestShell.FontManager.IsRegistered(firstFamily), Is.True);
+            var firstFaces = TestShell.FontManager.GetTypefaces(firstFamily);
+            var secondFaces = TestShell.FontManager.GetTypefaces(family);
             string project = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
             await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(project);
-            Assert.That(FontManager.Instance.IsRegistered(family), Is.True);
-            Assert.That(FontManager.Instance.GetTypefaces(firstFamily), Is.EquivalentTo(firstFaces));
-            Assert.That(FontManager.Instance.GetTypefaces(family), Is.EquivalentTo(secondFaces));
+            Assert.That(TestShell.FontManager.IsRegistered(family), Is.True);
+            Assert.That(TestShell.FontManager.GetTypefaces(firstFamily), Is.EquivalentTo(firstFaces));
+            Assert.That(TestShell.FontManager.GetTypefaces(family), Is.EquivalentTo(secondFaces));
         }
         finally { await TestReset.ResetShellAsync(); }
     }

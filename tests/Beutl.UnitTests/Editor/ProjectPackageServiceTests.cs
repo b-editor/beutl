@@ -56,7 +56,7 @@ public class ProjectPackageServiceTests
         string outputPath = Path.Combine(_exportDir, "test.zip");
 
         await Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await service.ExportAsync(null!, outputPath));
+            await service.ExportAsync(null!, TestFonts.Manager, outputPath));
     }
 
     [Test]
@@ -66,7 +66,7 @@ public class ProjectPackageServiceTests
         var project = new Project();
 
         await Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await service.ExportAsync(project, null!));
+            await service.ExportAsync(project, TestFonts.Manager, null!));
     }
 
     [Test]
@@ -77,7 +77,7 @@ public class ProjectPackageServiceTests
         string outputPath = Path.Combine(_exportDir, "test.zip");
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await service.ExportAsync(project, outputPath));
+            await service.ExportAsync(project, TestFonts.Manager, outputPath));
     }
 
     [Test]
@@ -87,7 +87,7 @@ public class ProjectPackageServiceTests
         Project project = CreateAndSaveTestProject();
         string outputPath = Path.Combine(_exportDir, "test.zip");
 
-        ExportResult result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, TestFonts.Manager, outputPath);
 
         Assert.Multiple(() =>
         {
@@ -108,7 +108,7 @@ public class ProjectPackageServiceTests
         cts.Cancel();
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-            await service.ExportAsync(project, outputPath, cancellationToken: cts.Token));
+            await service.ExportAsync(project, TestFonts.Manager, outputPath, cancellationToken: cts.Token));
     }
 
     [Test]
@@ -122,7 +122,7 @@ public class ProjectPackageServiceTests
         Directory.CreateDirectory(beutlDir);
         File.WriteAllText(Path.Combine(beutlDir, "state.json"), "{}");
 
-        ExportResult result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, TestFonts.Manager, outputPath);
 
         Assert.That(result.Success, Is.True);
         using var archive = ZipFile.OpenRead(outputPath);
@@ -141,7 +141,7 @@ public class ProjectPackageServiceTests
         Project project = CreateAndSaveTestProject();
         string outputPath = Path.Combine(_exportDir, "partial_failure.zip");
 
-        ExportResult result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, TestFonts.Manager, outputPath);
 
         // Assert: the ZIP was still written (partial success), and FailedResources
         // contains file failures first, then font failures, preserving order.
@@ -169,7 +169,7 @@ public class ProjectPackageServiceTests
         Project project = CreateAndSaveTestProject();
         string outputPath = Path.Combine(_exportDir, "file_only.zip");
 
-        ExportResult result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, TestFonts.Manager, outputPath);
 
         Assert.Multiple(() =>
         {
@@ -188,7 +188,7 @@ public class ProjectPackageServiceTests
         Project project = CreateAndSaveTestProject();
         string outputPath = Path.Combine(_exportDir, "font_only.zip");
 
-        ExportResult result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, TestFonts.Manager, outputPath);
 
         Assert.Multiple(() =>
         {
@@ -209,7 +209,7 @@ public class ProjectPackageServiceTests
         string invalidOutputPath = Path.Combine(_exportDir, "invalid_output_dir");
         Directory.CreateDirectory(invalidOutputPath);
 
-        ExportResult result = await service.ExportAsync(project, invalidOutputPath);
+        ExportResult result = await service.ExportAsync(project, TestFonts.Manager, invalidOutputPath);
 
         Assert.Multiple(() =>
         {
@@ -257,7 +257,7 @@ public class ProjectPackageServiceTests
         var service = ProjectPackageService.Current;
         Project originalProject = CreateAndSaveTestProject();
         string packagePath = Path.Combine(_exportDir, "test.zip");
-        await service.ExportAsync(originalProject, packagePath);
+        await service.ExportAsync(originalProject, TestFonts.Manager, packagePath);
 
         Project? importedProject = await service.ImportAsync(packagePath, _importDir);
 
@@ -270,7 +270,7 @@ public class ProjectPackageServiceTests
         var service = ProjectPackageService.Current;
         Project originalProject = CreateAndSaveTestProject();
         string packagePath = Path.Combine(_exportDir, "test.zip");
-        await service.ExportAsync(originalProject, packagePath);
+        await service.ExportAsync(originalProject, TestFonts.Manager, packagePath);
 
         using CancellationTokenSource cts = new();
         cts.Cancel();
@@ -287,7 +287,7 @@ public class ProjectPackageServiceTests
         var service = ProjectPackageService.Current;
         Project originalProject = CreateAndSaveTestProject();
         string packagePath = Path.Combine(_exportDir, "test.zip");
-        await service.ExportAsync(originalProject, packagePath);
+        await service.ExportAsync(originalProject, TestFonts.Manager, packagePath);
 
         for (int i = 0; i < existingDirectories; i++)
             Directory.CreateDirectory(Path.Combine(_importDir, i == 0 ? "test" : $"test_{i}"));
@@ -342,7 +342,7 @@ public class ProjectPackageServiceTests
 
         Directory.CreateDirectory(Path.Combine(_projectDir, "empty_dir"));
 
-        ExportResult result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, TestFonts.Manager, outputPath);
 
         Assert.That(result.Success, Is.True);
     }
@@ -415,7 +415,7 @@ public class ProjectPackageServiceTests
         });
 
         await Assert.CatchAsync<OperationCanceledException>(async () =>
-            await ProjectPackageService.Current.ExportAsync(project, output, progress, cancellation.Token));
+            await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, output, progress, cancellation.Token));
 
         Assert.That(File.ReadAllText(output), Is.EqualTo("previous complete package"));
         Assert.That(Directory.GetDirectories(_exportDir), Is.Empty);
@@ -441,7 +441,7 @@ public class ProjectPackageServiceTests
         File.WriteAllText(Path.Combine(_projectDir, ".gitignore"), ".beutl/");
         string output = Path.Combine(_exportDir, "shared.beutlpkg");
 
-        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, output);
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, output);
 
         Assert.That(result.Success, Is.True);
         using var archive = ZipFile.OpenRead(output);
@@ -605,7 +605,7 @@ public class ProjectPackageServiceTests
         const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         File.SetUnixFileMode(package, mode);
 
-        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, package);
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, package);
 
         Assert.That(result.Success, Is.True);
         Assert.That(File.GetUnixFileMode(package), Is.EqualTo(mode));
@@ -650,12 +650,12 @@ public class ProjectPackageServiceTests
         if (cancel)
         {
             await Assert.CatchAsync<OperationCanceledException>(async () =>
-                await ProjectPackageService.Current.ExportAsync(project, output, progress, cancellation.Token));
+                await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, output, progress, cancellation.Token));
             Assert.That(File.ReadAllText(output), Is.EqualTo("previous package"));
         }
         else
         {
-            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, output, progress);
+            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, output, progress);
             Assert.That(result.Success, Is.True);
         }
 
@@ -679,12 +679,12 @@ public class ProjectPackageServiceTests
         File.WriteAllText(source, "private data from an earlier export");
         string output = Path.Combine(_projectDir, relativeOutput);
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-        Assert.That((await ProjectPackageService.Current.ExportAsync(project, output)).Success, Is.True);
+        Assert.That((await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, output)).Success, Is.True);
         using (var previous = ZipFile.OpenRead(output))
             Assert.That(previous.GetEntry("removed-private.txt"), Is.Not.Null);
         File.Delete(source);
 
-        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, output);
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, output);
 
         Assert.That(result.Success, Is.True);
         Assert.That(result.FailedResources, Is.Empty);
@@ -706,7 +706,7 @@ public class ProjectPackageServiceTests
         string alias = Path.Combine(_exportDir, "alias");
         SymbolicLinks.CreateOrIgnore(alias, _projectDir, directory: true);
 
-        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, Path.Combine(alias, "shared.beutl"));
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, Path.Combine(alias, "shared.beutl"));
 
         Assert.That(result.Success, Is.True);
         using var archive = ZipFile.OpenRead(output);
@@ -730,7 +730,7 @@ public class ProjectPackageServiceTests
         File.WriteAllText(output, "previous complete package");
         var service = new ProjectPackageService(new FailedSceneRelocationService());
 
-        ExportResult result = await service.ExportAsync(project, output);
+        ExportResult result = await service.ExportAsync(project, TestFonts.Manager, output);
 
         Assert.That(result.Success, Is.False);
         Assert.That(result.FailedResources, Is.Not.Empty);
@@ -775,7 +775,7 @@ public class ProjectPackageServiceTests
         project = CoreSerializer.RestoreFromUri<Project>(project.Uri!);
         string package = Path.Combine(_exportDir, "assets.beutlpkg");
 
-        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, package);
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, package);
         Assert.That(result.Success, Is.True);
         Assert.That(result.FailedResources, Is.Empty);
         File.Delete(asset);
@@ -810,14 +810,14 @@ public class ProjectPackageServiceTests
         var element = new Element { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "media.belm")) };
         element.Objects.Add(new SourceImage { Source = { Value = source } });
         scene.Children.Add(element);
-        var media = new MissingMediaService();
+        var media = new MissingMediaService(TestFonts.Manager);
         await media.UpdateFingerprintsAsync(scene);
         string expectedHash = scene.MediaFingerprints[new Uri(original).AbsoluteUri].Sha256;
         CoreSerializer.StoreToUri(project, project.Uri!);
         string fingerprintFile = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
         byte[] originalFingerprints = File.ReadAllBytes(fingerprintFile);
         string package = Path.Combine(_exportDir, "fingerprints.zip");
-        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, package);
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, package);
         Assert.That(result.Success, Is.True);
         Assert.That(result.FailedResources, Is.Empty);
         // The export saves its copy of the scene with the packaged media's fingerprints, into the copy's folder.
@@ -867,6 +867,7 @@ public class ProjectPackageServiceTests
             => Task.FromResult(fileResult);
 
         public override Task<RelocationResult> RelocateFontsAsync(
+            FontManager fonts,
             IEnumerable<FontFamily> fontFamilies,
             string projectDirectory,
             CancellationToken cancellationToken = default)

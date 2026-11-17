@@ -169,7 +169,7 @@ public sealed class ElementSplitSpeedTests
         Element back = _harness.Scene.Children.Single(child => child != element);
         SourceVideo backVideo = BackObject<SourceVideo>(back);
         using var resource = (SourceVideo.Resource)backVideo.ToResource(
-            new CompositionContext(back.Range.Start + MediaTime.FromSeconds(3)));
+            new CompositionContext(back.Range.Start + MediaTime.FromSeconds(3)) { Fonts = TestFonts.Manager });
         Assert.Multiple(() =>
         {
             Assert.That(backVideo.OffsetPosition.Value.ToSeconds(),
@@ -261,7 +261,7 @@ public sealed class ElementSplitSpeedTests
         Element back = _harness.Scene.Children.Single(child => child != element);
         SourceVideo backVideo = BackObject<SourceVideo>(back);
         using var resource = (SourceVideo.Resource)backVideo.ToResource(
-            new CompositionContext(back.Range.Start));
+            new CompositionContext(back.Range.Start) { Fonts = TestFonts.Manager });
         Assert.Multiple(() =>
         {
             Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
@@ -288,7 +288,7 @@ public sealed class ElementSplitSpeedTests
         Element back = _harness.Scene.Children.Single(child => child != element);
         SourceVideo backVideo = BackObject<SourceVideo>(back);
         using var resource = (SourceVideo.Resource)backVideo.ToResource(
-            new CompositionContext(back.Range.Start));
+            new CompositionContext(back.Range.Start) { Fonts = TestFonts.Manager });
         Assert.Multiple(() =>
         {
             Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
@@ -319,7 +319,7 @@ public sealed class ElementSplitSpeedTests
         element.Objects.Add(new DrawableTimeController { Speed = { Value = 200f } });
 
         using var original = (SourceVideo.Resource)video.ToResource(
-            new CompositionContext(MediaTime.FromSeconds(3)));
+            new CompositionContext(MediaTime.FromSeconds(3)) { Fonts = TestFonts.Manager });
         MediaTime before = original.RequestedPosition + original.OffsetPosition;
 
         _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
@@ -327,7 +327,7 @@ public sealed class ElementSplitSpeedTests
         Element back = _harness.Scene.Children.Single(child => child != element);
         SourceVideo backVideo = BackObject<SourceVideo>(back);
         using var after = (SourceVideo.Resource)backVideo.ToResource(
-            new CompositionContext(back.Range.Start + MediaTime.FromSeconds(1)));
+            new CompositionContext(back.Range.Start + MediaTime.FromSeconds(1)) { Fonts = TestFonts.Manager });
 
         Assert.That((after.RequestedPosition + after.OffsetPosition).ToSeconds(),
             Is.EqualTo(before.ToSeconds()).Within(0.01));
@@ -335,7 +335,7 @@ public sealed class ElementSplitSpeedTests
 
     private static MediaTime PlaybackPosition(SourceVideo video, MediaTime time)
     {
-        using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(time));
+        using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(time) { Fonts = TestFonts.Manager });
         return resource.RequestedPosition + resource.OffsetPosition;
     }
 
@@ -382,7 +382,7 @@ public sealed class ElementSplitSpeedTests
 
         float[] Play(TimeRange range)
         {
-            using var compositor = new SceneCompositor(_harness.Scene);
+            using var compositor = new SceneCompositor(_harness.Scene, TestFonts.Manager);
             using var composer = new Composer { SampleRate = rate };
             using AudioBuffer? buffer = composer.Compose(range, compositor.EvaluateAudio(range));
             return buffer!.GetChannelData(0).ToArray();

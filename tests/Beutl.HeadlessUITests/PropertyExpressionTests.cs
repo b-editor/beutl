@@ -103,7 +103,7 @@ public class PropertyExpressionTests
         if (runtimeFailure)
         {
             property.Expression = new StringExpression<float>("1 / (int)Time");
-            Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero)), Is.EqualTo(50));
+            Assert.That(property.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager }), Is.EqualTo(50));
         }
 
         using var model = new NumberEditorViewModel<float>(new AnimatablePropertyAdapter<float>(property, shape));

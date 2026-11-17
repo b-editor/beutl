@@ -144,7 +144,7 @@ public class CaptionTemplateTests
     {
         foreach (TextBlock text in CreateCaptionObjects("<i>one</i> <name>"))
         {
-            using TextBlock.Resource resource = text.ToResource(CompositionContext.Default);
+            using TextBlock.Resource resource = text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
             TextElements elements = resource.GetTextElements();
 
             using (Assert.EnterMultipleScope())
@@ -172,7 +172,7 @@ public class CaptionTemplateTests
 
     private static string GetDrawnText(TextBlock text)
     {
-        using TextBlock.Resource resource = text.ToResource(CompositionContext.Default);
+        using TextBlock.Resource resource = text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager });
         return string.Concat(resource.GetTextElements().Select(element => element.Text));
     }
 

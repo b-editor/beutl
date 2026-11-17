@@ -12,6 +12,5 @@ public sealed class AssemblySetUp
     {
         var configuration = new GlobalConfiguration();
         DecoderRegistry.Initialize(configuration.ExtensionConfig);
-        FontManager.Instance.Initialize(configuration.FontConfig);
     }
 }

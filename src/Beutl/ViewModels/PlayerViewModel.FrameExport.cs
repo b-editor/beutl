@@ -6,6 +6,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.ViewModels;
 
@@ -60,7 +61,8 @@ public partial class PlayerViewModel
             PixelSize frameSize = sceneRenderer.FrameSize;
             CompositionContext compositionContext = CreateSelectedDrawableCompositionContext(
                 CurrentFrame.Value,
-                frameSize);
+                frameSize,
+                sceneRenderer.Compositor.Fonts);
             using var resource = drawable.ToResource(compositionContext);
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize.ToSize(1), outputScale))
@@ -120,9 +122,11 @@ public partial class PlayerViewModel
 
     internal static CompositionContext CreateSelectedDrawableCompositionContext(
         MediaTime frame,
-        PixelSize frameSize)
+        PixelSize frameSize,
+        FontManager? fonts)
         => new(frame)
         {
+            Fonts = fonts,
             TargetDomain = new Rect(default, frameSize.ToSize(1)),
         };
 
@@ -236,7 +240,7 @@ public partial class PlayerViewModel
                     missingSources.Count));
             }
 
-            using var renderer = ExportRendererFactory.Create(Scene, outputScale);
+            using var renderer = ExportRendererFactory.Create(Scene, EditViewModel.GetRequiredService<Beutl.Media.FontManager>(), outputScale);
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
             renderer.Render(compositionFrame);

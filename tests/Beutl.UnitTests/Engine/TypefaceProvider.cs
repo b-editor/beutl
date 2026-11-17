@@ -27,7 +27,7 @@ public static class TypefaceProvider
 
             if (stream != null)
             {
-                FontManager.Instance.AddFont(stream);
+                TestFonts.Manager.AddFont(stream);
                 stream.Dispose();
             }
         }
@@ -41,7 +41,7 @@ public static class TypefaceProvider
     public static FormattedText CreateText(string text, float size, float spacing = 0)
     {
         Typeface typeface = Typeface();
-        return new FormattedText
+        return new FormattedText(TestFonts.Manager)
         {
             Font = typeface.FontFamily,
             Style = typeface.Style,

@@ -58,7 +58,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
         RenderThread.Dispatcher.Invoke(() =>
         {
             Scene scene = CreateAnimatedBufferedEffectScene(frameRate: 30, frameCount: 150);
-            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
             const int renderedFrameCount = 150;
             for (int frame = 0; frame < renderedFrameCount; frame++)
@@ -84,7 +84,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
         const int frameRate = 30;
         const int frameCount = 150;
         Scene scene = CreateAnimatedBufferedEffectScene(frameRate, frameCount);
-        using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+        using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
         renderer.CacheOptions = RenderCacheOptions.Disabled;
         using var progress = new Subject<MediaTime>();
         using var provider = new FrameProviderImpl(

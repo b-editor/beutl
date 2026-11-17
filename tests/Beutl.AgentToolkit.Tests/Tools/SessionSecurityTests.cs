@@ -18,7 +18,7 @@ public sealed class SessionSecurityTests
     {
         string root = TestWorkspace.CreateDirectory();
         var manager = new AgentSessionManager();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         SessionTools sessionTools = TestSessions.CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
@@ -40,7 +40,7 @@ public sealed class SessionSecurityTests
     public async Task Open_project_rejects_a_relative_path()
     {
         var manager = new AgentSessionManager();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         SessionTools sessionTools = TestSessions.CreateSessionTools(source, manager);
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject("relative.bep");
@@ -73,7 +73,7 @@ public sealed class SessionSecurityTests
     {
         string root = TestWorkspace.CreateDirectory();
         var manager = new AgentSessionManager();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         SessionTools sessionTools = TestSessions.CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
@@ -96,7 +96,7 @@ public sealed class SessionSecurityTests
     public void Read_operation_status_reports_a_running_background_job()
     {
         var manager = new AgentSessionManager();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         using var renderJobs = new RenderJobManager();
         var sessionTools = new SessionTools(
             new FileProjectSessionGateway(source, manager),
@@ -134,7 +134,7 @@ public sealed class SessionSecurityTests
     {
         string root = TestWorkspace.CreateDirectory();
         var manager = new AgentSessionManager();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         SessionTools sessionTools = TestSessions.CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(

@@ -156,7 +156,7 @@ internal static class RenderCacheTestSupport
             Transform = { Value = new TranslateTransform(-28, 30) },
         };
 
-        CompositionContext context = CompositionContext.Default;
+        CompositionContext context = new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager };
         return [background.ToResource(context), accent.ToResource(context), label.ToResource(context)];
     }
 }

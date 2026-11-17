@@ -11,7 +11,6 @@ public sealed class AssemblySetUp
         BeutlHomeIsolation.Begin("beutl-e2e");
         var configuration = new Beutl.Configuration.GlobalConfiguration();
         Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
-        Beutl.Media.FontManager.Instance.Initialize(configuration.FontConfig);
     }
 
     [OneTimeTearDown]

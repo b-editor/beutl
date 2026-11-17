@@ -25,7 +25,7 @@ public partial class TransitionTabView : UserControl
         {
             try
             {
-                var selectVm = new SelectLibraryItemDialogViewModel(viewModel.GetRequiredService<LibraryService>(),
+                var selectVm = new SelectLibraryItemDialogViewModel(viewModel.GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(this), viewModel.GetRequiredService<LibraryService>(),
                     KnownLibraryItemFormats.ClipTransition,
                     typeof(ClipTransition),
                     LibraryThumbnailCapture.ForEdge(viewModel.ShownElement, viewModel.ShownEdge, viewModel));

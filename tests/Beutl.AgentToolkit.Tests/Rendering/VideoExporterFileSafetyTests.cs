@@ -130,7 +130,7 @@ public class VideoExporterFileSafetyTests
             return Task.CompletedTask;
         });
 
-        await ExportAsync(new VideoExporter(new EncoderRegistration(first, second)));
+        await ExportAsync(new VideoExporter(new EncoderRegistration(first, second), TestFonts.Manager));
 
         Assert.That(File.ReadAllText(_destination), Is.EqualTo("fallback complete"));
         Assert.That(Directory.GetDirectories(_directory), Is.Empty);
@@ -169,7 +169,7 @@ public class VideoExporterFileSafetyTests
         }
         TestGpu.RequireAnyDevice();
         using var cancellation = new CancellationTokenSource();
-        var exporter = new VideoExporter(new EncoderRegistration(new AVFEncodingExtension()));
+        var exporter = new VideoExporter(new EncoderRegistration(new AVFEncodingExtension()), TestFonts.Manager);
 
         await Assert.CatchAsync<OperationCanceledException>(async () => await exporter.ExportAsync(
             CreateScene(), _destination, new Rational(30, 1), 44100, 1, cancellation.Token,
@@ -185,7 +185,7 @@ public class VideoExporterFileSafetyTests
 
     private static VideoExporter CreateExporter(
         Func<EncodingController, IFrameProvider, ISampleProvider, CancellationToken, Task> encode)
-        => new(new EncoderRegistration(new DelegateEncoder(".mp4", encode)));
+        => new(new EncoderRegistration(new DelegateEncoder(".mp4", encode)), TestFonts.Manager);
 
     private void AssertPreviousOutputAndNoStaging()
     {

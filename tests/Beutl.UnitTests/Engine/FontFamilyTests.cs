@@ -81,8 +81,8 @@ public class FontManagerResolutionTests
         // Use an absent name regardless of which project/system fonts have already loaded.
         var missing = new Typeface(new FontFamily("Missing-" + Guid.NewGuid().ToString("N")), FontStyle.Normal, FontWeight.SemiBold);
 
-        Assert.That(() => missing.ToSkia(), Throws.Nothing);
-        Assert.That(missing.ToSkia().FamilyName, Is.EqualTo(FontManager.Instance.DefaultTypeface.FontFamily.Name));
+        Assert.That(() => TestFonts.Manager.ResolveSkia(missing), Throws.Nothing);
+        Assert.That(TestFonts.Manager.ResolveSkia(missing).FamilyName, Is.EqualTo(TestFonts.Manager.DefaultTypeface.FontFamily.Name));
     }
 
     [Test]
@@ -90,8 +90,8 @@ public class FontManagerResolutionTests
     {
         var semiBold = new Typeface(new FontFamily("Roboto"), FontStyle.Normal, FontWeight.SemiBold);
 
-        Assert.That(() => semiBold.ToSkia(), Throws.Nothing);
-        Assert.That(semiBold.ToSkia().FamilyName, Is.EqualTo("Roboto"));
+        Assert.That(() => TestFonts.Manager.ResolveSkia(semiBold), Throws.Nothing);
+        Assert.That(TestFonts.Manager.ResolveSkia(semiBold).FamilyName, Is.EqualTo("Roboto"));
     }
 
     [Test]
@@ -99,8 +99,8 @@ public class FontManagerResolutionTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(FontManager.Instance.IsRegistered(new FontFamily("Roboto")), Is.True);
-            Assert.That(FontManager.Instance.IsRegistered(new FontFamily("Missing-" + Guid.NewGuid().ToString("N"))), Is.False);
+            Assert.That(TestFonts.Manager.IsRegistered(new FontFamily("Roboto")), Is.True);
+            Assert.That(TestFonts.Manager.IsRegistered(new FontFamily("Missing-" + Guid.NewGuid().ToString("N"))), Is.False);
         });
     }
 }

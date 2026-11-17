@@ -448,6 +448,7 @@ public sealed class ColorGradingTabTests
         var slider = new ValueSlider();
         var window = new Window { Content = new StackPanel { Children = { range, slider } }, Width = 360, Height = 120 };
         Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
+        Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
         window.Show();
         try
         {
@@ -653,6 +654,7 @@ public sealed class ColorGradingTabTests
             View = new ColorGradingTabView { DataContext = model };
             Window = new Window { Content = View, Width = width, Height = height, RequestedThemeVariant = ThemeVariant.Dark };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
+            Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
             Window.Show();
             HeadlessTestHelpers.Render(3);
         }
@@ -708,6 +710,7 @@ public sealed class ColorGradingTabTests
             PropertyEditorControls.Attach(_viewModel, Editor);
             Window = new Window { Content = Editor, Width = 420, Height = 80 };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
+            Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
             Window.Show();
             HeadlessTestHelpers.Render(3);
             Slider = Editor.GetVisualDescendants().OfType<ValueSlider>().Single();
@@ -760,6 +763,7 @@ public sealed class ColorGradingTabTests
             _viewModel.Accept(Wheel);
             Window = new Window { Content = Wheel, Width = 260, Height = 380 };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
+            Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
             Window.Show();
             HeadlessTestHelpers.Render(3);
             Pad = Wheel.GetVisualDescendants().OfType<ColorBalancePad>().Single();

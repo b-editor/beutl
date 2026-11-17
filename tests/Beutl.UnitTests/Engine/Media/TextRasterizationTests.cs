@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 using SkiaSharp;
@@ -20,7 +19,7 @@ public class TextRasterizationTests
     [Test]
     public void Text_IsAntialiasedWithFineCoverage()
     {
-        using var text = new FormattedText { Font = new FontFamily("Roboto"), Size = 28 };
+        using var text = new FormattedText(TestFonts.Manager) { Font = new FontFamily("Roboto"), Size = 28 };
         using SKFont font = text.ToSKFont();
         using var surface = SKSurface.Create(new SKImageInfo(640, 48, SKColorType.Alpha8, SKAlphaType.Premul));
         using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = true };

@@ -27,20 +27,20 @@ public class SelectLibraryItemDialogViewModel
     private string? _appliedSearchText;
     private string? _appliedReferenceSearchText;
 
-    public SelectLibraryItemDialogViewModel(LibraryService libraryService, string format, Type baseType)
-        : this(libraryService, format, baseType, null, null)
+    public SelectLibraryItemDialogViewModel(Beutl.Media.FontManager fonts, LibraryService libraryService, string format, Type baseType)
+        : this(fonts, libraryService, format, baseType, null, null)
     {
     }
 
     // `thumbnailContent` captures what the tiles show each type on: the object or edge the picked type is added to.
     // Without it, they show the samples.
-    internal SelectLibraryItemDialogViewModel(LibraryService libraryService, string format, Type baseType,
+    internal SelectLibraryItemDialogViewModel(Beutl.Media.FontManager fonts, LibraryService libraryService, string format, Type baseType,
         Func<CancellationToken, Task<LibraryThumbnailSubject?>>? thumbnailContent)
-        : this(libraryService, format, baseType, null, null, thumbnailContent)
+        : this(fonts, libraryService, format, baseType, null, null, thumbnailContent)
     {
     }
 
-    internal SelectLibraryItemDialogViewModel(LibraryService libraryService, string format, Type baseType,
+    internal SelectLibraryItemDialogViewModel(Beutl.Media.FontManager fonts, LibraryService libraryService, string format, Type baseType,
         Task<PinnableLibraryItem[]>? itemsTask, Task<PinnableLibraryItem[]>? allItemsTask,
         Func<CancellationToken, Task<LibraryThumbnailSubject?>>? thumbnailContent = null)
     {
@@ -49,7 +49,7 @@ public class SelectLibraryItemDialogViewModel
         _baseType = baseType;
         _allItemsTask = allItemsTask;
         HasThumbnails = LibraryThumbnailRenderer.HasThumbnails(baseType);
-        Thumbnails = HasThumbnails ? new LibraryThumbnailSet(thumbnailContent) : null;
+        Thumbnails = HasThumbnails ? new LibraryThumbnailSet(fonts, thumbnailContent) : null;
         ShowTiles.Value = Preferences.Default.Get(ShowTilesKey, true);
         ShowTiles.Skip(1).Subscribe(value => Preferences.Default.Set(ShowTilesKey, value));
         IReadOnlySet<Type> items = _libraryService.GetTypesFromFormat(_format);

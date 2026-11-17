@@ -22,7 +22,8 @@ public sealed class TestEditorContext(CoreObject obj, GlobalConfiguration? confi
 
     public object? GetService(Type serviceType)
     {
-        return _services.GetValueOrDefault(serviceType);
+        return _services.GetValueOrDefault(serviceType)
+            ?? (serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : null);
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition)

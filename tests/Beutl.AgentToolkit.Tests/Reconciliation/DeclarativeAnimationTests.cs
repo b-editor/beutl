@@ -47,7 +47,7 @@ public sealed class DeclarativeAnimationTests
         var result = tools.ApplyEdit(patch: PatchTextObject(element, text, new JsonObject { ["Fill"] = brushJson }), schemaVersion: SchemaVersion.Current);
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         Assert.That(brush.Color.GetPropertyAnimation(), Is.InstanceOf<IComponentAnimation>());
-        Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(1))).R, Is.EqualTo(188));
+        Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(1)) { Fonts = TestFonts.Manager }).R, Is.EqualTo(188));
 
         var liveComponents = (IComponentAnimation)brush.Color.GetPropertyAnimation()!;
         var liveRed = liveComponents.Components.Single(p => p.Name == "R").GetKeyFrameAnimation()!;
@@ -57,13 +57,13 @@ public sealed class DeclarativeAnimationTests
         brushJson["Animations"]!["Color"]!["Animations"]!["R"]!["KeyFrames"]![1]!["Value"] = 128;
         result = tools.ApplyEdit(patch: PatchTextObject(element, text, new JsonObject { ["Fill"] = brushJson }), schemaVersion: SchemaVersion.Current);
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(2))).R, Is.EqualTo(128));
-        Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(2))).G, Is.EqualTo(40));
+        Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(2)) { Fonts = TestFonts.Manager }).R, Is.EqualTo(128));
+        Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(2)) { Fonts = TestFonts.Manager }).G, Is.EqualTo(40));
         Assert.Multiple(() =>
         {
             Assert.That(liveComponents.Components[0].GetKeyFrameAnimation(), Is.SameAs(liveRed));
             Assert.That(liveRed.KeyFrames.Last(), Is.SameAs(firstKey));
-            Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(3))).R, Is.Zero);
+            Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(3)) { Fonts = TestFonts.Manager }).R, Is.Zero);
         });
     }
 
@@ -91,7 +91,7 @@ public sealed class DeclarativeAnimationTests
         var animation = components.Components.Single(p => p.Name == "Width").GetKeyFrameAnimation()!;
         Assert.That(animation.KeyFrames.Select(k => k.KeyTime.Value), Is.Ordered);
         Assert.That(animation.KeyFrames.Last().Value, Is.EqualTo(0f));
-        Assert.That(blur.Sigma.Evaluate(new CompositionContext(MediaTime.FromSeconds(3))), Is.EqualTo(Size.Empty));
+        Assert.That(blur.Sigma.Evaluate(new CompositionContext(MediaTime.FromSeconds(3)) { Fonts = TestFonts.Manager }), Is.EqualTo(Size.Empty));
     }
 
     [TestCase(false)]
@@ -119,7 +119,7 @@ public sealed class DeclarativeAnimationTests
         var update = tools.ApplyEdit(patch: PatchAnimation(new JsonObject { ["BaseValue"] = "100, 200" }), schemaVersion: SchemaVersion.Current);
         Assert.That(update.IsSuccess, Is.True, update.Error?.Message);
         Assert.That(components.UnitSource.Value, Is.SameAs(unitSource));
-        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)),
+        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }),
             Is.EqualTo(new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative)));
 
         ToolResult<ApplyEditResponse> remove;
@@ -141,15 +141,15 @@ public sealed class DeclarativeAnimationTests
             Assert.That(text.TransformOrigin.GetPropertyAnimation(), Is.SameAs(components));
             Assert.That(components.Components[0].GetKeyFrameAnimation(), Is.SameAs(xAnimation));
             Assert.That(xAnimation.KeyFrames[0], Is.SameAs(firstKey));
-            Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)),
+            Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }),
                 Is.EqualTo(new RelativePoint(0.25f, 0.5f, RelativeUnit.Absolute)));
         });
         session.History.Undo();
         Assert.That(components.UnitSource.Value, Is.SameAs(unitSource));
-        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)).Unit, Is.EqualTo(RelativeUnit.Relative));
+        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }).Unit, Is.EqualTo(RelativeUnit.Relative));
         session.History.Redo();
         Assert.That(components.UnitSource.Value, Is.Null);
-        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)).Unit, Is.EqualTo(RelativeUnit.Absolute));
+        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero) { Fonts = TestFonts.Manager }).Unit, Is.EqualTo(RelativeUnit.Absolute));
 
         JsonObject PatchAnimation(JsonObject patch) => PatchTextObject(element, text, new JsonObject
         {
@@ -526,9 +526,9 @@ public sealed class DeclarativeAnimationTests
     {
         string workspace = TestWorkspace.CreateDirectory();
         var manager = new AgentSessionManager();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new DestructiveGuard(), new RenderJobManager());
-        var editTools = new EditTools(manager);
+        var editTools = new EditTools(manager, TestFonts.Manager);
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             Path.Combine(workspace, "local-keyframes.bep"),
             width: 320,
@@ -568,7 +568,7 @@ public sealed class DeclarativeAnimationTests
         Element element = ((FileEditingSession)source.CurrentSession!).Scene.Children.Single();
         var rect = (RectShape)element.Objects.Single();
         var animation = (KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!;
-        float actual = rect.Opacity.Evaluate(new CompositionContext(MediaTime.FromSeconds(5.5)));
+        float actual = rect.Opacity.Evaluate(new CompositionContext(MediaTime.FromSeconds(5.5)) { Fonts = TestFonts.Manager });
 
         Assert.Multiple(() =>
         {
@@ -585,9 +585,9 @@ public sealed class DeclarativeAnimationTests
     {
         string workspace = TestWorkspace.CreateDirectory();
         var manager = new AgentSessionManager();
-        using var source = new FileSessionSource();
+        using var source = new FileSessionSource(TestFonts.Manager);
         var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new DestructiveGuard(), new RenderJobManager());
-        var editTools = new EditTools(manager);
+        var editTools = new EditTools(manager, TestFonts.Manager);
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             Path.Combine(workspace, "nested-local-keyframes.bep"),
             width: 320,
@@ -631,7 +631,7 @@ public sealed class DeclarativeAnimationTests
         var transform = (TransformGroup)rect.Transform.Value!;
         var translate = (TranslateTransform)transform.Children.Single();
         string outputPath = Path.Combine(workspace, "nested-local-keyframes.png");
-        var renderer = new StillRenderer();
+        var renderer = new StillRenderer(TestFonts.Manager);
 
         RenderStillResponse render = await renderer.RenderAsync(
             scene,
@@ -639,8 +639,8 @@ public sealed class DeclarativeAnimationTests
             outputPath,
             renderScale: 1,
             CancellationToken.None);
-        float opacity = rect.Opacity.Evaluate(new CompositionContext(MediaTime.FromSeconds(2.5)));
-        float translateY = translate.Y.Evaluate(new CompositionContext(MediaTime.FromSeconds(2.5)));
+        float opacity = rect.Opacity.Evaluate(new CompositionContext(MediaTime.FromSeconds(2.5)) { Fonts = TestFonts.Manager });
+        float translateY = translate.Y.Evaluate(new CompositionContext(MediaTime.FromSeconds(2.5)) { Fonts = TestFonts.Manager });
 
         Assert.Multiple(() =>
         {
