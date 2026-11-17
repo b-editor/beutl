@@ -143,6 +143,9 @@ public class SilenceSplitTabTests
         model.PaddingMilliseconds.Value = 0;
         model.SetWaveform(Enumerable.Range(0, 500).Select(i => new WaveformChunk(i, 0, i is >= 150 and < 200 ? 0 : 0.5f)).ToArray());
         model.ModeIndex.Value = (int)SilenceSplitMode.RippleDelete;
+        // The editor can open the same source while ApplyAsync is still pausing playback.
+        // Wait for the detached preparation's decoder before editing the live scene.
+        var applyingContext = new AsyncLocal<bool>();
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var release = new ManualResetEventSlim();
         var decoder = new Moq.Mock<IDecoderInfo>();
@@ -151,12 +154,15 @@ public class SilenceSplitTabTests
         decoder.Setup(d => d.VideoExtensions()).Returns([]);
         decoder.Setup(d => d.Open(path, Moq.It.IsAny<MediaOptions>())).Returns(() =>
         {
+            if (!applyingContext.Value) return null;
             started.TrySetResult();
             if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
             return null;
         });
         DecoderRegistry.Register(decoder.Object);
+        applyingContext.Value = true;
         Task applying = tab.ApplyAsync();
+        applyingContext.Value = false;
         try
         {
             await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
