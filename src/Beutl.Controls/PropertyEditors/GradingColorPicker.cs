@@ -47,8 +47,6 @@ public class GradingColorPicker : TemplatedControl
     private GradingColor _oldColor;
     private UnboundedHsv _currentHsv;
     private readonly ColorPartPress _press;
-    private bool _wheelDragging;
-    private bool _wheelStopped;
 
     public GradingColorPicker()
     {
@@ -75,16 +73,6 @@ public class GradingColorPicker : TemplatedControl
     {
         get => GetValue(ShowDetailsProperty);
         set => SetValue(ShowDetailsProperty, value);
-    }
-
-    // Whether a wheel, spectrum, slider or previewer is being dragged; a stopped drag no longer counts.
-    public bool IsDragging => (_wheelDragging && !_wheelStopped) || _press.IsPressed;
-
-    // Ends the drag in progress without ColorConfirmed, for a host that ended the gesture itself.
-    public void StopDrag()
-    {
-        _press.Stop();
-        _wheelStopped = _wheelDragging;
     }
 
     private ColorSlider?[] GetColorSliders() =>
@@ -178,15 +166,13 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnWheelDragStarted(object? sender, VectorEventArgs e)
     {
-        _wheelDragging = true;
-        _wheelStopped = false;
         _oldHsv = _currentHsv;
         _oldColor = Color;
     }
 
     private void OnWheelDragDelta(object? sender, VectorEventArgs e)
     {
-        if (_ignoreColorChange || _wheelStopped) return;
+        if (_ignoreColorChange) return;
 
         if (sender is GradingWheel wheel)
         {
@@ -222,9 +208,6 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnWheelDragCompleted(object? sender, VectorEventArgs e)
     {
-        _wheelDragging = false;
-        if (_wheelStopped) return;
-
         var current = Color;
         if (!_oldColor.Equals(current))
         {
