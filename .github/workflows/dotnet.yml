@@ -476,6 +476,20 @@ jobs:
           --filter "FullyQualifiedName~UIFontResourceTests|FullyQualifiedName~CommandPaletteViewLayoutTests.Shortcut_font"
           --logger trx --results-directory TestResults/macos-fonts
 
+      - name: Test the native HDR preview on macOS
+        run: >-
+          dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj
+          --configuration Release -f net11.0 --no-build
+          --filter FullyQualifiedName~HdrBitmapView
+          --logger "console;verbosity=normal" --logger trx --results-directory TestResults/macos-hdr/ui
+
+      - name: Test HDR swapchain resizing on macOS
+        run: >-
+          dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj
+          --configuration Release -f net11.0
+          --filter FullyQualifiedName~VulkanSwapchainRendererTests.RebuildsAfterPresentsLeaveTheLayerAtTheSwapchainsSize
+          --logger "console;verbosity=normal" --logger trx --results-directory TestResults/macos-hdr/swapchain
+
       - name: Test shared font configuration on macOS
         run: >-
           dotnet test tests/Beutl.E2ETests/Beutl.E2ETests.csproj
@@ -498,6 +512,7 @@ jobs:
           name: MacOSTestDiagnostics
           path: |
             TestResults/macos-fonts/
+            TestResults/macos-hdr/
             TestResults/macos-avfoundation/
           if-no-files-found: ignore
           retention-days: 7
