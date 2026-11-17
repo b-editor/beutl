@@ -81,6 +81,9 @@ If the URL is suspicious, we recommend that you do not open it.</value>
   <data name="PackageInstaller_Updated" xml:space="preserve">
     <value>'{0}' has been updated successfully.</value>
   </data>
+  <data name="AutomaticExtensionUpdateCompleted" xml:space="preserve">
+    <value>Automatic extension update complete</value>
+  </data>
   <data name="PackageInstaller_Uninstalled" xml:space="preserve">
     <value>'{0}' has been uninstalled successfully.</value>
   </data>

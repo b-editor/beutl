@@ -14,22 +14,29 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
 {
     private GlobalConfiguration Restore(JsonObject json) => Restore(json.ToJsonString());
 
-    [Test]
-    public void Extension_update_timing_distinguishes_a_new_install_from_existing_settings()
+    [TestCase(null)]
+    [TestCase("{}")]
+    [TestCase("""{"Update":{"AutoDownload":false}}""")]
+    public void Extension_updates_default_to_always_when_no_preference_is_saved(string? settings)
     {
-        var fresh = CreateConfiguration();
-        fresh.Restore(SettingsPath);
-        Assert.That(fresh.UpdateConfig.ExtensionUpdates.Value, Is.EqualTo(ExtensionUpdateMode.WithAppUpdate));
+        if (settings is not null)
+            File.WriteAllText(SettingsPath, settings);
 
-        foreach (string oldSettings in new[] { "{}", """{"Update":{"AutoDownload":false}}""" })
-        {
-            var existing = Restore(oldSettings);
-            Assert.That(existing.UpdateConfig.ExtensionUpdates.Value, Is.EqualTo(ExtensionUpdateMode.NotifyOnly));
-            existing.UpdateConfig.ExtensionUpdates.Value = ExtensionUpdateMode.Always;
-            var reopened = CreateConfiguration();
-            reopened.Restore(SettingsPath);
-            Assert.That(reopened.UpdateConfig.ExtensionUpdates.Value, Is.EqualTo(ExtensionUpdateMode.Always));
-        }
+        var config = CreateConfiguration();
+        config.Restore(SettingsPath);
+        Assert.That(config.UpdateConfig.ExtensionUpdates.Value, Is.EqualTo(ExtensionUpdateMode.Always));
+    }
+
+    [TestCase(ExtensionUpdateMode.NotifyOnly)]
+    [TestCase(ExtensionUpdateMode.WithAppUpdate)]
+    public void Extension_updates_keep_the_saved_preference(ExtensionUpdateMode mode)
+    {
+        var config = Restore("{}");
+        config.UpdateConfig.ExtensionUpdates.Value = mode;
+
+        var reopened = CreateConfiguration();
+        reopened.Restore(SettingsPath);
+        Assert.That(reopened.UpdateConfig.ExtensionUpdates.Value, Is.EqualTo(mode));
     }
 
     [Test]

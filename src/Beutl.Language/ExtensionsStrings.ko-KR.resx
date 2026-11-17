@@ -81,6 +81,9 @@ URL이 의심스러우면 열지 않는 것이 좋습니다.</value>
   <data name="PackageInstaller_Updated" xml:space="preserve">
     <value>'{0}'이(가) 성공적으로 업데이트되었습니다.</value>
   </data>
+  <data name="AutomaticExtensionUpdateCompleted" xml:space="preserve">
+    <value>확장 기능이 자동으로 업데이트되었습니다</value>
+  </data>
   <data name="PackageInstaller_Uninstalled" xml:space="preserve">
     <value>'{0}'이(가) 성공적으로 제거되었습니다.</value>
   </data>

@@ -6,6 +6,7 @@ using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
@@ -45,6 +46,7 @@ public sealed class AutomaticExtensionUpdateTests
     [TestCase(ExtensionUpdateMode.WithAppUpdate, true, false)]
     public async Task Verified_update_is_applied_on_the_matching_launch(ExtensionUpdateMode mode, bool appUpdate, bool compatible)
     {
+        using var notifications = new NotificationCapture();
         using var registration = new AppRootFileBackup("installedPackages.json");
         using var queue = new AppRootFileBackup("packageChanges.json");
         var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
@@ -109,32 +111,21 @@ public sealed class AutomaticExtensionUpdateTests
             handler.Queue.UninstallQueue(installed);
             Assert.That(await Apply(host), Is.False);
             handler.Queue.Cancel(installed.Id);
-            if (appUpdate && compatible)
-            {
-                var startup = new Startup(restarted, projects, editor);
-                await startup.WaitAll().WaitAsync(TimeSpan.FromSeconds(20));
-                Assert.That(startup.GetTask<LoadInstalledExtensionTask>().Failures, Is.Empty);
-            }
-            else
-            {
-                Assert.That(await Apply(host), Is.EqualTo(compatible));
-            }
+            var updateNotices = notifications.All.Where(n => n.Title == ExtensionsStrings.AutomaticExtensionUpdateCompleted);
+            Assert.That(updateNotices, Is.Empty);
+
+            var restartedStartup = new Startup(restarted, projects, editor);
+            await restartedStartup.WaitAll().WaitAsync(TimeSpan.FromSeconds(20));
+            Assert.That(restartedStartup.GetTask<LoadInstalledExtensionTask>().Failures, Is.Empty);
             Assert.That(handler.InstalledPackageRepository.ExistsPackage(candidate), Is.EqualTo(compatible));
             Assert.That(handler.InstalledPackageRepository.ExistsPackage(installed), Is.EqualTo(!compatible));
-            if (compatible)
+            var restartedManager = restarted.GetResource<PackageManager>();
+            Assert.That(restartedManager.FindLoadedPackage(installed.Id).Single().Version, Is.EqualTo(compatible ? "2.0.0" : "1.0.0"));
+            Assert.That(PackageInstaller.FindStagedExtensionUpdate(installed, host, true), Is.Null);
+            if (!compatible)
             {
-                Assert.That(restarted.GetResource<PackageManager>().FindLoadedPackage(installed.Id).Single().Version, Is.EqualTo("2.0.0"));
-                Assert.That(PackageInstaller.FindStagedExtensionUpdate(installed, host, true), Is.Null);
-            }
-            else
-            {
-                var old = PackageManager.ReadInstalledPackage(installed)!;
-                var manager = restarted.GetResource<PackageManager>();
-                manager.Load(old);
-                Assert.That(manager.FindLoadedPackage(installed.Id).Single().Version, Is.EqualTo("1.0.0"));
-                Assert.That(PackageInstaller.FindStagedExtensionUpdate(installed, host, true), Is.Null);
                 Assert.That(await Apply(host), Is.False);
-                Assert.That((await manager.StageExtensionUpdatesAsync(host, true, default)).Staged, Is.Zero);
+                Assert.That((await restartedManager.StageExtensionUpdatesAsync(host, true, default)).Staged, Is.Zero);
                 using var nextHttp = new HttpClient(store, false);
                 await using var next = new BeutlApiApplication(nextHttp, new ExtensionProvider(), () => new HttpClient(store, false));
                 var release = TestStore.CreateRelease(next, "2.0.0", fileId: "archive", name: installed.Id);
@@ -143,6 +134,9 @@ public sealed class AutomaticExtensionUpdateTests
                 Assert.That(store.Downloads, Is.EqualTo(1));
                 Assert.That(await installer.StageExtensionUpdateAsync(installed, release, new NuGetVersion(99, 0, 0), true, default), Is.EqualTo(ExtensionUpdateStageResult.Ready));
             }
+
+            string[] expectedMessages = compatible ? [string.Empty] : [];
+            Assert.That(updateNotices.Select(n => n.Message), Is.EqualTo(expectedMessages));
         }
         finally
         {
@@ -328,6 +322,7 @@ public sealed class AutomaticExtensionUpdateTests
     [TestCase(true)]
     public async Task Upgrade_retries_the_unprepared_extension_without_holding_up_projects(bool slow)
     {
+        using var notifications = new NotificationCapture();
         using var registration = new AppRootFileBackup("installedPackages.json");
         var setting = GlobalConfiguration.Instance.UpdateConfig.ExtensionUpdates;
         var previous = setting.Value;
@@ -375,6 +370,7 @@ public sealed class AutomaticExtensionUpdateTests
             }
             if (slow)
                 Assert.That(PackageInstaller.FindStagedExtensionUpdate(installed, host, false), Is.Not.Null);
+            Assert.That(notifications.All.Count(n => n.Title == ExtensionsStrings.AutomaticExtensionUpdateCompleted), Is.EqualTo(1));
         }
         finally
         {

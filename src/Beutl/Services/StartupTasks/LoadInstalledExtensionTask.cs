@@ -70,9 +70,14 @@ public sealed class LoadInstalledExtensionTask : StartupTask
             batch.Clear();
         }
 
+        bool anyUpdated = false;
         foreach (PackageIdentity package in installed)
         {
-            if (await operations.TryApplyStagedExtensionUpdateAsync(package, host, LoadBatchAsync)) continue;
+            if (await operations.TryApplyStagedExtensionUpdateAsync(package, host, LoadBatchAsync))
+            {
+                anyUpdated = true;
+                continue;
+            }
             if (PackageManager.ReadInstalledPackage(package) is not { } item) continue;
             if (failedPackageIds.Contains(item.Name))
             {
@@ -85,6 +90,9 @@ public sealed class LoadInstalledExtensionTask : StartupTask
             }
         }
         await LoadBatchAsync();
+
+        if (anyUpdated)
+            NotificationService.ShowSuccess(ExtensionsStrings.AutomaticExtensionUpdateCompleted, string.Empty);
     }
 
     private async Task PrepareExternalUpdateAsync(Startup startup, PackageIdentity[] installed, NuGetVersion host)

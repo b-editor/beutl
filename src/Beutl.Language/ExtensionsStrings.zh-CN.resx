@@ -81,6 +81,9 @@
   <data name="PackageInstaller_Updated" xml:space="preserve">
     <value>'{0}' 已成功更新。</value>
   </data>
+  <data name="AutomaticExtensionUpdateCompleted" xml:space="preserve">
+    <value>扩展已自动更新</value>
+  </data>
   <data name="PackageInstaller_Uninstalled" xml:space="preserve">
     <value>'{0}' 已成功卸载。</value>
   </data>

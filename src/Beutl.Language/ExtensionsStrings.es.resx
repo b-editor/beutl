@@ -81,6 +81,9 @@ Si la URL es sospechosa, te recomendamos que no la abras.</value>
   <data name="PackageInstaller_Updated" xml:space="preserve">
     <value>'{0}' se ha actualizado correctamente.</value>
   </data>
+  <data name="AutomaticExtensionUpdateCompleted" xml:space="preserve">
+    <value>Actualización automática de extensiones completada</value>
+  </data>
   <data name="PackageInstaller_Uninstalled" xml:space="preserve">
     <value>'{0}' se ha desinstalado correctamente.</value>
   </data>
