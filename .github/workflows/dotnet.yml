@@ -366,6 +366,9 @@ jobs:
 
       - name: Merge coverage reports
         run: |
+          # Resolve the WebView2 shard's Windows source directories against this checkout before merging hits.
+          find coverage-shards/Coverage-webview2 -name coverage.cobertura.xml -exec \
+            sed -i -E "s#<source>[A-Za-z]:/[^<]*/src/#<source>$GITHUB_WORKSPACE/src/#g" {} +
           dotnet tool install -g dotnet-reportgenerator-globaltool
           reportgenerator -reports:"coverage-shards/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:Cobertura
 
@@ -536,6 +539,22 @@ jobs:
           path: TestResults/mediafoundation/
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Test new-tab referrers on WebView2
+        run: >-
+          dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj
+          --configuration Release -f net11.0
+          --filter "FullyQualifiedName~BrowserNewTabReferrerTests|FullyQualifiedName~NativeBrowserFrameTests"
+          --collect "XPlat Code Coverage" --results-directory TestResults/webview2
+          -- "DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include=[Beutl.Editor.Components]Beutl.Editor.Components.WebBrowserTab*"
+
+      - name: Save WebView2 coverage
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Coverage-webview2
+          path: TestResults/webview2/**/coverage.cobertura.xml
+          if-no-files-found: error
+          retention-days: 1
 
   # Builds an extension against the packed SDK, as authors do; nothing else consumes it (#1648, #2730).
   sdk-package:
