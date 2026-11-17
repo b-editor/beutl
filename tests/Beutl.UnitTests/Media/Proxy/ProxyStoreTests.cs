@@ -405,16 +405,17 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
-    public void LoadIndex_IgnoresPreviousStoreVersion()
+    public void LoadIndex_DoesNotRestoreVersion4ProxiesFromIndexOrSidecar()
     {
         string root = ProxyTestScope.CreateRoot();
         ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
         var oldIndex = new ProxyStoreIndex
         {
-            Version = ProxyStoreIndex.CurrentVersion - 1,
+            Version = 4,
             Entries = [entry],
         };
         File.WriteAllText(Path.Combine(root, "index.json"), JsonSerializer.Serialize(oldIndex, s_jsonOptions));
+        WriteSidecar(root, entry, oldIndex.Version);
 
         var store = new ProxyStore(root);
         string indexJson = File.ReadAllText(Path.Combine(root, "index.json"));

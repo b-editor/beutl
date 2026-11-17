@@ -5,7 +5,8 @@ public sealed record ProxyStoreIndex
     // 3: SDR sources decode by their transfer tags, so proxies made from the forced sRGB reading are stale.
     // 4: BT.709-family video decodes and encodes with QuickTime's curve, so proxies written with the BT.709 OETF would
     //    read back with different shadows.
-    public const int CurrentVersion = 4;
+    // 5: Media Foundation read non-square-pixel frames at their display size, so older proxies can contain distorted rows.
+    public const int CurrentVersion = 5;
 
     public int Version { get; init; } = CurrentVersion;
 
@@ -16,8 +17,8 @@ public sealed record ProxyStoreIndex
 
 public sealed record ProxySourceMetadata
 {
-    // 3, 4: as ProxyStoreIndex, so a rebuilt index cannot pick up the stale proxies either.
-    public const int CurrentVersion = 4;
+    // Match the index version when decoded pixels change so recovery skips the same stale proxies.
+    public const int CurrentVersion = 5;
 
     public int Version { get; init; } = CurrentVersion;
 
