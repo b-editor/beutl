@@ -292,15 +292,23 @@ internal sealed partial class WindowsBrowserDownloadHandler
             }
             window.addEventListener('click', event => {
                 if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-                const link = event.composedPath().find(node => node instanceof HTMLAnchorElement || node instanceof HTMLAreaElement);
+                const path = event.composedPath();
+                const link = path.find(node => node instanceof HTMLAnchorElement || node instanceof HTMLAreaElement);
                 if (!link) return;
-                // Read after page click handlers, including handlers that cancel the click or change its policy.
+                // stopPropagation still activates the link. Read after the page's handlers on the node where dispatch ends.
+                const listeners = new AbortController();
                 const afterPage = current => {
-                    if (current === event && !event.defaultPrevented && link.hasAttribute('href') && !link.hasAttribute('download'))
+                    if (current !== event) return;
+                    if (!event.cancelBubble && (event.currentTarget !== window || event.eventPhase !== Event.BUBBLING_PHASE)) return;
+                    listeners.abort();
+                    if (!event.defaultPrevented && link.hasAttribute('href') && !link.hasAttribute('download'))
                         markLink(link);
                 };
-                window.addEventListener('click', afterPage);
-                setTimeout(() => window.removeEventListener('click', afterPage), 0);
+                for (const node of path) {
+                    node.addEventListener('click', afterPage, {capture:true, signal:listeners.signal});
+                    node.addEventListener('click', afterPage, {signal:listeners.signal});
+                }
+                setTimeout(() => listeners.abort(), 0);
             }, true);
         })()
         """;

@@ -312,6 +312,20 @@ internal static class NativeBrowserFrameTestHost
             await CheckMediaRedirect("same-origin", "");
             if (OperatingSystem.IsWindows())
             {
+                await Check("""
+                    document.querySelector('a').addEventListener('click', e => e.stopPropagation(), {once:true});
+                    document.querySelector('a').click()
+                    """, origin.AbsoluteUri);
+                await Check("""
+                    document.body.addEventListener('click', e => e.stopPropagation(), {once:true});
+                    document.body.addEventListener('click', e => e.target.referrerPolicy='no-referrer', {once:true});
+                    document.querySelector('a').click()
+                    """, "");
+                await Check("""
+                    document.body.addEventListener('click', e => { e.stopPropagation(); e.target.referrerPolicy='origin' }, {once:true, capture:true});
+                    document.querySelector('a').click()
+                    """, origin.AbsoluteUri);
+                await browser.InvokeScript("document.querySelector('a').removeAttribute('referrerpolicy')");
                 await CheckMediaRedirect("origin", origin.AbsoluteUri);
                 await browser.InvokeScript("location.assign('/attachment')");
                 await attachmentOffered.Task.WaitAsync(token);
