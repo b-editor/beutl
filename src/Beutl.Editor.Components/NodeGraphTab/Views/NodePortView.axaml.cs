@@ -371,6 +371,7 @@ public partial class NodePortView : UserControl
         {
             _label = new TextBlock
             {
+                Classes = { "node-label" },
                 // Match the standard embedded editor header (outer margin + template inset).
                 Margin = ProvidedEditor != null ? new Thickness(8, 0, 0, 0) : default,
                 HorizontalAlignment = obj is OutputPortViewModel

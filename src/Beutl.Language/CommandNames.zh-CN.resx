@@ -143,6 +143,12 @@
   <data name="MoveNode" xml:space="preserve">
     <value>移动节点</value>
   </data>
+  <data name="ResizeNode" xml:space="preserve">
+    <value>调整节点大小</value>
+  </data>
+  <data name="ResetNodeSize" xml:space="preserve">
+    <value>重置节点大小</value>
+  </data>
   <data name="RenameNode" xml:space="preserve">
     <value>重命名节点</value>
   </data>

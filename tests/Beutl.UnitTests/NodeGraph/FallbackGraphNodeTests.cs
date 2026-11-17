@@ -34,7 +34,13 @@ public class FallbackGraphNodeTests
     [TestCase(true)]
     public void GraphRetainsUnavailableNodeAndDisplaysSavedMetadata(bool failed)
     {
-        var source = new RandomSingleNode { Name = { Value = "Unavailable" }, Position = { Value = (120, 80) }, IsExpanded = { Value = false } };
+        var source = new RandomSingleNode
+        {
+            Name = { Value = "Unavailable" },
+            Position = { Value = (120, 80) },
+            IsExpanded = { Value = false },
+            EditorSize = { Value = new(275.5, 192) }
+        };
         var output = new OutputNode();
         var graph = new GraphModel();
         graph.Nodes.AddRange([source, output]);
@@ -53,6 +59,7 @@ public class FallbackGraphNodeTests
             Assert.That(fallback.Id.Value, Is.EqualTo(source.Id.Value));
             Assert.That(fallback.Name.Value, Is.EqualTo(source.Name.Value));
             Assert.That(fallback.Position.Value, Is.EqualTo(source.Position.Value));
+            Assert.That(fallback.EditorSize.Value, Is.EqualTo(source.EditorSize.Value));
             Assert.That(fallback.IsExpanded.Value, Is.False);
             Assert.That(fallback.Reason, Is.EqualTo(failed ? FallbackReason.DeserializationFailed : FallbackReason.TypeNotFound));
             Assert.That(JsonNode.DeepEquals(CoreSerializer.SerializeToJsonObject(restored)["Nodes"]![0], original), Is.True);

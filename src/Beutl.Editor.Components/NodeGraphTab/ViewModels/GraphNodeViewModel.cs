@@ -73,6 +73,19 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
+        ResetSize = new ReactiveCommand(node.EditorSize.GetObservable()
+                .CombineLatest(CanEdit, (size, editable) => editable && size != default))
+            .DisposeWith(_disposables);
+        ResetSize.Subscribe(() =>
+        {
+            if (!CanEdit.Value || node.EditorSize.Value == default) return;
+            void Reset() => node.EditorSize.Value = default;
+            if (EditorContext.GetService<HistoryManager>() is { } history)
+                history.ExecuteInTransaction(Reset, CommandNames.ResetNodeSize);
+            else
+                Reset();
+        });
+
         // Removing what could not be loaded repairs a recovery-protected clip, so it stays allowed there.
         Delete = new ReactiveCommand(IsReadOnly
                 ? Observable.ReturnThenNever(false)
@@ -125,6 +138,8 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
     public ReactiveProperty<bool> IsExpanded { get; }
 
     public ReactiveCommand Delete { get; }
+
+    public ReactiveCommand ResetSize { get; }
 
     public bool IsGenerative => GraphNode is GenerativeNode;
 

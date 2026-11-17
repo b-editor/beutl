@@ -12,7 +12,6 @@
              xmlns:views="using:Beutl.Editor.Components.NodeGraphTab.Views"
              Canvas.Left="{Binding Position.Value.X}"
              Canvas.Top="{Binding Position.Value.Y}"
-             Width="{Binding EditorWidth}"
              x:CompileBindings="True"
              x:DataType="viewModels:GraphNodeViewModel"
              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
@@ -30,13 +29,20 @@
         <Style Selector=":is(pe|PropertyEditor)">
             <Setter Property="EditorStyle" Value="Compact" />
         </Style>
-        <!-- Root rows keep the original theme minimum width and horizontal layout. -->
-        <Style Selector="views|NodePortView.nested :is(pe|PropertyEditor), :is(pe|PropertyEditor):list-item">
+        <!-- Root editors can shrink between their sockets when the node is narrowed. -->
+        <Style Selector="views|GraphNodeView.custom-width :is(pe|PropertyEditor), views|NodePortView.nested :is(pe|PropertyEditor), :is(pe|PropertyEditor):list-item">
             <Setter Property="MinWidth" Value="0" />
+        </Style>
+        <Style Selector="views|GraphNodeView.custom-width TextBlock.node-label, views|GraphNodeView.custom-width :is(pe|PropertyEditor) /template/ TextBlock#PART_HeaderTextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <!-- A long script scrolls inside its field rather than stretching the node past the view. -->
         <Style Selector="pe|StringEditor.multiline /template/ TextBox#PART_InnerTextBox">
             <Setter Property="MaxHeight" Value="360" />
+        </Style>
+        <Style Selector="views|GraphNodeView.custom-code-height pe|StringEditor.code /template/ TextBox#PART_InnerTextBox">
+            <Setter Property="Height" Value="{DynamicResource NodeCodeEditorHeight}" />
+            <Setter Property="MaxHeight" Value="Infinity" />
         </Style>
         <Style Selector="views|GraphNodeView.selected /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
@@ -122,6 +128,8 @@
                             <icons:FluentIconSource Icon="Rename" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutItem Command="{Binding ResetSize}"
+                                         Text="{x:Static lang:CommandNames.ResetNodeSize}" />
                 </ui:FAMenuFlyout>
             </Border.ContextFlyout>
             <Border.KeyBindings>
@@ -145,6 +153,7 @@
                 <TextBlock Grid.Column="2"
                            Margin="8,0,0,0"
                            VerticalAlignment="Center"
+                           Classes="node-label"
                            IsHitTestVisible="False"
                            Text="{Binding NodeName.Value}"
                            TextTrimming="CharacterEllipsis" />
@@ -183,5 +192,14 @@
                                Grid.RowSpan="2"
                                ClipToBounds="False"
                                IsVisible="{Binding IsExpanded.Value}" />
+        <Path Grid.RowSpan="2"
+              Margin="0,0,2,1"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Bottom"
+              Data="M 0,7 L 7,0 M 4,7 L 7,4"
+              IsHitTestVisible="False"
+              IsVisible="{Binding CanEdit.Value}"
+              Stroke="{DynamicResource TextFillColorTertiaryBrush}"
+              StrokeThickness="1.25" />
     </Grid>
 </UserControl>
