@@ -30,6 +30,14 @@ public sealed class SkslSourceReadsTests
         yield return Case(
             "ReturnsTheCoordinate",
             "float2 f(float2 c) { return c; } half4 main(float2 c) { return src.eval(c) + half4(half2(f(c)), 0, 0); }");
+        yield return Case(
+            "GroupsTheCoordinateInExpressions",
+            """
+            half4 main(float2 c) {
+                float2 uv = (c) / 2.0 + (c.x + 1.0) * (c).y;
+                return src.eval(c) * half(length((uv)));
+            }
+            """);
     }
 
     private static IEnumerable<TestCaseData> ReadsElsewhere()
@@ -50,6 +58,18 @@ public sealed class SkslSourceReadsTests
         yield return Case(
             "PassesTheCoordinateToAnInoutParameter",
             "void g(inout float2 p) { p += 1.0; } half4 main(float2 c) { g(c); return src.eval(c); }");
+        yield return Case(
+            "AssignsTheCoordinateInParentheses",
+            "half4 main(float2 c) { (c) = float2(0); return src.eval(c); }");
+        yield return Case(
+            "AddsToAComponentInParentheses",
+            "half4 main(float2 c) { (c).x += 1000.0; return src.eval(c); }");
+        yield return Case(
+            "AssignsAComponentInParentheses",
+            "half4 main(float2 c) { (c.x) = 0.0; return src.eval(c); }");
+        yield return Case(
+            "IncrementsAComponentInNestedParentheses",
+            "half4 main(float2 c) { ++((c).y); return src.eval(c); }");
     }
 
     [TestCaseSource(nameof(CurrentPixelReads))]

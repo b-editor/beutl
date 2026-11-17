@@ -51,6 +51,20 @@ public sealed class LayerRequiredRegionTests
         AssertFarContentCostsNothing(Create);
     }
 
+    [Test]
+    public void ALayerReadBackPastTheFrame_KeepsWhatTheReadbackCovers()
+    {
+        // A readback command snapshots all of the region it declares, however little of the layer the frame needs.
+        var readback = new ReadbackNode(new Rect(FarOffset, 30, 50, 50));
+        var layer = new LayerRenderNode(new Rect(-40, -40, FarOffset + 400, 200));
+        AddContent(layer, far: true);
+        layer.AddChild(readback);
+
+        using Bitmap frame = Render(layer, []);
+
+        Assert.That(readback.ReadbackSize, Is.EqualTo(new PixelSize(50, 50)));
+    }
+
     private static void AssertFarContentCostsNothing(Func<bool, RenderNode> create)
     {
         var nearSizes = new List<PixelSize>();
@@ -107,6 +121,23 @@ public sealed class LayerRequiredRegionTests
         var blur = new Blur();
         blur.Sigma.Value = new Size(sigma, sigma);
         return new FilterEffectRenderNode(blur.ToResource(CompositionContext.Default));
+    }
+
+    // Snapshots its target over a region, as an effect that reads back what was drawn before it does.
+    private sealed class ReadbackNode(Rect region) : RenderNode
+    {
+        public PixelSize? ReadbackSize { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+            => context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    session => session.UseSnapshot(
+                        bitmap => ReadbackSize = new PixelSize(bitmap.Width, bitmap.Height)),
+                    TargetRegion.Region(region),
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.Readback)));
     }
 
     private sealed class RecordingCpuTargetFactory(List<PixelSize> requestedSizes) : IRenderTargetFactory

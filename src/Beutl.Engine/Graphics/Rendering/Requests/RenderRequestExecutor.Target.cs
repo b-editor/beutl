@@ -420,7 +420,9 @@ internal sealed partial class RenderRequestExecutor
                 canvas.ClipRectCoveringDevicePixels(value.CompleteBounds);
         }
 
-        // Whether a fragment's inputs read back the target they draw into, through a capture or raw target work.
+        // Whether a fragment's inputs read back the target they draw into, through a capture, a readback command or
+        // raw target work. A readback command snapshots all of its affected region, which can lie past the part a
+        // request needs.
         private bool ReadsOwnTarget(RenderFragmentReference fragment)
         {
             _ownTargetReaders ??= new Dictionary<RenderFragmentReference, bool>(ReferenceEqualityComparer.Instance);
@@ -434,6 +436,10 @@ internal sealed partial class RenderRequestExecutor
                         or RenderFragmentKind.BuiltInBackdropCapture
                         or RenderFragmentKind.RawTargetScope
                         or RenderFragmentKind.RawTargetCommand
+                    || input.Payload is TargetCommandRenderFragmentPayload
+                    {
+                        Description.Access: TargetAccess.Readback,
+                    }
                     || ReadsOwnTarget(input))
                 {
                     reads = true;

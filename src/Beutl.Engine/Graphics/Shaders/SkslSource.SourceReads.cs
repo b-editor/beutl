@@ -139,18 +139,56 @@ public sealed partial class SkslSource
     // assignment, compound assignment, increment or decrement of it or of one of its components.
     private static bool IsReadOnlyUse(List<SkslToken> tokens, int index, int statementParenthesisDepth)
     {
-        if (index > 0)
+        // Parentheses around nothing but the coordinate and its components, as in `(c).x += 1.0`, write through to
+        // it, so the checks look outside them.
+        int start = index;
+        int next = SkipAccessors(tokens, index + 1);
+        while (start > 0
+               && tokens[start - 1].Text == "("
+               && !OpensCall(tokens, start - 1)
+               && next < tokens.Count
+               && tokens[next].Text == ")")
         {
-            SkslToken previous = tokens[index - 1];
+            start--;
+            next = SkipAccessors(tokens, next + 1);
+        }
+
+        if (start > 0)
+        {
+            SkslToken previous = tokens[start - 1];
             if (previous.IsIdentifier && previous.Text != "return")
                 return false;
             if (previous.Text == "," && tokens[index].ParenthesisDepth == statementParenthesisDepth)
                 return false;
-            if (index > 1 && previous.Text is "+" or "-" && tokens[index - 2].Text == previous.Text)
+            if (start > 1 && previous.Text is "+" or "-" && tokens[start - 2].Text == previous.Text)
                 return false;
         }
 
-        int next = index + 1;
+        if (next >= tokens.Count)
+            return true;
+
+        string first = tokens[next].Text;
+        string second = next + 1 < tokens.Count ? tokens[next + 1].Text : "";
+        string third = next + 2 < tokens.Count ? tokens[next + 2].Text : "";
+        if (first == "=")
+            return second == "=";
+        if (first is "+" or "-" or "*" or "/" or "%" or "&" or "|" or "^" && second == "=")
+            return false;
+        if (first is "+" or "-" && second == first)
+            return false;
+        if (first is "<" or ">" && second == first && third == "=")
+            return false;
+
+        return true;
+    }
+
+    // A parenthesis right after a name opens a call, a constructor or a statement's condition rather than a group.
+    private static bool OpensCall(List<SkslToken> tokens, int index)
+        => index > 0 && tokens[index - 1].IsIdentifier && tokens[index - 1].Text != "return";
+
+    // Moves past the `.name` and `[...]` accessors that start at next.
+    private static int SkipAccessors(List<SkslToken> tokens, int next)
+    {
         while (next < tokens.Count)
         {
             if (tokens[next].Text == "." && next + 1 < tokens.Count && tokens[next + 1].IsIdentifier)
@@ -176,21 +214,6 @@ public sealed partial class SkslSource
             }
         }
 
-        if (next >= tokens.Count)
-            return true;
-
-        string first = tokens[next].Text;
-        string second = next + 1 < tokens.Count ? tokens[next + 1].Text : "";
-        string third = next + 2 < tokens.Count ? tokens[next + 2].Text : "";
-        if (first == "=")
-            return second == "=";
-        if (first is "+" or "-" or "*" or "/" or "%" or "&" or "|" or "^" && second == "=")
-            return false;
-        if (first is "+" or "-" && second == first)
-            return false;
-        if (first is "<" or ">" && second == first && third == "=")
-            return false;
-
-        return true;
+        return next;
     }
 }
