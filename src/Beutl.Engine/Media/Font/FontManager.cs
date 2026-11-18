@@ -16,13 +16,7 @@ public sealed class FontManager
     private readonly ILogger _logger = Log.CreateLogger<FontManager>();
     private readonly Lock _gate = new();
     private long _revision;
-    internal long Revision
-    {
-        get
-        {
-            return Volatile.Read(ref _revision);
-        }
-    }
+    internal long Revision => Volatile.Read(ref _revision);
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
     private Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _projectFonts = [];
@@ -35,8 +29,7 @@ public sealed class FontManager
     // value. Like the registered typefaces, they live as long as the manager.
     private readonly Dictionary<(SKTypeface Typeface, float Weight), SKTypeface> _weightInstances = [];
     private readonly RenderFaceCache _renderFaces = new(FreeTypeFonts.Manager);
-    private string[] _fontDirs = [];
-    private Typeface _defaultTypeface;
+    private readonly string[] _fontDirs;
     private FontFamily[] _fallbackFamilies = [];
     private FontFamily? _emojiFamily;
     private readonly Dictionary<FontFamily, Dictionary<Typeface, Lazy<SKTypeface?>>> _deferredFonts = [];
@@ -56,7 +49,7 @@ public sealed class FontManager
         ];
 
         RegisterInstalledFonts();
-        _defaultTypeface = ResolveDefaultTypeface();
+        DefaultTypeface = ResolveDefaultTypeface();
     }
 
     private void RegisterInstalledFonts()
@@ -166,22 +159,10 @@ public sealed class FontManager
         }
     }
 
-    public Typeface DefaultTypeface
-    {
-        get
-        {
-            return _defaultTypeface;
-        }
-    }
+    public Typeface DefaultTypeface { get; }
 
     // The folders the installed fonts were read from at startup; a later change to the settings applies after restart.
-    internal IReadOnlyList<string> FontDirectories
-    {
-        get
-        {
-            return _fontDirs;
-        }
-    }
+    internal IReadOnlyList<string> FontDirectories => _fontDirs;
 
     internal FontName? GetFontName(FontFamily family)
     {

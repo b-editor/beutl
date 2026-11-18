@@ -13,14 +13,6 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 public class SampleUtilities
 {
     /// <summary>
-    /// Copies the first <paramref name="copyBufferSize"/> bytes of the sample into <paramref name="buf"/> as one block.
-    /// </summary>
-    public static int SampleCopyToBuffer(IMFSample pSample, nint buf, int copyBufferSize)
-    {
-        return SampleCopyToBuffer(pSample, buf, copyBufferSize, 0);
-    }
-
-    /// <summary>
     /// Copies the sample into <paramref name="buf"/> as tightly packed rows of <paramref name="rowBytes"/> bytes.
     /// </summary>
     /// <param name="pSample">The decoded sample.</param>

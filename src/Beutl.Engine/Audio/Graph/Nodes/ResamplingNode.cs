@@ -111,8 +111,8 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         if (_input == null || _sampleRate != sampleRate)
         {
             _sampleRate = sampleRate;
-            _feed = new ReadAheadFeed(this, SourceSampleRate, ChannelCount);
             _input = new SlidingWindow(ChannelCount);
+            _feed = new ReadAheadFeed(this, _input, SourceSampleRate, ChannelCount);
             _lastTimeRangeEnd = null;
         }
 
@@ -133,7 +133,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
         // A method has nothing to interpolate, so it holds for the block.
         ResamplingMethod method = context.AnimationSampler.SampleAt(Method, context.TimeRange.Start, sampleRate);
         long? inputEnd = _feed!.GetInputEnd(context);
-        if (!contiguous || _draining || _feed.EndMoved(inputEnd, _input))
+        if (!contiguous || _draining || _feed.EndMoved(inputEnd))
         {
             // Truncate like SourceNode and ResampleNode, so a start between samples maps to the sample the upstream
             // delivers there.
@@ -177,7 +177,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
     {
         _draining = true;
         // Reading stopped right at the boundary, or ran on past it when the end was not known.
-        _feed!.BeginDrain((long)Math.Ceiling(PositionInInput(_outputPosition)), _input!);
+        _feed!.BeginDrain((long)Math.Ceiling(PositionInInput(_outputPosition)));
     }
 
     private void Render(AudioBuffer output, AudioProcessContext context)
@@ -198,7 +198,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
                 long end = stretched
                     ? (long)Math.Ceiling(last + kernel.Radius / _cutoff)
                     : (long)Math.Floor(last) + kernel.Last + 1;
-                _feed!.Fill(input, end, context);
+                _feed!.Fill(end, context);
             }
 
             double at = PositionInInput(position);
@@ -219,7 +219,7 @@ public sealed class ResamplingNode : AudioNode, IAudioSampleRateConversionNode
                 kernel.GetWeights(at - whole, RentWeights(taps));
             }
 
-            _feed!.Fill(input, first + taps, context);
+            _feed!.Fill(first + taps, context);
 
             // Input before the first read is silence.
             long from = Math.Max(first, input.Start);

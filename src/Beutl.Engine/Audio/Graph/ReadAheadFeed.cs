@@ -18,7 +18,7 @@ internal interface IReadAheadInput
 
 // The input side of a node that reads ahead of its output rather than reporting latency: live input up to where it
 // ends, then the upstream's held tail, then silence.
-internal sealed class ReadAheadFeed(AudioNode owner, int sampleRate, int channels)
+internal sealed class ReadAheadFeed(AudioNode owner, IReadAheadInput input, int sampleRate, int channels)
 {
     private const int MaxReadFrames = 16384;
 
@@ -35,7 +35,7 @@ internal sealed class ReadAheadFeed(AudioNode owner, int sampleRate, int channel
 
     // An edit can move the end without replacing the node: input read past a nearer end must go, and input that stopped
     // at an earlier end has to go on.
-    public bool EndMoved(long? end, IReadAheadInput input)
+    public bool EndMoved(long? end)
         => _liveEnd is { } liveEnd ? end != liveEnd : end is { } value && value < input.End;
 
     // Reads from readStart on, with outputStart as the position the output starts at.
@@ -50,7 +50,7 @@ internal sealed class ReadAheadFeed(AudioNode owner, int sampleRate, int channel
     // The source is exhausted at boundary, so only the upstream's held tail may follow. The upstream has already run
     // past that boundary and cannot be rewound without losing its state, such as a delay line's echoes, so the live
     // input read over the tail's span stands in for the tail, and anything read beyond it becomes silence.
-    public void BeginDrain(long boundary, IReadAheadInput input)
+    public void BeginDrain(long boundary)
     {
         if (_liveEnd is { } liveUntil && liveUntil <= boundary)
             return;
@@ -72,7 +72,7 @@ internal sealed class ReadAheadFeed(AudioNode owner, int sampleRate, int channel
     }
 
     // Live input up to End, then the upstream's held tail, then silence, until the input reaches target.
-    public void Fill(IReadAheadInput input, long target, AudioProcessContext context)
+    public void Fill(long target, AudioProcessContext context)
     {
         while (input.End < target)
         {
@@ -80,7 +80,7 @@ internal sealed class ReadAheadFeed(AudioNode owner, int sampleRate, int channel
             int frames = (int)Math.Min(target - position, MaxReadFrames);
             if (_liveEnd is null)
             {
-                if ((End is not { } end || position < end) && Read(input, frames, context, draining: false, End) > 0)
+                if ((End is not { } end || position < end) && Read(frames, context, draining: false, End) > 0)
                     continue;
 
                 _liveEnd = position;
@@ -90,7 +90,7 @@ internal sealed class ReadAheadFeed(AudioNode owner, int sampleRate, int channel
 
             if (_drainEnd is not { } drainEnd || position < drainEnd)
             {
-                if (Read(input, frames, context, draining: true, _drainEnd) > 0)
+                if (Read(frames, context, draining: true, _drainEnd) > 0)
                     continue;
 
                 _drainEnd = position;
@@ -100,7 +100,7 @@ internal sealed class ReadAheadFeed(AudioNode owner, int sampleRate, int channel
         }
     }
 
-    private int Read(IReadAheadInput input, int frames, AudioProcessContext context, bool draining, long? end)
+    private int Read(int frames, AudioProcessContext context, bool draining, long? end)
     {
         int length = frames * channels;
         float[] buffer = ArrayPool<float>.Shared.Rent(length);
