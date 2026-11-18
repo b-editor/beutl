@@ -56,7 +56,15 @@ public sealed partial class Dim : FilterEffect
         }
     }
 }
+
+internal static class Waits
+{
+    public static async Task YieldAsync() => await Task.Yield();
+}
 """
+
+# Without the SDK's runtime async, the compiler gives Waits.YieldAsync a state machine type named <YieldAsync>d__N.
+STATE_MACHINE = b"<YieldAsync>d__"
 
 NUGET_CONFIG = """<configuration>
   <packageSources>
@@ -73,6 +81,7 @@ def check_package(nupkg, artifacts, version):
     with zipfile.ZipFile(nupkg) as package:
         files = package.namelist()
         nuspec = ElementTree.fromstring(package.read(f"{NAME}.nuspec"))
+        assemblies = [package.read(file) for file in files if file.startswith("lib/") and file.endswith(f"/{NAME}.dll")]
     dependencies = [
         (element.get("id"), element.get("version"))
         for element in nuspec.iter()
@@ -92,6 +101,8 @@ def check_package(nupkg, artifacts, version):
     if not any(file.endswith(f"/{NAME}.dll") for file in libraries):
         problems.append(f"no lib/*/{NAME}.dll")
     problems += [f"{file}, a copy of a library that the host provides" for file in libraries if not file.endswith(f"/{NAME}.dll")]
+    if any(STATE_MACHINE in assembly for assembly in assemblies):
+        problems.append("a state machine for YieldAsync, so the SDK did not turn on runtime async")
     return problems
 
 

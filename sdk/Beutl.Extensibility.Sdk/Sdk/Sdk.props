@@ -8,5 +8,8 @@
     <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net11.0</TargetFramework>
     <ImplicitUsings Condition="'$(ImplicitUsings)' == ''">enable</ImplicitUsings>
     <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
+    <!-- Async methods use .NET 11's runtime async, as Beutl's own do. A project that appends runtime-async=off
+         to Features keeps compiler-generated state machines, since the last value wins. -->
+    <Features>$(Features);runtime-async=on</Features>
   </PropertyGroup>
 </Project>
