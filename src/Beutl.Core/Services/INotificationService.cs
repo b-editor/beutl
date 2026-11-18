@@ -14,9 +14,7 @@ public sealed class NotificationService(INotificationServiceHandler? handler = n
 
     private static ILogger Logger => Log.GetLoggerOnceConfigured(ref s_logger, typeof(NotificationService));
 
-    public void Show(Notification notification) => Dispatch(notification, handler);
-
-    internal static void Dispatch(Notification notification, INotificationServiceHandler? handler)
+    public void Show(Notification notification)
     {
         int failureReported = 0;
 
@@ -57,7 +55,6 @@ public sealed class NotificationService(INotificationServiceHandler? handler = n
             ReportShowFailure();
         }
     }
-
 }
 
 public static class NotificationServiceExtensions

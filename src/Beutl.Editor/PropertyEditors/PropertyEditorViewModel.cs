@@ -466,14 +466,13 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         => _mirror?.Run(this, command, commit, commitName) == true;
 
     // Mirrors setting an expression, and gives what setting it on this editor's element returned.
-    internal bool MirrorsExpression(
-        Func<PropertyEditorViewModel, (bool Set, string? Error)> set, out bool result, out string? error)
+    internal bool MirrorsSetExpression(string expressionString, out bool result, out string? error)
     {
         (bool Set, string? Error) shown = (false, null);
         bool mirrored = Mirrors((editor, _) =>
         {
-            (bool Set, string? Error) outcome = set(editor);
-            if (ReferenceEquals(editor, this)) shown = outcome;
+            bool set = editor.SetExpression(expressionString, out string? failure);
+            if (ReferenceEquals(editor, this)) shown = (set, failure);
         });
         result = shown.Set;
         error = mirrored && !shown.Set ? shown.Error ?? MessageStrings.OperationFailed : null;

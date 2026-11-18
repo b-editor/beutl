@@ -20,8 +20,7 @@ public sealed partial class TerminalSettingsPage : UserControl
         FontSizeBox.Minimum = TerminalConfig.MinFontSize;
         FontSizeBox.Maximum = TerminalConfig.MaxFontSize;
         ScrollbackBox.Maximum = TerminalConfig.MaxScrollbackLines;
-        ShellPathBox.PlaceholderText = TerminalTabViewModel.ResolveShell(Environment.GetEnvironmentVariable,
-            OperatingSystem.IsWindows(), OperatingSystem.IsMacOS()).Path;
+        ShellPathBox.PlaceholderText = TerminalTabViewModel.ResolveShell().Path;
     }
 
     protected override void OnDataContextChanged(EventArgs e)

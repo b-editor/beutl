@@ -173,7 +173,7 @@ public record PackageChangeModel(
             Release? release;
             if (action != PackageChangeAction.Uninstall && !force)
             {
-                NuGetVersion? installed = apiApp.GetResource<InstalledPackageRepository>().GetLocalPackages(s).Max(pkg => pkg.Version);
+                NuGetVersion? installed = apiApp.GetResource<InstalledPackageRepository>().GetLatestLocalPackage(s)?.Version;
                 release = await package.GetLatestCompatibleReleaseAsync(cancellationToken, installed);
             }
             else

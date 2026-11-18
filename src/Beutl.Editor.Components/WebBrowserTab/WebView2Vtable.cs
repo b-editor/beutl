@@ -16,4 +16,20 @@ internal static unsafe class WebView2Vtable
             ((delegate* unmanaged[Stdcall]<nint, nint*, int>)Method(instance, slot))(instance, &result));
         return result;
     }
+
+    // ICoreWebView2HttpRequestHeaders::GetHeader; null when the request has no such header.
+    public static string? GetHeader(nint headers, string name)
+    {
+        nint value = 0;
+        try
+        {
+            fixed (char* key = name)
+            {
+                if (((delegate* unmanaged[Stdcall]<nint, char*, nint*, int>)Method(headers, 3))(headers, key, &value) < 0)
+                    return null;
+            }
+            return Marshal.PtrToStringUni(value);
+        }
+        finally { Marshal.FreeCoTaskMem(value); }
+    }
 }

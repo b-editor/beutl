@@ -1,6 +1,5 @@
 ﻿using Beutl.Editor.VersionControl;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -124,7 +123,7 @@ internal partial class VersionControlCoordinator
             }
 
             PublishNotification(() =>
-                _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
+                _notifications.ShowWarning(
                     Strings.VersionControl,
                     MessageStrings.OperationFailed));
             throw new ProjectCloseAbortedException(MessageStrings.OperationFailed);
@@ -269,7 +268,7 @@ internal partial class VersionControlCoordinator
                 if (result is CommitResult.SkippedNoIdentity)
                 {
                     PublishNotification(() =>
-                        _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
+                        _notifications.ShowWarning(
                             Strings.VersionControl,
                             Strings.VersionControl_MissingIdentityNotice));
                 }
@@ -289,7 +288,7 @@ internal partial class VersionControlCoordinator
             if (closeSnapshotRequested)
             {
                 PublishNotification(() =>
-                    _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
+                    _notifications.ShowWarning(
                         Strings.VersionControl,
                         FormatSnapshotFailure(ex)));
             }

@@ -5,7 +5,6 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;

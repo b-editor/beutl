@@ -135,19 +135,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
     {
         using (await _clients.Lock.LockAsync(_lifetimeCts.Token))
         {
-            DiscoverService discover = _clients.GetResource<DiscoverService>();
-            try
-            {
-                return await discover.GetPackage(localPackage.Name, _lifetimeCts.Token);
-            }
-            catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch
-            {
-                return null;
-            }
+            return await TryGetPackage(_clients.GetResource<DiscoverService>(), localPackage.Name, _lifetimeCts.Token);
         }
     }
 

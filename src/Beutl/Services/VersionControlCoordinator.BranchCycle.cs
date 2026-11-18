@@ -1,6 +1,5 @@
 ﻿using Beutl.Editor.VersionControl;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services;
 
@@ -80,7 +79,7 @@ internal partial class VersionControlCoordinator
         if (!await TrySaveOpenProjectAsync(project, CancellationToken.None))
         {
             PublishNotification(() =>
-                _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(
+                _notifications.ShowError(
                     Strings.VersionControl,
                     MessageStrings.OperationFailed));
             return false;
@@ -176,7 +175,7 @@ internal partial class VersionControlCoordinator
             // A silent refusal would leave the user wondering why nothing happened. The backend answers
             // an invalid name and a clash with an existing branch alike, so the warning names both.
             PublishNotification(() =>
-                _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
+                _notifications.ShowWarning(
                     Strings.VersionControl,
                     string.Format(Strings.VersionControl_BranchNameUnavailableFormat, branchName)));
             return false;

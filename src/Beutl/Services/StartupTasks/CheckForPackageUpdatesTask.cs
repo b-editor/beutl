@@ -3,9 +3,8 @@ using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
-using Beutl.Controls;
-using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -188,10 +187,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                 }
 
                 window.DataContext = context;
-                ColorPaletteService.SetService(window, ColorPaletteService.GetService(topLevel));
-                ControlConfiguration.SetConfiguration(window, ControlConfiguration.GetConfiguration(topLevel));
-                ControlFonts.SetFonts(window, ControlFonts.GetFonts(topLevel));
-                ControlNotifications.SetNotifications(window, ControlNotifications.GetNotifications(topLevel));
+                HostServices.CopyFrom(window, topLevel);
                 if (window is Pages.ExtensionsPage page)
                 {
                     page.OpenLibraryWithUpdates();

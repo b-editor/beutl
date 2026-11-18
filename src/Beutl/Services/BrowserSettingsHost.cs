@@ -1,10 +1,7 @@
 ﻿using Avalonia.Controls;
-using Beutl.Configuration;
-using Beutl.Controls;
-using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.WebBrowserTab;
+using Beutl.Helpers;
 using Beutl.Pages;
-using Beutl.Services;
 using Beutl.ViewModels;
 
 namespace Beutl.Services;
@@ -25,10 +22,7 @@ internal sealed class BrowserSettingsHost(Func<SettingsDialogViewModel> createDi
 
         using var vm = createDialog();
         var dialog = new SettingsDialog { DataContext = vm };
-        ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(owner));
-        ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(owner));
-        ControlFonts.SetFonts(dialog, ControlFonts.GetFonts(owner));
-        ControlNotifications.SetNotifications(dialog, ControlNotifications.GetNotifications(owner));
+        HostServices.CopyFrom(dialog, owner);
         _viewModel = vm;
         _dialog = dialog;
         try

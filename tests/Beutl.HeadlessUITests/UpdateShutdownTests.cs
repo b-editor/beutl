@@ -295,8 +295,8 @@ public class UpdateShutdownTests
         {
             queue.UninstallQueue(new PackageIdentity("Beutl.HandoffTest", NuGetVersion.Parse("1.0.0")));
 
-            ProcessStartInfo restarting = MainViewModel.CreateHandoffStartInfo(queue, restart: true, () => "session")!;
-            ProcessStartInfo quitting = MainViewModel.CreateHandoffStartInfo(queue, restart: false, () => "session")!;
+            ProcessStartInfo restarting = MainViewModel.CreateHandoffStartInfo(queue, restart: true, "session")!;
+            ProcessStartInfo quitting = MainViewModel.CreateHandoffStartInfo(queue, restart: false, "session")!;
 
             Assert.Multiple(() =>
             {
@@ -321,10 +321,10 @@ public class UpdateShutdownTests
         var queue = new PackageChangesQueue(
             Path.Combine(Path.GetTempPath(), "beutl-handoff-" + Guid.NewGuid().ToString("N"), "packageChanges.json"));
 
-        ProcessStartInfo? restarting = MainViewModel.CreateHandoffStartInfo(queue, restart: true, () => "session");
+        ProcessStartInfo? restarting = MainViewModel.CreateHandoffStartInfo(queue, restart: true, "session");
         Assert.Multiple(() =>
         {
-            Assert.That(MainViewModel.CreateHandoffStartInfo(queue, restart: false, () => "session"), Is.Null);
+            Assert.That(MainViewModel.CreateHandoffStartInfo(queue, restart: false, "session"), Is.Null);
             Assert.That(restarting, Is.Not.Null);
             Assert.That(StartedProgram(restarting!), Is.EqualTo("Beutl.PackageTools.UI"));
             Assert.That(restarting!.ArgumentList, Does.Contain("--restart"));

@@ -89,9 +89,7 @@ public sealed partial class EditViewModel
                 .DistinctUntilChanged();
 
         Renderer = frameSizeAndScale
-            .Select(t => new SceneRenderer(Scene, this.GetRequiredService<Beutl.Media.FontManager>(), RenderIntent.Preview, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale),
-                editorConfig: this.GetRequiredService<GlobalConfiguration>().EditorConfig,
-                proxyConfig: this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig))
+            .Select(t => CreatePreviewRenderer(Scene, t.OutputScale))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -221,6 +219,18 @@ public sealed partial class EditViewModel
         {
             this.GetRequiredService<INotificationService>().Show(notice);
         }
+    }
+
+    // A renderer that draws as the preview does: the same fonts, working-scale ceiling and media, original or proxy.
+    internal SceneRenderer CreatePreviewRenderer(Scene scene, float scale, bool disableResourceShare = false)
+    {
+        GlobalConfiguration configuration = this.GetRequiredService<GlobalConfiguration>();
+        return new SceneRenderer(
+            scene, this.GetRequiredService<Beutl.Media.FontManager>(), RenderIntent.Preview, scale,
+            disableResourceShare: disableResourceShare,
+            maxWorkingScale: WorkingScaleCeiling.Preview(scale),
+            editorConfig: configuration.EditorConfig,
+            proxyConfig: configuration.ProxyStoreConfig);
     }
 
     private IObservable<long> CreateFrameCacheMaxSize()

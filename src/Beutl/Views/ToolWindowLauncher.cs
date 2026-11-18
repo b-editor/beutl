@@ -1,8 +1,7 @@
 ﻿using Avalonia.Controls;
 using Beutl.Api.Services;
-using Beutl.Controls;
-using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Helpers;
 using Beutl.Services;
 
 namespace Beutl.Views;
@@ -39,10 +38,7 @@ internal sealed class ToolWindowLauncher
             }
 
             window.DataContext = context;
-            ColorPaletteService.SetService(window, ColorPaletteService.GetService(owner));
-            ControlConfiguration.SetConfiguration(window, ControlConfiguration.GetConfiguration(owner));
-            ControlFonts.SetFonts(window, ControlFonts.GetFonts(owner));
-            ControlNotifications.SetNotifications(window, ControlNotifications.GetNotifications(owner));
+            HostServices.CopyFrom(window, owner);
             if (string.IsNullOrEmpty(window.Title))
             {
                 window.Title = context.Header;

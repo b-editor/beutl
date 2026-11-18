@@ -272,7 +272,7 @@ public sealed class TabSwitcherViewModel : IDisposable
                 if (target is null || !BeutlDockFactory.Traverse(editor.DockHost.Layout.Value).Contains(target)) return null;
                 if (!factory.OpenToolTab(extension, target))
                 {
-                    _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.TabSwitcher_Create, MessageStrings.OperationFailed);
+                    Notifications.ShowError(Strings.TabSwitcher_Create, MessageStrings.OperationFailed);
                     return null;
                 }
                 existing = factory.EnumerateTools()

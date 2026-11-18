@@ -29,7 +29,7 @@ internal class Program
         var config = new GlobalConfiguration();
         config.Restore(GlobalConfiguration.DefaultFilePath);
 
-        using IDisposable _ = Telemetry.GetDisposable(config.TelemetryConfig, GetSessionId());
+        using IDisposable _ = new Telemetry(config.TelemetryConfig, GetSessionId());
         config.LogRestoreFailures();
         ILogger<Program> logger = Log.CreateLogger<Program>();
 

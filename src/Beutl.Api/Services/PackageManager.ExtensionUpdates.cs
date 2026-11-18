@@ -36,7 +36,7 @@ public sealed partial class PackageManager
                 try
                 {
                     bool IsCurrent() => policy.ShouldUpdateExtensions(appUpdate) && !queue.HasPendingChange(name)
-                        && installed.Equals(installedPackageRepository.GetLocalPackages(name).MaxBy(p => p.Version));
+                        && installed.Equals(installedPackageRepository.GetLatestLocalPackage(name));
                     var result = await apiApplication.GetResource<PackageInstaller>()
                         .StageExtensionUpdateAsync(installed, update.NewVersion, host, appUpdate, token, IsCurrent).ConfigureAwait(false);
                     if (result == ExtensionUpdateStageResult.Ready) staged++;

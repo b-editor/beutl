@@ -12,7 +12,6 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
-using Beutl.Controls;
 using Beutl.Controls.NativeContextMenu;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Controls.Styling;
@@ -219,10 +218,7 @@ public sealed class App : Application
                 desktop.MainWindow = new MainWindow { DataContext = GetMainViewModel(), };
             }
 
-            ColorPaletteService.SetService(desktop.MainWindow, _colorPalettes);
-            ControlConfiguration.SetConfiguration(desktop.MainWindow, _configuration);
-            ControlFonts.SetFonts(desktop.MainWindow, _fonts);
-            ControlNotifications.SetNotifications(desktop.MainWindow, _notifications);
+            HostServices.SetFrom(desktop.MainWindow, _appServices);
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
             desktop.Exit += (_, _) =>
             {
@@ -272,10 +268,7 @@ public sealed class App : Application
             {
                 var viewModel = new ExtensionsPageViewModel(main._beutlClients, main.EditorService, main.ProjectService);
                 page = new ExtensionsPage { DataContext = viewModel };
-                ColorPaletteService.SetService(page, _colorPalettes);
-                ControlConfiguration.SetConfiguration(page, _configuration);
-                ControlFonts.SetFonts(page, _fonts);
-                ControlNotifications.SetNotifications(page, _notifications);
+                HostServices.SetFrom(page, _appServices);
                 page.Closed += (_, _) => viewModel.Dispose();
                 page.OpenPackage(package, request.Version);
                 _ = page.ShowDialog(mainWindow);

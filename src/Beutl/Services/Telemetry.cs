@@ -143,11 +143,6 @@ internal class Telemetry : IDisposable
             : DefaultBaseUrl;
     }
 
-    public static IDisposable GetDisposable(TelemetryConfig configuration, string? sessionId = null)
-    {
-        return new Telemetry(configuration, sessionId);
-    }
-
     public static Activity? StartActivity([CallerMemberName] string name = "",
         ActivityKind kind = ActivityKind.Internal)
     {

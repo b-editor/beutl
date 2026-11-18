@@ -45,7 +45,7 @@ internal static class BundledFonts
     // Registers the bundled faces with the manager once, opening none until text needs it, and makes them the
     // fallback in the culture's order. Fonts the project or the system registers under the same family keep the
     // styles the bundle lacks; a selected font that has a character keeps it, since fallback only fills gaps.
-    internal static bool Apply(FontManager manager, CultureInfo culture)
+    internal static void Apply(FontManager manager, CultureInfo culture)
     {
         ArgumentNullException.ThrowIfNull(manager);
         ArgumentNullException.ThrowIfNull(culture);
@@ -54,7 +54,7 @@ internal static class BundledFonts
         {
             Assembly? assembly = LoadAssembly();
             if (assembly is null)
-                return false;
+                return;
 
             if (!s_registered.TryGetValue(manager, out _))
             {
@@ -66,7 +66,6 @@ internal static class BundledFonts
         manager.SetFallbackFonts(
             GetUiFamilyNames(culture).Select(name => new FontFamily(name)),
             new FontFamily(EmojiFamilyName));
-        return true;
     }
 
     private static void Register(FontManager manager, Assembly assembly)

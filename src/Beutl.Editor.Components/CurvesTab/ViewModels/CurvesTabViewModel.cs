@@ -284,7 +284,8 @@ public sealed partial class CurvesTabViewModel : EffectToolTabViewModel<Curves>
 
     private protected override void ClearEditors()
     {
-        ClearColorRange();
+        // Another effect can take the tab with the same curve shown, which keeps CanPickColor on, so the pick ends here.
+        ClearPickedColor();
         EffectDisposables.Clear();
 
         MasterCurve.Value = null;

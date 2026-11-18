@@ -129,7 +129,7 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
         public void Invoke(nint sender, nint args)
         {
             if (owner._response == 0) return;
-            nint request = 0, uriText = 0;
+            nint request = 0, uriText = 0, headers = 0;
             try
             {
                 request = GetObject(args, 3);
@@ -137,13 +137,16 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
                 if (!Uri.TryCreate(Marshal.PtrToStringUni(uriText), UriKind.Absolute, out Uri? uri)) return;
                 int context;
                 Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(args, 7))(args, &context));
-                if (ShouldBlockRequest(rules, uri, ChoosePage(GetSource(sender), getPage), context,
-                        GetHeader(request, "Sec-Fetch-Site"), GetHeader(request, "Sec-Fetch-Dest")))
+                Uri page = ChoosePage(GetSource(sender), getPage);
+                headers = GetObject(request, 9);
+                if (ShouldBlockRequest(rules, uri, page, context,
+                        GetHeader(headers, "Sec-Fetch-Site"), GetHeader(headers, "Sec-Fetch-Dest")))
                     Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, nint, int>)Method(args, 5))(args, owner._response));
             }
             catch (Exception ex) { System.Diagnostics.Trace.TraceError("Ad filter request failed: {0}", ex.Message); }
             finally
             {
+                if (headers != 0) Marshal.Release(headers);
                 if (uriText != 0) Marshal.FreeCoTaskMem(uriText);
                 if (request != 0) Marshal.Release(request);
             }
@@ -156,28 +159,6 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
             if (((delegate* unmanaged[Stdcall]<nint, nint*, int>)Method(webView, 4))(webView, &source) < 0) return null;
             try { return Marshal.PtrToStringUni(source); }
             finally { Marshal.FreeCoTaskMem(source); }
-        }
-
-        private static string? GetHeader(nint request, string headerName)
-        {
-            nint headers = 0, value = 0;
-            try
-            {
-                headers = GetObject(request, 9);
-                fixed (char* name = headerName)
-                {
-                    nint nativeValue;
-                    int hr = ((delegate* unmanaged[Stdcall]<nint, char*, nint*, int>)Method(headers, 3))(headers, name, &nativeValue);
-                    if (hr < 0) return null;
-                    value = nativeValue;
-                }
-                return Marshal.PtrToStringUni(value);
-            }
-            finally
-            {
-                if (value != 0) Marshal.FreeCoTaskMem(value);
-                if (headers != 0) Marshal.Release(headers);
-            }
         }
     }
 }

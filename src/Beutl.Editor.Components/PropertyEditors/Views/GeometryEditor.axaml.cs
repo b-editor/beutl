@@ -7,15 +7,13 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class GeometryEditor : UserControl
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
 
     private readonly ILogger _logger = Log.CreateLogger<GeometryEditor>();
 

@@ -77,5 +77,5 @@ internal readonly record struct CurveColorSample(float Red, float Green, float B
     private static byte ToByte(float value) => (byte)Math.Clamp(MathF.Round(value * 255), 0, 255);
 
     private static float Encode(float c)
-        => c >= 0.0031308f ? 1.055f * MathF.Pow(Math.Max(c, 0), 1 / 2.4f) - 0.055f : c * 12.92f;
+        => c >= 0.0031308f ? 1.055f * MathF.Pow(c, 1 / 2.4f) - 0.055f : c * 12.92f;
 }

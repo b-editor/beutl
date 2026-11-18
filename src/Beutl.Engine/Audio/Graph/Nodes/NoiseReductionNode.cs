@@ -80,7 +80,7 @@ public sealed class NoiseReductionNode : AudioNode
             if (Prepare(context, draining))
             {
                 SpectralNoiseReducer reducer = _reducer!;
-                _feed!.Fill(reducer, reducer.GetRequiredInputEnd(reducer.OutputPosition + count), context);
+                _feed!.Fill(reducer.GetRequiredInputEnd(reducer.OutputPosition + count), context);
                 reducer.Read(output, _settingsAt);
                 _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
             }
@@ -108,7 +108,7 @@ public sealed class NoiseReductionNode : AudioNode
         if (_reducer is null || _sampleRate != sampleRate || _reducer.ChannelCount != ChannelCount || upstreamChanged)
         {
             _reducer = new SpectralNoiseReducer(sampleRate, ChannelCount);
-            _feed = new ReadAheadFeed(this, sampleRate, ChannelCount);
+            _feed = new ReadAheadFeed(this, _reducer, sampleRate, ChannelCount);
             _sampleRate = sampleRate;
             _lastTimeRangeEnd = null;
         }
@@ -122,14 +122,14 @@ public sealed class NoiseReductionNode : AudioNode
                 return false;
 
             // The source is exhausted where the last block ended.
-            _feed!.BeginDrain(_reducer.OutputPosition, _reducer);
+            _feed!.BeginDrain(_reducer.OutputPosition);
             return true;
         }
 
         long? terminal = context.ProcessEndTime is { } processEnd ? ToTerminalSample(processEnd) : null;
 
         // An edit that moves the terminal invalidates input read past the earlier of the two ends.
-        bool terminalMoved = _feed!.EndMoved(terminal, _reducer);
+        bool terminalMoved = _feed!.EndMoved(terminal);
         if (!contiguous || terminalMoved)
         {
             // Truncate like SourceNode and ResampleNode, so a start between samples maps to the
@@ -166,7 +166,7 @@ public sealed class NoiseReductionNode : AudioNode
         _feed!.Restart(outputStart, origin, terminal);
 
         long seedEnd = origin + seed;
-        _feed.Fill(reducer, seedEnd, context);
+        _feed.Fill(seedEnd, context);
         reducer.Seed(seedEnd);
     }
 

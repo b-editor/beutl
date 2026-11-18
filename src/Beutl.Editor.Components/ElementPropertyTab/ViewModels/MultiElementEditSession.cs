@@ -114,6 +114,7 @@ public sealed class MultiElementEditSession : IDisposable
     // The first of the elements an edit can change, so that what the tab shows is what an edit changes.
     private Element ChooseShown() => Elements.FirstOrDefault(IsEditable) ?? Elements[0];
 
+    // A removed element is no longer recorded for undo, though the selection lets go of it only after.
     private bool IsEditable(Element element)
         => element.HierarchicalParent is Scene && ElementEditability.IsEditable(element, _scene);
 
@@ -136,7 +137,7 @@ public sealed class MultiElementEditSession : IDisposable
         var root = new MultiEditRoot(
             copy, ((IHierarchical)shown).FindHierarchicalRoot(), correspondence, compared, _changed);
         var replicator = new MultiElementReplicator(
-            correspondence, shown, [.. Elements.Where(element => element != shown)], _scene,
+            correspondence, shown, [.. Elements.Where(element => element != shown)], IsEditable,
             _services.GetService<IFrameCacheInvalidator>());
         var mirror = new MultiElementMirror(replicator, correspondence, compared, _valuesChanged, _services);
         return new CopyState(copy, root, correspondence, replicator, mirror, compared, _changed);
@@ -267,14 +268,17 @@ public sealed class MultiElementEditSession : IDisposable
                     text.Append(_root.Shows(obj, property) ? '1' : '0');
                     switch (property.Value)
                     {
-                        case CoreObject child when IsHeldBy(child, obj):
+                        case CoreObject child when MultiElementCorrespondence.IsHeldBy(child, obj):
                             VisitItem(child);
                             break;
                         case IList list:
                             foreach (object? item in list)
                             {
-                                if (item is CoreObject listed and not IKeyFrame && IsHeldBy(listed, obj))
+                                if (item is CoreObject listed and not IKeyFrame
+                                    && MultiElementCorrespondence.IsHeldBy(listed, obj))
+                                {
                                     VisitItem(listed);
+                                }
                             }
 
                             break;
@@ -293,9 +297,6 @@ public sealed class MultiElementEditSession : IDisposable
                 }
             }
         }
-
-        private static bool IsHeldBy(CoreObject value, CoreObject owner)
-            => ReferenceEquals((value as IHierarchical)?.HierarchicalParent, owner);
     }
 
     // The root of a copy, so that its objects count as attached, tool tabs opened on them see them leave, and the editors

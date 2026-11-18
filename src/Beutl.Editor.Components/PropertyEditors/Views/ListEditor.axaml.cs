@@ -4,14 +4,12 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls.Behaviors;
-using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -38,8 +36,7 @@ public sealed class ListEditorDragBehavior : GenericDragBehavior
 
 public partial class ListEditor : UserControl
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
 
     public ListEditor()
     {
@@ -85,8 +82,7 @@ public partial class ListEditor : UserControl
         {
             Type propertyType = viewModel.ItemType;
             string format = propertyType.FullName!;
-            var selectVm = new SelectLibraryItemDialogViewModel(((IServiceProvider)viewModel).GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(this), ((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
-                format, propertyType, LibraryThumbnailCapture.ForObject(viewModel as IServiceProvider));
+            var selectVm = CoreObjectPickerHelper.CreateTypePicker(this, viewModel, format, propertyType, captureThumbnails: true);
 
             return LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
         });

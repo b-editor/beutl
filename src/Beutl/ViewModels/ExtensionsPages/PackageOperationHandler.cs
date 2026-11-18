@@ -78,7 +78,7 @@ internal class PackageOperationHandler
         catch (Exception ex) when (!token.IsCancellationRequested)
         {
             s_logger.LogWarning(ex, "Could not apply the staged update of {Package}.", installed.Id);
-            _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(string.Format(ExtensionsStrings.PackageNotUpdated, installed.Id), ex.Message);
+            Notifications.ShowWarning(string.Format(ExtensionsStrings.PackageNotUpdated, installed.Id), ex.Message);
             return false;
         }
     }
@@ -183,7 +183,7 @@ internal class PackageOperationHandler
         try
         {
             await downloadAndLoad();
-            PackageNotifications.Installed(_editorService.AppServices.GetRequiredService<INotificationService>(), packageId.Id);
+            PackageNotifications.Installed(Notifications, packageId.Id);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -192,13 +192,13 @@ internal class PackageOperationHandler
         catch (PackageApiMismatchException mismatch)
         {
             logger.LogWarning(mismatch, "The package was not installed.");
-            AfterLoadingExtensionsTask.ShowMismatch(_editorService.AppServices.GetRequiredService<INotificationService>(), ExtensionsStrings.PackageNotInstalled, mismatch);
+            AfterLoadingExtensionsTask.ShowMismatch(Notifications, ExtensionsStrings.PackageNotInstalled, mismatch);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
             _queue.InstallQueue(packageId);
-            PackageNotifications.ScheduledInstallation(_editorService.AppServices.GetRequiredService<INotificationService>(), packageId.Id);
+            PackageNotifications.ScheduledInstallation(Notifications, packageId.Id);
         }
     }
 
@@ -237,7 +237,7 @@ internal class PackageOperationHandler
         {
             logger.LogWarning(mismatch, "The package was not updated.");
             await LoadAgainAsync(loaded, logger);
-            AfterLoadingExtensionsTask.ShowMismatch(_editorService.AppServices.GetRequiredService<INotificationService>(), ExtensionsStrings.PackageNotUpdated, mismatch);
+            AfterLoadingExtensionsTask.ShowMismatch(Notifications, ExtensionsStrings.PackageNotUpdated, mismatch);
             return;
         }
         catch (Exception ex)
@@ -246,12 +246,12 @@ internal class PackageOperationHandler
             // The update only happens at the next launch, so the old version serves until then.
             await LoadAgainAsync(loaded, logger);
             _queue.InstallQueue(packageId);
-            PackageNotifications.ScheduledUpdate(_editorService.AppServices.GetRequiredService<INotificationService>(), packageId.Id);
+            PackageNotifications.ScheduledUpdate(Notifications, packageId.Id);
             return;
         }
 
         DeleteVersionFiles(oldVersions, logger);
-        PackageNotifications.Updated(_editorService.AppServices.GetRequiredService<INotificationService>(), packageId.Id);
+        PackageNotifications.Updated(Notifications, packageId.Id);
     }
 
     // Loads the versions that an abandoned update unloaded from their files, as the next launch would.
@@ -571,7 +571,7 @@ internal class PackageOperationHandler
         }
         catch (Exception e)
         {
-            await e.Handle(_editorService.AppServices.GetRequiredService<INotificationService>());
+            await e.Handle(Notifications);
             s_logger.LogError(e, "Failed to restart Beutl.");
         }
     }

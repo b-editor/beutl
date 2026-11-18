@@ -27,7 +27,6 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
     private IEditorContext _editorContext;
     private IDisposable? _disposable1;
     private Element? _oldElement;
-    private Element? _oldDisplayedElement;
     // The element whose view state the shown items keep: the selected one for the copy of several elements.
     private Element? _stateOwner;
     private bool _isDisposed;
@@ -129,11 +128,10 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
     // The items follow the element shown: the selected one, or the copy that stands for several.
     private void OnDisplayedElementChanged(Element? element)
     {
-        if (_oldDisplayedElement != null && _stateOwner != null)
+        if (_stateOwner != null)
         {
             SaveState(_stateOwner);
         }
-        _oldDisplayedElement = element;
         _stateOwner = MultipleElements.Value is { } multiple && ReferenceEquals(element, multiple.Copy.Value)
             ? multiple.Shown
             : element;

@@ -2,6 +2,7 @@
 using Beutl.Logging;
 using Beutl.Services;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
@@ -14,6 +15,8 @@ public sealed partial class MenuBarViewModel
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly IProjectVersionControlSession _versionControlSession;
+
+    private INotificationService Notifications => _editorService.AppServices.GetRequiredService<INotificationService>();
 
 #pragma warning disable CS8618
     internal MenuBarViewModel(

@@ -519,7 +519,7 @@ public partial class MainViewModel
     private void PerformShutdownHandoff(BeutlApiApplication clients)
     {
         PackageChangesQueue queue = clients.GetResource<PackageChangesQueue>();
-        if (CreateHandoffStartInfo(queue, IsRestartRequested, () => SessionId) is { } startInfo)
+        if (CreateHandoffStartInfo(queue, IsRestartRequested, SessionId) is { } startInfo)
         {
             using Process? _ = Process.Start(startInfo);
         }
@@ -527,8 +527,8 @@ public partial class MainViewModel
 
     // What Beutl starts on its way out: the package tools when changes wait for them or Beutl is restarting,
     // or nothing. A restart always goes through them, even with nothing to apply: they wait for this process
-    // to exit, so the next Beutl never starts beside it. sessionId is read only for the package tools.
-    internal static ProcessStartInfo? CreateHandoffStartInfo(PackageChangesQueue queue, bool restart, Func<string> sessionId)
+    // to exit, so the next Beutl never starts beside it.
+    internal static ProcessStartInfo? CreateHandoffStartInfo(PackageChangesQueue queue, bool restart, string sessionId)
     {
         if (!restart && !queue.GetInstalls().Any() && !queue.GetUninstalls().Any())
         {
@@ -538,7 +538,7 @@ public partial class MainViewModel
         // PackageTools.UI reads the changes from the queue's file, and from arguments when the last save failed.
         ProcessStartInfo startInfo = DotNetProcess.CreateBesideApplication("Beutl.PackageTools.UI");
         startInfo.ArgumentList.AddRange(queue.GetUnsavedArguments());
-        startInfo.ArgumentList.AddRange(["--session-id", sessionId()]);
+        startInfo.ArgumentList.AddRange(["--session-id", sessionId]);
 
         // PackageTools.UI applies the changes without waiting for Start, then offers to start Beutl.
         if (restart)

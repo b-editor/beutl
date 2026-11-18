@@ -39,6 +39,11 @@ public class InstalledPackageRepository : IBeutlApiResource
         return _packages.Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
     }
 
+    internal PackageIdentity? GetLatestLocalPackage(string name)
+    {
+        return GetLocalPackages(name).MaxBy(x => x.Version);
+    }
+
     internal Action UpgradePackagesAndDeferNotifications(PackageIdentity package)
     {
         if (_saveBlocked)
@@ -349,9 +354,7 @@ public class InstalledPackageRepository : IBeutlApiResource
 
         private PackageIdentity? GetLatestInstalled()
         {
-            return _repository.GetLocalPackages(_name)
-                .OrderByDescending(x => x.Version)
-                .FirstOrDefault();
+            return _repository.GetLatestLocalPackage(_name);
         }
     }
 }

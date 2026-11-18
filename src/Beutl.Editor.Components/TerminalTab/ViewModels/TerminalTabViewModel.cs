@@ -43,10 +43,6 @@ public sealed class TerminalTabViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<string> Header => _header;
 
-    public string ShellPath => GetShellCommand().Path;
-
-    public string[] ShellArgs => GetShellCommand().Args;
-
     public string? WorkingDirectory { get; }
 
     public string? LangFallback { get; }
@@ -54,8 +50,12 @@ public sealed class TerminalTabViewModel : IToolContext
     public ReactivePropertySlim<bool> IsProcessExited { get; } = new();
 
     internal (string Path, string[] Args) GetShellCommand()
+        => ResolveShell(_settings.ShellPath.Value, _settings.ShellArguments.Value);
+
+    // The shell for this process's platform and environment.
+    internal static (string Path, string[] Args) ResolveShell(string? configuredPath = null, string? configuredArguments = null)
         => ResolveShell(Environment.GetEnvironmentVariable, OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(),
-            _settings.ShellPath.Value, _settings.ShellArguments.Value);
+            configuredPath, configuredArguments);
 
     internal static (string Path, string[] Args) ResolveShell(
         Func<string, string?> getEnvironmentVariable, bool isWindows, bool isMacOS,

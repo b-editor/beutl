@@ -1,4 +1,5 @@
-﻿using Beutl.FFmpegIpc.SharedMemory;
+﻿using Beutl.FFmpegIpc.Protocol;
+using Beutl.FFmpegIpc.SharedMemory;
 using Beutl.FFmpegWorker.Decoding;
 using Beutl.Media;
 
@@ -207,7 +208,7 @@ internal sealed class VideoRingBuffer : IDisposable
         _lastColorSpace = colorSpace;
         if (colorSpaceChanged)
         {
-            (_lastTransferFn, _lastToXyzD50) = ColorSpaceIpcHelper.Extract(colorSpace);
+            (_lastTransferFn, _lastToXyzD50) = IpcColorSpace.ToArrays(colorSpace);
         }
 
         return colorSpaceChanged;

@@ -69,45 +69,13 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
     int StreamInputCount)
 {
     /// <summary>Whether the segment runs an imperative effect callback.</summary>
-    public bool HasImperativeItem
-    {
-        get
-        {
-            if (BoundsItems.IsDefaultOrEmpty)
-                return false;
-
-            // ImmutableArray's own enumerator is a struct; Enumerable.Any would box it on a path the
-            // executor walks for every effect-item-filter fragment it runs.
-            foreach (IFEItem item in BoundsItems)
-            {
-                if (item is IFEItem_Custom)
-                    return true;
-            }
-
-            return false;
-        }
-    }
+    public bool HasImperativeItem => AnyCustom(static _ => true);
 
     /// <summary>
     /// Whether an imperative effect callback in the segment declares where it reads, so that the segment can be handed
     /// only the part of each value a request needs.
     /// </summary>
-    public bool HasCallbackFootprint
-    {
-        get
-        {
-            if (BoundsItems.IsDefaultOrEmpty)
-                return false;
-
-            foreach (IFEItem item in BoundsItems)
-            {
-                if (item is IFEItem_Custom { DeclaresSamplingBounds: true })
-                    return true;
-            }
-
-            return false;
-        }
-    }
+    public bool HasCallbackFootprint => AnyCustom(static custom => custom.DeclaresSamplingBounds);
 
     /// <summary>
     /// Whether the segment can be handed only the part of each value a request needs past what Skia filters read: through
@@ -133,24 +101,24 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
     /// so a segment that runs only those keeps the phase, and the content stays where it is drawn without the effect.
     /// </remarks>
     public bool StripsDeviceGridPhase
-    {
-        get
-        {
-            if (BoundsItems.IsDefaultOrEmpty)
-                return false;
-
-            foreach (IFEItem item in BoundsItems)
-            {
-                if (item is IFEItem_Custom custom
-                    && !custom.Options.HasFlag(CustomFilterEffectOptions.KeepsPlacement))
-                    return true;
-            }
-
-            return false;
-        }
-    }
+        => AnyCustom(static custom => !custom.Options.HasFlag(CustomFilterEffectOptions.KeepsPlacement));
 
     public bool SupportsDirectReplay => !EffectItemSamplingSupport.RequiresCoverage(StreamInputCount, BoundsItems);
+
+    // ImmutableArray's own enumerator is a struct; Enumerable.Any would box it.
+    private bool AnyCustom(Func<IFEItem_Custom, bool> predicate)
+    {
+        if (BoundsItems.IsDefaultOrEmpty)
+            return false;
+
+        foreach (IFEItem item in BoundsItems)
+        {
+            if (item is IFEItem_Custom custom && predicate(custom))
+                return true;
+        }
+
+        return false;
+    }
 }
 
 internal sealed record MaterializedInputRenderFragmentPayload(

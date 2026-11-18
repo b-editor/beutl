@@ -18,6 +18,9 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
     // Shown in place of the list when a search matches nothing.
     public string? NoResultsText { get; init; }
 
+    // Sets up the presenter before it takes the items, as the font picker gives it the fonts its items draw in.
+    internal Action<Control>? PreparePresenter { get; init; }
+
     protected override LibraryItemPickerFlyoutPresenter CreatePickerPresenter()
     {
         // These items are found by name far more often than by scrolling, so the search box starts open.
@@ -27,8 +30,7 @@ public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel)
             NoResultsText = NoResultsText
         };
 
-        if (viewModel is FontFamilyPickerFlyoutViewModel fonts)
-            ControlFonts.SetFonts(pfp, fonts.Fonts);
+        PreparePresenter?.Invoke(pfp);
 
         pfp.Pinned += viewModel.Pin;
         pfp.Unpinned += viewModel.Unpin;

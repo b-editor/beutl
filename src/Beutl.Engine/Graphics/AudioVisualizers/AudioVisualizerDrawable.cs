@@ -173,18 +173,17 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         /// </summary>
         /// <param name="range">The time range to compose.</param>
         /// <param name="buffer">The buffer to write to, replaced by a larger one when it is too small.</param>
-        /// <param name="sampleRate">The rate the samples were composed at.</param>
         /// <returns>
         /// How many samples were written to the start of <paramref name="buffer"/>; 0 when there is no source or it gives
         /// none.
         /// </returns>
-        protected int ComposeMono(TimeRange range, ref float[] buffer, out int sampleRate)
+        protected int ComposeMono(TimeRange range, ref float[] buffer)
         {
-            sampleRate = ComposerSampleRate;
             if (_composer == null || _source == null || _source.IsDisposed || range.Duration <= MediaTime.Zero)
                 return 0;
 
             _historyComposer ??= new Composer { SampleRate = _composer.SampleRate };
+            int sampleRate = ComposerSampleRate;
             return ComposeMonoInto(_historyComposer, range, ref buffer, ref sampleRate);
         }
 

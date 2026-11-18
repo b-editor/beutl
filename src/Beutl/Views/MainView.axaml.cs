@@ -7,7 +7,7 @@ using Avalonia.VisualTree;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
 using Beutl.Controls;
-using Beutl.Controls.PropertyEditors;
+using Beutl.Helpers;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Pages;
@@ -237,10 +237,7 @@ public sealed partial class MainView : UserControl
         {
             using var dialogViewModel = viewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
-            ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(window));
-            ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(window));
-            ControlFonts.SetFonts(dialog, ControlFonts.GetFonts(window));
-            ControlNotifications.SetNotifications(dialog, ControlNotifications.GetNotifications(window));
+            HostServices.CopyFrom(dialog, window);
             navigate(dialogViewModel);
             await dialog.ShowDialog(window);
         }

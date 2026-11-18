@@ -33,6 +33,7 @@ internal sealed partial class VersionControlCoordinator :
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<RepositoryInfo?, IProjectVersionControlBackend>? _serviceFactory;
     private readonly Dispatcher _dispatcher;
+    private readonly INotificationService _notifications;
     private readonly VersionControlConfirmationPresenter _prompts;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly ILogger _logger = Log.CreateLogger<VersionControlCoordinator>();
@@ -99,7 +100,8 @@ internal sealed partial class VersionControlCoordinator :
         _installationLocator = installationLocator ?? new GitInstallationLocator(config);
         _serviceFactory = serviceFactory;
         _dispatcher = Dispatcher.UIThread;
-        _prompts = new VersionControlConfirmationPresenter(_dispatcher, editorService.AppServices.GetRequiredService<INotificationService>());
+        _notifications = editorService.AppServices.GetRequiredService<INotificationService>();
+        _prompts = new VersionControlConfirmationPresenter(_dispatcher, _notifications);
         ConfirmRestoreAsync = _prompts.ShowRestoreConfirmationAsync;
         ConfirmSwitchBranchAsync = ShowSwitchBranchConfirmationAsync;
         ConfirmPullAsync = _prompts.ShowPullConfirmationAsync;

@@ -59,6 +59,9 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         finally { ComInterfaceMarshaller<T>.Free(callback); }
     }
 
+    private unsafe void Unsubscribe(int slot, long token) =>
+        _ = ((delegate* unmanaged[Stdcall]<nint, long, int>)Method(_webView, slot))(_webView, token);
+
     internal static WindowsBrowserDownloadHandler? TryAttach(IPlatformHandle? handle,
         Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload,
         Func<Uri, Uri?, BrowserReferrerPolicy, bool> onWindowOpened)
@@ -132,13 +135,13 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         }
     }
 
-    public unsafe void Dispose()
+    public void Dispose()
     {
         if (_webView == 0) return;
         DetachNewWindowHandlers();
         if (_subscribed)
         {
-            _ = ((delegate* unmanaged[Stdcall]<nint, long, int>)Method(_webView, 76))(_webView, _token);
+            Unsubscribe(76, _token);
             _subscribed = false;
         }
         foreach (NativeDownload download in _downloads.ToArray()) download.Dispose();

@@ -105,15 +105,11 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         // Every element takes the value as its own editor would, from what it shows itself: the value shown is one
         // element's, so the others can still differ from it even when it stays. One whose value an expression gives
         // takes none, as its own editor lets no value be entered.
-        if (Mirrors(
-                (editor, _) =>
-                {
-                    var typed = (PropertyEditorViewModel<TValue>)editor;
-                    if (ReferenceEquals(typed, this))
-                        typed.SetValue(oldValue, newValue, commandName);
-                    else if (!typed.HasExpression.Value)
-                        typed.SetValue(typed.GetEditingValue(), CopyForOtherElement(newValue), commandName);
-                },
+        if (MirrorsValue(
+                (editor, own) => editor.SetValue(
+                    own ? oldValue : editor.GetEditingValue(),
+                    own ? newValue : CopyForOtherElement(newValue),
+                    commandName),
                 commitName: commandName))
         {
             return;
@@ -141,14 +137,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public void SetValue(TValue? newValue)
     {
-        if (Mirrors((editor, _) =>
-            {
-                var typed = (PropertyEditorViewModel<TValue>)editor;
-                if (ReferenceEquals(typed, this))
-                    typed.SetValue(newValue);
-                else if (!typed.HasExpression.Value)
-                    typed.SetValue(CopyForOtherElement(newValue));
-            }))
+        if (MirrorsValue((editor, own) => editor.SetValue(own ? newValue : CopyForOtherElement(newValue))))
         {
             return;
         }
@@ -161,6 +150,19 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         CompleteElementRepair();
         Commit();
     }
+
+    // Runs edit on this editor and on each other element's editor that takes a value (own: whether it is this one).
+    private bool MirrorsValue(Action<PropertyEditorViewModel<TValue>, bool> edit, bool commit = true, string? commitName = null)
+        => Mirrors(
+            (editor, _) =>
+            {
+                var typed = (PropertyEditorViewModel<TValue>)editor;
+                bool own = ReferenceEquals(typed, this);
+                if (own || !typed.HasExpression.Value)
+                    edit(typed, own);
+            },
+            commit,
+            commitName);
 
     // An object goes to each element as a copy of its own; a value without identity goes as it is.
     private TValue? CopyForOtherElement(TValue? value)
@@ -195,14 +197,11 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
         // While a value is dragged every element shows it, and the edit that sets it takes one history entry for all.
         TValue? coerced = default;
-        if (Mirrors(
-                (editor, _) =>
+        if (MirrorsValue(
+                (editor, own) =>
                 {
-                    var typed = (PropertyEditorViewModel<TValue>)editor;
-                    if (ReferenceEquals(typed, this))
-                        coerced = typed.SetCurrentValueAndGetCoerced(value);
-                    else if (!typed.HasExpression.Value)
-                        typed.SetCurrentValueAndGetCoerced(CopyForOtherElement(value));
+                    TValue? result = editor.SetCurrentValueAndGetCoerced(own ? value : CopyForOtherElement(value));
+                    if (own) coerced = result;
                 },
                 commit: false))
         {
@@ -316,7 +315,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
-        if (MirrorsExpression(editor => (editor.SetExpression(expressionString, out string? failure), failure), out bool set, out error))
+        if (MirrorsSetExpression(expressionString, out bool set, out error))
             return set;
         if (!CanSetExpression(out error))
         {

@@ -1,6 +1,5 @@
 ﻿using Beutl.Editor.VersionControl;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -122,7 +121,7 @@ internal partial class VersionControlCoordinator
         }
 
         PublishNotification(() =>
-            _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
+            _notifications.ShowWarning(
                 Strings.VersionControl,
                 Strings.VersionControl_WorkspaceBusy));
         return null;
@@ -167,7 +166,7 @@ internal partial class VersionControlCoordinator
         if (result is CommitResult.SkippedNoIdentity)
         {
             PublishNotification(() =>
-                _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
+                _notifications.ShowWarning(
                     Strings.VersionControl,
                     Strings.VersionControl_MissingIdentityNotice));
             return null;
@@ -179,7 +178,7 @@ internal partial class VersionControlCoordinator
             if (!status.IsClean)
             {
                 PublishNotification(() =>
-                    _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
+                    _notifications.ShowWarning(
                         Strings.VersionControl,
                         Strings.VersionControl_SaveSnapshotFailed));
                 return null;
@@ -230,7 +229,7 @@ internal partial class VersionControlCoordinator
         }
 
         PublishNotification(() =>
-            _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
+            _notifications.ShowWarning(
                 Strings.VersionControl,
                 Strings.VersionControl_ConflictGuidance));
         return false;
@@ -278,7 +277,7 @@ internal partial class VersionControlCoordinator
                 "Failed to complete version-control operation {Operation}, and the original state could not be recovered.",
                 operation);
             PublishNotification(() =>
-                _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(
+                _notifications.ShowError(
                     Strings.VersionControl_ErrorTitle,
                     string.Format(
                         Strings.VersionControl_RecoveryFailed,
@@ -297,7 +296,7 @@ internal partial class VersionControlCoordinator
             "Failed to complete version-control operation {Operation}.",
             operation);
         PublishNotification(() =>
-            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(
+            _notifications.ShowError(
                 Strings.VersionControl_ErrorTitle,
                 GetErrorText(exception)));
         return false;

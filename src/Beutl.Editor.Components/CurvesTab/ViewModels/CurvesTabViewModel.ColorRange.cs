@@ -135,16 +135,6 @@ public sealed partial class CurvesTabViewModel
         UpdateColorRange();
     }
 
-    // Another effect can take the tab with the same curve shown, which keeps CanPickColor on, so the pick ends here.
-    private void ClearColorRange()
-    {
-        IsPickingColor.Value = false;
-        CancelPick();
-        _pickedColor = null;
-        _rangeEdit = null;
-        UpdateColorRange();
-    }
-
     // Waits for clicks on the preview until one lands on a color; a click on nothing waits for another.
     private async void PickColor()
     {
@@ -418,7 +408,7 @@ public sealed partial class CurvesTabViewModel
 
     // Curve value 0.5 is no change: for hue vs hue a turn of 0.5 either way, for the others 0x to 2x.
     private static float FromRangeValue(CurveGroup group, float value)
-        => Math.Clamp(group == CurveGroup.HueVsHue ? 0.5f + value / 360 : value / 200, 0, 1);
+        => group == CurveGroup.HueVsHue ? 0.5f + value / 360 : value / 200;
 
     // The edits to the range on one curve since it was last changed some other way, and the curve before the first of
     // them, which each edit shapes anew.

@@ -145,7 +145,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, Media.FontManag
             IEditingSession session = sessions.RequireSession();
             return session.ReadOnSession(() =>
             {
-                Scene scene = RequireScene(session);
+                Scene scene = RequireSceneRoot(session);
                 if (graphId is null)
                 {
                     return new ReadNodeGraphResponse(
@@ -193,7 +193,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, Media.FontManag
             IReadOnlyList<NodeGraphOperation> steps = operations ?? [];
             return session.EditOnSession(() =>
             {
-                Scene scene = RequireScene(session);
+                Scene scene = RequireSceneRoot(session);
                 NodeGraphTarget live = NodeGraphLocator.Locate(scene, graphId);
                 Rational? frameRate = scene.FindHierarchicalParent<Project>()?.GetFrameRate();
                 Guid[] nodeIds = NodeGraphEditor.MintNodeIds(steps);
@@ -261,28 +261,5 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, Media.FontManag
     }
 
     private static bool IsInside(GraphNode node, GraphModel graph)
-    {
-        for (IHierarchical? current = node.HierarchicalParent; current is not null; current = current.HierarchicalParent)
-        {
-            if (ReferenceEquals(current, graph))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static Scene RequireScene(IEditingSession session)
-    {
-        if (session.Root is not Scene scene)
-        {
-            throw new ReconcileException(new ToolError(
-                ErrorCode.ValidationRejected,
-                $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
-                session.Root.Id.Value.ToString()));
-        }
-
-        return scene;
-    }
+        => node.EnumerateAncestors<GraphModel>().Contains(graph);
 }

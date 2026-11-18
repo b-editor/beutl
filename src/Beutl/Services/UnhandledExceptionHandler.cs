@@ -41,15 +41,7 @@ public static class UnhandledExceptionHandler
 
             PrivateExit(configuration);
 
-            string exePath = Path.Combine(
-                AppContext.BaseDirectory,
-                "Beutl.ExceptionHandler");
-
-            var startInfo = new ProcessStartInfo()
-            {
-                UseShellExecute = true
-            };
-            DotNetProcess.Configure(startInfo, exePath);
+            ProcessStartInfo startInfo = DotNetProcess.CreateBesideApplication("Beutl.ExceptionHandler");
             startInfo.ArgumentList.Add(UiFonts.UiCultureArgument);
             startInfo.ArgumentList.Add(CultureInfo.CurrentUICulture.Name);
             startInfo.ArgumentList.Add("--session-id");

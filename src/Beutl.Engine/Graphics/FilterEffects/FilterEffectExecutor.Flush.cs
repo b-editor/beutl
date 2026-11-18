@@ -122,6 +122,7 @@ public sealed partial class FilterEffectExecutor
         bool hasFilter,
         bool alignToDeviceGrid)
     {
+        // Only a flush that lays its targets on the device grid returns where it put them.
         List<TargetPlacement>? placements = null;
         bool aligned = false;
         // 'planned' counts targets consumed rather than list positions, so it keeps naming the slot this
@@ -150,7 +151,8 @@ public sealed partial class FilterEffectExecutor
             float w = WorkingScale;
             if (!hasFilter && CanReuseEffectItemTarget(target, w))
             {
-                (placements ??= []).Add(new TargetPlacement(target.Bounds, target.Bounds));
+                if (alignToDeviceGrid)
+                    (placements ??= []).Add(new TargetPlacement(target.Bounds, target.Bounds));
                 continue;
             }
 
@@ -177,7 +179,8 @@ public sealed partial class FilterEffectExecutor
             DrawIntoFlushTarget(target, newTarget, flushTarget, geometry, paint, w);
             newTarget.OriginalBounds = target.OriginalBounds;
             newTarget.CompleteBounds = target.CompleteBounds;
-            (placements ??= []).Add(new TargetPlacement(target.Bounds, newTarget.Bounds));
+            if (alignToDeviceGrid)
+                (placements ??= []).Add(new TargetPlacement(target.Bounds, newTarget.Bounds));
             if (AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid))
             {
                 newTarget.ContentBounds = target.Bounds;

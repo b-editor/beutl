@@ -176,7 +176,8 @@ public sealed partial class BrushEditor : UserControl
     {
         return PickerGuard.RunAsync(this, button, () =>
         {
-            var selectVm = new SelectLibraryItemDialogViewModel((DataContext as IServiceProvider)?.GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(this), ((IServiceProvider)DataContext!).GetRequiredService<LibraryService>(), KnownLibraryItemFormats.Drawable, typeof(Drawable));
+            var selectVm = CoreObjectPickerHelper.CreateTypePicker(
+                this, DataContext, KnownLibraryItemFormats.Drawable, typeof(Drawable));
 
             if (DataContext is BrushEditorViewModel { IsDisposed: false } vm)
             {

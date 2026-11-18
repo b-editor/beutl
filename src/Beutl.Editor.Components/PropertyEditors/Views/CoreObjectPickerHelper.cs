@@ -9,14 +9,24 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 internal static class CoreObjectPickerHelper
 {
+    // The type picker of an editor, with its fonts, else the control's, and its library.
+    internal static SelectLibraryItemDialogViewModel CreateTypePicker(
+        Control control, object? editor, string format, Type baseType, bool captureThumbnails = false)
+    {
+        return new SelectLibraryItemDialogViewModel(
+            (editor as IServiceProvider)?.GetService<Beutl.Media.FontManager>()
+                ?? Beutl.Controls.ControlFonts.GetOrCreate(control),
+            ((IServiceProvider)editor!).GetRequiredService<LibraryService>(),
+            format, baseType, captureThumbnails ? LibraryThumbnailCapture.ForObject(editor as IServiceProvider) : null);
+    }
+
     public static async Task<object?> ShowTypeOrReferenceAsync(
         Control control,
         ICoreObjectEditorViewModel viewModel)
     {
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
         string format = propertyType.FullName!;
-        var selectVm = new SelectLibraryItemDialogViewModel((viewModel as IServiceProvider)?.GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(control), ((IServiceProvider)viewModel).GetRequiredService<LibraryService>(),
-            format, propertyType, LibraryThumbnailCapture.ForObject(viewModel as IServiceProvider));
+        var selectVm = CreateTypePicker(control, viewModel, format, propertyType, captureThumbnails: true);
 
         if (PresenterTypeAttribute.GetPresenterType(propertyType) != null)
         {

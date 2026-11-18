@@ -12,8 +12,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
 
     public PathFigureListItemEditor()
     {
