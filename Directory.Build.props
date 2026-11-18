@@ -5,6 +5,9 @@
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <TargetFramework>net11.0</TargetFramework>
     <LangVersion>15</LangVersion>
+    <!-- .NET 11 runtime async: the runtime suspends and resumes async Task and ValueTask methods, which then get
+         no compiler-generated state machine. async void methods and async iterators keep theirs. -->
+    <Features>$(Features);runtime-async=on</Features>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Optimize>true</Optimize>

@@ -30,12 +30,12 @@ class CheckPackageTests(unittest.TestCase):
     def tearDown(self):
         self._directory.cleanup()
 
-    def check(self, dependencies, files=(DLL,)):
+    def check(self, dependencies, files=(DLL,), assembly=b""):
         path = self.directory / f"{check.NAME}.1.0.0.nupkg"
         with zipfile.ZipFile(path, "w") as package:
             package.writestr(f"{check.NAME}.nuspec", nuspec(*dependencies))
             for file in files:
-                package.writestr(file, b"")
+                package.writestr(file, assembly if file == DLL else b"")
         return check.check_package(path, self.artifacts, VERSION)
 
     def test_passes_a_package_of_the_extension_that_depends_on_packed_libraries(self):
@@ -62,6 +62,14 @@ class CheckPackageTests(unittest.TestCase):
         self.assertEqual(problems, [
             f"no lib/*/{check.NAME}.dll",
             "lib/net11.0/Beutl.Engine.dll, a copy of a library that the host provides",
+        ])
+
+    def test_reports_a_state_machine_that_runtime_async_would_have_removed(self):
+        dependencies = [("Beutl.Extensibility", VERSION)]
+
+        self.assertEqual(self.check(dependencies, assembly=b"\0Waits\0YieldAsync\0"), [])
+        self.assertEqual(self.check(dependencies, assembly=b"\0Waits\0YieldAsync\0<YieldAsync>d__0\0"), [
+            "a state machine for YieldAsync, so the SDK did not turn on runtime async",
         ])
 
 
