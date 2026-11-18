@@ -296,11 +296,16 @@ public sealed class RadialBlurBackendTests
         (ushort[] all, List<PixelSize> wholeSizes) = Render(mode, whole);
         ushort[] framed = [.. Enumerable.Range(0, (int)frame.Height)
             .SelectMany(y => all.Skip(y * (int)whole.Width * 4).Take((int)frame.Width * 4))];
+        // The part's samples are counted from a raster at another origin, so nearest sampling can round a texel
+        // boundary the other way: one half-float step near zero on CI's SwiftShader.
+        (float largest, int at) = LargestDifference(part, framed);
 
         Assert.Multiple(() =>
         {
             Assert.That(part, Has.Some.Not.Zero);
-            Assert.That(part, Is.EqualTo(framed));
+            Assert.That(part, Has.Length.EqualTo(framed.Length));
+            Assert.That(largest, Is.LessThanOrEqualTo(0.002f),
+                $"largest difference at ({at / 4 % (int)frame.Width}, {at / 4 / (int)frame.Width})");
             Assert.That(wholeSizes.Max(static size => size.Width), Is.GreaterThan(1000),
                 "the far value has to be drawn whole when the frame reaches it");
             Assert.That(partSizes.Select(static size => Math.Max(size.Width, size.Height)),
@@ -332,6 +337,24 @@ public sealed class RadialBlurBackendTests
                 using Bitmap bitmap = destination.Snapshot();
                 return (bitmap.GetPixelSpan<ushort>().ToArray(), sizes);
             });
+    }
+
+    private static (float Largest, int Index) LargestDifference(ushort[] a, ushort[] b)
+    {
+        float largest = 0;
+        int index = -1;
+        for (int i = 0; i < Math.Min(a.Length, b.Length); i++)
+        {
+            float difference = MathF.Abs(
+                (float)BitConverter.UInt16BitsToHalf(a[i]) - (float)BitConverter.UInt16BitsToHalf(b[i]));
+            if (difference > largest)
+            {
+                largest = difference;
+                index = i;
+            }
+        }
+
+        return (largest, index);
     }
 
     private sealed class RecordingTargetFactory(List<PixelSize> sizes) : IRenderTargetFactory
