@@ -26,12 +26,9 @@ internal sealed partial class WindowsBrowserDownloadHandler
 
     private unsafe void DetachNewWindowHandlers()
     {
-        if (HandlesNewWindows)
-            _ = ((delegate* unmanaged[Stdcall]<nint, long, int>)Method(_webView, 45))(_webView, _windowToken);
-        if (_observingResponses)
-            _ = ((delegate* unmanaged[Stdcall]<nint, long, int>)Method(_webView, 62))(_webView, _responseToken);
-        if (_observingContent)
-            _ = ((delegate* unmanaged[Stdcall]<nint, long, int>)Method(_webView, 10))(_webView, _contentToken);
+        if (HandlesNewWindows) Unsubscribe(45, _windowToken);
+        if (_observingResponses) Unsubscribe(62, _responseToken);
+        if (_observingContent) Unsubscribe(10, _contentToken);
         if (_scriptId != null)
         {
             fixed (char* id = _scriptId)
@@ -137,7 +134,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || page != pending.Address) return;
                 // Subresources and inline frames can have different policies, even at the same URL.
                 requestHeaders = GetObject(request, 9);
-                if (!IsDocumentRequest(requestHeaders)) return;
+                if (GetHeader(requestHeaders, "Sec-Fetch-Dest") != "document") return;
                 response = GetObject(args, 4);
                 responseHeaders = GetObject(response, 3);
                 pending.Policy = ReadDocumentPolicy(responseHeaders);
@@ -153,17 +150,6 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 if (response != 0) Marshal.Release(response);
                 if (requestHeaders != 0) Marshal.Release(requestHeaders);
                 if (request != 0) Marshal.Release(request);
-            }
-        }
-
-        private static unsafe bool IsDocumentRequest(nint headers)
-        {
-            nint value = 0;
-            fixed (char* name = "Sec-Fetch-Dest")
-            {
-                int hr = ((delegate* unmanaged[Stdcall]<nint, char*, nint*, int>)Method(headers, 3))(headers, name, &value);
-                try { return hr >= 0 && Marshal.PtrToStringUni(value) == "document"; }
-                finally { Marshal.FreeCoTaskMem(value); }
             }
         }
 

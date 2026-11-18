@@ -164,7 +164,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             if (s_handlers.TryGetValue(self, out var handler))
             {
                 nint request = Send(navigationAction, Selector("request"));
-                string? address = ToManagedString(Send(Send(request, Selector("URL")), Selector("absoluteString")));
+                string? address = GetAddress(request);
                 if (Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) && BrowserMediaDownload.IsHttpUri(uri))
                 {
                     handler._onNewWindowRequested(uri, GetHeader(request, "Referer"));
@@ -214,7 +214,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
                     CompletePolicy(decisionHandler, 1); // WKNavigationActionPolicy.Allow
                     return;
                 }
-                string? address = ToManagedString(Send(Send(request, Selector("URL")), Selector("absoluteString")));
+                string? address = GetAddress(request);
                 Uri.TryCreate(address, UriKind.Absolute, out Uri? uri);
                 handler._navigation.RecordRequest(uri, ToManagedString(Send(request, Selector("HTTPMethod"))), isMainFrame);
                 // A new window has no target frame. Avalonia raises NewWindowRequested from the policy decision this
@@ -251,14 +251,17 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private static string? GetScheme(nint request) =>
         ToManagedString(Send(Send(request, Selector("URL")), Selector("scheme")));
 
+    // The absoluteString of the URL of a request, a response or the web view.
+    private static string? GetAddress(nint owner) =>
+        ToManagedString(Send(Send(owner, Selector("URL")), Selector("absoluteString")));
+
     // A blob: URL names the origin that created it. A data: URL names no one, so the frame whose link
     // started the download is its creator.
     private static Uri? GetGeneratedFileCreator(nint navigationAction, nint request)
     {
         if (string.Equals(GetScheme(request), "blob", StringComparison.OrdinalIgnoreCase))
         {
-            return BrowserMediaDownload.GetGeneratedFileOrigin(
-                ToManagedString(Send(Send(request, Selector("URL")), Selector("absoluteString"))));
+            return BrowserMediaDownload.GetGeneratedFileOrigin(GetAddress(request));
         }
         nint origin = Send(Send(navigationAction, Selector("sourceFrame")), Selector("securityOrigin"));
         string? protocol = ToManagedString(Send(origin, Selector("protocol")));
@@ -316,7 +319,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             {
                 if (!handler._awaitingHistoryLoad || SendBool(webView, Selector("isLoading"))) return;
                 handler._awaitingHistoryLoad = false;
-                Uri.TryCreate(ToManagedString(Send(Send(webView, Selector("URL")), Selector("absoluteString"))), UriKind.Absolute, out restored);
+                Uri.TryCreate(GetAddress(webView), UriKind.Absolute, out restored);
             }
             handler._onHistoryChanged(restored);
         }
@@ -379,7 +382,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         try
         {
             handler._cancellations.CommitNavigation(navigation);
-            string? address = ToManagedString(Send(Send(webView, Selector("URL")), Selector("absoluteString")));
+            string? address = GetAddress(webView);
             if (Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)) handler._onNavigationCommitted(uri);
         }
         catch
@@ -400,7 +403,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         try
         {
             nint response = Send(navigationResponse, Selector("response"));
-            string? address = ToManagedString(Send(Send(response, Selector("URL")), Selector("absoluteString")));
+            string? address = GetAddress(response);
             string? mediaType = ToManagedString(Send(response, Selector("MIMEType")));
             if (handler != null && SendBool(navigationResponse, Selector("isForMainFrame"))
                 && handler._cancellations.Current != 0
