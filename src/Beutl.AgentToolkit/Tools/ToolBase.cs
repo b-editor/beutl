@@ -1,4 +1,7 @@
 ﻿using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Sessions;
+using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tools;
 
@@ -26,5 +29,18 @@ public abstract class ToolBase
         {
             return new ToolResult<T>(default, ToolErrorMapper.Map(ex));
         }
+    }
+
+    protected static Scene RequireSceneRoot(IEditingSession session)
+    {
+        if (session.Root is not Scene scene)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
+                session.Root.Id.Value.ToString()));
+        }
+
+        return scene;
     }
 }

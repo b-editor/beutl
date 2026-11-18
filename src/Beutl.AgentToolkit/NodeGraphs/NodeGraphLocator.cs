@@ -31,7 +31,7 @@ internal static class NodeGraphLocator
                 "Pass the Id of a NodeGraphFilterEffect or NodeGraphDrawable; read_node_graph without graphId lists them."));
         }
 
-        ICoreObject? found = new ObjectLookup(scene).Find(id);
+        ICoreObject? found = scene.FindById(id);
         if (GraphOf(found) is not { } graph || FindOwner(graph) is not { } owner || RootOf(owner) is not { } root)
         {
             throw new ReconcileException(new ToolError(
@@ -93,15 +93,5 @@ internal static class NodeGraphLocator
     };
 
     private static EngineObject? FindOwner(GraphModel graph)
-    {
-        for (IHierarchical? current = graph; current is not null; current = current.HierarchicalParent)
-        {
-            if (current is EngineObject owner && RootOf(owner) is not null)
-            {
-                return owner;
-            }
-        }
-
-        return null;
-    }
+        => graph.EnumerateAncestors<EngineObject>().FirstOrDefault(owner => RootOf(owner) is not null);
 }

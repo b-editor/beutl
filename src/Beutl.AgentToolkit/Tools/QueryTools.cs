@@ -323,19 +323,6 @@ public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGener
                ?? TimeSpan.Zero;
     }
 
-    private static Scene RequireSceneRoot(IEditingSession session)
-    {
-        if (session.Root is not Scene scene)
-        {
-            throw new ReconcileException(new ToolError(
-                ErrorCode.ValidationRejected,
-                $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
-                session.Root.Id.Value.ToString()));
-        }
-
-        return scene;
-    }
-
     private static IReadOnlyList<DeclarativeExampleSummary> FilterExamples(
         IReadOnlyList<DeclarativeExampleSummary> examples,
         bool includeStarters)
