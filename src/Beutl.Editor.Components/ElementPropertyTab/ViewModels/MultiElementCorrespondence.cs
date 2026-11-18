@@ -158,7 +158,8 @@ internal sealed class MultiElementCorrespondence(Element copy)
         }
     }
 
-    private static bool Contains(IList list, object obj)
+    // Whether list holds obj itself, not only an object equal to it.
+    internal static bool Contains(IList list, object obj)
     {
         foreach (object? item in list)
         {
@@ -169,7 +170,7 @@ internal sealed class MultiElementCorrespondence(Element copy)
     }
 
     // Held by owner as its own, as opposed to a reference to an object elsewhere.
-    private static bool IsHeldBy(CoreObject value, CoreObject owner)
+    internal static bool IsHeldBy(CoreObject value, CoreObject owner)
         => ReferenceEquals((value as IHierarchical)?.HierarchicalParent, owner);
 
     // Still in target, as what was found before can have left it since.

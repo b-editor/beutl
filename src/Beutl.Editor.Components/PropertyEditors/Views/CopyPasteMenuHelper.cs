@@ -10,6 +10,11 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public static class CopyPasteMenuHelper
 {
+    // The notifications of the editor that control shows, else those of its window.
+    internal static INotificationService NotificationsOf(Control control)
+        => (control.DataContext as IServiceProvider)?.GetService<INotificationService>()
+           ?? Beutl.Controls.ControlNotifications.GetOrDefault(control);
+
     public static void AddMenus(FAMenuFlyout menuFlyout, Control control)
     {
         var dataContext = control.GetObservable(StyledElement.DataContextProperty)
@@ -27,7 +32,7 @@ public static class CopyPasteMenuHelper
             }
             catch (Exception ex)
             {
-                ((control.DataContext as IServiceProvider)?.GetService<INotificationService>() ?? Beutl.Controls.ControlNotifications.GetOrDefault(control)).ShowError(Strings.Error, ex.Message);
+                NotificationsOf(control).ShowError(Strings.Error, ex.Message);
             }
         };
         var pasteMenu = new FAMenuFlyoutItem { Text = Strings.Paste };
@@ -41,12 +46,12 @@ public static class CopyPasteMenuHelper
             {
                 if (!await vm.PasteAsync())
                 {
-                    ((control.DataContext as IServiceProvider)?.GetService<INotificationService>() ?? Beutl.Controls.ControlNotifications.GetOrDefault(control)).ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
+                    NotificationsOf(control).ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
                 }
             }
             catch (Exception ex)
             {
-                ((control.DataContext as IServiceProvider)?.GetService<INotificationService>() ?? Beutl.Controls.ControlNotifications.GetOrDefault(control)).ShowError(Strings.Error, ex.Message);
+                NotificationsOf(control).ShowError(Strings.Error, ex.Message);
             }
         };
 

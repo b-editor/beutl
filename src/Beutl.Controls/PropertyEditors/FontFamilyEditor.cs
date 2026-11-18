@@ -88,13 +88,14 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
         return tcs.Task;
     }
 
-    // The picker with the font theme and the font wording, which the editor and its tests open alike.
+    // The picker with the font theme, the font wording and the fonts, which the editor and its tests open alike.
     internal static SearchablePickerFlyout CreatePicker(FontFamilyPickerFlyoutViewModel viewModel)
     {
         return new SearchablePickerFlyout(viewModel)
         {
             PresenterThemeKey = "FontFamilyPickerFlyoutPresenter",
-            NoResultsText = Strings.FontFamilyPicker_NoResults
+            NoResultsText = Strings.FontFamilyPicker_NoResults,
+            PreparePresenter = presenter => ControlFonts.SetFonts(presenter, viewModel.Fonts)
         };
     }
 

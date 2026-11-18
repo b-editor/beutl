@@ -27,7 +27,7 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
     private readonly Element _shown;
     private readonly IReadOnlyList<Element> _others;
     private readonly MultiElementCorrespondence _correspondence;
-    private readonly Scene? _scene;
+    private readonly Func<Element, bool> _isEditable;
     private readonly IFrameCacheInvalidator? _invalidator;
     private readonly CoreObjectOperationObserver _observer;
     // After a change of a value of the copy that replaced an object: what each element held there, or null where it
@@ -35,15 +35,16 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
     // value back rather than a copy of the copy's.
     private (CoreObject Copy, Dictionary<Element, CoreObject?> Targets)? _replaced;
 
+    // isEditable says whether an edit can change an element now.
     public MultiElementReplicator(
-        MultiElementCorrespondence correspondence, Element shown, IReadOnlyList<Element> others, Scene? scene,
-        IFrameCacheInvalidator? invalidator)
+        MultiElementCorrespondence correspondence, Element shown, IReadOnlyList<Element> others,
+        Func<Element, bool> isEditable, IFrameCacheInvalidator? invalidator)
     {
         _copy = correspondence.Copy;
         _shown = shown;
         _others = others;
         _correspondence = correspondence;
-        _scene = scene;
+        _isEditable = isEditable;
         _invalidator = invalidator;
         _observer = new CoreObjectOperationObserver(this, _copy, new OperationSequenceGenerator());
     }
@@ -61,7 +62,7 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
     public event Action? StructureChanged;
 
     // The elements other than the one the copy was made from that an edit can change now.
-    public IEnumerable<Element> EditableOthers() => _others.Where(IsEditable);
+    public IEnumerable<Element> EditableOthers() => _others.Where(_isEditable);
 
     // The object at the place of the copy's object in target, or null when target holds none there.
     public CoreObject? Find(CoreObject copyObject, Element target) => _correspondence.Find(copyObject, target);
@@ -158,12 +159,15 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
 
         // A keyframe that moved is found where it was.
         bool movesKeyFrame = update.Object is IKeyFrame && name == nameof(IKeyFrame.KeyTime);
-        bool reachesOthers = ReachesOthers(update.Object, null);
+        // Read at the first other element: while a drag runs, each other element runs the edit itself.
+        bool? reachesOthers = null;
         var written = new List<Element>();
-        var replaced = new Dictionary<Element, CoreObject?>();
+        Dictionary<Element, CoreObject?>? replaced = slot == PropertyPathSlot.Value && update.OldValue is CoreObject
+            ? new Dictionary<Element, CoreObject?>()
+            : null;
         foreach ((Element target, bool exact) in Targets())
         {
-            if (!exact && !reachesOthers) continue;
+            if (!exact && !(reachesOthers ??= ReachesOthers(update.Object, null))) continue;
 
             CoreObject? owner = movesKeyFrame
                 ? FindKeyFrame((IKeyFrame)update.Object, target, (MediaTime)update.OldValue!)
@@ -173,7 +177,7 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
             switch (slot)
             {
                 case PropertyPathSlot.Value:
-                    replaced[target] = property.Value as CoreObject;
+                    if (replaced != null) replaced[target] = property.Value as CoreObject;
                     property.Value = CopyValue(update.NewValue, exact);
                     break;
                 case PropertyPathSlot.Animation:
@@ -187,7 +191,7 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
             written.Add(target);
         }
 
-        _replaced = slot == PropertyPathSlot.Value && update.OldValue is CoreObject old ? (old, replaced) : null;
+        _replaced = replaced != null && update.OldValue is CoreObject old ? (old, replaced) : null;
 
         // A new object, a new chain or a keyframe at another time changes what stands where.
         if (slot != PropertyPathSlot.Value || update.NewValue is CoreObject || update.OldValue is CoreObject || movesKeyFrame)
@@ -200,7 +204,7 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
     // edit inside a node graph, it reaches only the element the copy was made from (ReachesOthers).
     private void ReplicateNodeMember(UpdateNodeMemberOperation operation)
     {
-        if (!IsEditable(_shown)
+        if (!_isEditable(_shown)
             || operation.NodeMember is not CoreObject member
             || Find(member, _shown) is not INodeMember { Property: { } property })
         {
@@ -246,11 +250,12 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
 
         Type definition = type.GetGenericTypeDefinition();
         object?[] current = [.. list.Cast<object?>()];
-        bool reachesOthers = ReachesOthers(collection.Object, source);
+        object?[] items = [.. collection.Items];
+        bool? reachesOthers = null;
         var written = new List<Element>();
         foreach ((Element target, bool exact) in Targets())
         {
-            if (!exact && !reachesOthers) continue;
+            if (!exact && !(reachesOthers ??= ReachesOthers(collection.Object, source))) continue;
 
             if (Find(collection.Object, target) is not { } owner
                 || MultiElementCorrespondence.FindProperty(owner, source)?.Value is not IList targetList)
@@ -262,14 +267,11 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
             if (definition == typeof(InsertCollectionRangeOperation<>))
             {
                 changed = Insert(
-                    collection.Object, source, current, Get<int>(operation, "Index"),
-                    [.. Get<IEnumerable>(operation, "Items").Cast<object?>()], targetList, target, exact);
+                    collection.Object, source, current, Get<int>(operation, "Index"), items, targetList, target, exact);
             }
             else if (definition == typeof(RemoveCollectionRangeOperation<>))
             {
-                changed = Remove(
-                    collection.Object, source, current, Get<int>(operation, "Index"),
-                    [.. Get<IEnumerable>(operation, "Items").Cast<object?>()], targetList);
+                changed = Remove(collection.Object, source, current, Get<int>(operation, "Index"), items, targetList);
             }
             else if (definition == typeof(MoveCollectionRangeOperation<>))
             {
@@ -491,12 +493,15 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
         if (operation.Parent is not { } keyFrame) return;
 
         string name = PropertyPathHelper.GetPropertyNameFromPath(operation.PropertyPath);
-        bool reachesOthers = ReachesOthers(keyFrame, null);
+        bool? reachesOthers = null;
         var written = new List<Element>();
         foreach ((Element target, bool exact) in Targets())
         {
-            if ((!exact && !reachesOthers) || Find(keyFrame, target) is not KeyFrame { Easing.Value: SplineEasing easing })
+            if ((!exact && !(reachesOthers ??= ReachesOthers(keyFrame, null)))
+                || Find(keyFrame, target) is not KeyFrame { Easing.Value: SplineEasing easing })
+            {
                 continue;
+            }
 
             switch (name)
             {
@@ -589,23 +594,19 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
     private static IProperty? HoldingProperty(CoreObject parent, CoreObject child)
         => parent.Properties.FirstOrDefault(property =>
             ReferenceEquals(property.Value, child)
-            || (property.Value is IList list && list.Cast<object?>().Any(item => ReferenceEquals(item, child)))
+            || (property.Value is IList list && MultiElementCorrespondence.Contains(list, child))
             || (property is IExpressionProperty && ReferenceEquals(property.GetPropertyAnimation(), child)));
 
     // The element the copy was made from first, with exact copies, then the others that did not run a command themselves.
     private IEnumerable<(Element Target, bool Exact)> Targets()
     {
-        if (IsEditable(_shown)) yield return (_shown, true);
+        if (_isEditable(_shown)) yield return (_shown, true);
 
         foreach (Element other in _others)
         {
-            if (IsEditable(other) && !RanThemselves.Contains(other)) yield return (other, false);
+            if (_isEditable(other) && !RanThemselves.Contains(other)) yield return (other, false);
         }
     }
-
-    // A removed element is no longer recorded for undo, though the selection lets go of it only after.
-    private bool IsEditable(Element element)
-        => element.HierarchicalParent is Scene && ElementEditability.IsEditable(element, _scene);
 
     private void Invalidate(List<Element> written)
     {

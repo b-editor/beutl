@@ -131,7 +131,7 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
     // One expression, which returns a value with a component for each property.
     public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
-        if (MirrorsExpression(editor => (editor.SetExpression(expressionString, out string? failure), failure), out bool set, out error))
+        if (MirrorsSetExpression(expressionString, out bool set, out error))
             return set;
         if (!_adapter.Pair.TryParseExpression(expressionString, out IExpression<T>[]? expressions, out error))
             return false;

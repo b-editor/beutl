@@ -3,7 +3,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -17,8 +16,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class FilterEffectEditor : UserControl
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
 
     public FilterEffectEditor()
     {
@@ -94,10 +92,8 @@ public partial class FilterEffectEditor : UserControl
     {
         return PickerGuard.RunAsync(this, button, () =>
         {
-            var selectVm = new SelectLibraryItemDialogViewModel((DataContext as IServiceProvider)?.GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(this), ((IServiceProvider)DataContext!).GetRequiredService<LibraryService>(),
-                KnownLibraryItemFormats.FilterEffect,
-                typeof(FilterEffect),
-                LibraryThumbnailCapture.ForObject(DataContext as IServiceProvider));
+            var selectVm = CoreObjectPickerHelper.CreateTypePicker(
+                this, DataContext, KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect), captureThumbnails: true);
 
             if (DataContext is FilterEffectEditorViewModel { IsDisposed: false } vm
                 && PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect)) != null)
