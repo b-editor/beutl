@@ -198,10 +198,23 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore, IN
         ViewExtension extension, object context, KeyEventArgs args, ContextCommandEntry[] entries, ILogger logger,
         INotificationService hostNotifications)
     {
-        var notifications = (context as IServiceProvider)?.GetService<INotificationService>() ?? hostNotifications;
+        var notifications = FindNotifications(context) ?? hostNotifications;
         return ExecuteSafelyAsync(
             () => ExtensionGuard.CallAsync(extension, notifications, () => DispatchAsync(context, args, entries)),
             logger, notifications);
+    }
+
+    // The context can come from an extension, so its service lookup is extension code that may throw.
+    private static INotificationService? FindNotifications(object context)
+    {
+        try
+        {
+            return (context as IServiceProvider)?.GetService<INotificationService>();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     internal static async Task ExecuteSafelyAsync(Func<Task> execute, ILogger logger, INotificationService notifications)
