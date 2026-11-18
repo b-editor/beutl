@@ -53,6 +53,8 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
         IgnoreInaccessible = false,
     };
 
+    private INotificationService Notifications => editorService.AppServices.GetRequiredService<INotificationService>();
+
     internal Func<FAContentDialog, Task<FAContentDialogResult>> ConfirmAsync { get; set; } =
         static dialog => dialog.ShowAsync();
 
@@ -67,7 +69,7 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
         ProjectDiskDeletionTarget? target = await Task.Run(() => Resolve(projectFile, protectedFolders));
         if (target is null)
         {
-            editorService.AppServices.GetRequiredService<INotificationService>().ShowInformation(Strings.DeleteFromDisk, MessageStrings.FileDoesNotExist);
+            Notifications.ShowInformation(Strings.DeleteFromDisk, MessageStrings.FileDoesNotExist);
             return;
         }
 
@@ -94,7 +96,7 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
                 using IDisposable? workspace = editorService.TryBeginWorktreeMutation();
                 if (workspace is null)
                 {
-                    editorService.AppServices.GetRequiredService<INotificationService>().ShowError(
+                    Notifications.ShowError(
                         Strings.DeleteFromDisk,
                         MessageStrings.ProjectBusyCannotDeleteFromDisk);
                     return;
@@ -110,17 +112,17 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
                 {
                     s_logger.LogError(ex, "Failed to delete a project from disk. Path: {Path}", target.Path);
                     // Part of the folder may be left behind; the exception names what could not go.
-                    editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.DeleteFromDisk, ex.Message);
+                    Notifications.ShowError(Strings.DeleteFromDisk, ex.Message);
                     return;
                 }
 
                 if (outcome == ProjectDiskDeletionOutcome.Missing)
                 {
-                    editorService.AppServices.GetRequiredService<INotificationService>().ShowInformation(Strings.DeleteFromDisk, MessageStrings.FileDoesNotExist);
+                    Notifications.ShowInformation(Strings.DeleteFromDisk, MessageStrings.FileDoesNotExist);
                 }
                 else if (outcome == ProjectDiskDeletionOutcome.Changed)
                 {
-                    editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.DeleteFromDisk, MessageStrings.OperationFailed);
+                    Notifications.ShowError(Strings.DeleteFromDisk, MessageStrings.OperationFailed);
                 }
             });
         }
@@ -384,12 +386,12 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
                 return false;
             }
 
-            editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.DeleteFromDisk, MessageStrings.ProjectInUseCannotDeleteFromDisk);
+            Notifications.ShowError(Strings.DeleteFromDisk, MessageStrings.ProjectInUseCannotDeleteFromDisk);
         }
         catch (Exception ex)
         {
             s_logger.LogWarning(ex, "Could not verify whether {Path} is in use.", target.Path);
-            editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.DeleteFromDisk, MessageStrings.OperationFailed);
+            Notifications.ShowError(Strings.DeleteFromDisk, MessageStrings.OperationFailed);
         }
 
         return true;

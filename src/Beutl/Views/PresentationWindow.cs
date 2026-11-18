@@ -4,13 +4,9 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using Beutl.Configuration;
-using Beutl.Controls;
-using Beutl.Controls.PropertyEditors;
+using Beutl.Helpers;
 using Beutl.Logging;
-using Beutl.Services;
 using Beutl.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using BtlSize = Beutl.Graphics.Size;
@@ -31,10 +27,7 @@ internal sealed class PresentationWindow : Window
     public PresentationWindow(PlayerViewModel player)
     {
         _player = player;
-        ColorPaletteService.SetService(this, player.EditViewModel.GetService<ColorPaletteService>());
-        ControlConfiguration.SetConfiguration(this, player.EditViewModel.GetRequiredService<GlobalConfiguration>());
-        ControlFonts.SetFonts(this, player.EditViewModel.GetRequiredService<Beutl.Media.FontManager>());
-        ControlNotifications.SetNotifications(this, player.EditViewModel.GetRequiredService<INotificationService>());
+        HostServices.SetFrom(this, player.EditViewModel);
         Title = Strings.PresentationWindow;
         Width = 960;
         Height = 540;

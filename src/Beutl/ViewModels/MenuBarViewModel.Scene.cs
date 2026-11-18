@@ -132,13 +132,13 @@ public partial class MenuBarViewModel
                 .PasteAsync(scene, start, layer);
             if (outcome.AddFailure is { } failure)
             {
-                TimelineTabViewModel.ShowPasteFailure(_editorService.AppServices.GetRequiredService<INotificationService>(), failure);
+                TimelineTabViewModel.ShowPasteFailure(Notifications, failure);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception has occurred while pasting an element.");
-            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(MessageStrings.UnexpectedError, ex.Message);
+            Notifications.ShowError(MessageStrings.UnexpectedError, ex.Message);
         }
     }
 

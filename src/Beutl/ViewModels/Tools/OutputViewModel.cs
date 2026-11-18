@@ -370,7 +370,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         if (SupersampleWarning.Value is { } supersampleWarning)
         {
-            _editViewModel.GetRequiredService<INotificationService>().ShowError(Strings.Supersampling, supersampleWarning);
+            Notifications.ShowError(Strings.Supersampling, supersampleWarning);
             _logger.LogWarning(
                 "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
                 SupersampleFactor.Value, Model.FrameSize.Value);
@@ -390,7 +390,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             ProgressText.Value = message;
             // This attempt wrote nothing, so the figures of the last run must not read as its own.
             HasProgress.Value = false;
-            _editViewModel.GetRequiredService<INotificationService>().ShowError(MessageStrings.OutputException, message);
+            Notifications.ShowError(MessageStrings.OutputException, message);
             _logger.LogWarning(
                 "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
                 missingSources.Count,
@@ -501,7 +501,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         ProgressText.Value = userMessage;
         ClearEstimates();
-        _editViewModel.GetRequiredService<INotificationService>().ShowError(MessageStrings.OutputException, userMessage);
+        Notifications.ShowError(MessageStrings.OutputException, userMessage);
         MarkFailureAsReported(ex);
         if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
         {
@@ -682,7 +682,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         try
         {
             string fileName = Path.GetFileName(path);
-            _editViewModel.GetRequiredService<INotificationService>().ShowSuccess(
+            Notifications.ShowSuccess(
                 Strings.Completed,
                 string.Format(MessageStrings.ExportCompleted_File, fileName),
                 expiration: TimeSpan.FromSeconds(5),
