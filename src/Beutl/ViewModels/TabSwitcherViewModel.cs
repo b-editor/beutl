@@ -147,7 +147,7 @@ public sealed class TabSwitcherViewModel : IDisposable
                      .ThenByDescending(tab => _recentDocuments.TryGetValue(tab, out var stamp) ? stamp.Order : 0))
         {
             Documents.Add(new(tab.FileName.Value ?? tab.Extension.Value.DisplayName, tab.FilePath.Value ?? "",
-                Document: tab, Icon: ExtensionGuard.Call(tab.Extension.Value, tab.Extension.Value.GetIcon)));
+                Document: tab, Icon: ExtensionGuard.Call(tab.Extension.Value, Notifications, tab.Extension.Value.GetIcon)));
         }
 
         if (_editor is not null)
@@ -166,7 +166,7 @@ public sealed class TabSwitcherViewModel : IDisposable
                          .Where(extension => extension.CanMultiple || !factory.IsToolTabOpen(extension)))
             {
                 NewTools.Add(new(extension.Header ?? extension.DisplayName, extension.DisplayName,
-                    Extension: extension, Icon: ExtensionGuard.Call(extension, extension.GetIcon)));
+                    Extension: extension, Icon: ExtensionGuard.Call(extension, Notifications, extension.GetIcon)));
             }
         }
 

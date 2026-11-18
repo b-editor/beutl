@@ -79,7 +79,7 @@ public sealed partial class MainViewModel : BasePageViewModel
         _authHttpClient = new HttpClient();
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
-        _extensionProvider = new ExtensionProvider(Configuration.ExtensionConfig);
+        _extensionProvider = new ExtensionProvider(Configuration.ExtensionConfig, appServices.GetRequiredService<INotificationService>());
         _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(), appServices.GetRequiredService<INotificationService>());
         _editorService = new EditorService(_extensionProvider, AppServices);
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
@@ -280,10 +280,10 @@ public sealed partial class MainViewModel : BasePageViewModel
 
     public SettingsDialogViewModel CreateSettingsDialog()
     {
-        return new SettingsDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
+        return new SettingsDialogViewModel(AppServices,
             _beutlClients,
             _extensionProvider,
-            _aiPlanCoordinator, Configuration);
+            _aiPlanCoordinator);
     }
 
     public Startup RunStartupTask()

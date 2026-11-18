@@ -19,7 +19,7 @@ public class FFmpegDecodingExtension : DecodingExtension
         return new FFmpegDecoderInfo(Settings);
     }
 
-    public override void Load()
+    public override void Load(IExtensionContext context)
     {
         try
         {
@@ -27,8 +27,8 @@ public class FFmpegDecodingExtension : DecodingExtension
         }
         catch (FFmpegLibrariesNotFoundException)
         {
-            FFmpegInstallNotifier.NotifyMissing(Services.GetRequiredService<INotificationService>());
+            FFmpegInstallNotifier.NotifyMissing(context.Services.GetRequiredService<INotificationService>());
         }
-        base.Load();
+        base.Load(context);
     }
 }

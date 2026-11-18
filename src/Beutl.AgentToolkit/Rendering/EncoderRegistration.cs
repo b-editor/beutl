@@ -1,4 +1,5 @@
-﻿using Beutl.Extensibility;
+﻿using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
 
 namespace Beutl.AgentToolkit.Rendering;
@@ -7,9 +8,13 @@ public sealed class EncoderRegistration
 {
     private readonly Lazy<IReadOnlyList<ControllableEncodingExtension>> _encoders;
 
-    public EncoderRegistration()
+    public EncoderRegistration() : this(new EditorServiceRegistry())
     {
-        _encoders = new(Register);
+    }
+
+    public EncoderRegistration(IServiceProvider services)
+    {
+        _encoders = new(() => Register(new ExtensionContext(services)));
     }
 
     // Test hook: uses the given encoders instead of the registered extensions.
@@ -29,7 +34,7 @@ public sealed class EncoderRegistration
         return Encoders.Where(encoder => encoder.IsSupported(outputPath)).ToArray();
     }
 
-    private static IReadOnlyList<ControllableEncodingExtension> Register()
+    private static IReadOnlyList<ControllableEncodingExtension> Register(IExtensionContext context)
     {
         var encoders = new List<ControllableEncodingExtension>
         {
@@ -43,7 +48,7 @@ public sealed class EncoderRegistration
 
         foreach (ControllableEncodingExtension encoder in encoders)
         {
-            encoder.Load();
+            encoder.Load(context);
         }
 
         return encoders;

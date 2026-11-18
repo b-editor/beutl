@@ -125,7 +125,7 @@ public sealed class NewToolTabDockable : Tool
                 .Select(extension => new NewToolTabItem(
                     extension,
                     extension.Header!,
-                    GetIcon(extension),
+                    GetIcon(extension, factory),
                     extension.CanMultiple || !factory.IsToolTabOpen(extension),
                     IndexOfPin(pins, extension) >= 0))
                 .ToArray();
@@ -220,11 +220,11 @@ public sealed class NewToolTabDockable : Tool
         return Factory is BeutlDockFactory factory && factory.ReplaceNewToolTab(this, extension);
     }
 
-    private FAIconSource? GetIcon(ToolTabExtension extension)
+    private FAIconSource? GetIcon(ToolTabExtension extension, BeutlDockFactory factory)
     {
         if (!_icons.TryGetValue(extension, out FAIconSource? icon))
         {
-            icon = ExtensionGuard.Call(extension, extension.GetIcon);
+            icon = ExtensionGuard.Call(extension, factory.Notifications, extension.GetIcon);
             _icons[extension] = icon;
         }
 

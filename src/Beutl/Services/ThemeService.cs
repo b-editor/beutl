@@ -27,6 +27,7 @@ internal sealed class ThemeService : IDisposable
     private static readonly ILogger s_logger = Log.CreateLogger<ThemeService>();
 
     private readonly FluentAvaloniaTheme _theme;
+    private readonly IExtensionContext _extensionContext;
     private readonly ViewConfig _viewConfig;
     private IResourceProvider? _currentResources;
     private ThemeDescriptor? _appliedDescriptor;
@@ -40,10 +41,11 @@ internal sealed class ThemeService : IDisposable
     private Color? _appliedTextOnAccent;
     private Color? _notifiedAccent;
 
-    public ThemeService(FluentAvaloniaTheme theme, ViewConfig viewConfig)
+    public ThemeService(FluentAvaloniaTheme theme, ViewConfig viewConfig, IExtensionContext extensionContext)
     {
         _theme = theme;
         _viewConfig = viewConfig;
+        _extensionContext = extensionContext;
     }
 
     public void Start()
@@ -55,7 +57,7 @@ internal sealed class ThemeService : IDisposable
 
         // The default theme's extension otherwise loads on a background thread after the first apply,
         // which flashes another theme (#2134). Its later load registers the same instance: no re-apply.
-        DarkBorderThemeExtension.Instance.Load();
+        DarkBorderThemeExtension.Instance.Load(_extensionContext);
 
         _themeSubscription = _viewConfig.Theme.GetObservable()
             .Subscribe(_ => ScheduleApply());

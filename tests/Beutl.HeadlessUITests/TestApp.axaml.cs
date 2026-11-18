@@ -21,6 +21,7 @@ public sealed class TestApp : Application
     internal Beutl.Editor.Services.ObjectTemplateService Templates { get; }
     internal Beutl.Services.Tutorials.ITutorialService Tutorials { get; }
     internal Beutl.Controls.PropertyEditors.ColorPaletteService Palettes { get; } = Beutl.Controls.PropertyEditors.ColorPaletteService.CreateDefault();
+    internal IExtensionContext ExtensionContext { get; }
     internal IServiceProvider Services { get; }
 
     public TestApp()
@@ -38,6 +39,7 @@ public sealed class TestApp : Application
             .Add(() => Templates)
             .Add(() => Tutorials)
             .Add(() => Palettes);
+        ExtensionContext = new ExtensionContext(Services);
     }
 
     public override void Initialize()
@@ -63,7 +65,7 @@ public sealed class TestApp : Application
         _ = GetMainViewModel();
         foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)
         {
-            item.Load();
+            item.Load(ExtensionContext);
         }
     }
 
@@ -77,7 +79,6 @@ public sealed class TestApp : Application
             // AddExtensions alone wires up resolution but not keyboard/command gestures.
             foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)
             {
-                item.Services = _mainViewModel.AppServices;
                 if (item is ViewExtension viewExtension)
                 {
                     _mainViewModel.ContextCommandManager?.Register(viewExtension);

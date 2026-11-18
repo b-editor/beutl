@@ -3,7 +3,6 @@ using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Api.Services;
@@ -24,7 +23,7 @@ internal static class ExtensionGuard
         => s_packages.TryGetValue(extension, out _) && s_failed.TryGetValue(extension, out _);
 
     // The result, or null when the extension threw or is turned off.
-    public static T? Call<T>(Extension extension, Func<T?> call)
+    public static T? Call<T>(Extension extension, INotificationService? notifications, Func<T?> call)
         where T : class
     {
         if (IsTurnedOff(extension))
@@ -36,17 +35,17 @@ internal static class ExtensionGuard
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            Report(extension, exception);
+            Report(extension, notifications, exception);
             return null;
         }
     }
 
     // declined is true when the call itself returned null, which the guard has not reported.
-    public static T? Call<T>(Extension extension, Func<T?> call, out bool declined)
+    public static T? Call<T>(Extension extension, INotificationService? notifications, Func<T?> call, out bool declined)
         where T : class
     {
         bool returned = false;
-        T? result = Call(extension, () =>
+        T? result = Call(extension, notifications, () =>
         {
             T? value = call();
             returned = true;
@@ -57,7 +56,7 @@ internal static class ExtensionGuard
     }
 
     // The result, or false when the extension threw or is turned off.
-    public static bool Call(Extension extension, Func<bool> call)
+    public static bool Call(Extension extension, INotificationService? notifications, Func<bool> call)
     {
         if (IsTurnedOff(extension))
             return false;
@@ -68,13 +67,13 @@ internal static class ExtensionGuard
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            Report(extension, exception);
+            Report(extension, notifications, exception);
             return false;
         }
     }
 
     // Cancellation is not a failure, so it reaches the caller.
-    public static async Task CallAsync(Extension extension, Func<Task> call)
+    public static async Task CallAsync(Extension extension, INotificationService? notifications, Func<Task> call)
     {
         if (IsTurnedOff(extension))
             return;
@@ -85,18 +84,18 @@ internal static class ExtensionGuard
         }
         catch (Exception exception) when (exception is not (OperationCanceledException or OutOfMemoryException))
         {
-            Report(extension, exception);
+            Report(extension, notifications, exception);
         }
     }
 
-    private static void Report(Extension extension, Exception exception)
+    private static void Report(Extension extension, INotificationService? notifications, Exception exception)
     {
         if (!s_failed.TryAdd(extension, exception))
             return;
 
         string? package = s_packages.TryGetValue(extension, out string? name) ? name : null;
         Logger.LogError(exception, "{Extension} from {Package} failed.", extension.GetType().FullName, package ?? "Beutl");
-        (extension.Services?.GetService<INotificationService>() ?? new NotificationService()).ShowError(
+        notifications?.ShowError(
             string.Format(ExtensionsStrings.ExtensionFailed, DisplayName(extension)),
             package is null ? MessageStrings.OperationFailed : string.Format(ExtensionsStrings.ExtensionTurnedOff, package));
     }

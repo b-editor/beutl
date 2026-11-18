@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Extensibility;
+using Beutl.Services;
 using static Beutl.Configuration.ExtensionConfig;
 
 namespace Beutl.Api.Services;
@@ -25,6 +26,13 @@ public sealed class ExtensionProvider : IExtensionRegistry
     {
         _config = config;
     }
+
+    public ExtensionProvider(ExtensionConfig config, INotificationService notifications) : this(config)
+    {
+        Notifications = notifications;
+    }
+
+    internal INotificationService? Notifications { get; }
 
     public event EventHandler? ExtensionsChanged;
 
@@ -245,7 +253,7 @@ public sealed class ExtensionProvider : IExtensionRegistry
             }
 
             // Caption and other dynamic catalogs retire their package-owned registrations from
-            // this synchronous notification before PackageManager invokes Extension.Unload().
+            // this synchronous notification before PackageManager invokes Extension.Unload.
             Exception? notificationFailure = null;
             try
             {

@@ -7,13 +7,13 @@ namespace Beutl.Editor.Components.PropertyEditors.Services;
 internal sealed class PropertyEditorFactoryAdapter(ExtensionProvider extensionProvider) : IPropertyEditorFactory
 {
     public IPropertyEditorContext? CreateEditor(IPropertyAdapter property)
-        => PropertyEditorResolver.CreateContext(property, Extensions, PropertyEditorSurface.Panel);
+        => PropertyEditorResolver.CreateContext(property, Extensions, PropertyEditorSurface.Panel, extensionProvider.Notifications);
 
     public IPropertyEditorContext? CreateNodeEditor(IPropertyAdapter property)
-        => PropertyEditorResolver.CreateContext(property, Extensions, PropertyEditorSurface.Node);
+        => PropertyEditorResolver.CreateContext(property, Extensions, PropertyEditorSurface.Node, extensionProvider.Notifications);
 
     public IPropertyEditorContext? CreateListItemEditor(IPropertyAdapter property)
-        => PropertyEditorResolver.CreateContext(property, Extensions, PropertyEditorSurface.ListItem);
+        => PropertyEditorResolver.CreateContext(property, Extensions, PropertyEditorSurface.ListItem, extensionProvider.Notifications);
 
     public IReadOnlyList<IPropertyEditorContext?> CreatePropertyEditorContexts(
         IReadOnlyList<IPropertyAdapter> properties,

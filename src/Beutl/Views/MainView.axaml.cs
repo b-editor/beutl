@@ -214,7 +214,7 @@ public sealed partial class MainView : UserControl
 
     private async void OpenToolWindow(ToolWindowExtension extension)
     {
-        await _toolWindowLauncher.OpenAsync(extension, () => TopLevel.GetTopLevel(this) as Window);
+        await _toolWindowLauncher.OpenAsync(extension, () => TopLevel.GetTopLevel(this) as Window, Notifications);
     }
 
     private async void GoToInformationPage() => await GoToInformationPageAsync();

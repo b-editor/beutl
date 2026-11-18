@@ -23,7 +23,7 @@ public sealed class MFDecodingExtension : DecodingExtension
         return new MFDecoderInfo(this);
     }
 
-    public override void Load()
+    public override void Load(IExtensionContext context)
     {
         if (OperatingSystem.IsWindows())
         {

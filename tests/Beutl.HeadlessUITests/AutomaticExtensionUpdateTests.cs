@@ -31,7 +31,7 @@ public sealed class AutomaticExtensionUpdateTests
             TestStore.CreateReleaseResponse("2.0.0", fileId: "current", targetVersion: $"[{BeutlApplication.Version}]"),
             TestStore.CreateReleaseResponse("1.0.0"));
         using var http = new HttpClient(store, false);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, TestShell.MainViewModel.AppServices);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         var manager = app.GetResource<PackageManager>();
 
         var manual = (await manager.CheckUpdatesForHost(null, default, [installed])).Single();
@@ -127,7 +127,7 @@ public sealed class AutomaticExtensionUpdateTests
                 Assert.That(await Apply(host), Is.False);
                 Assert.That((await restartedManager.StageExtensionUpdatesAsync(host, true, default)).Staged, Is.Zero);
                 using var nextHttp = new HttpClient(store, false);
-                await using var next = new BeutlApiApplication(nextHttp, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false), services: TestShell.MainViewModel.AppServices);
+                await using var next = new BeutlApiApplication(nextHttp, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false));
                 var release = TestStore.CreateRelease(next, "2.0.0", fileId: "archive", name: installed.Id);
                 var installer = next.GetResource<PackageInstaller>();
                 Assert.That(await installer.StageExtensionUpdateAsync(installed, release, host, false, default), Is.EqualTo(ExtensionUpdateStageResult.Skipped));
@@ -166,7 +166,7 @@ public sealed class AutomaticExtensionUpdateTests
         using var http = new HttpClient(store, false);
         try
         {
-            await using (var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false), services: TestShell.MainViewModel.AppServices))
+            await using (var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false)))
             {
                 var installer = app.GetResource<PackageInstaller>();
                 var release = TestStore.CreateRelease(app, "2.0.0", "archive", installed.Id);
@@ -214,7 +214,7 @@ public sealed class AutomaticExtensionUpdateTests
         var cleanup = new List<string> { updates, dependencyFile, Helper.PackagePathResolver.GetInstallPath(candidate), Helper.PackagePathResolver.GetInstallPath(dependency) };
         using var store = new UpdateStore(candidate, candidateBytes);
         using var http = new HttpClient(store, false);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false), services: TestShell.MainViewModel.AppServices);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false));
         var setting = TestShell.Configuration.UpdateConfig.ExtensionUpdates;
         var previous = setting.Value;
         try
@@ -278,7 +278,7 @@ public sealed class AutomaticExtensionUpdateTests
             BeforeDownload = duringStoreQuery ? null : Pause,
         };
         using var http = new HttpClient(store, false);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false), services: TestShell.MainViewModel.AppServices);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false));
         var setting = TestShell.Configuration.UpdateConfig.ExtensionUpdates;
         var previous = setting.Value;
         Task<(int Staged, IReadOnlyList<PackageUpdate> Remaining)>? staging = null;
@@ -342,7 +342,7 @@ public sealed class AutomaticExtensionUpdateTests
         try
         {
             setting.Value = ExtensionUpdateMode.WithAppUpdate;
-            await using (var before = new BeutlApiApplication(new HttpClient(otherStore, false), new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(otherStore, false), services: TestShell.MainViewModel.AppServices))
+            await using (var before = new BeutlApiApplication(new HttpClient(otherStore, false), new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(otherStore, false)))
             {
                 foreach (var old in new[] { installed, other })
                 {
@@ -386,7 +386,7 @@ public sealed class AutomaticExtensionUpdateTests
         var candidate = new PackageIdentity(installed.Id, NuGetVersion.Parse("2.0.0"));
         using var store = new UpdateStore(candidate, TestPackages.CreateExtensionNupkg(candidate), correctHash: false);
         using var http = new HttpClient(store, false);
-        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false), services: TestShell.MainViewModel.AppServices);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, false));
         var installer = app.GetResource<PackageInstaller>();
         var host = NuGetVersion.Parse(BeutlApplication.Version);
         var release = TestStore.CreateRelease(app, candidate.Version.ToString(), "archive", installed.Id);

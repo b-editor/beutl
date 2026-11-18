@@ -1,6 +1,6 @@
 ﻿using Avalonia.Styling;
 using Beutl.Extensibility;
-
+using Moq;
 using NUnit.Framework;
 
 namespace Beutl.UnitTests.Extensibility;
@@ -8,6 +8,8 @@ namespace Beutl.UnitTests.Extensibility;
 [TestFixture]
 public class ThemeRegistryTests
 {
+    private readonly IExtensionContext _context = new ExtensionContext(Mock.Of<IServiceProvider>());
+
     [TearDown]
     public void TearDown()
     {
@@ -115,7 +117,7 @@ public class ThemeRegistryTests
 
         var hijacker = new TestThemeExtension(BuiltinThemeIds.Dark, "Hijacked");
 
-        Assert.Throws<ArgumentException>(() => hijacker.Load());
+        Assert.Throws<ArgumentException>(() => hijacker.Load(_context));
         Assert.Multiple(() =>
         {
             Assert.That(ThemeRegistry.Resolve(BuiltinThemeIds.Dark), Is.SameAs(builtin));
@@ -133,7 +135,7 @@ public class ThemeRegistryTests
 
         var hijacker = new TestThemeExtension(BuiltinThemeIds.Dark, "Early");
 
-        Assert.Throws<ArgumentException>(() => hijacker.Load());
+        Assert.Throws<ArgumentException>(() => hijacker.Load(_context));
     }
 
     // Settings normalization rewrites these to the built-in on load, so accepting one would mean the
@@ -148,7 +150,7 @@ public class ThemeRegistryTests
     {
         var ext = new TestThemeExtension(id, "Alias");
 
-        Assert.Throws<ArgumentException>(() => ext.Load());
+        Assert.Throws<ArgumentException>(() => ext.Load(_context));
     }
 
     [TestCase("plugin.solarized")]
@@ -159,7 +161,7 @@ public class ThemeRegistryTests
     {
         var ext = new TestThemeExtension(id, "Custom");
 
-        Assert.DoesNotThrow(() => ext.Load());
+        Assert.DoesNotThrow(() => ext.Load(_context));
         Assert.That(ThemeRegistry.GetOwner(ext.Descriptor!), Is.SameAs(ext));
     }
 
@@ -183,9 +185,9 @@ public class ThemeRegistryTests
         // identity check in Unregister.
         var first = new TestThemeExtension("test.shared", "First");
         var second = new TestThemeExtension("test.shared", "Second");
-        first.Load();
+        first.Load(_context);
 
-        Assert.DoesNotThrow(() => second.Load());
+        Assert.DoesNotThrow(() => second.Load(_context));
         Assert.That(ThemeRegistry.GetOwner(second.Descriptor!), Is.SameAs(second));
     }
 
@@ -195,11 +197,11 @@ public class ThemeRegistryTests
         // A holder of an already-replaced descriptor must not be handed the replacement's owner —
         // that would route OnApplied/OnReverted to an extension that never supplied it.
         var firstExt = new TestThemeExtension("test.owner", "First");
-        firstExt.Load();
+        firstExt.Load(_context);
         ThemeDescriptor firstDescriptor = firstExt.Descriptor!;
 
         var secondExt = new TestThemeExtension("test.owner", "Second");
-        secondExt.Load();
+        secondExt.Load(_context);
 
         Assert.That(ThemeRegistry.GetOwner(firstDescriptor), Is.Null);
         Assert.That(ThemeRegistry.GetOwner(secondExt.Descriptor!), Is.SameAs(secondExt));
@@ -230,13 +232,13 @@ public class ThemeRegistryTests
     public void Register_KeepsExtension_AndGetOwner_ReturnsIt()
     {
         var ext = new TestThemeExtension("test.ext", "Ext");
-        ext.Load();
+        ext.Load(_context);
         ThemeDescriptor descriptor = ext.Descriptor!;
 
         Assert.That(ThemeRegistry.GetOwner(descriptor), Is.SameAs(ext));
         Assert.That(descriptor.Id, Is.EqualTo("test.ext"));
 
-        ext.Unload();
+        ext.Unload(_context);
         Assert.That(ThemeRegistry.GetOwner(descriptor), Is.Null);
     }
 
@@ -244,7 +246,7 @@ public class ThemeRegistryTests
     public void NotifyApplied_CallsOnApplied_AndNotifyReverted_CallsOnReverted()
     {
         var ext = new TestThemeExtension("test.notify", "Notify");
-        ext.Load();
+        ext.Load(_context);
         ThemeDescriptor descriptor = ThemeRegistry.Resolve("test.notify")!;
 
         ThemeNotifier.NotifyApplied(descriptor, ext);
@@ -258,7 +260,7 @@ public class ThemeRegistryTests
         ThemeNotifier.NotifyApplied(new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark), null);
         ThemeNotifier.NotifyReverted(new ThemeDescriptor(BuiltinThemeIds.Dark, "Dark", ThemeVariant.Dark), null);
 
-        ext.Unload();
+        ext.Unload(_context);
     }
 
     [Test]
@@ -268,10 +270,10 @@ public class ThemeRegistryTests
         // removed the theme from the registry. An id-based lookup would find nothing here, so
         // OnReverted would never fire and the extension could not release its apply-time resources.
         var ext = new TestThemeExtension("test.revert", "Revert");
-        ext.Load();
+        ext.Load(_context);
         ThemeDescriptor descriptor = ThemeRegistry.Resolve("test.revert")!;
 
-        ext.Unload();
+        ext.Unload(_context);
         Assert.That(ThemeRegistry.GetOwner(descriptor), Is.Null);
 
         ThemeNotifier.NotifyReverted(descriptor, ext);
@@ -283,13 +285,13 @@ public class ThemeRegistryTests
     public void NotifyApplied_SwallowsExtensionException()
     {
         var ext = new ThrowingThemeExtension("test.throw", "Throw");
-        ext.Load();
+        ext.Load(_context);
         ThemeDescriptor descriptor = ThemeRegistry.Resolve("test.throw")!;
 
         Assert.DoesNotThrow(() => ThemeNotifier.NotifyApplied(descriptor, ext));
         Assert.DoesNotThrow(() => ThemeNotifier.NotifyReverted(descriptor, ext));
 
-        ext.Unload();
+        ext.Unload(_context);
     }
 
     private sealed class TestThemeExtension : ThemeExtension

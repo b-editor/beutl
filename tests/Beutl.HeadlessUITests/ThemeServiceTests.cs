@@ -71,7 +71,7 @@ public class ThemeServiceTests
         Dispatcher.UIThread.RunJobs();
 
         var first = new RecordingThemeExtension("test.evicted", "First");
-        first.Load();
+        first.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.evicted";
         Dispatcher.UIThread.RunJobs();
         Assert.That(first.AppliedCount, Is.EqualTo(1), "precondition: the first owner's theme was applied");
@@ -119,12 +119,12 @@ public class ThemeServiceTests
         Dispatcher.UIThread.RunJobs();
 
         var ext = new RecordingThemeExtension("test.owned", "Owned");
-        ext.Load();
+        ext.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.owned";
         Dispatcher.UIThread.RunJobs();
         Assert.That(ext.AppliedCount, Is.EqualTo(1), "precondition: the extension's theme was applied");
 
-        ext.Unload();
+        ext.Unload(TestShell.ExtensionContext);
         Dispatcher.UIThread.RunJobs();
 
         Assert.That(ext.RevertedCount, Is.EqualTo(1));
@@ -141,7 +141,7 @@ public class ThemeServiceTests
         Dispatcher.UIThread.RunJobs();
 
         var first = new RecordingThemeExtension("test.reload", "Reload");
-        first.Load();
+        first.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.reload";
         Dispatcher.UIThread.RunJobs();
         Assert.That(first.AppliedCount, Is.EqualTo(1), "precondition: the first owner's theme was applied");
@@ -154,7 +154,7 @@ public class ThemeServiceTests
             Assert.That(second.GetThemeDescriptor(), Is.Not.SameAs(first.GetThemeDescriptor()),
                 "precondition: the descriptors are distinct instances");
         });
-        second.Load();
+        second.Load(TestShell.ExtensionContext);
         Dispatcher.UIThread.RunJobs();
 
         Assert.Multiple(() =>
@@ -204,7 +204,7 @@ public class ThemeServiceTests
 
         var accent = Color.FromRgb(0x8A, 0x2B, 0xE2);
         var ext = new RecordingThemeExtension("test.accentorder", "AccentOrder", accent);
-        ext.Load();
+        ext.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.accentorder";
         Dispatcher.UIThread.RunJobs();
 
@@ -340,7 +340,7 @@ public class ThemeServiceTests
 
         var accent = Color.FromRgb(0x25, 0x63, 0xEB);
         var ext = new RecordingThemeExtension("test.accent", "Accent", accent);
-        ext.Load();
+        ext.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.accent";
         Dispatcher.UIThread.RunJobs();
 
@@ -364,7 +364,7 @@ public class ThemeServiceTests
         var themeAccent = Color.FromRgb(0x25, 0x63, 0xEB);
         var custom = Color.FromRgb(0x10, 0x89, 0x3E);
         var ext = new RecordingThemeExtension("test.accent.custom", "Accent", themeAccent);
-        ext.Load();
+        ext.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.accent.custom";
         scope.Config.UseCustomAccentColor.Value = true;
         scope.Config.CustomAccentColor.Value = custom.ToString();
@@ -392,7 +392,7 @@ public class ThemeServiceTests
         var themeAccent = Color.FromRgb(0x25, 0x63, 0xEB);
         var custom = Color.FromRgb(0x10, 0x89, 0x3E);
         var ext = new RecordingThemeExtension("test.accent.notify", "Notify", themeAccent);
-        ext.Load();
+        ext.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.accent.notify";
         Dispatcher.UIThread.RunJobs();
 
@@ -435,7 +435,7 @@ public class ThemeServiceTests
         Dispatcher.UIThread.RunJobs();
 
         var ext = new RecordingThemeExtension("test.osaccent", "OsAccent");
-        ext.Load();
+        ext.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.osaccent";
         Dispatcher.UIThread.RunJobs();
         Assert.That(ext.AccentChangedCount, Is.Zero, "precondition: applying is not an accent change");
@@ -460,7 +460,7 @@ public class ThemeServiceTests
         Dispatcher.UIThread.RunJobs();
 
         var ext = new RecordingThemeExtension("test.osaccent.custom", "OsAccent", Color.FromRgb(0x25, 0x63, 0xEB));
-        ext.Load();
+        ext.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.osaccent.custom";
         Dispatcher.UIThread.RunJobs();
         int changesBefore = ext.AccentChangedCount;
@@ -481,7 +481,7 @@ public class ThemeServiceTests
         Dispatcher.UIThread.RunJobs();
 
         var ext = new RecordingThemeExtension("test.accent.reverted", "Reverted", Color.FromRgb(0x25, 0x63, 0xEB));
-        ext.Load();
+        ext.Load(TestShell.ExtensionContext);
         scope.Config.Theme.Value = "test.accent.reverted";
         Dispatcher.UIThread.RunJobs();
         scope.Config.Theme.Value = BuiltinThemeIds.Dark;
@@ -544,7 +544,7 @@ public class ThemeServiceTests
             _mergedOnEntry = [.. Application.Current.Resources.MergedDictionaries];
             _variantOnEntry = Application.Current.RequestedThemeVariant;
             Config = new ViewConfig();
-            Service = new ThemeService(Theme, Config);
+            Service = new ThemeService(Theme, Config, TestShell.ExtensionContext);
         }
 
         public FluentAvaloniaTheme Theme { get; }

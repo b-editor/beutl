@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Beutl.Api.Objects;
 using Beutl.Configuration;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using NuGet.Frameworks;
@@ -24,7 +25,6 @@ public sealed partial class PackageManager : IBeutlApiResource
     private readonly IExtensionRegistry extensionRegistry;
     private readonly ContextCommandManager commandManager;
     private readonly BeutlApiApplication apiApplication;
-    private readonly IServiceProvider _services;
     private readonly UpdateConfig _updateConfig;
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
@@ -46,13 +46,13 @@ public sealed partial class PackageManager : IBeutlApiResource
         this.extensionRegistry = extensionRegistry;
         this.commandManager = commandManager;
         this.apiApplication = apiApplication;
-        _services = services;
+        ExtensionContext = new ExtensionContext(services);
         _updateConfig = updateConfig;
     }
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
 
-    internal IServiceProvider Services => _services;
+    internal IExtensionContext ExtensionContext { get; }
 
     internal IExtensionRegistry ExtensionRegistry => extensionRegistry;
 

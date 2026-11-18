@@ -33,7 +33,7 @@ public static class DecoderRegistration
 
             if (OperatingSystem.IsMacOS() && !DecoderRegistry.EnumerateDecoder().OfType<AVFDecoderInfo>().Any())
             {
-                new AVFDecodingExtension().Load();
+                DecoderRegistry.Register(new AVFDecodingExtension().GetDecoderInfo());
             }
 
             s_registered = true;

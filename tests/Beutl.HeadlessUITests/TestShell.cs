@@ -25,6 +25,8 @@ internal static class TestShell
 
     public static NotificationCapture Notifications => ((TestApp)Application.Current!).Notifications;
 
+    public static IExtensionContext ExtensionContext => ((TestApp)Application.Current!).ExtensionContext;
+
     public static ObjectTemplateService Templates => ((TestApp)Application.Current!).Templates;
 
     public static ProjectService Project => MainViewModel.ProjectService;

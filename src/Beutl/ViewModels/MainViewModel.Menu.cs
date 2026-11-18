@@ -149,7 +149,9 @@ public sealed partial class MainViewModel
                 ToolWindowExtensions.ToObservableChangeSet().ObserveOnUIDispatcher(),
                 extension => new MainMenuItem(extension.DisplayName)
                 {
-                    Command = MenuBar.OpenToolWindow, CommandParameter = extension, IconSource = ExtensionGuard.Call(extension, extension.GetIcon)
+                    Command = MenuBar.OpenToolWindow,
+                    CommandParameter = extension,
+                    IconSource = ExtensionGuard.Call(extension, AppServices.GetService<INotificationService>(), extension.GetIcon)
                 })
         },
         new(Strings.Scene)
@@ -217,7 +219,7 @@ public sealed partial class MainViewModel
     {
         Command = MenuBar.SwitchEditor,
         CommandParameter = extension,
-        IconSource = ExtensionGuard.Call(extension, extension.GetIcon),
+        IconSource = ExtensionGuard.Call(extension, AppServices.GetService<INotificationService>(), extension.GetIcon),
         IsVisible = _editorService.SelectedTabItem
             .Select(tab => tab?.FilePath.Select(path => extension.IsSupported(path)) ?? Observable.Return(false))
             .Switch()
@@ -265,7 +267,8 @@ public sealed partial class MainViewModel
     private void OpenToolTab(ToolTabExtension extension)
     {
         if (_editorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
-            && ExtensionGuard.Call(extension, () => extension.TryCreateContext(editorContext, out IToolContext? created) ? created : null)
+            && ExtensionGuard.Call(extension, AppServices.GetService<INotificationService>(),
+                () => extension.TryCreateContext(editorContext, out IToolContext? created) ? created : null)
                 is { } toolContext
             && !editorContext.OpenToolTab(toolContext))
         {
@@ -296,7 +299,7 @@ public sealed partial class MainViewModel
 
         if (!ReferenceEquals(selectedTab.Context.Value, original)) return;
 
-        if (ExtensionGuard.Call(editorExtension, () => editorExtension.TryCreateContext(
+        if (ExtensionGuard.Call(editorExtension, AppServices.GetService<INotificationService>(), () => editorExtension.TryCreateContext(
                 selectedTab.Context.Value.Object,
                 new EditorContextServices(_editorService, _extensionProvider),
                 out IEditorContext? created) ? created : null, out bool declined)

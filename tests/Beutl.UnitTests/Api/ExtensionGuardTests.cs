@@ -15,15 +15,12 @@ public sealed class ExtensionGuardTests
     {
         var extension = new NamedExtension();
         using var notifications = new NotificationCapture();
-        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
-            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
-            .Add<Beutl.Services.INotificationService>(() => notifications));
         using var logs = new CapturingLoggerProvider(category => category == typeof(ExtensionGuard).FullName);
         Log.LoggerFactory.AddProvider(logs);
 
-        string? first = ExtensionGuard.Call<string>(extension, () => throw new InvalidOperationException("broken"));
-        bool second = ExtensionGuard.Call(extension, () => throw new InvalidOperationException("broken again"));
-        string? third = ExtensionGuard.Call(extension, () => "works");
+        string? first = ExtensionGuard.Call<string>(extension, notifications, () => throw new InvalidOperationException("broken"));
+        bool second = ExtensionGuard.Call(extension, notifications, () => throw new InvalidOperationException("broken again"));
+        string? third = ExtensionGuard.Call(extension, notifications, () => "works");
 
         using (Assert.EnterMultipleScope())
         {
@@ -45,14 +42,11 @@ public sealed class ExtensionGuardTests
         var extension = new NamedExtension();
         ExtensionGuard.SetPackage(extension, "Broken.Package");
         using var notifications = new NotificationCapture();
-        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
-            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
-            .Add<Beutl.Services.INotificationService>(() => notifications));
         int calls = 0;
 
-        await ExtensionGuard.CallAsync(extension, () => Task.FromException(new InvalidOperationException("command failed")));
-        string? factory = ExtensionGuard.Call(extension, () => (++calls).ToString());
-        await ExtensionGuard.CallAsync(extension, () => Task.FromResult(++calls));
+        await ExtensionGuard.CallAsync(extension, notifications, () => Task.FromException(new InvalidOperationException("command failed")));
+        string? factory = ExtensionGuard.Call(extension, notifications, () => (++calls).ToString());
+        await ExtensionGuard.CallAsync(extension, notifications, () => Task.FromResult(++calls));
 
         using (Assert.EnterMultipleScope())
         {
@@ -71,12 +65,9 @@ public sealed class ExtensionGuardTests
     {
         var extension = new NamedExtension();
         using var notifications = new NotificationCapture();
-        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
-            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
-            .Add<Beutl.Services.INotificationService>(() => notifications));
 
-        ExtensionGuard.Call<string>(extension, () => null, out bool nullResult);
-        ExtensionGuard.Call<string>(extension, () => throw new InvalidOperationException("broken"), out bool failure);
+        ExtensionGuard.Call<string>(extension, notifications, () => null, out bool nullResult);
+        ExtensionGuard.Call<string>(extension, notifications, () => throw new InvalidOperationException("broken"), out bool failure);
 
         using (Assert.EnterMultipleScope())
         {
@@ -91,12 +82,9 @@ public sealed class ExtensionGuardTests
         var extension = new NamedExtension();
         ExtensionGuard.SetPackage(extension, "Canceling.Package");
         using var notifications = new NotificationCapture();
-        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
-            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
-            .Add<Beutl.Services.INotificationService>(() => notifications));
 
         await Assert.CatchAsync<OperationCanceledException>(
-            () => ExtensionGuard.CallAsync(extension, () => Task.FromCanceled(new CancellationToken(canceled: true))));
+            () => ExtensionGuard.CallAsync(extension, notifications, () => Task.FromCanceled(new CancellationToken(canceled: true))));
 
         using (Assert.EnterMultipleScope())
         {

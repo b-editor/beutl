@@ -2,6 +2,7 @@
 using Beutl.Api.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services;
 
@@ -29,6 +30,8 @@ public sealed class CommandPaletteService
         _extensionProvider = extensionProvider;
         _contextServices = new EditorContextServices(editorService, extensionProvider);
     }
+
+    private INotificationService? Notifications => _editorService.AppServices.GetService<INotificationService>();
 
     public IReadOnlyList<PaletteCommand> EnumerateCommands()
     {
@@ -207,7 +210,7 @@ public sealed class CommandPaletteService
 
         using (lease)
         {
-            return ExtensionGuard.Call(lease.Extension, () => definition.CanRun(null, CreateExecution(definition.Id, editorContext, null)));
+            return ExtensionGuard.Call(lease.Extension, Notifications, () => definition.CanRun(null, CreateExecution(definition.Id, editorContext, null)));
         }
     }
 
@@ -222,7 +225,7 @@ public sealed class CommandPaletteService
         using (lease)
         {
             var execution = CreateExecution(definition.Id, editorContext, interaction);
-            await ExtensionGuard.CallAsync(lease.Extension, async () =>
+            await ExtensionGuard.CallAsync(lease.Extension, Notifications, async () =>
             {
                 if (definition.CanRun(null, execution))
                     await definition.RunAsync(null, execution);
@@ -235,11 +238,11 @@ public sealed class CommandPaletteService
         => _extensionProvider.AllExtensions.FirstOrDefault(extension => extension.GetType() == type);
 
     // A handler that no registered extension owns is the host's own, and runs unguarded.
-    private static bool Guard(Extension? owner, Func<bool> canExecute)
-        => owner is null ? canExecute() : ExtensionGuard.Call(owner, canExecute);
+    private bool Guard(Extension? owner, Func<bool> canExecute)
+        => owner is null ? canExecute() : ExtensionGuard.Call(owner, Notifications, canExecute);
 
-    private static Task Guard(Extension? owner, Func<Task> execute)
-        => owner is null ? execute() : ExtensionGuard.CallAsync(owner, execute);
+    private Task Guard(Extension? owner, Func<Task> execute)
+        => owner is null ? execute() : ExtensionGuard.CallAsync(owner, Notifications, execute);
 
     private string ResolveCategoryName(Type extensionType)
     {

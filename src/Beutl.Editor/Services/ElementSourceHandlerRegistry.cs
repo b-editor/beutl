@@ -503,7 +503,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         }
         catch
         {
-            // Diagnostics must not interrupt extension removal before Extension.Unload().
+            // Diagnostics must not interrupt extension removal before Extension.Unload runs.
         }
     }
 }

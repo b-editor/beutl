@@ -8,13 +8,13 @@ public abstract class DecodingExtension : Extension
 
     public abstract IDecoderInfo GetDecoderInfo();
 
-    public override void Load()
+    public override void Load(IExtensionContext context)
     {
         _decoderInfo = GetDecoderInfo();
         DecoderRegistry.Register(_decoderInfo);
     }
 
-    public override void Unload()
+    public override void Unload(IExtensionContext context)
     {
         if (_decoderInfo != null)
         {

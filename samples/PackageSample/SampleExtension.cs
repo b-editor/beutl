@@ -1,5 +1,6 @@
 ﻿using Beutl.Extensibility;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PackageSample;
 
@@ -10,12 +11,13 @@ public sealed class SampleExtension : Extension
 
     public override string DisplayName => "SampleExtension";
 
-    public override void Load()
+    public override void Load(IExtensionContext context)
     {
-        LibraryService.Current.Register<SampleObject>(KnownLibraryItemFormats.EngineObject, "Sample Operator");
-        LibraryService.Current.AddMultiple("Sample Drawables", item =>
+        var library = context.Services.GetRequiredService<LibraryService>();
+        library.Register<SampleObject>(KnownLibraryItemFormats.EngineObject, "Sample Operator");
+        library.AddMultiple("Sample Drawables", item =>
             item.BindDrawable<SampleDrawable>()
         );
-        LibraryService.Current.Register<ChoicesProviderTest>(KnownLibraryItemFormats.FilterEffect, "ChoicesProviderTest");
+        library.Register<ChoicesProviderTest>(KnownLibraryItemFormats.FilterEffect, "ChoicesProviderTest");
     }
 }

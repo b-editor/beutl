@@ -46,7 +46,7 @@ public sealed class ToolTabContent : ContentControl
         if (control is null)
         {
             ToolTabExtension extension = dockable.ToolContext.Extension;
-            control = ExtensionGuard.Call(extension,
+            control = ExtensionGuard.Call(extension, dockable.Notifications,
                 () => extension.TryCreateContent(dockable.EditViewModel, out Control? content) ? content : null);
             if (control is null)
             {

@@ -15,7 +15,7 @@ public abstract class ThemeExtension : Extension
 
     public abstract ThemeDescriptor GetThemeDescriptor();
 
-    public override void Load()
+    public override void Load(IExtensionContext context)
     {
         // Assigned only once Register accepts it, so a rejected descriptor (e.g. an id the host
         // owns) leaves Descriptor null rather than naming a theme this extension does not have.
@@ -24,7 +24,7 @@ public abstract class ThemeExtension : Extension
         _descriptor = descriptor;
     }
 
-    public override void Unload()
+    public override void Unload(IExtensionContext context)
     {
         if (_descriptor != null)
         {

@@ -1,5 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Services.Tutorials;
 using Beutl.Views.Tutorial;
 
@@ -30,18 +32,24 @@ public sealed class TutorialServiceHandlerTests
     {
         var first = new TutorialServiceHandler(new Beutl.Configuration.TutorialConfig());
         var second = new TutorialServiceHandler(new Beutl.Configuration.TutorialConfig());
-        using var services = new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Services.INotificationService>(() => TestShell.Notifications).Add<Beutl.Media.FontManager>(() => TestShell.FontManager)
-            .Add<ITutorialService>(() => first);
-        var extension = new TestTutorialExtension { Services = services };
+        using var firstServices = new EditorServiceRegistry().Add<ITutorialService>(() => first);
+        using var secondServices = new EditorServiceRegistry().Add<ITutorialService>(() => second);
+        var firstContext = new ExtensionContext(firstServices);
+        var secondContext = new ExtensionContext(secondServices);
+        var extension = new TestTutorialExtension();
 
-        extension.Load();
-        Assert.Multiple(() =>
-        {
-            Assert.That(first.GetAvailableTutorials().Select(tutorial => tutorial.Id), Is.EqualTo(new[] { "extension-tutorial" }));
-            Assert.That(second.GetAvailableTutorials(), Is.Empty);
-        });
-        extension.Unload();
+        extension.Load(firstContext);
+        extension.Load(secondContext);
+        Assert.That(first.GetAvailableTutorials().Single().Id, Is.EqualTo("extension-tutorial"));
+        Assert.That(second.GetAvailableTutorials().Single().Id, Is.EqualTo("extension-tutorial"));
+
+        extension.Unload(firstContext);
+        extension.Unload(firstContext);
         Assert.That(first.GetAvailableTutorials(), Is.Empty);
+        Assert.That(second.GetAvailableTutorials().Single().Id, Is.EqualTo("extension-tutorial"));
+
+        extension.Unload(secondContext);
+        Assert.That(second.GetAvailableTutorials(), Is.Empty);
     }
 
     private sealed class TestTutorialExtension : Beutl.Extensibility.TutorialExtension

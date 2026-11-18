@@ -1,8 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Windows.Input;
-using Beutl.Configuration;
 using Beutl.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -52,7 +50,7 @@ public class MainViewExtension : ViewExtension
         Palette("main.openRecentFile", Strings.OpenRecentFile,
             main => main.MenuBar.RecentFileItems.Count > 0, (main, interaction) => main.OpenRecentFileAsync(interaction)),
         Palette("main.changeTheme", Strings.ChangeTheme,
-            _ => ThemeRegistry.Enumerate().Count > 1, (_, interaction) => MainViewModel.ChangeThemeAsync(interaction, Services.GetRequiredService<GlobalConfiguration>().ViewConfig)),
+            _ => ThemeRegistry.Enumerate().Count > 1, (main, interaction) => main.ChangeThemeAsync(interaction)),
         Menu("main.enableVersionControl", Strings.VersionControl_Enable, "", [],
             menuBar => menuBar.EnableVersionControl),
         new ContextCommandDefinition<MainViewModel>("main.commitVersion", Strings.VersionControl_Commit, "", [])

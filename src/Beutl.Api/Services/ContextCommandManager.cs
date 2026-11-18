@@ -18,11 +18,15 @@ public record ContextCommandEntry(
 
 public record ContextCommandParsedKeyGesture(KeyGesture? KeyGesture, OSPlatform Platform);
 
-public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
+public class ContextCommandManager(ContextCommandSettingsStore settingsStore, INotificationService notifications)
     : IBeutlApiResource
 {
     private readonly ILogger _logger = Log.CreateLogger<ContextCommandManager>();
     private readonly Dictionary<Type, ContextCommandEntry[]> _entries = new();
+
+    public ContextCommandManager(ContextCommandSettingsStore settingsStore) : this(settingsStore, new NotificationService())
+    {
+    }
 
     /// <summary>
     /// Raised on the thread that made the change, after commands are registered or unregistered or a gesture is assigned,
@@ -167,12 +171,13 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
         {
             element.Focusable = true;
             var logger = _logger;
+            var hostNotifications = notifications;
             element.KeyDown += async (sender, args) =>
             {
                 if (sender is not InputElement { DataContext: { } context })
                     return;
 
-                await HandleKeyDownAsync(extension, context, args, entries, logger);
+                await HandleKeyDownAsync(extension, context, args, entries, logger, hostNotifications);
             };
         }
     }
@@ -186,14 +191,31 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
     internal void HandleKeyDown(ViewExtension extension, object context, KeyEventArgs args)
     {
         if (_entries.TryGetValue(extension.GetType(), out var entries))
-            _ = HandleKeyDownAsync(extension, context, args, entries, _logger);
+            _ = HandleKeyDownAsync(extension, context, args, entries, _logger, notifications);
     }
 
     private static Task HandleKeyDownAsync(
-        ViewExtension extension, object context, KeyEventArgs args, ContextCommandEntry[] entries, ILogger logger)
-        => ExecuteSafelyAsync(
-            () => ExtensionGuard.CallAsync(extension, () => DispatchAsync(context, args, entries)),
-            logger, extension.Services?.GetService<INotificationService>() ?? new NotificationService());
+        ViewExtension extension, object context, KeyEventArgs args, ContextCommandEntry[] entries, ILogger logger,
+        INotificationService hostNotifications)
+    {
+        var notifications = FindNotifications(context) ?? hostNotifications;
+        return ExecuteSafelyAsync(
+            () => ExtensionGuard.CallAsync(extension, notifications, () => DispatchAsync(context, args, entries)),
+            logger, notifications);
+    }
+
+    // The context can come from an extension, so its service lookup is extension code that may throw.
+    private static INotificationService? FindNotifications(object context)
+    {
+        try
+        {
+            return (context as IServiceProvider)?.GetService<INotificationService>();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
 
     internal static async Task ExecuteSafelyAsync(Func<Task> execute, ILogger logger, INotificationService notifications)
     {

@@ -8,7 +8,9 @@ using Beutl.Api.Services;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.OutputTab.ViewModels;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
@@ -90,7 +92,7 @@ public partial class OutputTabView : UserControl
                 return null;
 
             var extension = item.Context.Extension;
-            Control? control = ExtensionGuard.Call(extension, () => extension.TryCreateControl(
+            Control? control = ExtensionGuard.Call(extension, item.EditorContext.GetService<INotificationService>(), () => extension.TryCreateControl(
                 item.EditorContext,
                 item.Context,
                 item,

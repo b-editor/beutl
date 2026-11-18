@@ -420,7 +420,8 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
             if (contextJson != null
                 && extension != null
                 && matchesObject
-                && ExtensionGuard.Call(extension, () => extension.TryCreateContext(editorContext, out IOutputContext? created) ? created : null)
+                && ExtensionGuard.Call(extension, editorContext.GetService<INotificationService>(),
+                    () => extension.TryCreateContext(editorContext, out IOutputContext? created) ? created : null)
                     is { } context)
             {
                 context.ReadFromJson(contextJson.AsObject());

@@ -16,7 +16,7 @@ public class AVFDecodingExtension : DecodingExtension
         return new AVFDecoderInfo(this);
     }
 
-    public override void Load()
+    public override void Load(IExtensionContext context)
     {
         if (OperatingSystem.IsMacOS())
         {

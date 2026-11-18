@@ -2,6 +2,12 @@
 
 Extensions build against the `Beutl.Extensibility.Sdk` release that matches the Beutl version they target.
 
+Override `Load(IExtensionContext context)` and `Unload(IExtensionContext context)` to initialize and clean up an
+extension. Resolve host services through `context.Services`. Beutl loads built-ins first, then installed packages by
+name, then side-loaded extensions. It calls `Unload` even after a failed `Load`, so cleanup must tolerate partial
+initialization and repeated calls. For commands and editor factories, resolve services from the invoking host or
+editor. A shared extension instance can serve more than one host.
+
 When a factory (`TryCreateContent`, `TryCreateContext`, `TryCreateControl`, `TryCreateEditor`, `RegisterEditors` and
 the functions it registers, `GetIcon`) or a command of an extension from a package throws, Beutl logs it with the
 package name, shows one notice and turns the extension off until it restarts.
