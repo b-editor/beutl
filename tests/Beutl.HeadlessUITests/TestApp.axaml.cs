@@ -15,7 +15,7 @@ public sealed class TestApp : Application
 
     private MainViewModel? _mainViewModel;
     internal Beutl.Media.FontManager Fonts { get; }
-    internal NotificationCapture Notifications { get; } = new();
+    internal NotificationCapture Notifications { get; } = NotificationCapture.CreateForwardingRoot();
     internal GlobalConfiguration Configuration { get; } = new();
     internal Beutl.Services.LibraryService Library { get; } = new();
     internal Beutl.Editor.Services.ObjectTemplateService Templates { get; }
