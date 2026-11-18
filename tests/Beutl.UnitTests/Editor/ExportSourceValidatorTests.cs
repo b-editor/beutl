@@ -457,15 +457,24 @@ public sealed class ExportSourceValidatorTests
         Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, range)), Is.Empty);
     }
 
+    // The matte layer cuts at two seconds, and its outgoing side holds its last frame through the
+    // transition. Its portal counts at that held time and imports only what that time covers: an input
+    // that spans the cut plays at the frame's time, while one that starts at the cut belongs to the next side.
     [Test]
-    public void HeldMattePortal_EvaluatesItsCountAtHeldTimeAndItsInputsAtFrameTime()
+    public void HeldMattePortal_CountsAtItsHeldTimeAndImportsOnlyWhatThatTimeCovers()
     {
         var (scene, portal, path) = CreateMattePortalScene();
         scene.Children[0].Length.Value = MediaTime.FromSeconds(4);
         scene.Children[1].Length.Value = MediaTime.FromSeconds(2);
-        scene.Children[2].Start.Value = MediaTime.FromSeconds(2);
-        scene.Children[2].Length.Value = MediaTime.FromSeconds(2);
-        portal.Count.Expression = new StringExpression<int>("Time < 2 ? 1 : 0");
+        scene.Children[2].Start.Value = MediaTime.FromSeconds(1);
+        scene.Children[2].Length.Value = MediaTime.FromSeconds(3);
+        Element next = CreateVideoElement(_root, Path.Combine(_root, "next-matte.mov"));
+        next.ZIndex.Value = 3;
+        next.Start.Value = MediaTime.FromSeconds(2);
+        next.Length.Value = MediaTime.FromSeconds(2);
+        next.IsVisibleInOutput.Value = false;
+        scene.Children.Add(next);
+        portal.Count.Expression = new StringExpression<int>("Time < 2 ? 2 : 0");
         Element incoming = ElementWith(_root, new RectShape(), MediaTime.FromSeconds(2), MediaTime.FromSeconds(2));
         incoming.ZIndex.Value = 1;
         incoming.IsVisibleInOutput.Value = false;

@@ -59,8 +59,11 @@ internal static class SceneLayerSkipModel
 
                     // A portal's own Count uses its side's held clock; its imported elements and
                     // matte sources play at frame time, as in CompositorContext.EvaluateElementIntoFlow.
+                    // A side a transition holds at its edge frame imports only what its held time covers,
+                    // and holds those the frame's time does not cover (SceneCompositor.CollectTransitionSide).
                     if (target == CompositionTarget.Graphics)
                     {
+                        bool held = contentWindow != frameWindow;
                         foreach (PortalObject portal in element.Objects.OfType<PortalObject>())
                         {
                             if (!portal.IsEnabled.Value) continue;
@@ -69,7 +72,7 @@ internal static class SceneLayerSkipModel
                             // widen the replayed inputs rather than every output layer in the scene.
                             bool remapsInputs = remapped || element.Objects.SkipWhile(obj => obj != portal).Skip(1)
                                 .OfType<DrawableTimeController>().Any(controller => controller.IsEnabled.Value);
-                            if (!matte && !remapsInputs) continue;
+                            if (!matte && !remapsInputs && !held) continue;
                             foreach ((int? count, TimeRange inputs) in PortalWindows(portal, frameWindow, contentWindow, origin))
                             {
                                 int start = portal.ZIndex.Value + 1;
@@ -77,8 +80,19 @@ internal static class SceneLayerSkipModel
                                 foreach (Element candidate in scene.Children)
                                 {
                                     if (candidate.ZIndex.Value < start || (end is { } last && candidate.ZIndex.Value > last)) continue;
-                                    foreach (var item in Visit(candidate, inputs, matte, origin, remapsInputs))
-                                        yield return item;
+                                    if (held && !candidate.CoversGraphicsTime(contentWindow.Start)) continue;
+                                    // Output inputs the frame's time covers are walked on their own.
+                                    if (matte || remapsInputs)
+                                    {
+                                        foreach (var item in Visit(candidate, inputs, matte, origin, remapsInputs))
+                                            yield return item;
+                                    }
+
+                                    if (held)
+                                    {
+                                        foreach (var item in Visit(candidate, contentWindow, matte, origin, remapsInputs))
+                                            yield return item;
+                                    }
                                 }
                             }
                         }

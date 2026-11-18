@@ -364,6 +364,69 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    // Two groups take the layers above them through their portals, and those layers cut from one shot to
+    // the next where the groups meet. Each side groups its own shot, so the transition blends one shot
+    // into the other instead of showing the shot of the frame's time on both sides.
+    [Test]
+    public void EachSideOfATransition_GroupsTheShotItsPortalReachesAtItsOwnTime()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_portal_shots", duration: Seconds(10));
+        Element outgoing = AddGroup(harness, MediaTime.Zero);
+        Element incoming = AddGroup(harness, Seconds(2));
+        string[] outgoingShot = AddShot(harness, "A", MediaTime.Zero);
+        string[] incomingShot = AddShot(harness, "B", Seconds(2));
+        outgoing.ExitTransition.Value = Transition(0.5);
+        incoming.EnterTransition.Value = Transition(0.5);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+
+        ClipTransitionPresenter.Resource before = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
+        string?[] fromBefore = Grouped(before.From);
+        string?[] toBefore = Grouped(before.To);
+        ClipTransitionPresenter.Resource after = SinglePresenter(compositor.EvaluateGraphics(Seconds(2.25)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fromBefore, Is.EqualTo(outgoingShot));
+            Assert.That(toBefore, Is.EqualTo(incomingShot), "the next shot is grouped before the cut");
+            Assert.That(Grouped(after.From), Is.EqualTo(outgoingShot), "the previous shot is grouped past the cut");
+            Assert.That(Grouped(after.To), Is.EqualTo(incomingShot));
+        });
+    }
+
+    // Before the cut the next shot's layer has not started, and past it the previous shot's has ended, so
+    // each side holds its own shot's edge frame, as it holds its own element's.
+    [Test]
+    public void AShotAPortalDrawsIntoATransition_HoldsItsEdgeFrameOutsideItsOwnRange()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_portal_shot_hold", duration: Seconds(10));
+        Element outgoing = harness.AddElement(MediaTime.Zero, Seconds(2));
+        outgoing.Objects.Add(new PortalObject { Count = { Value = 1 } });
+        Element incoming = harness.AddElement(Seconds(2), Seconds(2));
+        incoming.Objects.Add(new PortalObject { Count = { Value = 1 } });
+        SourceVideo outgoingVideo = CreateVideo();
+        harness.AddElement(MediaTime.Zero, Seconds(2), zIndex: 1).Objects.Add(outgoingVideo);
+        SourceVideo incomingVideo = CreateVideo();
+        harness.AddElement(Seconds(2), Seconds(2), zIndex: 1).Objects.Add(incomingVideo);
+        outgoing.ExitTransition.Value = Transition(0.5);
+        incoming.EnterTransition.Value = Transition(0.5);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager) { ForceOriginalSource = true };
+
+        ClipTransitionPresenter.Resource early = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
+        double? outgoingEarly = Position(early.From, outgoingVideo);
+        double? incomingEarly = Position(early.To, incomingVideo);
+        ClipTransitionPresenter.Resource late = SinglePresenter(compositor.EvaluateGraphics(Seconds(2.25)));
+        double? outgoingLate = Position(late.From, outgoingVideo);
+        double? incomingLate = Position(late.To, incomingVideo);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outgoingEarly, Is.EqualTo(1.75).Within(1e-6));
+            Assert.That(incomingEarly, Is.EqualTo(0).Within(1e-6), "the next shot holds its first frame before the cut");
+            Assert.That(outgoingLate, Is.EqualTo(2 - 1.0 / 30).Within(1e-6), "the previous shot holds its last frame");
+            Assert.That(incomingLate, Is.EqualTo(0.25).Within(1e-6));
+        });
+    }
+
     [Test]
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {
@@ -847,6 +910,33 @@ public class ElementTransitionCompositionTests
 
     private static ClipTransition Transition(double seconds)
         => new CrossDissolveTransition { Duration = { Value = Seconds(seconds) } };
+
+    // A two-second group on layer 0 that takes layers 1 and 2, as a group added on the timeline does.
+    private static Element AddGroup(SceneHistoryHarness harness, MediaTime start)
+    {
+        Element element = harness.AddElement(start, Seconds(2));
+        element.AddObject(new DrawableGroup());
+        ((PortalObject)element.Objects[0]).Count.Value = 2;
+        return element;
+    }
+
+    // A two-second shot on the layers such a group takes: a rectangle on layer 1 and an ellipse on layer 2,
+    // named after the shot.
+    private static string[] AddShot(SceneHistoryHarness harness, string shot, MediaTime start)
+    {
+        harness.AddElement(start, Seconds(2), 1).Objects.Add(new RectShape { Name = { Value = $"{shot} rect" } });
+        harness.AddElement(start, Seconds(2), 2).Objects.Add(new EllipseShape { Name = { Value = $"{shot} ellipse" } });
+        return [$"{shot} rect", $"{shot} ellipse"];
+    }
+
+    // The names of the drawables a side's group took from its portal, bottom first.
+    private static string?[] Grouped(IReadOnlyList<Drawable.Resource> side)
+        => [.. side.OfType<DrawableGroup.Resource>().Single().Children.Select(r => r.GetOriginal()?.Name.Value)];
+
+    // Where the side plays video, in the video's own time, or null when the side does not draw it.
+    private static double? Position(IReadOnlyList<Drawable.Resource> side, SourceVideo video)
+        => side.OfType<SourceVideo.Resource>().SingleOrDefault(r => ReferenceEquals(r.GetOriginal(), video))
+            ?.RequestedPosition.ToSeconds();
 
     private static SourceVideo CreateVideo()
     {

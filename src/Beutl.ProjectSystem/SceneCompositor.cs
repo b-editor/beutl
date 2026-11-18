@@ -161,8 +161,10 @@ public sealed partial class SceneCompositor : ICompositor
         public CompositionTarget Target { get; set; }
 
         // The frame's own time while a transition evaluates one of its sides at a held time. Elements a
-        // portal draws into that side are not the side's own content and have not ended, so they play on
-        // at the frame's time, and both sides share one evaluation of them.
+        // portal draws into that side that the frame's time still covers are not the side's own content and
+        // have not ended, so they play on at the frame's time, and both sides share one evaluation of them.
+        // Elements only the side's time covers, such as the next shot before the cut, hold at that time
+        // like the side's own content.
         public MediaTime? FrameTime { get; set; }
 
         public GraphicsFrameState? GraphicsState { get; set; }
@@ -188,7 +190,11 @@ public sealed partial class SceneCompositor : ICompositor
         {
             using var tmpObjects = new PooledList<EngineObject>();
             MediaTime sideTime = Time;
-            Time = FrameTime ?? sideTime;
+            if (FrameTime is { } frameTime && element.CoversGraphicsTime(frameTime))
+            {
+                Time = frameTime;
+            }
+
             try
             {
                 _compositor.CollectResourcesFromElement(element, this, tmpObjects);
@@ -377,41 +383,27 @@ public sealed partial class SceneCompositor : ICompositor
         IList<EngineObject.Resource>? oldFlow = context.Flow;
         MediaTime time = context.Time;
         IList<Element> elements = context.CurrentElements;
-        // A portal takes the elements it draws out of the current ones, so each side starts from the same
-        // elements; whatever either side took stays out of the frame afterwards.
+        // A portal takes the elements it draws out of the ones it is given, so each side starts from the
+        // frame's elements; whatever either side took stays out of the frame afterwards.
         Element[] inputs = [.. elements];
-        var incomingInputs = new List<Element>(inputs);
         MediaTime? frameTime = context.FrameTime;
         context.FrameTime = time;
         try
         {
             if (boundary.Outgoing is { } outgoing)
             {
-                context.Flow = from;
-                context.Time = boundary.GetOutgoingTime(time);
-                CollectElementObjects(outgoing, context, tmpObjects);
+                CollectTransitionSide(outgoing, boundary.GetOutgoingTime(time), time, inputs, elements, from, context, tmpObjects);
             }
 
             if (boundary.Incoming is { } incoming)
             {
-                context.Flow = to;
-                context.Time = boundary.GetIncomingTime(time);
-                context.CurrentElements = incomingInputs;
-                CollectElementObjects(incoming, context, tmpObjects);
+                CollectTransitionSide(incoming, boundary.GetIncomingTime(time), time, inputs, elements, to, context, tmpObjects);
             }
         }
         finally
         {
             context.FrameTime = frameTime;
             context.CurrentElements = elements;
-            foreach (Element input in inputs)
-            {
-                if (!incomingInputs.Contains(input))
-                {
-                    elements.Remove(input);
-                }
-            }
-
             context.Flow = oldFlow;
             context.Time = time;
         }
@@ -430,6 +422,78 @@ public sealed partial class SceneCompositor : ICompositor
         float progress = ClipTransition.Ease(transitionResource.Easing, boundary.GetLinearProgress(time));
         presenterResource.SetInputs(transitionResource, from.Span, to.Span, progress);
         oldFlow?.Add(presenterResource);
+    }
+
+    // Evaluates one side of a transition at its own time into flow. Its portals reach the frame's elements
+    // that this time also covers and the elements only this time covers, such as the next shot before the
+    // cut or the previous shot past it, so each side draws its own shot. The frame's elements the side
+    // took are removed from elements.
+    private void CollectTransitionSide(
+        Element side, MediaTime sideTime, MediaTime frameTime, Element[] inputs, IList<Element> elements,
+        PooledList<EngineObject.Resource> flow, CompositorContext context, PooledList<EngineObject> tmpObjects)
+    {
+        using var sideInputs = new PooledList<Element>(inputs.Length);
+        if (sideTime == frameTime || !HasPortal(side))
+        {
+            sideInputs.AddRange(inputs);
+        }
+        else
+        {
+            foreach (Element input in inputs)
+            {
+                if (input.CoversGraphicsTime(sideTime)) sideInputs.Add(input);
+            }
+
+            using var atSideTime = new PooledList<Element>();
+            SortLayers(sideTime, atSideTime, CompositionTarget.Graphics, ignoreSolo: context.IsMatteSource);
+            foreach (Element element in atSideTime)
+            {
+                if (!element.CoversGraphicsTime(frameTime)) sideInputs.Add(element);
+            }
+
+            Scene.ElementIndex.Sort(sideInputs);
+        }
+
+        using var offered = new PooledList<Element>(sideInputs.Count);
+        offered.AddRange(sideInputs.Span);
+        context.Flow = flow;
+        context.Time = sideTime;
+        context.CurrentElements = sideInputs;
+        try
+        {
+            CollectElementObjects(side, context, tmpObjects);
+        }
+        finally
+        {
+            context.CurrentElements = elements;
+        }
+
+        if (sideInputs.Count == offered.Count) return;
+
+        var remaining = new HashSet<Element>(sideInputs, ReferenceEqualityComparer.Instance);
+        foreach (Element element in offered)
+        {
+            if (remaining.Contains(element)) continue;
+
+            for (int i = 0; i < elements.Count; i++)
+            {
+                if (ReferenceEquals(elements[i], element))
+                {
+                    elements.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    private static bool HasPortal(Element element)
+    {
+        foreach (EngineObject obj in element.Objects)
+        {
+            if (obj is PortalObject { IsEnabled.Value: true }) return true;
+        }
+
+        return false;
     }
 
     private void CollectElementObjects(
