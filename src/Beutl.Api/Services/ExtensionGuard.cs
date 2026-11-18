@@ -115,7 +115,7 @@ internal static class ExtensionGuard
     }
 
     // DisplayName is extension code too.
-    private static string DisplayName(Extension extension)
+    public static string DisplayName(Extension extension)
     {
         try
         {

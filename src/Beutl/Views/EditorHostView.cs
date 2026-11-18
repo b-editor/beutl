@@ -33,7 +33,7 @@ public sealed class EditorHostView : ContentControl
         {
             Text = $"""
                        Error:
-                           {string.Format(MessageStrings.FailedToOpenFileWithExtension, viewModel.Extension.DisplayName, viewModel.Object.Uri)}
+                           {string.Format(MessageStrings.FailedToOpenFileWithExtension, ExtensionGuard.DisplayName(viewModel.Extension), viewModel.Object.Uri)}
 
                        Message:
                            {MessageStrings.EditorContextAlreadyCreated}
