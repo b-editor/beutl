@@ -17,6 +17,9 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class FilterEffectEditor : UserControl
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     public FilterEffectEditor()
     {
         InitializeComponent();
@@ -83,7 +86,7 @@ public partial class FilterEffectEditor : UserControl
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(Strings.Error, ex.Message);
+            Notifications.ShowError(Strings.Error, ex.Message);
         }
     }
 
@@ -132,7 +135,7 @@ public partial class FilterEffectEditor : UserControl
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(Strings.Error, ex.Message);
+            Notifications.ShowError(Strings.Error, ex.Message);
         }
     }
 

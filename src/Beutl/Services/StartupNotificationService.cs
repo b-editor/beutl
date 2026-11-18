@@ -3,6 +3,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Beutl.Configuration;
 using Beutl.Logging;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
@@ -18,14 +19,14 @@ internal static class StartupNotificationService
     internal const int MaxVisibleSideloadPackages = 3;
     internal const int MaxSideloadPackageNameLength = 80;
 
-    public static void ShowTelemetryConsent(TelemetryConfig config)
+    public static void ShowTelemetryConsent(INotificationService notifications, TelemetryConfig config)
     {
         if (Telemetry.IsConsentConfigured(config))
         {
             return;
         }
 
-        NotificationService.ShowInformation(
+        notifications.ShowInformation(
             SettingsStrings.Telemetry,
             SettingsStrings.Telemetry_Description,
             expiration: Timeout.InfiniteTimeSpan,
@@ -39,14 +40,14 @@ internal static class StartupNotificationService
     }
 
     // Tells that Beutl was updated, and points at what changed.
-    public static void ShowReleaseNotes(string? lastStartedVersion, string currentVersion)
+    public static void ShowReleaseNotes(INotificationService notifications, string? lastStartedVersion, string currentVersion)
     {
         if (GetReleaseNotesUrl(lastStartedVersion, currentVersion) is not { } url)
         {
             return;
         }
 
-        NotificationService.ShowInformation(
+        notifications.ShowInformation(
             string.Format(MessageStrings.UpdatedToVersion_Title, currentVersion),
             MessageStrings.UpdatedToVersion_Content,
             expiration: TimeSpan.FromSeconds(30),
@@ -69,7 +70,7 @@ internal static class StartupNotificationService
         return $"{ReleasePageUrl}{current}";
     }
 
-    public static Task<bool> ConfirmSideloadExtensions(IReadOnlyList<string> packageNames)
+    public static Task<bool> ConfirmSideloadExtensions(INotificationService notifications, IReadOnlyList<string> packageNames)
     {
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         string[] packageSnapshot = packageNames.ToArray();
@@ -105,7 +106,7 @@ internal static class StartupNotificationService
 
         actions.Add(new(Strings.Yes, () => completion.TrySetResult(true)));
 
-        NotificationService.ShowWarning(
+        notifications.ShowWarning(
             MessageStrings.ConfirmLoadSideloadExtensions,
             FormatSideloadPackageNames(packageSnapshot),
             expiration: Timeout.InfiniteTimeSpan,

@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
@@ -50,7 +52,7 @@ public sealed partial class FileBrowserTabViewModel
         {
             ShowLocalFiles();
             _logger.LogError(ex, "Failed to open storage provider {ProviderId}.", provider.Id);
-            Beutl.Services.NotificationService.ShowError(provider.DisplayName, Strings.StorageProviderOpenFailed);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(provider.DisplayName, Strings.StorageProviderOpenFailed);
         }
     }
 

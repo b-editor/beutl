@@ -4,6 +4,7 @@ using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
@@ -67,7 +68,7 @@ public sealed partial class GraphEditorViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to copy selected keyframes");
-            NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
+            EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
             return false;
         }
     }
@@ -89,7 +90,7 @@ public sealed partial class GraphEditorViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste selected keyframes");
-            if (canPaste()) NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
+            if (canPaste()) EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
         }
     }
 
@@ -100,7 +101,7 @@ public sealed partial class GraphEditorViewModel
         if (start < MediaTime.Zero) start = MediaTime.Zero;
         if (KeyFrameSelectionClipboard.Read(json) is not { } source || source.Keys.Length == 0)
         {
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
             return;
         }
         var (type, copied) = source;
@@ -109,9 +110,9 @@ public sealed partial class GraphEditorViewModel
             if (target != null && copied.Length == 1)
             {
                 HistoryManager.ExecuteInTransaction(() => target.Easing.Value = copied[0].Easing.Value, CommandNames.PasteKeyFrame);
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
+                EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
             }
-            else NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            else EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
             return;
         }
         var pasted = KeyFrameSelectionClipboard.Paste(Animation, copied, start, HistoryManager);

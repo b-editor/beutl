@@ -5,10 +5,11 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.VersionControl;
+using Beutl.Services;
 
 namespace Beutl.Services;
 
-internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher)
+internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher, INotificationService notifications)
 {
     internal Task<bool> ShowRestoreConfirmationAsync(
         CancellationToken cancellationToken)
@@ -59,7 +60,7 @@ internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher)
     internal async Task ShowConflictMarkerWarningAsync(string markerFile)
     {
         await dispatcher.InvokeAsync(
-            () => NotificationService.ShowWarning(
+            () => notifications.ShowWarning(
                 Strings.VersionControl_ConflictMarkerWarningTitle,
                 string.Format(
                     Strings.VersionControl_ConflictMarkerWarning,
@@ -144,6 +145,6 @@ internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher)
         };
 
         await dispatcher.InvokeAsync(() =>
-            NotificationService.ShowWarning(Strings.VersionControl, message));
+            notifications.ShowWarning(Strings.VersionControl, message));
     }
 }

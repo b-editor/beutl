@@ -1,4 +1,5 @@
 ﻿using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -7,6 +8,7 @@ public class TitleBreadcrumbBarViewModel
 {
     private readonly MainViewModel _viewModel;
     private readonly EditorService _editorService;
+    internal INotificationService Notifications => _editorService.AppServices.GetRequiredService<INotificationService>();
 
     public TitleBreadcrumbBarViewModel(MainViewModel viewModel, EditorService editorService)
     {

@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.AiWorkspaceTab.Views;
 
@@ -96,7 +97,7 @@ internal static class AiFileDrop
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle(Beutl.Controls.ControlNotifications.GetOrDefault(control));
         }
         finally
         {

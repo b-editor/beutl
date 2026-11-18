@@ -117,7 +117,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                 }
             }
             operation.TryPublish(() =>
-                NotificationService.ShowSuccess(Strings.AiVideoGeneration, Strings.AiVideoSaved));
+                _notifications.ShowSuccess(Strings.AiVideoGeneration, Strings.AiVideoSaved));
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {

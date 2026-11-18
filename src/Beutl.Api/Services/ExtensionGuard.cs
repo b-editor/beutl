@@ -3,6 +3,7 @@ using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Api.Services;
@@ -95,7 +96,7 @@ internal static class ExtensionGuard
 
         string? package = s_packages.TryGetValue(extension, out string? name) ? name : null;
         Logger.LogError(exception, "{Extension} from {Package} failed.", extension.GetType().FullName, package ?? "Beutl");
-        NotificationService.ShowError(
+        (extension.Services?.GetService<INotificationService>() ?? new NotificationService()).ShowError(
             string.Format(ExtensionsStrings.ExtensionFailed, DisplayName(extension)),
             package is null ? MessageStrings.OperationFailed : string.Format(ExtensionsStrings.ExtensionTurnedOff, package));
     }

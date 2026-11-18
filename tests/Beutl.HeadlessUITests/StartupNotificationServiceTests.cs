@@ -96,7 +96,7 @@ public sealed class StartupNotificationServiceTests
     {
         using var notifications = new NotificationCapture();
 
-        StartupNotificationService.ShowReleaseNotes("2.0.0-preview.9", "2.0.0-preview.10");
+        StartupNotificationService.ShowReleaseNotes(notifications, "2.0.0-preview.9", "2.0.0-preview.10");
 
         Notification notification = notifications.Single();
         Assert.Multiple(() =>
@@ -113,7 +113,7 @@ public sealed class StartupNotificationServiceTests
     {
         using var notifications = new NotificationCapture();
 
-        StartupNotificationService.ShowReleaseNotes("2.0.0-preview.10", "2.0.0-preview.10");
+        StartupNotificationService.ShowReleaseNotes(notifications, "2.0.0-preview.10", "2.0.0-preview.10");
 
         Assert.That(notifications.All, Is.Empty);
     }
@@ -124,7 +124,7 @@ public sealed class StartupNotificationServiceTests
         using var notifications = new NotificationCapture();
         var config = new TelemetryConfig();
 
-        StartupNotificationService.ShowTelemetryConsent(config);
+        StartupNotificationService.ShowTelemetryConsent(notifications, config);
 
         Notification notification = notifications.Single();
         Assert.That(notification.Title, Is.EqualTo(SettingsStrings.Telemetry));
@@ -154,7 +154,7 @@ public sealed class StartupNotificationServiceTests
         using var notifications = new NotificationCapture();
         var config = new TelemetryConfig();
 
-        StartupNotificationService.ShowTelemetryConsent(config);
+        StartupNotificationService.ShowTelemetryConsent(notifications, config);
         notifications.Single().Actions![1].Callback();
 
         AssertTelemetry(config, false);
@@ -172,7 +172,7 @@ public sealed class StartupNotificationServiceTests
             Beutl_Logging = { Value = false }
         };
 
-        StartupNotificationService.ShowTelemetryConsent(config);
+        StartupNotificationService.ShowTelemetryConsent(notifications, config);
 
         Assert.That(notifications.All, Is.Empty);
     }
@@ -199,7 +199,7 @@ public sealed class StartupNotificationServiceTests
     public async Task ConfirmSideloadExtensions_CompletesFromUserChoice(bool accept)
     {
         using var notifications = new NotificationCapture();
-        Task<bool> result = StartupNotificationService.ConfirmSideloadExtensions(["First", "Second"]);
+        Task<bool> result = StartupNotificationService.ConfirmSideloadExtensions(notifications, ["First", "Second"]);
         Notification notification = notifications.Single();
 
         Assert.That(notification.Title, Is.EqualTo(MessageStrings.ConfirmLoadSideloadExtensions));
@@ -225,7 +225,7 @@ public sealed class StartupNotificationServiceTests
     public async Task ConfirmSideloadExtensions_CompletesWhenNotificationFails()
     {
         using var notifications = new NotificationCapture();
-        Task<bool> result = StartupNotificationService.ConfirmSideloadExtensions(["First"]);
+        Task<bool> result = StartupNotificationService.ConfirmSideloadExtensions(notifications, ["First"]);
         Notification notification = notifications.Single();
 
         notification.OnShowFailed!.Invoke();
@@ -240,7 +240,7 @@ public sealed class StartupNotificationServiceTests
         using var notifications = new NotificationCapture();
         string longName = new('A', StartupNotificationService.MaxSideloadPackageNameLength + 20);
 
-        StartupNotificationService.ConfirmSideloadExtensions(
+        StartupNotificationService.ConfirmSideloadExtensions(notifications,
             ["First\nPackage", longName, "Third", "Fourth", "Fifth"]);
         Notification notification = notifications.Single();
         string[] lines = notification.Message.Split(Environment.NewLine);

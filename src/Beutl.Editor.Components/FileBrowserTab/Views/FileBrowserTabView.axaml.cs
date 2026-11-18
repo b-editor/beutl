@@ -14,11 +14,15 @@ using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Views;
 
 public partial class FileBrowserTabView : UserControl
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
     private readonly Dictionary<Control, CancellationTokenSource> _sectionTransitionCts = [];
 
@@ -282,7 +286,7 @@ public partial class FileBrowserTabView : UserControl
                 if (!target.CanDrop(e.DataTransfer, breadcrumb.FolderId)) { e.DragEffects = DragDropEffects.None; return; }
                 try { await target.DropAsync(e.DataTransfer, breadcrumb.FolderId); }
                 catch (OperationCanceledException) { }
-                catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+                catch (Exception) { Notifications.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
             }
             return;
         }

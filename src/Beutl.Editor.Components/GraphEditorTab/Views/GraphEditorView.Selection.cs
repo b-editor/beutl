@@ -3,11 +3,15 @@ using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Language;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls.Primitives;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public partial class GraphEditorView
 {
+    private INotificationService Notifications => (DataContext as GraphEditorViewModel)?.EditorContext.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     internal KeyFrameValueScaleFlyout? ValueScaleFlyout { get; private set; }
 
     internal void DistributeSelectionEvenly()
@@ -52,7 +56,7 @@ public partial class GraphEditorView
         bool applied = false;
         model.HistoryManager.ExecuteInTransaction(() => applied = apply(), CommandNames.EditKeyFrame);
         if (!applied)
-            NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.GraphKeyFrameTransformRejected);
+            Notifications.ShowWarning(Strings.GraphEditor, MessageStrings.GraphKeyFrameTransformRejected);
         model.RefreshVerticalRange();
         UpdateSelectionAdorner();
     }

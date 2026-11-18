@@ -5,6 +5,7 @@ using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.Services.Tutorials;
 using Beutl.Utilities;
 using FluentAvalonia.UI.Controls;
@@ -15,6 +16,9 @@ namespace Beutl.Services;
 
 public sealed partial class ProjectService
 {
+    private readonly INotificationService _notifications;
+    internal INotificationService Notifications => _notifications;
+
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
     private readonly BeutlApplication _app = BeutlApplication.Current;
     private readonly ILogger _logger = Log.CreateLogger<ProjectService>();
@@ -25,8 +29,9 @@ public sealed partial class ProjectService
 
     public Media.FontManager Fonts { get; }
 
-    public ProjectService(ViewConfig configuration, Media.FontManager fonts)
+    public ProjectService(ViewConfig configuration, Media.FontManager fonts, INotificationService notifications)
     {
+        _notifications = notifications;
         Fonts = fonts;
         _configuration = configuration;
         CurrentProject = _app.Project.GetObservable()
@@ -305,7 +310,7 @@ public sealed partial class ProjectService
             }
             else
             {
-                NotificationService.ShowInformation(Strings.Project, MessageStrings.FailedToOpenProject);
+                _notifications.ShowInformation(Strings.Project, MessageStrings.FailedToOpenProject);
             }
         }
     }
@@ -451,7 +456,7 @@ public sealed partial class ProjectService
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
             // Surface the actual failure (disk full, permission denied, ...) instead of a generic message.
-            NotificationService.ShowError(Strings.Error, ex.Message);
+            _notifications.ShowError(Strings.Error, ex.Message);
             return null;
         }
     }
@@ -474,7 +479,7 @@ public sealed partial class ProjectService
     private void ReportUnavailableProjectFile(string file)
     {
         _logger.LogInformation("Skipping project open: file is unavailable. File: {File}", file);
-        NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
+        _notifications.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
     }
 
     private async Task ActivateProjectAsync(Project project)
@@ -509,7 +514,7 @@ public sealed partial class ProjectService
         Interlocked.Exchange(ref _projectNoticeDismissal, dismissal)?.Cancel();
         foreach (Notification notice in notices)
         {
-            NotificationService.Show(notice with { CancellationToken = dismissal.Token });
+            _notifications.Show(notice with { CancellationToken = dismissal.Token });
         }
     }
 

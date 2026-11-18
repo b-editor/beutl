@@ -19,6 +19,7 @@ using Beutl.Engine;
 using Beutl.Graphics.Transitions;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
@@ -434,7 +435,7 @@ public sealed partial class ElementView : UserControl
 
         // The clips Copy takes: the selection, each clip with its group.
         var templates = viewModel.Timeline.EditorContext.GetRequiredService<ObjectTemplateService>();
-        KeepRealizedWhileOpen(TemplateSaving.ShowSaveFlyout(
+        KeepRealizedWhileOpen(TemplateSaving.ShowSaveFlyout(viewModel.Timeline.EditorContext.GetRequiredService<INotificationService>(),
             templates, this,
             TemplateSaving.CreateElementTemplate(viewModel.Scene, viewModel.GetGroupOrSelectedModelsOrSelf()),
             TimelineTabExtension.GetDefaultTemplateName(viewModel.Model, templates),

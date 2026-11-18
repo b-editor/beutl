@@ -7,6 +7,7 @@ using Beutl.Editor.Models;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using AudioContext = Beutl.Audio.Platforms.OpenAL.AudioContext;
@@ -155,7 +156,7 @@ public partial class PlayerViewModel
             // On the UI thread, like the other playback state changes.
             await TryApplyOnUIThreadAsync(generation, () =>
             {
-                NotificationService.ShowError(MessageStrings.UnexpectedError,
+                EditViewModel.GetRequiredService<INotificationService>().ShowError(MessageStrings.UnexpectedError,
                     MessageStrings.AudioPlaybackException);
                 IsPlaying.Value = false;
             });

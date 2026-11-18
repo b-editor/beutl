@@ -45,7 +45,7 @@ public class ContextCommandManagerTests
     {
         await Assert.DoesNotThrowAsync(() => ContextCommandManager.ExecuteSafelyAsync(
             () => Task.FromException(new InvalidOperationException("command failed")),
-            Mock.Of<ILogger>()));
+            Mock.Of<ILogger>(), new Beutl.Services.NotificationService()));
     }
 
     [Test]
@@ -53,7 +53,7 @@ public class ContextCommandManagerTests
     {
         await Assert.DoesNotThrowAsync(() => ContextCommandManager.ExecuteSafelyAsync(
             () => Task.FromCanceled(new CancellationToken(canceled: true)),
-            Mock.Of<ILogger>()));
+            Mock.Of<ILogger>(), new Beutl.Services.NotificationService()));
     }
 
     [Test]

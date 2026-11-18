@@ -16,6 +16,9 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private CaptionTemplateId? _captionTemplateId;
 
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
@@ -130,7 +133,7 @@ public sealed partial class TimelineTabView
         }
         catch (OperationCanceledException) { }
         catch (ObjectDisposedException) { }
-        catch (Exception) { NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError); }
+        catch (Exception) { Notifications.ShowError(Strings.AddElement, MessageStrings.UnexpectedError); }
     }
 
     private async Task ImportStorageDropAsync(TimelineTabViewModel viewModel, Scene scene, StorageDragData storage)
@@ -140,7 +143,7 @@ public sealed partial class TimelineTabView
         using var fileWrite = HostProjectFileWriteAdmission.Resolve(viewModel.EditorContext)?.TryBeginProjectFileWrite();
         if (fileWrite == null)
         {
-            NotificationService.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
+            Notifications.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
             return;
         }
         try
@@ -174,7 +177,7 @@ public sealed partial class TimelineTabView
         }
         catch (OperationCanceledException) { }
         catch (ObjectDisposedException) { }
-        catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+        catch (Exception) { Notifications.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
     }
 
     private static ObjectTemplateItem? TryResolveDroppedTemplate(ObjectTemplateService templates, DragEventArgs e)

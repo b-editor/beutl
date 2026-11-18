@@ -2,7 +2,6 @@
 using System.Numerics;
 using System.Reactive;
 using System.Reactive.Linq;
-
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -10,7 +9,6 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
-
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Editor;
@@ -56,10 +54,10 @@ public class SceneSettingsTabViewModelTests
     public async Task Apply_WhenInputsBecomeInvalidWhilePausing_DoesNotCommitAndNotifies(
         int width, int height, string start, string duration)
     {
+        using var notifications = new NotificationCapture();
         using SceneSettingsTabViewModel viewModel = CreateViewModel(
             out CaptureSceneSettingsService sceneSettingsService,
-            out BlockingPreviewPlayer previewPlayer);
-        using var notifications = NotificationCapture.Install();
+            out BlockingPreviewPlayer previewPlayer, notifications: notifications);
 
         Task applyTask = viewModel.Apply.ExecuteAsync();
         await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -86,10 +84,10 @@ public class SceneSettingsTabViewModelTests
     [NonParallelizable]
     public async Task Apply_WhenTheMasterVolumeTurnsNegativeWhilePausing_DoesNotCommitAndNotifies()
     {
+        using var notifications = new NotificationCapture();
         using SceneSettingsTabViewModel viewModel = CreateViewModel(
             out CaptureSceneSettingsService sceneSettingsService,
-            out BlockingPreviewPlayer previewPlayer);
-        using var notifications = NotificationCapture.Install();
+            out BlockingPreviewPlayer previewPlayer, notifications: notifications);
 
         Task applyTask = viewModel.Apply.ExecuteAsync();
         await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -205,14 +203,14 @@ public class SceneSettingsTabViewModelTests
     private static SceneSettingsTabViewModel CreateViewModel(
         out CaptureSceneSettingsService sceneSettingsService,
         out BlockingPreviewPlayer previewPlayer,
-        bool isPlaying = true)
+        bool isPlaying = true, Beutl.Services.INotificationService? notifications = null)
     {
         var scene = new Scene(640, 480, string.Empty)
         {
             Start = { Value = MediaTime.FromSeconds(1) },
             Duration = { Value = MediaTime.FromSeconds(5) },
         };
-        SceneSettingsTabViewModel viewModel = CreateViewModel(scene, out sceneSettingsService, out previewPlayer, isPlaying);
+        SceneSettingsTabViewModel viewModel = CreateViewModel(scene, out sceneSettingsService, out previewPlayer, isPlaying, notifications);
         viewModel.Width.Value = 800;
         viewModel.Height.Value = 600;
         viewModel.StartInput.Value = TimeSpan.FromSeconds(2).ToString();
@@ -224,11 +222,11 @@ public class SceneSettingsTabViewModelTests
         Scene scene,
         out CaptureSceneSettingsService sceneSettingsService,
         out BlockingPreviewPlayer previewPlayer,
-        bool isPlaying = true)
+        bool isPlaying = true, Beutl.Services.INotificationService? notifications = null)
     {
         sceneSettingsService = new CaptureSceneSettingsService();
         previewPlayer = new BlockingPreviewPlayer(isPlaying);
-        var editorContext = new TestEditorContext(scene);
+        var editorContext = new TestEditorContext(scene, notifications: notifications);
         editorContext.AddService(scene);
         editorContext.AddService<ISceneSettingsService>(sceneSettingsService);
         editorContext.AddService<ITimelineOptionsProvider>(new TestTimelineOptionsProvider(scene));

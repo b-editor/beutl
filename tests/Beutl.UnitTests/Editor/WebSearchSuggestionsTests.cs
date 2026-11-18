@@ -1,11 +1,9 @@
 ﻿using System.Net;
 using System.Net.Http;
 using System.Text;
-
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Extensibility;
-
 using Moq;
 
 namespace Beutl.UnitTests.Editor;
@@ -68,7 +66,7 @@ public class WebSearchSuggestionsTests
     [TestCase("[topic]", "https://www.google.com/search?q=%5Btopic%5D")]
     public void Enter_SearchesWordsAndNavigatesAddresses(string text, string expected)
     {
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        using var vm = new WebBrowserTabViewModel(Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock().Object);
         vm.Address.Value = text;
         Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
         Assert.That(uri.AbsoluteUri, Is.EqualTo(expected));
@@ -84,7 +82,7 @@ public class WebSearchSuggestionsTests
         try
         {
             Assert.That(profile.UpdateSettings((BrowserSearchEngine)engineIndex, true, true), Is.True);
-            using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, WebBrowserTabViewModel.BlankPage, profile);
+            using var vm = new WebBrowserTabViewModel(Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock().Object, WebBrowserTabViewModel.BlankPage, profile);
             vm.Address.Value = text;
             Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
             Assert.That(uri.Host, Is.EqualTo(expectedHost));
@@ -106,7 +104,7 @@ public class WebSearchSuggestionsTests
     [Test]
     public void VeryLongQuestionsRemainSearches()
     {
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        using var vm = new WebBrowserTabViewModel(Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock().Object);
         vm.Address.Value = new string('x', 100000) + " question";
         Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
         Assert.That(uri.Host, Is.EqualTo("www.google.com"));
@@ -122,7 +120,7 @@ public class WebSearchSuggestionsTests
         try
         {
             profile.UpdateSettings((BrowserSearchEngine)engineIndex, true, true);
-            using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, WebBrowserTabViewModel.BlankPage, profile);
+            using var vm = new WebBrowserTabViewModel(Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock().Object, WebBrowserTabViewModel.BlankPage, profile);
             vm.Address.Value = text;
             Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
             Assert.That(uri.Host, Is.EqualTo(expectedHost));
@@ -141,7 +139,7 @@ public class WebSearchSuggestionsTests
     [TestCase("C:\\private folder\\file.txt")]
     public void ExplicitUrisAndCredentialsAreNotConvertedToSearches(string text)
     {
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        using var vm = new WebBrowserTabViewModel(Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock().Object);
         vm.Address.Value = text;
         Assert.That(vm.TryCreateNavigationUri(out _), Is.False);
     }
@@ -153,7 +151,7 @@ public class WebSearchSuggestionsTests
     [TestCase("System.InvalidOperationException: operation failed")]
     public void ColonBearingQueriesUseTheSelectedSearchEngine(string text)
     {
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        using var vm = new WebBrowserTabViewModel(Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock().Object);
         vm.Address.Value = text;
         Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
         Assert.That(uri.Host, Is.EqualTo("www.google.com"));

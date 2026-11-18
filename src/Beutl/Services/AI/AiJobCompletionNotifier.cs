@@ -2,6 +2,7 @@
 using Beutl.Editor.Services.AI;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.AI;
@@ -15,12 +16,13 @@ internal sealed class AiJobCompletionNotifier : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<AiJobCompletionNotifier>();
     private Dictionary<AiJobId, AiJobStatusSemantics> _knownStatuses = [];
     private bool _hasBaseline;
+    private readonly INotificationService _notifications;
 
     public AiJobCompletionNotifier(
         IObservable<AiJobMonitorSnapshot> snapshots,
         IAiJobKindRegistry jobKinds,
         AiJobResultRegistry resultHandlers,
-        Action openJobCenter)
+        Action openJobCenter, INotificationService notifications)
     {
         ArgumentNullException.ThrowIfNull(snapshots);
         ArgumentNullException.ThrowIfNull(openJobCenter);
@@ -28,6 +30,7 @@ internal sealed class AiJobCompletionNotifier : IDisposable
         _jobKinds = jobKinds ?? throw new ArgumentNullException(nameof(jobKinds));
         _resultHandlers = resultHandlers ?? throw new ArgumentNullException(nameof(resultHandlers));
         _openJobCenter = openJobCenter;
+        _notifications = notifications;
         _subscription = snapshots.Subscribe(ProcessSnapshot);
     }
 
@@ -93,7 +96,7 @@ internal sealed class AiJobCompletionNotifier : IDisposable
             if (completion is null)
                 return;
 
-            NotificationService.Show(
+            _notifications.Show(
                 completion.Title,
                 completion.Message,
                 ToNotificationType(completion.Notification),

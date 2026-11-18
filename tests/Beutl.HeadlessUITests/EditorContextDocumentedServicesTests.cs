@@ -21,7 +21,7 @@ public class EditorContextDocumentedServicesTests
         using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestShell.FontManager, Path.Combine(workspace, "templates"));
         var tutorials = new Beutl.Services.Tutorials.TutorialServiceHandler(TestShell.Configuration.TutorialConfig);
         var palettes = new Beutl.Controls.PropertyEditors.ColorPaletteService(null);
-        var services = new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestShell.FontManager)
+        var services = new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Services.INotificationService>(() => TestShell.Notifications).Add<Beutl.Media.FontManager>(() => TestShell.FontManager)
             .Add(() => TestShell.Configuration)
             .Add(() => library)
             .Add(() => templates)

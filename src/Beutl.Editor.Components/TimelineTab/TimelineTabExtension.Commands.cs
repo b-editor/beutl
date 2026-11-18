@@ -6,6 +6,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -310,7 +311,7 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         if (name is null) return;
 
         // Switching editors cancels the command, which stops rendering the preview and saving.
-        await TemplateSaving.SaveAsync(
+        await TemplateSaving.SaveAsync(editorContext.GetRequiredService<INotificationService>(),
             editorContext.GetRequiredService<ObjectTemplateService>(),
             TemplateSaving.CreateElementTemplate(scene, targets),
             name.Trim(),

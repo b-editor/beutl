@@ -61,8 +61,8 @@ public sealed class IncompatiblePackageInstallTests
         using var store = new ServedPackage(TestPackages.CreateIncompatibleNupkg(identity, _cleanup));
         using var http = new HttpClient(store, disposeHandler: false);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, disposeHandler: false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
-        using var notifications = new NotificationCapture();
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await operation.InstallOrQueueAsync(
             TestStore.CreateRelease(app, "1.0.0", fileId: "archive", name: _name), identity, NullLogger.Instance, CancellationToken.None);
@@ -86,14 +86,14 @@ public sealed class IncompatiblePackageInstallTests
         using var store = new ServedPackage(TestPackages.CreateIncompatibleNupkg(newId, _cleanup));
         using var http = new HttpClient(store, disposeHandler: false);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig, () => new HttpClient(store, disposeHandler: false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         var manager = app.GetResource<PackageManager>();
         var repository = app.GetResource<InstalledPackageRepository>();
         LocalPackage old = TestPackages.CreateExtracted(oldId, data: false, loadable: true, cleanup: _cleanup);
         repository.UpgradePackagesAndDeferNotifications(oldId)();
         manager.Load(old);
         var release = TestStore.CreateRelease(app, "2.0.0", fileId: "archive", name: _name);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await operation.UpdateOrQueueAsync(
             _name, newId, token => operation.DownloadAndLoadPackage(release, newId, token), NullLogger.Instance, CancellationToken.None);

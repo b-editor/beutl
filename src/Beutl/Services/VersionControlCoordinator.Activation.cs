@@ -1,5 +1,7 @@
 ﻿using Avalonia.Threading;
 using Beutl.Editor.VersionControl;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -199,7 +201,7 @@ internal partial class VersionControlCoordinator
                     // The warning carries the reason (for example a project path the repository ignores,
                     // or Git's own error) instead of leaving it only in the log.
                     PublishNotification(() =>
-                        NotificationService.ShowWarning(
+                        _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
                             Strings.VersionControl,
                             string.Format(Strings.VersionControl_ActivationFailedFormat, GetErrorText(ex))));
                 }
@@ -274,7 +276,7 @@ internal partial class VersionControlCoordinator
             if (IsCurrentActivation(activation))
             {
                 PublishNotification(() =>
-                    NotificationService.ShowWarning(
+                    _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
                         Strings.VersionControl,
                         string.Format(
                             Strings.VersionControl_OpenedWithoutVersionControlFormat,
@@ -363,7 +365,7 @@ internal partial class VersionControlCoordinator
         if (service.RepositoryWatcherFailure is { } failure)
         {
             PublishNotification(() =>
-                NotificationService.ShowWarning(
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
                     Strings.VersionControl,
                     string.Format(Strings.VersionControl_RepositoryNotWatchedFormat, GetErrorText(failure))));
         }

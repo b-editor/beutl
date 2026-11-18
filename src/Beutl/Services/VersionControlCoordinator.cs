@@ -2,6 +2,7 @@
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -98,7 +99,7 @@ internal sealed partial class VersionControlCoordinator :
         _installationLocator = installationLocator ?? new GitInstallationLocator(config);
         _serviceFactory = serviceFactory;
         _dispatcher = Dispatcher.UIThread;
-        _prompts = new VersionControlConfirmationPresenter(_dispatcher);
+        _prompts = new VersionControlConfirmationPresenter(_dispatcher, editorService.AppServices.GetRequiredService<INotificationService>());
         ConfirmRestoreAsync = _prompts.ShowRestoreConfirmationAsync;
         ConfirmSwitchBranchAsync = ShowSwitchBranchConfirmationAsync;
         ConfirmPullAsync = _prompts.ShowPullConfirmationAsync;

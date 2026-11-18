@@ -394,7 +394,7 @@ public sealed class FileBrowserStorageTests
         new(TestShell.CreateEditorContextMock().Object, new(providers));
 
     private static BeutlStorageProvider BeutlProvider(BeutlApiApplication clients) =>
-        new(clients, () => throw new InvalidOperationException("Not used by this test"));
+        new(TestShell.Notifications, clients, () => throw new InvalidOperationException("Not used by this test"));
 
     // A file browser tab that lists the Beutl storage of a signed-in user, served by a fake handler.
     private static BeutlStorage CreateBeutlStorage()

@@ -3,6 +3,8 @@ using System.Globalization;
 using System.Reactive.Disposables;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -11,6 +13,9 @@ namespace Beutl.Editor.Components.VersionControl.ViewModels;
 
 internal sealed class TitleBarBranchViewModel : IDisposable
 {
+    private readonly INotificationService _notifications;
+    internal INotificationService Notifications => _notifications;
+
     private readonly ILogger _logger = Log.CreateLogger<TitleBarBranchViewModel>();
     private readonly IProjectVersionControlCoordinator _coordinator;
     private readonly Action<Action> _postToUi;
@@ -29,24 +34,25 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     private bool _disposed;
     private bool _isFlyoutOpen;
 
-    internal TitleBarBranchViewModel(
+    internal TitleBarBranchViewModel(INotificationService notifications,
         IReadOnlyReactiveProperty<IProjectVersionControlService?> serviceSource,
         IReadOnlyReactiveProperty<bool> gitAvailabilitySource,
         IProjectVersionControlCoordinator coordinator)
         : this(
-            serviceSource,
+            notifications, serviceSource,
             gitAvailabilitySource,
             coordinator,
             VersionControlUiThread.Post)
     {
     }
 
-    internal TitleBarBranchViewModel(
+    internal TitleBarBranchViewModel(INotificationService notifications,
         IReadOnlyReactiveProperty<IProjectVersionControlService?> serviceSource,
         IReadOnlyReactiveProperty<bool> gitAvailabilitySource,
         IProjectVersionControlCoordinator coordinator,
         Action<Action> postToUi)
     {
+        _notifications = notifications;
         _coordinator = coordinator;
         _postToUi = postToUi;
         _coordinatorGitAvailable = gitAvailabilitySource.Value;
@@ -76,7 +82,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
                 IsVisible.CombineLatest(
                     IsBusy,
                     static (visible, busy) => visible && !busy))
-            .WithSubscribe(() => VersionControlCommandBoundary.RunAsync(
+            .WithSubscribe(() => VersionControlCommandBoundary.RunAsync(_notifications,
                 CreateBranchAsync,
                 _logger,
                 nameof(CreateBranchCommand)))

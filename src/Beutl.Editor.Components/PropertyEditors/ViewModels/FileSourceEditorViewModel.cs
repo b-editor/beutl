@@ -3,6 +3,7 @@ using Beutl.IO;
 using Beutl.Media.Source;
 using Beutl.Serialization;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
@@ -43,7 +44,7 @@ public sealed class FileSourceEditorViewModel<T> : PropertyEditorViewModel<T?, F
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(MessageStrings.OperationFailed, ex.Message);
+            this.GetRequiredService<INotificationService>().ShowError(MessageStrings.OperationFailed, ex.Message);
             return;
         }
 

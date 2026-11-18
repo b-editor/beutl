@@ -1,8 +1,6 @@
 ﻿using System.Collections.Concurrent;
-
 using Beutl.Api.Services;
 using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.StartupTasks;
@@ -24,8 +22,8 @@ public sealed class LoadSideloadExtensionTask : StartupTask
             manager.Prepare,
             () => startup.GetTask<LoadInstalledExtensionTask>().Task,
             prepared => manager.Load(prepared),
-            StartupNotificationService.ConfirmSideloadExtensions,
-            AfterLoadingExtensionsTask.ShowFailures,
+            names => StartupNotificationService.ConfirmSideloadExtensions(startup.Notifications, names),
+            failures => AfterLoadingExtensionsTask.ShowFailures(startup.Notifications, failures),
             Log.CreateLogger<LoadSideloadExtensionTask>())
     {
     }

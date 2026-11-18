@@ -1,5 +1,7 @@
 ﻿using Beutl.Extensibility;
 using Beutl.Media.Proxy;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Extensions.FFmpeg.Proxy;
 
@@ -12,11 +14,11 @@ namespace Beutl.Extensions.FFmpeg.Proxy;
 public sealed class FFmpegProxyExtension : ProxyExtension
 {
     public override IProxyGeneratorFactory GetProxyGeneratorFactory()
-        => new FFmpegProxyGeneratorFactory();
+        => new FFmpegProxyGeneratorFactory(Services.GetRequiredService<INotificationService>());
 
-    private sealed class FFmpegProxyGeneratorFactory : IProxyGeneratorFactory
+    private sealed class FFmpegProxyGeneratorFactory(INotificationService notifications) : IProxyGeneratorFactory
     {
         public IProxyGenerator Create(IProxyStore store)
-            => new FFmpegProxyGenerator(store);
+            => new FFmpegProxyGenerator(store, notifications);
     }
 }

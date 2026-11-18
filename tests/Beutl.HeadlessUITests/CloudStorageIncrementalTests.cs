@@ -474,7 +474,7 @@ public sealed class CloudStorageIncrementalTests
             Clients = new BeutlApiApplication(_http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
             if (signInAs is not null)
                 SignIn(Clients, signInAs);
-            ViewModel = new(Clients, () => throw new InvalidOperationException("Not used by this test"), utcNow);
+            ViewModel = new(TestShell.Notifications, Clients, () => throw new InvalidOperationException("Not used by this test"), utcNow);
         }
 
         public async Task LoadFirstAsync(string response)

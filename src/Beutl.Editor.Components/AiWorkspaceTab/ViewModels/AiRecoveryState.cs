@@ -12,6 +12,8 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 /// </summary>
 internal sealed class AiRecoveryState : IDisposable
 {
+    private readonly INotificationService _notifications;
+
     private readonly CompositeDisposable _disposables = [];
     private readonly AiRequestKey _requestKey;
     private readonly AiOperationId _operation;
@@ -21,7 +23,7 @@ internal sealed class AiRecoveryState : IDisposable
     private readonly Action<AiPendingAttempt>? _settled;
 
     // collect looks an attempt's job up by its key; settled hears of every attempt let go of.
-    public AiRecoveryState(
+    public AiRecoveryState(INotificationService notifications,
         AiRequestKey requestKey,
         AiOperationId operation,
         ReactivePropertySlim<string?> error,
@@ -29,6 +31,7 @@ internal sealed class AiRecoveryState : IDisposable
         Func<AiPendingAttempt, Task> collect,
         Action<AiPendingAttempt>? settled = null)
     {
+        _notifications = notifications;
         _requestKey = requestKey;
         _operation = operation;
         _error = error;
@@ -117,7 +120,7 @@ internal sealed class AiRecoveryState : IDisposable
             return;
         // A request that was sent before may still finish, or may already have been paid for.
         // Either way its job stays in the account's AI job list.
-        NotificationService.ShowInformation(Strings.AiPendingRequest, Strings.AiAbandonedRequestInJobs);
+        _notifications.ShowInformation(Strings.AiPendingRequest, Strings.AiAbandonedRequestInJobs);
     }
 
     // Drops an attempt whose job is settled, deleted or was never made.

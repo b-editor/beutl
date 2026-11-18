@@ -175,7 +175,7 @@ public class EditorCloseSaveTests
         CultureInfo previousCulture = CultureInfo.CurrentUICulture;
         try
         {
-            using var notifications = new NotificationCapture();
+            using var notifications = new NotificationCapture(TestShell.Notifications);
             CultureInfo.CurrentUICulture = new CultureInfo(culture);
             using var history = new HistoryViewModel(editor);
             editor.Scene.Duration.Value = MediaTime.FromSeconds(10);

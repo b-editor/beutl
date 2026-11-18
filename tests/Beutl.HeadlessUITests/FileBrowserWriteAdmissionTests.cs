@@ -54,7 +54,7 @@ public sealed class FileBrowserWriteAdmissionTests
         using var context = new PluginEditorContext(new PluginDocument());
         using var browser = new FileBrowserTabViewModel(context);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir, move: false);
         await browser.TransferFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir, move: true);
@@ -76,7 +76,7 @@ public sealed class FileBrowserWriteAdmissionTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-second-host", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var secondHost = new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices);
 
         // The second host is free; the first, which owns the editor, is mid-mutation.
@@ -103,7 +103,7 @@ public sealed class FileBrowserWriteAdmissionTests
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         using var item = new FileSystemItemViewModel(TestShell.Templates, fixture.CopySource, isDirectory: false);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         // The mutation starts while the confirmation is open, and the user confirms into it.
         using (var confirmation = new ConfirmationDuringMutation(browser))
@@ -138,7 +138,7 @@ public sealed class FileBrowserWriteAdmissionTests
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         using var first = new FileSystemItemViewModel(TestShell.Templates, fixture.CopySource, isDirectory: false);
         using var second = new FileSystemItemViewModel(TestShell.Templates, fixture.MoveSource, isDirectory: false);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         using (var confirmation = new ConfirmationDuringMutation(browser))
         {
@@ -226,7 +226,7 @@ public sealed class FileBrowserWriteAdmissionTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-cancel-copy", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         using var copyStarted = new ManualResetEventSlim();
         using var releaseCopy = new ManualResetEventSlim();
         int copies = 0;
@@ -294,7 +294,7 @@ public sealed class FileBrowserWriteAdmissionTests
         File.WriteAllText(Path.Combine(folder, "a.txt"), "a");
         File.WriteAllText(Path.Combine(folder, "b.txt"), "b");
         string copiedFolder = Path.Combine(fixture.TargetDir, "footage");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         using var copyStarted = new ManualResetEventSlim();
         using var releaseCopy = new ManualResetEventSlim();
         int copies = 0;
@@ -406,7 +406,7 @@ public sealed class FileBrowserWriteAdmissionTests
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         var shownOnUiThread = new List<bool>();
-        using var notifications = new NotificationCapture(_ => shownOnUiThread.Add(Dispatcher.UIThread.CheckAccess()));
+        using var notifications = new NotificationCapture(TestShell.Notifications, _ => shownOnUiThread.Add(Dispatcher.UIThread.CheckAccess()));
         browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
         browser.CopyFile = static (_, _) => throw new UnauthorizedAccessException("Access denied.");
 
@@ -458,7 +458,7 @@ public sealed class FileBrowserWriteAdmissionTests
         browser.RootPath.Value = fixture.TargetDir;
         HeadlessTestHelpers.Settle();
         using var renameItem = new FileSystemItemViewModel(TestShell.Templates, fixture.RenameSource, isDirectory: false);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         IDisposable? mutation = TestShell.Editor.TryBeginWorktreeMutation();
         Assert.That(mutation, Is.Not.Null, "the workspace must be free before the mutation starts");
@@ -671,7 +671,7 @@ public sealed class FileBrowserWriteAdmissionTests
         {
         }
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : TestShell.MainViewModel.AppServices.GetService(serviceType);
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : TestShell.MainViewModel.AppServices.GetService(serviceType);
 
         public void Dispose() => IsEnabled.Dispose();
     }

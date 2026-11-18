@@ -2,7 +2,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-
 #if DEBUG
 using Avalonia.Diagnostics;
 
@@ -35,9 +34,9 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
-using LibraryService = Beutl.Services.LibraryService;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl;
 
@@ -53,6 +52,7 @@ public sealed class App : Application
     private readonly ITutorialService _tutorialService;
     private readonly GlobalConfiguration _configuration;
     private readonly Media.FontManager _fonts;
+    private readonly INotificationService _notifications = new NotificationService(new NotificationServiceHandler());
     private readonly AppUpdateController _appUpdateController;
     private readonly ColorPaletteService _colorPalettes = ColorPaletteService.CreateDefault();
     private readonly EditorServiceRegistry _appServices;
@@ -71,7 +71,7 @@ public sealed class App : Application
     {
         _configuration = configuration;
         _tutorialService = new TutorialServiceHandler(configuration.TutorialConfig);
-        _appUpdateController = new AppUpdateController(configuration.UpdateConfig);
+        _appUpdateController = new AppUpdateController(configuration.UpdateConfig, _notifications);
         Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
         _fonts = new Media.FontManager(configuration.FontConfig);
         _objectTemplateService = new(_fonts, configuration.EditorConfig, configuration.ProxyStoreConfig);
@@ -79,6 +79,7 @@ public sealed class App : Application
         _appServices = new EditorServiceRegistry()
             .Add(() => _configuration)
             .Add(() => _fonts)
+            .Add(() => _notifications)
             .Add(() => _appUpdateController)
             .Add(() => _libraryService)
             .Add(() => _objectTemplateService)
@@ -155,13 +156,12 @@ public sealed class App : Application
 
         base.RegisterServices();
 
-        UiExceptionBoundary.Install(Dispatcher.UIThread);
-        // After the shared hooks, whose notification handler the proxy store's warnings need.
+        UiExceptionBoundary.Install(Dispatcher.UIThread, _notifications);
         RegisterProcessServices(_libraryService, GetContextCommandManager, () =>
         {
             try
             {
-                _proxyMediaServices = new ProxyMediaServices(_configuration);
+                _proxyMediaServices = new ProxyMediaServices(_configuration, _notifications);
             }
             catch (Exception ex)
             {
@@ -176,7 +176,6 @@ public sealed class App : Application
     internal static void RegisterProcessServices(LibraryService libraryService, Func<ContextCommandManager?> commands, Action? alongside = null)
     {
         PropertyEditorControls.Install();
-        NotificationService.Handler = new NotificationServiceHandler();
         AppHelper.GetContextCommandManager = commands;
         GraphSnapshot.PostToDocumentThread = static write =>
         {
@@ -224,6 +223,7 @@ public sealed class App : Application
             ColorPaletteService.SetService(desktop.MainWindow, _colorPalettes);
             ControlConfiguration.SetConfiguration(desktop.MainWindow, _configuration);
             ControlFonts.SetFonts(desktop.MainWindow, _fonts);
+            ControlNotifications.SetNotifications(desktop.MainWindow, _notifications);
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
             desktop.Exit += (_, _) =>
             {
@@ -276,6 +276,7 @@ public sealed class App : Application
                 ColorPaletteService.SetService(page, _colorPalettes);
                 ControlConfiguration.SetConfiguration(page, _configuration);
                 ControlFonts.SetFonts(page, _fonts);
+                ControlNotifications.SetNotifications(page, _notifications);
                 page.Closed += (_, _) => viewModel.Dispose();
                 page.OpenPackage(package, request.Version);
                 _ = page.ShowDialog(mainWindow);
@@ -294,7 +295,7 @@ public sealed class App : Application
         catch (Exception e)
         {
             s_logger.LogError(e, "Failed to open package {PackageName} from the web store.", request.PackageName);
-            await e.Handle();
+            await e.Handle(_notifications);
         }
         finally
         {

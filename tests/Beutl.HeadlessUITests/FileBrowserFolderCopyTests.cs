@@ -84,7 +84,7 @@ public sealed class FileBrowserFolderCopyTests
         string elsewhere = Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(target)!, "elsewhere")).FullName;
         WriteFile(elsewhere, "far.txt", "far");
         Directory.CreateSymbolicLink(Path.Combine(footage, "linked"), elsewhere);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], target, move: false);
 
@@ -103,7 +103,7 @@ public sealed class FileBrowserFolderCopyTests
         (FileBrowserTabViewModel browser, string footage, string target) = await OpenAsync("loop");
         using var _ = browser;
         Directory.CreateSymbolicLink(Path.Combine(footage, "loop"), "..");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], target, move: false);
 
@@ -124,7 +124,7 @@ public sealed class FileBrowserFolderCopyTests
         string sub = Directory.CreateDirectory(Path.Combine(footage, "sub")).FullName;
         string intoSource = Path.Combine(target, "into-source");
         Directory.CreateSymbolicLink(intoSource, sub);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], intoSource, move: false);
 
@@ -158,7 +158,7 @@ public sealed class FileBrowserFolderCopyTests
         }
 
         var shown = Answer(browser, FAContentDialogResult.Primary);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], target, move: false);
 
@@ -199,7 +199,7 @@ public sealed class FileBrowserFolderCopyTests
             File.Copy(source, destination);
         };
         var shown = Answer(browser, FAContentDialogResult.Primary);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], dropTarget, move: false);
 
@@ -226,7 +226,7 @@ public sealed class FileBrowserFolderCopyTests
         string root = rootIsLink ? link : Path.Combine(link, Path.GetFileName(target));
         browser.RootPath.Value = root;
         WriteFile(Directory.CreateDirectory(Path.Combine(footage, "sub")).FullName, "c.txt", "c");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], root, move: false);
 
@@ -247,7 +247,7 @@ public sealed class FileBrowserFolderCopyTests
         string real = Directory.CreateDirectory(Path.Combine(target, "real")).FullName;
         string link = Path.Combine(target, "link");
         Directory.CreateSymbolicLink(link, "real");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], link, move: false);
 
@@ -277,7 +277,7 @@ public sealed class FileBrowserFolderCopyTests
             dropTarget = Path.Combine(link, "..", "new");
         }
         string[] originalEntries = Directory.GetFileSystemEntries(outside, "*", SearchOption.AllDirectories);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], dropTarget, move: false);
 
@@ -302,7 +302,7 @@ public sealed class FileBrowserFolderCopyTests
         string resources = Path.Combine(browser.ProjectDirectory!, "resources");
         if (linkedResources)
             Directory.CreateSymbolicLink(resources, target);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToResourcesAsync([(footage, true)], move: false);
 
@@ -330,7 +330,7 @@ public sealed class FileBrowserFolderCopyTests
         (FileBrowserTabViewModel browser, string footage, string target) = await OpenAsync("move");
         using var _ = browser;
         Directory.CreateDirectory(Path.Combine(target, "footage"));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], target, move: true);
 

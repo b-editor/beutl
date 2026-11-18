@@ -57,7 +57,7 @@ public class ElementAddEntryPointTests
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-add-entry-success");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
         var description = new ElementDescription(
@@ -148,7 +148,7 @@ public class ElementAddEntryPointTests
             editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
         }
 
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
 
@@ -174,11 +174,11 @@ public class ElementAddEntryPointTests
     [Test]
     public void A_refused_paste_says_why()
     {
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
-        TimelineTabViewModel.ShowPasteFailure(new LockedElementLayerFailure(1));
-        TimelineTabViewModel.ShowPasteFailure(new ElementSceneNotSavedFailure());
-        TimelineTabViewModel.ShowPasteFailure(new InvalidElementMaterializationFailure("failed"));
+        TimelineTabViewModel.ShowPasteFailure(TestShell.Notifications, new LockedElementLayerFailure(1));
+        TimelineTabViewModel.ShowPasteFailure(TestShell.Notifications, new ElementSceneNotSavedFailure());
+        TimelineTabViewModel.ShowPasteFailure(TestShell.Notifications, new InvalidElementMaterializationFailure("failed"));
 
         Assert.That(
             notifications.All.Select(notification => (notification.Type, notification.Title, notification.Message)),
@@ -196,7 +196,7 @@ public class ElementAddEntryPointTests
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-add-entry-failure");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
 
@@ -229,7 +229,7 @@ public class ElementAddEntryPointTests
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-template-drop");
         string templatePath = CreateElementTemplateFile(editor, "dropped-template.json");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
         var view = new TimelineTabView { DataContext = timeline };
@@ -285,7 +285,7 @@ public class ElementAddEntryPointTests
             await OpenEditorForNewScene("timeline-several-files-drop");
         var decoder = new WaveDecoderInfo();
         DecoderRegistry.Register(decoder);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
         var view = new TimelineTabView { DataContext = timeline };
@@ -434,7 +434,7 @@ public class ElementAddEntryPointTests
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-subtitle-drop");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 900, Height = 600 };
 
@@ -643,7 +643,7 @@ public class ElementAddEntryPointTests
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-subtitle-mixed");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
         string broken = Path.Combine(directory, "broken.srt");
         string missing = Path.Combine(directory, "missing.srt");
@@ -743,7 +743,7 @@ public class ElementAddEntryPointTests
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-subtitle-empty");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "broken.srt");
         File.WriteAllText(path, "this is not a subtitle file");
 
@@ -762,7 +762,7 @@ public class ElementAddEntryPointTests
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-subtitle-short");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "short.srt");
         File.WriteAllText(path, "1\n00:00:03,000 --> 00:00:03,200\nshort\n\n2\nnot a time\nskipped\n");
         (TimeRange Range, int ZIndex)? shown = null;
@@ -1031,7 +1031,7 @@ public class ElementAddEntryPointTests
         editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(
             editor.Scene.FrameSize.Value.Width,
             editor.Scene.FrameSize.Value.Height));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
         var view = new PlayerView { DataContext = editor.Player };
@@ -1107,7 +1107,7 @@ public class ElementAddEntryPointTests
         editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(
             editor.Scene.FrameSize.Value.Width,
             editor.Scene.FrameSize.Value.Height));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var view = new PlayerView { DataContext = editor.Player };
         view.image.Width = editor.Scene.FrameSize.Value.Width;
         view.image.Height = editor.Scene.FrameSize.Value.Height;
@@ -1190,7 +1190,7 @@ public class ElementAddEntryPointTests
         if (outcome == "locked")
             editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } });
         if (target == "player-without-timeline") editor.CloseToolTab(timeline);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var view = target == "timeline" ? (Control)new TimelineTabView { DataContext = timeline } : new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 900, Height = 600 };
         try
@@ -1237,7 +1237,7 @@ public class ElementAddEntryPointTests
         string[] sources = rejectFirst
             ? [CreatePngFile(editor, "rejected.png"), CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")]
             : [CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")];
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 900, Height = 600 };
         try
@@ -1381,7 +1381,7 @@ public class ElementAddEntryPointTests
         layout.Children.Add(source);
         layout.Children.Add(target);
         var window = new Window { Content = layout, Width = 1200, Height = 700 };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         string downloads = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "storage", "downloads");
         string[] originalDownloads = Directory.Exists(downloads) ? Directory.GetDirectories(downloads) : [];
         using var reservation = outcome == "busy" ? TestShell.Editor.TryBeginWorktreeMutation() : null;

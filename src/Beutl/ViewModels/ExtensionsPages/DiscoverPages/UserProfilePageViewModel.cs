@@ -1,9 +1,9 @@
 ﻿using Avalonia.Collections;
-
 using Beutl.Api.Objects;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -12,11 +12,14 @@ namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
+    private readonly INotificationService _notifications;
+
     private readonly ILogger _logger = Log.CreateLogger<UserProfilePageViewModel>();
     private readonly CompositeDisposable _disposables = [];
 
-    public UserProfilePageViewModel(Profile profile)
+    public UserProfilePageViewModel(INotificationService notifications, Profile profile)
     {
+        _notifications = notifications;
         Profile = profile;
         Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
@@ -39,7 +42,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
+                    await e.Handle(_notifications);
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -52,7 +55,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
         Refresh.Execute();
 
         More = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(() => StorePageCommand.RunAsync(
+            .WithSubscribe(() => StorePageCommand.RunAsync(_notifications,
                 IsBusy, null, CancellationToken.None, _logger,
                 async _ =>
                 {

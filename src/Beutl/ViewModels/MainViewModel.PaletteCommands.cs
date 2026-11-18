@@ -82,7 +82,7 @@ public sealed partial class MainViewModel
         try
         {
             CommitResult result = await _versionControlCoordinator.CommitManualAsync(message.Trim());
-            NotificationService.ShowInformation(
+            AppServices.GetRequiredService<INotificationService>().ShowInformation(
                 Strings.VersionControl,
                 result is CommitResult.NoChanges
                     ? Strings.VersionControl_NothingToCommit
@@ -93,7 +93,7 @@ public sealed partial class MainViewModel
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle(AppServices.GetRequiredService<INotificationService>());
         }
     }
 }

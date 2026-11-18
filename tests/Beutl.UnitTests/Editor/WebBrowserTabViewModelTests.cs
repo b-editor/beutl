@@ -14,7 +14,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void AddressSuggestions_KeepRecentSuccessfulVisitsWithoutDuplicates()
     {
-        using var viewModel = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        using var viewModel = new WebBrowserTabViewModel(Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock().Object);
         for (int i = 0; i < 105; i++)
         {
             viewModel.CompleteNavigation(new Uri($"https://example.com/{i}"), true, false, false);
@@ -64,7 +64,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void BlankPage_UsesTheNewTabHeader()
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
 
         Assert.Multiple(() =>
@@ -115,7 +115,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void NavigationState_UpdatesAddressHeaderAndHistoryAvailability()
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
         var uri = new Uri("https://docs.beutl.beditor.net/get-started/");
 
@@ -138,7 +138,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void PageTitle_ReplacesTheHostBasedHeader()
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
         var uri = new Uri("https://example.com/page");
 
@@ -152,7 +152,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void StalePageTitle_DoesNotReplaceTheCurrentPageHeader()
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
         var previousUri = new Uri("https://previous.example/page");
         var currentUri = new Uri("https://current.example/page");
@@ -166,7 +166,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void NavigationFailure_IsExposedToTheUser()
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
         var uri = new Uri("https://example.invalid/");
 
@@ -181,7 +181,7 @@ public class WebBrowserTabViewModelTests
     {
         var first = new Uri("https://first.example/page");
         var next = new Uri(destination);
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, first);
+        using var vm = new WebBrowserTabViewModel(Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock().Object, first);
         vm.CompleteNavigation(first, true, false, false);
         vm.SetPageTitle(first, "Previous document");
         vm.CompleteNavigation(next, true, true, false);
@@ -196,7 +196,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void StoppedNavigation_DoesNotReportALoadFailure()
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
         var uri = new Uri("https://example.com/slow");
 
@@ -214,7 +214,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void ReportActionFailure_UsesTheLocalizedBrowserMessage()
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
 
         viewModel.ReportActionFailure();
@@ -225,7 +225,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void SetWebViewUnavailable_ControlsLinuxSetupHelpVisibility()
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
 
         viewModel.SetWebViewUnavailable("Missing runtime.", showLinuxRuntimeHelp: true);
@@ -240,7 +240,7 @@ public class WebBrowserTabViewModelTests
     [Test]
     public void CurrentAddress_RoundTripsThroughToolState()
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         var uri = new Uri("https://example.com/path?q=1");
         var json = new JsonObject();
 
@@ -264,7 +264,7 @@ public class WebBrowserTabViewModelTests
     [TestCase("about:blank")]
     public void TryOpenNewTab_UsesTheRequestedAddress(string address)
     {
-        var editorContext = new Mock<IEditorContext>();
+        var editorContext = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         IToolContext? openedContext = null;
         editorContext
             .Setup(x => x.OpenToolTab(It.IsAny<IToolContext>()))

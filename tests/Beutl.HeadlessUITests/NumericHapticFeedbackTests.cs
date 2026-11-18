@@ -171,6 +171,7 @@ public class NumericHapticFeedbackTests
             Window = new Window { Content = new StackPanel { Margin = new Thickness(24), Children = { control } }, Width = 420, Height = 180 };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
+            Beutl.Controls.ControlNotifications.SetNotifications(Window, TestShell.Notifications);
             Window.Show();
             HeadlessTestHelpers.Render(3);
         }

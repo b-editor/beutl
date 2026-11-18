@@ -17,18 +17,18 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 // Callers pass their own logger so the log category stays that of the calling view model.
 internal static class KeyFrameClipboardCommands
 {
-    internal static Task CopyAnimationAsync(ICoreSerializable animation, ILogger logger)
+    internal static Task CopyAnimationAsync(INotificationService notifications, ICoreSerializable animation, ILogger logger)
     {
         return CopyAsync(animation, BeutlDataFormats.KeyFrameAnimation, ex =>
         {
             logger.LogError(ex, "Failed to copy all keyframes");
-            NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyAnimation);
+            notifications.ShowError(Strings.Copy, MessageStrings.FailedToCopyAnimation);
         });
     }
 
     // Pastes the first of a keyframe, a keyframe selection and an animation that the clipboard holds.
     // Reading the clipboard yields, so canPaste is asked again before anything is pasted.
-    internal static async Task PasteAtPositionAsync(
+    internal static async Task PasteAtPositionAsync(INotificationService notifications,
         IClipboard clipboard, Func<bool> canPaste, Func<bool> canShowFailure, Action<string> pasteKeyFrame,
         Action<string> pasteSelection, Action<string> pasteAnimation, ILogger logger)
     {
@@ -50,12 +50,12 @@ internal static class KeyFrameClipboardCommands
                 return;
             }
 
-            if (canPaste()) NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            if (canPaste()) notifications.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to paste keyframe at position");
-            if (canShowFailure()) NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
+            if (canShowFailure()) notifications.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
         }
     }
 
@@ -66,7 +66,7 @@ internal static class KeyFrameClipboardCommands
         IKeyFrameClipboardService service = services.GetRequiredService<IKeyFrameClipboardService>();
         KeyFrameAnimationPasteOutcome outcome = service.PasteAnimation(keyFrameAnimation, json);
 
-        ReportAnimationPaste(outcome, keyFrameAnimation, logger);
+        ReportAnimationPaste(services.GetRequiredService<INotificationService>(), outcome, keyFrameAnimation, logger);
     }
 
     internal static void PasteKeyFrame(
@@ -79,7 +79,7 @@ internal static class KeyFrameClipboardCommands
         IKeyFrameClipboardService service = services.GetRequiredService<IKeyFrameClipboardService>();
         KeyFramePasteResult result = service.PasteKeyFrame(keyFrameAnimation, json, keyTime);
 
-        ReportKeyFramePaste(result, logger, insertWithEasing);
+        ReportKeyFramePaste(services.GetRequiredService<INotificationService>(), result, logger, insertWithEasing);
     }
 
     // The easing replaces that of the keyframe near keyTime, the drop position as a key time, or comes with a
@@ -132,7 +132,7 @@ internal static class KeyFrameClipboardCommands
         }
     }
 
-    internal static void ReportAnimationPaste(KeyFrameAnimationPasteOutcome outcome, IKeyFrameAnimation animation, ILogger logger)
+    internal static void ReportAnimationPaste(INotificationService notifications, KeyFrameAnimationPasteOutcome outcome, IKeyFrameAnimation animation, ILogger logger)
     {
         switch (outcome)
         {
@@ -140,57 +140,57 @@ internal static class KeyFrameClipboardCommands
                 break;
             case KeyFrameAnimationPasteOutcome.InvalidJson:
                 logger.LogError("Invalid JSON");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
+                notifications.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
                 break;
             case KeyFrameAnimationPasteOutcome.MissingType:
                 logger.LogError("Invalid JSON: missing $type");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
+                notifications.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
                 break;
             case KeyFrameAnimationPasteOutcome.TypeIsNotKeyFrameAnimation:
                 logger.LogError("Invalid JSON: $type is not a KeyFrameAnimation");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation);
+                notifications.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation);
                 break;
             case KeyFrameAnimationPasteOutcome.GenericTypeMismatch:
                 logger.LogError("The property type of the pasted animation does not match.");
-                NotificationService.ShowError(
+                notifications.ShowError(
                     Strings.GraphEditor,
                     string.Format(MessageStrings.AnimationPropertyTypeMismatch, animation.ValueType.Name, "?"));
                 break;
             case KeyFrameAnimationPasteOutcome.UnexpectedError:
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
+                notifications.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
                 break;
         }
     }
 
-    internal static void ReportKeyFramePaste(KeyFramePasteResult result, ILogger logger, Action<Easing> insertWithEasing)
+    internal static void ReportKeyFramePaste(INotificationService notifications, KeyFramePasteResult result, ILogger logger, Action<Easing> insertWithEasing)
     {
         switch (result.Outcome)
         {
             case KeyFramePasteOutcome.Inserted:
                 break;
             case KeyFramePasteOutcome.ReplacedExisting:
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframeExistsAtPastePosition);
+                notifications.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframeExistsAtPastePosition);
                 break;
             case KeyFramePasteOutcome.GenericTypeMismatch when result.EasingForFallback is { } easing:
                 // Type mismatch: insert a fresh keyframe via the View's typed path,
                 // carrying over only the clipboard's easing.
                 insertWithEasing(easing);
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
+                notifications.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
                 break;
             case KeyFramePasteOutcome.InvalidJson:
                 logger.LogError("Invalid JSON");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
+                notifications.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
                 break;
             case KeyFramePasteOutcome.MissingType:
                 logger.LogError("Invalid JSON: missing $type");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
+                notifications.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
                 break;
             case KeyFramePasteOutcome.TypeIsNotKeyFrame:
                 logger.LogError("Invalid JSON: $type is not a KeyFrame");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrame);
+                notifications.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrame);
                 break;
             case KeyFramePasteOutcome.UnexpectedError:
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
+                notifications.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
                 break;
         }
     }

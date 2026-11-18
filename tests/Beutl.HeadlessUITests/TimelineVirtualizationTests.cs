@@ -770,9 +770,10 @@ public sealed class TimelineVirtualizationTests
             buffer.SetupGet(x => x.Start).Returns(new ReactivePropertySlim<double>());
             buffer.SetupGet(x => x.End).Returns(new ReactivePropertySlim<double>());
             buffer.SetupGet(x => x.CacheBlocks).Returns(new ReactivePropertySlim<CacheBlock[]>([]));
-            var context = new Mock<IEditorContext>();
+            var context = TestShell.CreateEditorContextMock();
             context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+            context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
             context.Setup(x => x.GetService(typeof(ITimelineOptionsProvider))).Returns(_options);
             context.Setup(x => x.GetService(typeof(IEditorClock))).Returns(_clock);
             context.Setup(x => x.GetService(typeof(IEditorSelection))).Returns(Selection);

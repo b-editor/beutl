@@ -24,9 +24,10 @@ public class ObjectPropertyTabLifetimeTests
             created.Add(editor);
             return editor.Object;
         });
-        var context = new Mock<IEditorContext>();
+        var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         context.Setup(x => x.GetService(typeof(IPropertiesEditorFactory))).Returns(factory.Object);
         var tab = new ObjectPropertyTabViewModel(context.Object);
         tab.NavigateCore(new RectShape(), false, null);

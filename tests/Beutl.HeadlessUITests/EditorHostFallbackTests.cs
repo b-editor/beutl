@@ -581,10 +581,11 @@ public class EditorHostFallbackTests
             },
         };
         var window = new Window { Content = view, Width = 1200, Height = 800 };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
         Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
+        Beutl.Controls.ControlNotifications.SetNotifications(window, TestShell.Notifications);
 
         try
         {

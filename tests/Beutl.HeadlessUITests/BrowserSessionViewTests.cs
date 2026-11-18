@@ -1,18 +1,15 @@
 ﻿using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
-
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.Pages.SettingsPages;
 using Beutl.ViewModels.SettingsPages;
-
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -25,7 +22,7 @@ public class BrowserSessionViewTests
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, new Uri("https://media.test/page"), profile);
+        using var vm = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, new Uri("https://media.test/page"), profile);
         var browser = new NativeWebView();
         using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
         using var handler = new SessionHandler();
@@ -53,7 +50,7 @@ public class BrowserSessionViewTests
     public async Task ChangingContextWhileReadingCookiesCancelsTheDownload()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        using var vm = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (true, null, false)) { DataContext = vm };
         using var handler = new SessionHandler();
         using var client = new HttpClient(handler);

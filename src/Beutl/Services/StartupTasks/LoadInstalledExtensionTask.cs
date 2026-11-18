@@ -2,6 +2,7 @@
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Logging;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -90,7 +91,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
         await LoadBatchAsync();
 
         if (anyUpdated)
-            NotificationService.ShowSuccess(ExtensionsStrings.AutomaticExtensionUpdateCompleted, string.Empty);
+            startup.Notifications.ShowSuccess(ExtensionsStrings.AutomaticExtensionUpdateCompleted, string.Empty);
     }
 
     private async Task PrepareExternalUpdateAsync(Startup startup, PackageIdentity[] installed, NuGetVersion host)

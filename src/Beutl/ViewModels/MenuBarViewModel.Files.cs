@@ -119,7 +119,7 @@ public partial class MenuBarViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to close the project.");
-            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(string.Empty, MessageStrings.OperationFailed);
         }
     }
 
@@ -173,16 +173,16 @@ public partial class MenuBarViewModel
                     {
                         allRequestedSavesSucceeded = false;
                         LogFailedSave(item);
-                        NotificationService.ShowError(MessageStrings.UnableToSaveFile, item.FileName.Value);
+                        _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(MessageStrings.UnableToSaveFile, item.FileName.Value);
                     }
                 }
             }
 
-            NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemsSaved, itemsCount.ToString()));
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowSuccess(string.Empty, string.Format(MessageStrings.ItemsSaved, itemsCount.ToString()));
 
             if (_editorService.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
             {
-                NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }
 
             if (allRequestedSavesSucceeded)
@@ -196,7 +196,7 @@ public partial class MenuBarViewModel
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Failed to save files");
-            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(string.Empty, MessageStrings.OperationFailed);
         }
         finally
         {
@@ -229,11 +229,11 @@ public partial class MenuBarViewModel
             bool result = item.Context.Value is ISavableEditorContext editor && await editor.SaveAsync();
             if (result)
             {
-                NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName.Value));
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName.Value));
 
                 if (item.Context.Value is ISupportAutoSaveEditorContext)
                 {
-                    NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
+                    _editorService.AppServices.GetRequiredService<INotificationService>().ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
                 }
 
                 await _versionControlSession.NotifySavedAsync(fileWrite);
@@ -242,14 +242,14 @@ public partial class MenuBarViewModel
             else
             {
                 LogFailedSave(item);
-                NotificationService.ShowInformation(string.Empty, MessageStrings.OperationFailed);
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowInformation(string.Empty, MessageStrings.OperationFailed);
             }
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Failed to save file: {FileName}", item?.FileName.Value);
-            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(string.Empty, MessageStrings.OperationFailed);
         }
     }
 
@@ -272,7 +272,7 @@ public partial class MenuBarViewModel
         using IDisposable? open = _editorService.TryBeginEditorFileOpen();
         if (open is null)
         {
-            NotificationService.ShowWarning(Strings.File, MessageStrings.ProjectFilesBeingChanged);
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(Strings.File, MessageStrings.ProjectFilesBeingChanged);
             return;
         }
 
@@ -301,7 +301,7 @@ public partial class MenuBarViewModel
         }
         catch (Exception ex)
         {
-            _ = ex.Handle();
+            _ = ex.Handle(_editorService.AppServices.GetRequiredService<INotificationService>());
         }
     }
 
@@ -324,7 +324,7 @@ public partial class MenuBarViewModel
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle(_editorService.AppServices.GetRequiredService<INotificationService>());
         }
     }
 }

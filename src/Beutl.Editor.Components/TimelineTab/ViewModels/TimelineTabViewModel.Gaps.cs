@@ -19,14 +19,14 @@ public sealed partial class TimelineTabViewModel
         if (anchor is null)
         {
             // Reachable from the flyout menu, which unlike the shortcut path has no selection gate.
-            NotificationService.ShowInformation(Strings.CloseGap, Strings.NoElementSelected);
+            EditorContext.GetRequiredService<INotificationService>().ShowInformation(Strings.CloseGap, Strings.NoElementSelected);
             return;
         }
 
         FlushPendingNudgeCommit();
         if (!EditorContext.GetRequiredService<IElementGapService>().CloseGapAfter(Scene, anchor))
         {
-            NotificationService.ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
+            EditorContext.GetRequiredService<INotificationService>().ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
         }
     }
 
@@ -45,7 +45,7 @@ public sealed partial class TimelineTabViewModel
             return;
         }
 
-        NotificationService.ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
+        EditorContext.GetRequiredService<INotificationService>().ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
     }
 
     // The gap under a right-click, but only when it lies wholly inside the active scene. ClickedFrame
@@ -65,7 +65,7 @@ public sealed partial class TimelineTabViewModel
         FlushPendingNudgeCommit();
         if (EditorContext.GetRequiredService<IElementGapService>().CloseAllGaps(Scene) == 0)
         {
-            NotificationService.ShowInformation(Strings.CloseAllGaps, Strings.NoGapsToClose);
+            EditorContext.GetRequiredService<INotificationService>().ShowInformation(Strings.CloseAllGaps, Strings.NoGapsToClose);
         }
     }
 
@@ -91,7 +91,7 @@ public sealed partial class TimelineTabViewModel
         }
         else
         {
-            NotificationService.ShowInformation(
+            EditorContext.GetRequiredService<INotificationService>().ShowInformation(
                 forward ? Strings.GoToNextGap : Strings.GoToPreviousGap,
                 Strings.NoGapsToGoTo);
         }

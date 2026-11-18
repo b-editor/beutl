@@ -6,6 +6,7 @@ using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Api.Services;
@@ -192,9 +193,9 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
         ViewExtension extension, object context, KeyEventArgs args, ContextCommandEntry[] entries, ILogger logger)
         => ExecuteSafelyAsync(
             () => ExtensionGuard.CallAsync(extension, () => DispatchAsync(context, args, entries)),
-            logger);
+            logger, extension.Services?.GetService<INotificationService>() ?? new NotificationService());
 
-    internal static async Task ExecuteSafelyAsync(Func<Task> execute, ILogger logger)
+    internal static async Task ExecuteSafelyAsync(Func<Task> execute, ILogger logger, INotificationService notifications)
     {
         try
         {
@@ -206,7 +207,7 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore)
         catch (Exception ex)
         {
             logger.LogError(ex, "A context command failed at the input event boundary.");
-            NotificationService.ShowError(
+            notifications.ShowError(
                 MessageStrings.UnexpectedError,
                 MessageStrings.OperationFailed);
         }

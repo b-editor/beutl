@@ -344,6 +344,7 @@ public class VectorBoxDragTests
             Window = new Window { Content = new Border { Focusable = focusableParent, Child = editor }, Width = 520, Height = 120 };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
+            Beutl.Controls.ControlNotifications.SetNotifications(Window, TestShell.Notifications);
             Window.Show();
             HeadlessTestHelpers.Render(3);
         }

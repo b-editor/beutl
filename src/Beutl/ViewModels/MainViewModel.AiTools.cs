@@ -3,6 +3,7 @@ using Beutl.Editor.Components.AiWorkspaceTab;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Editor.Services.Captions;
+using Beutl.Services;
 using Beutl.Services.AI;
 using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ public partial class MainViewModel : IAiWorkspaceHost
 {
     internal AiImageGenerationDialogViewModel CreateAiImageGenerationToolViewModel(EditViewModel editViewModel)
         => new(
+            AppServices.GetRequiredService<INotificationService>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAiModelCatalogService>(),
@@ -46,6 +48,7 @@ public partial class MainViewModel : IAiWorkspaceHost
 
     internal AiImageEditDialogViewModel CreateAiImageEditToolViewModel(EditViewModel editViewModel)
         => new(
+            AppServices.GetRequiredService<INotificationService>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAiModelCatalogService>(),
@@ -60,7 +63,7 @@ public partial class MainViewModel : IAiWorkspaceHost
     internal AiSubtitleDialogViewModel CreateAiSubtitleToolViewModel(EditViewModel? editViewModel)
     {
         _captionCatalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates(_objectTemplateService));
-        return new AiSubtitleDialogViewModel(
+        return new AiSubtitleDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
             AppServices.GetRequiredService<Beutl.Media.FontManager>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
@@ -85,6 +88,7 @@ public partial class MainViewModel : IAiWorkspaceHost
 
     internal AiVideoGenerationDialogViewModel CreateAiVideoGenerationToolViewModel(EditViewModel editViewModel, AiSourceVideoMode? sourceMode = null)
         => new(
+            AppServices.GetRequiredService<INotificationService>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAiModelCatalogService>(),

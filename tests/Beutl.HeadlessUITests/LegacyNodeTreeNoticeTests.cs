@@ -20,7 +20,7 @@ public sealed class LegacyNodeTreeNoticeTests
         byte[] original = File.ReadAllBytes(elementPath);
         try
         {
-            using var notifications = new NotificationCapture();
+            using var notifications = new NotificationCapture(TestShell.Notifications);
             await TestShell.Project.OpenProject(projectPath);
             HeadlessTestHelpers.Settle();
             Notification[] notices = notifications.All

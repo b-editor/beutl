@@ -14,6 +14,9 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class AudioEffectEditor : UserControl
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     public AudioEffectEditor()
     {
         InitializeComponent();
@@ -67,7 +70,7 @@ public partial class AudioEffectEditor : UserControl
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                Notifications.ShowError(Strings.Error, ex.Message);
             }
         }
     }
@@ -94,7 +97,7 @@ public partial class AudioEffectEditor : UserControl
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                Notifications.ShowError(Strings.Error, ex.Message);
             }
         }
     }

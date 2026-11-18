@@ -77,12 +77,12 @@ public class TimelineTabViewModelShortcutTests
     [Test]
     public void CloseGapCommand_NoSelection_NotifiesWithoutCallingGapService()
     {
+        using var notifications = new NotificationCapture();
         using var harness = new SceneHistoryHarness("beutl_timeline_gap_command", duration: MediaTime.FromSeconds(30));
         var nudgeService = new CaptureNudgeService();
         var gapService = new CaptureGapService(nudgeService);
         using TimelineTabViewModel viewModel = TimelineTabViewModelTests.CreateViewModel(
-            harness.Scene, nudgeService: nudgeService, gapService: gapService);
-        using var notifications = NotificationCapture.Install();
+            harness.Scene, nudgeService: nudgeService, gapService: gapService, notifications: notifications);
 
         viewModel.CloseGap.Execute();
 

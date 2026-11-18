@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Avalonia.Threading;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -206,7 +207,7 @@ public class EditorHostViewModel
                 nameof(OnProjectChangedAsync),
                 SafeLocalPath(old?.Uri),
                 SafeLocalPath(@new?.Uri));
-            NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.Project, MessageStrings.OperationFailed);
         }
     }
 
@@ -293,7 +294,7 @@ public class EditorHostViewModel
                 "Unhandled exception in {Method}. Action={Action}",
                 nameof(HandleProjectItemsChangedAsync),
                 e.Action);
-            NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.Project, MessageStrings.OperationFailed);
         }
     }
 

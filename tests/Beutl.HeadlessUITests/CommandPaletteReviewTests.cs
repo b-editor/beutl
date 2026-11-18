@@ -38,9 +38,10 @@ public sealed class CommandPaletteReviewTests
             Task operation = palette.ExecuteSelectedAsync();
             if (betweenSteps) await palette.ExecuteSelectedAsync();
             await UntilAsync(() => waiting);
-            var context = new Mock<IEditorContext>();
+            var context = TestShell.CreateEditorContextMock();
             context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+            context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
             context.SetupGet(item => item.Object).Returns(new Scene());
             context.SetupGet(item => item.Extension).Returns(SceneEditorExtension.Instance);
             editor.SelectedTabItem.Value = new EditorTabItem(context.Object);
@@ -64,7 +65,7 @@ public sealed class CommandPaletteReviewTests
     [TestCase("initial")]
     public async Task Validator_failures_abort_the_interaction_and_report_an_error(string phase)
     {
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         bool fail = phase == "initial";
         string? result = "pending";
         var (palette, _) = CreatePalette(async execution =>
@@ -107,7 +108,7 @@ public sealed class CommandPaletteReviewTests
     [AvaloniaTest]
     public async Task Cancellation_callback_failures_cannot_skip_prompt_cleanup()
     {
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         string? result = "pending";
         var (palette, _) = CreatePalette(async execution =>
         {

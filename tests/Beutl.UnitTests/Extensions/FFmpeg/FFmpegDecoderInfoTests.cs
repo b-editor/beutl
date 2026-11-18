@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
@@ -102,7 +101,7 @@ public sealed class FFmpegDecoderInfoTests
             string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
             var store = new ProxyStore(Path.Combine(root, "proxies"));
-            var generator = new FFmpegProxyGenerator(store);
+            var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
             string source = Path.Combine(root, "clip.mp4");
             File.WriteAllBytes(source, new byte[64]);
             // Fingerprint from the file itself so it matches the generator's pre-encode re-stat;
@@ -141,7 +140,7 @@ public sealed class FFmpegDecoderInfoTests
         {
             string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
-            var generator = new FFmpegProxyGenerator(new ProxyStore(Path.Combine(root, "proxies")));
+            var generator = new FFmpegProxyGenerator(new ProxyStore(Path.Combine(root, "proxies")), new Beutl.Services.NotificationService());
             string source = Path.Combine(root, "clip" + RecordingDecoderInfo.Extension);
             File.WriteAllBytes(source, new byte[64]);
             var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);

@@ -213,7 +213,7 @@ public class FFmpegInstallNotifierTests
         FFmpegLibraryState.MarkMissing();
         long since = FFmpegLibraryState.MissingSinceTicks;
 
-        FFmpegInstallNotifier.NotifyMissing();
+        FFmpegInstallNotifier.NotifyMissing(new Beutl.Services.NotificationService());
 
         Assert.That(FFmpegLibraryState.MissingSinceTicks, Is.EqualTo(since),
             "a short-circuited encoding retry must not re-arm the cooldown");
@@ -226,7 +226,7 @@ public class FFmpegInstallNotifierTests
         long since = FFmpegLibraryState.MissingSinceTicks;
         RunConcurrentIterations(32, 1,
             beforeIteration: () => { },
-            action: FFmpegInstallNotifier.NotifyMissing,
+            action: () => FFmpegInstallNotifier.NotifyMissing(new Beutl.Services.NotificationService()),
             afterIteration: () => Assert.That(FFmpegLibraryState.MissingSinceTicks, Is.EqualTo(since)));
     }
 

@@ -8,7 +8,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages;
-
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Refit;
@@ -17,6 +17,8 @@ namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class AccountSettingsPageViewModel : BasePageViewModel
 {
+    private readonly INotificationService _notifications;
+
     private readonly ILogger _logger = Log.CreateLogger<AccountSettingsPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly LifetimeCancellationSource _lifetimeCts = new();
@@ -29,10 +31,11 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
     private long _entitlementsLoadVersion;
     private bool _disposed;
 
-    public AccountSettingsPageViewModel(
+    public AccountSettingsPageViewModel(INotificationService notifications,
         BeutlApiApplication clients,
         IAiPlanCoordinator aiPlanCoordinator)
     {
+        _notifications = notifications;
         _clients = clients ?? throw new ArgumentNullException(nameof(clients));
         _aiPlanCoordinator = aiPlanCoordinator
             ?? throw new ArgumentNullException(nameof(aiPlanCoordinator));
@@ -161,7 +164,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    await ex.Handle();
+                    await ex.Handle(_notifications);
                     _logger.LogError(ex, "An unexpected error has occurred.");
                 }
                 finally

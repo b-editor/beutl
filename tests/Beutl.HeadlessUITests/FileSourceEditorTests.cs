@@ -330,7 +330,7 @@ public sealed class FileSourceEditorTests
         using var history = new HistoryScope(holder);
         vm.Accept(ServiceVisitor.For(history.History));
         var editor = (StorageFileEditor)control;
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         Assert.DoesNotThrow(() => Confirm(editor, CreateFile("invalid.psd", "invalid")));
         Assert.That(holder.Source.Value, Is.SameAs(original));
         Assert.That(editor.Value!.FullName, Is.EqualTo(originalPath));

@@ -36,6 +36,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     private static readonly object s_reportedFailureKey = new();
     private readonly EditViewModel _editViewModel;
+    internal INotificationService Notifications => _editViewModel.GetRequiredService<INotificationService>();
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     // Reading the size takes a file operation for each file written, of which an image sequence writes many.
@@ -369,7 +370,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         if (SupersampleWarning.Value is { } supersampleWarning)
         {
-            NotificationService.ShowError(Strings.Supersampling, supersampleWarning);
+            _editViewModel.GetRequiredService<INotificationService>().ShowError(Strings.Supersampling, supersampleWarning);
             _logger.LogWarning(
                 "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
                 SupersampleFactor.Value, Model.FrameSize.Value);
@@ -389,7 +390,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             ProgressText.Value = message;
             // This attempt wrote nothing, so the figures of the last run must not read as its own.
             HasProgress.Value = false;
-            NotificationService.ShowError(MessageStrings.OutputException, message);
+            _editViewModel.GetRequiredService<INotificationService>().ShowError(MessageStrings.OutputException, message);
             _logger.LogWarning(
                 "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
                 missingSources.Count,
@@ -500,7 +501,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         ProgressText.Value = userMessage;
         ClearEstimates();
-        NotificationService.ShowError(MessageStrings.OutputException, userMessage);
+        _editViewModel.GetRequiredService<INotificationService>().ShowError(MessageStrings.OutputException, userMessage);
         MarkFailureAsReported(ex);
         if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
         {
@@ -681,7 +682,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         try
         {
             string fileName = Path.GetFileName(path);
-            NotificationService.ShowSuccess(
+            _editViewModel.GetRequiredService<INotificationService>().ShowSuccess(
                 Strings.Completed,
                 string.Format(MessageStrings.ExportCompleted_File, fileName),
                 expiration: TimeSpan.FromSeconds(5),

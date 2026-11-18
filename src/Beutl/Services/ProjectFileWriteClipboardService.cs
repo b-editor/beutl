@@ -2,6 +2,8 @@
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services;
 
@@ -71,7 +73,7 @@ internal sealed class ProjectFileWriteClipboardService(
                 await Task.WhenAny(wait, Task.Delay(TimeSpan.FromMilliseconds(500), dismissal.Token));
                 if (!wait.IsCompleted)
                 {
-                    NotificationService.Show(new Notification(title, Strings.Clipboard_WaitingForSave,
+                    editorService.AppServices.GetRequiredService<INotificationService>().Show(new Notification(title, Strings.Clipboard_WaitingForSave,
                         Expiration: Timeout.InfiniteTimeSpan,
                         Actions: [new NotificationAction(Strings.Cancel, cancellation.Cancel)], IsClosable: false)
                     {

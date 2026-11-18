@@ -187,7 +187,7 @@ public class TitleBarBranchViewModelTests
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var gitAvailabilitySource = CreateGitAvailabilitySource(false);
-        using var viewModel = new TitleBarBranchViewModel(
+        using var viewModel = new TitleBarBranchViewModel(new Beutl.Services.NotificationService(),
             serviceSource,
             gitAvailabilitySource,
             Mock.Of<IProjectVersionControlCoordinator>(),
@@ -209,7 +209,7 @@ public class TitleBarBranchViewModelTests
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var gitAvailabilitySource = CreateGitAvailabilitySource(false);
-        using var viewModel = new TitleBarBranchViewModel(
+        using var viewModel = new TitleBarBranchViewModel(new Beutl.Services.NotificationService(),
             serviceSource,
             gitAvailabilitySource,
             Mock.Of<IProjectVersionControlCoordinator>(),
@@ -277,7 +277,7 @@ public class TitleBarBranchViewModelTests
                 observer => observer.OnNext(serviceB.Object))
             .Returns(Mock.Of<IDisposable>());
 
-        using var viewModel = new TitleBarBranchViewModel(
+        using var viewModel = new TitleBarBranchViewModel(new Beutl.Services.NotificationService(),
             serviceSource.Object,
             CreateGitAvailabilitySource(),
             Mock.Of<IProjectVersionControlCoordinator>(),
@@ -599,6 +599,7 @@ public class TitleBarBranchViewModelTests
     [NonParallelizable]
     public async Task Create_branch_command_reports_coordinator_failures_and_clears_busy()
     {
+        using var notifications = new NotificationCapture();
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         var failure = new GitOperationException(
             128,
@@ -608,10 +609,9 @@ public class TitleBarBranchViewModelTests
                 "experiment",
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(failure);
-        using var viewModel = CreateViewModel(service.Object, coordinator: coordinator.Object);
+        using var viewModel = CreateViewModel(service.Object, coordinator: coordinator.Object, notifications: notifications);
         viewModel.RequestNewBranchNameAsync = () => Task.FromResult<string?>("experiment");
         await viewModel.Initialization;
-        using var notifications = NotificationCapture.Install();
 
         await Assert.DoesNotThrowAsync(() => viewModel.CreateBranchCommand.ExecuteAsync());
 
@@ -770,17 +770,17 @@ public class TitleBarBranchViewModelTests
     private static TitleBarBranchViewModel CreateViewModel(
         IProjectVersionControlService? service,
         IProjectVersionControlCoordinator? coordinator = null,
-        Action<Action>? dispatch = null)
-        => CreateViewModel(service, out _, coordinator, dispatch);
+        Action<Action>? dispatch = null, Beutl.Services.INotificationService? notifications = null)
+        => CreateViewModel(service, out _, coordinator, dispatch, notifications);
 
     private static TitleBarBranchViewModel CreateViewModel(
         IProjectVersionControlService? service,
         out ReactivePropertySlim<IProjectVersionControlService?> serviceSource,
         IProjectVersionControlCoordinator? coordinator = null,
-        Action<Action>? dispatch = null)
+        Action<Action>? dispatch = null, Beutl.Services.INotificationService? notifications = null)
     {
         serviceSource = new ReactivePropertySlim<IProjectVersionControlService?>(service);
-        return new TitleBarBranchViewModel(
+        return new TitleBarBranchViewModel(notifications ?? new Beutl.Services.NotificationService(),
             serviceSource,
             CreateGitAvailabilitySource(),
             coordinator ?? Mock.Of<IProjectVersionControlCoordinator>(),

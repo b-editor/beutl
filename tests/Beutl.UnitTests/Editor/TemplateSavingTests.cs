@@ -25,10 +25,10 @@ public class TemplateSavingTests
     [Test]
     public async Task A_saved_template_calls_back_without_an_error()
     {
-        using var notifications = NotificationCapture.Install();
+        using var notifications = new NotificationCapture();
         int saved = 0;
 
-        bool result = await TemplateSaving.SaveAsync(_templates,
+        bool result = await TemplateSaving.SaveAsync(notifications, _templates,
             new Audio.Effects.AudioEffectGroup(), $"saving-{Guid.NewGuid():N}", () => saved++);
 
         Assert.That(result, Is.True);
@@ -39,10 +39,10 @@ public class TemplateSavingTests
     [Test]
     public async Task A_refused_name_shows_the_error_and_does_not_call_back()
     {
-        using var notifications = NotificationCapture.Install();
+        using var notifications = new NotificationCapture();
         int saved = 0;
 
-        bool result = await TemplateSaving.SaveAsync(_templates, new Audio.Effects.AudioEffectGroup(), "a/b", () => saved++);
+        bool result = await TemplateSaving.SaveAsync(notifications, _templates, new Audio.Effects.AudioEffectGroup(), "a/b", () => saved++);
 
         Assert.That(result, Is.False);
         Assert.That(saved, Is.Zero);

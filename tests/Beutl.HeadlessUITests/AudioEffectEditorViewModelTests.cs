@@ -55,6 +55,6 @@ public class AudioEffectEditorViewModelTests
         }
 
         public object? GetService(Type serviceType)
-            => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(ExtensionProvider) ? extensions : null;
+            => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(ExtensionProvider) ? extensions : null;
     }
 }

@@ -1,7 +1,8 @@
 ﻿using Avalonia.Controls;
-
 using Beutl.Editor.Components.Helpers;
+using Beutl.Services;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
@@ -61,7 +62,7 @@ internal sealed class MainWindowCloseGuard(Window window, MainView mainView)
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle((window.DataContext as MainViewModel)?.AppServices.GetService<INotificationService>() ?? Beutl.Controls.ControlNotifications.GetOrDefault(window));
         }
         finally
         {
@@ -86,7 +87,7 @@ internal sealed class MainWindowCloseGuard(Window window, MainView mainView)
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle((window.DataContext as MainViewModel)?.AppServices.GetService<INotificationService>() ?? Beutl.Controls.ControlNotifications.GetOrDefault(window));
         }
         finally
         {

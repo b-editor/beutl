@@ -202,7 +202,7 @@ public class VersionControlTabViewTests
                 service.Repository.RepoRoot,
                 ".git-disabled-for-handler-test");
             Directory.Move(gitDirectory, disabledGitDirectory);
-            using var notifications = new NotificationCapture();
+            using var notifications = new NotificationCapture(TestShell.Notifications);
 
             await view.HandleBranchFlyoutOpeningAsync();
             using var invalidBranch = new TitleBarBranchItemViewModel(
@@ -528,7 +528,7 @@ public class VersionControlTabViewTests
                         "headless@example.invalid")));
 
             Notification notification;
-            using (var notificationHandler = new NotificationCapture())
+            using (var notificationHandler = new NotificationCapture(TestShell.Notifications))
             {
                 await viewModel.ShowRemoteResultAsync(new RemoteOpResult.Offline(string.Empty));
                 notification = notificationHandler.All.Single();

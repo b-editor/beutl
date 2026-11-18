@@ -52,6 +52,7 @@ public sealed class AiJobVideoDurationReviewTests
         var editor = new Mock<IAiJobResultEditorContext>();
         editor.SetupGet(value => value.Scene).Returns(scene);
         editor.SetupGet(value => value.ElementAdder).Returns(adder.Object);
+        editor.Setup(value => value.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         var context = new Mock<IAiJobResultContext>();
         context.SetupGet(value => value.Editor).Returns(editor.Object);
         context.Setup(value => value.CopyContentToAsync(It.IsAny<Uri>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))

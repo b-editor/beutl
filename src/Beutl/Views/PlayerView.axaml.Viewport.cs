@@ -5,7 +5,6 @@ using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-
 using Beutl.Controls;
 using Beutl.Editor.Components.Converters;
 using Beutl.Editor.Components.Helpers;
@@ -13,9 +12,8 @@ using Beutl.Models;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
-
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
 using AvaPoint = Avalonia.Point;
 using Matrix = Beutl.Graphics.Matrix;
 
@@ -23,6 +21,9 @@ namespace Beutl.Views;
 
 public partial class PlayerView
 {
+    private INotificationService Notifications => (DataContext as PlayerViewModel)?.EditViewModel.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     // Device pixels per frame pixel: the levels the zoom box offers, and the steps of the zoom commands.
     private static readonly double[] s_zoomLevels = [0.1, 0.25, 0.5, 1, 2, 4, 8];
 
@@ -253,7 +254,7 @@ public partial class PlayerView
             // The box goes back to the quality in use, unless a newer choice took over. Going back starts no pause.
             if (ReferenceEquals(DataContext, viewModel) && _requestedPreviewScale == scale)
                 resolutionComboBox.SelectedItem = editor.PreviewScale.Value;
-            NotificationService.ShowError(MessageStrings.UnexpectedError, MessageStrings.OperationFailed);
+            Notifications.ShowError(MessageStrings.UnexpectedError, MessageStrings.OperationFailed);
         }
     }
 

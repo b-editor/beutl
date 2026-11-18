@@ -61,7 +61,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             .DisposeWith(_disposables);
 
         CopyAllKeyFramesCommand = new ReactiveCommand()
-            .WithSubscribe(async () => await KeyFrameClipboardCommands.CopyAnimationAsync(Property.Animation!, _logger))
+            .WithSubscribe(async () => await KeyFrameClipboardCommands.CopyAnimationAsync(Timeline.EditorContext.GetRequiredService<INotificationService>(), Property.Animation!, _logger))
             .DisposeWith(_disposables);
 
         PasteKeyFrameAtCurrentPositionCommand = new ReactiveCommand()
@@ -221,7 +221,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         clipboard ??= ClipboardHelper.GetClipboard();
         if (_disposed || !IsEditable || clipboard == null || Property.Animation is not IKeyFrameAnimation animation) return;
 
-        await KeyFrameClipboardCommands.PasteAtPositionAsync(
+        await KeyFrameClipboardCommands.PasteAtPositionAsync(Timeline.EditorContext.GetRequiredService<INotificationService>(),
             clipboard,
             () => !_disposed && IsEditable && ReferenceEquals(Property.Animation, animation),
             static () => true,
@@ -237,7 +237,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         if (KeyFrameSelectionClipboard.Read(json) is not { } source
             || source.Type != animation.GetType() || source.Keys.Length == 0)
         {
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            Timeline.EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
             return;
         }
         KeyFrameSelectionClipboard.Paste(animation, source.Keys, keyTime,

@@ -3,24 +3,34 @@ using Beutl.Services;
 
 namespace Beutl.HeadlessUITests;
 
-// Records the notifications shown while it is installed. Dispose puts the previous handler back.
-internal sealed class NotificationCapture : INotificationServiceHandler, IDisposable
+internal sealed class NotificationCapture : INotificationService, IDisposable
 {
-    private readonly INotificationServiceHandler _previousHandler = NotificationService.Handler;
+    private readonly NotificationCapture? _source;
     private readonly Action<Notification>? _onShow;
+    private readonly NotificationService _service;
+    private event Action<Notification>? Shown;
 
     public NotificationCapture(Action<Notification>? onShow = null)
     {
         _onShow = onShow;
-        NotificationService.Handler = this;
+        _service = new NotificationService(new CaptureHandler(Record));
+    }
+
+    public NotificationCapture(NotificationCapture source, Action<Notification>? onShow = null) : this(onShow)
+    {
+        _source = source;
+        source.Shown += Show;
     }
 
     public ConcurrentQueue<Notification> All { get; } = new();
 
-    public void Show(Notification notification)
+    public void Show(Notification notification) => _service.Show(notification);
+
+    private void Record(Notification notification)
     {
         All.Enqueue(notification);
         _onShow?.Invoke(notification);
+        Shown?.Invoke(notification);
     }
 
     public Notification Single()
@@ -29,5 +39,14 @@ internal sealed class NotificationCapture : INotificationServiceHandler, IDispos
         return All.Single();
     }
 
-    public void Dispose() => NotificationService.Handler = _previousHandler;
+    public void Dispose()
+    {
+        if (_source is not null)
+            _source.Shown -= Show;
+    }
+
+    private sealed class CaptureHandler(Action<Notification> show) : INotificationServiceHandler
+    {
+        public void Show(Notification notification) => show(notification);
+    }
 }

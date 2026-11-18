@@ -1,5 +1,4 @@
 ﻿using Avalonia.Threading;
-
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.Services;
@@ -7,12 +6,15 @@ using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
 
 internal sealed class ProxyMediaServices : IAsyncDisposable
 {
+    private readonly INotificationService _notifications;
+
     // Host free-disk headroom kept on the store drive, independent of MaxTotalBytes.
     private const long DefaultMinFreeDiskBytes = 2L * 1024 * 1024 * 1024;
 
@@ -43,8 +45,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     // makes every open reader observe a version bump and reopen against the new store.
     private long _resolverVersionOffset;
 
-    public ProxyMediaServices(GlobalConfiguration configuration)
+    public ProxyMediaServices(GlobalConfiguration configuration, INotificationService notifications)
     {
+        _notifications = notifications;
         ArgumentNullException.ThrowIfNull(configuration);
         ProxyStoreConfig config = configuration.ProxyStoreConfig;
         _config = config;
@@ -107,7 +110,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             store,
             resolver,
             maxTotalBytes,
-            result => NotificationService.ShowInformation(
+            result => _notifications.ShowInformation(
                 NotificationTitle,
                 $"Evicted {result.RemovedCount} proxy file(s), reclaimed {MediaFileInfo.FormatFileSize(result.ReclaimedBytes)}."),
             minFreeDiskBytes: DefaultMinFreeDiskBytes,
@@ -142,7 +145,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
                 throw;
 
             s_logger.LogWarning(ex, "Opening the proxy store at '{Path}' failed; falling back to the default location.", storeRootPath);
-            NotificationService.ShowWarning(
+            _notifications.ShowWarning(
                 NotificationTitle,
                 "The proxy store location could not be opened. Using the default location instead.");
             config.StoreRootPath.Value = ProxyStoreConfig.DefaultStoreRootPath;
@@ -214,7 +217,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             // file, a permission-denied location). Keep the live store on the old path and report the
             // rejection instead of letting the exception escape the config setter and tear nothing down.
             s_logger.LogWarning(ex, "Rebuilding the proxy store at '{Path}' failed; keeping the previous store.", storeRootPath);
-            NotificationService.ShowWarning(
+            _notifications.ShowWarning(
                 NotificationTitle,
                 $"The proxy store location '{storeRootPath}' could not be opened. Keeping the previous location.");
             // Revert the persisted path to the last-good one so GlobalConfiguration's auto-save does not

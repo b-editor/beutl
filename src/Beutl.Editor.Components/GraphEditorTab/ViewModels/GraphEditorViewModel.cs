@@ -375,7 +375,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
         Element = null;
     }
 
-    private Task CopyAllKeyFramesAsync() => KeyFrameClipboardCommands.CopyAnimationAsync(Animation, _logger);
+    private Task CopyAllKeyFramesAsync() => KeyFrameClipboardCommands.CopyAnimationAsync(EditorContext.GetRequiredService<INotificationService>(), Animation, _logger);
 
     internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboard? clipboard = null)
     {
@@ -383,7 +383,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
         if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
         var canPaste = CapturePasteContext();
 
-        await KeyFrameClipboardCommands.PasteAtPositionAsync(
+        await KeyFrameClipboardCommands.PasteAtPositionAsync(EditorContext.GetRequiredService<INotificationService>(),
             clipboard,
             canPaste,
             canPaste,

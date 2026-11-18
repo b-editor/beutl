@@ -1,9 +1,7 @@
 ﻿using System.Reactive.Linq;
-
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics;
@@ -12,9 +10,7 @@ using Beutl.Models;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -50,7 +46,7 @@ public class PreviewRenderErrorTests
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("preview-error");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         var errorReported = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         using IDisposable subscription = editor.Player.PreviewRenderError
@@ -89,7 +85,7 @@ public class PreviewRenderErrorTests
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("buffered-preview-error");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await AddDrawableAsync(editor, new PreviewFaultDrawable());
         editor.FrameCacheManager.Value.Clear();
@@ -202,7 +198,7 @@ public class PreviewRenderErrorTests
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("playing-preview-error");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         try
         {

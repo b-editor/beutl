@@ -199,7 +199,7 @@ public sealed partial class EditViewModel
             .Subscribe(_ =>
             {
                 _autoSaveFailed = true;
-                NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException);
+                this.GetRequiredService<INotificationService>().ShowError(string.Empty, MessageStrings.FileSaveException);
             })
             .DisposeWith(_disposables);
         _autoSaveService.DisposeWith(_disposables);
@@ -219,7 +219,7 @@ public sealed partial class EditViewModel
     {
         if (Beutl.Editor.Services.RecoveryProtectionNotice.Create(Scene, _autoSaveCancellation.Token) is { } notice)
         {
-            NotificationService.Show(notice);
+            this.GetRequiredService<INotificationService>().Show(notice);
         }
     }
 
@@ -535,7 +535,7 @@ public sealed partial class EditViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "{OperationName} failed.", operationName);
-            NotificationService.ShowError(Strings.History,
+            this.GetRequiredService<INotificationService>().ShowError(Strings.History,
                 ex is HistoryReplayException ? Strings.History_RestrictedAfterFailure : Strings.History_OperationFailed);
             return false;
         }

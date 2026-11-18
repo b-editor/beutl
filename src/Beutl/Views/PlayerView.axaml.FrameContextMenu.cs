@@ -1,7 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-
 using Beutl.Graphics;
 using Beutl.Helpers;
 using Beutl.IO;
@@ -12,11 +11,8 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
-
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.Logging;
-
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
@@ -133,7 +129,7 @@ public partial class PlayerView
                 // A 0x0 element cannot be rendered; report up-front.
                 if (!SaveFrameScale.ProducesRenderableSurface(elementSize, 1f))
                 {
-                    NotificationService.ShowInformation(
+                    Notifications.ShowInformation(
                         string.Empty, MessageStrings.SaveImageElementRendersNothing);
                     return;
                 }
@@ -154,7 +150,7 @@ public partial class PlayerView
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save selected element as image.");
-                NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
+                Notifications.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
             }
         }
     }
@@ -181,7 +177,7 @@ public partial class PlayerView
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save frame as image.");
-                NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
+                Notifications.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
             }
         }
     }

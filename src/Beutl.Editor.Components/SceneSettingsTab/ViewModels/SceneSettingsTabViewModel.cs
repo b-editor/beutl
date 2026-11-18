@@ -1,13 +1,10 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -92,7 +89,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 {
                     // Pausing yielded to the UI thread, so the user may have invalidated an
                     // input meanwhile. Warn instead of returning silently.
-                    NotificationService.ShowWarning(
+                    _editorContext.GetRequiredService<INotificationService>().ShowWarning(
                         Strings.SceneSettings,
                         MessageStrings.SceneSettings_ApplyCanceledInputsInvalid);
                     return;

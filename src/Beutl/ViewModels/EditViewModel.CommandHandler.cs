@@ -7,6 +7,7 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
@@ -135,7 +136,7 @@ public partial class EditViewModel : IContextCommandStateNotifier
 
         if (target == null)
         {
-            NotificationService.ShowInformation(
+            this.GetRequiredService<INotificationService>().ShowInformation(
                 forward ? Strings.NextKeyFrame : Strings.PreviousKeyFrame,
                 Strings.NoKeyFrameToSeek);
             return;

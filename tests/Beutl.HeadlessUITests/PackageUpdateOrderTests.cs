@@ -56,7 +56,7 @@ public class PackageUpdateOrderTests
         await TestReset.ResetShellAsync();
         using var http = new HttpClient();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         string oldDirectory = InstallOldVersion(app);
 
         await operation.UpdateOrQueueAsync(_name, _newId,
@@ -79,7 +79,7 @@ public class PackageUpdateOrderTests
         await TestReset.ResetShellAsync();
         using var http = new HttpClient();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         string oldDirectory = InstallOldVersion(app);
         using var cancellation = new CancellationTokenSource();
 
@@ -108,7 +108,7 @@ public class PackageUpdateOrderTests
         await TestReset.ResetShellAsync();
         using var http = new HttpClient();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         PackageManager manager = LoadOldExtension(app);
 
         await operation.UpdateOrQueueAsync(_name, _newId,
@@ -127,7 +127,7 @@ public class PackageUpdateOrderTests
         await TestReset.ResetShellAsync();
         using var http = new HttpClient();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         PackageManager manager = LoadOldExtension(app);
         using var cancellation = new CancellationTokenSource();
 
@@ -151,7 +151,7 @@ public class PackageUpdateOrderTests
         using var http = new HttpClient();
         var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         await using var app = new BeutlApiApplication(http, provider, TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         LocalPackage old = TestPackages.CreateExtracted(_oldId, data: false, loadable: true, cleanup: _cleanup);
         app.GetResource<InstalledPackageRepository>().UpgradePackagesAndDeferNotifications(_oldId)();
         var manager = app.GetResource<PackageManager>();
@@ -175,7 +175,7 @@ public class PackageUpdateOrderTests
         await TestReset.ResetShellAsync();
         using var http = new HttpClient();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         var repository = app.GetResource<InstalledPackageRepository>();
         string oldDirectory = InstallOldVersion(app);
         string newDirectory = CreatePackage(_newId);

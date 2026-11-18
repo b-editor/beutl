@@ -103,9 +103,10 @@ public class PropertyHoverInfoTests
         var graph = new GraphModel();
         var factory = new FactoryNode<RectShape>();
         graph.Nodes.Add(factory);
-        var services = new Mock<IEditorContext>();
+        var services = TestShell.CreateEditorContextMock();
         services.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         services.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        services.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         services.Setup(x => x.GetService(typeof(IPropertyEditorFactory)))
             .Returns(new Mock<IPropertyEditorFactory>().Object);
         using var graphModel = new NodeGraphViewModel(graph, services.Object);

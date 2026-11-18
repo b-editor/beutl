@@ -67,12 +67,12 @@ public sealed class DockLayoutViewModel : IToolContext
         DockLayoutPresetItem? saved = _service.Save(name, _dockHost.CaptureLayout());
         if (saved is null)
         {
-            NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
             return null;
         }
 
         SelectedItem.Value = saved;
-        NotificationService.ShowSuccess(
+        _editorContext.GetRequiredService<INotificationService>().ShowSuccess(
             Strings.DockLayout,
             string.Format(MessageStrings.DockLayoutSaved, saved.Name.Value));
         return saved;
@@ -88,7 +88,7 @@ public sealed class DockLayoutViewModel : IToolContext
         }
 
         _logger.LogWarning("Failed to apply dock layout '{Name}'.", item.Name.Value);
-        NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
+        _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
         return false;
     }
 
@@ -96,7 +96,7 @@ public sealed class DockLayoutViewModel : IToolContext
     {
         if (!_service.Remove(item))
         {
-            NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
             return;
         }
 
@@ -115,7 +115,7 @@ public sealed class DockLayoutViewModel : IToolContext
 
         if (_service.Rename(item, newName)) return true;
 
-        NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
+        _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
         return false;
     }
 

@@ -1,4 +1,6 @@
 ﻿using Beutl.Editor.VersionControl;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services;
 
@@ -111,7 +113,7 @@ internal partial class VersionControlCoordinator
         catch (VersionControlConflictedException ex)
         {
             PublishNotification(() =>
-                NotificationService.ShowWarning(Strings.VersionControl, ex.Guidance));
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(Strings.VersionControl, ex.Guidance));
             return false;
         }
 
@@ -218,7 +220,7 @@ internal partial class VersionControlCoordinator
                 catch (VersionControlConflictedException ex)
                 {
                     PublishNotification(() =>
-                        NotificationService.ShowWarning(Strings.VersionControl, ex.Guidance));
+                        _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(Strings.VersionControl, ex.Guidance));
                     return false;
                 }
             }
@@ -368,7 +370,7 @@ internal partial class VersionControlCoordinator
         if (!await TrySaveOpenProjectAsync(expectedProject, cancellationToken))
         {
             PublishNotification(() =>
-                NotificationService.ShowWarning(
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
                     Strings.VersionControl,
                     MessageStrings.OperationFailed));
             return false;

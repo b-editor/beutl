@@ -47,8 +47,8 @@ public partial class MissingMediaTests
         string moved = Path.Combine(directory, "renamed.png");
         File.Move(original, moved);
         var handler = new CaptureNotificationHandler();
-        var previousHandler = NotificationService.Handler;
-        NotificationService.Handler = handler;
+
+        using var notifications = new NotificationCapture(TestShell.Notifications, handler.Show);
         try
         {
             editor = await TestShell.ReopenAsync(projectPath);
@@ -96,7 +96,7 @@ public partial class MissingMediaTests
         finally
         {
             await TestReset.ResetShellAsync();
-            NotificationService.Handler = previousHandler;
+
         }
     }
 
@@ -104,9 +104,9 @@ public partial class MissingMediaTests
     public async Task Repair_tab_keeps_unresolved_rows_and_notifications_until_the_editor_closes()
     {
         await TestReset.ResetShellAsync();
-        var previousHandler = NotificationService.Handler;
+
         var handler = new CaptureNotificationHandler();
-        NotificationService.Handler = handler;
+        using var notifications = new NotificationCapture(TestShell.Notifications, handler.Show);
         try
         {
             var editor = await CreateEditorAsync();
@@ -142,7 +142,7 @@ public partial class MissingMediaTests
         finally
         {
             await TestReset.ResetShellAsync();
-            NotificationService.Handler = previousHandler;
+
         }
     }
 

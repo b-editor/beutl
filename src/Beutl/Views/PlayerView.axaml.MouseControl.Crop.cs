@@ -12,6 +12,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
@@ -94,7 +95,7 @@ public partial class PlayerView
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save image.");
-                NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
+                ViewModel.EditViewModel.GetRequiredService<INotificationService>().ShowError(MessageStrings.FailedToSaveImage, ex.Message);
             }
         }
 
@@ -138,7 +139,7 @@ public partial class PlayerView
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to save image.");
-                        NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
+                        ViewModel.EditViewModel.GetRequiredService<INotificationService>().ShowError(MessageStrings.FailedToSaveImage, ex.Message);
                     }
                 }
             };

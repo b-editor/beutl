@@ -112,6 +112,8 @@ public class ToolTabReuseTests
 
     private sealed class FakeTab(string? target, bool pinned = false) : IPinnableToolContext
     {
+        private readonly Beutl.Services.INotificationService _notifications = new Beutl.Services.NotificationService();
+
         public string? Target { get; } = target;
 
         public ToolTabExtension Extension => null!;
@@ -128,7 +130,7 @@ public class ToolTabReuseTests
         {
         }
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? _notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : null;
 
         public void ReadFromJson(JsonObject json)
         {
@@ -141,13 +143,15 @@ public class ToolTabReuseTests
 
     private sealed class TestEditorContext(params FakeTab[] tabs) : IEditorContext
     {
+        private readonly Beutl.Services.INotificationService _notifications = new Beutl.Services.NotificationService();
+
         public CoreObject Object => null!;
 
         public EditorExtension Extension => null!;
 
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? _notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext

@@ -400,7 +400,7 @@ public partial class MainViewModel
             // A failed close leaves the project open for a retry; once the close was
             // accepted a cached cleanup failure cannot keep the process alive.
             _logger.LogError(ex, "Failed to drain the editor session for a shutdown request.");
-            await ex.Handle();
+            await ex.Handle(AppServices.GetRequiredService<INotificationService>());
         }
 
         if (!closeAccepted)

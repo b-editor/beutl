@@ -27,9 +27,9 @@ public static class TemplateMenuHelper
             if (control.DataContext is not IObjectEditorCommands { IsDisposed: false } vm || vm.GetTemplateTarget() is not { } target) return;
 
             var templates = ((IServiceProvider)vm).GetRequiredService<ObjectTemplateService>();
-            TemplateSaving.ShowSaveFlyout(
+            TemplateSaving.ShowSaveFlyout(((IServiceProvider)vm).GetRequiredService<INotificationService>(),
                 templates, control, target, templates.GetUniqueName(vm.GetTemplateDefaultName()), showAtPointer: true,
-                () => NotificationService.ShowInformation(Strings.Templates, Strings.TemplateSaved));
+                () => ((IServiceProvider)vm).GetRequiredService<INotificationService>().ShowInformation(Strings.Templates, Strings.TemplateSaved));
         };
 
         var applySubMenu = new FAMenuFlyoutSubItem { Text = Strings.ApplyTemplate };

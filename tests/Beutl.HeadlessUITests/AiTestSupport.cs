@@ -131,7 +131,7 @@ internal static class AiTestSupport
         EditViewModel? editor = null,
         AiRequestRecoveryContext? context = null,
         IAiPlanCoordinator? planCoordinator = null)
-        => new(
+        => new(TestShell.Notifications,
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
@@ -148,7 +148,7 @@ internal static class AiTestSupport
         EditViewModel? editor = null,
         AiRequestRecoveryContext? context = null,
         IAiPlanCoordinator? planCoordinator = null)
-        => new(
+        => new(TestShell.Notifications,
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
@@ -167,7 +167,7 @@ internal static class AiTestSupport
         AiSourceVideoMode? sourceMode = null,
         IAiOperationAvailabilityService? availability = null,
         IAiPlanCoordinator? planCoordinator = null)
-        => new(
+        => new(TestShell.Notifications,
             clients.GetResource<IAiEntitlementService>(),
             availability ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
@@ -187,7 +187,7 @@ internal static class AiTestSupport
         IObservable<CaptionDraftScope?>? draftScopes = null,
         IAiOperationAvailabilityService? availabilityService = null,
         CaptionCatalog? captionCatalog = null)
-        => new(TestShell.FontManager,
+        => new(TestShell.Notifications, TestShell.FontManager,
             clients.GetResource<IAiEntitlementService>(),
             availabilityService ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),

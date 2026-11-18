@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor.Components.Helpers;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -9,7 +10,7 @@ namespace Beutl.ViewModels.ExtensionsPages;
 // other failure is reported and logged.
 internal static class StorePageCommand
 {
-    public static async Task RunAsync(
+    public static async Task RunAsync(INotificationService notifications,
         ReactivePropertySlim<bool> isBusy,
         string? activityName,
         CancellationToken lifetime,
@@ -29,7 +30,7 @@ internal static class StorePageCommand
         catch (Exception e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            await e.Handle();
+            await e.Handle(notifications);
             logger.LogError(e, "An unexpected error has occurred.");
         }
         finally

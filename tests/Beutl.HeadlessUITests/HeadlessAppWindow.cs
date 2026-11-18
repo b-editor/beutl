@@ -22,6 +22,8 @@ internal static class HeadlessAppWindow
                 ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
             if (ControlFonts.GetFonts(window) == null)
                 ControlFonts.SetFonts(window, TestShell.FontManager);
+            if (ControlNotifications.GetNotifications(window) == null)
+                ControlNotifications.SetNotifications(window, TestShell.Notifications);
             return window;
         }
 

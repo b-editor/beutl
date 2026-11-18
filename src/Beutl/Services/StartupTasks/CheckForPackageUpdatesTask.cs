@@ -7,6 +7,7 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
@@ -26,7 +27,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
             () => startup.GetTask<LoadInstalledExtensionTask>().Failures,
             token => CheckAndPrepareAsync(startup, packageManager, token, startup.IsAppUpgrade),
             () => beutlApiApplication.IsDisposed,
-            s_mismatchDeadline)
+            startup.Notifications, s_mismatchDeadline)
     {
         _ = WatchAutomaticUpdatesAsync(startup, packageManager, beutlApiApplication);
     }
@@ -80,7 +81,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
         Func<IEnumerable<(LocalPackage, Exception)>> getLoadFailures,
         Func<CancellationToken, Task<IReadOnlyList<PackageUpdate>>> checkUpdate,
         Func<bool> isShuttingDown,
-        TimeSpan mismatchDeadline)
+        INotificationService notifications, TimeSpan mismatchDeadline)
     {
         PackageApiMismatchException[] GetMismatches()
             => [.. getLoadFailures().Select(failure => failure.Item2).OfType<PackageApiMismatchException>()];
@@ -101,7 +102,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                     if (await Task.WhenAny(check, Task.Delay(mismatchDeadline)) != check)
                     {
                         // A store that does not answer must not hold back which packages did not load.
-                        ShowResult([], GetMismatches());
+                        ShowResult(notifications, [], GetMismatches());
                         mismatchesShown = true;
                     }
 
@@ -130,7 +131,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                     _logger.LogError(ex, "An error occurred while checking for package updates.");
                 }
 
-                ShowResult(updates, mismatchesShown ? [] : GetMismatches());
+                ShowResult(notifications, updates, mismatchesShown ? [] : GetMismatches());
             }
         });
     }
@@ -139,35 +140,35 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
 
     // Packages that failed the API check and have an update share one short warning, since updating is
     // the way out. The others keep their full report, as they do when the update check itself failed.
-    private static void ShowResult(IReadOnlyList<PackageUpdate> updates, IReadOnlyList<PackageApiMismatchException> mismatches)
+    private static void ShowResult(INotificationService notifications, IReadOnlyList<PackageUpdate> updates, IReadOnlyList<PackageApiMismatchException> mismatches)
     {
         HashSet<string> updatable = new(updates.Select(update => update.Package.Name), StringComparer.OrdinalIgnoreCase);
         PackageApiMismatchException[] outdated = [.. mismatches.Where(mismatch => updatable.Contains(mismatch.Package.Name))];
 
         foreach (PackageApiMismatchException mismatch in mismatches.Except(outdated))
         {
-            AfterLoadingExtensionsTask.ShowMismatch(ExtensionsStrings.PackageNotLoaded, mismatch);
+            AfterLoadingExtensionsTask.ShowMismatch(notifications, ExtensionsStrings.PackageNotLoaded, mismatch);
         }
 
         if (outdated.Length > 0)
         {
-            NotificationService.ShowWarning(
+            notifications.ShowWarning(
                 MessageStrings.PackageUpdatesRequired,
                 string.Format(MessageStrings.PackagesNotLoadedOnThisVersion, outdated.Length),
-                actions: [new(Strings.Open, OpenExtensionsPage)]);
+                actions: [new(Strings.Open, () => OpenExtensionsPage(notifications))]);
         }
 
         int others = updates.Count - outdated.Length;
         if (others > 0)
         {
-            NotificationService.ShowInformation(
+            notifications.ShowInformation(
                 MessageStrings.PackageUpdatesAvailable,
                 string.Format(MessageStrings.PackagesCanBeUpdated, others),
-                actions: [new(Strings.Open, OpenExtensionsPage)]);
+                actions: [new(Strings.Open, () => OpenExtensionsPage(notifications))]);
         }
     }
 
-    private static async void OpenExtensionsPage()
+    private static async void OpenExtensionsPage(INotificationService notifications)
     {
         try
         {
@@ -190,6 +191,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                 ColorPaletteService.SetService(window, ColorPaletteService.GetService(topLevel));
                 ControlConfiguration.SetConfiguration(window, ControlConfiguration.GetConfiguration(topLevel));
                 ControlFonts.SetFonts(window, ControlFonts.GetFonts(topLevel));
+                ControlNotifications.SetNotifications(window, ControlNotifications.GetNotifications(topLevel));
                 if (window is Pages.ExtensionsPage page)
                 {
                     page.OpenLibraryWithUpdates();
@@ -207,7 +209,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle(notifications);
         }
     }
 }

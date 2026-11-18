@@ -33,8 +33,8 @@ public sealed class ExtensionGuardCallSiteTests
     [AvaloniaTest]
     public void A_tool_tab_whose_content_or_icon_throws_shows_the_error_text_without_an_icon()
     {
-        using var notifications = new NotificationCapture();
-        using var dockable = new BeutlToolDockable(new ToolContext(new ThrowingToolTab()), null!);
+        using var notifications = new NotificationCapture(TestShell.Notifications);
+        using var dockable = new BeutlToolDockable(new ToolContext(new ThrowingToolTab() { Services = TestShell.MainViewModel.AppServices }), null!);
         var content = new ToolTabContent { DataContext = dockable };
 
         using (Assert.EnterMultipleScope())
@@ -48,8 +48,8 @@ public sealed class ExtensionGuardCallSiteTests
     [AvaloniaTest]
     public void An_editor_whose_view_throws_shows_the_error_text()
     {
-        using var notifications = new NotificationCapture();
-        var host = new EditorHostView { DataContext = new EditorContext(new ThrowingEditor()) };
+        using var notifications = new NotificationCapture(TestShell.Notifications);
+        var host = new EditorHostView { DataContext = new EditorContext(new ThrowingEditor() { Services = TestShell.MainViewModel.AppServices }) };
 
         using (Assert.EnterMultipleScope())
         {
@@ -62,12 +62,12 @@ public sealed class ExtensionGuardCallSiteTests
     public async Task Switching_to_an_editor_whose_context_throws_is_reported_once()
     {
         await TestReset.ResetShellAsync();
-        var original = new EditorContext(new ThrowingEditor());
+        var original = new EditorContext(new ThrowingEditor() { Services = TestShell.MainViewModel.AppServices });
         var tab = new EditorTabItem(original);
         TestShell.Editor.TabItems.Add(tab);
-        var extension = new ThrowingEditor();
+        var extension = new ThrowingEditor() { Services = TestShell.MainViewModel.AppServices };
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             await TestShell.MainViewModel.SwitchEditorAsync(tab, extension);
@@ -91,10 +91,10 @@ public sealed class ExtensionGuardCallSiteTests
         var target = new TestObject();
         var adapter = new EnginePropertyAdapter<string>(target.Name, target);
         var matching = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
-        matching.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: true)]);
+        matching.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: true) { Services = TestShell.MainViewModel.AppServices }]);
         var creating = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
-        creating.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: false)]);
-        using var notifications = new NotificationCapture();
+        creating.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: false) { Services = TestShell.MainViewModel.AppServices }]);
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         using (Assert.EnterMultipleScope())
         {
@@ -107,11 +107,11 @@ public sealed class ExtensionGuardCallSiteTests
     [AvaloniaTest]
     public void A_value_editor_whose_view_model_throws_in_Accept_leaves_the_page_up_and_turns_its_package_off()
     {
-        var extension = new ThrowingAcceptEditor();
+        var extension = new ThrowingAcceptEditor() { Services = TestShell.MainViewModel.AppServices };
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
         var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         provider.AddExtensions(new LocalPackage().LocalId, [extension]);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         using var model = new PropertiesEditorViewModel(new TestObject(), provider);
         var page = new Beutl.Editor.Components.PropertyEditors.Views.Settings.PropertiesEditor { DataContext = model };
         var window = new Window { Content = page, Width = 400, Height = 300 };
@@ -139,13 +139,13 @@ public sealed class ExtensionGuardCallSiteTests
     public void A_package_extension_whose_command_throws_is_turned_off()
     {
         var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
-        var extension = new CommandExtension();
+        var extension = new CommandExtension() { Services = TestShell.MainViewModel.AppServices };
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
         manager.Register(extension);
         var target = new CommandTarget();
         var element = new Border { DataContext = target };
         manager.Attach(element, extension);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         element.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Source = element, Key = Key.V });
         element.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Source = element, Key = Key.V });
@@ -163,9 +163,9 @@ public sealed class ExtensionGuardCallSiteTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("throwing-output", 320, 180)).Editor;
         using var model = new OutputTabViewModel(editor);
         int profiles = model.Items.Count;
-        var extension = new ThrowingOutput();
+        var extension = new ThrowingOutput() { Services = TestShell.MainViewModel.AppServices };
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         model.AddItem(extension);
         model.AddItem(extension);
@@ -183,9 +183,9 @@ public sealed class ExtensionGuardCallSiteTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("throwing-output-control", 320, 180)).Editor;
         using var model = new OutputTabViewModel(editor);
         OutputProfileItem? first = model.SelectedItem.Value;
-        var extension = new ThrowingOutput(throwOnContext: false);
+        var extension = new ThrowingOutput(throwOnContext: false) { Services = TestShell.MainViewModel.AppServices };
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var view = new OutputTabView { DataContext = model };
         var window = new Window { Content = view, Width = 640, Height = 480 };
         try
@@ -284,7 +284,7 @@ public sealed class ExtensionGuardCallSiteTests
 
         public void Dispose() => IsSelected.Dispose();
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public void ReadFromJson(JsonObject json)
         {
@@ -331,7 +331,7 @@ public sealed class ExtensionGuardCallSiteTests
         {
         }
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public void Dispose() => IsEnabled.Dispose();
     }

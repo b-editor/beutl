@@ -29,9 +29,10 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     {
         var factory = new Mock<IPropertyEditorFactory>();
         factory.Setup(f => f.CreateEditor(It.IsAny<IPropertyAdapter>())).Returns((IPropertyEditorContext?)null);
-        var ctx = new Mock<IEditorContext>();
+        var ctx = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         ctx.Setup(c => c.GetService(typeof(GlobalConfiguration))).Returns(_testConfiguration);
         ctx.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestFonts.Manager);
+        ctx.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(new Beutl.Services.NotificationService());
         ctx.Setup(c => c.GetService(typeof(IPropertyEditorFactory))).Returns(factory.Object);
         return new PreviewSettingsTabViewModel(ctx.Object);
     }

@@ -8,7 +8,7 @@ public class EditorServiceRegistryTests
     public void An_owned_service_is_created_once_and_disposed_with_the_registry()
     {
         int created = 0;
-        var registry = new EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestFonts.Manager).AddOwned<IDisposable>(() =>
+        var registry = new EditorServiceRegistry().AddOwned<Beutl.Services.INotificationService>(() => new Beutl.Services.NotificationService()).Add<Beutl.Media.FontManager>(() => TestFonts.Manager).AddOwned<IDisposable>(() =>
         {
             created++;
             return new Disposable();
@@ -31,7 +31,7 @@ public class EditorServiceRegistryTests
     public void A_lookup_is_read_on_each_request_under_its_exact_type()
     {
         var current = new Disposable();
-        var registry = new EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestFonts.Manager).Add<IDisposable>(() => current);
+        var registry = new EditorServiceRegistry().AddOwned<Beutl.Services.INotificationService>(() => new Beutl.Services.NotificationService()).Add<Beutl.Media.FontManager>(() => TestFonts.Manager).Add<IDisposable>(() => current);
 
         object? before = registry.GetService(typeof(IDisposable));
         current = new Disposable();

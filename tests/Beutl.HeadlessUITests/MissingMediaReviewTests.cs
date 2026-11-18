@@ -358,8 +358,8 @@ public partial class MissingMediaTests
     {
         await TestReset.ResetShellAsync();
         var editor = await CreateEditorAsync();
-        var previous = NotificationService.Handler; var handler = new CaptureNotificationHandler();
-        NotificationService.Handler = handler;
+        var handler = new CaptureNotificationHandler();
+        using var notifications = new NotificationCapture(TestShell.Notifications, handler.Show);
         try
         {
             string directory = NewDirectory();
@@ -372,7 +372,7 @@ public partial class MissingMediaTests
             await editor.WaitForMissingMediaAsync();
             Assert.That(notification.CancellationToken.IsCancellationRequested, Is.True);
         }
-        finally { await TestReset.ResetShellAsync(); NotificationService.Handler = previous; }
+        finally { await TestReset.ResetShellAsync(); }
     }
 }
 

@@ -9,6 +9,7 @@ using Dock.Model.Core;
 using DynamicData;
 using DynamicData.Binding;
 using FluentIcons.Common;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
@@ -289,7 +290,7 @@ public sealed partial class MainViewModel
         if (original is ISavableEditorContext editor
             && !await editor.SaveAsync())
         {
-            NotificationService.ShowError(MessageStrings.UnableToSaveFile, selectedTab.FileName.Value);
+            AppServices.GetRequiredService<INotificationService>().ShowError(MessageStrings.UnableToSaveFile, selectedTab.FileName.Value);
             return;
         }
 
@@ -306,7 +307,7 @@ public sealed partial class MainViewModel
         }
         else if (declined)
         {
-            NotificationService.ShowInformation(
+            AppServices.GetRequiredService<INotificationService>().ShowInformation(
                 title: MessageStrings.ContextNotCreated,
                 message: string.Format(
                     format: MessageStrings.FailedToOpenFileWithExtension,

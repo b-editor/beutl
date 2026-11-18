@@ -5,6 +5,7 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
@@ -37,7 +38,7 @@ public sealed class CreateNewSceneViewModel
             using IDisposable? open = _editorService.TryBeginEditorFileOpen();
             if (open is null)
             {
-                NotificationService.ShowWarning(Strings.CreateNewScene, MessageStrings.ProjectFilesBeingChanged);
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(Strings.CreateNewScene, MessageStrings.ProjectFilesBeingChanged);
                 return;
             }
 
@@ -55,7 +56,7 @@ public sealed class CreateNewSceneViewModel
             {
                 // Surface a scene-write or persist failure. AddItemAndPersist has already rolled the
                 // add back; awaited so Handle()'s API-error path runs instead of being dropped.
-                await ex.Handle();
+                await ex.Handle(_editorService.AppServices.GetRequiredService<INotificationService>());
                 return;
             }
 

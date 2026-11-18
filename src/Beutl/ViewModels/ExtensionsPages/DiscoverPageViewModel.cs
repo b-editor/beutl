@@ -6,6 +6,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -27,7 +28,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
         DataContextFactory = new DataContextFactory(_discover, apiApp, editorService, projectService);
 
         Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(() => StorePageCommand.RunAsync(
+            .WithSubscribe(() => StorePageCommand.RunAsync(editorService.AppServices.GetRequiredService<INotificationService>(),
                 IsBusy, "DiscoverPage.Refresh", _lifetimeCts.Token, _logger,
                 async activity =>
                 {
@@ -40,7 +41,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
             .DisposeWith(_disposables);
 
         More = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(() => StorePageCommand.RunAsync(
+            .WithSubscribe(() => StorePageCommand.RunAsync(editorService.AppServices.GetRequiredService<INotificationService>(),
                 IsBusy, "DiscoverPage.More", _lifetimeCts.Token, _logger,
                 async activity =>
                 {

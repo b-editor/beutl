@@ -12,12 +12,16 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
 using Beutl.Views.Dock;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views;
 
 public sealed partial class TabSwitcherView : UserControl
 {
+    private INotificationService Notifications => (DataContext as TabSwitcherViewModel)?.Notifications
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private readonly CompositeDisposable _subscriptions = [];
     private readonly ILogger _logger = Log.CreateLogger<TabSwitcherView>();
     private WeakReference<IInputElement>? _previousFocus;
@@ -171,7 +175,7 @@ public sealed partial class TabSwitcherView : UserControl
             vm.Close();
             RestoreFocus();
             _logger.LogError(ex, "Failed to switch or create a tab.");
-            NotificationService.ShowError(Strings.TabSwitcher_Title, MessageStrings.OperationFailed);
+            Notifications.ShowError(Strings.TabSwitcher_Title, MessageStrings.OperationFailed);
         }
         finally
         {

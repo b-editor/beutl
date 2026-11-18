@@ -32,7 +32,7 @@ public class PackagePublicationFailureTests
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         var installer = app.GetResource<PackageInstaller>();
         var repository = app.GetResource<InstalledPackageRepository>();
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         string materials = Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name);
         string templates = Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name);
         bool extensionRegistered = false;
@@ -95,7 +95,7 @@ public class PackagePublicationFailureTests
         LocalPackage package = TestPackages.CreateExtracted(identity, data: true);
         var installer = app.GetResource<PackageInstaller>();
         var repository = app.GetResource<InstalledPackageRepository>();
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         Task? nested = null;
         bool completedInCallback = false;
         using var subscription = repository.GetPackageObservable(name).Subscribe(value =>

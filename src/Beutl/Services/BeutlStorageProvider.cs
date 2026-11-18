@@ -5,12 +5,12 @@ using Beutl.ViewModels.Tools;
 
 namespace Beutl.Services;
 
-internal sealed class BeutlStorageProvider(
+internal sealed class BeutlStorageProvider(INotificationService notifications,
     BeutlApiApplication clients,
     Func<SettingsDialogViewModel> createSettings) : IFileBrowserStorageProvider
 {
     public string Id => "beutl";
     public string DisplayName => Strings.CloudStorage;
 
-    public IFileBrowserStorageBrowser CreateBrowser() => new CloudStorageViewModel(clients, createSettings);
+    public IFileBrowserStorageBrowser CreateBrowser() => new CloudStorageViewModel(notifications, clients, createSettings);
 }

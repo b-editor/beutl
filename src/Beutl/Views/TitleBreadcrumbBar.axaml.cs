@@ -4,12 +4,17 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Services;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
 public partial class TitleBreadcrumbBar : UserControl
 {
+    private INotificationService Notifications => (DataContext as TitleBreadcrumbBarViewModel)?.Notifications
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     public TitleBreadcrumbBar()
     {
         InitializeComponent();
@@ -46,7 +51,7 @@ public partial class TitleBreadcrumbBar : UserControl
             }
             catch (Exception ex)
             {
-                await ex.Handle();
+                await ex.Handle(Notifications);
             }
         }
     }

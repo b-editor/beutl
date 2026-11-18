@@ -8,11 +8,15 @@ using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.ViewModels.Dock;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Dock;
 
 public sealed partial class NewToolTabView : UserControl
 {
+    private INotificationService Notifications => ((DataContext as NewToolTabDockable)?.Factory as BeutlDockFactory)?.Notifications
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private BeutlDockFactory? _factory;
     // The tab this page last listed tools for, released once the page stops showing it.
     private NewToolTabDockable? _shownTab;
@@ -205,6 +209,6 @@ public sealed partial class NewToolTabView : UserControl
 
         // The list may be stale, e.g. a single-instance tool was opened since it was built.
         newTab.Refresh();
-        NotificationService.ShowError(Strings.NewTab, MessageStrings.OperationFailed);
+        Notifications.ShowError(Strings.NewTab, MessageStrings.OperationFailed);
     }
 }

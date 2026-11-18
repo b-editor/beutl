@@ -3,14 +3,12 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
-
 using Moq;
 using Reactive.Bindings;
 
@@ -529,7 +527,7 @@ public class BrowserMediaDownloadTests
         var clock = new Mock<IEditorClock>();
         using var time = new ReactivePropertySlim<MediaTime>(MediaTime.FromSeconds(12));
         clock.SetupGet(x => x.CurrentTime).Returns(time);
-        var context = new Mock<IEditorContext>();
+        var context = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         context.SetupGet(x => x.Object).Returns(scene);
         context.Setup(x => x.GetService(typeof(IElementAdder))).Returns(adder.Object);
         context.Setup(x => x.GetService(typeof(IEditorClock))).Returns(clock.Object);
@@ -550,7 +548,7 @@ public class BrowserMediaDownloadTests
         var adder = new Mock<IElementAdder>();
         adder.Setup(x => x.AddAsync(It.IsAny<IReadOnlyList<ElementDescription>>(), It.IsAny<CancellationToken>()))
             .Returns(() => new ValueTask<ElementAddResult>(completion.Task));
-        var context = new Mock<IEditorContext>();
+        var context = Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock();
         context.SetupGet(x => x.Object).Returns(new Scene { Uri = new Uri(Path.Combine(Path.GetTempPath(), "browser-import.scene")) });
         context.Setup(x => x.GetService(typeof(IElementAdder))).Returns(adder.Object);
         using var vm = new WebBrowserTabViewModel(context.Object);

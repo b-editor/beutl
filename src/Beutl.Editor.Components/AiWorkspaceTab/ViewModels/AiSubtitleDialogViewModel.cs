@@ -27,6 +27,8 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 
 public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer, IAiPlanOffer
 {
+    private readonly INotificationService _notifications;
+
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
     private readonly object _disposeGate = new();
@@ -53,7 +55,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private bool _updatingAudioSources;
     private readonly OnceAsyncDisposal _disposal;
 
-    internal AiSubtitleDialogViewModel(
+    internal AiSubtitleDialogViewModel(INotificationService notifications,
         Beutl.Media.FontManager fonts,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
@@ -66,6 +68,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         IObservable<CaptionDraftScope?> captionDraftScopes,
         IAiJobResultEditorContext? editor = null, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
     {
+        _notifications = notifications;
         _disposal = new OnceAsyncDisposal(_disposeGate);
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
@@ -530,11 +533,11 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
             if (result.IsSuccess)
             {
-                operation.TryPublish(() => NotificationService.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitleAddedToScene));
+                operation.TryPublish(() => _notifications.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitleAddedToScene));
             }
             else if (result.FailureId == ElementAddFailureIds.LockedLayer)
             {
-                operation.TryPublish(() => NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
+                operation.TryPublish(() => _notifications.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
             }
             else
             {

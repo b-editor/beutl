@@ -21,6 +21,8 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer,
     IAiRecoverableForm, IAiPlanOffer, IAiResultActions
 {
+    private readonly INotificationService _notifications;
+
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
     private readonly IdentityOperationLifetime _identityOperations = new();
@@ -50,7 +52,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     private bool _applyingCapabilities;
     private readonly IAiJobResultEditorContext? _editor;
 
-    internal AiImageGenerationDialogViewModel(
+    internal AiImageGenerationDialogViewModel(INotificationService notifications,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
         IAiModelCatalogService modelCatalog,
@@ -62,6 +64,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         IAiJobResultEditorContext? editor,
         AiRequestRecoveryContext requestRecoveryContext)
     {
+        _notifications = notifications;
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
         _modelCatalog = modelCatalog ?? throw new ArgumentNullException(nameof(modelCatalog));
@@ -79,7 +82,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
         ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
             .DisposeWith(_disposables);
-        _recovery = new AiRecoveryState(
+        _recovery = new AiRecoveryState(_notifications,
             _requestKey,
             AiOperations.ImageGeneration,
             Error,
@@ -692,7 +695,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         if (resultImage?.Value is not { } bitmap)
             return;
 
-        await AiDialogResults.SavePngAsync(
+        await AiDialogResults.SavePngAsync(_notifications,
             operation,
             bitmap,
             SaveFilePicker,

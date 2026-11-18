@@ -2,6 +2,7 @@
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
@@ -11,7 +12,7 @@ public class DataContextFactory(DiscoverService discoverService, BeutlApiApplica
 {
     public SearchPageViewModel SearchPage(string keyword)
     {
-        return new SearchPageViewModel(discoverService, keyword);
+        return new SearchPageViewModel(editorService.AppServices.GetRequiredService<INotificationService>(), discoverService, keyword);
     }
 
     public PackageDetailsPageViewModel PackageDetailPage(Package package, string? version = null)

@@ -5,6 +5,7 @@ using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TimelineTab;
 
@@ -50,7 +51,7 @@ internal static class CaptionFileDrop
             CaptionImportResult? import = bytes is null ? null : s_catalog.Value.Serializer.ImportFile(bytes, codec.Format);
             if (import?.Document is not { Count: > 0 } document)
             {
-                NotificationService.ShowError(
+                viewModel.EditorContext.GetRequiredService<INotificationService>().ShowError(
                     Strings.AddElement,
                     string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_CouldNotRead, Path.GetFileName(file)));
                 continue;
@@ -84,7 +85,7 @@ internal static class CaptionFileDrop
 
         foreach (string file in skippedSome)
         {
-            NotificationService.ShowWarning(
+            viewModel.EditorContext.GetRequiredService<INotificationService>().ShowWarning(
                 Strings.AddElement,
                 string.Format(CultureInfo.CurrentCulture, Strings.SubtitleFile_SomeSkipped, Path.GetFileName(file)));
         }

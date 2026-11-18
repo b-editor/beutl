@@ -52,7 +52,7 @@ public sealed class HistoryViewModel : IToolContext
                 ex =>
                 {
                     _logger.LogError(ex, "HistoryManager.StateChanged stream errored; UI sync stopped");
-                    NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
+                    _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.History, Strings.History_OperationFailed);
                 })
             .DisposeWith(_disposables);
 

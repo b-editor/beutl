@@ -6,6 +6,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -99,7 +100,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
+                    await e.Handle(_handler.Notifications);
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -206,7 +207,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .DisposeWith(_disposables);
 
         Restart = new AsyncReactiveCommand()
-            .WithSubscribe(PackageOperationHandler.RestartAsync)
+            .WithSubscribe(_handler.RestartAsync)
             .DisposeWith(_disposables);
 
         Refresh.Execute();
@@ -244,7 +245,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         catch (Exception e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally
@@ -287,7 +288,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         catch (Exception e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally
@@ -309,18 +310,18 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
             if (await _handler.UnloadAndUninstallAsync(Package.Name))
             {
-                PackageNotifications.Uninstalled(Package.Name);
+                PackageNotifications.Uninstalled(_handler.Notifications, Package.Name);
             }
             else
             {
-                PackageNotifications.ScheduledUninstallation(Package.Name);
+                PackageNotifications.ScheduledUninstallation(_handler.Notifications, Package.Name);
             }
         }
         catch (Exception e)
         {
             _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
             _handler.QueueUninstallAll(Package.Name);
-            PackageNotifications.ScheduledUninstallation(Package.Name);
+            PackageNotifications.ScheduledUninstallation(_handler.Notifications, Package.Name);
         }
         finally
         {
@@ -338,7 +339,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         }
         catch (Exception e)
         {
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally

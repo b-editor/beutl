@@ -6,7 +6,9 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 
@@ -14,6 +16,9 @@ namespace Beutl.Views;
 
 public partial class CommandPaletteView : UserControl
 {
+    private INotificationService Notifications => (DataContext as CommandPaletteViewModel)?.Notifications
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private const int PageStep = 8;
     private const double MaxPaletteWidth = 640;
 
@@ -256,7 +261,7 @@ public partial class CommandPaletteView : UserControl
         catch (Exception ex)
         {
             _logger.LogError(ex, "A command palette action failed.");
-            await ex.Handle();
+            await ex.Handle(Notifications);
         }
     }
 

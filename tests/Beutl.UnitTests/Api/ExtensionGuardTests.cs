@@ -14,7 +14,10 @@ public sealed class ExtensionGuardTests
     public void A_failing_built_in_extension_is_reported_once_and_stays_enabled()
     {
         var extension = new NamedExtension();
-        using var notifications = NotificationCapture.Install();
+        using var notifications = new NotificationCapture();
+        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
+            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
+            .Add<Beutl.Services.INotificationService>(() => notifications));
         using var logs = new CapturingLoggerProvider(category => category == typeof(ExtensionGuard).FullName);
         Log.LoggerFactory.AddProvider(logs);
 
@@ -41,7 +44,10 @@ public sealed class ExtensionGuardTests
     {
         var extension = new NamedExtension();
         ExtensionGuard.SetPackage(extension, "Broken.Package");
-        using var notifications = NotificationCapture.Install();
+        using var notifications = new NotificationCapture();
+        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
+            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
+            .Add<Beutl.Services.INotificationService>(() => notifications));
         int calls = 0;
 
         await ExtensionGuard.CallAsync(extension, () => Task.FromException(new InvalidOperationException("command failed")));
@@ -64,7 +70,10 @@ public sealed class ExtensionGuardTests
     public void Declined_tells_a_null_result_apart_from_a_failure()
     {
         var extension = new NamedExtension();
-        using var notifications = NotificationCapture.Install();
+        using var notifications = new NotificationCapture();
+        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
+            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
+            .Add<Beutl.Services.INotificationService>(() => notifications));
 
         ExtensionGuard.Call<string>(extension, () => null, out bool nullResult);
         ExtensionGuard.Call<string>(extension, () => throw new InvalidOperationException("broken"), out bool failure);
@@ -81,7 +90,10 @@ public sealed class ExtensionGuardTests
     {
         var extension = new NamedExtension();
         ExtensionGuard.SetPackage(extension, "Canceling.Package");
-        using var notifications = NotificationCapture.Install();
+        using var notifications = new NotificationCapture();
+        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
+            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
+            .Add<Beutl.Services.INotificationService>(() => notifications));
 
         await Assert.CatchAsync<OperationCanceledException>(
             () => ExtensionGuard.CallAsync(extension, () => Task.FromCanceled(new CancellationToken(canceled: true))));

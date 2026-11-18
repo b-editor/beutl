@@ -36,7 +36,7 @@ public sealed class ListEditorAddTests
             (typeof(ExtensionProvider), TestShell.Extensions)));
         var view = new ListEditor { DataContext = list };
         var window = new Window { Content = view, Width = 480, Height = 600 };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             window.Show();

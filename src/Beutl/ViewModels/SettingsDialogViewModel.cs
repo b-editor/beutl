@@ -3,12 +3,15 @@ using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Services;
 using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.ViewModels;
 
 public sealed class SettingsDialogViewModel : IDisposable
 {
+    private readonly INotificationService _notifications;
+
     private readonly Subject<object> _navigateRequested = new();
     private readonly Lazy<AccountSettingsPageViewModel> _account;
     private readonly Lazy<ViewSettingsPageViewModel> _view;
@@ -20,14 +23,15 @@ public sealed class SettingsDialogViewModel : IDisposable
     private readonly Lazy<AiAgentSettingsPageViewModel> _aiAgent;
     private readonly Lazy<BrowserSettingsPageViewModel> _browser = new(() => new BrowserSettingsPageViewModel());
 
-    public SettingsDialogViewModel(
+    public SettingsDialogViewModel(INotificationService notifications,
         BeutlApiApplication clients,
         ExtensionProvider extensionProvider,
         IAiPlanCoordinator aiPlanCoordinator, GlobalConfiguration configuration)
     {
+        _notifications = notifications;
         ArgumentNullException.ThrowIfNull(aiPlanCoordinator);
         Terminal = configuration.TerminalConfig;
-        _account = new(() => new AccountSettingsPageViewModel(clients, aiPlanCoordinator));
+        _account = new(() => new AccountSettingsPageViewModel(notifications, clients, aiPlanCoordinator));
         _editor = new(() => new EditorSettingsPageViewModel(configuration));
         _view = new(() => new ViewSettingsPageViewModel(configuration.ViewConfig));
         _font = new(() => new FontSettingsPageViewModel(configuration.FontConfig));
