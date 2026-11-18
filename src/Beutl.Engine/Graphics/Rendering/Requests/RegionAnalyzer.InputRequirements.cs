@@ -277,17 +277,26 @@ internal sealed partial class RegionAnalyzer
         FilterEffectSegmentRenderFragmentPayload payload,
         Rect? targetDomain)
     {
+        // A custom effect without bounds leaves its segment to the owning target domain. One that declares where it reads
+        // still narrows the segment's inputs, as long as they have bounds to narrow. A segment that takes parts needs all
+        // of its stream's values, which a stream input standing for several of them cannot promise.
         if (outputRequirement.IsFull
-            || reference.BoundsRequirement != RenderFragmentBoundsRequirement.Finite)
+            || (reference.BoundsRequirement != RenderFragmentBoundsRequirement.Finite
+                && !(payload.HasCallbackFootprint && HasFiniteBounds(reference)))
+            || (payload.TakesParts && !HasOneValuePerStreamInput(reference, payload)))
         {
             return FullInputs(reference);
         }
 
         Rect requestedOutput = outputRequirement.Resolve(ResolveSemanticBounds(reference, targetDomain));
-        if (!EffectItemSamplingSupport.TryResolveSampledInput(
+        var stream = new EffectItemStream(
+            ResolveStreamBounds(reference, payload),
+            reference.EffectiveScale.IsUnbounded ? 1 : reference.EffectiveScale.Value);
+        if (!EffectItemSamplingSupport.TryResolveRequiredInput(
                 payload.BoundsItems,
                 payload.StreamInputCount,
                 requestedOutput,
+                stream,
                 out Rect requested))
         {
             return FullInputs(reference);
@@ -298,15 +307,63 @@ internal sealed partial class RegionAnalyzer
         {
             // A brush dependency is sampled by an opaque callback over the whole brush frame, so its
             // region cannot be narrowed by the stream's backward region.
-            result.Add(index < payload.StreamInputCount
-                ? RestrictToSemanticCoverage(
-                    reference.Inputs[index],
-                    RequiredRegion.Region(requested),
-                    targetDomain)
-                : RequiredRegion.Full);
+            if (index >= payload.StreamInputCount)
+            {
+                result.Add(RequiredRegion.Full);
+                continue;
+            }
+
+            RenderFragmentReference input = reference.Inputs[index];
+            RequiredRegion required = RestrictToSemanticCoverage(input, RequiredRegion.Region(requested), targetDomain);
+            // A value the segment reads nothing of still has to reach it in its place, with its complete bounds, so it
+            // is asked for no more than a corner of itself.
+            if (payload.TakesParts && required.IsEmpty && !input.Bounds.IsEmpty)
+                required = RequiredRegion.Region(ResolveCorner(input.Bounds));
+
+            result.Add(required);
         }
 
         return result.MoveToImmutable();
+    }
+
+    private static bool HasOneValuePerStreamInput(
+        RenderFragmentReference reference,
+        FilterEffectSegmentRenderFragmentPayload payload)
+    {
+        for (int index = 0; index < payload.StreamInputCount; index++)
+        {
+            if (reference.Inputs[index].ValueCardinality.Maximum != 1)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static Rect ResolveStreamBounds(
+        RenderFragmentReference reference,
+        FilterEffectSegmentRenderFragmentPayload payload)
+    {
+        Rect bounds = default;
+        for (int index = 0; index < payload.StreamInputCount; index++)
+            bounds = bounds.Union(reference.Inputs[index].Bounds);
+        return bounds;
+    }
+
+    private static Rect ResolveCorner(Rect bounds)
+        => new(bounds.Position, new Size(MathF.Min(1, bounds.Width), MathF.Min(1, bounds.Height)));
+
+    private static bool HasFiniteBounds(RenderFragmentReference reference)
+    {
+        if (!RenderRectValidation.IsFiniteNonNegative(reference.Bounds))
+            return false;
+
+        foreach (RenderFragmentReference input in reference.Inputs)
+        {
+            if (!RenderRectValidation.IsFiniteNonNegative(input.Bounds))
+                return false;
+        }
+
+        return true;
     }
 
     private static ImmutableArray<RequiredRegion> MapOpacityMask(

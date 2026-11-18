@@ -54,7 +54,8 @@ internal static class FilterEffectStageFallbackExecutor
         ShaderGraphProgramAcquirer acquireProgram = settings.ShaderGraphProgramAcquirer
             ?? throw new ArgumentException("A shader graph stage needs a program acquirer.", nameof(settings));
         settings = settings.WithResolvedBudget();
-        Rect referenceBounds = targets.CalculateBounds();
+        // A group's origin lies in the bounds of all of its values, also of those it was handed only part of.
+        Rect referenceBounds = targets.CalculateCompleteBounds();
         ReplaceTargets(targets, source =>
         {
             using EffectTarget? normalized = NormalizeInput(source, settings);
@@ -66,14 +67,16 @@ internal static class FilterEffectStageFallbackExecutor
             EffectTarget? input = normalized.Placement.DeviceBounds != footprint ? cropped : normalized;
             if (input?.RenderTarget is not { } inputTarget)
                 return source.Clone();
-            Rect bounds = description.TransformBounds(input.Bounds, referenceBounds);
+            // A part keeps the frame of all of its value, and its raster holds the part.
+            Rect sourceBounds = source.CompleteBounds ?? input.Bounds;
+            Rect bounds = description.TransformBounds(sourceBounds, referenceBounds);
             Rect? part = requiredOutput?.Intersect(bounds);
             Rect outputBounds = part ?? bounds;
             if (IsEmpty(outputBounds))
                 return null;
             ITexture2D texture = inputTarget.Texture
                 ?? throw new NotSupportedException("The shader graph input requires a backend texture.");
-            float density = description.ClampWorkingScale(input.Bounds,
+            float density = description.ClampWorkingScale(sourceBounds,
                 ResolveSupplyDensity(input, settings), input.Allocation.DeviceGridOffset, referenceBounds,
                 input.Placement.DeviceBounds.Size, ((VulkanTexture2D)texture).Usage, part);
             EffectTarget? output = AllocateStageOutput(input, outputBounds, density, settings, native: true);
@@ -86,12 +89,14 @@ internal static class FilterEffectStageFallbackExecutor
             {
                 inputTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
                 ShaderGraphExecutor.Execute(description, texture,
-                    new(input.Bounds, input.Placement.RasterBounds, input.Placement.DeviceBounds.Size, input.Placement.Scale.Value, referenceBounds),
+                    new(sourceBounds, input.Placement.RasterBounds, input.Placement.DeviceBounds.Size, input.Placement.Scale.Value, referenceBounds),
                     outputTarget.Texture ?? throw new NotSupportedException("The shader graph output requires a backend texture."),
                     output.Placement.Scale.Value, input.Allocation.DeviceGridOffset, acquireProgram, part, settings.ShaderGraphImages);
                 description.ExecutionObserver?.Invoke(null);
                 EffectTarget result = output;
                 output = null;
+                if (source.CompleteBounds is not null)
+                    result.CompleteBounds = bounds;
                 return result;
             }
             catch (Exception ex) when (description.ExecutionObserver is { } observer)

@@ -14,7 +14,8 @@ internal sealed partial class RenderRequestExecutor
 
             ExecuteOnDeviceGrid(destination, () =>
             {
-                using EffectTargets targets = CreateEffectTargets(inputs);
+                // Target work is given all of its inputs.
+                using EffectTargets targets = CreateEffectTargets(inputs, takesParts: false, readRegion: null);
                 Rect[] inputBounds = targets.Select(static target => target.Bounds).ToArray();
                 Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
                     inputBounds, program.GetOrderedItems(), _options.TargetDomain ?? requiredRegion);

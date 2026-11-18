@@ -176,6 +176,7 @@ public sealed partial class FilterEffectExecutor
 
             DrawIntoFlushTarget(target, newTarget, flushTarget, geometry, paint, w);
             newTarget.OriginalBounds = target.OriginalBounds;
+            newTarget.CompleteBounds = target.CompleteBounds;
             (placements ??= []).Add(new TargetPlacement(target.Bounds, newTarget.Bounds));
             if (AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid))
             {
@@ -509,6 +510,10 @@ public sealed partial class FilterEffectExecutor
             merged.Dispose();
             throw;
         }
+
+        // Parts merge into a part of all of their values together.
+        if (CurrentTargets.Any(static target => target.CompleteBounds is not null))
+            merged.CompleteBounds = CurrentTargets.CalculateCompleteBounds();
 
         CurrentTargets.Clear();
         CurrentTargets.Add(merged);

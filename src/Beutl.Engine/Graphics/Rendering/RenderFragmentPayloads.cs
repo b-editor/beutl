@@ -89,6 +89,41 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
     }
 
     /// <summary>
+    /// Whether an imperative effect callback in the segment declares where it reads, so that the segment can be handed
+    /// only the part of each value a request needs.
+    /// </summary>
+    public bool HasCallbackFootprint
+    {
+        get
+        {
+            if (BoundsItems.IsDefaultOrEmpty)
+                return false;
+
+            foreach (IFEItem item in BoundsItems)
+            {
+                if (item is IFEItem_Custom { DeclaresSamplingBounds: true })
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether the segment can be handed only the part of each value a request needs past what Skia filters read: through
+    /// a callback that declares where it reads, or a shader graph at its start that finds its source's pixels through
+    /// frames.
+    /// </summary>
+    /// <remarks>
+    /// Such a segment depends on all of its stream's values even where it reads little of them. A callback counts its
+    /// targets, and a group's shader graph resolves its origin in the bounds of all of them.
+    /// </remarks>
+    public bool TakesParts
+        => HasCallbackFootprint
+           || (!BoundsItems.IsDefaultOrEmpty
+               && BoundsItems[0] is FEItem_ShaderGraph { Description.AcceptsPartialSource: true });
+
+    /// <summary>
     /// Whether the segment runs an imperative effect callback that lays out its targets in whole device pixels from
     /// where its content sits, so the executor strips the sub-pixel phase of the ambient device grid for it and its
     /// nested input frames.

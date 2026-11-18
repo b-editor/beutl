@@ -65,6 +65,15 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
         return bounds;
     }
 
+    /// <summary>The union of the complete bounds of every element, which are its bounds when it holds all of its value.</summary>
+    internal Rect CalculateCompleteBounds()
+    {
+        Rect bounds = default;
+        for (int index = 0; index < _targets.Count; index++)
+            bounds = bounds.Union(_targets[index].CompleteBounds ?? _targets[index].Bounds);
+        return bounds;
+    }
+
     /// <summary>Creates a list of clones of every element.</summary>
     public EffectTargets Clone() => new(this);
 

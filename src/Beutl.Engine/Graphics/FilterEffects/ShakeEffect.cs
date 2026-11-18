@@ -104,7 +104,7 @@ public partial class ShakeEffect : FilterEffect
             }
 
             var effect = (ShakeEffect)RequireOriginal();
-            context.CustomEffect(
+            context.CustomEffectWithSamplingBounds(
                 (time: Time, speed: Speed, strengthX: StrengthX, strengthY: StrengthY, random: effect._random, offset: effect._offset),
                 static (data, effectContext) =>
                 {
@@ -120,7 +120,13 @@ public partial class ShakeEffect : FilterEffect
                         randomY = ClampOffset(randomY);
                         target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
                     });
-                });
+                },
+                // A target moves by at most its strength on each axis, so a part of the output reads no further than
+                // that around it. Content far past the frame, such as a camera rig's, then is not drawn whole.
+                static (data, output) => output.Inflate(new Thickness(Reach(data.strengthX), Reach(data.strengthY))));
         }
+
+        // The noise stays within [0, 1], so an offset is at most the clamped strength; a pixel more absorbs rounding.
+        private static float Reach(float strength) => MathF.Abs(ClampOffset(strength)) + 1;
     }
 }

@@ -300,6 +300,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
             pending.PhysicalBounds = TransformBoundsFrom(effectiveItem, pending.PhysicalBounds, original);
             pending.AnchorFrame = TransformBoundsFrom(effectiveItem, pending.AnchorFrame, anchor);
             t.Bounds = effectiveItem.TransformBounds(t.Bounds);
+            if (t.CompleteBounds is { } complete)
+                t.CompleteBounds = effectiveItem.TransformBounds(complete);
             t.OriginalBounds = TransformBoundsFrom(effectiveItem, t.OriginalBounds, original);
             // The chain's execution frame is anchored at InputBounds.Position, which
             // must stay equal to the displacement this item's accumulated mapping
@@ -322,6 +324,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
     private void RunCustomEffectItem(IFEItem_Custom custom, IFEItem[]? continuation, AlignedPlacement? placement)
     {
         _customEffectBoundaryMaterialized = true;
+        PartBounds[]? parts = CapturePartBounds();
 
         RenderExecutionContext? execution = ExecutionContext?.CreateCallbackScope(WorkingScale, custom);
         var customContext = new CustomFilterEffectContext(CurrentTargets, _settings with { ExecutionContext = execution });
@@ -341,10 +344,62 @@ public sealed partial class FilterEffectExecutor : IDisposable
         if (placement is { } aligned)
             RestoreContentEdges(aligned);
 
+        if (parts is not null)
+            MoveCompleteBounds(parts);
+
         foreach (EffectTarget t in CurrentTargets)
         {
             t.ContentBounds = null;
             t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
+        }
+    }
+
+    /// <summary>A target that holds part of a value, with its bounds before a callback.</summary>
+    private readonly record struct PartBounds(EffectTarget Target, Rect Bounds, Rect CompleteBounds);
+
+    private PartBounds[]? CapturePartBounds()
+    {
+        PartBounds[]? parts = null;
+        for (int i = 0; i < CurrentTargets.Count; i++)
+        {
+            EffectTarget target = CurrentTargets[i];
+            if (target.CompleteBounds is not { } complete)
+                continue;
+
+            parts ??= new PartBounds[CurrentTargets.Count];
+            parts[i] = new PartBounds(target, target.Bounds, complete);
+        }
+
+        return parts;
+    }
+
+    /// <summary>
+    /// Moves the complete bounds of each part the way the callback moved the part: every edge as far as the part's own
+    /// edge moved, as a translation, a shake or a margin moves it.
+    /// </summary>
+    /// <remarks>
+    /// Only a callback that declares where it reads is given a part, and it keeps or replaces its targets one for one.
+    /// A target it made otherwise is taken to hold all of its value.
+    /// </remarks>
+    private void MoveCompleteBounds(PartBounds[] parts)
+    {
+        bool oneForOne = parts.Length == CurrentTargets.Count;
+        for (int i = 0; i < CurrentTargets.Count; i++)
+        {
+            EffectTarget target = CurrentTargets[i];
+            PartBounds part = i < parts.Length ? parts[i] : default;
+            if (part.Target is null || !(oneForOne || ReferenceEquals(target, part.Target)))
+            {
+                target.CompleteBounds = null;
+                continue;
+            }
+
+            Rect start = part.Bounds;
+            Rect end = target.Bounds;
+            Rect complete = part.CompleteBounds;
+            target.CompleteBounds = new Rect(
+                new Point(complete.Left + end.Left - start.Left, complete.Top + end.Top - start.Top),
+                new Point(complete.Right + end.Right - start.Right, complete.Bottom + end.Bottom - start.Bottom));
         }
     }
 
