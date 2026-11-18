@@ -23,7 +23,7 @@ public sealed class AiJobCompletionNotifierTests
             snapshots,
             jobKinds,
             resultHandlers,
-            () => openCount++);
+            () => openCount++, handler);
         AiJob queued = CreateJob(AiJobStatuses.Queued);
 
         snapshots.OnNext(new AiJobMonitorSnapshot([queued], null, false, null));
@@ -56,7 +56,7 @@ public sealed class AiJobCompletionNotifierTests
             snapshots,
             jobKinds,
             resultHandlers,
-            () => { });
+            () => { }, handler);
         AiJob running = CreateJob(AiJobStatuses.Running);
 
         snapshots.OnNext(new AiJobMonitorSnapshot([running], null, false, null));
@@ -85,7 +85,7 @@ public sealed class AiJobCompletionNotifierTests
             snapshots,
             jobKinds,
             resultHandlers,
-            () => { });
+            () => { }, handler);
         AiJob running = CreateJob(AiJobStatuses.Running);
 
         snapshots.OnNext(new AiJobMonitorSnapshot([running], null, false, null));
@@ -139,7 +139,7 @@ public sealed class AiJobCompletionNotifierTests
             snapshots,
             jobKinds,
             resultHandlers,
-            () => { });
+            () => { }, notificationHandler);
         AiJob waiting = CreateJob(
             new AiJobStatusId("waiting-for-gpu"),
             new AiJobKindId("vendor.upscale"));
@@ -169,7 +169,7 @@ public sealed class AiJobCompletionNotifierTests
             [KeyValuePair.Create(AiJobKinds.Video, (IAiJobCompletionPresenter)new ThrowingCompletionPresenter())],
             []);
         using var snapshots = new Subject<AiJobMonitorSnapshot>();
-        using var notifier = new AiJobCompletionNotifier(snapshots, jobKinds, resultHandlers, () => { });
+        using var notifier = new AiJobCompletionNotifier(snapshots, jobKinds, resultHandlers, () => { }, TestShell.Notifications);
         AiJob running = CreateJob(AiJobStatuses.Running);
 
         Assert.DoesNotThrow(() =>

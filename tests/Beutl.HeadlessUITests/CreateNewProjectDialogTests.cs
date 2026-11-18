@@ -20,7 +20,7 @@ public class CreateNewProjectDialogTests
     [AvaloniaTest]
     public void NumericInputs_show_unit_suffixes()
     {
-        CreateNewProjectViewModel vm = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        CreateNewProjectViewModel vm = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         var dialog = new CreateNewProject { DataContext = vm };
 
         var carousel = dialog.Content as Carousel;
@@ -119,7 +119,7 @@ public class CreateNewProjectDialogTests
     [AvaloniaTest]
     public void Audio_layout_choice_is_bound_and_visible()
     {
-        var vm = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        var vm = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         var dialog = new CreateNewProject { DataContext = vm };
         var carousel = (Carousel)dialog.Content!;
         var page = (Panel)carousel.Items[1]!;
@@ -147,7 +147,7 @@ public class CreateNewProjectDialogTests
     [AvaloniaTest]
     public void A_frame_rate_that_is_not_a_rate_blocks_creation()
     {
-        CreateNewProjectViewModel viewModel = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        CreateNewProjectViewModel viewModel = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         viewModel.FrameRate.Value = "fast";
         Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
 
@@ -167,7 +167,7 @@ public class CreateNewProjectDialogTests
         try
         {
             config.EnableForNewProjects.Value = false;
-            CreateNewProjectViewModel vm = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+            CreateNewProjectViewModel vm = CreateViewModel(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
             var dialog = new CreateNewProject { DataContext = vm };
             var carousel = (Carousel)dialog.Content!;
             var optionsPage = (Panel)carousel.Items[1]!;
@@ -502,7 +502,7 @@ public class CreateNewProjectDialogTests
         int initializationRequests = 0;
         try
         {
-            using var notifications = new NotificationCapture();
+            using var notifications = new NotificationCapture(TestShell.Notifications);
             var initializer = new TestVersionControlInitializer(
                 _ => Task.FromResult(s_installedGit),
                 (_, _) =>

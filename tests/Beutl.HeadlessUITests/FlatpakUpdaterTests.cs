@@ -181,8 +181,8 @@ public sealed class FlatpakUpdaterTests
         var previous = setting.Value;
         int preparations = 0;
         var vm = ViewModel(updater, client, (_, _) => Task.FromResult(++preparations));
-        var controller = new AppUpdateController(_ => vm, downloadsAutomatically: () => true);
-        using var notifications = new NotificationCapture();
+        var controller = new AppUpdateController(_ => vm, TestShell.Notifications, downloadsAutomatically: () => true);
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var dialog = new UpdateDialog { DataContext = vm };
         var window = new Window { Width = 720, Height = 420, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
         window.Show();

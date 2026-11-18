@@ -122,7 +122,7 @@ public sealed partial class AiSubtitleDialogViewModel
             if (!exported)
                 return;
 
-            operationLifetime.TryPublish(() => NotificationService.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitle_Exported));
+            operationLifetime.TryPublish(() => _notifications.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitle_Exported));
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {

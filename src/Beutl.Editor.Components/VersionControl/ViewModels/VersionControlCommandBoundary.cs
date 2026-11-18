@@ -7,7 +7,7 @@ namespace Beutl.Editor.Components.VersionControl.ViewModels;
 // unhandled on the UI thread. Version-control commands whose work can fail subscribe through here.
 internal static class VersionControlCommandBoundary
 {
-    internal static async Task RunAsync(
+    internal static async Task RunAsync(INotificationService notifications,
         Func<Task> operation,
         ILogger logger,
         string commandName)
@@ -22,7 +22,7 @@ internal static class VersionControlCommandBoundary
         catch (Exception ex)
         {
             logger.LogError(ex, "The version-control command {Command} failed.", commandName);
-            NotificationService.ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
+            notifications.ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
         }
     }
 }

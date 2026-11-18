@@ -42,7 +42,7 @@ public sealed class ProxyGenerationEncodingTests
         try
         {
             var store = new ProxyStore(root);
-            var generator = new FFmpegProxyGenerator(store);
+            var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
             // The decoder below opens any file with this extension as 4 frames of 64x48 at 12 fps. The fingerprint
             // reads the file, so it must not be empty.
             string source = Path.Combine(root, "source" + SyntheticVideoDecoderInfo.Extension);

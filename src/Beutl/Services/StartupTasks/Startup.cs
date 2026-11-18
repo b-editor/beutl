@@ -28,6 +28,8 @@ public sealed class Startup
         Initialize();
     }
 
+    internal INotificationService Notifications => _editorService.AppServices.GetRequiredService<INotificationService>();
+
     internal GlobalConfiguration Configuration => _editorService.AppServices.GetRequiredService<GlobalConfiguration>();
 
     internal bool IsAppUpgrade { get; }
@@ -66,7 +68,7 @@ public sealed class Startup
 
     private void RegisterAll()
     {
-        Register(() => new AuthenticationTask(_apiApp));
+        Register(() => new AuthenticationTask(_apiApp, Notifications));
         Register(() => new ResolvePackageDependenciesTask(
             _apiApp.GetResource<InstalledPackageRepository>(),
             _apiApp.GetResource<PackageInstaller>()));

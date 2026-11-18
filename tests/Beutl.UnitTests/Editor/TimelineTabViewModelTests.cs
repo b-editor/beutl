@@ -1,6 +1,5 @@
 ﻿using System.Numerics;
 using System.Reactive.Linq;
-
 using Beutl.Collections;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
@@ -11,9 +10,7 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.UnitTests.TestInfrastructure;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Editor;
@@ -500,10 +497,10 @@ public class TimelineTabViewModelTests
         ILayerMoveService? layerMoveService = null,
         IElementNudgeService? nudgeService = null,
         IElementGapService? gapService = null,
-        ILayerAttributeService? layerAttributeService = null)
+        ILayerAttributeService? layerAttributeService = null, Beutl.Services.INotificationService? notifications = null)
     {
         scene ??= new Scene();
-        var editorContext = new TestEditorContext(scene);
+        var editorContext = new TestEditorContext(scene, notifications: notifications);
         editorContext.AddService<ITimelineOptionsProvider>(new TestTimelineOptionsProvider(scene));
         editorContext.AddService<IEditorClock>(new TestEditorClock());
         editorContext.AddService<IBufferStatus>(new TestBufferStatus());

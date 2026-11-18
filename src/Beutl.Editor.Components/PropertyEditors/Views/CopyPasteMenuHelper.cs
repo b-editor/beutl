@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -26,7 +27,7 @@ public static class CopyPasteMenuHelper
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                ((control.DataContext as IServiceProvider)?.GetService<INotificationService>() ?? Beutl.Controls.ControlNotifications.GetOrDefault(control)).ShowError(Strings.Error, ex.Message);
             }
         };
         var pasteMenu = new FAMenuFlyoutItem { Text = Strings.Paste };
@@ -40,12 +41,12 @@ public static class CopyPasteMenuHelper
             {
                 if (!await vm.PasteAsync())
                 {
-                    NotificationService.ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
+                    ((control.DataContext as IServiceProvider)?.GetService<INotificationService>() ?? Beutl.Controls.ControlNotifications.GetOrDefault(control)).ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
                 }
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                ((control.DataContext as IServiceProvider)?.GetService<INotificationService>() ?? Beutl.Controls.ControlNotifications.GetOrDefault(control)).ShowError(Strings.Error, ex.Message);
             }
         };
 

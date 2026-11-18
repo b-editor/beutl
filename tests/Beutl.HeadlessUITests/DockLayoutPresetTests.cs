@@ -466,7 +466,7 @@ public class DockLayoutPresetTests
 
         public void Dispose() => IsSelected.Dispose();
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public void ReadFromJson(JsonObject json)
         {

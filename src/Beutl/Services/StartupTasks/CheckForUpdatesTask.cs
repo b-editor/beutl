@@ -4,6 +4,7 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,10 +16,12 @@ public sealed class CheckForUpdatesTask : StartupTask
 {
     private static readonly ILogger<CheckForUpdatesTask> s_logger = Log.CreateLogger<CheckForUpdatesTask>();
     private readonly BeutlApiApplication _beutlApiApplication;
+    private readonly INotificationService _notifications;
 
     public CheckForUpdatesTask(BeutlApiApplication beutlApiApplication, IServiceProvider services)
     {
         _beutlApiApplication = beutlApiApplication;
+        _notifications = services.GetRequiredService<INotificationService>();
         var controller = services.GetRequiredService<AppUpdateController>();
         Task = Task.Run(async () =>
         {
@@ -26,14 +29,14 @@ public sealed class CheckForUpdatesTask : StartupTask
             activity?.AddEvent(new("Checking for updates"));
             var (v1, v3) = await CheckForUpdates(activity);
             activity?.AddEvent(new("Checked for updates"));
-            await HandleUpdateCheckAsync(v1, v3, controller, activity);
+            await HandleUpdateCheckAsync(v1, v3, controller, _notifications, activity);
         });
     }
 
     public override Task Task { get; }
 
     internal static async Task HandleUpdateCheckAsync(CheckForUpdatesResponse? v1, AppUpdateResponse? v3,
-        AppUpdateController controller, Activity? activity = null)
+        AppUpdateController controller, INotificationService notifications, Activity? activity = null)
     {
         bool isLatest = v1?.IsLatest ?? v3?.IsLatest ?? true;
         bool mustLatest = v1?.MustLatest ?? v3?.MustLatest ?? false;
@@ -61,9 +64,9 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
 
         if (result == UpdateCheckResult.UpgradeRequired && inAppUpdate == null)
-            await ShowUpgradeRequiredDialog(releaseUrl);
+            await ShowUpgradeRequiredDialog(releaseUrl, notifications);
         else
-            ShowUpdateAvailable(latestVersion, releaseUrl, inAppUpdate, controller);
+            ShowUpdateAvailable(latestVersion, releaseUrl, inAppUpdate, controller, notifications);
     }
 
     // The server sets mustLatest only together with isLatest = false, when the running version
@@ -90,11 +93,11 @@ public sealed class CheckForUpdatesTask : StartupTask
     }
 
     private static void ShowUpdateAvailable(string latestVersion, string releaseUrl, AppUpdateResponse? inAppUpdate,
-        AppUpdateController controller)
+        AppUpdateController controller, INotificationService notifications)
     {
-        NotificationAction releaseNotes = new(MessageStrings.ReleaseNotes, () => AppUpdateController.OpenUrl(releaseUrl));
+        NotificationAction releaseNotes = new(MessageStrings.ReleaseNotes, () => AppUpdateController.OpenUrl(notifications, releaseUrl));
         bool required = inAppUpdate?.MustLatest == true;
-        NotificationService.Show(
+        notifications.Show(
             required ? MessageStrings.UpgradeRequired : MessageStrings.NewVersionAvailable,
             AppUpdateController.GetVersionLabel(latestVersion),
             required ? NotificationType.Warning : NotificationType.Information,
@@ -131,18 +134,18 @@ public sealed class CheckForUpdatesTask : StartupTask
             {
                 // No external token is passed, so an OCE is a network timeout. Show a dedicated
                 // message, since Handle ignores OCE.
-                NotificationService.ShowError(Strings.Error, MessageStrings.UpdateCheckTimedOut);
+                _notifications.ShowError(Strings.Error, MessageStrings.UpdateCheckTimedOut);
             }
             else
             {
-                await ex.Handle();
+                await ex.Handle(_notifications);
             }
             return default;
         }
     }
 
     // The only way to obtain this required update is through its release page.
-    private static async Task ShowUpgradeRequiredDialog(string releaseUrl)
+    private static async Task ShowUpgradeRequiredDialog(string releaseUrl, INotificationService notifications)
     {
         await App.WaitWindowOpened();
         await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -158,7 +161,7 @@ public sealed class CheckForUpdatesTask : StartupTask
             FAContentDialogResult answer = await dialog.ShowAsync();
             HandleUpgradeRequiredAnswer(
                 answer,
-                () => AppUpdateController.OpenUrl(releaseUrl),
+                () => AppUpdateController.OpenUrl(notifications, releaseUrl),
                 () => (AppHelper.GetTopLevel() as Window)?.Close());
         });
     }

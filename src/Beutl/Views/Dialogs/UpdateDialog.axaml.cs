@@ -29,7 +29,7 @@ public partial class UpdateDialog : FAContentDialog
     {
         base.OnSecondaryButtonClick(args);
         if (!args.Cancel && DataContext is UpdateDialogViewModel vm)
-            AppUpdateController.ScheduleInstallOnQuit(vm);
+            AppUpdateController.ScheduleInstallOnQuit(vm, Beutl.Controls.ControlNotifications.GetOrDefault(this));
     }
 
     // Every other way out of the dialog, including Escape, ends the update.

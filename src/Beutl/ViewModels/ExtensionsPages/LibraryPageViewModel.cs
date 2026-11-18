@@ -5,6 +5,7 @@ using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
 using Reactive.Bindings;
@@ -34,7 +35,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         _projectService = projectService;
 
         Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(() => StorePageCommand.RunAsync(
+            .WithSubscribe(() => StorePageCommand.RunAsync(editorService.AppServices.GetRequiredService<INotificationService>(),
                 IsBusy, "LibraryPage.Refresh", _lifetimeCts.Token, _logger,
                 async activity =>
                 {
@@ -63,7 +64,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         _initialRefresh = Refresh.ExecuteAsync();
 
         CheckUpdate = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(() => StorePageCommand.RunAsync(
+            .WithSubscribe(() => StorePageCommand.RunAsync(editorService.AppServices.GetRequiredService<INotificationService>(),
                 IsBusy, "LibraryPage.CheckUpdate", _lifetimeCts.Token, _logger,
                 async activity =>
                 {

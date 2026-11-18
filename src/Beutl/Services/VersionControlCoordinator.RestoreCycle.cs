@@ -1,4 +1,6 @@
 ﻿using Beutl.Editor.VersionControl;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -68,7 +70,7 @@ internal partial class VersionControlCoordinator
         if (!await TrySaveOpenProjectAsync(project, CancellationToken.None))
         {
             PublishNotification(() =>
-                NotificationService.ShowError(
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(
                     Strings.VersionControl,
                     MessageStrings.OperationFailed));
             return false;
@@ -197,7 +199,7 @@ internal partial class VersionControlCoordinator
                 cancellationToken))
         {
             PublishNotification(() =>
-                NotificationService.ShowWarning(
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
                     Strings.VersionControl,
                     string.Format(
                         System.Globalization.CultureInfo.CurrentCulture,
@@ -234,7 +236,7 @@ internal partial class VersionControlCoordinator
             "Failed to restore project version {Commit}, and the original state could not be recovered.",
             sha);
         PublishNotification(() =>
-            NotificationService.ShowError(
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(
                 Strings.VersionControl_ErrorTitle,
                 string.Format(
                     Strings.VersionControl_RecoveryFailed,
@@ -246,7 +248,7 @@ internal partial class VersionControlCoordinator
     {
         _logger.LogError(exception, "Failed to restore project version {Commit}.", sha);
         PublishNotification(() =>
-            NotificationService.ShowError(
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(
                 Strings.VersionControl_ErrorTitle,
                 GetErrorText(exception)));
     }
@@ -308,7 +310,7 @@ internal partial class VersionControlCoordinator
             "Retained failed restore branch {Branch} for manual cleanup.",
             branchName);
         PublishNotification(() =>
-            NotificationService.ShowWarning(
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
                 Strings.VersionControl,
                 string.Format(
                     CultureInfo.CurrentCulture,

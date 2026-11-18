@@ -399,7 +399,7 @@ public sealed class ExplicitSaveTests
         HeldWhileSaving held = AddHeldClip(scene, out _);
         editor.HistoryManager.Commit();
         held.Arm(failedReads: 0);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         Task saveAll = TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
         await held.Reached.Task.WaitAsync(TimeSpan.FromSeconds(30));

@@ -112,11 +112,11 @@ public sealed partial class LibraryTabExtension
 
         if (result.Failure is LockedElementLayerFailure)
         {
-            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            editorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Lock, Strings.LayerIsLocked);
             return;
         }
 
         s_logger.LogError(result.Failure?.Exception, "Failed to add an element: {FailureId}", result.Failure?.Id);
-        NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+        editorContext.GetRequiredService<INotificationService>().ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
     }
 }

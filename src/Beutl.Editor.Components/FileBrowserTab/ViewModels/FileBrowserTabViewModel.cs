@@ -317,12 +317,12 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Access denied to directory {Path}", RootPath.Value);
-            NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
+            _editorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.FileBrowser, ex.Message);
         }
         catch (IOException ex)
         {
             _logger.LogError(ex, "IO error accessing directory {Path}", RootPath.Value);
-            NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
+            _editorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.FileBrowser, ex.Message);
         }
     }
 
@@ -409,7 +409,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to enumerate project directory {Path}", _projectDirectory);
-                NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
+                _editorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.FileBrowser, ex.Message);
             }
         }
 

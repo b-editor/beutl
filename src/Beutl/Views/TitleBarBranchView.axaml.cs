@@ -4,11 +4,16 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Language;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
 public sealed partial class TitleBarBranchView : UserControl
 {
+    private INotificationService Notifications => (DataContext as TitleBarBranchViewModel)?.Notifications
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private TitleBarBranchViewModel? _flyoutViewModel;
 
     internal VersionControlPickerFlyout PromptFlyout { get; } = new();
@@ -47,7 +52,7 @@ public sealed partial class TitleBarBranchView : UserControl
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle(Notifications);
         }
     }
 
@@ -78,7 +83,7 @@ public sealed partial class TitleBarBranchView : UserControl
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle(Notifications);
         }
     }
 

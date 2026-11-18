@@ -183,7 +183,7 @@ public class ProjectDiskDeletionTests
         string workspace = NewWorkspace("undeletable");
         (string projectFile, _) = await CreateClosedProjectAsync("stuck", workspace);
         string folder = Path.GetDirectoryName(projectFile)!;
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         // What is inside the folder can go, but not the folder itself.
         File.SetUnixFileMode(workspace, UnixFileMode.UserRead | UnixFileMode.UserExecute);
         try
@@ -231,7 +231,7 @@ public class ProjectDiskDeletionTests
                 return Task.FromResult(FAContentDialogResult.Primary);
             },
         };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         await deletion.DeleteAsync(projectFile);
 
         Assert.Multiple(() =>
@@ -249,7 +249,7 @@ public class ProjectDiskDeletionTests
     public async Task Refuses_to_delete_an_open_project()
     {
         await TestReset.ResetShellAsync();
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             Project project = (await TestShell.Project.CreateProject(
@@ -290,7 +290,7 @@ public class ProjectDiskDeletionTests
                 return FAContentDialogResult.Primary;
             },
         };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             await deletion.DeleteAsync(projectFile);
@@ -325,7 +325,7 @@ public class ProjectDiskDeletionTests
                 return Task.FromResult(FAContentDialogResult.Primary);
             },
         };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         await deletion.DeleteAsync(projectFile);
 
         Assert.Multiple(() =>
@@ -343,7 +343,7 @@ public class ProjectDiskDeletionTests
     {
         await TestReset.ResetShellAsync();
         (string projectFile, _) = await CreateClosedProjectAsync("exported", NewWorkspace("exporting"));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         // A running export keeps its output lease after the project it renders is closed.
         IDisposable export = TestShell.Editor.TryBeginOutputOperation()!;
         try
@@ -488,7 +488,7 @@ public class ProjectDiskDeletionTests
     {
         await TestReset.ResetShellAsync();
         (_, string sceneFile) = await CreateClosedProjectAsync("reopened-scene", NewWorkspace("open-during-delete"));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         // The deletion runs off the UI thread while it holds this reservation, so the start page can
         // still ask to open a scene from the folder being deleted.
         IDisposable deletion = TestShell.Editor.TryBeginWorktreeMutation()!;
@@ -568,7 +568,7 @@ public class ProjectDiskDeletionTests
         var dialog = new CreateNewSceneViewModel(TestShell.Project, TestShell.Editor);
         dialog.Location.Value = location;
         dialog.Name.Value = "created";
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         IDisposable deletion = TestShell.Editor.TryBeginWorktreeMutation()!;
         bool? mutationAdmittedDuringCreate = null;
         void OnTabsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -614,7 +614,7 @@ public class ProjectDiskDeletionTests
     [AvaloniaTest]
     public async Task Reports_a_project_file_that_is_already_gone()
     {
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var shown = new List<FAContentDialog>();
         string missing = Path.Combine(NewWorkspace("missing"), "missing", "missing.bep");
 

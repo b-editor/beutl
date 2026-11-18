@@ -227,6 +227,7 @@ public class LibraryThumbnailCaptureTests
     {
         public object? GetService(Type serviceType)
         {
+            if (serviceType == typeof(Beutl.Services.INotificationService)) return TestShell.Notifications;
             if (serviceType == typeof(Beutl.Media.FontManager)) return TestShell.FontManager;
             if (serviceType == typeof(Beutl.Configuration.GlobalConfiguration)) return TestShell.Configuration;
             if (serviceType == typeof(Element))

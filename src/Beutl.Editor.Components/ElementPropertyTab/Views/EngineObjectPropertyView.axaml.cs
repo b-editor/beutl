@@ -12,6 +12,7 @@ using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.ElementPropertyTab.Views;
@@ -36,7 +37,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
         string defaultName = TypeDisplayHelpers.GetLocalizedName(viewModel.Model.GetType());
         var templates = viewModel.GetRequiredService<ObjectTemplateService>();
-        TemplateSaving.ShowSaveFlyout(
+        TemplateSaving.ShowSaveFlyout(viewModel.GetRequiredService<INotificationService>(),
             templates, this, viewModel.Model, templates.GetUniqueName(defaultName), showAtPointer: false);
     }
 

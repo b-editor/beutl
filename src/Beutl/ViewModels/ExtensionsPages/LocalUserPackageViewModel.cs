@@ -4,6 +4,7 @@ using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -48,7 +49,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
             .DisposeWith(_disposables);
 
         Restart = new AsyncReactiveCommand()
-            .WithSubscribe(PackageOperationHandler.RestartAsync)
+            .WithSubscribe(_handler.RestartAsync)
             .DisposeWith(_disposables);
     }
 
@@ -67,7 +68,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
         catch (Exception e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally
@@ -100,7 +101,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
         catch (Exception e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally
@@ -129,11 +130,11 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
 
             if (!_handler.UninstallSinglePackage(Package.InstalledPath, _packageIdentity))
             {
-                PackageNotifications.ScheduledUninstallation(_packageIdentity.Id);
+                PackageNotifications.ScheduledUninstallation(_handler.Notifications, _packageIdentity.Id);
             }
             else
             {
-                PackageNotifications.Uninstalled(_packageIdentity.Id);
+                PackageNotifications.Uninstalled(_handler.Notifications, _packageIdentity.Id);
             }
         }
         catch (Exception e)
@@ -141,7 +142,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
             _handler.Queue.UninstallQueue(_packageIdentity);
-            PackageNotifications.ScheduledUninstallation(_packageIdentity.Id);
+            PackageNotifications.ScheduledUninstallation(_handler.Notifications, _packageIdentity.Id);
         }
         finally
         {
@@ -159,7 +160,7 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
         }
         catch (Exception e)
         {
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally

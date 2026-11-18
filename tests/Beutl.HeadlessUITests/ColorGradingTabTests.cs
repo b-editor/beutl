@@ -449,6 +449,7 @@ public sealed class ColorGradingTabTests
         var window = new Window { Content = new StackPanel { Children = { range, slider } }, Width = 360, Height = 120 };
         Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
         Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
+        Beutl.Controls.ControlNotifications.SetNotifications(window, TestShell.Notifications);
         window.Show();
         try
         {
@@ -655,6 +656,7 @@ public sealed class ColorGradingTabTests
             Window = new Window { Content = View, Width = width, Height = height, RequestedThemeVariant = ThemeVariant.Dark };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
+            Beutl.Controls.ControlNotifications.SetNotifications(Window, TestShell.Notifications);
             Window.Show();
             HeadlessTestHelpers.Render(3);
         }
@@ -711,6 +713,7 @@ public sealed class ColorGradingTabTests
             Window = new Window { Content = Editor, Width = 420, Height = 80 };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
+            Beutl.Controls.ControlNotifications.SetNotifications(Window, TestShell.Notifications);
             Window.Show();
             HeadlessTestHelpers.Render(3);
             Slider = Editor.GetVisualDescendants().OfType<ValueSlider>().Single();
@@ -764,6 +767,7 @@ public sealed class ColorGradingTabTests
             Window = new Window { Content = Wheel, Width = 260, Height = 380 };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
+            Beutl.Controls.ControlNotifications.SetNotifications(Window, TestShell.Notifications);
             Window.Show();
             HeadlessTestHelpers.Render(3);
             Pad = Wheel.GetVisualDescendants().OfType<ColorBalancePad>().Single();

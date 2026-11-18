@@ -3,27 +3,18 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
 
-public static class NotificationService
+public interface INotificationService
+{
+    void Show(Notification notification);
+}
+
+public sealed class NotificationService(INotificationServiceHandler? handler = null) : INotificationService
 {
     private static ILogger? s_logger;
-    private static INotificationServiceHandler? s_handler;
 
     private static ILogger Logger => Log.GetLoggerOnceConfigured(ref s_logger, typeof(NotificationService));
 
-    public static INotificationServiceHandler Handler
-    {
-        get => s_handler!;
-        set
-        {
-            ArgumentNullException.ThrowIfNull(value);
-            s_handler = value;
-        }
-    }
-
-    public static void Show(Notification notification)
-    {
-        Dispatch(notification, s_handler);
-    }
+    public void Show(Notification notification) => Dispatch(notification, handler);
 
     internal static void Dispatch(Notification notification, INotificationServiceHandler? handler)
     {
@@ -67,7 +58,11 @@ public static class NotificationService
         }
     }
 
-    public static void Show(string title, string message,
+}
+
+public static class NotificationServiceExtensions
+{
+    public static void Show(this INotificationService notifications, string title, string message,
         NotificationType type = NotificationType.Information,
         TimeSpan? expiration = null,
         Action? onClose = null,
@@ -75,49 +70,49 @@ public static class NotificationService
         bool isClosable = true,
         Action? onShowFailed = null)
     {
-        Show(new Notification(
+        notifications.Show(new Notification(
             title, message, type,
             expiration, onClose, actions, isClosable, onShowFailed));
     }
 
-    public static void ShowInformation(string title, string message,
+    public static void ShowInformation(this INotificationService notifications, string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
         IReadOnlyList<NotificationAction>? actions = null,
         bool isClosable = true,
         Action? onShowFailed = null)
     {
-        Show(title, message, NotificationType.Information, expiration, onClose, actions, isClosable, onShowFailed);
+        notifications.Show(title, message, NotificationType.Information, expiration, onClose, actions, isClosable, onShowFailed);
     }
 
-    public static void ShowSuccess(string title, string message,
+    public static void ShowSuccess(this INotificationService notifications, string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
         IReadOnlyList<NotificationAction>? actions = null,
         bool isClosable = true,
         Action? onShowFailed = null)
     {
-        Show(title, message, NotificationType.Success, expiration, onClose, actions, isClosable, onShowFailed);
+        notifications.Show(title, message, NotificationType.Success, expiration, onClose, actions, isClosable, onShowFailed);
     }
 
-    public static void ShowWarning(string title, string message,
+    public static void ShowWarning(this INotificationService notifications, string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
         IReadOnlyList<NotificationAction>? actions = null,
         bool isClosable = true,
         Action? onShowFailed = null)
     {
-        Show(title, message, NotificationType.Warning, expiration, onClose, actions, isClosable, onShowFailed);
+        notifications.Show(title, message, NotificationType.Warning, expiration, onClose, actions, isClosable, onShowFailed);
     }
 
-    public static void ShowError(string title, string message,
+    public static void ShowError(this INotificationService notifications, string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,
         IReadOnlyList<NotificationAction>? actions = null,
         bool isClosable = true,
         Action? onShowFailed = null)
     {
-        Show(title, message, NotificationType.Error, expiration, onClose, actions, isClosable, onShowFailed);
+        notifications.Show(title, message, NotificationType.Error, expiration, onClose, actions, isClosable, onShowFailed);
     }
 }
 

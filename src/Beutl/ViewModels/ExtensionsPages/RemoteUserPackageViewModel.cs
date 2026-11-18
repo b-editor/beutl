@@ -5,6 +5,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -49,7 +50,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
             .DisposeWith(_disposables);
 
         Restart = new AsyncReactiveCommand()
-            .WithSubscribe(PackageOperationHandler.RestartAsync)
+            .WithSubscribe(_handler.RestartAsync)
             .DisposeWith(_disposables);
 
         RemoveFromLibrary = new AsyncReactiveCommand(
@@ -78,7 +79,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
                 Release? release = await AcquirePackage();
                 if (release is null)
                 {
-                    NotificationService.ShowWarning(Package.Name, ExtensionsStrings.This_extension_does_not_support_your_Beutl_version);
+                    _handler.Notifications.ShowWarning(Package.Name, ExtensionsStrings.This_extension_does_not_support_your_Beutl_version);
                     return;
                 }
 
@@ -90,7 +91,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
         catch (Exception e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally
@@ -133,7 +134,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
         catch (Exception e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally
@@ -157,11 +158,11 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
 
             if (await _handler.UnloadAndUninstallAsync(Package.Name))
             {
-                PackageNotifications.Uninstalled(Package.Name);
+                PackageNotifications.Uninstalled(_handler.Notifications, Package.Name);
             }
             else
             {
-                PackageNotifications.ScheduledUninstallation(Package.Name);
+                PackageNotifications.ScheduledUninstallation(_handler.Notifications, Package.Name);
             }
         }
         catch (Exception e)
@@ -169,7 +170,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
             _handler.QueueUninstallAll(Package.Name);
-            PackageNotifications.ScheduledUninstallation(Package.Name);
+            PackageNotifications.ScheduledUninstallation(_handler.Notifications, Package.Name);
         }
         finally
         {
@@ -187,7 +188,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
         }
         catch (Exception e)
         {
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally
@@ -240,7 +241,7 @@ public sealed class RemoteUserPackageViewModel : IUserPackageViewModel
         catch (Exception e)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            await e.Handle();
+            await e.Handle(_handler.Notifications);
             _logger.LogError(e, "An unexpected error has occurred.");
         }
         finally

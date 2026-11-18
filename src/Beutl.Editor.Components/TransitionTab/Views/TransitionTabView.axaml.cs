@@ -12,6 +12,9 @@ namespace Beutl.Editor.Components.TransitionTab.Views;
 
 public partial class TransitionTabView : UserControl
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     public TransitionTabView()
     {
         InitializeComponent();
@@ -41,7 +44,7 @@ public partial class TransitionTabView : UserControl
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                Notifications.ShowError(Strings.Error, ex.Message);
             }
         });
     }

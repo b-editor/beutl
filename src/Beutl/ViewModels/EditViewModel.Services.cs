@@ -28,6 +28,7 @@ public partial class EditViewModel
 
     private EditorServiceRegistry CreateServices() => new EditorServiceRegistry()
         .Add<Beutl.Media.FontManager>(() => EditorService.AppServices.GetRequiredService<Beutl.Media.FontManager>())
+        .Add<INotificationService>(() => EditorService.AppServices.GetRequiredService<INotificationService>())
         .Add<GlobalConfiguration>(() => EditorService.AppServices.GetRequiredService<GlobalConfiguration>())
         .Add<LibraryService>(() => EditorService.AppServices.GetRequiredService<LibraryService>())
         .Add<ObjectTemplateService>(() => EditorService.AppServices.GetRequiredService<ObjectTemplateService>())

@@ -73,9 +73,9 @@ public class VersionControlTabViewTests
     {
         var expected = new InvalidOperationException("simulated failure");
         using var logs = new CapturingLoggerProvider(_ => true);
-        using var notifications = NotificationCapture.Install();
+        using var notifications = new NotificationCapture();
 
-        await VersionControlCommandBoundary.RunAsync(
+        await VersionControlCommandBoundary.RunAsync(notifications,
             () => Task.FromException(expected),
             logs.CreateLogger("test"),
             "SelectCommitAsync");
@@ -89,9 +89,9 @@ public class VersionControlTabViewTests
     public async Task Version_control_command_boundary_ignores_cancellation()
     {
         using var logs = new CapturingLoggerProvider(_ => true);
-        using var notifications = NotificationCapture.Install();
+        using var notifications = new NotificationCapture();
 
-        await VersionControlCommandBoundary.RunAsync(
+        await VersionControlCommandBoundary.RunAsync(notifications,
             () => Task.FromCanceled(new CancellationToken(canceled: true)),
             logs.CreateLogger("test"),
             "SelectCommitAsync");

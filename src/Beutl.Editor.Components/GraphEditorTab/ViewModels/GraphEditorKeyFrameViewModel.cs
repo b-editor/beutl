@@ -10,6 +10,7 @@ using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -292,7 +293,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         await KeyFrameClipboardCommands.CopyAsync(Model, BeutlDataFormats.KeyFrame, ex =>
         {
             _logger.LogError(ex, "Failed to copy keyframe");
-            NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
+            Parent.Parent.EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
         });
     }
 

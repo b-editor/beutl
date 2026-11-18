@@ -1,5 +1,6 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.Components.WebBrowserTab;
+using Beutl.Services;
 using Beutl.Views.Dock;
 using Dock.Model;
 using Dock.Model.Controls;
@@ -19,6 +20,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     private readonly System.Runtime.CompilerServices.ConditionalWeakTable<IDockable, ActivationStamp> _recentTools = new();
     private long _activationOrder;
+    internal INotificationService Notifications => editViewModel.GetRequiredService<INotificationService>();
 
     internal long GetActivationOrder(IDockable dockable) =>
         _recentTools.TryGetValue(dockable, out var stamp) ? stamp.Order : 0;

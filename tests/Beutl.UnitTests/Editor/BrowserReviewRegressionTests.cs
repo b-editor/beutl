@@ -2,12 +2,10 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Extensibility;
 using Beutl.UnitTests.TestInfrastructure;
-
 using Moq;
 
 namespace Beutl.UnitTests.Editor;
@@ -30,7 +28,7 @@ public class BrowserReviewRegressionTests
     public void CredentialsNeverEnterPersistedTabState(string path)
     {
         var secret = new Uri("https://user:password@example.com/page");
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object,
+        using var vm = new WebBrowserTabViewModel(Beutl.UnitTests.TestInfrastructure.TestEditorContext.CreateMock().Object,
             path == "constructor" ? secret : WebBrowserTabViewModel.BlankPage);
         if (path == "begin") vm.BeginNavigation(secret);
         if (path == "complete") vm.CompleteNavigation(secret, true, false, false);

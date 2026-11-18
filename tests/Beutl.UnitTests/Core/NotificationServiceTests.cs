@@ -16,7 +16,7 @@ public sealed class NotificationServiceTests
         int failed = 0;
         var notification = new Notification("Title", "Message", OnShowFailed: () => failed++);
 
-        NotificationService.Dispatch(notification, handler: null);
+        new NotificationService().Show(notification);
 
         Assert.That(failed, Is.EqualTo(1));
     }
@@ -28,7 +28,7 @@ public sealed class NotificationServiceTests
         var notification = new Notification("Title", "Message", OnShowFailed: () => failed++);
         var handler = new DelegateNotificationHandler(_ => throw new InvalidOperationException());
 
-        Assert.That(() => NotificationService.Dispatch(notification, handler), Throws.Nothing);
+        Assert.That(() => new NotificationService(handler).Show(notification), Throws.Nothing);
         Assert.That(failed, Is.EqualTo(1));
     }
 
@@ -44,7 +44,7 @@ public sealed class NotificationServiceTests
             throw new InvalidOperationException();
         });
 
-        Assert.That(() => NotificationService.Dispatch(notification, handler), Throws.Nothing);
+        Assert.That(() => new NotificationService(handler).Show(notification), Throws.Nothing);
         Assert.That(failed, Is.EqualTo(1));
     }
 
@@ -60,7 +60,7 @@ public sealed class NotificationServiceTests
             ? new DelegateNotificationHandler(_ => throw new InvalidOperationException())
             : null;
 
-        Assert.That(() => NotificationService.Dispatch(notification, handler), Throws.Nothing);
+        Assert.That(() => new NotificationService(handler).Show(notification), Throws.Nothing);
     }
 
     [Test]
@@ -70,7 +70,7 @@ public sealed class NotificationServiceTests
         var notification = new Notification("Title", "Message", OnShowFailed: () => failed++);
         var handler = new DelegateNotificationHandler(_ => { });
 
-        NotificationService.Dispatch(notification, handler);
+        new NotificationService(handler).Show(notification);
 
         Assert.That(failed, Is.Zero);
     }
@@ -103,6 +103,29 @@ public sealed class NotificationServiceTests
             loggerField.SetValue(null, originalLogger);
             factoryField.SetValue(null, originalFactory);
         }
+    }
+
+    [Test]
+    public async Task Show_InstancesKeepBackgroundNotificationsSeparate()
+    {
+        var first = new System.Collections.Concurrent.ConcurrentQueue<Notification>();
+        var second = new System.Collections.Concurrent.ConcurrentQueue<Notification>();
+        INotificationService firstService = new NotificationService(new DelegateNotificationHandler(first.Enqueue));
+        INotificationService secondService = new NotificationService(new DelegateNotificationHandler(second.Enqueue));
+        using var cancellation = new CancellationTokenSource();
+        var notice = new Notification("second", "message") { CancellationToken = cancellation.Token };
+
+        await Task.WhenAll(
+            Task.Run(() => firstService.ShowError("first", "message")),
+            Task.Run(() => secondService.Show(notice)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Single().Title, Is.EqualTo("first"));
+            Assert.That(first.Single().Type, Is.EqualTo(NotificationType.Error));
+            Assert.That(second.Single().Title, Is.EqualTo("second"));
+            Assert.That(second.Single().CancellationToken, Is.EqualTo(cancellation.Token));
+        });
     }
 
     private sealed class DelegateNotificationHandler(Action<Notification> show)

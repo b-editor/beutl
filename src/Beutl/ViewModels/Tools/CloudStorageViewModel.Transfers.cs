@@ -138,7 +138,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                         ActionError.Value = string.IsNullOrEmpty(message) ? Strings.CloudStorageUploadRollbackIncomplete
                             : message + Environment.NewLine + Strings.CloudStorageUploadRollbackIncomplete;
                     }
-                    else NotificationService.ShowWarning(Strings.CloudStorage, Strings.CloudStorageUploadRollbackIncomplete);
+                    else _notifications.ShowWarning(Strings.CloudStorage, Strings.CloudStorageUploadRollbackIncomplete);
                 }
                 throw;
             }

@@ -23,7 +23,7 @@ public sealed partial class FileBrowserTabViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to open file {Path}", path);
-            NotificationService.ShowError(Strings.Open, MessageStrings.OperationFailed);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.Open, MessageStrings.OperationFailed);
         }
     }
 
@@ -32,11 +32,11 @@ public sealed partial class FileBrowserTabViewModel
         string path = item.FullPath;
         if (item.IsDirectory ? !Directory.Exists(path) : !File.Exists(path))
         {
-            NotificationService.ShowError(FileManagerLauncher.MenuHeader, MessageStrings.FileDoesNotExist);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(FileManagerLauncher.MenuHeader, MessageStrings.FileDoesNotExist);
             return;
         }
 
-        await FileManagerLauncher.RevealAsync(path, item.IsDirectory, LaunchFileManagerAsync, _logger);
+        await FileManagerLauncher.RevealAsync(_editorContext.GetRequiredService<INotificationService>(), path, item.IsDirectory, LaunchFileManagerAsync, _logger);
     }
 
     private bool CanMutateItem(FileSystemItemViewModel item) => CanMutateAll([(item.FullPath, item.IsDirectory)]);
@@ -57,12 +57,12 @@ public sealed partial class FileBrowserTabViewModel
                     ? FilePathComparison.IsSameOrDescendant(entry.Path, own.LocalPath)
                     : FilePathComparison.AreSameCanonicalPath(entry.Path, own.LocalPath));
             if (!inUse) return true;
-            NotificationService.ShowError(Strings.File, MessageStrings.FileInUse);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.File, MessageStrings.FileInUse);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not verify whether {Paths} are in use.", entries.Select(entry => entry.Path));
-            NotificationService.ShowError(Strings.File, MessageStrings.OperationFailed);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.File, MessageStrings.OperationFailed);
         }
         return false;
     }
@@ -154,7 +154,7 @@ public sealed partial class FileBrowserTabViewModel
     private void ReportDeleteFailure(Exception ex, FileSystemItemViewModel item)
     {
         _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
-        NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
+        _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.Delete, MessageStrings.OperationFailed);
     }
 
     public void CreateNewFolder()
@@ -183,7 +183,7 @@ public sealed partial class FileBrowserTabViewModel
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to create folder at {Path}", newFolderPath);
-                NotificationService.ShowError(Strings.NewFolder, MessageStrings.OperationFailed);
+                _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.NewFolder, MessageStrings.OperationFailed);
             }
     }
 
@@ -225,7 +225,7 @@ public sealed partial class FileBrowserTabViewModel
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to rename {OldPath} to {NewPath}", item.FullPath, newPath);
-                NotificationService.ShowError(Strings.Rename, MessageStrings.OperationFailed);
+                _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.Rename, MessageStrings.OperationFailed);
             }
     }
 
@@ -462,10 +462,10 @@ public sealed partial class FileBrowserTabViewModel
             ReloadTransferredItems(entries, targetDir);
 
         foreach (string name in notMoved)
-            NotificationService.ShowWarning(operation, string.Format(Strings.FileBrowser_FolderNotMoved, name));
+            _editorContext.GetRequiredService<INotificationService>().ShowWarning(operation, string.Format(Strings.FileBrowser_FolderNotMoved, name));
 
         if (failures > 0)
-            NotificationService.ShowError(operation, MessageStrings.OperationFailed);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(operation, MessageStrings.OperationFailed);
     }
 
     // Merge copies only the files the folder is missing; Skip leaves it; Cancel copies nothing.
@@ -499,7 +499,7 @@ public sealed partial class FileBrowserTabViewModel
         }
 
         using var dismissal = new CancellationTokenSource();
-        NotificationService.Show(new Notification(
+        _editorContext.GetRequiredService<INotificationService>().Show(new Notification(
             operation,
             runningMessage,
             Expiration: Timeout.InfiniteTimeSpan,
@@ -586,7 +586,7 @@ public sealed partial class FileBrowserTabViewModel
             _logger.LogError(
                 "No host owns this editor context, so no write admission governs it; refusing {Operation}.",
                 operation);
-            NotificationService.ShowError(operation, MessageStrings.OperationFailed);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(operation, MessageStrings.OperationFailed);
             return false;
         }
 
@@ -594,7 +594,7 @@ public sealed partial class FileBrowserTabViewModel
         if (fileWrite is not null)
             return true;
 
-        NotificationService.ShowWarning(operation, Strings.FileBrowser_WorkspaceBusy);
+        _editorContext.GetRequiredService<INotificationService>().ShowWarning(operation, Strings.FileBrowser_WorkspaceBusy);
         return false;
     }
 }

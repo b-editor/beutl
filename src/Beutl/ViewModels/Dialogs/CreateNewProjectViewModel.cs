@@ -4,6 +4,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -83,7 +84,7 @@ public sealed class CreateNewProjectViewModel
 
     // A failed or canceled initialization still opens the project, untracked, so the user keeps what they
     // created.
-    private static async Task InitializeVersionControlAsync(
+    private async Task InitializeVersionControlAsync(
         INewProjectVersionControlSetup versionControl,
         Project project,
         CancellationToken cancellationToken)
@@ -94,7 +95,7 @@ public sealed class CreateNewProjectViewModel
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle(_projectService.Notifications);
         }
     }
 

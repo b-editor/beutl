@@ -51,7 +51,7 @@ public sealed class RecoveryProtectedElementEditorTests
     public async Task Opening_the_scene_shows_one_notice_that_names_the_element()
     {
         (string projectPath, _) = await CreateProjectWithUnreadableEasing("recovery-notice");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             EditViewModel editor = await OpenProjectAsync(projectPath);
@@ -321,7 +321,7 @@ public sealed class RecoveryProtectedElementEditorTests
     public async Task Opening_a_project_with_missing_types_shows_once_that_it_keeps_data_it_cannot_show()
     {
         (string projectPath, _) = await CreateProjectWithMissingTypes("missing-types-notice");
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             await OpenProjectAsync(projectPath);

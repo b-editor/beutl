@@ -14,8 +14,8 @@ public sealed class UiExceptionBoundaryTests
     [AvaloniaTest]
     public void Exception_from_an_async_void_click_handler_is_reported_instead_of_ending_the_process()
     {
-        using var notifications = new NotificationCapture();
-        using IDisposable boundary = UiExceptionBoundary.Install(Dispatcher.UIThread);
+        using var notifications = new NotificationCapture(TestShell.Notifications);
+        using IDisposable boundary = UiExceptionBoundary.Install(Dispatcher.UIThread, TestShell.Notifications);
         var button = new Button { Content = "Throw", Width = 120, Height = 32 };
         button.Click += ThrowAfterAwait;
         var window = new Window { Content = button, Width = 240, Height = 120 };
@@ -43,8 +43,8 @@ public sealed class UiExceptionBoundaryTests
     [AvaloniaTest]
     public void Fatal_exception_is_left_for_the_crash_handler()
     {
-        using var notifications = new NotificationCapture();
-        using IDisposable boundary = UiExceptionBoundary.Install(Dispatcher.UIThread);
+        using var notifications = new NotificationCapture(TestShell.Notifications);
+        using IDisposable boundary = UiExceptionBoundary.Install(Dispatcher.UIThread, TestShell.Notifications);
 
         Dispatcher.UIThread.Post(static () => throw new OutOfMemoryException());
 

@@ -941,7 +941,7 @@ public class SilenceSplitTabTests
         public CoreObject Object => scene;
         public EditorExtension Extension => null!;
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-        public object? GetService(Type type) => type == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : type == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : type == typeof(Scene) ? scene : type == typeof(HistoryManager) ? history
+        public object? GetService(Type type) => type == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : type == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : type == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : type == typeof(Scene) ? scene : type == typeof(HistoryManager) ? history
             : type == typeof(IPreviewPlayer) ? player : type == typeof(IEditorClock) ? Clock : null;
         public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
         public T? FindToolTab<T>() where T : IToolContext => default;

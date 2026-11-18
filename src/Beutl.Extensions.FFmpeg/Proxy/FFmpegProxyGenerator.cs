@@ -6,11 +6,12 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Proxy;
 
-public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, IProxyGeneratorAvailability
+public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificationService notifications) : IProxyGenerator, IProxyGeneratorAvailability
 {
     private static readonly ILogger s_logger = Log.CreateLogger<FFmpegProxyGenerator>();
 
@@ -78,7 +79,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         string tempPath = CreateTempPathForOutput(finalPath);
         Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
 
-        await EncodeAndPublishGuardedAsync(tempPath, async () =>
+        await EncodeAndPublishGuardedAsync(notifications, tempPath, async () =>
         {
             if (File.Exists(tempPath))
                 File.Delete(tempPath);
@@ -122,7 +123,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
 
     // The temp artifact must not outlive a failed or canceled generation: nothing else reclaims it
     // until the age-based reconcile sweep, so every failure path deletes it here.
-    internal static async Task EncodeAndPublishGuardedAsync(string tempPath, Func<Task> encodeAndPublish)
+    internal static async Task EncodeAndPublishGuardedAsync(INotificationService notifications, string tempPath, Func<Task> encodeAndPublish)
     {
         try
         {
@@ -131,7 +132,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         catch (FFmpegLibrariesNotFoundException ex)
         {
             TryDelete(tempPath);
-            throw CreateUnavailableException(ex);
+            throw CreateUnavailableException(notifications, ex);
         }
         catch
         {
@@ -188,7 +189,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         }
     }
 
-    private static MediaReader OpenSourceReader(string sourcePath)
+    private MediaReader OpenSourceReader(string sourcePath)
     {
         try
         {
@@ -198,14 +199,14 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {
-            throw CreateUnavailableException(ex);
+            throw CreateUnavailableException(notifications, ex);
         }
         catch (Exception ex) when (FFmpegLibraryState.IsLibrariesMissing)
         {
             // The FFmpeg decoder recorded the libraries missing while opening and no fallback decoder
             // could open this source; treat it as unavailable so the queue pauses rather than draining
             // the batch as ordinary per-file failures.
-            throw CreateUnavailableException(ex);
+            throw CreateUnavailableException(notifications, ex);
         }
         catch (UnsupportedMediaException) when (OpensAsAudio(sourcePath))
         {
@@ -248,9 +249,9 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
             or ".webp";
     }
 
-    private static ProxyGeneratorUnavailableException CreateUnavailableException(Exception ex)
+    private static ProxyGeneratorUnavailableException CreateUnavailableException(INotificationService notifications, Exception ex)
     {
-        FFmpegInstallNotifier.NotifyMissing();
+        FFmpegInstallNotifier.NotifyMissing(notifications);
         return new ProxyGeneratorUnavailableException(ex.Message);
     }
 

@@ -168,9 +168,10 @@ public sealed class AgentHostSceneRoutingTests
         var disposalStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseDisposal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var enabled = new ReactivePropertySlim<bool>(true);
-        var context = new Mock<IEditorContext>();
+        var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         context.SetupGet(editor => editor.Object).Returns(new Scene
         {
             Uri = new Uri(Path.Combine(directory, "disposing.scene"))

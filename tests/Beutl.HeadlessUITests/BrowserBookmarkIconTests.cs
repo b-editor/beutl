@@ -1,18 +1,15 @@
 ﻿using System.Net;
 using System.Net.Http;
-
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.Testing.Headless;
-
 using Moq;
 using SkiaSharp;
 
@@ -98,7 +95,7 @@ public class BrowserBookmarkIconTests
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
         profile.AddBookmark(new Uri("https://www.google.com/"), "Google");
         profile.AddBookmark(new Uri("https://www.youtube.com/"), "YouTube");
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, WebBrowserTabViewModel.BlankPage, profile);
+        using var vm = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, WebBrowserTabViewModel.BlankPage, profile);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false), faviconLoader: loader);
         view.DataContext = vm;
         var window = new Window { Content = view, Width = 400, Height = 360, RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark };

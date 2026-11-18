@@ -96,6 +96,7 @@ public class NumberSliderFieldTests
         {
             Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
+            Beutl.Controls.ControlNotifications.SetNotifications(window, TestShell.Notifications);
             window.Show();
             HeadlessTestHelpers.Render(3);
             (byte[] pixels, int rowBytes, _) = HeadlessTestHelpers.CaptureFramePixels(window);
@@ -350,6 +351,7 @@ public class NumberSliderFieldTests
         {
             Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
+            Beutl.Controls.ControlNotifications.SetNotifications(window, TestShell.Notifications);
             window.Show();
             HeadlessTestHelpers.Render(3);
             ValueSliderField firstSlider = first.GetVisualDescendants().OfType<ValueSliderField>().Single();
@@ -589,6 +591,7 @@ public class NumberSliderFieldTests
         {
             Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
+            Beutl.Controls.ControlNotifications.SetNotifications(window, TestShell.Notifications);
             window.Show();
             HeadlessTestHelpers.Render(3);
             (byte[] pixels, int rowBytes, _) = HeadlessTestHelpers.CaptureFramePixels(window);
@@ -666,6 +669,7 @@ public class NumberSliderFieldTests
             };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
+            Beutl.Controls.ControlNotifications.SetNotifications(Window, TestShell.Notifications);
             Window.Show();
             HeadlessTestHelpers.Render(3);
             Slider = Editor.GetVisualDescendants().OfType<ValueSliderField>().Single();

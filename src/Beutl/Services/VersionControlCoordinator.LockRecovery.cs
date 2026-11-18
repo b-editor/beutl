@@ -1,5 +1,7 @@
 ﻿using Avalonia.Threading;
 using Beutl.Editor.VersionControl;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -47,9 +49,9 @@ internal partial class VersionControlCoordinator
         }
     }
 
-    private static void ShowStaleLockManualRemovalWarning(RepositoryLockInfo lockInfo)
+    private void ShowStaleLockManualRemovalWarning(RepositoryLockInfo lockInfo)
     {
-        NotificationService.ShowWarning(
+        _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
             Strings.VersionControl,
             string.Format(
                 CultureInfo.CurrentCulture,

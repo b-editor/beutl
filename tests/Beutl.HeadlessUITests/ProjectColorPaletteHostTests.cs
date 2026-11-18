@@ -35,7 +35,7 @@ public sealed class ProjectColorPaletteHostTests
         Project project = CreateProject("Brand");
         ProjectColorPaletteFile.Write(PalettePath(project), s_brand);
         var current = new BehaviorSubject<Project?>(null);
-        using var host = new ProjectColorPaletteHost(current, () => new Lease(), (_, _) => { });
+        using var host = new ProjectColorPaletteHost(current, () => new Lease(), (_, _) => { }, TestShell.Notifications);
         int changes = 0;
         host.PalettesChanged += (_, _) => changes++;
         Assert.That(host.Palettes, Is.Null);
@@ -60,7 +60,7 @@ public sealed class ProjectColorPaletteHostTests
         using var host = new ProjectColorPaletteHost(
             new BehaviorSubject<Project?>(project),
             () => lease,
-            (path, palettes) => writes.Add((path, palettes, !lease.Disposed)));
+            (path, palettes) => writes.Add((path, palettes, !lease.Disposed)), TestShell.Notifications);
 
         Assert.That(host.TrySetPalettes(s_brand), Is.True);
 
@@ -83,7 +83,7 @@ public sealed class ProjectColorPaletteHostTests
         using var host = new ProjectColorPaletteHost(
             new BehaviorSubject<Project?>(project),
             () => new Lease(),
-            (_, _) => throw new IOException("disk full"));
+            (_, _) => throw new IOException("disk full"), TestShell.Notifications);
 
         Assert.That(host.TrySetPalettes([]), Is.False);
         Assert.That(host.Palettes, Is.EqualTo(s_brand));
@@ -98,7 +98,7 @@ public sealed class ProjectColorPaletteHostTests
         using var host = new ProjectColorPaletteHost(
             new BehaviorSubject<Project?>(project),
             () => null,
-            (_, _) => writes++);
+            (_, _) => writes++, TestShell.Notifications);
 
         Assert.That(host.TrySetPalettes(s_brand), Is.False);
         Assert.That(writes, Is.Zero);
@@ -118,7 +118,7 @@ public sealed class ProjectColorPaletteHostTests
         using var host = new ProjectColorPaletteHost(
             new BehaviorSubject<Project?>(project),
             () => new Lease(),
-            ProjectColorPaletteFile.Write);
+            ProjectColorPaletteFile.Write, TestShell.Notifications);
 
         Assert.That(host.TrySetPalettes(s_brand), Is.True);
 
@@ -139,7 +139,7 @@ public sealed class ProjectColorPaletteHostTests
         using var host = new ProjectColorPaletteHost(
             new BehaviorSubject<Project?>(project),
             () => new Lease(),
-            ProjectColorPaletteFile.Write);
+            ProjectColorPaletteFile.Write, TestShell.Notifications);
 
         Assert.That(host.TrySetPalettes([]), Is.True);
         Assert.That(File.Exists(PalettePath(project)), Is.False);
@@ -162,7 +162,7 @@ public sealed class ProjectColorPaletteHostTests
             using var host = new ProjectColorPaletteHost(
                 new BehaviorSubject<Project?>(project),
                 () => new Lease(),
-                (_, _) => writes++);
+                (_, _) => writes++, TestShell.Notifications);
 
             Assert.That(host.Palettes, Is.Empty);
             Assert.That(host.TrySetPalettes(s_brand), Is.False);
@@ -181,7 +181,7 @@ public sealed class ProjectColorPaletteHostTests
         using var host = new ProjectColorPaletteHost(
             new BehaviorSubject<Project?>(project),
             () => new Lease(),
-            (_, _) => writes++);
+            (_, _) => writes++, TestShell.Notifications);
         const string conflicted = "<<<<<<< ours\n{\"Version\":1}\n=======\n{\"Version\":1}\n>>>>>>> theirs\n";
         File.WriteAllText(PalettePath(project), conflicted);
 
@@ -201,7 +201,7 @@ public sealed class ProjectColorPaletteHostTests
         using var host = new ProjectColorPaletteHost(
             new BehaviorSubject<Project?>(project),
             () => new Lease(),
-            (_, _) => writes++);
+            (_, _) => writes++, TestShell.Notifications);
         int changes = 0;
         host.PalettesChanged += (_, _) => changes++;
         ProjectColorPaletteFile.Write(PalettePath(project), s_brand);
@@ -226,7 +226,7 @@ public sealed class ProjectColorPaletteHostTests
         using var host = new ProjectColorPaletteHost(
             new BehaviorSubject<Project?>(project),
             () => new Lease(),
-            (_, _) => writes++);
+            (_, _) => writes++, TestShell.Notifications);
         ImmutableArray<ColorPalette> outside = [new ColorPalette("Brand", [new PaletteColor(0xFF00FF00)])];
         ProjectColorPaletteFile.Write(PalettePath(project), outside);
 
@@ -247,7 +247,7 @@ public sealed class ProjectColorPaletteHostTests
         using var host = new ProjectColorPaletteHost(
             new BehaviorSubject<Project?>(project),
             () => new Lease(),
-            ProjectColorPaletteFile.Write);
+            ProjectColorPaletteFile.Write, TestShell.Notifications);
         ImmutableArray<ColorPalette> named =
             [new ColorPalette("Brand", [new PaletteColor(0xFF3366FF, "Primary"), new PaletteColor(0x80FF0000)])];
         ImmutableArray<ColorPalette> last = [.. named, new ColorPalette("", [])];

@@ -48,7 +48,7 @@ internal sealed class MockedVersionControlTab : IDisposable
             .ReturnsAsync(diff);
         var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         var viewModel = new VersionControlTabViewModel(
-            Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(), source, coordinator, action => action());
+            Mock.Of<ToolTabExtension>(), TestShell.CreateEditorContextMock().Object, source, coordinator, action => action());
         await viewModel.Initialization;
         return new MockedVersionControlTab(service, source, viewModel);
     }

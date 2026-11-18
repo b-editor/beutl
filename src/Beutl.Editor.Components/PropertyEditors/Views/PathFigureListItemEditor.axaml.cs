@@ -1,20 +1,20 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Media;
 using Beutl.Services;
-
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     public PathFigureListItemEditor()
     {
         InitializeComponent();
@@ -106,7 +106,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                Notifications.ShowError(Strings.Error, ex.Message);
             }
         }
     }

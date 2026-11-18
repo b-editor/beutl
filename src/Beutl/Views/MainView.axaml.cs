@@ -29,6 +29,9 @@ namespace Beutl.Views;
 
 public sealed partial class MainView : UserControl
 {
+    private INotificationService Notifications => (DataContext as MainViewModel)?.AppServices.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private readonly ILogger<MainView> _logger = Log.CreateLogger<MainView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly ToolWindowLauncher _toolWindowLauncher = new();
@@ -125,9 +128,9 @@ public sealed partial class MainView : UserControl
 
         if (configuration != null)
         {
-            StartupNotificationService.ShowTelemetryConsent(configuration.TelemetryConfig);
+            StartupNotificationService.ShowTelemetryConsent(Notifications, configuration.TelemetryConfig);
             await CheckDifferentVersion(configuration);
-            StartupNotificationService.ShowReleaseNotes(configuration.LastStartedVersion, BeutlApplication.Version);
+            StartupNotificationService.ShowReleaseNotes(Notifications, configuration.LastStartedVersion, BeutlApplication.Version);
             await CheckAgentToolkitUpdateAsync();
         }
 
@@ -153,7 +156,7 @@ public sealed partial class MainView : UserControl
             }
 
             (string title, string content) = AiAgentSettingsPageViewModel.BuildUpdateNotice(manifest);
-            NotificationService.ShowInformation(
+            Notifications.ShowInformation(
                 title,
                 content,
                 expiration: TimeSpan.FromSeconds(30),
@@ -179,12 +182,12 @@ public sealed partial class MainView : UserControl
             string message = settingsViewModel.ManualMcpSnippet.Value is { Length: > 0 } snippet
                 ? settingsViewModel.Status.Value + Environment.NewLine + snippet
                 : settingsViewModel.Status.Value;
-            NotificationService.ShowInformation(SettingsStrings.AiAgents, message);
+            Notifications.ShowInformation(SettingsStrings.AiAgents, message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Agent toolkit reinstall failed.");
-            NotificationService.ShowError(SettingsStrings.AiAgents, ex.Message);
+            Notifications.ShowError(SettingsStrings.AiAgents, ex.Message);
         }
     }
 
@@ -237,6 +240,7 @@ public sealed partial class MainView : UserControl
             ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(window));
             ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(window));
             ControlFonts.SetFonts(dialog, ControlFonts.GetFonts(window));
+            ControlNotifications.SetNotifications(dialog, ControlNotifications.GetNotifications(window));
             navigate(dialogViewModel);
             await dialog.ShowDialog(window);
         }

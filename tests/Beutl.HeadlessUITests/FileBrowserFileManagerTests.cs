@@ -117,7 +117,7 @@ public sealed class FileBrowserFileManagerTests
         var vm = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         var view = new FileBrowserTabView { DataContext = vm };
         var window = new Window { Content = view, Width = 400, Height = 360 };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         var launches = new List<ProcessStartInfo>();
         vm.LaunchFileManagerAsync = startInfo =>
         {
@@ -188,7 +188,7 @@ public sealed class FileBrowserFileManagerTests
         File.WriteAllText(file, "sample");
         using var vm = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         using var item = new FileSystemItemViewModel(TestShell.Templates, file, isDirectory: false);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         int launches = 0;
         try
         {
@@ -231,7 +231,7 @@ public sealed class FileBrowserFileManagerTests
             using var vm = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
             vm.RootPath.Value = root;
             FileSystemItemViewModel item = vm.Items.Single(x => x.FullPath == link);
-            using var notifications = new NotificationCapture();
+            using var notifications = new NotificationCapture(TestShell.Notifications);
             int launches = 0;
             vm.LaunchFileManagerAsync = _ => { launches++; return Task.FromResult(true); };
 

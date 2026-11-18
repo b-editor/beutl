@@ -5,6 +5,7 @@ using Beutl.Graphics3D.Models;
 using Beutl.IO;
 using Beutl.Media.Source;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -80,7 +81,7 @@ public sealed partial class EditViewModel : IMediaRepairHost
     {
         _missingMediaNotification = CancellationTokenSource.CreateLinkedTokenSource(MediaRepairCancellationToken);
         var cancellation = _missingMediaNotification;
-        NotificationService.Show(new Beutl.Services.Notification(
+        this.GetRequiredService<INotificationService>().Show(new Beutl.Services.Notification(
             MissingMediaStrings.Title,
             string.Format(MissingMediaStrings.NotificationMessage, Scene.Name.Value, count),
             NotificationType.Warning,

@@ -57,7 +57,7 @@ public sealed class AgentHostAiToolsTests
     {
         await TestReset.ResetShellAsync();
         var endpoint = new AgentHostEndpoint(
-            new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager),
+            new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications),
             new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
             UnavailableAgentAiBackend.Instance,
             AvailablePort(),

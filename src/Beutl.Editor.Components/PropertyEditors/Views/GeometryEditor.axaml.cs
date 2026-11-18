@@ -7,12 +7,16 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class GeometryEditor : UserControl
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private readonly ILogger _logger = Log.CreateLogger<GeometryEditor>();
 
     public GeometryEditor()
@@ -56,7 +60,7 @@ public partial class GeometryEditor : UserControl
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while adding item to group.");
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                Notifications.ShowError(Strings.Error, ex.Message);
             }
         }
         else
@@ -100,7 +104,7 @@ public partial class GeometryEditor : UserControl
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An exception occurred while parsing the SVG path.");
-                NotificationService.ShowError(
+                Notifications.ShowError(
                     MessageStrings.SvgPathParsingException,
                     ex.Message);
             }

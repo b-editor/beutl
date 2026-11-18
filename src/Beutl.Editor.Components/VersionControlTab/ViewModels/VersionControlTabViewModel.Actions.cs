@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
@@ -82,7 +83,7 @@ internal partial class VersionControlTabViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "The manual commit command failed.");
-            NotificationService.ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
         }
     }
 
@@ -159,7 +160,7 @@ internal partial class VersionControlTabViewModel
 
     internal Task RunCommandAsync(Func<Task> operation, string commandName)
     {
-        return VersionControlCommandBoundary.RunAsync(operation, _logger, commandName);
+        return VersionControlCommandBoundary.RunAsync(_editorContext.GetRequiredService<INotificationService>(), operation, _logger, commandName);
     }
 
     private async Task<bool> RunRestoreRequestAsync(Func<Task<bool>> operation)

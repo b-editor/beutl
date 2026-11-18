@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor.VersionControl;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
@@ -118,7 +119,7 @@ internal partial class VersionControlTabViewModel
         {
             if (IsCurrentService(service, revision, cancellationToken))
             {
-                NotificationService.ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
+                _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.VersionControl_ErrorTitle, ex.Message);
             }
             return false;
         }
@@ -135,7 +136,7 @@ internal partial class VersionControlTabViewModel
             if (IsCurrentService(service, revision, cancellationToken))
             {
                 _logger.LogError(ex, "Failed to configure the remote.");
-                NotificationService.ShowError(
+                _editorContext.GetRequiredService<INotificationService>().ShowError(
                     Strings.VersionControl_ErrorTitle,
                     string.Format(Strings.VersionControl_RemoteConnectFailedFormat, ex.Message));
             }
@@ -327,7 +328,7 @@ internal partial class VersionControlTabViewModel
                 return;
             }
             StatusMessage.Value = ex.Guidance;
-            NotificationService.ShowError(Strings.VersionControl_ErrorTitle, ex.Guidance);
+            _editorContext.GetRequiredService<INotificationService>().ShowError(Strings.VersionControl_ErrorTitle, ex.Guidance);
         }
         catch (OperationCanceledException) when (operationCancellation.IsCancellationRequested)
         {
@@ -345,7 +346,7 @@ internal partial class VersionControlTabViewModel
             // A Git failure's message already carries its credential-redacted stderr, which says
             // what went wrong.
             _logger.LogError(ex, "The remote operation command failed.");
-            NotificationService.ShowError(
+            _editorContext.GetRequiredService<INotificationService>().ShowError(
                 Strings.VersionControl_ErrorTitle,
                 string.Format(Strings.VersionControl_RemoteOperationFailedFormat, ex.Message));
         }
@@ -394,12 +395,12 @@ internal partial class VersionControlTabViewModel
     private static string WithStderr(string guidance, string stderr)
         => string.IsNullOrWhiteSpace(stderr) ? guidance : $"{guidance}\n{stderr.Trim()}";
 
-    private static Task ShowRemoteResultNotificationAsync(RemoteOpResult result)
+    private Task ShowRemoteResultNotificationAsync(RemoteOpResult result)
     {
         string message = GetRemoteResultMessage(result);
         if (!string.IsNullOrWhiteSpace(message))
         {
-            NotificationService.ShowError(
+            _editorContext.GetRequiredService<INotificationService>().ShowError(
                 Strings.VersionControl_ErrorTitle,
                 message);
         }

@@ -2,6 +2,7 @@
 using Beutl.Api.Clients;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Refit;
 
@@ -12,7 +13,7 @@ public sealed class AuthenticationTask : StartupTask
     private readonly ILogger<AuthenticationTask> _logger = Log.CreateLogger<AuthenticationTask>();
     private readonly BeutlApiApplication _beutlApiApplication;
 
-    public AuthenticationTask(BeutlApiApplication beutlApiApplication)
+    public AuthenticationTask(BeutlApiApplication beutlApiApplication, INotificationService notifications)
     {
         _beutlApiApplication = beutlApiApplication;
         Task = Task.Run(async () =>
@@ -42,7 +43,7 @@ public sealed class AuthenticationTask : StartupTask
                             if (apiErr?.ErrorCode == ApiErrorCode.InvalidRefreshToken)
                             {
                                 _beutlApiApplication.SignOut();
-                                NotificationService.ShowError(
+                                notifications.ShowError(
                                     SettingsStrings.Account,
                                     MessageStrings.SigninInvalid,
                                     actions:
@@ -55,12 +56,12 @@ public sealed class AuthenticationTask : StartupTask
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Error while handling API error: {ApiContent}", error.Content);
-                            NotificationService.ShowError(Strings.APIError, error.Message);
+                            notifications.ShowError(Strings.APIError, error.Message);
                         }
                     }
                     else
                     {
-                        await e.Handle();
+                        await e.Handle(notifications);
                     }
                 }
             }

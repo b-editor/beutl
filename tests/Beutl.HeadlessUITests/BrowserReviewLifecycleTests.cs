@@ -2,7 +2,6 @@
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
@@ -10,7 +9,6 @@ using Beutl.Extensibility;
 using Beutl.Pages.SettingsPages;
 using Beutl.ViewModels.Dock;
 using Beutl.ViewModels.SettingsPages;
-
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -25,8 +23,8 @@ public class BrowserReviewLifecycleTests
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var first = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, new Uri("https://first.example/"), profile);
-        using var second = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, new Uri("https://second.example/"));
+        using var first = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, new Uri("https://first.example/"), profile);
+        using var second = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, new Uri("https://second.example/"));
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
         try
         {
@@ -51,7 +49,7 @@ public class BrowserReviewLifecycleTests
     [TestCase("search words")]
     public void MissingRuntimeKeepsItsGuidanceWhenNavigationIsRequested(string address)
     {
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        using var vm = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         using var view = new WebBrowserTabView(_ => throw new AssertionException("No runtime"), () => (false, "missing runtime", true));
         view.DataContext = vm;
         vm.Address.Value = address;
@@ -74,7 +72,7 @@ public class BrowserReviewLifecycleTests
     public void UnsupportedNativeNavigationIsCanceled(string address, bool includesSubframes)
     {
         var safe = new Uri("https://safe.example/");
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, safe);
+        using var vm = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, safe);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             navigationStartedIncludesSubframes: includesSubframes);
         view.DataContext = vm;
@@ -94,7 +92,7 @@ public class BrowserReviewLifecycleTests
     public void UnsupportedNewWindowRequestsAreHandled(string address)
     {
         var safe = new Uri("https://safe.example/");
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, safe);
+        using var vm = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, safe);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
         vm.BeginNavigation(safe);
         var request = new WebViewNewWindowRequestedEventArgs { Request = new Uri(address) };
@@ -109,9 +107,9 @@ public class BrowserReviewLifecycleTests
     public void FailedReparentingRestoresPreviouslyAcquiredScopes()
     {
         int restored = 0;
-        using var first = new BeutlToolDockable(new WebBrowserTabViewModel(new Mock<IEditorContext>().Object), null!)
+        using var first = new BeutlToolDockable(new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object), null!)
         { ToolContent = new ReparentingContent(() => System.Reactive.Disposables.Disposable.Create(() => restored++)) };
-        using var second = new BeutlToolDockable(new WebBrowserTabViewModel(new Mock<IEditorContext>().Object), null!)
+        using var second = new BeutlToolDockable(new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object), null!)
         { ToolContent = new ReparentingContent(() => throw new InvalidOperationException("detach failed")) };
         Assert.Throws<InvalidOperationException>(() => BeutlDockFactory.BeginToolContentReparenting(first, second));
         Assert.That(restored, Is.EqualTo(1));

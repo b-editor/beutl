@@ -80,7 +80,7 @@ public sealed partial class MainViewModel : BasePageViewModel
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
         _extensionProvider = new ExtensionProvider(Configuration.ExtensionConfig);
-        _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>());
+        _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(), appServices.GetRequiredService<INotificationService>());
         _editorService = new EditorService(_extensionProvider, AppServices);
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
@@ -120,14 +120,15 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.GetResource<IAiEntitlementService>(), Configuration.ViewConfig);
         _editorService.BrowserSettingsHost = new BrowserSettingsHost(CreateSettingsDialog);
         _editorService.StorageProviders = new Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry(
-            new BeutlStorageProvider(_beutlClients, CreateSettingsDialog));
+            new BeutlStorageProvider(AppServices.GetRequiredService<INotificationService>(), _beutlClients, CreateSettingsDialog));
         _editorService.AiWorkspaceHost = this;
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             _aiJobResultHandlers,
-            OpenAiJobCenter);
+            OpenAiJobCenter,
+            appServices.GetRequiredService<INotificationService>());
 
         MenuBar = new MenuBarViewModel(_projectService, _editorService, _versionControlCoordinator);
         ProjectDiskDeletion = new ProjectDiskDeletion(_projectService, _editorService);
@@ -139,7 +140,7 @@ public sealed partial class MainViewModel : BasePageViewModel
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
         TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, _editorService);
-        TitleBarBranch = new TitleBarBranchViewModel(
+        TitleBarBranch = new TitleBarBranchViewModel(AppServices.GetRequiredService<INotificationService>(),
             _editorService.ProjectVersionControlService,
             _versionControlCoordinator.IsGitAvailable,
             _versionControlCoordinator);
@@ -279,7 +280,7 @@ public sealed partial class MainViewModel : BasePageViewModel
 
     public SettingsDialogViewModel CreateSettingsDialog()
     {
-        return new SettingsDialogViewModel(
+        return new SettingsDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
             _beutlClients,
             _extensionProvider,
             _aiPlanCoordinator, Configuration);

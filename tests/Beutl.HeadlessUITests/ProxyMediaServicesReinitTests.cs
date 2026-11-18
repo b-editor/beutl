@@ -205,7 +205,7 @@ public sealed class ProxyMediaServicesReinitTests
         ProxyMediaServices services = null!;
         try
         {
-            Assert.DoesNotThrow(() => services = new ProxyMediaServices(TestShell.Configuration));
+            Assert.DoesNotThrow(() => services = new ProxyMediaServices(TestShell.Configuration, TestShell.Notifications));
 
             string defaultRoot = Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath);
             Assert.Multiple(() =>
@@ -257,7 +257,7 @@ public sealed class ProxyMediaServicesReinitTests
             if (maxTotalBytes is { } cap)
                 Config.MaxTotalBytes.Value = cap;
 
-            Services = new ProxyMediaServices(TestShell.Configuration);
+            Services = new ProxyMediaServices(TestShell.Configuration, TestShell.Notifications);
         }
 
         public ProxyStoreConfig Config { get; } = TestShell.Configuration.ProxyStoreConfig;

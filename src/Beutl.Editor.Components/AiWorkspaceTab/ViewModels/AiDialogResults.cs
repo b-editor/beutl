@@ -24,7 +24,7 @@ internal static class AiDialogResults
 
     // A locked layer is the person's choice and only warned about; any other failure throws so the
     // caller logs it and reports an unexpected error.
-    public static void PublishImport(
+    public static void PublishImport(INotificationService notifications,
         IdentityOperationLifetime.Operation operation,
         ElementAddResult result,
         string title,
@@ -34,7 +34,7 @@ internal static class AiDialogResults
         if (result.Failure is LockedElementLayerFailure)
         {
             operation.TryPublish(() =>
-                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
+                notifications.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
             return;
         }
 
@@ -45,7 +45,7 @@ internal static class AiDialogResults
                 result.Failure?.Exception);
         }
 
-        operation.TryPublish(() => NotificationService.ShowSuccess(title, addedMessage));
+        operation.TryPublish(() => notifications.ShowSuccess(title, addedMessage));
     }
 
     public static Task AddImageToSceneAsync(
@@ -108,7 +108,7 @@ internal static class AiDialogResults
         {
             AiResultImportOptions options = PlaceAtPlayhead(editor, MediaTime.FromSeconds(seconds), title);
             ElementAddResult result = await import(options, operation.CancellationToken);
-            PublishImport(operation, result, title, addedMessage, resultNoun);
+            PublishImport(editor.GetRequiredService<INotificationService>(), operation, result, title, addedMessage, resultNoun);
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -125,7 +125,7 @@ internal static class AiDialogResults
 
     // Saves bitmap as a PNG where the person picks, suggesting suggestedName and the time. A
     // failure is handed to reportFailure and shown in error as an unexpected one.
-    public static async Task SavePngAsync(
+    public static async Task SavePngAsync(INotificationService notifications,
         IdentityOperationLifetime.Operation operation,
         Bitmap bitmap,
         Func<CancellationToken, Task<AiSaveFileDestination?>>? picker,
@@ -167,7 +167,7 @@ internal static class AiDialogResults
                 }))
                 return;
             operation.TryPublish(() =>
-                NotificationService.ShowSuccess(title, Strings.AiImageSaved));
+                notifications.ShowSuccess(title, Strings.AiImageSaved));
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {

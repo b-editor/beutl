@@ -23,6 +23,8 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer,
     IAiRecoverableForm, IAiPlanOffer, IAiResultActions
 {
+    private readonly INotificationService _notifications;
+
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
     private readonly IdentityOperationLifetime _identityOperations = new();
@@ -61,7 +63,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     private double _resultDurationSeconds;
     private readonly AiRecoveryState _recovery;
 
-    internal AiVideoGenerationDialogViewModel(
+    internal AiVideoGenerationDialogViewModel(INotificationService notifications,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
         IAiModelCatalogService modelCatalog,
@@ -75,6 +77,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         AiRequestRecoveryContext requestRecoveryContext,
         AiSourceVideoMode? sourceMode = null)
     {
+        _notifications = notifications;
         SourceMode = sourceMode;
         StatusText.Value = InitialStatusText;
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
@@ -95,7 +98,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
         ModelPicker = new AiModelPickerViewModel(_modelCatalog, _entitlements)
             .DisposeWith(_disposables);
-        _recovery = new AiRecoveryState(
+        _recovery = new AiRecoveryState(_notifications,
             _requestKey,
             Operation,
             Error,

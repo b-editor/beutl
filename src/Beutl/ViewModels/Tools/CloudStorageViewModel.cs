@@ -14,6 +14,7 @@ using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Logging;
 using Beutl.Pages;
+using Beutl.Services;
 using Beutl.Views.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -34,6 +35,8 @@ internal sealed record CloudStorageItem(string Id, string Name, bool IsFolder, s
 
 internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser, IFileBrowserStorageNavigation
 {
+    private readonly INotificationService _notifications;
+
     private readonly BeutlApiApplication _clients;
     private readonly Func<SettingsDialogViewModel> _createSettings;
     private readonly CompositeDisposable _disposables = [];
@@ -54,11 +57,12 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
     private readonly Func<DateTimeOffset> _utcNow;
     private FolderPrefetch? _prefetch;
 
-    public CloudStorageViewModel(
+    public CloudStorageViewModel(INotificationService notifications,
         BeutlApiApplication clients,
         Func<SettingsDialogViewModel> createSettings,
         Func<DateTimeOffset>? utcNow = null)
     {
+        _notifications = notifications;
         _clients = clients;
         _createSettings = createSettings;
         _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
@@ -461,6 +465,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(owner));
         ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(owner));
         ControlFonts.SetFonts(dialog, ControlFonts.GetFonts(owner));
+        ControlNotifications.SetNotifications(dialog, ControlNotifications.GetNotifications(owner));
         vm.GoToAccountSettingsPage();
         await dialog.ShowDialog(owner);
     }

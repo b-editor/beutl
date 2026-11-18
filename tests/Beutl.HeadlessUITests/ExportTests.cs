@@ -280,7 +280,7 @@ public class ExportTests
         output.SelectedEncoder.Value = ThrowingMp4EncoderExtension.Instance;
         HeadlessTestHelpers.Settle();
 
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         // A synchronous async assertion would block the UI continuations in RunAsync.
         Exception? failure = null;
         try
@@ -504,7 +504,7 @@ public class ExportTests
         output.SelectedEncoder.Value = encoder;
         HeadlessTestHelpers.Settle();
 
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         await output.RunAsync(CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -531,7 +531,7 @@ public class ExportTests
         output.SelectedEncoder.Value = new SequenceEncoderExtension(fail: true);
         HeadlessTestHelpers.Settle();
 
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         Exception? failure = null;
         try
         {
@@ -609,7 +609,7 @@ public class ExportTests
         output.SelectedEncoder.Value = encoder;
         HeadlessTestHelpers.Settle();
 
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         await output.RunAsync(CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -1197,7 +1197,7 @@ public class ExportTests
         viewModel.Items.Add(item);
         viewModel.SelectedItem.Value = item;
         Task execution = StartOutput(item);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         try
         {
@@ -1249,7 +1249,7 @@ public class ExportTests
         viewModel.Items.Add(failingItem);
         viewModel.Items.Add(nextItem);
         viewModel.SelectedItem.Value = failingItem;
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         try
         {

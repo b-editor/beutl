@@ -10,6 +10,7 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
 
@@ -175,11 +176,11 @@ internal abstract class BuiltInAiJobResultCapability(
         IAiJobResultContext context,
         CancellationToken cancellationToken);
 
-    protected static void ShowImportResult(ElementAddResult result)
+    protected static void ShowImportResult(INotificationService notifications, ElementAddResult result)
     {
         if (result.Failure is LockedElementLayerFailure)
         {
-            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            notifications.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
         }
         else if (!result.IsSuccess)
         {
@@ -189,7 +190,7 @@ internal abstract class BuiltInAiJobResultCapability(
         }
         else
         {
-            NotificationService.ShowSuccess(Strings.AiJobCenter, Strings.AiJobCenter_AddedToScene);
+            notifications.ShowSuccess(Strings.AiJobCenter, Strings.AiJobCenter_AddedToScene);
         }
     }
 
@@ -230,7 +231,7 @@ internal sealed class ImageAiJobResultCapabilities(Func<string> getDisplayName)
                 editor.GetNextLayer(start),
                 KindDisplayName),
             cancellationToken);
-        ShowImportResult(result);
+        ShowImportResult(context.Editor.GetRequiredService<INotificationService>(), result);
     }
 }
 
@@ -296,7 +297,7 @@ internal sealed class VideoAiJobResultCapabilities()
                     editor.GetNextLayer(start),
                     KindDisplayName),
                 cancellationToken);
-            ShowImportResult(result);
+            ShowImportResult(context.Editor.GetRequiredService<INotificationService>(), result);
         }
         finally
         {
@@ -348,11 +349,11 @@ internal sealed class CaptionAiJobResultCapabilities(
             cancellationToken);
         if (result.IsSuccess)
         {
-            NotificationService.ShowSuccess(Strings.AiJobCenter, Strings.AiJobCenter_AddedToScene);
+            context.Editor.GetRequiredService<INotificationService>().ShowSuccess(Strings.AiJobCenter, Strings.AiJobCenter_AddedToScene);
         }
         else if (result.FailureId == ElementAddFailureIds.LockedLayer)
         {
-            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            context.Editor.GetRequiredService<INotificationService>().ShowWarning(Strings.Lock, Strings.LayerIsLocked);
         }
         else
         {

@@ -26,7 +26,7 @@ public sealed class AccountSettingsPageViewModelTests
         using var httpClient = new HttpClient(handler);
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(clients, "user-a");
-        using var viewModel = new AccountSettingsPageViewModel(clients, CreateCoordinator(clients));
+        using var viewModel = new AccountSettingsPageViewModel(TestShell.Notifications, clients, CreateCoordinator(clients));
         await handler.WaitForRequestCountAsync(1);
 
         SetAuthenticatedUser(clients, null);
@@ -49,7 +49,7 @@ public sealed class AccountSettingsPageViewModelTests
         using var httpClient = new HttpClient(handler);
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(clients, "user-a");
-        using var viewModel = new AccountSettingsPageViewModel(clients, CreateCoordinator(clients));
+        using var viewModel = new AccountSettingsPageViewModel(TestShell.Notifications, clients, CreateCoordinator(clients));
         await handler.WaitForRequestCountAsync(1);
 
         handler.Complete(
@@ -78,7 +78,7 @@ public sealed class AccountSettingsPageViewModelTests
         using var httpClient = new HttpClient(handler);
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(clients, "user-a");
-        using var viewModel = new AccountSettingsPageViewModel(clients, CreateCoordinator(clients));
+        using var viewModel = new AccountSettingsPageViewModel(TestShell.Notifications, clients, CreateCoordinator(clients));
         await handler.WaitForRequestCountAsync(1);
 
         handler.Complete(0, JsonResponse(HttpStatusCode.OK, EntitlementsJson()));
@@ -103,7 +103,7 @@ public sealed class AccountSettingsPageViewModelTests
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(clients, "user-a");
         var coordinator = CreateCoordinator(clients);
-        using var viewModel = new AccountSettingsPageViewModel(clients, coordinator);
+        using var viewModel = new AccountSettingsPageViewModel(TestShell.Notifications, clients, coordinator);
         await handler.WaitForRequestCountAsync(1);
         handler.Complete(0, JsonResponse(HttpStatusCode.OK, EntitlementsJson()));
         await WaitUntilAsync(() => !viewModel.IsAiPlanLoading.Value);
@@ -139,7 +139,7 @@ public sealed class AccountSettingsPageViewModelTests
             new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(clients, "user-a");
         var coordinator = CreateCoordinator(clients);
-        using var viewModel = new AccountSettingsPageViewModel(clients, coordinator);
+        using var viewModel = new AccountSettingsPageViewModel(TestShell.Notifications, clients, coordinator);
         await handler.WaitForRequestCountAsync(1);
         handler.Complete(0, JsonResponse(HttpStatusCode.OK, EntitlementsJson()));
         await WaitUntilAsync(() => !viewModel.IsAiPlanLoading.Value);
@@ -180,7 +180,7 @@ public sealed class AccountSettingsPageViewModelTests
         using var httpClient = new HttpClient(handler);
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(clients, "user-a");
-        using var viewModel = new AccountSettingsPageViewModel(clients, CreateCoordinator(clients));
+        using var viewModel = new AccountSettingsPageViewModel(TestShell.Notifications, clients, CreateCoordinator(clients));
         await handler.WaitForRequestCountAsync(1);
 
         SetAuthenticatedUser(clients, "user-b");
@@ -204,7 +204,7 @@ public sealed class AccountSettingsPageViewModelTests
         using var httpClient = new HttpClient(handler);
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(clients, "user-a");
-        using var viewModel = new AccountSettingsPageViewModel(clients, CreateCoordinator(clients));
+        using var viewModel = new AccountSettingsPageViewModel(TestShell.Notifications, clients, CreateCoordinator(clients));
         await handler.WaitForRequestCountAsync(1);
 
         handler.Complete(0, JsonResponse(HttpStatusCode.InternalServerError, "{}"));
@@ -220,7 +220,7 @@ public sealed class AccountSettingsPageViewModelTests
         using var httpClient = new HttpClient(handler);
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         SetAuthenticatedUser(clients, "user-a");
-        var viewModel = new AccountSettingsPageViewModel(clients, CreateCoordinator(clients));
+        var viewModel = new AccountSettingsPageViewModel(TestShell.Notifications, clients, CreateCoordinator(clients));
         await handler.WaitForRequestCountAsync(1);
 
         viewModel.Dispose();
@@ -246,7 +246,7 @@ public sealed class AccountSettingsPageViewModelTests
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
         AuthenticatedUser first = CreateUser(clients, "user-a");
         SetUser(clients, first);
-        using var viewModel = new AccountSettingsPageViewModel(clients, CreateCoordinator(clients));
+        using var viewModel = new AccountSettingsPageViewModel(TestShell.Notifications, clients, CreateCoordinator(clients));
 
         SetDisplayName(first.Profile, "Alice");
         string renamed = viewModel.DisplayName.Value!;

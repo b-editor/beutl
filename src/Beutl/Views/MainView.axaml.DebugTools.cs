@@ -25,7 +25,7 @@ public sealed partial class MainView
         string str = StringFormats.ToHumanReadableSize(Math.Abs(deltaBytes));
         str = (deltaBytes >= 0 ? "+" : "-") + str;
 
-        NotificationService.ShowInformation(
+        Notifications.ShowInformation(
             Strings.Result,
             $"{Strings.ElapsedTime}: {elapsed.TotalMilliseconds}ms\n{Strings.Difference}: {str}");
     }
@@ -49,7 +49,7 @@ public sealed partial class MainView
     {
         if (_captureSession is not null)
         {
-            NotificationService.ShowWarning(
+            Notifications.ShowWarning(
                 Strings.WindowCapture,
                 MessageStrings.WindowCapture_AlreadyRunning);
             return;
@@ -63,7 +63,7 @@ public sealed partial class MainView
         string? ffmpegPath = await Task.Run(FFmpegBinaryLocator.Find);
         if (ffmpegPath is null)
         {
-            NotificationService.ShowError(
+            Notifications.ShowError(
                 Strings.WindowCapture,
                 MessageStrings.WindowCapture_FfmpegNotFound);
             return;
@@ -87,7 +87,7 @@ public sealed partial class MainView
             session.Start();
             _captureSession = session;
 
-            NotificationService.ShowInformation(
+            Notifications.ShowInformation(
                 Strings.WindowCapture,
                 string.Format(MessageStrings.WindowCapture_RecordingStarted, session.Width, session.Height, session.FrameRate));
         }
@@ -101,7 +101,7 @@ public sealed partial class MainView
                 try { await session.DisposeAsync(); }
                 catch (Exception disposeEx) { _logger.LogWarning(disposeEx, "Failed to dispose capture session after start failure."); }
             }
-            NotificationService.ShowError(Strings.WindowCapture, ex.Message);
+            Notifications.ShowError(Strings.WindowCapture, ex.Message);
         }
     }
 
@@ -115,7 +115,7 @@ public sealed partial class MainView
             WindowCaptureSession? session = _captureSession;
             if (session is null)
             {
-                NotificationService.ShowWarning(Strings.WindowCapture, MessageStrings.WindowCapture_NoActiveSession);
+                Notifications.ShowWarning(Strings.WindowCapture, MessageStrings.WindowCapture_NoActiveSession);
                 return;
             }
 
@@ -123,7 +123,7 @@ public sealed partial class MainView
             {
                 await session.StopAsync();
                 _captureSession = null;
-                NotificationService.ShowSuccess(
+                Notifications.ShowSuccess(
                     Strings.WindowCapture,
                     string.Format(MessageStrings.WindowCapture_Saved, session.OutputPath, session.CapturedFrameCount, session.DroppedFrameCount));
             }
@@ -131,7 +131,7 @@ public sealed partial class MainView
             {
                 _captureSession = null;
                 _logger.LogError(ex, "Failed to stop window capture.");
-                NotificationService.ShowError(Strings.WindowCapture, ex.Message);
+                Notifications.ShowError(Strings.WindowCapture, ex.Message);
             }
         });
     }

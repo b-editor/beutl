@@ -3,6 +3,8 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -17,10 +19,11 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
     private readonly IDisposable _projectSubscription;
     // The open project's palette file, or null without a project.
     private string? _path;
+    private readonly INotificationService _notifications;
     private ImmutableArray<ColorPalette> _palettes = [];
 
     public ProjectColorPaletteHost(ProjectService projectService, EditorService editorService)
-        : this(projectService.CurrentProject, editorService.TryBeginProjectFileWrite, ProjectColorPaletteFile.Write)
+        : this(projectService.CurrentProject, editorService.TryBeginProjectFileWrite, ProjectColorPaletteFile.Write, editorService.AppServices.GetRequiredService<INotificationService>())
     {
     }
 
@@ -28,10 +31,11 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
     internal ProjectColorPaletteHost(
         IObservable<Project?> currentProject,
         Func<IProjectFileWriteLease?> beginWrite,
-        Action<string, ImmutableArray<ColorPalette>> store)
+        Action<string, ImmutableArray<ColorPalette>> store, INotificationService notifications)
     {
         _beginWrite = beginWrite;
         _store = store;
+        _notifications = notifications;
         _projectSubscription = currentProject.Subscribe(OnProjectChanged);
     }
 
@@ -50,7 +54,7 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
         using IProjectFileWriteLease? lease = _beginWrite();
         if (lease is null)
         {
-            NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, Strings.FileBrowser_WorkspaceBusy);
+            _notifications.ShowWarning(Strings.ColorPalette_ProjectPalettes, Strings.FileBrowser_WorkspaceBusy);
             return false;
         }
 
@@ -59,7 +63,7 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
         ImmutableArray<ColorPalette> current = ProjectColorPaletteFile.Read(path, out bool canWrite);
         if (!canWrite)
         {
-            NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
+            _notifications.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
             return false;
         }
 
@@ -68,7 +72,7 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
         {
             _palettes = current;
             PalettesChanged?.Invoke(this, EventArgs.Empty);
-            NotificationService.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
+            _notifications.ShowWarning(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
             return false;
         }
 
@@ -79,7 +83,7 @@ internal sealed class ProjectColorPaletteHost : IProjectColorPaletteHost, IDispo
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to write the project's color palettes.");
-            NotificationService.ShowError(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
+            _notifications.ShowError(Strings.ColorPalette_ProjectPalettes, MessageStrings.OperationFailed);
             return false;
         }
 

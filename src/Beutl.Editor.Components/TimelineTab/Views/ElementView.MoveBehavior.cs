@@ -357,7 +357,7 @@ public sealed partial class ElementView
             {
                 ForceRestoreVisualToModel(relatedElements);
                 s_logger.LogError(ex, "Element move/duplicate failed.");
-                NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_FallbackFailed);
+                viewModel.Timeline.EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Duplicate_Failed, Strings.Duplicate_FallbackFailed);
                 return;
             }
 
@@ -367,7 +367,7 @@ public sealed partial class ElementView
                     ForceRestoreVisualToModel(relatedElements);
                     return;
                 case ElementMoveOutcome.FellBackToMove:
-                    NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_FallbackToMove);
+                    viewModel.Timeline.EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_FallbackToMove);
                     break;
                 case ElementMoveOutcome.None:
                     // Zero net delta (sub-frame drag), but OnPointerMoved already shifted

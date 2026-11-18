@@ -50,7 +50,7 @@ public class PlayerViewModelDisposalTests
         player.PreviewInvalidated += OnPreviewInvalidated;
 
         // Capture backend errors for diagnostics.
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         try
         {

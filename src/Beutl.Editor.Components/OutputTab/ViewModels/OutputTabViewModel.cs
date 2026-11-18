@@ -12,11 +12,13 @@ namespace Beutl.Editor.Components.OutputTab.ViewModels;
 public class OutputTabViewModel : IToolContext
 {
     private readonly OutputService _outputService;
+    private readonly INotificationService _notifications;
     private readonly ILogger _logger = Log.CreateLogger<OutputTabViewModel>();
 
     public OutputTabViewModel(IEditorContext editorContext)
     {
         _logger.LogInformation("Initializing OutputTabViewModel.");
+        _notifications = editorContext.GetRequiredService<INotificationService>();
         Scene = editorContext.GetRequiredService<Scene>();
         Presets = editorContext.GetRequiredService<IOutputPresetStore>();
         _outputService = new OutputService(editorContext);
@@ -59,7 +61,7 @@ public class OutputTabViewModel : IToolContext
         {
             _logger.LogError(e, "An exception occurred while adding an item.");
             if (e is not OperationCanceledException)
-                NotificationService.ShowError(Strings.Error, e.Message);
+                _notifications.ShowError(Strings.Error, e.Message);
         }
     }
 
@@ -77,7 +79,7 @@ public class OutputTabViewModel : IToolContext
         {
             _logger.LogWarning("Cannot remove an output profile while it is encoding: {ItemName}",
                 item.Context.Name.Value);
-            NotificationService.ShowWarning(Strings.Output, Strings.Output_ProfileRunning);
+            _notifications.ShowWarning(Strings.Output, Strings.Output_ProfileRunning);
             return;
         }
 
@@ -103,7 +105,7 @@ public class OutputTabViewModel : IToolContext
             catch (Exception ex)
             {
                 _logger.LogError(ex, "The removed output profile failed during disposal.");
-                NotificationService.ShowError(Strings.Output, ex.Message);
+                _notifications.ShowError(Strings.Output, ex.Message);
             }
         }
 

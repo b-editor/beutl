@@ -57,7 +57,7 @@ public class VersionControlRestoreTests
         string projectFile = project.Uri!.LocalPath;
         await TestShell.Project.CloseProjectAsync();
 
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
         await WaitUntilAsync(() => notifications.All.Any(n => n.Title == Strings.VersionControl));
@@ -281,7 +281,7 @@ public class VersionControlRestoreTests
                 candidate => candidate is null ? discovery : backend);
             coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            using var notifications = new NotificationCapture();
+            using var notifications = new NotificationCapture(TestShell.Notifications);
 
             int reopenAttempts = 0;
             openedHandler = _ =>
@@ -505,7 +505,7 @@ public class VersionControlRestoreTests
         await WaitUntilAsync(() =>
             ReferenceEquals(coordinator.CurrentService, backend)
             && coordinator.IsTracked.Value);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await coordinator.NotifySavedAsync();
         HeadlessTestHelpers.Settle();
@@ -933,7 +933,7 @@ public class VersionControlRestoreTests
             new VersionControlConfig { AutoCommitOnClose = { Value = true } },
             candidate => candidate is null ? discovery : backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await TestShell.Project.CloseProjectAsync();
         HeadlessTestHelpers.Settle();
@@ -970,7 +970,7 @@ public class VersionControlRestoreTests
             new VersionControlConfig { AutoCommitOnClose = { Value = true } },
             candidate => candidate is null ? discovery : backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await TestShell.Project.CloseProjectAsync();
         HeadlessTestHelpers.Settle();
@@ -1946,7 +1946,7 @@ public class VersionControlRestoreTests
             EnsureHygieneOverride = _ =>
                 Task.FromException(new GitOperationException(128, reason)),
         };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         VersionControlCoordinator coordinator = session.Start(
             new VersionControlConfig(),
             candidate => candidate is null ? discovery : backend);
@@ -1979,7 +1979,7 @@ public class VersionControlRestoreTests
         {
             RepositoryWatcherFailure = new IOException(reason),
         };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         VersionControlCoordinator coordinator = session.Start(
             new VersionControlConfig(),
             candidate => candidate is null ? discovery : backend);
@@ -3652,7 +3652,7 @@ public class VersionControlRestoreTests
     [AvaloniaTest]
     public async Task Stale_lock_warns_with_the_manual_removal_guidance()
     {
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         await using var session = await FakeVersionControlSession.CreateAsync(
             "version-control-lock-manual-removal-only");
         var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
@@ -3852,7 +3852,7 @@ public class VersionControlRestoreTests
                 return Task.FromResult(true);
             };
 
-            using var notifications = new NotificationCapture();
+            using var notifications = new NotificationCapture(TestShell.Notifications);
             using var cancellation = new CancellationTokenSource();
             Task<bool> creation;
             using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None))
@@ -4090,7 +4090,7 @@ public class VersionControlRestoreTests
                 new VersionControlConfig(),
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            titleBar = new TitleBarBranchViewModel(
+            titleBar = new TitleBarBranchViewModel(TestShell.Notifications,
                 session.EditorService.ProjectVersionControlService,
                 gitAvailable,
                 coordinator);
@@ -4099,7 +4099,7 @@ public class VersionControlRestoreTests
             // The backend refuses an invalid name and an existing branch with the same answer.
             backend.EnqueueCanCreateBranchResult(false);
             int canCreateCallsBefore = backend.CanCreateBranchCalls;
-            using var notifications = new NotificationCapture();
+            using var notifications = new NotificationCapture(TestShell.Notifications);
 
             await titleBar.CreateBranchAsync();
             HeadlessTestHelpers.Settle();
@@ -4375,7 +4375,7 @@ public class VersionControlRestoreTests
             return Task.FromResult(true);
         };
 
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         Task<bool> invalidCreation;
         using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None))
         {
@@ -4989,7 +4989,7 @@ public class VersionControlRestoreTests
             {
                 HasVersionTrackingOptIn = false,
             };
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
@@ -5055,7 +5055,7 @@ public class VersionControlRestoreTests
             {
                 HasVersionTrackingOptIn = false,
             };
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
@@ -5141,7 +5141,7 @@ public class VersionControlRestoreTests
                 "version-control-new-project-prepared");
             Directory.CreateDirectory(location);
             var backends = new List<PullCycleTestBackend>();
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications);
             var editorService = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
             coordinator = new VersionControlCoordinator(
                 projectService,
@@ -5266,7 +5266,7 @@ public class VersionControlRestoreTests
             Directory.CreateDirectory(location);
             string projectRoot = Path.Combine(location, "interrupted");
             var backends = new List<PullCycleTestBackend>();
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
@@ -5382,7 +5382,7 @@ public class VersionControlRestoreTests
                 "version-control-new-project-reserved-path-failure");
             Directory.CreateDirectory(location);
             var backends = new List<PullCycleTestBackend>();
-            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
+            var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications);
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices),
@@ -5450,7 +5450,7 @@ public class VersionControlRestoreTests
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications);
         Func<Project, Task> failOpening = static _ =>
             Task.FromException(new IOException("simulated editor failure"));
 
@@ -5523,7 +5523,7 @@ public class VersionControlRestoreTests
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications);
         var identityRequested = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         Task<Project?>? creation = null;
@@ -5635,7 +5635,7 @@ public class VersionControlRestoreTests
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager);
+        var projectService = new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications);
         INewProjectVersionControlSetup? setup = null;
         var releaseOpening = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -6240,7 +6240,7 @@ public class VersionControlRestoreTests
         string projectRoot = Path.GetDirectoryName(projectFile)!;
         string invalidTarget = await CommitInvalidProjectAsync(git.GitPath, project, "invalid branch restore target");
         TestShell.VersionControl.ConfirmRestoreAsync = _ => Task.FromResult(true);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         const string FailedBranch = "failed-restore";
         Assert.That(
@@ -6561,7 +6561,7 @@ public class VersionControlRestoreTests
             return Task.FromResult(true);
         };
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         bool restored = await coordinator.RestoreToNewBranchAsync(
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -6919,7 +6919,7 @@ public class VersionControlRestoreTests
             candidate => candidate is null ? discovery : backend);
         coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         bool restored = await coordinator.RestoreAsync(Target);
         HeadlessTestHelpers.Settle();
@@ -7021,7 +7021,7 @@ public class VersionControlRestoreTests
         VersionControlCoordinator coordinator = session.Start(
             new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : tracked);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await session.ProjectService.OpenProject(session.ProjectFile);
         HeadlessTestHelpers.Settle();
@@ -7430,7 +7430,7 @@ public class VersionControlRestoreTests
             await TestReset.ResetShellAsync();
             Project project = await CreateProjectForFakeVersionControlAsync(directoryName);
             await TestShell.Project.CloseProjectAsync();
-            return new FakeVersionControlSession(project, new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+            return new FakeVersionControlSession(project, new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         }
 
         public VersionControlCoordinator Start(
@@ -7663,7 +7663,7 @@ public class VersionControlRestoreTests
         public IReactiveProperty<bool> IsEnabled { get; } =
             new ReactivePropertySlim<bool>(true);
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext

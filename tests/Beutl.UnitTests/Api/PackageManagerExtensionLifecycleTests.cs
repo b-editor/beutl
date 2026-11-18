@@ -28,7 +28,7 @@ public class PackageManagerExtensionLifecycleTests
         using var library = new Beutl.Services.LibraryService();
         string directory = Path.Combine(Path.GetTempPath(), $"extension-templates-{Guid.NewGuid():N}");
         using var templates = new ObjectTemplateService(TestFonts.Manager, directory);
-        using var services = new EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestFonts.Manager)
+        using var services = new EditorServiceRegistry().AddOwned<Beutl.Services.INotificationService>(() => new Beutl.Services.NotificationService()).Add<Beutl.Media.FontManager>(() => TestFonts.Manager)
             .Add(() => library)
             .Add(() => templates);
         PackageManager manager = CreatePackageManager(out _, out _, services);
@@ -535,7 +535,7 @@ public class PackageManagerExtensionLifecycleTests
             new InstalledPackageRepository(),
             extensionProvider,
             commandManager,
-            apiApplication: null!, services: services ?? new EditorServiceRegistry().Add<Beutl.Media.FontManager>(() => TestFonts.Manager), updateConfig: new Beutl.Configuration.UpdateConfig());
+            apiApplication: null!, services: services ?? new EditorServiceRegistry().AddOwned<Beutl.Services.INotificationService>(() => new Beutl.Services.NotificationService()).Add<Beutl.Media.FontManager>(() => TestFonts.Manager), updateConfig: new Beutl.Configuration.UpdateConfig());
     }
 
     // Nested + private so the app's exported-type scan never picks these up; [Export] stays because

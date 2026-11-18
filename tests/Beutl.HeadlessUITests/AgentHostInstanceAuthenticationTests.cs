@@ -150,7 +150,7 @@ public sealed class AgentHostInstanceAuthenticationTests
 
     private static AgentHostEndpoint CreateHost(string directory)
     {
-        return new AgentHostEndpoint(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager), new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices),
+        return new AgentHostEndpoint(new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications), new EditorService(TestShell.Extensions, TestShell.MainViewModel.AppServices),
             UnavailableAgentAiBackend.Instance,
             AvailablePort(), AgentHostInstanceTestWorker.Token, registryDirectory: directory);
     }

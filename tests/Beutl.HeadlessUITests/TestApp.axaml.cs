@@ -15,6 +15,7 @@ public sealed class TestApp : Application
 
     private MainViewModel? _mainViewModel;
     internal Beutl.Media.FontManager Fonts { get; }
+    internal NotificationCapture Notifications { get; } = NotificationCapture.CreateForwardingRoot();
     internal GlobalConfiguration Configuration { get; } = new();
     internal Beutl.Services.LibraryService Library { get; } = new();
     internal Beutl.Editor.Services.ObjectTemplateService Templates { get; }
@@ -31,7 +32,8 @@ public sealed class TestApp : Application
         Services = new Beutl.Editor.Services.EditorServiceRegistry()
             .Add(() => Configuration)
             .Add(() => Fonts)
-            .AddOwned(() => new Beutl.Services.AppUpdateController(Configuration.UpdateConfig))
+            .Add<Beutl.Services.INotificationService>(() => Notifications)
+            .AddOwned(() => new Beutl.Services.AppUpdateController(Configuration.UpdateConfig, Notifications))
             .Add(() => Library)
             .Add(() => Templates)
             .Add(() => Tutorials)
@@ -42,6 +44,8 @@ public sealed class TestApp : Application
     {
         Beutl.Testing.Headless.ControlHost.ConfigureWindow = window =>
         {
+            if (Beutl.Controls.ControlNotifications.GetNotifications(window) is null)
+                Beutl.Controls.ControlNotifications.SetNotifications(window, Notifications);
             if (Beutl.Controls.ControlFonts.GetFonts(window) is null)
                 Beutl.Controls.ControlFonts.SetFonts(window, Fonts);
             if (Beutl.Controls.ControlConfiguration.GetConfiguration(window) is null)

@@ -255,7 +255,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         if (result.Failure is LockedElementLayerFailure)
         {
-            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Lock, Strings.LayerIsLocked);
             return result;
         }
 
@@ -263,7 +263,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             result.Failure?.Exception,
             "Failed to add a timeline element: {FailureId}",
             result.Failure?.Id);
-        NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+        EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
         return result;
     }
 
@@ -464,7 +464,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         if (Scene.Uri is null)
         {
-            NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_ProjectNotSaved);
+            EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_ProjectNotSaved);
             return;
         }
 
@@ -480,7 +480,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             }
             else
             {
-                NotificationService.ShowError(Strings.Duplicate_Failed, string.Empty);
+                EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Duplicate_Failed, string.Empty);
             }
         }
         catch (Exception ex)
@@ -496,27 +496,27 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             case IOException:
             case UnauthorizedAccessException:
                 _logger.LogError(ex, "Duplicate failed: I/O error.");
-                NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_IOFailed);
+                EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Duplicate_Failed, Strings.Duplicate_IOFailed);
                 break;
             default:
                 _logger.LogError(ex, "An exception has occurred while duplicating.");
-                NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+                EditorContext.GetRequiredService<INotificationService>().ShowError(MessageStrings.UnexpectedError, ex.Message);
                 break;
         }
     }
 
-    internal static void ShowPasteFailure(ElementAddFailure failure)
+    internal static void ShowPasteFailure(INotificationService notifications, ElementAddFailure failure)
     {
         switch (failure)
         {
             case LockedElementLayerFailure:
-                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+                notifications.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
                 break;
             case ElementSceneNotSavedFailure:
-                NotificationService.ShowWarning(Strings.Paste, Strings.Paste_ProjectNotSaved);
+                notifications.ShowWarning(Strings.Paste, Strings.Paste_ProjectNotSaved);
                 break;
             default:
-                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+                notifications.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
                 break;
         }
     }
@@ -534,13 +534,13 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             }
             else if (outcome.AddFailure is { } failure)
             {
-                ShowPasteFailure(failure);
+                ShowPasteFailure(EditorContext.GetRequiredService<INotificationService>(), failure);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception has occurred.");
-            NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+            EditorContext.GetRequiredService<INotificationService>().ShowError(MessageStrings.UnexpectedError, ex.Message);
         }
     }
 

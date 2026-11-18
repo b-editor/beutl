@@ -4,6 +4,8 @@ using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
@@ -42,6 +44,7 @@ internal sealed class ToolWindowLauncher
             ColorPaletteService.SetService(window, ColorPaletteService.GetService(owner));
             ControlConfiguration.SetConfiguration(window, ControlConfiguration.GetConfiguration(owner));
             ControlFonts.SetFonts(window, ControlFonts.GetFonts(owner));
+            ControlNotifications.SetNotifications(window, ControlNotifications.GetNotifications(owner));
             if (string.IsNullOrEmpty(window.Title))
             {
                 window.Title = context.Header;
@@ -77,7 +80,7 @@ internal sealed class ToolWindowLauncher
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle(extension.Services.GetRequiredService<INotificationService>());
         }
     }
 }

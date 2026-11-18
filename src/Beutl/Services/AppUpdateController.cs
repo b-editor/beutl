@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using Beutl.Api.Clients;
 using Beutl.Configuration;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using Microsoft.Extensions.Logging;
@@ -29,12 +30,14 @@ internal sealed class AppUpdateController
     private readonly Func<bool> _downloadsAutomatically;
     private readonly BehaviorSubject<UpdateDialogViewModel?> _current = new(null);
     private bool _isDialogOpen;
+    private readonly INotificationService _notifications;
 
     // Test seam: tests that never start an update unasked leave downloadsAutomatically out.
     internal AppUpdateController(
-        Func<AppUpdateResponse, UpdateDialogViewModel> createViewModel, Func<bool>? downloadsAutomatically = null)
+        Func<AppUpdateResponse, UpdateDialogViewModel> createViewModel, INotificationService notifications, Func<bool>? downloadsAutomatically = null)
     {
         _createViewModel = createViewModel;
+        _notifications = notifications;
         _downloadsAutomatically = downloadsAutomatically ?? (() => false);
         Status = _current
             .Select(viewModel => viewModel == null
@@ -45,8 +48,8 @@ internal sealed class AppUpdateController
             .Switch();
     }
 
-    internal AppUpdateController(UpdateConfig configuration)
-        : this(update => new UpdateDialogViewModel(update, configuration),
+    internal AppUpdateController(UpdateConfig configuration, INotificationService notifications)
+        : this(update => new UpdateDialogViewModel(update, configuration), notifications,
             () => CanDownloadAutomatically && configuration.AutoDownload.Value
                 && UpdateDialogViewModel.ClaimUpdateFolders())
     {
@@ -87,20 +90,20 @@ internal sealed class AppUpdateController
         _ = ShowDialogAsync(viewModel);
     }
 
-    public static async void ScheduleInstallOnQuit(UpdateDialogViewModel viewModel)
+    public static async void ScheduleInstallOnQuit(UpdateDialogViewModel viewModel, INotificationService notifications)
     {
         // Leaving a preparing update running needs nothing more.
         if (viewModel.IsFlatpak || viewModel.Phase.Value != AppUpdatePhase.Ready) return;
 
         if (await viewModel.ScheduleInstallOnQuitAsync())
         {
-            NotificationService.ShowInformation(
+            notifications.ShowInformation(
                 MessageStrings.UpdateAction_UpdateOnQuit,
                 MessageStrings.UpdateWillInstallOnQuit);
         }
         else if (!viewModel.CancellationToken.IsCancellationRequested)
         {
-            NotificationService.ShowError(MessageStrings.UpdateFailed_Title, viewModel.ProgressText.Value);
+            notifications.ShowError(MessageStrings.UpdateFailed_Title, viewModel.ProgressText.Value);
         }
     }
 
@@ -137,7 +140,11 @@ internal sealed class AppUpdateController
     {
         try
         {
-            await new UpdateDialog { DataContext = viewModel }.ShowAsync();
+            await new UpdateDialog
+            {
+                DataContext = viewModel,
+                [Beutl.Controls.ControlNotifications.NotificationsProperty] = _notifications
+            }.ShowAsync();
         }
         finally
         {
@@ -166,7 +173,7 @@ internal sealed class AppUpdateController
         switch (phase)
         {
             case AppUpdatePhase.Preparing:
-                NotificationService.Show(new Notification(
+                _notifications.Show(new Notification(
                     MessageStrings.UpdateDownloading_Title,
                     GetUpdateMessage(viewModel.Update),
                     Actions: [ReleaseNotesAction(viewModel)])
@@ -178,7 +185,7 @@ internal sealed class AppUpdateController
                 string message = GetUpdateMessage(viewModel.Update);
                 if (viewModel.IncludedExtensions is { } summary)
                     message += Environment.NewLine + summary;
-                NotificationService.Show(new Notification(
+                _notifications.Show(new Notification(
                     MessageStrings.UpdateReady_Title,
                     message,
                     NotificationType.Success,
@@ -189,7 +196,7 @@ internal sealed class AppUpdateController
                 });
                 break;
             case AppUpdatePhase.Failed:
-                NotificationService.Show(new Notification(
+                _notifications.Show(new Notification(
                     MessageStrings.UpdateFailed_Title,
                     viewModel.ProgressText.Value,
                     NotificationType.Error,
@@ -200,7 +207,7 @@ internal sealed class AppUpdateController
                 });
                 break;
             case AppUpdatePhase.Completed:
-                NotificationService.ShowSuccess(
+                _notifications.ShowSuccess(
                     GetVersionLabel(viewModel.Update.LatestVersion),
                     viewModel.ProgressText.Value);
                 break;
@@ -212,15 +219,15 @@ internal sealed class AppUpdateController
         NotificationAction installNow = new(viewModel.PrimaryButtonText.Value, () => InstallNow(viewModel));
         if (viewModel.IsFlatpak) return [installNow, ReleaseNotesAction(viewModel)];
 
-        NotificationAction onQuit = new(MessageStrings.UpdateAction_UpdateOnQuit, () => ScheduleInstallOnQuit(viewModel));
+        NotificationAction onQuit = new(MessageStrings.UpdateAction_UpdateOnQuit, () => ScheduleInstallOnQuit(viewModel, _notifications));
         // The notice of an update that downloaded unasked is gone by now, so the release notes are offered here too.
         return [installNow, onQuit, ReleaseNotesAction(viewModel)];
     }
 
     // An update without a page of its own links to the list of releases instead. Opening the release notes leaves
     // the notification on screen, with whatever choice it offers.
-    private static NotificationAction ReleaseNotesAction(UpdateDialogViewModel viewModel)
-        => new(MessageStrings.ReleaseNotes, () => OpenUrl(viewModel.ReleaseUri?.AbsoluteUri ?? ReleasesPageUrl),
+    private NotificationAction ReleaseNotesAction(UpdateDialogViewModel viewModel)
+        => new(MessageStrings.ReleaseNotes, () => OpenUrl(_notifications, viewModel.ReleaseUri?.AbsoluteUri ?? ReleasesPageUrl),
             DismissOnInvoke: false);
 
     // The dialog stays open through the handoff, so a failure there can be read.
@@ -231,7 +238,7 @@ internal sealed class AppUpdateController
     }
 
     // Opens a page in the browser. False when it did not open; the user is told why.
-    internal static bool OpenUrl(string url)
+    internal static bool OpenUrl(INotificationService notifications, string url)
     {
         try
         {
@@ -241,7 +248,7 @@ internal sealed class AppUpdateController
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             s_logger.LogError(ex, "Failed to open URL: {Url}", url);
-            NotificationService.ShowError(Strings.Error, ex.Message);
+            notifications.ShowError(Strings.Error, ex.Message);
             return false;
         }
     }

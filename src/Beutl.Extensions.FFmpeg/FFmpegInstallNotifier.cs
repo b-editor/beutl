@@ -1,5 +1,4 @@
 ﻿using Avalonia.Threading;
-
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Services;
 
@@ -9,29 +8,19 @@ internal static class FFmpegInstallNotifier
 {
     private const long ThrottleMs = 10_000;
     private static long s_lastNotifiedTicks;
-    private static int s_hooked;
-
-    public static void HookLibraryState()
-    {
-        if (Interlocked.Exchange(ref s_hooked, 1) != 0)
-            return;
-
-        FFmpegLibraryState.LibrariesMissing += (_, _) => ShowMissingNotification();
-    }
-
-    public static void NotifyMissing()
+    public static void NotifyMissing(INotificationService notifications)
     {
         FFmpegLibraryState.MarkMissingIfNeeded();
 
-        ShowMissingNotification();
+        ShowMissingNotification(notifications);
     }
 
-    private static void ShowMissingNotification()
+    internal static void ShowMissingNotification(INotificationService notifications)
     {
         if (!TryAcquireNotifySlot(Environment.TickCount64))
             return;
 
-        NotificationService.ShowError(
+        notifications.ShowError(
             Strings.FFmpegError,
             Strings.Make_sure_you_have_FFmpeg_installed,
             actions: [new(Strings.Install, ShowInstallDialog)]);

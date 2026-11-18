@@ -66,7 +66,7 @@ public class PackageDetailsMarkdownTests
         var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         await using var app = new BeutlApiApplication(http, provider, TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.MarkdownSample", CancellationToken.None);
-        using var viewModel = new PackageDetailsPageViewModel(package, app, new EditorService(provider, TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        using var viewModel = new PackageDetailsPageViewModel(package, app, new EditorService(provider, TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         await viewModel.IsBusy.FirstAsync(busy => !busy).ToTask().WaitAsync(TimeSpan.FromSeconds(10));
         var page = new PackageDetailsPage { DataContext = viewModel };
         var window = new Window
@@ -174,7 +174,7 @@ public class PackageDetailsMarkdownTests
         var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         await using var app = new BeutlApiApplication(http, provider, TestShell.Configuration.ViewConfig, TestShell.Configuration.UpdateConfig);
         var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.MarkdownSample", CancellationToken.None);
-        using var viewModel = new PackageDetailsPageViewModel(package, app, new EditorService(provider, TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager));
+        using var viewModel = new PackageDetailsPageViewModel(package, app, new EditorService(provider, TestShell.MainViewModel.AppServices), new ProjectService(TestShell.Configuration.ViewConfig, TestShell.FontManager, TestShell.Notifications));
         await viewModel.IsBusy.FirstAsync(busy => !busy).ToTask().WaitAsync(TimeSpan.FromSeconds(10));
         var page = new PackageDetailsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 1100, Height = 950 };

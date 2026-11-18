@@ -64,7 +64,7 @@ public partial class PlayerView
         using var fileWrite = HostProjectFileWriteAdmission.Resolve(editViewModel)?.TryBeginProjectFileWrite();
         if (fileWrite == null)
         {
-            NotificationService.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
+            Notifications.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
             return;
         }
         try
@@ -80,7 +80,7 @@ public partial class PlayerView
         }
         catch (OperationCanceledException) { }
         catch (ObjectDisposedException) { }
-        catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+        catch (Exception) { Notifications.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
     }
 
     private async Task DropEffectOntoHitDrawableAsync(
@@ -204,7 +204,7 @@ public partial class PlayerView
 
         if (result.Failure is LockedElementLayerFailure)
         {
-            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            Notifications.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
             return result;
         }
 
@@ -212,7 +212,7 @@ public partial class PlayerView
             result.Failure?.Exception,
             "Failed to add a player drop: {FailureId}",
             result.Failure?.Id);
-        NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+        Notifications.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
         return result;
     }
 

@@ -1,16 +1,13 @@
 ﻿using System.Reflection;
 using System.Runtime.CompilerServices;
-
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.LogicalTree;
 using Avalonia.Platform;
-
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.Pages.SettingsPages;
-
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -37,7 +34,7 @@ public class BrowserWebViewEnvironmentViewTests
     [AvaloniaTest]
     public void BrowserTab_RequestsTheProfileUnderTheBeutlHome()
     {
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        using var vm = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
         NativeWebView? webView = null;
         using var view = new WebBrowserTabView(uri => webView = new NativeWebView { Source = uri }, () => (true, null, false))
         {

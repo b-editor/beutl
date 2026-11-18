@@ -1,6 +1,6 @@
 ﻿using System.CodeDom.Compiler;
-
 using Beutl.Api.Services;
+using Beutl.Services;
 
 namespace Beutl.Services.StartupTasks;
 
@@ -19,25 +19,25 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
             await Task.WhenAll(t1.Task, t2.Task);
 
             // CheckForPackageUpdatesTask reports the API mismatches, once it knows which of them have an update.
-            ShowFailures([.. t1.Failures.Where(failure => failure.Item2 is not PackageApiMismatchException), .. t2.Failures]);
+            ShowFailures(_startup.Notifications, [.. t1.Failures.Where(failure => failure.Item2 is not PackageApiMismatchException), .. t2.Failures]);
         });
     }
 
     public override Task Task { get; }
 
-    internal static void ShowFailures(IReadOnlyList<(LocalPackage, Exception)> failures)
+    internal static void ShowFailures(INotificationService notifications, IReadOnlyList<(LocalPackage, Exception)> failures)
     {
         foreach ((_, Exception exception) in failures)
         {
             if (exception is PackageApiMismatchException mismatch)
-                ShowMismatch(ExtensionsStrings.PackageNotLoaded, mismatch);
+                ShowMismatch(notifications, ExtensionsStrings.PackageNotLoaded, mismatch);
         }
 
         (LocalPackage, Exception)[] others = [.. failures.Where(failure => failure.Item2 is not PackageApiMismatchException)];
         if (others.Length == 0)
             return;
 
-        NotificationService.ShowError(
+        notifications.ShowError(
             MessageStrings.FailedToLoadPackage,
             string.Format(MessageStrings.FailedToLoadNPackages, others.Length),
             actions: [new(Strings.Details, () => ShowPackageLoadingError(others))]);
@@ -45,11 +45,11 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
 
     // A package built for another Beutl version is named, with the APIs it uses that this Beutl lacks.
     // titleFormat says what did not happen to it: the load, the install or the update.
-    internal static void ShowMismatch(string titleFormat, PackageApiMismatchException mismatch)
+    internal static void ShowMismatch(INotificationService notifications, string titleFormat, PackageApiMismatchException mismatch)
     {
         LocalPackage package = mismatch.Package;
         string examples = string.Join(", ", mismatch.Problems.Take(3).Select(problem => problem.Api));
-        NotificationService.ShowError(
+        notifications.ShowError(
             string.Format(titleFormat, string.IsNullOrEmpty(package.DisplayName) ? package.Name : package.DisplayName),
             package.TargetVersion is { } target
                 ? string.Format(ExtensionsStrings.PackageUsesMissingApisForVersion, target, mismatch.Problems.Count, BeutlApplication.Version, examples)

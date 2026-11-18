@@ -1,32 +1,11 @@
 ﻿using System.Collections.Concurrent;
-using System.Reflection;
 using Beutl.Services;
 
 namespace Beutl.UnitTests.TestInfrastructure;
 
-// NotificationService.Handler is a process-global facade, so tests that install this capture are
-// [NonParallelizable] and install it just before the call they observe.
-internal sealed class NotificationCapture : INotificationServiceHandler, IDisposable
+internal sealed class NotificationCapture : INotificationService, IDisposable
 {
-    // The Handler setter rejects null, so the backing field is read and restored directly. Without
-    // that, a capture installed while no handler existed would keep receiving later notifications.
-    private static readonly FieldInfo s_handlerField =
-        typeof(NotificationService).GetField("s_handler", BindingFlags.Static | BindingFlags.NonPublic)
-        ?? throw new MissingFieldException(typeof(NotificationService).FullName, "s_handler");
-
     private readonly ConcurrentQueue<Notification> _notifications = new();
-    private readonly object? _previousHandler;
-
-    private NotificationCapture()
-    {
-        _previousHandler = s_handlerField.GetValue(null);
-        NotificationService.Handler = this;
-    }
-
-    internal static NotificationCapture Install()
-    {
-        return new NotificationCapture();
-    }
 
     internal IReadOnlyCollection<Notification> All => _notifications;
 
@@ -38,13 +17,9 @@ internal sealed class NotificationCapture : INotificationServiceHandler, IDispos
             && notification.Message == message);
     }
 
-    public void Show(Notification notification)
-    {
-        _notifications.Enqueue(notification);
-    }
+    public void Show(Notification notification) => _notifications.Enqueue(notification);
 
     public void Dispose()
     {
-        s_handlerField.SetValue(null, _previousHandler);
     }
 }

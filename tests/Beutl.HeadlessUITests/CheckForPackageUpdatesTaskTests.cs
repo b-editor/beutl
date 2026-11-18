@@ -183,10 +183,10 @@ public sealed class CheckForPackageUpdatesTaskTests
         return new PackageUpdate(release.Package, null, release);
     }
 
-    private static Task Run((LocalPackage, Exception)[] failures, PackageUpdate[] updates)
+    private Task Run((LocalPackage, Exception)[] failures, PackageUpdate[] updates)
         => Run(failures, _ => Task.FromResult<IReadOnlyList<PackageUpdate>>(updates));
 
-    private static Task Run(
+    private Task Run(
         (LocalPackage, Exception)[] failures,
         Func<CancellationToken, Task<IReadOnlyList<PackageUpdate>>> checkUpdate,
         bool shuttingDown = false,
@@ -198,7 +198,7 @@ public sealed class CheckForPackageUpdatesTaskTests
                 () => failures,
                 checkUpdate,
                 () => shuttingDown,
-                mismatchDeadline ?? TimeSpan.FromMinutes(1))
+                _notifications, mismatchDeadline ?? TimeSpan.FromMinutes(1))
             .Task.WaitAsync(TimeSpan.FromSeconds(10));
     }
 }

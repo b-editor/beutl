@@ -69,7 +69,7 @@ public sealed class EditorFileUsageTests
         (string, bool)[] files = [(Touch("a.txt"), false), (Touch("b.txt"), false), (_directory, true)];
         using var context = new Context(usage, TestShell.Templates);
         using var browser = new FileBrowserTabViewModel(context);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync(files, Path.Combine(_directory, "target"), move: true);
 
@@ -92,7 +92,7 @@ public sealed class EditorFileUsageTests
         browser.ConfirmAsync = _ => Task.FromResult(FAContentDialogResult.Primary);
         using var firstItem = new FileSystemItemViewModel(TestShell.Templates, first, isDirectory: false);
         using var secondItem = new FileSystemItemViewModel(TestShell.Templates, second, isDirectory: false);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.DeleteItemsAsync([firstItem, secondItem]);
 
@@ -148,7 +148,7 @@ public sealed class EditorFileUsageTests
         }
 
         public object? GetService(Type serviceType)
-            => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(IEditorFileUsage) ? usage
+            => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(IEditorFileUsage) ? usage
                 : serviceType == typeof(ObjectTemplateService) ? templates : null;
 
         public void Dispose() => IsEnabled.Dispose();

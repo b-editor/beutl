@@ -2,6 +2,8 @@
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Serialization;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Extensions.FFmpeg.Encoding;
 
@@ -24,7 +26,15 @@ public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
 
     public override void Load()
     {
-        FFmpegInstallNotifier.HookLibraryState();
+        FFmpegLibraryState.LibrariesMissing += OnLibrariesMissing;
         base.Load();
     }
+    public override void Unload()
+    {
+        FFmpegLibraryState.LibrariesMissing -= OnLibrariesMissing;
+        base.Unload();
+    }
+
+    private void OnLibrariesMissing(object? sender, EventArgs e)
+        => FFmpegInstallNotifier.ShowMissingNotification(Services.GetRequiredService<INotificationService>());
 }

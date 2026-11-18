@@ -7,6 +7,7 @@ using Beutl.Editor.VersionControl;
 using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -316,7 +317,7 @@ public sealed partial class EditorService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save an editor before closing it.");
-            NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException);
+            AppServices.GetRequiredService<INotificationService>().ShowError(string.Empty, MessageStrings.FileSaveException);
             return false;
         }
     }

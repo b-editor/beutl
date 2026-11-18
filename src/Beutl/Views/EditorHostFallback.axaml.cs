@@ -27,6 +27,9 @@ namespace Beutl.Views;
 
 public partial class EditorHostFallback : UserControl
 {
+    private INotificationService Notifications => (DataContext as MainViewModel)?.AppServices.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     public static readonly StyledProperty<string?> OpeningFileProperty =
         AvaloniaProperty.Register<EditorHostFallback, string?>(nameof(OpeningFile));
 
@@ -179,7 +182,7 @@ public partial class EditorHostFallback : UserControl
             }
             catch (Exception ex)
             {
-                await ex.Handle();
+                await ex.Handle(Notifications);
             }
         }
     }
@@ -220,11 +223,11 @@ public partial class EditorHostFallback : UserControl
         // A project on a disconnected drive can take a while to answer.
         if (!await Task.Run(() => File.Exists(item.FullName)))
         {
-            NotificationService.ShowError(FileManagerMenuHeader, MessageStrings.FileDoesNotExist);
+            Notifications.ShowError(FileManagerMenuHeader, MessageStrings.FileDoesNotExist);
             return;
         }
 
-        await FileManagerLauncher.RevealAsync(item.FullName, isDirectory: false, LaunchFileManagerAsync, s_logger);
+        await FileManagerLauncher.RevealAsync(Notifications, item.FullName, isDirectory: false, LaunchFileManagerAsync, s_logger);
     }
 
     // One click opens a project. The press and the release must land on the same entry, so moving off it before

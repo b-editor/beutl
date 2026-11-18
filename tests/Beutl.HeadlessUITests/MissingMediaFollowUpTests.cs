@@ -252,9 +252,10 @@ public partial class MissingMediaTests
             session.Setup(value => value.NotifySavedAsync(Moq.It.IsAny<IProjectFileWriteLease?>(), Moq.It.IsAny<CancellationToken>()))
                 .Callback((IProjectFileWriteLease? _, CancellationToken token) => snapshotToken = token)
                 .Returns(snapshot.Task);
-            var context = new Moq.Mock<IEditorContext>();
+            var context = TestShell.CreateEditorContextMock();
             context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+            context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
             context.Setup(value => value.GetService(Moq.It.IsAny<Type>())).Returns((Type type)
                 => type == typeof(IProjectVersionControlCoordinator) ? session.Object : editor.GetService(type));
             using var vm = new MissingMediaViewModel(context.Object);
@@ -498,8 +499,8 @@ public partial class MissingMediaTests
     public async Task User_dismissed_warnings_stay_closed_until_the_scene_is_healthy_again()
     {
         await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
-        var previous = NotificationService.Handler; var handler = new CaptureNotificationHandler();
-        NotificationService.Handler = handler;
+        var handler = new CaptureNotificationHandler();
+        using var notifications = new NotificationCapture(TestShell.Notifications, handler.Show);
         try
         {
             string directory = NewDirectory(); var first = AddImage(editor.Scene, Path.Combine(directory, "first.png"));
@@ -516,7 +517,7 @@ public partial class MissingMediaTests
             editor.HistoryManager.Commit(); await editor.WaitForMissingMediaAsync();
             Assert.That(handler.Notifications, Has.Count.EqualTo(2));
         }
-        finally { await TestReset.ResetShellAsync(); NotificationService.Handler = previous; }
+        finally { await TestReset.ResetShellAsync(); }
     }
 
     [AvaloniaTest]

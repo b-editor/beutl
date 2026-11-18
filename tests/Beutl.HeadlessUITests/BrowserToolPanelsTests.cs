@@ -221,7 +221,7 @@ public class BrowserToolPanelsTests
     [TestCase("current", false)]
     public async Task ZoomFailuresOnlyAffectThePageAndZoomThatRequestedThem(string supersededBy, bool throws)
     {
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, new Uri("https://original.example/"));
+        using var vm = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, new Uri("https://original.example/"));
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             getPageTitle: _ => Task.FromResult<string?>("Page"))
         { DataContext = vm, OpensPageDownloadOptionsDirectly = false };
@@ -347,7 +347,7 @@ public class BrowserToolPanelsTests
         using var vm = new WebBrowserTabViewModel(CreateContext(root), WebBrowserTabViewModel.BlankPage, profile);
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm, OpensPageDownloadOptionsDirectly = false };
         var window = new Window { Content = view, Width = 640, Height = 480 };
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             window.Show();
@@ -391,7 +391,7 @@ public class BrowserToolPanelsTests
         view.OnNativeDownloadRequested(new Uri("https://files.example/movie.mp4"), "movie.mp4", new IdleDownloadSource());
         Dispatcher.UIThread.RunJobs();
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             OpenMenu(view, Strings.BrowserBookmarkThisPage);
@@ -493,9 +493,10 @@ public class BrowserToolPanelsTests
         var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
         var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
         project.Items.Add(scene);
-        var context = new Mock<IEditorContext>();
+        var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         context.SetupGet(value => value.Object).Returns(scene);
         context.Setup(value => value.GetService(typeof(IElementAdder))).Returns(new Mock<IElementAdder>().Object);
         return context.Object;

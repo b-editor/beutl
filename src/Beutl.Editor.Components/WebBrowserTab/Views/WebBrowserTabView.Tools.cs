@@ -6,11 +6,15 @@ using Avalonia.Interactivity;
 using Beutl.Controls;
 using Beutl.Services;
 using FluentIcons.Avalonia.Fluent;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
 internal partial class WebBrowserTabView
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private Action? _closePanelAction;
 
     private void OnProfileChanged()
@@ -119,11 +123,11 @@ internal partial class WebBrowserTabView
         if (_viewModel is not { HasWebAddress.Value: true } vm) return;
         if (!vm.Profile.AddBookmark(vm.CurrentUri, vm.PageTitle ?? string.Empty))
         {
-            NotificationService.ShowError(Strings.BrowserBookmarks,
+            Notifications.ShowError(Strings.BrowserBookmarks,
                 string.Format(Strings.BrowserStorageError, vm.Profile.Error));
             return;
         }
-        NotificationService.ShowSuccess(Strings.BrowserBookmarks,
+        Notifications.ShowSuccess(Strings.BrowserBookmarks,
             string.Format(Strings.BrowserBookmarkAdded, vm.Profile.Bookmarks[0].Title));
     }
 

@@ -394,7 +394,7 @@ public class VersionControlSaveTests
                 | UnixFileMode.UserExecute);
         }
 
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         if (saveAll)
         {
             await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
@@ -1275,7 +1275,7 @@ public class VersionControlSaveTests
 
         public ValueTask<bool> SaveAsync() => saveAsync();
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -67,7 +68,7 @@ public partial class MenuBarViewModel
         else
         {
             _logger.LogWarning("Failed to apply dock layout preset '{Name}'.", preset.Name.Value);
-            NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
+            _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
         }
     }
 }

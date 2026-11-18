@@ -739,9 +739,10 @@ public sealed class UsageTelemetryTests
         var player = new Mock<IPreviewPlayer>();
         player.SetupGet(p => p.PreviewImage).Returns(new ReactivePropertySlim<Ref<Bitmap>?>());
         player.SetupGet(p => p.AfterRendered).Returns(Observable.Never<System.Reactive.Unit>());
-        var editor = new Mock<IEditorContext>();
+        var editor = TestShell.CreateEditorContextMock();
         editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        editor.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         editor.Setup(e => e.GetService(typeof(IPreviewPlayer))).Returns(player.Object);
         using var context = new ColorScopesTabViewModel(editor.Object);
         using var tracker = new ToolUsageTracker(context);
@@ -759,7 +760,7 @@ public sealed class UsageTelemetryTests
     [AvaloniaTest]
     public void Color_wheel_modes_record_fixed_identifiers_only_after_interaction()
     {
-        using var context = new ColorGradingTabViewModel(new Mock<IEditorContext>().Object);
+        using var context = new ColorGradingTabViewModel(TestShell.CreateEditorContextMock().Object);
         using var tracker = new ToolUsageTracker(context);
         context.IsSelected.Value = true;
         context.WheelMode.Value = ColorGradingWheelMode.LiftGammaGainOffset;

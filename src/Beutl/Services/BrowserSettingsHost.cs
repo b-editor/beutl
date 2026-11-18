@@ -4,6 +4,7 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Pages;
+using Beutl.Services;
 using Beutl.ViewModels;
 
 namespace Beutl.Services;
@@ -27,6 +28,7 @@ internal sealed class BrowserSettingsHost(Func<SettingsDialogViewModel> createDi
         ColorPaletteService.SetService(dialog, ColorPaletteService.GetService(owner));
         ControlConfiguration.SetConfiguration(dialog, ControlConfiguration.GetConfiguration(owner));
         ControlFonts.SetFonts(dialog, ControlFonts.GetFonts(owner));
+        ControlNotifications.SetNotifications(dialog, ControlNotifications.GetNotifications(owner));
         _viewModel = vm;
         _dialog = dialog;
         try

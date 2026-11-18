@@ -1,4 +1,6 @@
 ﻿using Beutl.Editor.VersionControl;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -115,7 +117,7 @@ internal partial class VersionControlCoordinator
         {
             _logger.LogError(ex, "Failed to create the {SnapshotKind} project snapshot.", SnapshotKind.Save);
             PublishNotification(() =>
-                NotificationService.ShowWarning(
+                _editorService.AppServices.GetRequiredService<INotificationService>().ShowWarning(
                     Strings.VersionControl,
                     FormatSnapshotFailure(ex)));
         }

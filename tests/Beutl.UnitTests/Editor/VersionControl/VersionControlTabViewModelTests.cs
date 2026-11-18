@@ -129,7 +129,7 @@ public class VersionControlTabViewModelTests
         var (oldService, commit, file) = CreatePreviewService();
         var (service, _, _) = CreatePreviewService();
         using var source = CreateServiceSource(oldService.Object);
-        using var viewModel = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(),
+        using var viewModel = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             source, null, action => action());
         await viewModel.Initialization;
         await viewModel.SelectCommitAsync(viewModel.Commits[0]);
@@ -450,7 +450,7 @@ public class VersionControlTabViewModelTests
             new ReactivePropertySlim<IProjectVersionControlService?>(null);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             serviceSource,
             versionControlCoordinator: null,
             action => action());
@@ -501,7 +501,7 @@ public class VersionControlTabViewModelTests
             new ReactivePropertySlim<IProjectVersionControlService?>(serviceA.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             serviceSource,
             versionControlCoordinator: null,
             action => action());
@@ -641,13 +641,13 @@ public class VersionControlTabViewModelTests
     [NonParallelizable]
     public async Task Enable_command_reports_a_failing_shell_flow_instead_of_faulting()
     {
+        using var notifications = new NotificationCapture();
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.SetupGet(x => x.Repository).Returns(() => null);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, notifications: notifications);
         var failure = new InvalidOperationException("The shell could not initialize the repository.");
         viewModel.RequestEnableVersionControlAsync = () => Task.FromException(failure);
         await viewModel.Initialization;
-        using var notifications = NotificationCapture.Install();
 
         await Assert.DoesNotThrowAsync(() => viewModel.EnableVersionControlCommand.ExecuteAsync());
 
@@ -886,6 +886,7 @@ public class VersionControlTabViewModelTests
     [NonParallelizable]
     public async Task Load_more_command_reports_history_failures_and_reenables()
     {
+        using var notifications = new NotificationCapture();
         CommitInfo[] firstPage = Enumerable.Range(0, VersionControlTabViewModel.HistoryPageSize)
             .Select(index => CreateCommit(index, SnapshotKind.Save))
             .ToArray();
@@ -901,9 +902,8 @@ public class VersionControlTabViewModelTests
                 VersionControlTabViewModel.HistoryPageSize,
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(failure);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, notifications: notifications);
         await viewModel.Initialization;
-        using var notifications = NotificationCapture.Install();
 
         await Assert.DoesNotThrowAsync(() => viewModel.LoadMoreCommand.ExecuteAsync());
 
@@ -1336,7 +1336,7 @@ public class VersionControlTabViewModelTests
         Action? pendingUiAction = null;
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             CreateServiceSource(service.Object),
             versionControlCoordinator: null,
             action => pendingUiAction = action);
@@ -1386,7 +1386,7 @@ public class VersionControlTabViewModelTests
         Action? pendingUiAction = null;
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             CreateServiceSource(service.Object),
             versionControlCoordinator: null,
             action => pendingUiAction = action);
@@ -1487,7 +1487,7 @@ public class VersionControlTabViewModelTests
             .ReturnsAsync([]);
         var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             CreateServiceSource(service.Object),
             versionControlCoordinator: null,
             static action => action());
@@ -1867,7 +1867,7 @@ public class VersionControlTabViewModelTests
             new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             serviceSource,
             coordinator.Object,
             action => action());
@@ -1922,7 +1922,7 @@ public class VersionControlTabViewModelTests
             .ReturnsAsync(true);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             CreateServiceSource(service.Object),
             coordinator.Object,
             action => action())
@@ -1967,7 +1967,7 @@ public class VersionControlTabViewModelTests
             new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             serviceSource,
             coordinator.Object,
             action => action())
@@ -2027,7 +2027,7 @@ public class VersionControlTabViewModelTests
             new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             serviceSource,
             coordinator.Object,
             action => action())
@@ -2062,6 +2062,7 @@ public class VersionControlTabViewModelTests
     [NonParallelizable]
     public async Task History_restore_commands_report_coordinator_failures_and_allow_a_retry()
     {
+        using var notifications = new NotificationCapture();
         CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetHistoryAsync(
@@ -2086,12 +2087,11 @@ public class VersionControlTabViewModelTests
             .ThrowsAsync(branchFailure);
         using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
-            coordinator.Object);
+            coordinator.Object, notifications: notifications);
         viewModel.RequestBranchNameAsync =
             _ => Task.FromResult<string?>("restored-version");
         await viewModel.Initialization;
         VersionControlCommitViewModel item = viewModel.Commits.Single();
-        using var notifications = NotificationCapture.Install();
 
         await Assert.DoesNotThrowAsync(() => item.RestoreCommand.ExecuteAsync());
         await Assert.DoesNotThrowAsync(() => item.RestoreToNewBranchCommand.ExecuteAsync());
@@ -2367,7 +2367,7 @@ public class VersionControlTabViewModelTests
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             source,
             coordinator.Object,
             queuedUiActions.Add)
@@ -2474,7 +2474,7 @@ public class VersionControlTabViewModelTests
             });
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             CreateServiceSource(service.Object),
             coordinator.Object,
             queuedUiActions.Add);
@@ -2544,6 +2544,7 @@ public class VersionControlTabViewModelTests
     [NonParallelizable]
     public async Task Remote_operation_fault_tells_the_user_what_Git_reported()
     {
+        using var notifications = new NotificationCapture();
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
@@ -2555,9 +2556,8 @@ public class VersionControlTabViewModelTests
                 It.IsAny<IProgress<string>>(),
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(failure);
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object, notifications: notifications);
         await viewModel.Initialization;
-        using var notifications = NotificationCapture.Install();
 
         await viewModel.PushAsync();
 
@@ -2654,7 +2654,7 @@ public class VersionControlTabViewModelTests
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             source,
             coordinator.Object,
             action => action());
@@ -2692,7 +2692,7 @@ public class VersionControlTabViewModelTests
             });
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var viewModel = new VersionControlTabViewModel(
-            Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(), source,
+            Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()), source,
             coordinator.Object, action => action());
         await viewModel.Initialization;
 
@@ -2870,6 +2870,7 @@ public class VersionControlTabViewModelTests
     [NonParallelizable]
     public async Task Set_remote_fault_tells_the_user_what_Git_reported()
     {
+        using var notifications = new NotificationCapture();
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         var failure = new GitOperationException(
             255,
@@ -2877,11 +2878,10 @@ public class VersionControlTabViewModelTests
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.SetRemoteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(failure);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, coordinator.Object);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, coordinator.Object, notifications: notifications);
         viewModel.RequestRemoteUrlAsync = (_, _) =>
             Task.FromResult<string?>("https://example.invalid/repository.git");
         await viewModel.Initialization;
-        using var notifications = NotificationCapture.Install();
 
         await viewModel.SetRemoteAsync();
 
@@ -2921,7 +2921,7 @@ public class VersionControlTabViewModelTests
             });
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             CreateServiceSource(service.Object),
             coordinator.Object,
             action => action());
@@ -3090,7 +3090,7 @@ public class VersionControlTabViewModelTests
             new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             serviceSource,
             coordinator.Object,
             action => action())
@@ -3187,7 +3187,7 @@ public class VersionControlTabViewModelTests
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             source,
             coordinator.Object,
             action => action())
@@ -3245,7 +3245,7 @@ public class VersionControlTabViewModelTests
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             source,
             coordinator.Object,
             action => action())
@@ -3303,7 +3303,7 @@ public class VersionControlTabViewModelTests
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             source,
             coordinator.Object,
             action => action());
@@ -3554,7 +3554,7 @@ public class VersionControlTabViewModelTests
             new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == new Beutl.Services.NotificationService()),
             serviceSource,
             coordinator.Object,
             action => action());
@@ -3594,11 +3594,12 @@ public class VersionControlTabViewModelTests
 
     private static VersionControlTabViewModel CreateViewModel(
         IProjectVersionControlService service,
-        IProjectVersionControlCoordinator? coordinator = null)
+        IProjectVersionControlCoordinator? coordinator = null, Beutl.Services.INotificationService? notifications = null)
     {
+        notifications ??= new Beutl.Services.NotificationService();
         return new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
-            Mock.Of<IEditorContext>(),
+            Mock.Of<IEditorContext>(context => context.GetService(typeof(Beutl.Services.INotificationService)) == notifications),
             CreateServiceSource(service),
             versionControlCoordinator: coordinator,
             action => action());

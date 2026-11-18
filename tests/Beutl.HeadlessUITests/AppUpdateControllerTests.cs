@@ -24,7 +24,7 @@ namespace Beutl.HeadlessUITests;
 public sealed class AppUpdateControllerTests
 {
     private readonly List<Notification> _shown = [];
-    private INotificationServiceHandler? _previous;
+    private INotificationService _notifications = null!;
     private string _fileName = null!;
 
     // onUIThread, when given, records for each notification whether it was shown from the UI thread.
@@ -41,15 +41,13 @@ public sealed class AppUpdateControllerTests
     public void SetUp()
     {
         _shown.Clear();
-        _previous = NotificationService.Handler;
-        NotificationService.Handler = new RecordingHandler(_shown);
+        _notifications = new NotificationService(new RecordingHandler(_shown));
         _fileName = "beutl-test-update-" + Guid.NewGuid().ToString("N") + ".bin";
     }
 
     [TearDown]
     public void TearDown()
     {
-        if (_previous != null) NotificationService.Handler = _previous;
         string file = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "download", _fileName);
         if (File.Exists(file)) File.Delete(file);
     }
@@ -155,7 +153,7 @@ public sealed class AppUpdateControllerTests
                 {
                     requestedHost = version;
                     return Task.FromResult(count);
-                }));
+                }), _notifications);
             controller.StartInBackground(Update(mustLatest: true));
             await vm!.UpdateTask!;
             HeadlessTestHelpers.Settle();
@@ -201,9 +199,9 @@ public sealed class AppUpdateControllerTests
     public async Task WithAutoDownloadOffTheUserCanDownloadAndThenChooseWhenToInstall(bool mustLatest)
     {
         UpdateDialogViewModel? vm = null;
-        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)));
+        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)), _notifications);
 
-        await CheckForUpdatesTask.HandleUpdateCheckAsync(null, Update(mustLatest: mustLatest), controller);
+        await CheckForUpdatesTask.HandleUpdateCheckAsync(null, Update(mustLatest: mustLatest), controller, _notifications);
         Assert.That(vm, Is.Null);
         Notification available = _shown.Single();
         Assert.That(available.Title, Is.EqualTo(mustLatest ? MessageStrings.UpgradeRequired : MessageStrings.NewVersionAvailable));
@@ -231,18 +229,18 @@ public sealed class AppUpdateControllerTests
     {
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         UpdateDialogViewModel? vm = null;
+        var view = new MainView { DataContext = TestShell.MainViewModel };
+        _notifications = new NotificationService(new NotificationServiceHandler(() => view));
         var controller = new AppUpdateController(
-            update => vm = ViewModel(update, new Handler(release.Task, HttpStatusCode.OK)),
+            update => vm = ViewModel(update, new Handler(release.Task, HttpStatusCode.OK)), _notifications,
             downloadsAutomatically: () => true);
 
-        var view = new MainView { DataContext = TestShell.MainViewModel };
         var window = new Window { Width = 1000, Height = 600 };
         try
         {
             window.Show();
             window.Content = view;
-            NotificationService.Handler = new NotificationServiceHandler(() => view);
-            await CheckForUpdatesTask.HandleUpdateCheckAsync(null, Update(mustLatest: mustLatest), controller)
+            await CheckForUpdatesTask.HandleUpdateCheckAsync(null, Update(mustLatest: mustLatest), controller, _notifications)
                 .WaitAsync(TimeSpan.FromSeconds(5));
 
             async Task<Notification> VisibleNotice(string title)
@@ -290,11 +288,11 @@ public sealed class AppUpdateControllerTests
     public async Task AReleaseWithoutADownloadOffersItsReleasePage(bool legacy)
     {
         var controller = new AppUpdateController(
-            _ => throw new AssertionException("There is no file to download."), downloadsAutomatically: () => true);
+            _ => throw new AssertionException("There is no file to download."), _notifications, downloadsAutomatically: () => true);
         AppUpdateResponse update = Update("https://example.test/releases/2.0.0", hasDownload: false);
         var v1 = new CheckForUpdatesResponse { LatestVersion = update.LatestVersion, Url = update.Url!, IsLatest = false, MustLatest = false };
 
-        await CheckForUpdatesTask.HandleUpdateCheckAsync(legacy ? v1 : null, legacy ? null : update, controller);
+        await CheckForUpdatesTask.HandleUpdateCheckAsync(legacy ? v1 : null, legacy ? null : update, controller, _notifications);
         Notification notice = _shown.Single();
         Assert.That(notice.Title, Is.EqualTo(MessageStrings.NewVersionAvailable));
         Assert.That(notice.Actions!.Select(action => action.Text), Is.EqualTo(new[] { MessageStrings.ReleaseNotes }));
@@ -306,7 +304,7 @@ public sealed class AppUpdateControllerTests
     public async Task TheReadyNotificationOffersTheReleaseNotesAndStays()
     {
         UpdateDialogViewModel? vm = null;
-        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)));
+        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)), _notifications);
 
         controller.StartInBackground(Update("https://example.test/releases/2.0.0"));
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
@@ -329,9 +327,9 @@ public sealed class AppUpdateControllerTests
     public async Task AnUpdateThatBecomesReadyBehindTheEditorIsDecidedOnTheUIThread()
     {
         var onUIThread = new List<bool>();
-        NotificationService.Handler = new RecordingHandler(_shown, onUIThread);
+        _notifications = new NotificationService(new RecordingHandler(_shown, onUIThread));
         UpdateDialogViewModel? vm = null;
-        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)));
+        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)), _notifications);
 
         controller.StartInBackground(Update());
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
@@ -345,7 +343,7 @@ public sealed class AppUpdateControllerTests
     public async Task TheStatusCarriesTheDownloadProgressOnlyWhileItRuns()
     {
         UpdateDialogViewModel? vm = null;
-        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)));
+        var controller = new AppUpdateController(update => vm = ViewModel(update, new Handler(HttpStatusCode.OK)), _notifications);
         var progress = new List<double?>();
         using IDisposable subscription = controller.Status.Subscribe(status => progress.Add(status.Progress));
 
@@ -361,7 +359,7 @@ public sealed class AppUpdateControllerTests
     {
         UpdateDialogViewModel? vm = null;
         var controller = new AppUpdateController(update =>
-            vm = ViewModel(update, new Handler(HttpStatusCode.InternalServerError, HttpStatusCode.OK)));
+            vm = ViewModel(update, new Handler(HttpStatusCode.InternalServerError, HttpStatusCode.OK)), _notifications);
 
         controller.StartInBackground(Update());
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));
@@ -388,7 +386,7 @@ public sealed class AppUpdateControllerTests
             var vm = ViewModel(update, new Handler(HttpStatusCode.OK));
             created.Add(vm);
             return vm;
-        });
+        }, _notifications);
         AppUpdateStatus? status = null;
         using IDisposable subscription = controller.Status.Subscribe(value => status = value);
 
@@ -493,7 +491,7 @@ public sealed class AppUpdateControllerTests
         var handler = new Handler(HttpStatusCode.NotFound);
         UpdateDialogViewModel? vm = null;
         var controller = new AppUpdateController(update =>
-            vm = ViewModel(update, handler, type: "app", claimUpdateFolders: () => claimed));
+            vm = ViewModel(update, handler, type: "app", claimUpdateFolders: () => claimed), _notifications);
 
         controller.StartInBackground(Update());
         await vm!.UpdateTask!.WaitAsync(TimeSpan.FromSeconds(5));

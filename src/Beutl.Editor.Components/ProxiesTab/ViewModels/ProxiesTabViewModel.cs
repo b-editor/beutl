@@ -53,6 +53,7 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
 
     public ProxiesTabViewModel(IEditorContext editorContext)
     {
+        Notify = editorContext.GetRequiredService<INotificationService>().Show;
         _scene = editorContext.GetService<Scene>()!;
         _store = editorContext.GetService<IProxyStore>();
         _queue = editorContext.GetService<IProxyJobQueue>();
@@ -177,7 +178,7 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Proxies);
 
-    internal Action<Notification> Notify { get; set; } = NotificationService.Show;
+    internal Action<Notification> Notify { get; set; } = null!;
 
     public void Dispose()
     {

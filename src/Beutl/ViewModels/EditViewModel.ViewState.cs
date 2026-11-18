@@ -5,6 +5,7 @@ using Beutl.Editor;
 using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
@@ -27,7 +28,7 @@ public partial class EditViewModel
                 _logger.LogWarning(
                     "Explicit save requested but view state save is suppressed this session ({SceneId}).",
                     SceneId);
-                NotificationService.ShowWarning(string.Empty, MessageStrings.ViewStateSaveSuppressed);
+                this.GetRequiredService<INotificationService>().ShowWarning(string.Empty, MessageStrings.ViewStateSaveSuppressed);
             }
             return;
         }
@@ -196,7 +197,7 @@ public partial class EditViewModel
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _logger.LogError(ex, "Failed to open default tabs ({SceneId}).", SceneId);
-            NotificationService.ShowError(string.Empty, MessageStrings.DefaultTabsOpenFailed);
+            this.GetRequiredService<INotificationService>().ShowError(string.Empty, MessageStrings.DefaultTabsOpenFailed);
         }
     }
 }

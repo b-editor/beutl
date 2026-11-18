@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -65,7 +66,7 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
             _logger.LogWarning(
                 "Could not reserve the workspace before starting output for {File}.",
                 Context.Object.Uri);
-            NotificationService.ShowWarning(
+            EditorContext.GetRequiredService<INotificationService>().ShowWarning(
                 Strings.Output,
                 Strings.Output_WorkspaceBusy);
             execution = null;

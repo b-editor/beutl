@@ -1,7 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Api.Objects;
-
+using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
@@ -22,7 +22,7 @@ public partial class UserProfilePage : UserControl
         if (e.Parameter is Profile user)
         {
             DiscoverPageHelper.DestroyDataContext<UserProfilePageViewModel>(this);
-            DataContext = new UserProfilePageViewModel(user);
+            DataContext = new UserProfilePageViewModel(Beutl.Controls.ControlNotifications.GetOrDefault(this), user);
         }
     }
 

@@ -141,11 +141,11 @@ public sealed class FFmpegMissingLibrariesTests
         Notification? shown = null;
         notifications.Setup(handler => handler.Show(It.IsAny<Notification>()))
             .Callback<Notification>(notification => shown = notification);
-        FieldInfo handlerField = typeof(NotificationService).GetField("s_handler", BindingFlags.Static | BindingFlags.NonPublic)!;
-        object? previousHandler = handlerField.GetValue(null);
         var extension = new FFmpegDecodingExtension();
         FFmpegLibraryState.MarkMissing();
-        NotificationService.Handler = notifications.Object;
+        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
+            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
+            .Add<INotificationService>(() => new NotificationService(notifications.Object)));
         try
         {
             extension.Load();
@@ -159,7 +159,6 @@ public sealed class FFmpegMissingLibrariesTests
         finally
         {
             extension.Unload();
-            handlerField.SetValue(null, previousHandler);
         }
     }
 

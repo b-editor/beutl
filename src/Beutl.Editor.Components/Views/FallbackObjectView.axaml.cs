@@ -3,17 +3,19 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Services;
-
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.Views;
 
 public partial class FallbackObjectView : UserControl
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
     private readonly ILogger _logger = Log.CreateLogger<FallbackObjectView>();
@@ -56,7 +58,7 @@ public partial class FallbackObjectView : UserControl
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An exception has occurred.");
-                NotificationService.ShowError(MessageStrings.OperationFailed, ex.Message);
+                Notifications.ShowError(MessageStrings.OperationFailed, ex.Message);
             }
         }
     }

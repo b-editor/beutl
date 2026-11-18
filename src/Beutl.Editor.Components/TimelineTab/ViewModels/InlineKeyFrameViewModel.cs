@@ -68,7 +68,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         await KeyFrameClipboardCommands.CopyAsync(Model, BeutlDataFormats.KeyFrame, ex =>
         {
             _logger.LogError(ex, "Failed to copy keyframe");
-            NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
+            Timeline.EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
         });
     }
 
@@ -94,12 +94,12 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                 return;
             }
 
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            Timeline.EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste keyframe");
-            NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
+            Timeline.EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
         }
     }
 
@@ -111,13 +111,13 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         if (!jsonObj.TryGetDiscriminator(out Type? type))
         {
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_MissingType);
+            Timeline.EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_MissingType);
             return;
         }
 
         if (!type.IsAssignableTo(typeof(KeyFrame)))
         {
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
+            Timeline.EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
             return;
         }
 
@@ -129,7 +129,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         {
             Model.Easing.Value = newKeyFrame.Easing.Value;
             history.Commit(CommandNames.ChangeEasing);
-            NotificationService.ShowWarning(Strings.GraphEditor,
+            Timeline.EditorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.GraphEditor,
                 MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
         }
         else

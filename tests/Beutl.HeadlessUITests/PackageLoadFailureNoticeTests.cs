@@ -17,9 +17,9 @@ public class PackageLoadFailureNoticeTests
             new(PackageApiProblemKind.MissingType, "Beutl.Engine", "Beutl.Engine.Gone"),
         ]);
         var broken = new LocalPackage { Name = "Broken" };
-        using var capture = new NotificationCapture();
+        using var capture = new NotificationCapture(TestShell.Notifications);
 
-        AfterLoadingExtensionsTask.ShowFailures([(package, mismatch), (broken, new InvalidOperationException("boom"))]);
+        AfterLoadingExtensionsTask.ShowFailures(TestShell.Notifications, [(package, mismatch), (broken, new InvalidOperationException("boom"))]);
 
         Notification[] shown = [.. capture.All];
         using (Assert.EnterMultipleScope())

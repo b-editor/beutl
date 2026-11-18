@@ -9,6 +9,7 @@ using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -36,6 +37,7 @@ public sealed class TabSwitcherViewModel : IDisposable
     }
 
     private readonly EditorService _editorService;
+    internal INotificationService Notifications => _editorService.AppServices.GetRequiredService<INotificationService>();
     private readonly ConditionalWeakTable<EditorTabItem, ActivationStamp> _recentDocuments = new();
     private readonly CompositeDisposable _subscriptions = [];
     private long _activationOrder;
@@ -270,7 +272,7 @@ public sealed class TabSwitcherViewModel : IDisposable
                 if (target is null || !BeutlDockFactory.Traverse(editor.DockHost.Layout.Value).Contains(target)) return null;
                 if (!factory.OpenToolTab(extension, target))
                 {
-                    NotificationService.ShowError(Strings.TabSwitcher_Create, MessageStrings.OperationFailed);
+                    _editorService.AppServices.GetRequiredService<INotificationService>().ShowError(Strings.TabSwitcher_Create, MessageStrings.OperationFailed);
                     return null;
                 }
                 existing = factory.EnumerateTools()

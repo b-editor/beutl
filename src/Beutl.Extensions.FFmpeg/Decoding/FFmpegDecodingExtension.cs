@@ -3,6 +3,8 @@ using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.FFmpegIpc;
 using Beutl.Media.Decoding;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
@@ -25,7 +27,7 @@ public class FFmpegDecodingExtension : DecodingExtension
         }
         catch (FFmpegLibrariesNotFoundException)
         {
-            FFmpegInstallNotifier.NotifyMissing();
+            FFmpegInstallNotifier.NotifyMissing(Services.GetRequiredService<INotificationService>());
         }
         base.Load();
     }

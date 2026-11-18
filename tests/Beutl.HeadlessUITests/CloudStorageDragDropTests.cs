@@ -29,7 +29,7 @@ public sealed class CloudStorageDragDropTests
         await using var scope = new StorageScope();
         await scope.LoadFirstAsync(Response());
         var source = scope.ViewModel;
-        using var second = differentBrowser ? new Beutl.ViewModels.Tools.CloudStorageViewModel(scope.Clients, () => throw new InvalidOperationException()) : null;
+        using var second = differentBrowser ? new Beutl.ViewModels.Tools.CloudStorageViewModel(TestShell.Notifications, scope.Clients, () => throw new InvalidOperationException()) : null;
         var target = second ?? source;
         if (second != null)
         {

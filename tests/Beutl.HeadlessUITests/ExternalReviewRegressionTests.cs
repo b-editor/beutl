@@ -55,7 +55,7 @@ public sealed class ExternalReviewRegressionTests
             editor.Scene.Children.Add(element);
             using var browser = new FileBrowserTabViewModel(editor);
             using var item = new FileSystemItemViewModel(TestShell.Templates, path, false);
-            using var notifications = new NotificationCapture();
+            using var notifications = new NotificationCapture(TestShell.Notifications);
             await browser.RenameItemAsync(item, "renamed.wav");
             Assert.That(File.Exists(path), Is.True);
             await browser.DeleteItemAsync(item);
@@ -209,7 +209,7 @@ public sealed class ExternalReviewRegressionTests
         string target = Path.Combine(Path.GetDirectoryName(path)!, "moved");
         Directory.CreateDirectory(target);
         using var browser = new FileBrowserTabViewModel(editor);
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.TransferFilesToDirectoryAsync([(path, false)], target, move: true);
 

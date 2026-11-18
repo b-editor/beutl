@@ -66,7 +66,7 @@ public class SearchPageCardLayoutTests
     {
         using var httpClient = new HttpClient(new NoResultsHandler());
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
-        var viewModel = new SearchPageViewModel(new DiscoverService(clients), "search");
+        var viewModel = new SearchPageViewModel(TestShell.Notifications, new DiscoverService(clients), "search");
         // The page searches as it opens; add the card once that search has come back empty.
         await HeadlessTestHelpers.WaitUntilAsync(() => !viewModel.IsBusy.Value);
         Package package = CreatePackage(clients);

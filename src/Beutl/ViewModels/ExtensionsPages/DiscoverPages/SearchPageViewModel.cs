@@ -3,6 +3,7 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -11,24 +12,27 @@ namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
+    private readonly INotificationService _notifications;
+
     private readonly ILogger _logger = Log.CreateLogger<SearchPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly LifetimeCancellationSource _lifetimeCts = new();
     private readonly DiscoverService _discoverService;
 
-    public SearchPageViewModel(DiscoverService discoverService, string keyword)
+    public SearchPageViewModel(INotificationService notifications, DiscoverService discoverService, string keyword)
     {
+        _notifications = notifications;
         _discoverService = discoverService;
         Keyword = keyword;
 
         Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(() => StorePageCommand.RunAsync(
+            .WithSubscribe(() => StorePageCommand.RunAsync(_notifications,
                 IsBusy, "SearchPage.Refresh", _lifetimeCts.Token, _logger,
                 _ => RefreshPackages(_lifetimeCts.Token)))
             .DisposeWith(_disposables);
 
         More = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(() => StorePageCommand.RunAsync(
+            .WithSubscribe(() => StorePageCommand.RunAsync(_notifications,
                 IsBusy, "SearchPage.More", _lifetimeCts.Token, _logger,
                 _ => MoreLoadPackages(_lifetimeCts.Token)))
             .DisposeWith(_disposables);

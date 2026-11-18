@@ -38,6 +38,9 @@ public sealed class ListEditorDragBehavior : GenericDragBehavior
 
 public partial class ListEditor : UserControl
 {
+    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
+        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+
     public ListEditor()
     {
         InitializeComponent();
@@ -54,7 +57,7 @@ public partial class ListEditor : UserControl
             }
             catch (InvalidOperationException ex)
             {
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                Notifications.ShowError(Strings.Error, ex.Message);
             }
         }
     }
@@ -69,7 +72,7 @@ public partial class ListEditor : UserControl
             }
             catch (InvalidOperationException ex)
             {
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                Notifications.ShowError(Strings.Error, ex.Message);
             }
         }
     }

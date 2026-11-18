@@ -70,7 +70,7 @@ internal static class FileManagerLauncher
         return process.ExitCode == 0;
     }
 
-    internal static async Task RevealAsync(
+    internal static async Task RevealAsync(INotificationService notifications,
         string path, bool isDirectory, Func<ProcessStartInfo, Task<bool>> launch, ILogger logger)
     {
         try
@@ -78,13 +78,13 @@ internal static class FileManagerLauncher
             if (!await launch(CreateStartInfo(path, isDirectory)))
             {
                 logger.LogWarning("File manager exited unsuccessfully for {Path}", path);
-                NotificationService.ShowError(MenuHeader, MessageStrings.OperationFailed);
+                notifications.ShowError(MenuHeader, MessageStrings.OperationFailed);
             }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to open {Path} in file manager", path);
-            NotificationService.ShowError(MenuHeader, MessageStrings.OperationFailed);
+            notifications.ShowError(MenuHeader, MessageStrings.OperationFailed);
         }
     }
 }

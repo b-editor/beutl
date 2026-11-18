@@ -46,7 +46,7 @@ public class TimelineClosedElementActionsTests
         editor.GetRequiredService<IEditorClock>().Seek(MediaTime.FromSeconds(1));
         MenuBarViewModel menuBar = TestShell.MainViewModel.MenuBar;
         var window = new Window();
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             window.Show();
@@ -87,7 +87,7 @@ public class TimelineClosedElementActionsTests
         MenuBarViewModel menuBar = TestShell.MainViewModel.MenuBar;
         Uri uri = editor.Scene.Uri!;
         var window = new Window();
-        using var notifications = new NotificationCapture();
+        using var notifications = new NotificationCapture(TestShell.Notifications);
         try
         {
             window.Show();
@@ -222,7 +222,7 @@ public class TimelineClosedElementActionsTests
         }
 
         public object? GetService(Type serviceType)
-            => serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Element) ? element : editor.GetService(serviceType);
+            => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Element) ? element : editor.GetService(serviceType);
     }
 
     private sealed class TestVideoDecoder : IDecoderInfo

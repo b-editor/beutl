@@ -3,6 +3,7 @@ using System.Reactive.Concurrency;
 using Avalonia.Threading;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -16,6 +17,7 @@ public sealed class CommandPaletteViewModel : IDisposable
     private static readonly TimeSpan s_stateChangeThrottle = TimeSpan.FromMilliseconds(50);
 
     private readonly CommandPaletteService _service;
+    internal INotificationService Notifications { get; }
     private readonly ObservableCollection<CommandPaletteItemViewModel> _filteredCommands = [];
     private IReadOnlyList<PaletteCommand> _snapshot = [];
     private readonly IDisposable _querySubscription;
@@ -28,6 +30,7 @@ public sealed class CommandPaletteViewModel : IDisposable
     public CommandPaletteViewModel(CommandPaletteService service, EditorService editorService)
     {
         _service = service;
+        Notifications = editorService.AppServices.GetRequiredService<INotificationService>();
         FilteredCommands = new ReadOnlyObservableCollection<CommandPaletteItemViewModel>(_filteredCommands);
 
         _promptQuerySubscription = Query.Subscribe(value =>
@@ -332,7 +335,7 @@ public sealed class CommandPaletteViewModel : IDisposable
     private void ReportInteractionFailure(Exception exception, string message)
     {
         _logger.LogError(exception, "{Message}", message);
-        NotificationService.ShowError(MessageStrings.UnexpectedError, MessageStrings.OperationFailed);
+        Notifications.ShowError(MessageStrings.UnexpectedError, MessageStrings.OperationFailed);
     }
 
     private void SetPrompt(CommandPalettePromptViewModel? prompt)

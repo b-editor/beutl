@@ -103,7 +103,7 @@ public partial class MainView
         }
         catch (Exception ex)
         {
-            await ex.Handle();
+            await ex.Handle(Notifications);
         }
     }
 
@@ -195,7 +195,7 @@ public partial class MainView
                 {
                     // Surface the failed persist; RemoveItemAndPersist has already re-inserted the
                     // item.
-                    await ex.Handle();
+                    await ex.Handle(Notifications);
                 }
             }
         }
@@ -290,8 +290,8 @@ public partial class MainView
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception while exporting project to {OutputPath}", outputPath);
-                _ = ex.Handle();
-                NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+                _ = ex.Handle(Notifications);
+                Notifications.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
             }
         }
     }
@@ -303,20 +303,20 @@ public partial class MainView
             _logger.LogWarning(
                 "Project export failed; partial failures collected before abort: [{Resources}]",
                 string.Join(", ", result.FailedResources));
-            NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+            Notifications.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
         }
         else if (result.FailedResources.Count > 0)
         {
             _logger.LogWarning(
                 "Project exported with partial failures: [{Resources}]",
                 string.Join(", ", result.FailedResources));
-            NotificationService.ShowWarning(
+            Notifications.ShowWarning(
                 Strings.ExportProject,
                 string.Format(MessageStrings.ExportProjectPartialFailure, result.FailedResources.Count));
         }
         else
         {
-            NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
+            Notifications.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
         }
     }
 
@@ -367,11 +367,11 @@ public partial class MainView
             if (project?.Uri != null)
             {
                 if (DataContext is MainViewModel importVm) await importVm.ProjectService.OpenProject(project.Uri.LocalPath);
-                NotificationService.ShowSuccess(Strings.ImportProject, MessageStrings.OperationCompletedSuccessfully);
+                Notifications.ShowSuccess(Strings.ImportProject, MessageStrings.OperationCompletedSuccessfully);
             }
             else
             {
-                NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
+                Notifications.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
             }
         }
         catch (OperationCanceledException)
@@ -380,15 +380,15 @@ public partial class MainView
         }
         catch (UnsupportedFileVersionException ex)
         {
-            NotificationService.ShowError(
+            Notifications.ShowError(
                 Strings.ImportProject,
                 string.Format(MessageStrings.ProjectVersionMismatch_Content, ex.RequiredVersion));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception while importing project from {PackagePath}", packagePath);
-            _ = ex.Handle();
-            NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
+            _ = ex.Handle(Notifications);
+            Notifications.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
         }
     }
 }
