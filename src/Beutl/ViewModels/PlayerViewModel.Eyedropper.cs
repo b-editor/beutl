@@ -1,5 +1,4 @@
 ﻿using Avalonia.Threading;
-using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -7,7 +6,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using BtlPoint = Beutl.Graphics.Point;
 
@@ -47,9 +45,6 @@ public partial class PlayerViewModel : IPreviewEyedropper
         await Pause();
         cancellationToken.ThrowIfCancellationRequested();
         float scale = EditViewModel.Renderer.Value.OutputScale;
-        // The preview's settings, so the pick reads the media the preview shows, original or proxy.
-        GlobalConfiguration configuration = EditViewModel.GetRequiredService<GlobalConfiguration>();
-        Beutl.Media.FontManager fonts = EditViewModel.GetRequiredService<Beutl.Media.FontManager>();
         HashSet<EngineObject> after = FilterEffectOrder.After(effect);
 
         return await RenderThread.Dispatcher.InvokeAsync<(Bitmap Frame, float Scale)?>(() =>
@@ -58,15 +53,7 @@ public partial class PlayerViewModel : IPreviewEyedropper
                 return null;
 
             cancellationToken.ThrowIfCancellationRequested();
-            using var renderer = new SceneRenderer(
-                scene,
-                fonts,
-                RenderIntent.Preview,
-                scale,
-                disableResourceShare: true,
-                maxWorkingScale: WorkingScaleCeiling.Preview(scale),
-                editorConfig: configuration.EditorConfig,
-                proxyConfig: configuration.ProxyStoreConfig);
+            using SceneRenderer renderer = EditViewModel.CreatePreviewRenderer(scene, scale, disableResourceShare: true);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
             renderer.Compositor.DisabledObjects = new HashSet<EngineObject> { effect };
             renderer.Compositor.ColorStagesSkipped = after;

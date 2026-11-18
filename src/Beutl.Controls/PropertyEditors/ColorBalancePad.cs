@@ -87,7 +87,11 @@ public class ColorBalancePad : Control
     public void StopDrag()
     {
         _scrub.Disarm();
-        EndDrag();
+        if (!_scrub.IsActive)
+            return;
+
+        _scrub.End();
+        RaiseEvent(new VectorEventArgs { RoutedEvent = DragCompletedEvent, Vector = default });
     }
 
     public event EventHandler<VectorEventArgs>? DragStarted
@@ -244,15 +248,6 @@ public class ColorBalancePad : Control
     {
         base.OnPointerCaptureLost(e);
         StopDrag();
-    }
-
-    private void EndDrag()
-    {
-        if (!_scrub.IsActive)
-            return;
-
-        _scrub.End();
-        RaiseEvent(new VectorEventArgs { RoutedEvent = DragCompletedEvent, Vector = default });
     }
 
     private WriteableBitmap? GetDisk(double side, double scaling, Color center)
