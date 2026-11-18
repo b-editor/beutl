@@ -2,6 +2,7 @@
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -40,8 +41,8 @@ public partial class PlayerViewModel : IPreviewEyedropper
     }
 
     // A throwaway renderer with the preview's scale, so the preview's own resources and caches stay as they are.
-    async Task<(Bitmap Frame, float Scale)?> IPreviewEyedropper.DrawFrameWithout(
-        EngineObject excluded, CancellationToken cancellationToken)
+    async Task<(Bitmap Frame, float Scale)?> IPreviewEyedropper.DrawFrameReceivedBy(
+        FilterEffect effect, CancellationToken cancellationToken)
     {
         await Pause();
         cancellationToken.ThrowIfCancellationRequested();
@@ -49,6 +50,7 @@ public partial class PlayerViewModel : IPreviewEyedropper
         // The preview's settings, so the pick reads the media the preview shows, original or proxy.
         GlobalConfiguration configuration = EditViewModel.GetRequiredService<GlobalConfiguration>();
         Beutl.Media.FontManager fonts = EditViewModel.GetRequiredService<Beutl.Media.FontManager>();
+        HashSet<EngineObject> after = FilterEffectOrder.After(effect);
 
         return await RenderThread.Dispatcher.InvokeAsync<(Bitmap Frame, float Scale)?>(() =>
         {
@@ -66,7 +68,8 @@ public partial class PlayerViewModel : IPreviewEyedropper
                 editorConfig: configuration.EditorConfig,
                 proxyConfig: configuration.ProxyStoreConfig);
             renderer.CacheOptions = RenderCacheOptions.Disabled;
-            renderer.Compositor.DisabledObjects = new HashSet<EngineObject> { excluded };
+            renderer.Compositor.DisabledObjects = new HashSet<EngineObject> { effect };
+            renderer.Compositor.ColorStagesSkipped = after;
             renderer.Render(renderer.Compositor.EvaluateGraphics(CurrentFrame.Value, GetFrameRate(), cancellationToken));
             return (renderer.Snapshot(), scale);
         }, ct: cancellationToken);

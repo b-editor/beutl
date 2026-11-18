@@ -17,8 +17,9 @@ using BtlPoint = Beutl.Graphics.Point;
 namespace Beutl.Editor.Components.CurvesTab.ViewModels;
 
 // The color range on the hue curves: a color picked from the preview, where it stands on the curve shown, and the hues
-// around it that the range shapes. The color is read from the frame drawn without this effect, so what the curves do
-// cannot move it; picking it again reads the same color.
+// around it that the range shapes. The color is read from the frame as this effect receives it, without the effect and
+// with the effects after it changing no colors, so what the curves do cannot move it; picking it again reads the same
+// color.
 public sealed partial class CurvesTabViewModel
 {
     // Degrees across the range: by default, one of the six hues from halfway to each neighbor.
@@ -261,7 +262,7 @@ public sealed partial class CurvesTabViewModel
             return current;
 
         ReleasePickFrame();
-        Task<(Bitmap Frame, float Scale)?> frame = eyedropper.DrawFrameWithout(effect, token);
+        Task<(Bitmap Frame, float Scale)?> frame = eyedropper.DrawFrameReceivedBy(effect, token);
         _pickFrame = frame;
         _pickFrameTime = time;
         ShowHoverWhenDrawn(frame);

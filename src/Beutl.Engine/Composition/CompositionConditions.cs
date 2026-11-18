@@ -49,4 +49,17 @@ public sealed record CompositionConditions
     internal IReadOnlySet<EngineObject>? DisabledObjects { get; init; }
 
     internal bool Disables(EngineObject obj) => DisabledObjects is { Count: > 0 } objects && objects.Contains(obj);
+
+    /// <summary>Filter effects that leave out their per-pixel color stages in this evaluation.</summary>
+    /// <remarks>
+    /// An editor reads the colors an effect receives from a frame where the effects after it change no colors, while
+    /// those that move pixels still put them where the preview shows them. A shader stage that reads only the current
+    /// pixel and a Skia color filter are color stages; everything else such an effect records stays. The effects it
+    /// applies inside its own recording leave out theirs too, but a group that draws its children as effects of their
+    /// own needs them in the set as well.
+    /// </remarks>
+    internal IReadOnlySet<EngineObject>? ColorStagesSkipped { get; init; }
+
+    internal bool SkipsColorStages(EngineObject obj)
+        => ColorStagesSkipped is { Count: > 0 } objects && objects.Contains(obj);
 }

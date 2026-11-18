@@ -318,6 +318,34 @@ public sealed class CurvesColorRangeTests
         }
     }
 
+    // A color effect after the Curves in its chain does not move what is picked: the pick reads the color the Curves
+    // receives, not the one the effect after it turns that into (#4386).
+    [AvaloniaTest]
+    public async Task A_color_effect_after_the_curves_does_not_move_the_pick()
+    {
+        TestGpu.RequireAnyDevice();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("curves-color-range-after", FrameWidth, FrameHeight);
+        var curves = new Curves();
+        var chain = new FilterEffectGroup();
+        chain.Children.Add(curves);
+        chain.Children.Add(new HueRotate { Angle = { Value = 180 } });
+        await TestShell.AddElementAsync(editor, () => CreateShape(chain), MediaTime.Zero, MediaTime.FromSeconds(2));
+
+        using var model = new CurvesTabViewModel(editor);
+        model.Effect.Value = curves;
+        model.SelectedGroup.Value = CurveGroup.HueVsHue;
+        (Window window, CurvesTabView curvesView) = await ShowAndPickAsync(editor, model);
+        try
+        {
+            Assert.That(model.MarkerPosition.Value, Is.EqualTo(HueOf(s_left)).Within(1.0 / 360));
+        }
+        finally
+        {
+            curvesView.DataContext = null;
+            window.Close();
+        }
+    }
+
     // Another effect that takes the tab keeps a hue curve shown and the eyedropper offered, so the pick of the first
     // ends with it rather than leaving the button on and the preview waiting for nothing.
     [AvaloniaTest]
@@ -421,7 +449,7 @@ public sealed class CurvesColorRangeTests
 
     private static CurveMap Level(float value) => new([new CurveControlPoint(0, value), new CurveControlPoint(1, value)]);
 
-    private static RectShape CreateShape(Curves curves)
+    private static RectShape CreateShape(FilterEffect effect)
     {
         var fill = new LinearGradientBrush
         {
@@ -433,7 +461,7 @@ public sealed class CurvesColorRangeTests
         fill.GradientStops.Add(new GradientStop(s_right, 0.5f));
         fill.GradientStops.Add(new GradientStop(s_right, 1));
         var shape = new RectShape { Width = { Value = FrameWidth }, Height = { Value = FrameHeight }, Fill = { Value = fill } };
-        shape.FilterEffect.Value = curves;
+        shape.FilterEffect.Value = effect;
         return shape;
     }
 
