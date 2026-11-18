@@ -222,8 +222,6 @@ public sealed class CommandPaletteViewModel : IDisposable
                 return Task.CompletedTask;
             }
 
-            if (prompt.IsCompleted)
-                HideAfterAnsweredPrompt(prompt);
             return Task.CompletedTask;
         }
 
@@ -302,12 +300,15 @@ public sealed class CommandPaletteViewModel : IDisposable
                     && !prompt.IsCompleted)
                     Close();
             }));
-        return await prompt.Completion;
+        object? answer = await prompt.Completion;
+        HideAfterAnsweredPrompt(prompt);
+        return answer;
     }
 
-    // The handler resumes from the answer at a higher priority than this check, so a next step it
-    // requests straight away keeps the palette open. A handler that goes on to other work (opening a
-    // project, committing) must not leave the answered prompt on screen; a later request reopens it.
+    // Posted as the handler resumes from the answer, so a next step it requests straight away keeps the
+    // palette open. Posted with the answer instead, it would race that resumption, which runtime async
+    // delivers through the thread pool (dotnet/runtime#137351). A handler that goes on to other work (opening
+    // a project, committing) must not leave the answered prompt on screen; a later request reopens it.
     private void HideAfterAnsweredPrompt(CommandPalettePromptViewModel prompt)
     {
         Dispatcher.UIThread.Post(() =>

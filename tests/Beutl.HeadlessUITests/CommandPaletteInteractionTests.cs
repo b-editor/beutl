@@ -462,6 +462,8 @@ public sealed class CommandPaletteInteractionTests
 
             palette.Query.Value = "first";
             await palette.ExecuteSelectedAsync();
+            // Runtime async resumes the handler through the thread pool, so the dispatcher gets it later.
+            await UntilAsync(() => first is not null);
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
