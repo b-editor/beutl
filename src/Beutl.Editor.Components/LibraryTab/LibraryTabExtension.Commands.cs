@@ -19,18 +19,18 @@ public sealed partial class LibraryTabExtension
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        Command("library.addElement", Strings.AddElement, () => true, AddElementAsync),
+        Command("library.addElement", Strings.AddElement, _ => true, AddElementAsync),
         Command("library.addElementFromTemplate", Strings.AddFromTemplate,
-            () => FindElementTemplates().Length > 0, AddElementFromTemplateAsync),
+            editor => FindElementTemplates(editor).Length > 0, AddElementFromTemplateAsync),
     ];
 
     private static ContextCommandDefinition Command(
-        string id, string displayName, Func<bool> canExecute,
+        string id, string displayName, Func<IEditorContext, bool> canExecute,
         Func<IEditorContext, Scene, IContextCommandInteraction, Task> execute)
         => new(id, displayName, "", [])
         {
             Scope = ContextCommandScope.Extension,
-            CanExecute = execution => execution.EditorContext?.GetService<Scene>() is not null && canExecute(),
+            CanExecute = execution => execution.EditorContext is { } editor && editor.GetService<Scene>() is not null && canExecute(editor),
             ExecuteAsync = execution => execution is { Interaction: { } interaction, EditorContext: { } editorContext }
                 && editorContext.GetService<Scene>() is { } scene
                     ? execute(editorContext, scene, interaction)
@@ -47,10 +47,10 @@ public sealed partial class LibraryTabExtension
             new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!)));
     }
 
-    private async Task AddElementFromTemplateAsync(
+    private static async Task AddElementFromTemplateAsync(
         IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
-        ContextCommandPickItem<ObjectTemplateItem>[] items = FindElementTemplates()
+        ContextCommandPickItem<ObjectTemplateItem>[] items = FindElementTemplates(editorContext)
             .Select(t => new ContextCommandPickItem<ObjectTemplateItem>(t.Name.Value, t))
             .ToArray();
         if (await interaction.ShowQuickPickAsync(items) is not { Value: { } template }) return;
@@ -59,9 +59,9 @@ public sealed partial class LibraryTabExtension
             (start, layer) => ElementTemplateResolver.CreateDescription(template, start, layer));
     }
 
-    private ObjectTemplateItem[] FindElementTemplates()
+    private static ObjectTemplateItem[] FindElementTemplates(IEditorContext editorContext)
     {
-        return ElementTemplateResolver.FindElementTemplates(Services.GetRequiredService<ObjectTemplateService>()).ToArray();
+        return ElementTemplateResolver.FindElementTemplates(editorContext.GetRequiredService<ObjectTemplateService>()).ToArray();
     }
 
     // Flattens the library the way the timeline's "Add element" menu does; the group path goes in the

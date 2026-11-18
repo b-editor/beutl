@@ -4,6 +4,7 @@ using Beutl.Configuration;
 using Beutl.Controls.Navigation;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
@@ -17,9 +18,9 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
 
     private readonly GlobalConfiguration _configuration;
 
-    public ExtensionsSettingsPageViewModel(ExtensionProvider extensionProvider, GlobalConfiguration configuration)
+    public ExtensionsSettingsPageViewModel(ExtensionProvider extensionProvider, IServiceProvider services)
     {
-        _configuration = configuration;
+        _configuration = services.GetRequiredService<GlobalConfiguration>();
         _extensionProvider = extensionProvider;
 
         NavigateToEditorPriority = new AsyncReactiveCommand()
@@ -48,7 +49,7 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
                 INavigationProvider nav = await GetNavigation();
                 await nav.NavigateAsync(
                     x => x?.Extension == e,
-                    () => new AnExtensionSettingsPageViewModel(e, extensionProvider));
+                    () => new AnExtensionSettingsPageViewModel(e, extensionProvider, services));
             })
             .DisposeWith(_disposables);
 

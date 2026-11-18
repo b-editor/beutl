@@ -42,7 +42,7 @@ internal static class CoreObjectPropertyEditorBuilder
             adapters,
             extensionProvider.GetExtensions<PropertyEditorExtension>(),
             forSettings ? PropertyEditorSurface.Settings : PropertyEditorSurface.Panel,
-            add);
+            add, extensionProvider.Notifications);
     }
 
     // Replaces the members of each named display group with one group context at the first member's place.

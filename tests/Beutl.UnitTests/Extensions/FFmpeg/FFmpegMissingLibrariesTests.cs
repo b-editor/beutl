@@ -3,6 +3,7 @@ using System.Reactive.Linq;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Headless;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
@@ -143,12 +144,12 @@ public sealed class FFmpegMissingLibrariesTests
             .Callback<Notification>(notification => shown = notification);
         var extension = new FFmpegDecodingExtension();
         FFmpegLibraryState.MarkMissing();
-        typeof(Beutl.Extensibility.Extension).GetProperty(nameof(Beutl.Extensibility.Extension.Services))!
-            .SetValue(extension, new Beutl.Editor.Services.EditorServiceRegistry()
-            .Add<INotificationService>(() => new NotificationService(notifications.Object)));
+        using var services = new EditorServiceRegistry()
+            .Add<INotificationService>(() => new NotificationService(notifications.Object));
+        var context = new ExtensionContext(services);
         try
         {
-            extension.Load();
+            extension.Load(context);
 
             Assert.That(shown, Is.Not.Null);
             Assert.That(shown!.Actions, Has.Count.EqualTo(1));
@@ -158,8 +159,31 @@ public sealed class FFmpegMissingLibrariesTests
         }
         finally
         {
-            extension.Unload();
+            extension.Unload(context);
         }
+    }
+
+    [Test]
+    public void Encoder_reports_missing_libraries_to_its_host_until_unloaded()
+    {
+        using var notifications = new NotificationCapture();
+        using var services = new EditorServiceRegistry().Add<INotificationService>(() => notifications);
+        var context = new ExtensionContext(services);
+        var extension = new FFmpegControlledEncodingExtension();
+        extension.Load(context);
+        try
+        {
+            FFmpegLibraryState.NotifyMissing();
+            Assert.That(notifications.All.Single().Title, Is.EqualTo(Beutl.Extensions.FFmpeg.Properties.Strings.FFmpegError));
+        }
+        finally
+        {
+            extension.Unload(context);
+        }
+
+        FFmpegInstallNotifier.MarkInstalled();
+        FFmpegLibraryState.NotifyMissing();
+        Assert.That(notifications.All, Has.Count.EqualTo(1));
     }
 
     [TestCase(true)]

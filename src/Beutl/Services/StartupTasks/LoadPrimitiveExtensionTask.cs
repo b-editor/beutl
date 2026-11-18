@@ -98,13 +98,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
             {
                 foreach (Extension item in allExtensions)
                 {
-                    _manager.SetupExtensionSettings(item);
-                    if (item is ViewExtension viewExtension)
-                    {
-                        manager.ContextCommandManager.Register(viewExtension);
-                    }
-
-                    item.Load();
+                    _manager.LoadExtension(item);
                 }
 
                 provider.AddExtensions(LocalPackage.Reserved0, allExtensions);
@@ -253,8 +247,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
 
         foreach (Extension extension in extensions)
         {
-            extension.Services = _manager.Services;
-            extension.Load();
+            _manager.LoadExtension(extension, restoreSettings: false);
         }
 
         provider.AddExtensions(pkg.LocalId, extensions);

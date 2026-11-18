@@ -1,6 +1,9 @@
 ﻿using Avalonia.Controls;
 using Beutl.Api.Services;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
@@ -16,7 +19,8 @@ public sealed class EditorHostView : ContentControl
         }
 
         EditorExtension extension = viewModel.Extension;
-        Control? control = ExtensionGuard.Call(extension,
+        var notifications = viewModel.GetService<INotificationService>() ?? ControlNotifications.GetNotifications(this);
+        Control? control = ExtensionGuard.Call(extension, notifications,
             () => extension.TryCreateEditor(viewModel.Object, out Control? editor) ? editor : null);
         if (control is not null)
         {

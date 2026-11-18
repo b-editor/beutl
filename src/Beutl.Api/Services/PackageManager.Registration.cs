@@ -244,26 +244,31 @@ public sealed partial class PackageManager
             && type.IsAssignableTo(typeof(Extension))
             && Activator.CreateInstance(type) is Extension extension)
         {
-            var loadStarted = false;
-            try
-            {
+            LoadExtension(extension);
+            extensions.Add(extension);
+            _logger.LogInformation("Extension {ExtensionName} loaded from assembly {AssemblyName}", type.Name, type.Assembly.GetName().Name);
+        }
+    }
+
+    internal void LoadExtension(Extension extension, bool restoreSettings = true)
+    {
+        var loadStarted = false;
+        try
+        {
+            if (restoreSettings)
                 SetupExtensionSettings(extension);
-                if (extension is ViewExtension viewExtension)
-                {
-                    commandManager.Register(viewExtension);
-                }
-
-                loadStarted = true;
-                extension.Load();
-
-                extensions.Add(extension);
-                _logger.LogInformation("Extension {ExtensionName} loaded from assembly {AssemblyName}", type.Name, type.Assembly.GetName().Name);
-            }
-            catch
+            if (extension is ViewExtension viewExtension)
             {
-                RollbackExtensionLoad(extension, loadStarted);
-                throw;
+                commandManager.Register(viewExtension);
             }
+
+            loadStarted = true;
+            extension.Load(ExtensionContext);
+        }
+        catch
+        {
+            RollbackExtensionLoad(extension, loadStarted);
+            throw;
         }
     }
 
@@ -295,7 +300,7 @@ public sealed partial class PackageManager
         {
             try
             {
-                extension.Unload();
+                extension.Unload(ExtensionContext);
             }
             catch (Exception ex)
             {
@@ -355,7 +360,6 @@ public sealed partial class PackageManager
 
     internal void SetupExtensionSettings(Extension extension)
     {
-        extension.Services = _services;
         if (extension.Settings is { } settings)
         {
             _settingsStore.Restore(extension, settings);

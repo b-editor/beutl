@@ -9,13 +9,13 @@ public abstract class ProxyExtension : Extension
 
     public abstract IProxyGeneratorFactory GetProxyGeneratorFactory();
 
-    public override void Load()
+    public override void Load(IExtensionContext context)
     {
         _factory = GetProxyGeneratorFactory();
         ProxyGeneratorRegistry.Register(_factory);
     }
 
-    public override void Unload()
+    public override void Unload(IExtensionContext context)
     {
         if (_factory != null)
         {

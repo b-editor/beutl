@@ -248,7 +248,7 @@ public sealed partial class EditorService
     {
         EditorExtension? ext = _extensionProvider.MatchEditorExtension(obj.Uri!.LocalPath);
         if (ext is null
-            || ExtensionGuard.Call(ext,
+            || ExtensionGuard.Call(ext, AppServices.GetService<INotificationService>(),
                 () => ext.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? created) ? created : null)
             is not { } context)
             return null;

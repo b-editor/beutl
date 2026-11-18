@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 #if DEBUG
 using Avalonia.Diagnostics;
-
 #endif
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
@@ -113,7 +112,7 @@ public sealed class App : Application
 
         activity?.AddEvent(new ActivityEvent("Xaml_Loaded"));
 
-        _themeService = new ThemeService(_theme!, view);
+        _themeService = new ThemeService(_theme!, view, new ExtensionContext(_appServices));
         _themeService.Start();
 
         if (!OperatingSystem.IsWindows())

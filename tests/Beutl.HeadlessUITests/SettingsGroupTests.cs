@@ -33,7 +33,7 @@ public class SettingsGroupTests
     {
         var setting = TestShell.Configuration.UpdateConfig.ExtensionUpdates;
         ExtensionUpdateMode previous = setting.Value;
-        using var model = new ExtensionsSettingsPageViewModel(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.Configuration);
+        using var model = new ExtensionsSettingsPageViewModel(new ExtensionProvider(TestShell.Configuration.ExtensionConfig), TestShell.MainViewModel.AppServices);
         var page = new ExtensionsSettingsPage { DataContext = model };
         var window = new Window { Width = 480, Height = 380, Content = page };
         try
@@ -187,8 +187,8 @@ public class SettingsGroupTests
         var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         provider.AddExtensions(901, TestShell.MainViewModel.ExtensionProvider.GetExtensions<PropertyEditorExtension>());
         provider.AddExtensions(902, [extension]);
-        var model = new AnExtensionSettingsPageViewModel(extension, provider);
-        using var listModel = new ExtensionsSettingsPageViewModel(provider, TestShell.Configuration);
+        var model = new AnExtensionSettingsPageViewModel(extension, provider, TestShell.MainViewModel.AppServices);
+        using var listModel = new ExtensionsSettingsPageViewModel(provider, TestShell.MainViewModel.AppServices);
         var page = new AnExtensionSettingsPage { DataContext = model };
         var window = new Window { Content = page, Width = 480, Height = 650 };
         try

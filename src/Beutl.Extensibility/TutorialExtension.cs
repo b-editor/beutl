@@ -7,21 +7,21 @@ public abstract class TutorialExtension : Extension
 {
     public abstract IReadOnlyList<TutorialDefinition> GetTutorials();
 
-    public override void Load()
+    public override void Load(IExtensionContext context)
     {
-        base.Load();
+        base.Load(context);
         foreach (TutorialDefinition tutorial in GetTutorials())
         {
-            Services.GetRequiredService<ITutorialService>().Register(tutorial);
+            context.Services.GetRequiredService<ITutorialService>().Register(tutorial);
         }
     }
 
-    public override void Unload()
+    public override void Unload(IExtensionContext context)
     {
         foreach (TutorialDefinition tutorial in GetTutorials())
         {
-            Services.GetRequiredService<ITutorialService>().Unregister(tutorial.Id);
+            context.Services.GetRequiredService<ITutorialService>().Unregister(tutorial.Id);
         }
-        base.Unload();
+        base.Unload(context);
     }
 }

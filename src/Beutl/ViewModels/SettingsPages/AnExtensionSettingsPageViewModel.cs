@@ -4,8 +4,6 @@ using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
-
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
@@ -14,13 +12,13 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
 {
     private readonly PropertyEditorHostServices _services;
 
-    public AnExtensionSettingsPageViewModel(Extension extension, ExtensionProvider extensionProvider)
+    public AnExtensionSettingsPageViewModel(Extension extension, ExtensionProvider extensionProvider, IServiceProvider services)
     {
         Extension = extension;
 
         var sequenceGenerator = new OperationSequenceGenerator();
         _services = new PropertyEditorHostServices(
-            new HistoryManager(sequenceGenerator), extensionProvider, extension.Services);
+            new HistoryManager(sequenceGenerator), extensionProvider, services);
 
         InitializeCoreObject(extension.Settings!, extensionProvider);
 

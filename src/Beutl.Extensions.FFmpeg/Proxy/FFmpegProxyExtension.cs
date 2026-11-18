@@ -13,8 +13,22 @@ namespace Beutl.Extensions.FFmpeg.Proxy;
 [Export]
 public sealed class FFmpegProxyExtension : ProxyExtension
 {
+    private INotificationService? _notifications;
+
+    public override void Load(IExtensionContext context)
+    {
+        _notifications = context.Services.GetRequiredService<INotificationService>();
+        base.Load(context);
+    }
+
+    public override void Unload(IExtensionContext context)
+    {
+        base.Unload(context);
+        _notifications = null;
+    }
+
     public override IProxyGeneratorFactory GetProxyGeneratorFactory()
-        => new FFmpegProxyGeneratorFactory(Services.GetRequiredService<INotificationService>());
+        => new FFmpegProxyGeneratorFactory(_notifications ?? throw new InvalidOperationException("The extension is not loaded."));
 
     private sealed class FFmpegProxyGeneratorFactory(INotificationService notifications) : IProxyGeneratorFactory
     {

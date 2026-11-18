@@ -14,6 +14,8 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 [FormerPersistedName("[Beutl.Embedding.FFmpeg].Encoding:FFmpegControlledEncodingExtension")]
 public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
 {
+    private INotificationService? _notifications;
+
     public override FFmpegEncodingSettings Settings { get; } = new();
 
     public override IEnumerable<string> SupportExtensions() => FFmpegHeadlessEncodingExtension.SupportedExtensions;
@@ -23,18 +25,23 @@ public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
         return new FFmpegEncodingControllerProxy(file, Settings);
     }
 
-
-    public override void Load()
+    public override void Load(IExtensionContext context)
     {
+        _notifications = context.Services.GetRequiredService<INotificationService>();
         FFmpegLibraryState.LibrariesMissing += OnLibrariesMissing;
-        base.Load();
+        base.Load(context);
     }
-    public override void Unload()
+
+    public override void Unload(IExtensionContext context)
     {
         FFmpegLibraryState.LibrariesMissing -= OnLibrariesMissing;
-        base.Unload();
+        _notifications = null;
+        base.Unload(context);
     }
 
     private void OnLibrariesMissing(object? sender, EventArgs e)
-        => FFmpegInstallNotifier.ShowMissingNotification(Services.GetRequiredService<INotificationService>());
+    {
+        if (_notifications is { } notifications)
+            FFmpegInstallNotifier.ShowMissingNotification(notifications);
+    }
 }

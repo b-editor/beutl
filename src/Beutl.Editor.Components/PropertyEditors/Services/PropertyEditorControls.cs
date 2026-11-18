@@ -9,6 +9,8 @@ using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.PropertyEditors;
 using Beutl.PropertyAdapters;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.Services;
@@ -49,15 +51,17 @@ internal sealed class PropertyEditorControls : IPropertyEditorHost
         }
 
         control = null;
-        PropertyEditorRegistration? registration = PropertyEditorResolver.RegistrationOf(context) ?? FindFor(context, surface);
+        var resolved = PropertyEditorResolver.RegistrationOf(context);
+        var notifications = (context as IServiceProvider)?.GetService<INotificationService>() ?? resolved?.Notifications;
+        PropertyEditorRegistration? registration = resolved?.Registration ?? FindFor(context, surface, notifications);
         if (registration is null) return false;
 
-        Control? created = ExtensionGuard.Call(registration.Owner, () => registration.CreateControl(context, surface));
+        Control? created = ExtensionGuard.Call(registration.Owner, notifications, () => registration.CreateControl(context, surface));
         if (created is null) return false;
 
         // Preparing runs the context's Accept and the control's Connect, which are extension code too.
         control = registration.IsStandard
-            ? ExtensionGuard.Call(registration.Owner, () => Prepare(context, created, registration, surface))
+            ? ExtensionGuard.Call(registration.Owner, notifications, () => Prepare(context, created, registration, surface))
             : FitListItem(created, surface);
         return control != null;
     }
@@ -87,11 +91,11 @@ internal sealed class PropertyEditorControls : IPropertyEditorHost
     }
 
     // A context made elsewhere, such as by a test, gets the built-in editor of its property.
-    private static PropertyEditorRegistration? FindFor(IPropertyEditorContext context, PropertyEditorSurface surface)
+    private static PropertyEditorRegistration? FindFor(IPropertyEditorContext context, PropertyEditorSurface surface, INotificationService? notifications)
     {
         if (context is not PropertyEditorViewModel { PropertyAdapter: { } property }) return null;
 
-        return PropertyEditorResolver.Candidates(property, [PropertyEditorExtension.Instance], surface).FirstOrDefault();
+        return new PropertyEditorResolver([PropertyEditorExtension.Instance], notifications).Candidates(property, surface).FirstOrDefault();
     }
 
     private static Control Prepare(

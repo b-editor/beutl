@@ -6,6 +6,7 @@ using Beutl.Helpers;
 using Beutl.Services;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dock;
@@ -26,7 +27,7 @@ public class BeutlToolDockable : Tool, IDisposable
 
         Id = CreateId(context.Extension);
         Title = ResolveTitle(context, context.Header.Value);
-        Icon = ExtensionGuard.Call(context.Extension, context.Extension.GetIcon);
+        Icon = ExtensionGuard.Call(context.Extension, Notifications, context.Extension.GetIcon);
         Context = context;
         _usage = new ToolUsageTracker(context);
         CanClose = true;
@@ -71,6 +72,9 @@ public class BeutlToolDockable : Tool, IDisposable
 
         PropertyChanged += OnPropertyChanged;
     }
+
+    internal INotificationService? Notifications => ToolContext.GetService<INotificationService>()
+        ?? EditViewModel?.GetService<INotificationService>();
 
     public IToolContext ToolContext { get; }
 

@@ -1,9 +1,11 @@
 ﻿using System.Collections.Specialized;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.UnitTests.Api;
@@ -23,7 +25,7 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Test]
-    public void LoadPackageExtensions_provides_host_services_before_Load()
+    public async Task Load_and_Unload_receive_the_same_host_context()
     {
         using var library = new Beutl.Services.LibraryService();
         string directory = Path.Combine(Path.GetTempPath(), $"extension-templates-{Guid.NewGuid():N}");
@@ -31,13 +33,17 @@ public class PackageManagerExtensionLifecycleTests
         using var services = new EditorServiceRegistry().AddOwned<Beutl.Services.INotificationService>(() => new Beutl.Services.NotificationService()).Add<Beutl.Media.FontManager>(() => TestFonts.Manager)
             .Add(() => library)
             .Add(() => templates);
-        PackageManager manager = CreatePackageManager(out _, out _, services);
+        PackageManager manager = CreatePackageManager(out _, out var provider, services);
         try
         {
-            var extension = (RegisteringExtension)manager.LoadPackageExtensions([typeof(RegisteringExtension)]).Single();
+            var package = new LocalPackage { Name = "Registering" };
+            manager.LoadExtensionsAndRegister(null, package, [], null, [typeof(RegisteringExtension)]);
+            var extension = provider.GetExtensions<RegisteringExtension>().Single();
+            Assert.That(await manager.Unload(package), Is.True);
             Assert.Multiple(() =>
             {
-                Assert.That(extension.Services, Is.SameAs(services));
+                Assert.That(extension.LoadContext?.Services, Is.SameAs(services));
+                Assert.That(extension.UnloadContext, Is.SameAs(extension.LoadContext));
                 Assert.That(extension.Templates, Is.SameAs(templates));
                 Assert.That(library.FindItem(typeof(RegisteringExtension)), Is.Not.Null);
             });
@@ -49,17 +55,66 @@ public class PackageManagerExtensionLifecycleTests
         }
     }
 
+    [Test]
+    public void Loading_the_same_library_extension_in_two_hosts_preserves_each_editors_template_choices()
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            string firstDirectory = directory.CreateSubdirectory("first").FullName;
+            var template = ObjectTemplateItem.CreateFromInstance(new Element(), "Clip");
+            File.WriteAllText(Path.Combine(firstDirectory, "Clip.json"), ObjectTemplateItem.ToJson(template).ToJsonString());
+            using var firstTemplates = new ObjectTemplateService(TestFonts.Manager, firstDirectory);
+            using var secondTemplates = new ObjectTemplateService(TestFonts.Manager, directory.CreateSubdirectory("second").FullName);
+            var firstEditor = CreateEditor(firstTemplates);
+            var secondEditor = CreateEditor(secondTemplates);
+            PackageManager first = CreatePackageManager(out _, out _, firstEditor);
+            PackageManager second = CreatePackageManager(out _, out _, secondEditor);
+
+            first.LoadExtension(LibraryTabExtension.Instance);
+            Assert.That(CanAddTemplate(first, firstEditor), Is.True);
+            second.LoadExtension(LibraryTabExtension.Instance);
+            Assert.That(CanAddTemplate(second, secondEditor), Is.False);
+            Assert.That(CanAddTemplate(first, firstEditor), Is.True);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+
+        static TestEditorContext CreateEditor(ObjectTemplateService templates)
+        {
+            var scene = new Scene();
+            var editor = new TestEditorContext(scene);
+            editor.AddService(scene);
+            editor.AddService(templates);
+            return editor;
+        }
+
+        static bool CanAddTemplate(PackageManager loader, IEditorContext editor)
+        {
+            var command = loader.ContextCommandManager.GetDefinitions<LibraryTabExtension>()
+                .Single(entry => entry.Definition.Id == "library.addElementFromTemplate").Definition;
+            return command.CanRun(null, new ContextCommandExecution(command.Id) { EditorContext = editor });
+        }
+    }
+
     [Export]
     private sealed class RegisteringExtension : Extension
     {
+        public IExtensionContext? LoadContext { get; private set; }
+        public IExtensionContext? UnloadContext { get; private set; }
         public ObjectTemplateService? Templates { get; private set; }
 
-        public override void Load()
+        public override void Load(IExtensionContext context)
         {
-            Services.GetRequiredService<Beutl.Services.LibraryService>()
+            LoadContext = context;
+            context.Services.GetRequiredService<Beutl.Services.LibraryService>()
                 .Register<RegisteringExtension>("test.extension", "Test extension");
-            Templates = Services.GetRequiredService<ObjectTemplateService>();
+            Templates = context.Services.GetRequiredService<ObjectTemplateService>();
         }
+
+        public override void Unload(IExtensionContext context) => UnloadContext = context;
     }
 
     [Test]
@@ -556,12 +611,12 @@ public class PackageManagerExtensionLifecycleTests
             UnloadCount = 0;
         }
 
-        public override void Load()
+        public override void Load(IExtensionContext context)
         {
             LoadCount++;
         }
 
-        public override void Unload()
+        public override void Unload(IExtensionContext context)
         {
             UnloadCount++;
         }
@@ -583,13 +638,13 @@ public class PackageManagerExtensionLifecycleTests
             UnloadCount = 0;
         }
 
-        public override void Load()
+        public override void Load(IExtensionContext context)
         {
             LoadCount++;
             throw new InvalidOperationException("boom");
         }
 
-        public override void Unload()
+        public override void Unload(IExtensionContext context)
         {
             UnloadCount++;
         }
@@ -607,7 +662,7 @@ public class PackageManagerExtensionLifecycleTests
 
         public static void Reset() => UnloadCount = 0;
 
-        public override void Unload() => UnloadCount++;
+        public override void Unload(IExtensionContext context) => UnloadCount++;
     }
 
     [Export]
@@ -620,7 +675,7 @@ public class PackageManagerExtensionLifecycleTests
         public override ValueTask<McpToolResult> InvokeAsync(McpToolCall call, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 
-        public override void Unload() => UnloadCount++;
+        public override void Unload(IExtensionContext context) => UnloadCount++;
 
         public static void Reset() => UnloadCount = 0;
     }
@@ -637,7 +692,7 @@ public class PackageManagerExtensionLifecycleTests
             new ElementSourceHandlerRegistration(new MaterializingElementSourceHandler()),
         ];
 
-        public override void Unload() => UnloadCount++;
+        public override void Unload(IExtensionContext context) => UnloadCount++;
 
         public static void Reset() => UnloadCount = 0;
     }
@@ -695,7 +750,7 @@ public class PackageManagerExtensionLifecycleTests
             s_releaseLoad = releaseLoad;
         }
 
-        public override void Load()
+        public override void Load(IExtensionContext context)
         {
             s_loadStarted!.Set();
             if (!s_releaseLoad!.Wait(TimeSpan.FromSeconds(10)))

@@ -2,6 +2,7 @@
 using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -29,7 +30,7 @@ public sealed class OutputService(IEditorContext editorContext) : IDisposable
     public void AddItem(string file, OutputExtension extension)
     {
         if (ExtensionGuard.Call(
-                extension,
+                extension, editorContext.GetService<INotificationService>(),
                 () => extension.TryCreateContext(editorContext, out IOutputContext? created) ? created : null,
                 out bool declined)
             is not { } context)

@@ -9,6 +9,8 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using RelativeUnit = Beutl.Graphics.RelativeUnit;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
@@ -49,7 +51,8 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
         if (chrome.UnitEditor != null) chrome.Components.Children.Add(chrome.UnitEditor);
         foreach (IPropertyAdapter adapter in properties)
         {
-            var context = PropertyEditorResolver.CreateContext(adapter, [PropertyEditorExtension.Instance], PropertyEditorSurface.Panel);
+            var context = PropertyEditorResolver.CreateContext(adapter, [PropertyEditorExtension.Instance],
+                PropertyEditorSurface.Panel, _owner.GetService<INotificationService>());
             if (context == null) continue;
             _contexts.Add(context);
             context.Accept(new ChildVisitor(_owner));

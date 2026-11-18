@@ -47,7 +47,7 @@ public class DarkBorderThemeExtensionTests
         ClearRegistry();
         FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
         var config = new ViewConfig();
-        var service = new ThemeService(theme, config);
+        var service = new ThemeService(theme, config, TestShell.ExtensionContext);
         try
         {
             service.Start();
@@ -82,7 +82,7 @@ public class DarkBorderThemeExtensionTests
         IResourceProvider[] mergedOnEntry = [.. Application.Current.Resources.MergedDictionaries];
         ThemeVariant? variantOnEntry = Application.Current.RequestedThemeVariant;
         var config = new ViewConfig();
-        var service = new ThemeService(theme, config);
+        var service = new ThemeService(theme, config, TestShell.ExtensionContext);
         try
         {
             service.Start();
@@ -90,7 +90,7 @@ public class DarkBorderThemeExtensionTests
             ThemeDescriptor? applied = ThemeRegistry.Resolve(config.Theme.Value);
             IResourceProvider[] mergedAfterFirstLoad = [.. Application.Current.Resources.MergedDictionaries];
 
-            DarkBorderThemeExtension.Instance.Load();
+            DarkBorderThemeExtension.Instance.Load(TestShell.ExtensionContext);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Multiple(() =>
@@ -105,7 +105,7 @@ public class DarkBorderThemeExtensionTests
         finally
         {
             service.Dispose();
-            DarkBorderThemeExtension.Instance.Unload();
+            DarkBorderThemeExtension.Instance.Unload(TestShell.ExtensionContext);
             ClearRegistry();
             Dispatcher.UIThread.RunJobs();
 
@@ -130,14 +130,14 @@ public class DarkBorderThemeExtensionTests
         FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
         ThemeVariant? variantOnEntry = Application.Current.RequestedThemeVariant;
         var config = new ViewConfig { Theme = { Value = BuiltinThemeIds.Light } };
-        var service = new ThemeService(theme, config);
+        var service = new ThemeService(theme, config, TestShell.ExtensionContext);
         var extension = new DarkBorderThemeExtension();
         try
         {
             // Selecting Light keeps the dark override from merging into Application.Resources, so this
             // test verifies the registry without leaking styling into later tests.
             service.Start();
-            extension.Load();
+            extension.Load(TestShell.ExtensionContext);
             Dispatcher.UIThread.RunJobs();
 
             IReadOnlyList<ThemeDescriptor> themes = ThemeRegistry.Enumerate();
@@ -158,7 +158,7 @@ public class DarkBorderThemeExtensionTests
             // Dispose before touching the registry: Unregister raises Changed synchronously, and a
             // live service would post a ResolveAndApply job that outlives this test's cleanup.
             service.Dispose();
-            extension.Unload();
+            extension.Unload(TestShell.ExtensionContext);
             ClearRegistry();
             Dispatcher.UIThread.RunJobs();
             Application.Current!.RequestedThemeVariant = variantOnEntry;

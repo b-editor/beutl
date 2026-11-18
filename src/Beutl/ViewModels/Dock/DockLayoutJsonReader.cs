@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Services;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -194,7 +195,8 @@ internal sealed class DockLayoutJsonReader
             .FirstOrDefault(x => x.GetType() == extType) as ToolTabExtension;
         if (extension is null) return null;
 
-        if (ExtensionGuard.Call(extension, () => extension.TryCreateContext(_editViewModel, out IToolContext? created) ? created : null)
+        if (ExtensionGuard.Call(extension, _editViewModel.GetService<INotificationService>(),
+                () => extension.TryCreateContext(_editViewModel, out IToolContext? created) ? created : null)
             is not { } ctx) return null;
 
         if (!_restoringArrangementOnly)

@@ -34,7 +34,7 @@ public sealed class ExtensionGuardCallSiteTests
     public void A_tool_tab_whose_content_or_icon_throws_shows_the_error_text_without_an_icon()
     {
         using var notifications = new NotificationCapture(TestShell.Notifications);
-        using var dockable = new BeutlToolDockable(new ToolContext(new ThrowingToolTab() { Services = TestShell.MainViewModel.AppServices }), null!);
+        using var dockable = new BeutlToolDockable(new ToolContext(new ThrowingToolTab()), null!);
         var content = new ToolTabContent { DataContext = dockable };
 
         using (Assert.EnterMultipleScope())
@@ -49,7 +49,7 @@ public sealed class ExtensionGuardCallSiteTests
     public void An_editor_whose_view_throws_shows_the_error_text()
     {
         using var notifications = new NotificationCapture(TestShell.Notifications);
-        var host = new EditorHostView { DataContext = new EditorContext(new ThrowingEditor() { Services = TestShell.MainViewModel.AppServices }) };
+        var host = new EditorHostView { DataContext = new EditorContext(new ThrowingEditor()) };
 
         using (Assert.EnterMultipleScope())
         {
@@ -62,10 +62,10 @@ public sealed class ExtensionGuardCallSiteTests
     public async Task Switching_to_an_editor_whose_context_throws_is_reported_once()
     {
         await TestReset.ResetShellAsync();
-        var original = new EditorContext(new ThrowingEditor() { Services = TestShell.MainViewModel.AppServices });
+        var original = new EditorContext(new ThrowingEditor());
         var tab = new EditorTabItem(original);
         TestShell.Editor.TabItems.Add(tab);
-        var extension = new ThrowingEditor() { Services = TestShell.MainViewModel.AppServices };
+        var extension = new ThrowingEditor();
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
         using var notifications = new NotificationCapture(TestShell.Notifications);
         try
@@ -90,10 +90,10 @@ public sealed class ExtensionGuardCallSiteTests
     {
         var target = new TestObject();
         var adapter = new EnginePropertyAdapter<string>(target.Name, target);
-        var matching = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
-        matching.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: true) { Services = TestShell.MainViewModel.AppServices }]);
-        var creating = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
-        creating.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: false) { Services = TestShell.MainViewModel.AppServices }]);
+        var matching = new ExtensionProvider(TestShell.Configuration.ExtensionConfig, TestShell.Notifications);
+        matching.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: true)]);
+        var creating = new ExtensionProvider(TestShell.Configuration.ExtensionConfig, TestShell.Notifications);
+        creating.AddExtensions(new LocalPackage().LocalId, [new ThrowingPropertyEditor(throwOnMatch: false)]);
         using var notifications = new NotificationCapture(TestShell.Notifications);
 
         using (Assert.EnterMultipleScope())
@@ -107,9 +107,9 @@ public sealed class ExtensionGuardCallSiteTests
     [AvaloniaTest]
     public void A_value_editor_whose_view_model_throws_in_Accept_leaves_the_page_up_and_turns_its_package_off()
     {
-        var extension = new ThrowingAcceptEditor() { Services = TestShell.MainViewModel.AppServices };
+        var extension = new ThrowingAcceptEditor();
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
-        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
+        var provider = new ExtensionProvider(TestShell.Configuration.ExtensionConfig, TestShell.Notifications);
         provider.AddExtensions(new LocalPackage().LocalId, [extension]);
         using var notifications = new NotificationCapture(TestShell.Notifications);
         using var model = new PropertiesEditorViewModel(new TestObject(), provider);
@@ -138,8 +138,8 @@ public sealed class ExtensionGuardCallSiteTests
     [AvaloniaTest]
     public void A_package_extension_whose_command_throws_is_turned_off()
     {
-        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
-        var extension = new CommandExtension() { Services = TestShell.MainViewModel.AppServices };
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false), TestShell.Notifications);
+        var extension = new CommandExtension();
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
         manager.Register(extension);
         var target = new CommandTarget();
@@ -163,7 +163,7 @@ public sealed class ExtensionGuardCallSiteTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("throwing-output", 320, 180)).Editor;
         using var model = new OutputTabViewModel(editor);
         int profiles = model.Items.Count;
-        var extension = new ThrowingOutput() { Services = TestShell.MainViewModel.AppServices };
+        var extension = new ThrowingOutput();
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
         using var notifications = new NotificationCapture(TestShell.Notifications);
 
@@ -183,7 +183,7 @@ public sealed class ExtensionGuardCallSiteTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("throwing-output-control", 320, 180)).Editor;
         using var model = new OutputTabViewModel(editor);
         OutputProfileItem? first = model.SelectedItem.Value;
-        var extension = new ThrowingOutput(throwOnContext: false) { Services = TestShell.MainViewModel.AppServices };
+        var extension = new ThrowingOutput(throwOnContext: false);
         ExtensionGuard.SetPackage(extension, "Throwing.Package");
         using var notifications = new NotificationCapture(TestShell.Notifications);
         var view = new OutputTabView { DataContext = model };

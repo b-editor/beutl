@@ -1,11 +1,9 @@
 ﻿using Avalonia.Controls;
 using Beutl.Api.Services;
-using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
@@ -14,7 +12,7 @@ internal sealed class ToolWindowLauncher
 {
     private readonly Dictionary<ToolWindowExtension, Window> _openToolWindows = new();
 
-    public async Task OpenAsync(ToolWindowExtension extension, Func<Window?> resolveOwner)
+    public async Task OpenAsync(ToolWindowExtension extension, Func<Window?> resolveOwner, INotificationService notifications)
     {
         try
         {
@@ -29,11 +27,11 @@ internal sealed class ToolWindowLauncher
                 return;
             }
 
-            if (ExtensionGuard.Call(extension, () => extension.TryCreateContext(out IToolWindowContext? created) ? created : null)
+            if (ExtensionGuard.Call(extension, notifications, () => extension.TryCreateContext(out IToolWindowContext? created) ? created : null)
                 is not { } context)
                 return;
 
-            if (ExtensionGuard.Call(extension, () => extension.TryCreateContent(out Window? created) ? created : null)
+            if (ExtensionGuard.Call(extension, notifications, () => extension.TryCreateContent(out Window? created) ? created : null)
                 is not { } window)
             {
                 context.Dispose();
@@ -80,7 +78,7 @@ internal sealed class ToolWindowLauncher
         }
         catch (Exception ex)
         {
-            await ex.Handle(extension.Services.GetRequiredService<INotificationService>());
+            await ex.Handle(notifications);
         }
     }
 }

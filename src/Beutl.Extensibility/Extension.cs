@@ -2,9 +2,6 @@
 
 public abstract class Extension
 {
-    /// <summary>Host services available during loading, use, and unloading.</summary>
-    public IServiceProvider Services { get; internal set; } = null!;
-
     public virtual string Name => GetType().Name;
 
     public virtual string DisplayName => TypeDisplayHelpers.GetLocalizedName(GetType());
@@ -21,7 +18,7 @@ public abstract class Extension
     /// initialization, so write <see cref="Unload"/> to be idempotent and safe against
     /// partially initialized state.
     /// </summary>
-    public virtual void Load()
+    public virtual void Load(IExtensionContext context)
     {
     }
 
@@ -30,7 +27,7 @@ public abstract class Extension
     /// including after <see cref="Load"/> itself has thrown — so implementations must be idempotent
     /// and safe to run against partially initialized state.
     /// </summary>
-    public virtual void Unload()
+    public virtual void Unload(IExtensionContext context)
     {
     }
 }

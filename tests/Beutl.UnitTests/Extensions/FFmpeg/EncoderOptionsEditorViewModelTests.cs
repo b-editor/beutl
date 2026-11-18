@@ -33,7 +33,7 @@ public sealed class EncoderOptionsEditorViewModelTests
         var adapter = new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.Options, settings);
         using IPropertyEditorContext? context = new PropertyEditorFactoryAdapter(provider).CreateEditor(adapter);
         Assert.That(context, Is.InstanceOf<EncoderOptionsEditorViewModel>());
-        extension.Unload();
+        extension.Unload(manager.ExtensionContext);
     }
 
     [Test]

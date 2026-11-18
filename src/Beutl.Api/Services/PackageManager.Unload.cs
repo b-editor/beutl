@@ -201,7 +201,7 @@ public sealed partial class PackageManager
         {
             try
             {
-                ext.Unload();
+                ext.Unload(ExtensionContext);
                 _logger.LogInformation("Extension {ExtensionName} unloaded.", ext.GetType().Name);
             }
             catch (Exception ex)

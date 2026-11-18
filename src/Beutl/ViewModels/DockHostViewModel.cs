@@ -2,8 +2,10 @@
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -175,7 +177,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable, IToolDockHost
 
     private bool OpenToolTabFromExtension(ToolTabExtension ext, IToolDock? target, NewToolTabDockable? replacing)
     {
-        if (ExtensionGuard.Call(ext, () => ext.TryCreateContext(_editViewModel, out IToolContext? created) ? created : null)
+        if (ExtensionGuard.Call(ext, _editViewModel.GetService<INotificationService>(),
+                () => ext.TryCreateContext(_editViewModel, out IToolContext? created) ? created : null)
             is not { } tab)
         {
             return false;

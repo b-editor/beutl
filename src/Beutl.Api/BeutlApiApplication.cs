@@ -8,6 +8,7 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Nito.AsyncEx;
 using Reactive.Bindings;
@@ -377,7 +378,8 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Register(() => new DiscoverService(this));
         Register(() => _extensionProvider);
         Register(() => new ContextCommandSettingsStore());
-        Register(() => new ContextCommandManager(GetResource<ContextCommandSettingsStore>()));
+        Register(() => new ContextCommandManager(GetResource<ContextCommandSettingsStore>(),
+            _extensionServices.GetService<Beutl.Services.INotificationService>() ?? new Beutl.Services.NotificationService()));
         Register(() => new InstalledPackageRepository());
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
