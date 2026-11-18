@@ -26,14 +26,19 @@ public partial class PackageInstaller
     private static string ExtensionUpdateDirectory(PackageIdentity installed)
         => Path.Combine(Helper.AppRoot, "extensionUpdates", ValidatePackageName(installed.Id).ToLowerInvariant(), installed.Version.ToNormalizedString());
 
+    private static string ExtensionUpdateDirectory(PackageIdentity installed, NuGetVersion host)
+        => Path.Combine(ExtensionUpdateDirectory(installed), host.ToNormalizedString());
+
+    private static string StagedName(string id, NuGetVersion version) => $"{id}.{version.ToNormalizedString()}";
+
     internal Task<ExtensionUpdateStageResult> StageExtensionUpdateAsync(PackageIdentity installed, Release release,
         NuGetVersion host, bool appUpdate, CancellationToken token, Func<bool>? isCurrent = null)
         => TrackAsync(async () =>
         {
             var candidate = new PackageIdentity(installed.Id, NuGetVersion.Parse(release.Version.Value));
-            string hostDirectory = Path.Combine(ExtensionUpdateDirectory(installed), host.ToNormalizedString());
+            string hostDirectory = ExtensionUpdateDirectory(installed, host);
             string directory = appUpdate ? Path.Combine(hostDirectory, WithAppDirectory) : hostDirectory;
-            string name = $"{installed.Id}.{candidate.Version.ToNormalizedString()}";
+            string name = StagedName(installed.Id, candidate.Version);
             string rejected = Path.Combine(hostDirectory, name + ".rejected");
             string ready = Path.Combine(directory, name + ".ready");
             bool CanStage() => (isCurrent?.Invoke() ?? true) && !File.Exists(rejected);
@@ -137,7 +142,7 @@ public partial class PackageInstaller
 
     internal static StagedExtensionUpdate? FindStagedExtensionUpdate(PackageIdentity installed, NuGetVersion host, bool includeStandalone)
     {
-        string directory = Path.Combine(ExtensionUpdateDirectory(installed), host.ToNormalizedString());
+        string directory = ExtensionUpdateDirectory(installed, host);
         string app = Path.Combine(directory, WithAppDirectory);
         string prefix = installed.Id + ".";
         StagedExtensionUpdate? latest = null;
@@ -173,8 +178,8 @@ public partial class PackageInstaller
 
     internal void RejectStagedExtensionUpdate(PackageIdentity installed, PackageIdentity candidate, NuGetVersion host)
     {
-        string directory = Path.Combine(ExtensionUpdateDirectory(installed), host.ToNormalizedString());
-        string name = $"{installed.Id}.{candidate.Version.ToNormalizedString()}";
+        string directory = ExtensionUpdateDirectory(installed, host);
+        string name = StagedName(installed.Id, candidate.Version);
         File.WriteAllText(Path.Combine(directory, name + ".rejected"), string.Empty);
         foreach (string channel in new[] { directory, Path.Combine(directory, WithAppDirectory) })
         {

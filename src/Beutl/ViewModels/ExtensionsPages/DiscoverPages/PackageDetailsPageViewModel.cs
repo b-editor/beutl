@@ -6,7 +6,6 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -350,7 +349,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
     private Release? GetDefaultRelease(Release[] releases)
     {
-        NuGetVersion? installed = _handler.InstalledPackageRepository.GetLocalPackages(Package.Name).Max(pkg => pkg.Version);
+        NuGetVersion? installed = _handler.InstalledPackageRepository.GetLatestLocalPackage(Package.Name)?.Version;
         return releases.FirstOrDefault(release => release.CanInstall(installed)) ?? LatestRelease.Value;
     }
 
