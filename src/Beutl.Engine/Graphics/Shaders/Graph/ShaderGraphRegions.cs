@@ -131,7 +131,7 @@ internal sealed class ShaderGraphRegions
 
     // An execution takes a retained image of the very size it asks for, so a region that moves or grows a little has to
     // keep asking for the same size.
-    private static PixelRect Window(PixelRect needed, PixelRect whole)
+    internal static PixelRect Window(PixelRect needed, PixelRect whole)
     {
         const int step = 256;
         int width = Math.Min((needed.Width + step - 1) / step * step, whole.Width);

@@ -51,15 +51,9 @@ public partial class MosaicEffect : FilterEffect
         Vector2 value,
         ShaderExecutionContext context)
     {
-        Rect outputBounds = context.OutputBounds;
-        Point logicalOrigin = context.OutputPlacement.LogicalOrigin;
-        PixelRect destinationDeviceBounds = context.OutputPlacement.DeviceBounds;
-        var deviceGridOffset = new Vector(
-            (destinationDeviceBounds.X / context.OutputPlacement.Scale.Value) - logicalOrigin.X,
-            (destinationDeviceBounds.Y / context.OutputPlacement.Scale.Value) - logicalOrigin.Y);
-        PixelRect completeDeviceBounds = PixelRect.FromRect(
-            outputBounds.Translate(deviceGridOffset),
-            context.OutputPlacement.Scale.Value);
+        RenderPlacement placement = context.OutputPlacement;
+        PixelRect destinationDeviceBounds = placement.DeviceBounds;
+        PixelRect completeDeviceBounds = placement.ToDevice(context.OutputBounds);
         writer.Set(new Vector2(
             completeDeviceBounds.X
             - destinationDeviceBounds.X

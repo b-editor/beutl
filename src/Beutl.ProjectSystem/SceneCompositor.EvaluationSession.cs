@@ -16,9 +16,7 @@ public sealed partial class SceneCompositor
 
         public SceneEvaluationSession(SceneCompositor parent, CompositionTarget target,
             EvaluationServices services)
-            : this(new SceneCompositor(parent.Scene, parent.Fonts, parent._editorConfig, parent._proxyConfig)
-            { DisableResourceShare = true, ForceOriginalSource = parent.ForceOriginalSource },
-                new PooledList<Element>(), target, services)
+            : this(parent.CreateLayerQuery(), new PooledList<Element>(), target, services)
         {
         }
 

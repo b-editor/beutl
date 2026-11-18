@@ -184,7 +184,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             for (long f = from + 1; f <= composedTo; f++)
             {
                 (MediaTime start, MediaTime duration) = ComputeSampleWindow(MediaTime.FromFrames(f, frameRate));
-                int length = ComposeMono(new TimeRange(start, duration), ref _historyWindow, out _);
+                int length = ComposeMono(new TimeRange(start, duration), ref _historyWindow);
                 Hold(held, _historyWindow.AsSpan(0, length), fftSize, smoothing);
             }
 

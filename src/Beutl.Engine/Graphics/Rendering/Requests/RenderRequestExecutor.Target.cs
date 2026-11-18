@@ -2,6 +2,7 @@
 using System.Runtime.ExceptionServices;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -391,25 +392,13 @@ internal sealed partial class RenderRequestExecutor
                 return null;
 
             // A requirement mapped back through a transform can round a pixel past the domain's own edge.
-            PixelRect window = AllocationWindow(needed, whole.Union(needed));
+            // The pool reuses a target only of the very size it asks for, so a part that moves or grows a little with
+            // a camera has to keep asking for the same size, as ShaderGraphRegions windows a graph's images.
+            PixelRect window = ShaderGraphRegions.Window(needed, whole.Union(needed));
             if (DeviceBoundsValidation.Covers(window, whole) || ReadsOwnTarget(fragment))
                 return null;
 
             return (required, window);
-        }
-
-        // The pool reuses a target only of the very size it asks for, so a part that moves or grows a little with a
-        // camera has to keep asking for the same size, as ShaderGraphRegions windows a graph's images.
-        private static PixelRect AllocationWindow(PixelRect needed, PixelRect whole)
-        {
-            const int step = 256;
-            int width = Math.Min((needed.Width + step - 1) / step * step, whole.Width);
-            int height = Math.Min((needed.Height + step - 1) / step * step, whole.Height);
-            return new PixelRect(
-                Math.Max(Math.Min(needed.X, whole.Right - width), whole.X),
-                Math.Max(Math.Min(needed.Y, whole.Bottom - height), whole.Y),
-                width,
-                height);
         }
 
         // A part's window can reach a pixel past the domain's own edge, where the whole layer's buffer would have
