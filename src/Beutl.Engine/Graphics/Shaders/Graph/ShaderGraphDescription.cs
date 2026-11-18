@@ -195,6 +195,24 @@ public sealed class ShaderGraphDescription
         return bounds;
     }
 
+    /// <summary>
+    /// The part of a group of sources the graph reads to produce <paramref name="output"/>, with its origin resolved in
+    /// <paramref name="group"/>, the bounds of all of the group, and its sources at <paramref name="density"/>.
+    /// </summary>
+    /// <remarks>
+    /// Each source of the group is read through the same origin, so what the graph reads of one lies within what it
+    /// reads of all of them as one source.
+    /// </remarks>
+    internal Rect MapSourceRegion(Rect output, Rect group, float density)
+    {
+        PixelRect pixels = PixelRect.FromRect(group, density);
+        if (pixels.Width <= 0 || pixels.Height <= 0)
+            return Rect.Empty;
+
+        ShaderImageFrame source = ShaderImageFrame.FromPixels(group, pixels, density, default) with { ReferenceBounds = group };
+        return new ShaderGraphRegions(this, source, density, default, output).SourceRegion;
+    }
+
     // A group's origin and bounds move with how much of each picture reaches the graph. A footprint that moves, turns or
     // follows an origin may come from the bounds the graph was recorded with, and a sampler that clamps to an edge reads
     // that edge from any distance. What either of them reads of one picture can lie outside what it reads of the union.

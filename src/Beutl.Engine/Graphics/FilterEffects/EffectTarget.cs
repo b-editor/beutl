@@ -106,6 +106,17 @@ public sealed class EffectTarget : IDisposable
 
     public Rect Bounds { get; set; }
 
+    /// <summary>
+    /// Gets or sets the bounds of all of the value this target holds a part of, or <see langword="null"/> when it holds
+    /// all of it and <see cref="Bounds"/> are its complete bounds.
+    /// </summary>
+    /// <remarks>
+    /// A request can hand an effect only the part of a value it needs. What reads the result can still depend on the
+    /// value's complete extent, as a script's width and height do, so the executor moves these bounds through each
+    /// effect as the effect moves <see cref="Bounds"/>.
+    /// </remarks>
+    internal Rect? CompleteBounds { get; set; }
+
     /// <summary>The current content and raster footprint. Moving Bounds translates the raster on its original allocation.</summary>
     public RenderPlacement Placement => _allocation.MoveContent(Bounds);
 
@@ -158,7 +169,7 @@ public sealed class EffectTarget : IDisposable
         }
         else
         {
-            return new EffectTarget { OriginalBounds = OriginalBounds, Bounds = Bounds };
+            return new EffectTarget { OriginalBounds = OriginalBounds, Bounds = Bounds, CompleteBounds = CompleteBounds };
         }
     }
 
@@ -203,6 +214,7 @@ public sealed class EffectTarget : IDisposable
         {
             Bounds = Bounds,
             OriginalBounds = OriginalBounds,
+            CompleteBounds = CompleteBounds,
         };
     }
 
@@ -220,7 +232,10 @@ public sealed class EffectTarget : IDisposable
         var result = new EffectTarget(
             _allocation.WithLogicalBounds(bounds),
             backing,
-            preserveImperativeRasterPlacement: false);
+            preserveImperativeRasterPlacement: false)
+        {
+            CompleteBounds = CompleteBounds,
+        };
         _target = null;
         return result;
     }

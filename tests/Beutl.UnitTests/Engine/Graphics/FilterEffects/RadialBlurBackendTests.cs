@@ -282,6 +282,90 @@ public sealed class RadialBlurBackendTests
         });
     }
 
+    [TestCase(RadialBlurMode.Zoom)]
+    [TestCase(RadialBlurMode.Spin)]
+    public void AGroupsBlurOverAValueFarPastTheFrame_DrawsOnlyWhatTheFrameNeeds(RadialBlurMode mode)
+    {
+        // A group's radial blur turns about the centre of all of its values, and a pixel of the frame reads each of
+        // them only along its own arc or ray. A value far past the frame is then not drawn whole, though it still places
+        // the centre.
+        VulkanTestEnvironment.EnsureAvailable();
+        var frame = new Rect(0, 0, 200, 120);
+        var whole = new Rect(0, 0, 6100, 120);
+        (ushort[] part, List<PixelSize> partSizes) = Render(mode, frame);
+        (ushort[] all, List<PixelSize> wholeSizes) = Render(mode, whole);
+        ushort[] framed = [.. Enumerable.Range(0, (int)frame.Height)
+            .SelectMany(y => all.Skip(y * (int)whole.Width * 4).Take((int)frame.Width * 4))];
+        // The part's samples are counted from a raster at another origin, so nearest sampling can round a texel
+        // boundary the other way: one half-float step near zero on CI's SwiftShader.
+        (float largest, int at) = LargestDifference(part, framed);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(part, Has.Some.Not.Zero);
+            Assert.That(part, Has.Length.EqualTo(framed.Length));
+            Assert.That(largest, Is.LessThanOrEqualTo(0.002f),
+                $"largest difference at ({at / 4 % (int)frame.Width}, {at / 4 / (int)frame.Width})");
+            Assert.That(wholeSizes.Max(static size => size.Width), Is.GreaterThan(1000),
+                "the far value has to be drawn whole when the frame reaches it");
+            Assert.That(partSizes.Select(static size => Math.Max(size.Width, size.Height)),
+                Is.All.LessThanOrEqualTo(512));
+        });
+
+        static (ushort[] Pixels, List<PixelSize> Sizes) Render(RadialBlurMode mode, Rect domain)
+            => VulkanTestEnvironment.InvokeOnRenderThread(() =>
+            {
+                var sizes = new List<PixelSize>();
+                var effect = new RadialBlur { Mode = { Value = mode }, Amount = { Value = 30 } };
+                using var red = (Brush.Resource)new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
+                using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
+                root.AddChild(new RectangleRenderNode(new Rect(20, 20, 60, 40), red, null));
+                root.AddChild(new RectangleRenderNode(new Rect(130, 50, 40, 30), red, null));
+                root.AddChild(new RectangleRenderNode(new Rect(4000, 30, 2000, 50), red, null));
+                using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Delivery,
+                    Purpose = RenderRequestPurpose.Frame,
+                    TargetDomain = domain,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                }, new RecordingTargetFactory(sizes));
+                using RenderTarget destination = RenderTarget.Create((int)domain.Width, (int)domain.Height)!;
+                using (var canvas = new ImmediateCanvas(destination, RenderIntent.Delivery, logicalSize: domain.Size))
+                    renderer.Render(canvas);
+                using Bitmap bitmap = destination.Snapshot();
+                return (bitmap.GetPixelSpan<ushort>().ToArray(), sizes);
+            });
+    }
+
+    private static (float Largest, int Index) LargestDifference(ushort[] a, ushort[] b)
+    {
+        float largest = 0;
+        int index = -1;
+        for (int i = 0; i < Math.Min(a.Length, b.Length); i++)
+        {
+            float difference = MathF.Abs(
+                (float)BitConverter.UInt16BitsToHalf(a[i]) - (float)BitConverter.UInt16BitsToHalf(b[i]));
+            if (difference > largest)
+            {
+                largest = difference;
+                index = i;
+            }
+        }
+
+        return (largest, index);
+    }
+
+    private sealed class RecordingTargetFactory(List<PixelSize> sizes) : IRenderTargetFactory
+    {
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            sizes.Add(allocation.DeviceSize);
+            return RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+        }
+    }
+
     private sealed class TestShaderNode(ShaderDescription description) : ContainerRenderNode
     {
         public override void Process(RenderNodeContext context)

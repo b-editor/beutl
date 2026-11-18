@@ -345,6 +345,30 @@ public sealed partial class FilterEffectContext : IDisposable
         _bounds = Rect.Invalid;
     }
 
+    /// <summary>
+    /// Appends an opaque custom effect, as <see cref="CustomEffect{T}(T, Action{T, CustomFilterEffectContext})"/>
+    /// does, that declares the part of its input it reads for each part of its output.
+    /// </summary>
+    /// <param name="transformSamplingBounds">
+    /// Maps a requested part of the output to the part of the input the callback reads to produce it, wherever the
+    /// callback moves its targets. The region analysis then materializes only that part of the input.
+    /// </param>
+    /// <remarks>
+    /// The callback can then be given part of a value: a target that holds the value over the part it reads, with
+    /// bounds that end there. It has to treat that target as it would the whole value, keeping or replacing each target
+    /// one for one, since the executor moves the value's complete bounds by as much as the callback moves each edge of
+    /// the target's bounds.
+    /// </remarks>
+    internal void CustomEffectWithSamplingBounds<T>(
+        T data,
+        Action<T, CustomFilterEffectContext> action,
+        Func<T, Rect, Rect> transformSamplingBounds)
+    {
+        ArgumentNullException.ThrowIfNull(transformSamplingBounds);
+        AddItem(new FEItem_CustomEffect<T>(data, action, null) { TransformSamplingBounds = transformSamplingBounds });
+        _bounds = Rect.Invalid;
+    }
+
     /// <summary>Records a custom effect that owns the operations recorded after it in this chain.</summary>
     /// <remarks>
     /// The callback chooses whether and how often to execute the continuation, optionally per individual input.

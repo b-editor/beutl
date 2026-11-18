@@ -249,7 +249,11 @@ internal sealed partial class RenderRequestExecutor
                     payload.Context,
                     effectContext =>
                     {
-                        using EffectTargets targets = CreateEffectTargets(inputs);
+                        using EffectTargets targets = CreateEffectTargets(
+                            inputs,
+                            payload.TakesParts,
+                            ResolveCallbackReadRegion(payload, inputs, requiredRegion, fragment.EffectiveScale.Value),
+                            fragment.EffectiveScale.Value);
                         using var builder = new SKImageFilterBuilder();
                         using FilterEffectExecutor executor = CreateFilterEffectExecutor(
                             targets,
@@ -270,10 +274,11 @@ internal sealed partial class RenderRequestExecutor
                             if (target.RenderTarget is not { } renderTarget)
                                 continue;
 
+                            // A part still stands for all of its value, as far as the effects moved it.
                             MaterializedRenderValue value = MaterializeEffectItemTarget(
                                 target,
                                 renderTarget,
-                                target.Bounds);
+                                target.CompleteBounds ?? target.Bounds);
                             _ownedValues.Add(value);
 
                             // Cropping the input to the backward region leaves the surrounding output
@@ -318,9 +323,47 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
+        /// <summary>
+        /// The region a segment reads of its inputs, when it hands them to a callback that declares where it reads, or
+        /// <see langword="null"/> otherwise.
+        /// </summary>
+        /// <remarks>
+        /// The region analysis asks such a segment's inputs for only this region, so the segment can be handed part of a
+        /// value. The callback can move what it is given across the frame, so the part has to hold the value over all of
+        /// the region, where the value has no content too: a part that ended at the content's edge would carry that edge
+        /// in with it, and a script after it would stretch the edge across the gap.
+        /// </remarks>
+        private static Rect? ResolveCallbackReadRegion(
+            FilterEffectSegmentRenderFragmentPayload payload,
+            IReadOnlyList<MaterializedRenderValue> inputs,
+            Rect requiredRegion,
+            float density)
+        {
+            if (!payload.HasCallbackFootprint)
+                return null;
+
+            Rect stream = default;
+            foreach (MaterializedRenderValue input in inputs)
+                stream = stream.Union(input.CompleteBounds);
+            return EffectItemSamplingSupport.TryResolveRequiredInput(
+                payload.BoundsItems,
+                payload.StreamInputCount,
+                requiredRegion,
+                new EffectItemStream(stream, density),
+                out Rect read)
+                ? read
+                : null;
+        }
+
         // One effect target per value, spanning its complete bounds when its raster holds them and its bounds
-        // otherwise.
-        private static EffectTargets CreateEffectTargets(IReadOnlyList<MaterializedRenderValue> inputs)
+        // otherwise. In a segment that takes parts, a part keeps the complete bounds of the value it stands for, and one
+        // handed to a callback that declares where it reads spans the value within readRegion on the pixels the whole
+        // value would have at density.
+        private static EffectTargets CreateEffectTargets(
+            IReadOnlyList<MaterializedRenderValue> inputs,
+            bool takesParts,
+            Rect? readRegion,
+            float density = 1)
         {
             var targets = new EffectTargets();
             try
@@ -330,6 +373,22 @@ internal sealed partial class RenderRequestExecutor
                     MaterializedRenderValue input = inputs[index];
                     bool hasCompleteBacking = input.RasterBounds.Contains(input.CompleteBounds);
                     Rect bounds = hasCompleteBacking ? input.CompleteBounds : input.Bounds;
+                    Rect? completeBounds = null;
+                    if (!hasCompleteBacking && takesParts)
+                    {
+                        completeBounds = input.CompleteBounds;
+                        // The value holds nothing within its complete bounds outside its own, where the flush ahead of the
+                        // callback leaves the part clear. The flush draws the part on the pixels the whole value would be
+                        // drawn on, so that the callback moves the same pixels.
+                        if (readRegion is { } read)
+                        {
+                            bounds = AlignWithin(
+                                bounds.Union(read.Intersect(input.CompleteBounds)),
+                                input.CompleteBounds,
+                                density);
+                        }
+                    }
+
                     targets.Add(new EffectTarget(
                         input.Target,
                         bounds,
@@ -340,6 +399,7 @@ internal sealed partial class RenderRequestExecutor
                     {
                         OriginalBounds = new Rect(default, bounds.Size),
                         Bounds = bounds,
+                        CompleteBounds = completeBounds,
                     });
                 }
 
@@ -350,6 +410,20 @@ internal sealed partial class RenderRequestExecutor
                 targets.Dispose();
                 throw;
             }
+        }
+
+        // The smallest rectangle within whole that holds region and whose edges lie on the pixels a buffer for whole
+        // has at density.
+        private static Rect AlignWithin(Rect region, Rect whole, float density)
+        {
+            if (region.IsEmpty)
+                return region;
+
+            float left = whole.X + MathF.Floor((region.X - whole.X) * density) / density;
+            float top = whole.Y + MathF.Floor((region.Y - whole.Y) * density) / density;
+            float right = MathF.Min(whole.Right, whole.X + MathF.Ceiling((region.Right - whole.X) * density) / density);
+            float bottom = MathF.Min(whole.Bottom, whole.Y + MathF.Ceiling((region.Bottom - whole.Y) * density) / density);
+            return new Rect(left, top, right - left, bottom - top);
         }
 
         private FilterEffectExecutor CreateFilterEffectExecutor(

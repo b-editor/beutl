@@ -23,7 +23,37 @@ internal static class EffectItemSamplingSupport
     {
         input = default;
         return items.Count > 0
-               && TryMapBackward(items, 0, output, RequiresCoverage(streamInputCount, items), out input);
+               && TryMapBackward(
+                   items, 0, output, RequiresCoverage(streamInputCount, items), stream: null, out input);
+    }
+
+    /// <summary>
+    /// Maps <paramref name="output"/> backward as <see cref="TryResolveSampledInput{TItems}"/> does, and also through
+    /// custom effects that declare where they read and, at the start of the segment, a shader graph that reads its
+    /// source through frames.
+    /// </summary>
+    /// <param name="stream">
+    /// The bounds of all of the stream's values and the density the segment runs at, which a shader graph resolves its
+    /// origin in and pads by.
+    /// </param>
+    /// <remarks>
+    /// The region analysis narrows a segment's inputs by this, and the executor hands such a segment each value over it.
+    /// The buffers a segment's density is planned for and the output a shader graph in it produces still follow
+    /// <see cref="TryResolveSampledInput{TItems}"/> and <see cref="TryResolveStageOutput"/>, so a custom effect keeps the
+    /// density planned for all of its input and runs on the part it is given.
+    /// </remarks>
+    public static bool TryResolveRequiredInput<TItems>(
+        TItems items,
+        int streamInputCount,
+        Rect output,
+        EffectItemStream stream,
+        out Rect input)
+        where TItems : IReadOnlyList<IFEItem>
+    {
+        input = default;
+        return items.Count > 0
+               && TryMapBackward(
+                   items, 0, output, RequiresCoverage(streamInputCount, items), stream, out input);
     }
 
     /// <summary>
@@ -62,10 +92,16 @@ internal static class EffectItemSamplingSupport
     /// output.
     /// </returns>
     public static bool TryResolveStageOutput(IReadOnlyList<IFEItem> items, int index, Rect output, out Rect stageOutput)
-        => TryMapBackward(items, index + 1, output, requireCoverage: true, out stageOutput);
+        => TryMapBackward(items, index + 1, output, requireCoverage: true, stream: null, out stageOutput);
 
     // Generic so that an ImmutableArray is read without boxing it.
-    private static bool TryMapBackward<TItems>(TItems items, int first, Rect output, bool requireCoverage, out Rect input)
+    private static bool TryMapBackward<TItems>(
+        TItems items,
+        int first,
+        Rect output,
+        bool requireCoverage,
+        EffectItemStream? stream,
+        out Rect input)
         where TItems : IReadOnlyList<IFEItem>
     {
         input = default;
@@ -75,12 +111,41 @@ internal static class EffectItemSamplingSupport
         Rect region = output;
         for (int index = items.Count - 1; index >= first; index--)
         {
-            if (items[index] is not IFEItem_Skia skia
-                || !skia.TryTransformSamplingBounds(region, out Rect sampled)
-                || !RenderRectValidation.IsFiniteNonNegative(sampled)
-                || (requireCoverage && !skia.TransformBounds(sampled).Contains(region)))
+            Rect sampled;
+            switch (items[index])
             {
-                return false;
+                case IFEItem_Skia skia:
+                    if (!skia.TryTransformSamplingBounds(region, out sampled)
+                        || !RenderRectValidation.IsFiniteNonNegative(sampled)
+                        || (requireCoverage && !skia.TransformBounds(sampled).Contains(region)))
+                    {
+                        return false;
+                    }
+
+                    break;
+                // What a custom effect declares it reads already covers what it is asked for, wherever it moves its
+                // targets.
+                case IFEItem_Custom custom when stream is not null:
+                    if (!custom.TryTransformSamplingBounds(region, out sampled)
+                        || !RenderRectValidation.IsFiniteNonNegative(sampled))
+                    {
+                        return false;
+                    }
+
+                    break;
+                // A graph whose passes find their source's pixels through frames reads only around what it is asked for,
+                // about an origin it resolves in the bounds of all of the stream. Those are known only before any item has
+                // moved the stream's values apart.
+                case FEItem_ShaderGraph graph when stream is { } frame
+                                                   && index == 0
+                                                   && graph.Description.AcceptsPartialSource:
+                    sampled = graph.Description.MapSourceRegion(region, frame.Bounds, frame.Density);
+                    if (sampled.IsEmpty || !RenderRectValidation.IsFiniteNonNegative(sampled))
+                        return false;
+
+                    break;
+                default:
+                    return false;
             }
 
             region = sampled;
@@ -90,3 +155,9 @@ internal static class EffectItemSamplingSupport
         return true;
     }
 }
+
+/// <summary>
+/// The stream a segment's items read: the union of the complete bounds of its values, and the density the segment runs
+/// at.
+/// </summary>
+internal readonly record struct EffectItemStream(Rect Bounds, float Density);
