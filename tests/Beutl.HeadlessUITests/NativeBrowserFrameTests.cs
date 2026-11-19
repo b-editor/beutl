@@ -517,6 +517,8 @@ internal static class NativeBrowserFrameTestHost
             <form method="post" action="/redirect-303"><button id="redirect-303">303</button></form>
             <form method="post" action="/redirect-307"><button id="redirect-307">307</button></form>
             <a id="get" href="/get">GET</a>
+            <iframe name="sink" hidden></iframe>
+            <form method="post" action="/frame-post" target="sink"><button id="frame-post">Frame POST</button></form>
             """, "text/html"));
         server.MapPost("/post", () => Results.Bytes("post"u8.ToArray(), "application/octet-stream", "post.txt"));
         server.MapPost("/redirect-303", (HttpContext context) =>
@@ -532,6 +534,7 @@ internal static class NativeBrowserFrameTestHost
         });
         server.MapPost("/after-307", () => Results.Bytes("307"u8.ToArray(), "application/octet-stream", "307.txt"));
         server.MapGet("/get", () => Results.Bytes("get"u8.ToArray(), "application/octet-stream", "get.txt"));
+        server.MapPost("/frame-post", () => Results.Bytes("frame post"u8.ToArray(), "application/octet-stream", "frame-post.txt"));
         await server.StartAsync(token);
         var page = new Uri(server.Urls.Single() + "/source");
         var browser = new NativeWebView();
@@ -577,6 +580,7 @@ internal static class NativeBrowserFrameTestHost
             await Check("redirect-303", "/after-303", null);
             await Check("redirect-307", "/after-307", "POST");
             await Check("get", "/get", null);
+            await Check("frame-post", "/frame-post", "POST");
         });
     }
 }

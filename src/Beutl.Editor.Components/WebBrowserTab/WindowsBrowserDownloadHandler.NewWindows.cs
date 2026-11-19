@@ -104,9 +104,6 @@ internal sealed partial class WindowsBrowserDownloadHandler
         finally { Marshal.Release(named); }
     }
 
-    // An attachment can finish a navigation without replacing the displayed document.
-    internal void BeginDocument(Uri? request) => _pendingDocument = request == null ? null : new Document(request);
-
     // The response may arrive before or after ContentLoading. Both callbacks update the same document.
     private sealed class Document(Uri address)
     {
@@ -126,29 +123,17 @@ internal sealed partial class WindowsBrowserDownloadHandler
     {
         public unsafe void Invoke(nint sender, nint args)
         {
+            owner.RecordDownloadResponse(args);
             nint request = 0, requestHeaders = 0, response = 0, responseHeaders = 0;
             try
             {
+                if (owner._pendingDocument is not { Policy: null } pending) return;
                 request = GetObject(args, 3);
-                if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page)) return;
+                if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || page != pending.Address) return;
                 // Subresources and inline frames can have different policies, even at the same URL.
                 requestHeaders = GetObject(request, 9);
                 if (GetHeader(requestHeaders, "Sec-Fetch-Dest") != "document") return;
                 response = GetObject(args, 4);
-                if (BrowserMediaDownload.IsHttpUri(page))
-                {
-                    try
-                    {
-                        int status;
-                        Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(response, 4))(response, &status));
-                        owner.RecordDownloadResponse(page, status == 200 ? GetString(request, 5) : null);
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.TraceError("WebView2 could not read a download response's method: {0}", ex.Message);
-                    }
-                }
-                if (owner._pendingDocument is not { Policy: null } pending || page != pending.Address) return;
                 responseHeaders = GetObject(response, 3);
                 pending.Policy = ReadDocumentPolicy(responseHeaders);
             }

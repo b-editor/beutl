@@ -125,9 +125,46 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         }
     }
 
+    // An attachment can finish a navigation without replacing the displayed document.
+    internal void BeginDocument(Uri? request)
+    {
+        _pendingDocument = request == null ? null : new Document(request);
+        // A download at the same URL must not inherit the previous navigation's method.
+        if (request != null) _downloadResponse = null;
+    }
+
+    private unsafe void RecordDownloadResponse(nint args)
+    {
+        nint request = 0, requestHeaders = 0, response = 0;
+        try
+        {
+            request = GetObject(args, 3);
+            if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || !BrowserMediaDownload.IsHttpUri(page)) return;
+            requestHeaders = GetObject(request, 9);
+            string? destination = GetHeader(requestHeaders, "Sec-Fetch-Dest");
+            if (destination is not ("document" or "iframe" or "frame")) return;
+            response = GetObject(args, 4);
+            int status;
+            Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(response, 4))(response, &status));
+            string? method = status == 200 ? GetString(request, 5) : null;
+            // Frame GETs must not replace a main-frame response awaiting DownloadStarting.
+            if (destination == "document" || method != null && !string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
+                RecordDownloadResponse(page, method);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError("WebView2 could not read a download response's method: {0}", ex.Message);
+        }
+        finally
+        {
+            if (response != 0) Marshal.Release(response);
+            if (requestHeaders != 0) Marshal.Release(requestHeaders);
+            if (request != 0) Marshal.Release(request);
+        }
+    }
+
     private void RecordDownloadResponse(Uri uri, string? method)
     {
-        method = string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) ? null : method;
         _downloadResponse = (uri, method);
         // WebView2 can deliver the response after DownloadStarting; history reads the method after saving.
         foreach (NativeDownload download in _downloads) download.SetRequestMethod(uri, method);
