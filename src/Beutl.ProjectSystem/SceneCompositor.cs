@@ -577,9 +577,12 @@ public sealed partial class SceneCompositor : ICompositor
         return result;
     }
 
-    // The layers element's enabled portals draw at time, as PortalObject takes them.
+    // The layers element's enabled portals draw at time, as PortalObject takes them. An element hidden from the
+    // output is not evaluated, so its portals take nothing.
     private static void AddPortalSpans(Element element, MediaTime time, CompositorContext context, List<(int Start, int End)> spans)
     {
+        if (!element.IsVisibleInOutput.Value) return;
+
         MediaTime previous = context.Time;
         context.Time = time;
         try

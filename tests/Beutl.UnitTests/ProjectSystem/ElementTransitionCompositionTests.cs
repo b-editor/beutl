@@ -679,6 +679,32 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    // The same group hidden from the output draws nothing and takes nothing, so each side takes the shot its
+    // own time covers, as it does without the group.
+    [Test]
+    public void AHiddenGroupSpanningTheCutBeneathABackdropPair_LeavesEachSideItsShot()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_backdrop_hidden_group", duration: Seconds(10));
+        Element groupElement = harness.AddElement(MediaTime.Zero, Seconds(4), 0);
+        groupElement.AddObject(new DrawableGroup());
+        ((PortalObject)groupElement.Objects[0]).Count.Value = 1;
+        groupElement.IsVisibleInOutput.Value = false;
+        var previous = new RectShape();
+        harness.AddElement(MediaTime.Zero, Seconds(2), 1).Objects.Add(previous);
+        var next = new EllipseShape();
+        harness.AddElement(Seconds(2), Seconds(2), 1).Objects.Add(next);
+        (SourceBackdrop outgoingBackdrop, SourceBackdrop incomingBackdrop) = AddBackdropPair(harness, 2);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+
+        ClipTransitionPresenter.Resource presenter = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Originals(presenter.From), Is.EqualTo(new object[] { previous, outgoingBackdrop }));
+            Assert.That(Originals(presenter.To), Is.EqualTo(new object[] { next, incomingBackdrop }));
+        });
+    }
+
     // Only a clip that ends where a backdrop begins: the boundary is no scene change, so the layer beneath
     // stays in the frame under the transition, as before.
     [Test]
