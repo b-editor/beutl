@@ -1,15 +1,19 @@
 ﻿using System.Reactive.Subjects;
 using Beutl.Audio;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Audio;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Editor;
 
 [NonParallelizable]
 public class SampleProviderImplTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     [TestCase(SpeakerLayout.Surround51)]
     [TestCase(SpeakerLayout.Mono)]
     [TestCase(SpeakerLayout.Stereo)]
@@ -32,7 +36,7 @@ public class SampleProviderImplTests
             });
             scene.Children.Add(element);
 
-            using var playbackComposer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true)
+            using var playbackComposer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true, decoders: _decoders)
             {
                 SampleRate = rate,
                 ChannelLayout = project.GetChannelLayout()
@@ -49,7 +53,7 @@ public class SampleProviderImplTests
                 Assert.That(composed.GetChannelData(2).ToArray().Any(value => value != 0), Is.True);
             }
 
-            using var exportComposer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true)
+            using var exportComposer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true, decoders: _decoders)
             {
                 SampleRate = rate,
                 ChannelLayout = project.GetChannelLayout()

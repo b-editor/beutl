@@ -8,6 +8,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -20,6 +21,8 @@ namespace Beutl.UnitTests.Editor.Services;
 [NonParallelizable]
 public class TrimSpeedTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private GlobalConfiguration _testConfiguration = new();
 
     private SceneHistoryHarness _harness = null!;
@@ -29,9 +32,6 @@ public class TrimSpeedTests
     private ElementResizeService _resize = null!;
     private ClampResizeToOriginalLengthScope _clamp = null!;
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
-
     [SetUp]
     public void Setup()
     {
@@ -39,8 +39,8 @@ public class TrimSpeedTests
         _harness = new SceneHistoryHarness("beutl_trim_speed", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
         _history = _harness.History;
-        _slip = new ElementSlipService(_history);
-        _resize = new ElementResizeService(_history, _testConfiguration.EditorConfig);
+        _slip = new ElementSlipService(_history, decoders: _decoders);
+        _resize = new ElementResizeService(_history, _testConfiguration.EditorConfig, decoders: _decoders);
         _clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
     }
 
@@ -188,7 +188,7 @@ public class TrimSpeedTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(4) }, Value = { Value = 100 }, Easing = { Value = new LinearEasing() } });
         media.Speed.SetKeyFrameAnimation(animation);
         MediaTime requested = MediaTime.FromSeconds(2);
-        var constraints = ElementResizeService.CreateTrimConstraints(_scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig);
+        var constraints = ElementResizeService.CreateTrimConstraints(_scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig, decoders: _decoders);
         MediaTime preview = constraints.Clamp(requested);
 
         bool applied = slide
@@ -198,7 +198,7 @@ public class TrimSpeedTests
         MediaTime sourceEnd;
         if (back.Objects[0] is SourceVideo video)
         {
-            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(back.Range.End));
+            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(back.Range.End) { Decoders = _decoders });
             sourceEnd = resource.RequestedPosition + resource.OffsetPosition;
         }
         else
@@ -234,7 +234,7 @@ public class TrimSpeedTests
         ElementTrimPair[] pairs = [new(frontA, backA), new(frontB, backB)];
         int before = _history.UndoCount;
 
-        MediaTime preview = ElementResizeService.CreateTrimConstraints(_scene, pairs, _testConfiguration.EditorConfig).Clamp(MediaTime.FromSeconds(1));
+        MediaTime preview = ElementResizeService.CreateTrimConstraints(_scene, pairs, _testConfiguration.EditorConfig, decoders: _decoders).Clamp(MediaTime.FromSeconds(1));
         bool applied = _resize.Roll(_scene, pairs, MediaTime.FromSeconds(1));
 
         Assert.Multiple(() =>
@@ -263,14 +263,14 @@ public class TrimSpeedTests
         media.Speed.SetKeyFrameAnimation(animation);
         MediaTime requested = MediaTime.FromSeconds(2);
         MediaTime preview = ElementResizeService.CreateTrimConstraints(_scene,
-            [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig, [middle]).Clamp(requested);
+            [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig, [middle], decoders: _decoders).Clamp(requested);
 
         Assert.That(_resize.Slide(_scene, [new ElementSlideLane(front, [middle], back)], requested), Is.True);
 
         MediaTime sourceEnd;
         if (middle.Objects[0] is SourceVideo video)
         {
-            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(middle.Range.End));
+            using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(middle.Range.End) { Decoders = _decoders });
             sourceEnd = resource.RequestedPosition + resource.OffsetPosition;
         }
         else
@@ -310,7 +310,7 @@ public class TrimSpeedTests
         element.Objects.Add(sound);
         MediaTime? maximum = null;
 
-        Assert.DoesNotThrow(() => maximum = SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration());
+        Assert.DoesNotThrow(() => maximum = SlippableMedia.CreateResizeConstraints(element, decoders: _decoders).GetMaximumDuration());
         Assert.Multiple(() =>
         {
             Assert.That(easing.Calls, Is.LessThan(20000));
@@ -431,7 +431,7 @@ public class TrimSpeedTests
             }
             source.Source.Expression = new ReferenceExpression<SoundSource?>(provider.Id.Value, nameof(SourceSound.Source));
             element.Objects.Add(source);
-            using var resource = (SourceSound.Resource)source.ToResource(CompositionContext.Default);
+            using var resource = (SourceSound.Resource)source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
             Assert.That(resource.Source!.Duration, Is.EqualTo(MediaTime.FromSeconds(1)));
             sound = source;
         }
@@ -443,7 +443,7 @@ public class TrimSpeedTests
             if (hasStoredSource) source.ReferencedScene.Value = new Scene { Duration = { Value = MediaTime.FromSeconds(10) } };
             source.ReferencedScene.Expression = new ReferenceExpression<Scene?>(provider.Id.Value, nameof(SceneSound.ReferencedScene));
             element.Objects.Add(source);
-            using var resource = (SceneSound.Resource)source.ToResource(CompositionContext.Default);
+            using var resource = (SceneSound.Resource)source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
             Assert.That(resource.ReferencedScene!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             sound = source;
         }

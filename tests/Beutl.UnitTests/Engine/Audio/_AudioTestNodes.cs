@@ -322,8 +322,6 @@ internal static class AudioTestWaves
         int channelCount = 2, AudioSpeakers? mask = null)
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-audio-test-{Guid.NewGuid():N}.wav");
-        var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
         try
         {
             using (var writer = new BinaryWriter(File.Create(path)))
@@ -360,7 +358,6 @@ internal static class AudioTestWaves
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
             File.Delete(path);
         }
     }

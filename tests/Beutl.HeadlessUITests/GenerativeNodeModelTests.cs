@@ -706,7 +706,7 @@ public sealed class GenerativeNodeModelTests
         var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
         return new AiGenerativeNodeExecutor(
             scene, models, new CapturingImages(), new AlwaysAvailable(), new ClipContent(),
-            Moq.Mock.Of<IGenerativePromptLibrary>(), Moq.Mock.Of<IAiImageEditingService>(), videos, kinds.Object)
+            Moq.Mock.Of<IGenerativePromptLibrary>(), Moq.Mock.Of<IAiImageEditingService>(), videos, kinds.Object, TestShell.Decoders)
         {
             PollInterval = TimeSpan.Zero,
             VideoDurationReader = _ => sourceSeconds,
@@ -799,7 +799,7 @@ public sealed class GenerativeNodeModelTests
             library ?? Moq.Mock.Of<IGenerativePromptLibrary>(),
             editing ?? Moq.Mock.Of<IAiImageEditingService>(),
             Moq.Mock.Of<IAiVideoService>(),
-            Moq.Mock.Of<IAiJobKindRegistry>());
+            Moq.Mock.Of<IAiJobKindRegistry>(), TestShell.Decoders);
     }
 
     private static AiGenerativeModelCatalog CreateCatalog()

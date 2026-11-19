@@ -15,10 +15,12 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class AudioVisualizerShapeAuthoringContractTests
 {
+    private readonly DecoderRegistry _decoders = new(new());
+
     private const int ComposerSampleRate = 44100;
 
     [OneTimeSetUp]
-    public void OneTimeSetUp() => ToneDecoderInfo.EnsureRegistered();
+    public void OneTimeSetUp() => _decoders.Register(new ToneDecoderInfo());
 
     [Test]
     public void APluginAuthoredSpectrumShape_CanOverrideRender()
@@ -89,7 +91,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         var drawable = new AudioSpectrumDrawable();
         drawable.Shape.Value = new PluginSpectrumShape();
 
-        using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(CompositionContext.Default);
+        using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         Assert.That(resource.Shape, Is.InstanceOf<PluginSpectrumShape.Resource>());
     }
@@ -100,7 +102,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         var drawable = new AudioWaveformDrawable();
         drawable.Shape.Value = new PluginWaveformShape();
 
-        using var resource = (AudioWaveformDrawable.Resource)drawable.ToResource(CompositionContext.Default);
+        using var resource = (AudioWaveformDrawable.Resource)drawable.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         Assert.That(resource.Shape, Is.InstanceOf<PluginWaveformShape.Resource>());
     }
@@ -119,7 +121,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         };
 
         using var resource = (PluginVisualizerDrawable.Resource)drawable.ToResource(
-            new CompositionContext(currentTime));
+            new CompositionContext(currentTime) { Decoders = _decoders });
         using var target = new CpuRenderTarget(new PixelSize(8, 8));
 
         using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview))
@@ -155,7 +157,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
     public void APluginAuthoredVisualizer_SizesItsWindowFromTheComposerRate()
     {
         var drawable = new PluginVisualizerDrawable();
-        using var resource = (PluginVisualizerDrawable.Resource)drawable.ToResource(CompositionContext.Default);
+        using var resource = (PluginVisualizerDrawable.Resource)drawable.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         (MediaTime start, MediaTime duration) = resource.SampleWindow(MediaTime.FromSeconds(2));
 
@@ -386,20 +388,7 @@ internal sealed class ToneDecoderInfo : IDecoderInfo
     public const float Amplitude = 0.5f;
 
     private const string Extension = ".contracttone";
-    private static readonly Lock s_gate = new();
-    private static bool s_registered;
-
     public string Name => "Contract-test tone";
-
-    public static void EnsureRegistered()
-    {
-        lock (s_gate)
-        {
-            if (s_registered) return;
-            DecoderRegistry.Register(new ToneDecoderInfo());
-            s_registered = true;
-        }
-    }
 
     public static string CreateToneFile()
     {

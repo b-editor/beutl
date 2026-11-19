@@ -3,6 +3,7 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Serialization;
 using Beutl.Threading;
@@ -79,10 +80,10 @@ public partial class SourceVideo : IThumbnailsProvider
         IThumbnailCacheService? cacheService = null,
         CancellationToken cancellationToken = default,
         int startIndex = 0,
-        int endIndex = -1)
+        int endIndex = -1, DecoderRegistry? decoders = null)
         => GetThumbnailStripAsync(fonts, maxWidth, maxHeight, cacheService, cancellationToken, startIndex, endIndex,
             preferProxy: false,
-            preferredProxyPreset: ProxyPreset.Quarter);
+            preferredProxyPreset: ProxyPreset.Quarter, decoders: decoders);
 
     public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         FontManager fonts,
@@ -93,7 +94,7 @@ public partial class SourceVideo : IThumbnailsProvider
         int startIndex,
         int endIndex,
         bool preferProxy,
-        ProxyPreset preferredProxyPreset = ProxyPreset.Quarter)
+        ProxyPreset preferredProxyPreset = ProxyPreset.Quarter, DecoderRegistry? decoders = null)
     {
         if (!await StripGate.TryEnterAsync(cancellationToken))
             yield break;
@@ -108,6 +109,7 @@ public partial class SourceVideo : IThumbnailsProvider
             resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(new CompositionContext(MediaTime.Zero)
             {
                 Fonts = fonts,
+                Decoders = decoders,
                 PreferProxy = preferProxy,
                 PreferredProxyPreset = preferredProxyPreset,
             }), DispatchPriority.Low, cancellationToken);
@@ -178,6 +180,7 @@ public partial class SourceVideo : IThumbnailsProvider
                     var ctx = new CompositionContext(time + TimeRange.Value.Start)
                     {
                         Fonts = fonts,
+                        Decoders = decoders,
                         PreferProxy = preferProxy,
                         PreferredProxyPreset = preferredProxyPreset,
                     };
@@ -275,7 +278,7 @@ public partial class SourceVideo : IThumbnailsProvider
         int chunkCount,
         int samplesPerChunk,
         IThumbnailCacheService? cacheService,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default, DecoderRegistry? decoders = null)
     {
         await Task.CompletedTask;
         yield break;

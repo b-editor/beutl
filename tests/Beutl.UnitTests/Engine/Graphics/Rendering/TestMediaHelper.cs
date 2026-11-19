@@ -26,16 +26,13 @@ internal static class TestMediaHelper
         return UriHelper.CreateBase64DataUri("image/png", data);
     }
 
-    public static void RegisterTestDecoder()
+    public static DecoderRegistry CreateRegistry()
     {
-        if (!_registered)
-        {
-            DecoderRegistry.Register(new TestDecoderInfo());
-            _registered = true;
-        }
+        var decoders = new DecoderRegistry(new());
+        decoders.Register(new TestDecoderInfo());
+        decoders.Register(BuiltInDecoders.Wave);
+        return decoders;
     }
-
-    private static bool _registered;
 
     public static string CreateTestVideoFile(int width, int height, Rational frameRate, int frameCount)
     {

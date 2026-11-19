@@ -6,6 +6,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 
 namespace Beutl.ProjectSystem;
 
@@ -27,7 +28,7 @@ public sealed partial class SceneDrawable : Drawable, ITimeMappedSource
 
     bool ITimeMappedSource.HasDynamicTimeline => SceneReference.IsDynamic(ReferencedScene);
 
-    MediaTime? ITimeMappedSource.GetSourceDuration() => SceneReference.GetDuration(this, ReferencedScene);
+    MediaTime? ITimeMappedSource.GetSourceDuration(DecoderRegistry? decoders) => SceneReference.GetDuration(this, ReferencedScene);
 
     private readonly record struct SceneBitmapParameters(Resource Resource, float OutputScale);
 

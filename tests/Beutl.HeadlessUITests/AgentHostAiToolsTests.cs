@@ -342,7 +342,7 @@ public sealed class AgentHostAiToolsTests
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
         var decoder = new StubVideoDecoder();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             ToolResult<AgentAiJobSnapshot>[] refused =
@@ -369,7 +369,7 @@ public sealed class AgentHostAiToolsTests
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
         }
     }
 
@@ -463,7 +463,7 @@ public sealed class AgentHostAiToolsTests
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
         var decoder = new StubVideoDecoder();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             ToolResult<AgentAiJobSnapshot> broken = await tools.EditVideo(WriteFile("broken.webm"), "rain");
@@ -483,7 +483,7 @@ public sealed class AgentHostAiToolsTests
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
         }
     }
 
@@ -541,7 +541,7 @@ public sealed class AgentHostAiToolsTests
     [Test]
     public async Task AFileThatCannotBeDecodedIsUnsupportedMediaNotAFailedGeneration()
     {
-        var backend = new AgentHostAiBackend(() => null, null!, null!, null!, () => null!, _ => null!, null!);
+        var backend = new AgentHostAiBackend(() => null, null!, null!, null!, () => null!, _ => null!, null!, new DecoderRegistry(new()));
         string path = WriteFile("noise.wav");
 
         AgentAiException? error = await Assert.ThrowsAsync<AgentAiException>(

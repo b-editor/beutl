@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Proxy;
+﻿using Beutl.Media.Decoding;
+using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.Media.Proxy;
 
@@ -154,7 +155,7 @@ public class ProxyGeneratorRegistryTests
 
     private sealed class StubFactory : IProxyGeneratorFactory
     {
-        public IProxyGenerator Create(IProxyStore store)
+        public IProxyGenerator Create(IProxyStore store, DecoderRegistry decoders)
             => new StubGenerator();
     }
 

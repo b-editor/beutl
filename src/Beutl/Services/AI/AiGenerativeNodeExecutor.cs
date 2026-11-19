@@ -6,6 +6,7 @@ using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
@@ -28,7 +29,7 @@ internal sealed class AiGenerativeNodeExecutor(
     IGenerativePromptLibrary promptLibrary,
     IAiImageEditingService editing,
     IAiVideoService videos,
-    IAiJobKindRegistry jobKinds) : IGenerativeNodeExecutor
+    IAiJobKindRegistry jobKinds, DecoderRegistry decoders) : IGenerativeNodeExecutor
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AiGenerativeNodeExecutor>();
 
@@ -453,11 +454,11 @@ internal sealed class AiGenerativeNodeExecutor(
         => input.Role + ":" + input.Upload.MediaType + ":" + AiRequestKey.ContentStamp(input.Bytes);
 
     /// <summary>Reads how long a clip lasts; replaced in tests, which have no decoder.</summary>
-    internal Func<string, double> VideoDurationReader { get; init; } = static path =>
+    internal Func<string, double> VideoDurationReader { get; init; } = path =>
     {
         using var reader = Beutl.Media.Decoding.MediaReader.Open(
             path,
-            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video) { IsBackground = true });
+            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video) { IsBackground = true }, decoders);
         return reader.VideoInfo.Duration.ToDouble();
     };
 

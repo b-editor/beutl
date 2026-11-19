@@ -4,6 +4,7 @@ using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Audio;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -33,7 +34,7 @@ public class SampleProviderLayoutTests
                 TimeRange = { Value = new TimeRange(MediaTime.Zero, scene.Duration.Value) }
             });
             scene.Children.Add(element);
-            using var composer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true)
+            using var composer = new SceneComposer(scene, TestFonts.Manager, disableResourceShare: true, forceOriginalSource: true, decoders: TestMediaHelper.CreateRegistry())
             {
                 SampleRate = rate,
                 ChannelLayout = inputLayout,

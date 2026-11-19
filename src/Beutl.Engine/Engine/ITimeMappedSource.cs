@@ -1,4 +1,5 @@
-﻿namespace Beutl.Engine;
+﻿using Beutl.Media.Decoding;
+namespace Beutl.Engine;
 
 /// <summary>A source that plays a timeline of its own, such as a media file or a referenced scene.</summary>
 /// <remarks>
@@ -36,7 +37,7 @@ public interface ITimeMappedSource : ISplittable
 
     /// <summary>The length of the timeline, or <see langword="null"/> when it is unknown, as for offline media.</summary>
     /// <remarks>Edits keep <see cref="OffsetPosition"/> within it, and may reuse it for a copy of this source.</remarks>
-    MediaTime? GetSourceDuration() => null;
+    MediaTime? GetSourceDuration(DecoderRegistry? decoders = null) => null;
 
     /// <summary>Moves the back piece of a split <paramref name="startDelta"/> further into the timeline.</summary>
     /// <remarks>Editors pass how far the back piece must advance to continue where the front piece stopped.</remarks>

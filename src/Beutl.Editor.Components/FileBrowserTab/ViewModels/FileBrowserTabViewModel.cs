@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
@@ -21,7 +22,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserTabViewModel>();
     private readonly IEditorContext _editorContext;
     private readonly DirectoryWatcherService _directoryWatcher;
-    private readonly ObjectTemplateService _templates;
+    private readonly FileThumbnailService _thumbnails;
     private readonly FavoritesManager _favoritesManager;
     private readonly MediaFileSearcher _mediaSearcher;
     // Canceled when the tab closes, which stops a copy or move before its next entry.
@@ -51,15 +52,15 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         DirectoryWatcherService? directoryWatcher = null)
     {
         _editorContext = editorContext;
-        _templates = editorContext.GetRequiredService<ObjectTemplateService>();
-        _favoritesManager = new FavoritesManager(_templates);
-        _mediaSearcher = new MediaFileSearcher(_templates);
+        _thumbnails = ExtensionGuard.RequireService<FileThumbnailService>(editorContext);
+        _favoritesManager = new FavoritesManager(_thumbnails);
+        _mediaSearcher = new MediaFileSearcher(_thumbnails);
         _directoryWatcher = directoryWatcher ?? new();
         InitializeStorage(storageProviders);
 
         _favoritesManager.Changed += OnFavoritesChanged;
 
-        DecoderRegistry.DecodersChanged += OnDecodersChanged;
+        _thumbnails.Decoders.DecodersChanged += OnDecodersChanged;
 
         _directoryWatcher.Changed += OnWatchedDirectoryChanged;
         _directoryWatcher.EntriesChanged += RefreshChangedEntries;
@@ -146,7 +147,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             else
             {
                 bool tree = ViewMode.Value == FileBrowserViewMode.Tree;
-                FileSystemEnumerator.RefreshCollection(_templates, tree ? TreeRootItems : Items, path, includeChildren: tree);
+                FileSystemEnumerator.RefreshCollection(_thumbnails, tree ? TreeRootItems : Items, path, includeChildren: tree);
             }
         }
         catch (DirectoryNotFoundException)
@@ -228,7 +229,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                 {
                     // A file probed before its decoder registered cached a size-only placeholder and
                     // no thumbnail; rebuilding the items would just read those back.
-                    FileThumbnailService.Instance.ClearCache();
+                    _thumbnails.ClearCache();
                     Refresh();
                 }
             },
@@ -307,11 +308,11 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         {
             if (ViewMode.Value == FileBrowserViewMode.Tree)
             {
-                FileSystemEnumerator.PopulateCollection(_templates, TreeRootItems, RootPath.Value);
+                FileSystemEnumerator.PopulateCollection(_thumbnails, TreeRootItems, RootPath.Value);
             }
             else
             {
-                FileSystemEnumerator.PopulateCollection(_templates, Items, RootPath.Value);
+                FileSystemEnumerator.PopulateCollection(_thumbnails, Items, RootPath.Value);
             }
         }
         catch (UnauthorizedAccessException ex)
@@ -402,9 +403,9 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             try
             {
                 if (preserveExisting)
-                    FileSystemEnumerator.RefreshCollection(_templates, ProjectDirectoryItems, _projectDirectory);
+                    FileSystemEnumerator.RefreshCollection(_thumbnails, ProjectDirectoryItems, _projectDirectory);
                 else
-                    FileSystemEnumerator.PopulateCollection(_templates, ProjectDirectoryItems, _projectDirectory);
+                    FileSystemEnumerator.PopulateCollection(_thumbnails, ProjectDirectoryItems, _projectDirectory);
             }
             catch (Exception ex)
             {
@@ -482,7 +483,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         _disposed = true;
         _transferCancellation.Cancel();
         CloseStorageBrowser();
-        DecoderRegistry.DecodersChanged -= OnDecodersChanged;
+        _thumbnails.Decoders.DecodersChanged -= OnDecodersChanged;
         _mediaSearcher.Dispose();
         _favoritesManager.Dispose();
         _directoryWatcher.Dispose();

@@ -6,10 +6,12 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Operations;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 
@@ -73,7 +75,7 @@ public sealed class SilenceSplitTabViewModel : IToolContext
 
         var history = _editor.GetRequiredService<HistoryManager>();
         if (startAnalysis) history.FlushPendingMutations();
-        var model = new SilenceSplitViewModel(_editor.GetRequiredService<Beutl.Media.FontManager>(), _scene, element, history, _editor.GetRequiredService<GlobalConfiguration>().EditorConfig, _editor.GetRequiredService<IPreviewPlayer>());
+        var model = new SilenceSplitViewModel(_editor.GetRequiredService<Beutl.Media.FontManager>(), _scene, element, history, _editor.GetRequiredService<GlobalConfiguration>().EditorConfig, _editor.GetRequiredService<IPreviewPlayer>(), ExtensionGuard.FindService<DecoderRegistry>(_editor));
         if (previous != null)
         {
             model.ThresholdDb.Value = previous.ThresholdDb.Value;

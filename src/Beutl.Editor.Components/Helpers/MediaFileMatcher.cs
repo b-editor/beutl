@@ -19,9 +19,9 @@ internal static class MediaFileMatcher
 
     public static bool IsImage(string file) => Matches(file, SharedFilePickerOptions.ImagePatterns);
 
-    public static IEnumerable<string> VideoExtensions()
-        => DecoderRegistry.EnumerateDecoder().SelectMany(decoder => decoder.VideoExtensions());
+    public static IEnumerable<string> VideoExtensions(DecoderRegistry decoders)
+        => decoders.FileExtensions.RegisteredVideo;
 
-    public static IEnumerable<string> AudioExtensions()
-        => DecoderRegistry.EnumerateDecoder().SelectMany(decoder => decoder.AudioExtensions());
+    public static IEnumerable<string> AudioExtensions(DecoderRegistry decoders)
+        => decoders.FileExtensions.RegisteredAudio;
 }

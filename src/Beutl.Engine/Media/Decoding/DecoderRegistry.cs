@@ -6,95 +6,78 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Media.Decoding;
 
-public static class DecoderRegistry
+public sealed class DecoderRegistry
 {
     private static readonly ILogger s_logger = Log.CreateLogger("DecoderRegistry");
-    private static readonly List<IDecoderInfo> s_registered = [];
-    private static readonly List<IDecoderInfo> s_ordered = [];
-    private static readonly object s_lock = new();
+    private readonly List<IDecoderInfo> _registered = [];
+    private readonly List<IDecoderInfo> _ordered = [];
+    private readonly object _lock = new();
+    private readonly ExtensionConfig _configuration;
 
-    private static IProxyResolver? s_proxyResolver;
+    internal Lock RegistrationLock { get; } = new();
+
+    private IProxyResolver? _proxyResolver;
 
     // Written from the UI thread (ProxyMediaServices construction / ReinitializeStore) and read
     // unsynchronized on background decode threads. Volatile access gives the store-root swap prompt
     // cross-thread visibility so a decode thread cannot keep reading a register-cached old resolver
     // (notably on ARM64) after the swap.
-    public static IProxyResolver? ProxyResolver
+    public IProxyResolver? ProxyResolver
     {
-        get => Volatile.Read(ref s_proxyResolver);
-        set => Volatile.Write(ref s_proxyResolver, value);
+        get => Volatile.Read(ref _proxyResolver);
+        set => Volatile.Write(ref _proxyResolver, value);
     }
 
     /// <summary>
     /// Raised after the set or priority of registered decoders changed.
     /// </summary>
     /// <remarks>
-    /// Raised outside <c>s_lock</c> so a handler may call back into the registry.
+    /// Raised outside <c>_lock</c> so a handler may call back into the registry.
     /// </remarks>
-    public static event EventHandler? DecodersChanged;
+    public event EventHandler? DecodersChanged;
 
-    private static ExtensionConfig? s_configuration;
-
-    public static void Initialize(ExtensionConfig configuration)
+    public DecoderRegistry(ExtensionConfig configuration)
     {
-        ArgumentNullException.ThrowIfNull(configuration);
-        lock (s_lock)
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        FileExtensions = new DecoderFileExtensions(this);
+        _configuration.DecoderPriority.CollectionChanged += OnPriorityChanged;
+    }
+
+    public DecoderFileExtensions FileExtensions { get; }
+
+    private void OnPriorityChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        lock (_lock)
         {
-            SetConfiguration(configuration);
+            _ordered.Clear();
         }
-        DecodersChanged?.Invoke(null, EventArgs.Empty);
+        DecodersChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private static void SetConfiguration(ExtensionConfig configuration)
+    public IEnumerable<IDecoderInfo> EnumerateDecoder()
     {
-        if (s_configuration != null)
-            s_configuration.DecoderPriority.CollectionChanged -= OnPriorityChanged;
-        s_configuration = configuration;
-        s_configuration.DecoderPriority.CollectionChanged += OnPriorityChanged;
-        s_ordered.Clear();
-    }
-
-    private static void OnPriorityChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    {
-        InvalidateCache();
-        DecodersChanged?.Invoke(null, EventArgs.Empty);
-    }
-
-    private static void InvalidateCache()
-    {
-        lock (s_lock)
+        lock (_lock)
         {
-            s_ordered.Clear();
-        }
-    }
-
-    public static IEnumerable<IDecoderInfo> EnumerateDecoder()
-    {
-        lock (s_lock)
-        {
-            if (s_configuration == null)
-                SetConfiguration(new ExtensionConfig());
-
-            if (s_ordered.Count == 0)
+            if (_ordered.Count == 0)
             {
-                IDecoderInfo[] preferred = s_configuration!.DecoderPriority.Select(v => v.Type)
+                IDecoderInfo[] preferred = _configuration.DecoderPriority.Select(v => v.Type)
                     .Where(v => v != null)
-                    .Select(t => s_registered.FirstOrDefault(v => v.GetType() == t))
+                    .Select(t => _registered.FirstOrDefault(v => v.GetType() == t))
                     .Where(v => v != null)
                     .ToArray()!;
 
-                s_ordered.AddRange(preferred);
+                _ordered.AddRange(preferred);
 
-                s_ordered.AddRange(s_registered.Except(preferred));
+                _ordered.AddRange(_registered.Except(preferred));
             }
 
-            // Snapshot: callers enumerate after the lock is released, and InvalidateCache clears
-            // s_ordered from another thread.
-            return s_ordered.ToArray();
+            // Snapshot: callers enumerate after the lock is released, and a registration or priority change can clear
+            // _ordered from another thread.
+            return _ordered.ToArray();
         }
     }
 
-    public static MediaReader? OpenMediaFile(string file, MediaOptions options)
+    public MediaReader? OpenMediaFile(string file, MediaOptions options)
     {
         // Proxy is best-effort and must never break original playback: any proxy-side fault
         // degrades to the original-decode path below. A generated proxy carries silent audio (the
@@ -125,7 +108,7 @@ public static class DecoderRegistry
 
     // Returns null, with the pin released, when no proxy resolves or opens; a proxy-side fault is logged
     // and also returns null.
-    private static MediaReader? TryOpenProxy(string file, MediaOptions options, IProxyResolver resolver)
+    private MediaReader? TryOpenProxy(string file, MediaOptions options, IProxyResolver resolver)
     {
         IDisposable? pin = null;
         try
@@ -159,37 +142,37 @@ public static class DecoderRegistry
     // The resolver matches the LocalPath of this URI with the path ProxyFingerprint.FromFile stored.
     internal static Uri ToFileUri(string file) => UriHelper.CreateFromPath(Path.GetFullPath(file));
 
-    public static IDecoderInfo[] GuessDecoder(string file)
+    public IDecoderInfo[] GuessDecoder(string file)
     {
         return EnumerateDecoder().Where(i => i.IsSupported(file)).ToArray();
     }
 
-    public static void Register(IDecoderInfo decoder)
+    public void Register(IDecoderInfo decoder)
     {
-        lock (s_lock)
+        lock (_lock)
         {
-            InvalidateCache();
-            s_registered.Add(decoder);
+            _ordered.Clear();
+            _registered.Add(decoder);
         }
 
-        DecodersChanged?.Invoke(null, EventArgs.Empty);
+        DecodersChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public static bool Unregister(IDecoderInfo decoder)
+    public bool Unregister(IDecoderInfo decoder)
     {
         bool removed;
-        lock (s_lock)
+        lock (_lock)
         {
-            removed = s_registered.Remove(decoder);
+            removed = _registered.Remove(decoder);
             if (removed)
             {
-                InvalidateCache();
+                _ordered.Clear();
             }
         }
 
         if (removed)
         {
-            DecodersChanged?.Invoke(null, EventArgs.Empty);
+            DecodersChanged?.Invoke(this, EventArgs.Empty);
         }
 
         return removed;

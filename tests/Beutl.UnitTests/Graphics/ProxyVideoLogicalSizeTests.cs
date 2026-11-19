@@ -19,23 +19,17 @@ namespace Beutl.UnitTests.Graphics;
 [NonParallelizable]
 public class ProxyVideoLogicalSizeTests
 {
+    private DecoderRegistry _decoders = null!;
+
     private GlobalConfiguration _testConfiguration = new();
 
-    private IProxyResolver? _oldResolver;
     private PreviewSourceMode _originalPreviewSourceMode;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
 
     [SetUp]
     public void SetUp()
     {
         _testConfiguration = new();
-        _oldResolver = DecoderRegistry.ProxyResolver;
-        DecoderRegistry.ProxyResolver = null;
+        _decoders = TestMediaHelper.CreateRegistry();
         _originalPreviewSourceMode = _testConfiguration.EditorConfig.PreviewSourceMode.Value;
         _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
     }
@@ -43,7 +37,6 @@ public class ProxyVideoLogicalSizeTests
     [TearDown]
     public void TearDown()
     {
-        DecoderRegistry.ProxyResolver = _oldResolver;
         _testConfiguration.EditorConfig.PreviewSourceMode.Value = _originalPreviewSourceMode;
     }
 
@@ -52,7 +45,7 @@ public class ProxyVideoLogicalSizeTests
     {
         var size = new PixelSize(100, 80);
         using var scope = ProxyTestScope.CreateWithoutProxy(size);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
         // The test decoder reads the video's size from the file name.
         string name = Path.GetFileName(scope.OriginalPath);
         string link = Path.Combine(scope.RootPath, name);
@@ -61,7 +54,7 @@ public class ProxyVideoLogicalSizeTests
 
         var source = new VideoSource();
         source.ReadFrom(new Uri(link));
-        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        var context = new CompositionContext(MediaTime.Zero) { Decoders = _decoders, PreferProxy = true };
         using var resource = source.ToResource(context);
         Assert.That(resource.ProxyResolution, Is.Null);
 
@@ -84,14 +77,14 @@ public class ProxyVideoLogicalSizeTests
     {
         var size = new PixelSize(100, 80);
         using var scope = ProxyTestScope.CreateWithoutProxy(size);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
         string name = Path.GetFileName(scope.OriginalPath);
         string link = Path.Combine(scope.RootPath, name);
         SymbolicLinks.CreateOrIgnore(link, scope.OriginalPath);
 
         var source = new VideoSource();
         source.ReadFrom(new Uri(link));
-        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        var context = new CompositionContext(MediaTime.Zero) { Decoders = _decoders, PreferProxy = true };
         using var resource = source.ToResource(context);
         MediaReader? reader = resource.MediaReader;
         Assert.That(reader, Is.Not.Null);
@@ -115,7 +108,7 @@ public class ProxyVideoLogicalSizeTests
     {
         var size = new PixelSize(100, 80);
         using var scope = ProxyTestScope.CreateWithoutProxy(size);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
         string name = Path.GetFileName(scope.OriginalPath);
         string link = Path.Combine(scope.RootPath, name);
         string target = Path.Combine(scope.RootPath, "drive", name);
@@ -126,7 +119,7 @@ public class ProxyVideoLogicalSizeTests
 
         var source = new VideoSource();
         source.ReadFrom(new Uri(link));
-        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        var context = new CompositionContext(MediaTime.Zero) { Decoders = _decoders, PreferProxy = true };
         using var resource = source.ToResource(context);
         MediaReader? reader = resource.MediaReader;
         Assert.That(resource.ProxyResolution, Is.Not.Null);
@@ -151,11 +144,11 @@ public class ProxyVideoLogicalSizeTests
     public void ProxiedVideo_UsesOriginalLogicalBoundsAndProxySupplyDensity()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Half);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
         var source = new VideoSource();
         source.ReadFrom(new Uri(scope.OriginalPath));
-        using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { PreferProxy = true });
+        using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders, PreferProxy = true });
         using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
@@ -181,7 +174,7 @@ public class ProxyVideoLogicalSizeTests
         File.WriteAllBytes(path, [1, 2, 3, 4]);
         var source = new VideoSource();
         source.ReadFrom(new Uri(path));
-        using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { PreferProxy = false });
+        using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders, PreferProxy = false });
         using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
@@ -204,11 +197,11 @@ public class ProxyVideoLogicalSizeTests
     public void PreferProxyResource_ReloadsWhenProxyStoreChanges()
     {
         using var scope = ProxyTestScope.CreateWithoutProxy(new PixelSize(100, 80));
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
         var source = new VideoSource();
         source.ReadFrom(new Uri(scope.OriginalPath));
-        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        var context = new CompositionContext(MediaTime.Zero) { Decoders = _decoders, PreferProxy = true };
         using var resource = source.ToResource(context);
 
         ProxyTestScope.RegisterTestVideoProxy(
@@ -229,11 +222,11 @@ public class ProxyVideoLogicalSizeTests
     {
         // Source B is the one we observe: original media, no proxy of its own.
         using var scope = ProxyTestScope.CreateWithoutProxy(new PixelSize(100, 80));
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
         var sourceB = new VideoSource();
         sourceB.ReadFrom(new Uri(scope.OriginalPath));
-        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        var context = new CompositionContext(MediaTime.Zero) { Decoders = _decoders, PreferProxy = true };
         using var resourceB = sourceB.ToResource(context);
         int versionAfterLoad = resourceB.Version;
         PixelSize sizeAfterLoad = resourceB.FrameSize;
@@ -264,11 +257,11 @@ public class ProxyVideoLogicalSizeTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var scope = ProxyTestScope.Create(new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Half);
-            DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+            _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
             var source = new VideoSource();
             source.ReadFrom(new Uri(scope.OriginalPath));
-            using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { PreferProxy = true });
+            using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders, PreferProxy = true });
             using RenderTarget target = RenderTarget.Create(100, 80)!;
 
             using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1f))
@@ -328,7 +321,7 @@ public class ProxyVideoLogicalSizeTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var scope = ProxyTestScope.Create(new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Half);
-            DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+            _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
             var media = new VideoSource();
             media.ReadFrom(new Uri(scope.OriginalPath));
@@ -353,7 +346,7 @@ public class ProxyVideoLogicalSizeTests
             };
             scene.Children.Add(element);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig, decoders: _decoders);
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(1d / 30d)));
 
             using Bitmap snapshot = renderer.Snapshot();

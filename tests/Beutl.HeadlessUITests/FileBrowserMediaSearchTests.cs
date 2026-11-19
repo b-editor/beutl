@@ -36,7 +36,7 @@ public class FileBrowserMediaSearchTests
         File.SetAttributes(stagingDirectory, File.GetAttributes(stagingDirectory) | FileAttributes.Hidden);
 
         var decoder = new RecordingDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Scene)))
             .Returns(new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) });
@@ -75,7 +75,7 @@ public class FileBrowserMediaSearchTests
         {
             window.Close();
             browser.Dispose();
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
             Directory.Delete(root, recursive: true);
         }
     }

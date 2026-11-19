@@ -2,6 +2,7 @@
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
+using Beutl.Media.Decoding;
 using DynamicData;
 using DynamicData.Binding;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,9 +18,11 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
     private DecoderPriorityPageViewModel? _decoderPriority;
 
     private readonly GlobalConfiguration _configuration;
+    private readonly DecoderRegistry _decoders;
 
     public ExtensionsSettingsPageViewModel(ExtensionProvider extensionProvider, IServiceProvider services)
     {
+        _decoders = services.GetRequiredService<DecoderRegistry>();
         _configuration = services.GetRequiredService<GlobalConfiguration>();
         _extensionProvider = extensionProvider;
 
@@ -67,7 +70,7 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
 
     public EditorExtensionPriorityPageViewModel EditorPriority => _editorPriority ??= new(_extensionProvider, _configuration.ExtensionConfig);
 
-    public DecoderPriorityPageViewModel DecoderPriority => _decoderPriority ??= new(_configuration.ExtensionConfig);
+    public DecoderPriorityPageViewModel DecoderPriority => _decoderPriority ??= new(_configuration.ExtensionConfig, _decoders);
 
     public IProperty<ExtensionUpdateMode> ExtensionUpdates => _configuration.UpdateConfig.ExtensionUpdates;
 

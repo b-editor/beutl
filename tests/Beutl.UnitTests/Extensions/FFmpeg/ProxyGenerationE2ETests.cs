@@ -12,24 +12,20 @@ namespace Beutl.UnitTests.Extensions.FFmpeg;
 [TestFixture]
 public sealed class ProxyGenerationE2ETests
 {
+    private DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter() },
     };
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
-
     [Test]
     public async Task GenerateAsync_AudioOnlySource_IsSkipped()
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         string source = TestMediaHelper.CreateTestAudioFile();
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
@@ -45,23 +41,16 @@ public sealed class ProxyGenerationE2ETests
     public async Task GenerateAsync_AudioOnlySourceOfADecoderThatOpensOnlyRequestedStreams_IsSkipped()
     {
         var decoder = new AudioOnlyDecoderInfo();
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            string root = ProxyTestScope.CreateRoot();
-            var generator = new FFmpegProxyGenerator(new ProxyStore(root), new Beutl.Services.NotificationService());
-            string source = Path.Combine(root, "sound.audioonly");
-            File.WriteAllBytes(source, [1, 2, 3, 4]);
-            var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
+        _decoders.Register(decoder);
+        string root = ProxyTestScope.CreateRoot();
+        var generator = new FFmpegProxyGenerator(new ProxyStore(root), new Beutl.Services.NotificationService(), decoders: _decoders);
+        string source = Path.Combine(root, "sound.audioonly");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
-            await Assert.ThrowsAsync<ProxyGenerationSkippedException>(
-                async () => await generator.GenerateAsync(job));
-            Assert.That(decoder.Requested, Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
+        await Assert.ThrowsAsync<ProxyGenerationSkippedException>(
+            async () => await generator.GenerateAsync(job));
+        Assert.That(decoder.Requested, Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
     }
 
     [Test]
@@ -69,7 +58,7 @@ public sealed class ProxyGenerationE2ETests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         // A JPEG can only be a single frame, so it is rejected by extension without opening a reader
         // (unlike an animatable APNG/GIF/WebP, whose stillness is decided by decoded frame count).
         string source = Path.Combine(root, "still.jpg");
@@ -174,7 +163,7 @@ public sealed class ProxyGenerationE2ETests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await generator.FinalizeAsync(finalPath, entry));
@@ -192,7 +181,7 @@ public sealed class ProxyGenerationE2ETests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 2);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
 
         await generator.FinalizeAsync(finalPath, entry);
@@ -210,7 +199,7 @@ public sealed class ProxyGenerationE2ETests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
 
         // Occupy the sidecar path with a directory so WriteMetadata's File.WriteAllText throws; the
@@ -231,7 +220,7 @@ public sealed class ProxyGenerationE2ETests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -260,7 +249,7 @@ public sealed class ProxyGenerationE2ETests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -300,7 +289,7 @@ public sealed class ProxyGenerationE2ETests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -341,7 +330,7 @@ public sealed class ProxyGenerationE2ETests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -388,7 +377,6 @@ public sealed class ProxyGenerationE2ETests
         });
     }
 
-
     [Test]
     public async Task PublishAsync_CanceledAfterRegisterMutation_KeepsStoreAndFilesConsistent(
         [Values] bool hasPrevious, [Values] bool rollbackFails)
@@ -399,7 +387,7 @@ public sealed class ProxyGenerationE2ETests
             MutateBeforeFailure = true,
             FailRollback = rollbackFails,
         };
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);

@@ -106,6 +106,7 @@ public class PropertyHoverInfoTests
         var services = TestShell.CreateEditorContextMock();
         services.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         services.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        services.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
         services.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         services.Setup(x => x.GetService(typeof(IPropertyEditorFactory)))
             .Returns(new Mock<IPropertyEditorFactory>().Object);

@@ -10,7 +10,7 @@ using SkiaSharp;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
-public sealed class FileThumbnailService
+public sealed class FileThumbnailService : IDisposable
 {
     private readonly record struct CachedThumbnail(WeakReference<Bitmap> Bitmap, DateTime LastWriteUtc);
 
@@ -18,7 +18,6 @@ public sealed class FileThumbnailService
     private const int MaxMediaInfoCacheEntries = 500;
     private static readonly TimeSpan s_pruneInterval = TimeSpan.FromSeconds(60);
 
-    private static readonly Lazy<FileThumbnailService> s_instance = new(() => new FileThumbnailService());
     private readonly ConcurrentDictionary<string, CachedThumbnail> _cache = new();
     private readonly ConcurrentDictionary<
         string,
@@ -28,12 +27,18 @@ public sealed class FileThumbnailService
     // Held so the timer is not collected; the service lives for the whole session.
     private readonly Timer _pruneTimer;
 
-    private FileThumbnailService()
+    public FileThumbnailService(DecoderRegistry decoders, ObjectTemplateService templates)
     {
+        Decoders = decoders;
+        Templates = templates;
         _pruneTimer = new Timer(_ => PruneCaches(), null, s_pruneInterval, s_pruneInterval);
     }
 
-    public static FileThumbnailService Instance => s_instance.Value;
+    internal DecoderRegistry Decoders { get; }
+
+    internal ObjectTemplateService Templates { get; }
+
+    public void Dispose() => _pruneTimer.Dispose();
 
     public int ThumbnailSize { get; } = 64;
 
@@ -57,7 +62,7 @@ public sealed class FileThumbnailService
                 return cached;
             }
 
-            Bitmap? thumbnail = DecoderFileExtensions.Classify(filePath) switch
+            Bitmap? thumbnail = Decoders.FileExtensions.Classify(filePath) switch
             {
                 MediaFileKind.Image => await GenerateImageThumbnailAsync(filePath, cancellationToken),
                 MediaFileKind.Video => await GenerateVideoThumbnailAsync(filePath, cancellationToken),
@@ -97,7 +102,7 @@ public sealed class FileThumbnailService
         if (TryGetCachedMediaInfo(filePath, file, out MediaFileInfo? cached))
             return cached;
 
-        MediaFileKind kind = DecoderFileExtensions.Classify(filePath);
+        MediaFileKind kind = Decoders.FileExtensions.Classify(filePath);
         if (kind is not (MediaFileKind.Video or MediaFileKind.Audio))
             return null;
 
@@ -196,18 +201,18 @@ public sealed class FileThumbnailService
 
     // AVFoundation and Media Foundation both claim '.adts' as video and as audio, so the
     // classification can be wrong, and AVFReader throws outright when the one requested stream is absent.
-    private static MediaReader? OpenForProbe(string filePath, MediaFileKind kind)
+    private MediaReader? OpenForProbe(string filePath, MediaFileKind kind)
     {
         MediaMode first = kind == MediaFileKind.Audio ? MediaMode.Audio : MediaMode.Video;
         MediaMode second = first == MediaMode.Video ? MediaMode.Audio : MediaMode.Video;
 
         return TryOpen(filePath, first) ?? TryOpen(filePath, second);
 
-        static MediaReader? TryOpen(string filePath, MediaMode mode)
+        MediaReader? TryOpen(string filePath, MediaMode mode)
         {
             try
             {
-                return DecoderRegistry.OpenMediaFile(filePath, new MediaOptions(mode) { IsBackground = true });
+                return Decoders.OpenMediaFile(filePath, new MediaOptions(mode) { IsBackground = true });
             }
             catch
             {
@@ -218,12 +223,12 @@ public sealed class FileThumbnailService
 
     public bool CanGetMediaInfo(string filePath)
     {
-        return DecoderFileExtensions.Classify(filePath) is MediaFileKind.Video or MediaFileKind.Audio;
+        return Decoders.FileExtensions.Classify(filePath) is MediaFileKind.Video or MediaFileKind.Audio;
     }
 
     public bool IsMediaFile(string filePath)
     {
-        return DecoderFileExtensions.IsMedia(filePath);
+        return Decoders.FileExtensions.IsMedia(filePath);
     }
 
     /// <summary>
@@ -323,7 +328,7 @@ public sealed class FileThumbnailService
             try
             {
                 var options = new MediaOptions(MediaMode.Video) { IsBackground = true };
-                using var reader = DecoderRegistry.OpenMediaFile(filePath, options);
+                using var reader = Decoders.OpenMediaFile(filePath, options);
                 if (reader == null || !reader.HasVideo)
                     return null;
 
@@ -456,7 +461,7 @@ public sealed class FileThumbnailService
     }
 
     public bool CanGenerateThumbnail(string filePath, ObjectTemplateService templates)
-        => DecoderFileExtensions.Classify(filePath) is MediaFileKind.Image or MediaFileKind.Video
+        => Decoders.FileExtensions.Classify(filePath) is MediaFileKind.Image or MediaFileKind.Video
            || IsObjectTemplateFile(filePath, templates);
 
     public void ClearCache()

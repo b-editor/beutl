@@ -16,6 +16,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -25,6 +26,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
@@ -630,7 +632,7 @@ public sealed partial class ElementViewModel : IDisposable
 
     public bool HasOriginalDuration()
     {
-        return SlippableMedia.HasOriginalDuration(Model);
+        return SlippableMedia.HasOriginalDuration(Model, decoders: ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext));
     }
 
     public record struct PrepareAnimationContext(

@@ -102,8 +102,8 @@ public class FileUriWorkflowTests
         DateTime now = DateTime.UtcNow;
         store.Register(new ProxyEntry(ProxyFingerprint.FromFile(path), ProxyPreset.Quarter, ProxyState.Ready,
             proxyName, new FileInfo(proxyPath).Length, new PixelSize(1, 1), new PixelSize(1, 1), now, now, null));
-        IProxyResolver? previous = DecoderRegistry.ProxyResolver;
-        DecoderRegistry.ProxyResolver = new ProxyResolver(store);
+        IProxyResolver? previous = TestShell.Decoders.ProxyResolver;
+        TestShell.Decoders.ProxyResolver = new ProxyResolver(store);
         try
         {
             using var tool = new MissingMediaViewModel(editor);
@@ -121,7 +121,7 @@ public class FileUriWorkflowTests
         }
         finally
         {
-            DecoderRegistry.ProxyResolver = previous;
+            TestShell.Decoders.ProxyResolver = previous;
             await TestReset.ResetShellAsync();
         }
     }
@@ -137,6 +137,7 @@ public class FileUriWorkflowTests
     {
         using var resource = source.ToResource(new CompositionContext(MediaTime.Zero)
         {
+            Decoders = TestShell.Decoders,
             PreferProxy = preferProxy,
             DisableResourceShare = true,
         });

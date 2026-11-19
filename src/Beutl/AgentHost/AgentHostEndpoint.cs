@@ -10,6 +10,7 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
@@ -421,6 +422,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton(_ => new Beutl.AgentToolkit.Schema.SchemaGenerator(
                 _editorService.AppServices.GetRequiredService<Beutl.Services.LibraryService>()))
             .AddSingleton(_projectService.Fonts)
+            .AddSingleton(_editorService.AppServices.GetRequiredService<DecoderRegistry>())
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)
             .AddSingleton(InstanceRouter)

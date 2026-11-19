@@ -22,7 +22,7 @@ public class FileItemDragBehaviorTests
     {
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, "drag-source.bin");
         var folderUri = new Uri(path + Path.DirectorySeparatorChar);
-        using var item = new FileSystemItemViewModel(TestShell.Templates, path, isDirectory);
+        using var item = new FileSystemItemViewModel(TestShell.Thumbnails, path, isDirectory);
         var control = new Border { Background = Avalonia.Media.Brushes.White, DataContext = item };
         var behavior = new FileItemDragBehavior();
         Interaction.GetBehaviors(control).Add(behavior);

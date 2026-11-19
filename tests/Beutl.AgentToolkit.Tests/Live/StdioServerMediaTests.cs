@@ -4,12 +4,13 @@ using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Extensions.AVFoundation.Decoding;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Media.Decoding;
+using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 
 namespace Beutl.AgentToolkit.Tests.Live;
 
 // The stdio server loads no extensions, so it registers the decoders the app gets from its built-in
-// extensions. DecoderRegistry is process-wide; this project registers no decoders anywhere else.
+// extensions.
 public sealed class StdioServerMediaTests
 {
     private string _directory = null!;
@@ -56,10 +57,14 @@ public sealed class StdioServerMediaTests
     [Test]
     public async Task Headless_server_registers_each_decoder_once_in_the_apps_order()
     {
-        await using (await InProcessAgentToolkitServer.StartAsync(Path.Combine(_directory, "first")))
-        await using (await InProcessAgentToolkitServer.StartAsync(Path.Combine(_directory, "second")))
+        await using var first = await InProcessAgentToolkitServer.StartAsync(Path.Combine(_directory, "first"));
+        await using var second = await InProcessAgentToolkitServer.StartAsync(Path.Combine(_directory, "second"));
+        var firstDecoders = first.Services.GetRequiredService<DecoderRegistry>();
+        var secondDecoders = second.Services.GetRequiredService<DecoderRegistry>();
+        Assert.That(firstDecoders, Is.Not.SameAs(secondDecoders));
+        foreach (var decoders in new[] { firstDecoders, secondDecoders })
         {
-            IDecoderInfo[] registered = DecoderRegistry.EnumerateDecoder().ToArray();
+            IDecoderInfo[] registered = decoders.EnumerateDecoder().ToArray();
             int ffmpeg = Array.FindIndex(registered, item => item is FFmpegDecoderInfo);
             int avf = Array.FindIndex(registered, item => item is AVFDecoderInfo);
             Assert.Multiple(() =>
@@ -75,8 +80,8 @@ public sealed class StdioServerMediaTests
                     Is.EqualTo(OperatingSystem.IsMacOS() ? 1 : 0));
                 if (avf >= 0)
                     Assert.That(ffmpeg, Is.LessThan(avf), "FFmpeg comes before AVFoundation, as in the app");
-                Assert.That(DecoderRegistry.GuessDecoder("clip.gif"), Is.Not.Empty);
-                Assert.That(DecoderRegistry.GuessDecoder("clip.apng"), Is.Not.Empty);
+                Assert.That(decoders.GuessDecoder("clip.gif"), Is.Not.Empty);
+                Assert.That(decoders.GuessDecoder("clip.apng"), Is.Not.Empty);
             });
         }
     }

@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Audio;
 using Beutl.Composition;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Serialization;
 
@@ -19,7 +20,7 @@ public sealed record AudioRhythmAnalysis(
     IReadOnlyList<double> BeatTimesSeconds,
     IReadOnlyList<double> StrongOnsetTimesSeconds);
 
-public sealed class AudioRhythmAnalyzer
+public sealed class AudioRhythmAnalyzer(DecoderRegistry decoders)
 {
     private const int WindowSize = 1024;
     private const int HopSize = 512;
@@ -65,6 +66,7 @@ public sealed class AudioRhythmAnalyzer
         source.ReadFrom(UriHelper.CreateFromPath(fullPath));
         using var resource = (SoundSource.Resource)source.ToResource(new CompositionContext(MediaTime.Zero)
         {
+            Decoders = decoders,
             DisableResourceShare = true
         });
 

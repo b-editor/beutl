@@ -6,6 +6,7 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 
 namespace Beutl.ProjectSystem;
@@ -23,7 +24,7 @@ public sealed partial class SceneSound : Sound, ITimeMappedSource
 
     bool ITimeMappedSource.HasDynamicTimeline => SceneReference.IsDynamic(ReferencedScene);
 
-    MediaTime? ITimeMappedSource.GetSourceDuration() => SceneReference.GetDuration(this, ReferencedScene);
+    MediaTime? ITimeMappedSource.GetSourceDuration(DecoderRegistry? decoders) => SceneReference.GetDuration(this, ReferencedScene);
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {

@@ -11,6 +11,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Language;
+using Beutl.Media.Decoding;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Group;
@@ -34,6 +35,8 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
         GraphNode = node;
         EditorContext = nodeGraphViewModel.EditorContext;
         NodeGraphViewModel = nodeGraphViewModel;
+        if (node is GenerativeNode generative)
+            generative.LoadActivePreview(ExtensionGuard.FindService<DecoderRegistry>(EditorContext));
         Type nodeType = node.GetType();
         if (GraphNodeRegistry.FindItem(nodeType) is { } regItem)
         {

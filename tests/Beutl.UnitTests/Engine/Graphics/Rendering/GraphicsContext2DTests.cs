@@ -5,6 +5,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Moq;
 
@@ -12,11 +13,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 public class GraphicsContext2DTests
 {
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
 
     [Test]
     public void DrawNodeUpdateFailure_PreservesTheExistingTree()
@@ -151,7 +148,7 @@ public class GraphicsContext2DTests
         var outerTrailing = new TrackingRenderNode();
         var primary = new InvalidOperationException("nested drawable failed");
         var drawable = new PartialFailureDrawable(retained, primary);
-        using Drawable.Resource resource = drawable.ToResource(CompositionContext.Default);
+        using Drawable.Resource resource = drawable.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         var nested = new DrawableRenderNode(resource);
         nested.AddChild(retained);
         nested.AddChild(trailing);
@@ -277,8 +274,8 @@ public class GraphicsContext2DTests
     {
         using var root = new ContainerRenderNode();
         using var twoChildren = new FilterEffectGroup { Children = { new Blur(), new Blur() } }
-            .ToResource(CompositionContext.Default);
-        using var noChildren = new FilterEffectGroup().ToResource(CompositionContext.Default);
+            .ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
+        using var noChildren = new FilterEffectGroup().ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         using var context = new GraphicsContext2D(root, new Size(32, 24));
         using (context.Push())
@@ -520,7 +517,7 @@ public class GraphicsContext2DTests
         var imageUri = TestMediaHelper.CreateTestImageUri(100, 100, Colors.White);
         var imageSource = new ImageSource();
         imageSource.ReadFrom(imageUri);
-        using var imageResource = imageSource.ToResource(CompositionContext.Default);
+        using var imageResource = imageSource.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         context.DrawImageSource(imageResource, Brushes.Resource.White, null);
 
@@ -537,7 +534,7 @@ public class GraphicsContext2DTests
         var videoPath = TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30), 300);
         var videoSource = new VideoSource();
         videoSource.ReadFrom(new Uri(videoPath));
-        using var videoResource = videoSource.ToResource(CompositionContext.Default);
+        using var videoResource = videoSource.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         context.DrawVideoSource(videoResource, 0, Brushes.Resource.White, null);
 
@@ -565,7 +562,7 @@ public class GraphicsContext2DTests
         var geometry = new EllipseGeometry();
         geometry.Width.Value = 100;
         geometry.Height.Value = 100;
-        var resource = geometry.ToResource(CompositionContext.Default);
+        var resource = geometry.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         context.DrawGeometry(resource, Brushes.Resource.White, null);
 
@@ -589,7 +586,7 @@ public class GraphicsContext2DTests
     public void DrawDrawable_ShouldCreateDrawableRenderNode()
     {
         var drawable = new RectShape();
-        using var resource = drawable.ToResource(CompositionContext.Default);
+        using var resource = drawable.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         using var node = new ContainerRenderNode();
         using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
@@ -693,7 +690,7 @@ public class GraphicsContext2DTests
         var geometry = new EllipseGeometry();
         geometry.Width.Value = 100;
         geometry.Height.Value = 100;
-        var resource = geometry.ToResource(CompositionContext.Default);
+        var resource = geometry.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         context.PushClip(resource).Dispose();
 
@@ -719,7 +716,7 @@ public class GraphicsContext2DTests
         using var node = new ContainerRenderNode();
         using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var effect = new Blur();
-        var resource = effect.ToResource(CompositionContext.Default);
+        var resource = effect.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         context.PushFilterEffect(resource).Dispose();
 
@@ -746,7 +743,7 @@ public class GraphicsContext2DTests
         using var node = new ContainerRenderNode();
         using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var transform = new RotationTransform();
-        var resource = transform.ToResource(CompositionContext.Default);
+        var resource = transform.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         context.PushTransform(resource).Dispose();
 

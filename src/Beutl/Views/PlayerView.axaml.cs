@@ -519,7 +519,7 @@ public partial class PlayerView : UserControl
         BtlRect? bounds = renderer.GetBoundary(target);
         if (bounds is not { Width: > 0, Height: > 0 }) return null;
 
-        var ctx = new CompositionContext(ctxTime) { Fonts = renderer.Compositor.Fonts };
+        var ctx = new CompositionContext(ctxTime) { Fonts = renderer.Compositor.Fonts, Decoders = renderer.Compositor.Decoders };
         if (_transformHandleResource == null || _transformHandleResourceTarget != target)
         {
             _transformHandleResource?.Dispose();

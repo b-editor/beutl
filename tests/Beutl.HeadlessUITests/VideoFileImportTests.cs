@@ -27,8 +27,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class VideoFileImportTests
 {
-    private static readonly object s_registerLock = new();
-    private static bool s_registered;
     private static string? s_tempDir;
 
     [OneTimeTearDown]
@@ -49,7 +47,7 @@ public class VideoFileImportTests
     public async Task BrowserDownloadImport_UsesAsyncPipelineAndPreservesMediaDuration()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("browser-video-import");
-        RegisterImportDecoder();
+        TestShell.EnsureDecoder<ImportTestDecoderInfo>();
         string path = CreateImportFile("browser-download", withAudio: true);
         int undoCount = editor.HistoryManager.UndoCount;
         using var browser = new WebBrowserTabViewModel(editor);
@@ -78,7 +76,7 @@ public class VideoFileImportTests
         Log.LoggerFactory.AddProvider(warnings);
 
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("videoonly");
-        RegisterImportDecoder();
+        TestShell.EnsureDecoder<ImportTestDecoderInfo>();
         string path = CreateImportFile("sample", withAudio: false);
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -108,7 +106,7 @@ public class VideoFileImportTests
     public async Task ImportVideoWithAudioTrack_AddsVideoAndSoundElementsAsGroup()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("videoaudio");
-        RegisterImportDecoder();
+        TestShell.EnsureDecoder<ImportTestDecoderInfo>();
         string path = CreateImportFile("sample", withAudio: true);
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -142,7 +140,7 @@ public class VideoFileImportTests
     public async Task ImportVideoWithAudioTrack_ReleasesVideoResourceWhenCompanionCreationFails()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("videoaudio-companion-failure");
-        RegisterImportDecoder();
+        TestShell.EnsureDecoder<ImportTestDecoderInfo>();
         string path = CreateImportFile("companion-failure", withAudio: true);
         var adder = (ElementAdderImpl)editor.GetService(typeof(IElementAdder))!;
         adder.BeforeCompanionAudioMaterialization = () =>
@@ -178,7 +176,7 @@ public class VideoFileImportTests
     public async Task ImportVideoWithAudioTrack_WhenCompanionLayerIsLocked_RefusesEntireImport()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("videoaudio-locked-companion");
-        RegisterImportDecoder();
+        TestShell.EnsureDecoder<ImportTestDecoderInfo>();
         string path = CreateImportFile("locked", withAudio: true);
         using (editor.HistoryManager.SuppressRecording())
         {
@@ -217,7 +215,7 @@ public class VideoFileImportTests
     public async Task ImportMissingMediaFile_KeepsRequestedLengthAndStaysResizable(string extension)
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("missing-media-import");
-        RegisterImportDecoder();
+        TestShell.EnsureDecoder<ImportTestDecoderInfo>();
         string path = Path.Combine(Path.GetTempPath(), $"beutl-missing-{Guid.NewGuid():N}{extension}");
         Assert.That(File.Exists(path), Is.False);
 
@@ -237,9 +235,9 @@ public class VideoFileImportTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)),
                 "a temporarily unreadable source keeps the requested length instead of collapsing to 0");
-            Assert.That(SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration(), Is.Null,
+            Assert.That(SlippableMedia.CreateResizeConstraints(element, decoders: TestShell.Decoders).GetMaximumDuration(), Is.Null,
                 "an offline source must not cap the clip at its unknown duration");
-            Assert.That(SlippableMedia.CreateResizeConstraints(element).ClampLength(MediaTime.FromSeconds(8)),
+            Assert.That(SlippableMedia.CreateResizeConstraints(element, decoders: TestShell.Decoders).ClampLength(MediaTime.FromSeconds(8)),
                 Is.EqualTo(MediaTime.FromSeconds(8)),
                 "the offline clip can be resized once the user stretches it");
         }
@@ -249,7 +247,7 @@ public class VideoFileImportTests
     public async Task ImportAudioOnlyVideoContainer_ImportsItsAudioStream()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("audio-only-container-import");
-        RegisterImportDecoder();
+        TestShell.EnsureDecoder<ImportTestDecoderInfo>();
         string path = CreateImportFile("audio-only-container", withAudio: false, extension: ".audio-container");
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -277,10 +275,10 @@ public class VideoFileImportTests
     public async Task ImportTransientlyLockedMediaFile_KeepsRequestedLength()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("locked-media-import");
-        RegisterImportDecoder();
+        TestShell.EnsureDecoder<ImportTestDecoderInfo>();
         string path = CreateImportFile("locked", withAudio: false, extension: ".locked-media");
         var decoder = new LockedFileDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             using var held = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
@@ -300,12 +298,12 @@ public class VideoFileImportTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
-                Assert.That(SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration(), Is.Null);
+                Assert.That(SlippableMedia.CreateResizeConstraints(element, decoders: TestShell.Decoders).GetMaximumDuration(), Is.Null);
             }
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
         }
     }
 
@@ -313,7 +311,7 @@ public class VideoFileImportTests
     public async Task ImportPresentButUndecodableVideoFile_IsRefused()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("undecodable-import");
-        RegisterImportDecoder();
+        TestShell.EnsureDecoder<ImportTestDecoderInfo>();
         string path = Path.Combine(Path.GetTempPath(), $"beutl-undecodable-{Guid.NewGuid():N}.bad");
         File.WriteAllBytes(path, [1, 2, 3, 4]);
         int undoCount = editor.HistoryManager.UndoCount;
@@ -338,15 +336,7 @@ public class VideoFileImportTests
         }
     }
 
-    private static void RegisterImportDecoder()
-    {
-        lock (s_registerLock)
-        {
-            if (s_registered) return;
-            DecoderRegistry.Register(new ImportTestDecoderInfo());
-            s_registered = true;
-        }
-    }
+
 
     private static string CreateImportFile(string stem, bool withAudio, string? extension = null)
     {

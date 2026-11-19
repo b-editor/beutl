@@ -7,6 +7,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -18,15 +19,14 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture]
 public class ElementResizeServiceTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private GlobalConfiguration _testConfiguration = new();
 
     private SceneHistoryHarness _harness = null!;
     private Scene _scene = null!;
     private HistoryManager _history = null!;
     private ElementResizeService _service = null!;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
 
     [SetUp]
     public void Setup()
@@ -35,7 +35,7 @@ public class ElementResizeServiceTests
         _harness = new SceneHistoryHarness("beutl_resize", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
         _history = _harness.History;
-        _service = new ElementResizeService(_history, _testConfiguration.EditorConfig);
+        _service = new ElementResizeService(_history, _testConfiguration.EditorConfig, decoders: _decoders);
     }
 
     [TearDown]
@@ -47,7 +47,7 @@ public class ElementResizeServiceTests
     // The delta window the timeline view reads for roll and slide drags.
     private (MediaTime Min, MediaTime Max) TrimDeltaBounds(params ElementTrimPair[] pairs)
     {
-        var constraints = ElementResizeService.CreateTrimConstraints(_scene, pairs, _testConfiguration.EditorConfig);
+        var constraints = ElementResizeService.CreateTrimConstraints(_scene, pairs, _testConfiguration.EditorConfig, decoders: _decoders);
         return (constraints.Min, constraints.Max);
     }
 
@@ -63,7 +63,7 @@ public class ElementResizeServiceTests
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementResizeService(null!, _testConfiguration.EditorConfig));
+        Assert.Throws<ArgumentNullException>(() => new ElementResizeService(null!, _testConfiguration.EditorConfig, decoders: _decoders));
     }
 
     [Test]
@@ -634,7 +634,7 @@ public class ElementResizeServiceTests
         (MediaTime _, MediaTime max) = TrimDeltaBounds(pair);
         bool applied = _service.Roll(_scene, [pair], MediaTime.FromSeconds(5));
         using var resource = (DrawableGroup.Resource)group.ToResource(
-            new CompositionContext(front.Range.End - MediaTime.FromSeconds(0.1)));
+            new CompositionContext(front.Range.End - MediaTime.FromSeconds(0.1)) { Decoders = _decoders });
         var sampled = (SourceVideo.Resource)resource.Children.Single();
 
         Assert.Multiple(() =>
@@ -702,7 +702,7 @@ public class ElementResizeServiceTests
         // The last frame alone can miss a bad interval just before local time reaches zero.
         MediaTime sampleTime = (front.Range.End < video.Start ? front.Range.End : video.Start)
                               - MediaTime.FromSeconds(0.1);
-        using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(sampleTime));
+        using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(sampleTime) { Decoders = _decoders });
         var sampled = (SourceVideo.Resource)resource.Children.Single();
         Assert.Multiple(() =>
         {
@@ -759,7 +759,7 @@ public class ElementResizeServiceTests
         MediaTime sampleTime = controller.Start > MediaTime.Zero && controller.Start < front.Range.End
             ? controller.Start : front.Range.End;
         using var resource = (DrawableGroup.Resource)group.ToResource(
-            new CompositionContext(sampleTime - MediaTime.FromSeconds(0.1)));
+            new CompositionContext(sampleTime - MediaTime.FromSeconds(0.1)) { Decoders = _decoders });
         var controlled = (DrawableTimeController.Resource)resource.Children.Single();
         var sampled = (SourceVideo.Resource)controlled.Target!;
         Assert.Multiple(() =>
@@ -825,7 +825,7 @@ public class ElementResizeServiceTests
                          video.Start - MediaTime.FromSeconds(0.1)
                      }.Where(front.Range.Contains))
             {
-                using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time));
+                using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time) { Decoders = _decoders });
                 var sampled = (SourceVideo.Resource)resource.Children.Single();
                 Assert.That(sampled.RequestedPosition + sampled.OffsetPosition,
                     Is.GreaterThanOrEqualTo(MediaTime.Zero).And.LessThan(MediaTime.FromSeconds(5)));
@@ -1460,7 +1460,7 @@ public class ElementResizeServiceTests
         int after = _history.UndoCount;
         controller.IsEnabled.Value = true;
         using var resource = (DrawableTimeController.Resource)controller.ToResource(
-            new CompositionContext(front.Range.End - MediaTime.FromSeconds(0.1)));
+            new CompositionContext(front.Range.End - MediaTime.FromSeconds(0.1)) { Decoders = _decoders });
         var sampled = (SourceVideo.Resource)resource.Target!;
         Assert.Multiple(() =>
         {

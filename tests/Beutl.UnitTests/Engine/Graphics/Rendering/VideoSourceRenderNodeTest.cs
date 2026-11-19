@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using SkiaSharp;
 
@@ -10,6 +11,8 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class VideoSourceRenderNodeTest
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private VideoSource? _videoSource;
     private VideoSource.Resource? _resource;
 
@@ -26,7 +29,7 @@ public class VideoSourceRenderNodeTest
             Offset = { Value = offset },
             StrokeAlignment = { Value = alignment },
         };
-        using var penResource = pen.ToResource(CompositionContext.Default);
+        using var penResource = pen.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         using var fillBuilder = new SKPathBuilder();
         fillBuilder.AddRect(SKRect.Create(0, 0, 100, 100));
         using SKPath fillPath = fillBuilder.Detach();
@@ -40,11 +43,10 @@ public class VideoSourceRenderNodeTest
     [SetUp]
     public void SetUp()
     {
-        TestMediaHelper.RegisterTestDecoder();
         string path = TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 30);
         _videoSource = new VideoSource();
         _videoSource.ReadFrom(new Uri(path));
-        _resource = _videoSource.ToResource(CompositionContext.Default);
+        _resource = _videoSource.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
     }
 
     [TearDown]

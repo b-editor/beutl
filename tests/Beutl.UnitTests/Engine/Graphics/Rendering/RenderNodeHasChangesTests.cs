@@ -11,12 +11,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class RenderNodeHasChangesTests
 {
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
-
     public static IEnumerable<TestCaseData> NoOpUpdateCases()
     {
         yield return new TestCaseData((Func<NoOpUpdateCase>)EllipseCase).SetName("EllipseRenderNode");
@@ -68,7 +62,7 @@ public class RenderNodeHasChangesTests
         var geometry = new EllipseGeometry();
         geometry.Width.Value = 100;
         geometry.Height.Value = 100;
-        var resource = (Geometry.Resource)geometry.ToResource(CompositionContext.Default);
+        var resource = (Geometry.Resource)geometry.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         var fill = Brushes.Resource.White;
         var node = new GeometryRenderNode(resource, fill, null);
         return new NoOpUpdateCase(node, () => node.Update(resource, fill, null));
@@ -96,7 +90,7 @@ public class RenderNodeHasChangesTests
     {
         var imageSource = new ImageSource();
         imageSource.ReadFrom(TestMediaHelper.CreateTestImageUri(100, 100, Colors.White));
-        var resource = (ImageSource.Resource)imageSource.ToResource(CompositionContext.Default);
+        var resource = (ImageSource.Resource)imageSource.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         var fill = Brushes.Resource.White;
         var node = new ImageSourceRenderNode(resource, fill, null);
         return new NoOpUpdateCase(node, () => node.Update(resource, fill, null));
@@ -106,7 +100,7 @@ public class RenderNodeHasChangesTests
     {
         var videoSource = new VideoSource();
         videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30), 300)));
-        var resource = (VideoSource.Resource)videoSource.ToResource(CompositionContext.Default);
+        var resource = (VideoSource.Resource)videoSource.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         var fill = Brushes.Resource.White;
         var node = new VideoSourceRenderNode(resource, 0, fill, null);
         return new NoOpUpdateCase(node, () => node.Update(resource, 0, fill, null));
@@ -117,7 +111,7 @@ public class RenderNodeHasChangesTests
         var scene = new Scene3D();
         scene.RenderWidth.Value = 32;
         scene.RenderHeight.Value = 32;
-        var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
+        var resource = (Scene3D.Resource)scene.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         var node = new Scene3DRenderNode(resource);
         return new NoOpUpdateCase(node, () => node.Update(resource));
     }

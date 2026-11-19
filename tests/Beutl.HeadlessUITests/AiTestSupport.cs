@@ -167,7 +167,7 @@ internal static class AiTestSupport
         AiSourceVideoMode? sourceMode = null,
         IAiOperationAvailabilityService? availability = null,
         IAiPlanCoordinator? planCoordinator = null)
-        => new(TestShell.Notifications,
+        => new(TestShell.Notifications, TestShell.Decoders,
             clients.GetResource<IAiEntitlementService>(),
             availability ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
@@ -187,7 +187,7 @@ internal static class AiTestSupport
         IObservable<CaptionDraftScope?>? draftScopes = null,
         IAiOperationAvailabilityService? availabilityService = null,
         CaptionCatalog? captionCatalog = null)
-        => new(TestShell.Notifications, TestShell.FontManager,
+        => new(TestShell.Notifications, TestShell.FontManager, TestShell.Decoders,
             clients.GetResource<IAiEntitlementService>(),
             availabilityService ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),

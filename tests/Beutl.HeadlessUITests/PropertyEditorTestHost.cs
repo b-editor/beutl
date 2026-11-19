@@ -102,6 +102,8 @@ internal static class PropertyEditorTestHost
             if (index >= 0)
                 return services[index].Service;
             if (type == typeof(Beutl.Services.INotificationService)) return TestShell.Notifications;
+            if (type == typeof(Beutl.Media.Decoding.DecoderRegistry))
+                return TestShell.Decoders;
             if (type == typeof(Beutl.Media.FontManager))
                 return TestShell.FontManager;
             if (type == typeof(Beutl.Configuration.GlobalConfiguration))

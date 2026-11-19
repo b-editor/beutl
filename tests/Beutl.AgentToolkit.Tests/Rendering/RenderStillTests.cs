@@ -29,7 +29,6 @@ public sealed class RenderStillTests
     [TearDown]
     public void DisposeLibrary() => _library.Dispose();
 
-
     [TestCase(CpuSafeDrawable.Shape)]
     [TestCase(CpuSafeDrawable.Text)]
     [TestCase(CpuSafeDrawable.UnscaledBitmap)]

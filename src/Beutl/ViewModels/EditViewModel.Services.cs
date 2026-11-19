@@ -1,8 +1,10 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.VersionControl;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Models;
 using Beutl.NodeGraph.Generative;
@@ -27,6 +29,8 @@ public partial class EditViewModel
     internal IReadOnlyCollection<Type> ServiceTypes => _services.Types;
 
     private EditorServiceRegistry CreateServices() => new EditorServiceRegistry()
+        .Add<FileThumbnailService>(() => EditorService.AppServices.GetRequiredService<FileThumbnailService>())
+        .Add<DecoderRegistry>(() => EditorService.AppServices.GetRequiredService<DecoderRegistry>())
         .Add<Beutl.Media.FontManager>(() => EditorService.AppServices.GetRequiredService<Beutl.Media.FontManager>())
         .Add<INotificationService>(() => EditorService.AppServices.GetRequiredService<INotificationService>())
         .Add<GlobalConfiguration>(() => EditorService.AppServices.GetRequiredService<GlobalConfiguration>())
@@ -87,8 +91,8 @@ public partial class EditViewModel
         .Add<IGenerativeNodeExecutor>(() => _generativeNodeExecutor
             ??= MainViewModel.TryGetCurrent(out MainViewModel? main) ? main.CreateGenerativeNodeExecutor(Scene) : null)
         .AddOwned<ISceneTimeRangeService>(() => new SceneTimeRangeService(HistoryManager))
-        .AddOwned<IElementResizeService>(() => new ElementResizeService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
-        .AddOwned<IElementSlipService>(() => new ElementSlipService(HistoryManager))
+        .AddOwned<IElementResizeService>(() => new ElementResizeService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig, this.GetRequiredService<DecoderRegistry>()))
+        .AddOwned<IElementSlipService>(() => new ElementSlipService(HistoryManager, this.GetRequiredService<DecoderRegistry>()))
         .AddOwned<IElementDuplicateService>(() => new ElementDuplicateService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
         .AddOwned<IElementMoveService>(() => new ElementMoveService(
             HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig, (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!))
@@ -101,7 +105,7 @@ public partial class EditViewModel
                 (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
                 static () => ElementAccentColorGenerator.GenerateColor(typeof(Beutl.Graphics.SourceImage).FullName!),
                 _elementAdder), _autoSaveCancellation.Token))
-        .AddOwned<IElementStructureService>(() => new ElementStructureService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
+        .AddOwned<IElementStructureService>(() => new ElementStructureService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig, this.GetRequiredService<DecoderRegistry>()))
         .AddOwned<IElementAttributeService>(() => new ElementAttributeService(HistoryManager))
         .AddOwned<ITransitionEditorService>(() => new Beutl.Editor.Components.TransitionTab.TransitionEditorService(this))
         .AddOwned<IElementNudgeService>(() => _elementNudgeService = CreateNudgeService())

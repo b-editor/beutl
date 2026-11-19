@@ -4,6 +4,7 @@ using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +16,7 @@ public sealed partial class ObjectTemplateService : IDisposable
 
     private readonly string _directoryPath;
     private readonly FontManager _fonts;
+    private readonly DecoderRegistry? _decoders;
     private readonly EditorConfig? _editorConfig;
     private readonly ProxyStoreConfig? _proxyConfig;
 
@@ -26,14 +28,15 @@ public sealed partial class ObjectTemplateService : IDisposable
     private CancellationTokenSource? _debounceCts;
     private bool _disposed;
 
-    public ObjectTemplateService(FontManager fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
-        : this(fonts, BeutlEnvironment.GetTemplatesDirectoryPath(), editorConfig, proxyConfig)
+    public ObjectTemplateService(FontManager fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+        : this(fonts, BeutlEnvironment.GetTemplatesDirectoryPath(), editorConfig, proxyConfig, decoders)
     {
     }
 
-    public ObjectTemplateService(FontManager fonts, string directoryPath, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+    public ObjectTemplateService(FontManager fonts, string directoryPath, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
     {
         _fonts = fonts;
+        _decoders = decoders;
         _editorConfig = editorConfig;
         _proxyConfig = proxyConfig;
         _directoryPath = directoryPath;
@@ -89,7 +92,7 @@ public sealed partial class ObjectTemplateService : IDisposable
             _logger.LogError(ex, "Unable to serialize template {Name}.", name);
             return null;
         }
-        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(_fonts, instance, cancellationToken, _editorConfig, _proxyConfig);
+        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(_fonts, instance, cancellationToken, _editorConfig, _proxyConfig, _decoders);
 
         return await Task.Run(
             () =>

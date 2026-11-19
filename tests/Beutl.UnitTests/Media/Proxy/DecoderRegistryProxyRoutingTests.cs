@@ -9,34 +9,21 @@ namespace Beutl.UnitTests.Media.Proxy;
 [NonParallelizable]
 public class DecoderRegistryProxyRoutingTests
 {
-    private IProxyResolver? _oldResolver;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
+    private DecoderRegistry _decoders = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _oldResolver = DecoderRegistry.ProxyResolver;
-        DecoderRegistry.ProxyResolver = null;
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        DecoderRegistry.ProxyResolver = _oldResolver;
+        _decoders = TestMediaHelper.CreateRegistry();
     }
 
     [Test]
     public void OpenMediaFile_WhenPreferProxyAndReadyProxy_OpensProxy()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             scope.OriginalPath,
             new MediaOptions(MediaMode.Video) { PreferProxy = true });
 
@@ -57,9 +44,9 @@ public class DecoderRegistryProxyRoutingTests
             scope.Store, scope.OriginalPath, new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Half);
         ProxyTestScope.RegisterTestVideoProxy(
             scope.Store, scope.OriginalPath, new PixelSize(100, 100), new PixelSize(25, 25), ProxyPreset.Quarter);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             scope.OriginalPath,
             new MediaOptions(MediaMode.Video)
             {
@@ -81,9 +68,9 @@ public class DecoderRegistryProxyRoutingTests
         using var scope = ProxyTestScope.CreateWithoutProxy(new PixelSize(100, 100));
         RegisterUndecodableProxy(scope);
         var resolver = new ProxyResolver(scope.Store);
-        DecoderRegistry.ProxyResolver = resolver;
+        _decoders.ProxyResolver = resolver;
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             scope.OriginalPath,
             new MediaOptions(MediaMode.Video) { PreferProxy = true });
 
@@ -104,7 +91,7 @@ public class DecoderRegistryProxyRoutingTests
     {
         string original = CreateTestVideoFileWithBytes(100, 100);
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             original,
             new MediaOptions(MediaMode.Video) { PreferProxy = true });
 
@@ -120,9 +107,9 @@ public class DecoderRegistryProxyRoutingTests
     public void OpenMediaFile_WhenPreferProxyFalse_OpensOriginalEvenWhenProxyExists()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             scope.OriginalPath,
             new MediaOptions(MediaMode.Video) { PreferProxy = false });
 
@@ -140,10 +127,10 @@ public class DecoderRegistryProxyRoutingTests
     public void OpenMediaFile_WhenOriginalMissingAndPreferProxy_OpensProxy()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
         File.Delete(scope.OriginalPath);
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             scope.OriginalPath,
             new MediaOptions(MediaMode.Video) { PreferProxy = true });
 
@@ -166,10 +153,10 @@ public class DecoderRegistryProxyRoutingTests
     public void OpenMediaFile_WhenOriginalMissingAndPreferProxyFalse_ReturnsNull()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
         File.Delete(scope.OriginalPath);
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             scope.OriginalPath,
             new MediaOptions(MediaMode.Video) { PreferProxy = false });
 
@@ -182,18 +169,18 @@ public class DecoderRegistryProxyRoutingTests
     public void MediaReaderOpen_WhenOriginalMissing_ProxyPreferenceControlsFallback()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
         File.Delete(scope.OriginalPath);
 
         using MediaReader reader = MediaReader.Open(
             scope.OriginalPath,
-            new MediaOptions(MediaMode.Video) { PreferProxy = true });
+            new MediaOptions(MediaMode.Video) { PreferProxy = true }, _decoders);
 
         Assert.Multiple(() =>
         {
             Assert.That(reader.ProxyResolution, Is.Not.Null);
             Assert.That(
-                () => MediaReader.Open(scope.OriginalPath, new MediaOptions(MediaMode.Video) { PreferProxy = false }),
+                () => MediaReader.Open(scope.OriginalPath, new MediaOptions(MediaMode.Video) { PreferProxy = false }, _decoders),
                 Throws.InstanceOf<FileNotFoundException>());
         });
     }
@@ -202,9 +189,9 @@ public class DecoderRegistryProxyRoutingTests
     public void OpenMediaFile_WhenResolverThrows_FallsBackToOriginal()
     {
         string original = CreateTestVideoFileWithBytes(100, 100);
-        DecoderRegistry.ProxyResolver = new ThrowingProxyResolver(throwOnPin: false);
+        _decoders.ProxyResolver = new ThrowingProxyResolver(throwOnPin: false);
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             original,
             new MediaOptions(MediaMode.Video) { PreferProxy = true });
 
@@ -220,9 +207,9 @@ public class DecoderRegistryProxyRoutingTests
     public void OpenMediaFile_WhenPinThrows_FallsBackToOriginal()
     {
         string original = CreateTestVideoFileWithBytes(100, 100);
-        DecoderRegistry.ProxyResolver = new ThrowingProxyResolver(throwOnPin: true);
+        _decoders.ProxyResolver = new ThrowingProxyResolver(throwOnPin: true);
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             original,
             new MediaOptions(MediaMode.Video) { PreferProxy = true });
 
@@ -240,9 +227,9 @@ public class DecoderRegistryProxyRoutingTests
     public void OpenMediaFile_WhenPreferProxyButAudioRequest_DoesNotSubstituteProxy()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = _decoders.OpenMediaFile(
             scope.OriginalPath,
             new MediaOptions(MediaMode.Audio) { PreferProxy = true });
 
@@ -264,7 +251,7 @@ public class DecoderRegistryProxyRoutingTests
         try
         {
             Assert.That(
-                () => MediaReader.Open(unsupported, new MediaOptions(MediaMode.Video) { PreferProxy = false }),
+                () => MediaReader.Open(unsupported, new MediaOptions(MediaMode.Video) { PreferProxy = false }, _decoders),
                 Throws.InstanceOf<UnsupportedMediaException>());
         }
         finally

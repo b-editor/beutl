@@ -31,7 +31,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     public void IsAvailable_RemainsFalseDuringVerification()
     {
         FFmpegInstallNotifier.MarkInstalled();
-        var generator = new FFmpegProxyGenerator(new TransitionRecordingStore(ProxyTestScope.CreateRoot()), new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(new TransitionRecordingStore(ProxyTestScope.CreateRoot()), new Beutl.Services.NotificationService(), new Beutl.Media.Decoding.DecoderRegistry(new()));
 
         try
         {
@@ -242,7 +242,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), new Beutl.Media.Decoding.DecoderRegistry(new()));
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -282,7 +282,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), new Beutl.Media.Decoding.DecoderRegistry(new()));
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -325,7 +325,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), new Beutl.Media.Decoding.DecoderRegistry(new()));
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
@@ -350,7 +350,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), new Beutl.Media.Decoding.DecoderRegistry(new()));
         var resolver = new ProxyResolver(store);
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
@@ -410,7 +410,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         string root = ProxyTestScope.CreateRoot();
         // Register always throws, so FinalizeAsync fails after the move and rollback runs.
         var store = new CountingStore(root, failuresBeforeSuccess: 100);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), new Beutl.Media.Decoding.DecoderRegistry(new()));
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -454,7 +454,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), new Beutl.Media.Decoding.DecoderRegistry(new()));
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -542,7 +542,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
         // just the queued preset, or offline path resolution can still serve the other one.
         store.SeedReady(queued, ProxyPreset.Half);
         store.SeedReady(queued, ProxyPreset.Quarter);
-        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+        var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), new Beutl.Media.Decoding.DecoderRegistry(new()));
         var job = new ProxyJob(queued, ProxyPreset.Quarter);
 
         await Assert.ThrowsAsync<ProxyGenerationSkippedException>(async () => await generator.GenerateAsync(job));

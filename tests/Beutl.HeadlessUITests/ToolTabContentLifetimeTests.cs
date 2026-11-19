@@ -106,7 +106,7 @@ public class ToolTabContentLifetimeTests
             IsSelected.Dispose();
         }
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public void ReadFromJson(JsonObject json)
         {
@@ -158,7 +158,7 @@ public class ToolTabContentLifetimeTests
             IsSelected.Dispose();
         }
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public void ReadFromJson(JsonObject json)
         {
@@ -178,7 +178,7 @@ public class ToolTabContentLifetimeTests
         public T? FindToolTab<T>() where T : IToolContext => default;
         public bool OpenToolTab(IToolContext item) => false;
         public void CloseToolTab(IToolContext item) { }
-        public object? GetService(Type type) => type == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : type == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : type == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type type) => type == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : type == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : type == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : type == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
     }
     private sealed class TestCoreObject : CoreObject;
 }

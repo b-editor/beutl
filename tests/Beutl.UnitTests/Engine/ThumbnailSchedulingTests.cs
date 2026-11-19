@@ -28,7 +28,7 @@ public class ThumbnailSchedulingTests
         try
         {
             start = consumer.InvokeAsync<Task<int>>(() => ConsumeAsync(
-                CreateProvider(decoder.Path, video), video, cancellation.Token));
+                CreateProvider(decoder.Path, video), video, cancellation.Token, decoder.Decoders));
             await decoder.OpenStarted.Task.WaitAsync(s_timeout);
 
             // The decoder is still blocked. The consumer must already have returned from MoveNext
@@ -71,11 +71,11 @@ public class ThumbnailSchedulingTests
         using var decoder = new DecoderScope(blockOpen: false);
         using var cancellation = new CancellationTokenSource();
         await using var first = CreateProvider(decoder.Path, video: false)
-            .GetWaveformChunksAsync(2, 4096, null).GetAsyncEnumerator();
+            .GetWaveformChunksAsync(2, 4096, null, decoders: decoder.Decoders).GetAsyncEnumerator();
         await using var second = CreateProvider(decoder.Path, video: false)
-            .GetWaveformChunksAsync(2, 4096, null).GetAsyncEnumerator();
+            .GetWaveformChunksAsync(2, 4096, null, decoders: decoder.Decoders).GetAsyncEnumerator();
         await using var waiting = CreateProvider(decoder.Path, video: false)
-            .GetWaveformChunksAsync(2, 4096, null, cancellation.Token).GetAsyncEnumerator();
+            .GetWaveformChunksAsync(2, 4096, null, cancellation.Token, decoders: decoder.Decoders).GetAsyncEnumerator();
 
         Assert.That(await first.MoveNextAsync().AsTask().WaitAsync(s_timeout), Is.True);
         Assert.That(await second.MoveNextAsync().AsTask().WaitAsync(s_timeout), Is.True);
@@ -90,7 +90,7 @@ public class ThumbnailSchedulingTests
         await first.DisposeAsync();
         Assert.That(decoder.Readers.Count(r => !r.IsDisposed), Is.EqualTo(1), "the second strip still reads it");
         await using (var resumed = CreateProvider(decoder.Path, video: false)
-                         .GetWaveformChunksAsync(1, 4096, null).GetAsyncEnumerator())
+                         .GetWaveformChunksAsync(1, 4096, null, decoders: decoder.Decoders).GetAsyncEnumerator())
         {
             Assert.That(await resumed.MoveNextAsync().AsTask().WaitAsync(s_timeout), Is.True);
         }
@@ -115,14 +115,14 @@ public class ThumbnailSchedulingTests
         return new SourceSound { Source = { Value = audioSource }, TimeRange = { Value = range } };
     }
 
-    private static async Task<int> ConsumeAsync(IThumbnailsProvider provider, bool video, CancellationToken token)
+    private static async Task<int> ConsumeAsync(IThumbnailsProvider provider, bool video, CancellationToken token, DecoderRegistry decoders)
     {
         int count = 0;
         if (video)
         {
             // Exercise decoder initialization and cleanup without requiring GPU rasterization.
             await foreach (var (_, _, thumbnail) in provider.GetThumbnailStripAsync(TestFonts.Manager,
-                               100, 25, null, token, startIndex: 1, endIndex: 0))
+                               100, 25, null, token, startIndex: 1, endIndex: 0, decoders: decoders))
             {
                 thumbnail.Dispose();
                 count++;
@@ -130,7 +130,7 @@ public class ThumbnailSchedulingTests
         }
         else
         {
-            await foreach (var _ in provider.GetWaveformChunksAsync(1, 4096, null, token))
+            await foreach (var _ in provider.GetWaveformChunksAsync(1, 4096, null, token, decoders: decoders))
                 count++;
         }
 
@@ -139,10 +139,12 @@ public class ThumbnailSchedulingTests
 
     private sealed class DecoderScope : IDecoderInfo, IDisposable
     {
+        public DecoderRegistry Decoders { get; } = new(new());
+
         public DecoderScope(bool blockOpen)
         {
             ReleaseOpen = new ManualResetEventSlim(!blockOpen);
-            DecoderRegistry.Register(this);
+            Decoders.Register(this);
         }
 
         public string Path { get; } = System.IO.Path.GetTempFileName();
@@ -171,7 +173,6 @@ public class ThumbnailSchedulingTests
 
         public void Dispose()
         {
-            DecoderRegistry.Unregister(this);
             ReleaseOpen.Dispose();
             File.Delete(Path);
         }

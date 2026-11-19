@@ -29,12 +29,12 @@ internal sealed class SharedMediaReaders(Func<long> clock)
 
     public static SharedMediaReaders Shared { get; } = new(() => Environment.TickCount64);
 
-    internal readonly record struct Key(string Path, MediaMode Mode, bool PreferProxy, ProxyPreset Preset, long ProxyVersion)
+    internal readonly record struct Key(string Path, MediaMode Mode, bool PreferProxy, ProxyPreset Preset, long ProxyVersion, DecoderRegistry? Decoders = null)
     {
         // Names the file the way Invalidate(Uri) finds it.
-        public static Key ForFile(string path, MediaMode mode, bool preferProxy = false, ProxyPreset preset = default,
+        public static Key ForFile(DecoderRegistry decoders, string path, MediaMode mode, bool preferProxy = false, ProxyPreset preset = default,
             long proxyVersion = 0)
-            => new(KeyPath(path), mode, preferProxy, preset, proxyVersion);
+            => new(KeyPath(path), mode, preferProxy, preset, proxyVersion, decoders);
     }
 
     /// <summary>

@@ -28,7 +28,7 @@ public sealed class PackageOperationLifetimeTests
         await TestReset.ResetShellAsync();
         using var http = new HttpClient();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig());
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Services.INotificationService>(() => TestShell.Notifications).Add<Beutl.Media.FontManager>(() => TestShell.FontManager)), new ProjectService(new Beutl.Configuration.ViewConfig(), TestShell.FontManager, TestShell.Notifications));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), TestShell.CreateEditorServices()), new ProjectService(new Beutl.Configuration.ViewConfig(), TestShell.FontManager, TestShell.Notifications));
         string name = "QueuedDeployment." + Guid.NewGuid().ToString("N");
         var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
         string directory = TestPackages.CreateExtracted(identity, data: true).InstalledPath!;
@@ -63,7 +63,7 @@ public sealed class PackageOperationLifetimeTests
         using var downloadHandler = new BlockedDownload();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig(),
             () => new HttpClient(downloadHandler, disposeHandler: false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Services.INotificationService>(() => TestShell.Notifications).Add<Beutl.Media.FontManager>(() => TestShell.FontManager)), new ProjectService(new Beutl.Configuration.ViewConfig(), TestShell.FontManager, TestShell.Notifications));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), TestShell.CreateEditorServices()), new ProjectService(new Beutl.Configuration.ViewConfig(), TestShell.FontManager, TestShell.Notifications));
         Release release = TestStore.CreateRelease(app, "1.0.0", fileId: "archive", name: "LifetimeTest." + Guid.NewGuid().ToString("N"));
         Task install = operation.DownloadAndLoadPackage(release,
             new PackageIdentity(release.Package.Name, NuGetVersion.Parse("1.0.0")), CancellationToken.None);
@@ -90,7 +90,7 @@ public sealed class PackageOperationLifetimeTests
         using var http = new HttpClient(assetHandler);
         using var download = new MemoryDownload();
         await using var app = new BeutlApiApplication(http, new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Configuration.ViewConfig(), new Beutl.Configuration.UpdateConfig(), () => new HttpClient(download, false));
-        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Services.INotificationService>(() => TestShell.Notifications).Add<Beutl.Media.FontManager>(() => TestShell.FontManager)), new ProjectService(new Beutl.Configuration.ViewConfig(), TestShell.FontManager, TestShell.Notifications));
+        var operation = new PackageOperationHandler(app, new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), TestShell.CreateEditorServices()), new ProjectService(new Beutl.Configuration.ViewConfig(), TestShell.FontManager, TestShell.Notifications));
         Release release = TestStore.CreateRelease(app, "1.0.0", fileId: "archive", name: "HashPolicy." + Guid.NewGuid().ToString("N"));
         var identity = new PackageIdentity(release.Package.Name, NuGetVersion.Parse("1.0.0"));
         InvalidDataException? error = await Assert.ThrowsAsync<InvalidDataException>(() => remote

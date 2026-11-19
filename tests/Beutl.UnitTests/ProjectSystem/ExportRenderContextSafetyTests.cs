@@ -13,32 +13,19 @@ namespace Beutl.UnitTests.ProjectSystem;
 [NonParallelizable]
 public sealed class ExportRenderContextSafetyTests
 {
-    private IProxyResolver? _oldResolver;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
+    private DecoderRegistry _decoders = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _oldResolver = DecoderRegistry.ProxyResolver;
-        DecoderRegistry.ProxyResolver = null;
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        DecoderRegistry.ProxyResolver = _oldResolver;
+        _decoders = TestMediaHelper.CreateRegistry();
     }
 
     [Test]
     public void ExportCompositor_DoesNotPreferProxyEvenWhenScenePrefersProxy()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Quarter);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
         using var compositor = CreateExportCompositor(scope, scope.OriginalPath);
 
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
@@ -56,7 +43,7 @@ public sealed class ExportRenderContextSafetyTests
     public void ExportCompositor_WithMissingOriginalFile_FailsRatherThanUsingProxy()
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 80), new PixelSize(50, 40), ProxyPreset.Quarter);
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        _decoders.ProxyResolver = new ProxyResolver(scope.Store);
 
         // A Ready proxy is registered for an original that does not exist.
         // If export switched to the proxy, ProxyResolution would not be null.
@@ -95,7 +82,7 @@ public sealed class ExportRenderContextSafetyTests
     }
 
     // An export compositor over a scene whose element plays mediaPath through a SourceVideo.
-    private static SceneCompositor CreateExportCompositor(ProxyTestScope scope, string mediaPath)
+    private SceneCompositor CreateExportCompositor(ProxyTestScope scope, string mediaPath)
     {
         var media = new VideoSource();
         media.ReadFrom(new Uri(mediaPath));
@@ -114,7 +101,7 @@ public sealed class ExportRenderContextSafetyTests
             Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
         };
         scene.Children.Add(element);
-        return new SceneCompositor(scene, TestFonts.Manager)
+        return new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders)
         {
             DisableResourceShare = true,
             ForceOriginalSource = true,

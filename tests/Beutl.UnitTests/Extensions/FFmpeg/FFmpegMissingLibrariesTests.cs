@@ -11,6 +11,7 @@ using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Extensions.FFmpeg.PropertyEditors;
 using Beutl.FFmpegIpc;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.Services;
 using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging;
@@ -145,6 +146,7 @@ public sealed class FFmpegMissingLibrariesTests
         var extension = new FFmpegDecodingExtension();
         FFmpegLibraryState.MarkMissing();
         using var services = new EditorServiceRegistry()
+            .AddOwned(() => new DecoderRegistry(new()))
             .Add<INotificationService>(() => new NotificationService(notifications.Object));
         var context = new ExtensionContext(services);
         try

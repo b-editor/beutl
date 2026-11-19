@@ -1,5 +1,6 @@
 ﻿using Beutl.Configuration;
 using Beutl.Language;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -7,11 +8,15 @@ namespace Beutl.Editor.Services;
 public sealed partial class ElementResizeService : IElementResizeService
 {
     private readonly HistoryManager _historyManager;
+    private readonly DecoderRegistry? _decoders;
     private readonly EditorConfig _configuration;
 
-    public ElementResizeService(HistoryManager historyManager, EditorConfig configuration)
+    DecoderRegistry? IElementResizeService.Decoders => _decoders;
+
+    public ElementResizeService(HistoryManager historyManager, EditorConfig configuration, DecoderRegistry? decoders = null)
     {
         _configuration = configuration;
+        _decoders = decoders;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
@@ -72,7 +77,7 @@ public sealed partial class ElementResizeService : IElementResizeService
                 && _configuration.ClampResizeToOriginalLength.Value)
             {
                 var peers = peerGroups.FirstOrDefault(group => group.Elements.Contains(req.Element))?.Elements;
-                var constraints = SlippableMedia.CreateResizeConstraints(req.Element, peers);
+                var constraints = SlippableMedia.CreateResizeConstraints(req.Element, peers, decoders: _decoders);
                 mediaConstraints[req.Element] = constraints;
                 return ClampMedia(req, constraints, minLength);
             }

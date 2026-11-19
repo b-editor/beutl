@@ -10,11 +10,7 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [TestFixture]
 public class MediaSourceResourceShareTest
 {
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
+    private DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
 
     // How to make a source of one media kind that has read a file, the object its resources share (a MediaReader,
     // or a Bitmap for images), and a second file it can read.
@@ -60,15 +56,15 @@ public class MediaSourceResourceShareTest
         }
     }
 
-    private static CompositionContext EncodeContext() => new(MediaTime.Zero) { DisableResourceShare = true };
+    private CompositionContext EncodeContext() => new(MediaTime.Zero) { Decoders = _decoders, DisableResourceShare = true };
 
     [TestCaseSource(nameof(MediaKinds))]
     public void SharedByDefault_ReusesTheSharedObject(SharedMedia media)
     {
         MediaSource source = media.CreateSource();
 
-        using EngineObject.Resource a = source.ToResource(CompositionContext.Default);
-        using EngineObject.Resource b = source.ToResource(CompositionContext.Default);
+        using EngineObject.Resource a = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
+        using EngineObject.Resource b = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         Assert.That(media.Shared(a), Is.Not.Null);
         Assert.That(media.Shared(b), Is.Not.Null);
@@ -81,7 +77,7 @@ public class MediaSourceResourceShareTest
     {
         MediaSource source = media.CreateSource();
 
-        using EngineObject.Resource preview = source.ToResource(CompositionContext.Default);
+        using EngineObject.Resource preview = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         using EngineObject.Resource encode = source.ToResource(EncodeContext());
 
         Assert.That(media.Shared(preview), Is.Not.Null);
@@ -98,7 +94,7 @@ public class MediaSourceResourceShareTest
         // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
         // エンコード専用のものを掴まない
         using EngineObject.Resource encode = source.ToResource(EncodeContext());
-        using EngineObject.Resource preview = source.ToResource(CompositionContext.Default);
+        using EngineObject.Resource preview = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         Assert.That(media.Shared(preview), Is.Not.SameAs(media.Shared(encode)),
             "エンコード専用のものがプレビュー側に漏れてはならない");
@@ -112,11 +108,11 @@ public class MediaSourceResourceShareTest
         MediaSource source = media.CreateSource();
         Uri newUri = media.CreateOtherFile();
 
-        using EngineObject.Resource oldResource = source.ToResource(CompositionContext.Default);
+        using EngineObject.Resource oldResource = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         Assert.That(media.Shared(oldResource), Is.Not.Null);
 
         source.ReadFrom(newUri);
-        using EngineObject.Resource newResource = source.ToResource(CompositionContext.Default);
+        using EngineObject.Resource newResource = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         Assert.That(media.Shared(newResource), Is.Not.Null);
         Assert.That(media.Shared(newResource), Is.Not.SameAs(media.Shared(oldResource)),
@@ -138,7 +134,7 @@ public class MediaSourceResourceShareTest
         var soundSource = new SoundSource();
         soundSource.ReadFrom(new Uri(videoPath));
 
-        using var resource = soundSource.ToResource(CompositionContext.Default);
+        using var resource = soundSource.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         Assert.That(resource.MediaReader, Is.Null,
             "音声トラックのないメディアは MediaReader を保持してはならない (#2183)");
@@ -154,8 +150,8 @@ public class MediaSourceResourceShareTest
         var soundSource = new SoundSource();
         soundSource.ReadFrom(new Uri(videoPath));
 
-        using var a = soundSource.ToResource(CompositionContext.Default);
-        using var b = soundSource.ToResource(CompositionContext.Default);
+        using var a = soundSource.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
+        using var b = soundSource.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         // The unloaded result must be stable: opening the same video-only source again must not throw
         // or resurrect a stale counter.

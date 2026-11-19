@@ -11,7 +11,7 @@ namespace Beutl.FFmpegIpc.Tests;
 public sealed class MediaFoundationFallbackIntegrationTests
 {
     private string _workDir = string.Empty;
-    private IDecoderInfo[] _previousDecoders = [];
+    private DecoderRegistry _decoders = null!;
     private TrackingDecoder _mf = null!;
     private TrackingDecoder _ffmpeg = null!;
 
@@ -26,28 +26,16 @@ public sealed class MediaFoundationFallbackIntegrationTests
     {
         _workDir = Path.Combine(Path.GetTempPath(), "beutl-mf-fallback-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_workDir);
-        _previousDecoders = DecoderRegistry.EnumerateDecoder().ToArray();
-        foreach (IDecoderInfo decoder in _previousDecoders)
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
-
+        _decoders = new DecoderRegistry(new());
         _mf = new TrackingDecoder(new MFDecoderInfo(new MFDecodingExtension()));
         _ffmpeg = new TrackingDecoder(new FFmpegDecoderInfo(new FFmpegDecodingSettings()));
-        DecoderRegistry.Register(_mf);
-        DecoderRegistry.Register(_ffmpeg);
+        _decoders.Register(_mf);
+        _decoders.Register(_ffmpeg);
     }
 
     [TearDown]
     public async Task TearDown()
     {
-        DecoderRegistry.Unregister(_mf);
-        DecoderRegistry.Unregister(_ffmpeg);
-        foreach (IDecoderInfo decoder in _previousDecoders)
-        {
-            DecoderRegistry.Register(decoder);
-        }
-
         // FFmpegReaderProxy closes the worker's reader asynchronously; wait for its file handle.
         for (int attempt = 0; ; attempt++)
         {
@@ -77,7 +65,7 @@ public sealed class MediaFoundationFallbackIntegrationTests
         string file = Path.Combine(_workDir, "video" + extension);
         File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "mf-unsupported.flv"), file);
 
-        using MediaReader reader = MediaReader.Open(file, new MediaOptions(MediaMode.Video));
+        using MediaReader reader = MediaReader.Open(file, new MediaOptions(MediaMode.Video), _decoders);
 
         Assert.Multiple(() =>
         {
@@ -110,7 +98,7 @@ public sealed class MediaFoundationFallbackIntegrationTests
         MediaReader? unexpectedReader = null;
         try
         {
-            Assert.That(() => unexpectedReader = MediaReader.Open(file, new MediaOptions(MediaMode.Video)),
+            Assert.That(() => unexpectedReader = MediaReader.Open(file, new MediaOptions(MediaMode.Video), _decoders),
                 Throws.TypeOf<UnsupportedMediaException>());
         }
         finally

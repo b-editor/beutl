@@ -23,10 +23,10 @@ public sealed class BrowserDownloadExtensionTests
     private readonly AudioDecoder _decoder = new();
 
     [SetUp]
-    public void RegisterAudioDecoder() => DecoderRegistry.Register(_decoder);
+    public void RegisterAudioDecoder() => TestShell.Decoders.Register(_decoder);
 
     [TearDown]
-    public void UnregisterAudioDecoder() => DecoderRegistry.Unregister(_decoder);
+    public void UnregisterAudioDecoder() => TestShell.Decoders.Unregister(_decoder);
 
     [AvaloniaTest]
     [TestCase(true)]

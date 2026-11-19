@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -11,6 +12,7 @@ internal static partial class SlippableMedia
     private sealed class TargetCollector
     {
         private readonly Element _element;
+        private readonly DecoderRegistry? _decoders;
         private readonly Scene? _scene;
         private readonly IReadOnlySet<Element>? _timingPeers;
         private readonly bool _ignoreLoops;
@@ -32,9 +34,10 @@ internal static partial class SlippableMedia
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles,
             IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<ITimeMappedSource, MediaTime?>? sourceDurations = null,
-            bool forResize = false, SplitBatch? batch = null)
+            bool forResize = false, SplitBatch? batch = null, DecoderRegistry? decoders = null)
         {
             _element = element;
+            _decoders = decoders;
             _scene = element.HierarchicalParent as Scene ?? batch?.Scene;
             _timingPeers = timingPeers;
             _ignoreLoops = ignoreLoops;
@@ -78,7 +81,7 @@ internal static partial class SlippableMedia
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
                 var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, enabled, _sourceDurations,
-                    batch: _batch);
+                    batch: _batch, decoders: _decoders);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -104,7 +107,7 @@ internal static partial class SlippableMedia
             // All re-enabling states use the same pre-edit media. Keep only its
             // duration in this operation's cache so each reader is opened once
             // and its temporary resource is still disposed immediately.
-            duration = source.GetSourceDuration();
+            duration = source.GetSourceDuration(_decoders);
             _sourceDurations.Add(source, duration);
             return duration;
         }

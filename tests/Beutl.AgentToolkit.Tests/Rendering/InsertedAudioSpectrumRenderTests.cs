@@ -23,29 +23,22 @@ public sealed class InsertedAudioSpectrumRenderTests
         string directory = TestWorkspace.CreateDirectory();
         string wav = Path.Combine(directory, "noise.wav");
         WriteNoise(wav, sampleRate: 44100, seconds: 1);
-        var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            var scene = new Scene(640, 360, "Scene") { Duration = { Value = MediaTime.FromSeconds(1) } };
-            using var session = new AgentToolkitTestSession(scene);
-            AgentSessionManager manager = session.CreateManager();
+        var decoders = new DecoderRegistry(new());
+        decoders.Register(new WaveDecoderInfo());
+        var scene = new Scene(640, 360, "Scene") { Duration = { Value = MediaTime.FromSeconds(1) } };
+        using var session = new AgentToolkitTestSession(scene);
+        AgentSessionManager manager = session.CreateManager();
 
-            ToolResult<ApplyEditResponse> apply = new EditTools(manager, TestFonts.Manager).ApplyEdit(
-                patch: InsertSpectrumOf(wav),
-                schemaVersion: SchemaVersion.Current);
-            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        ToolResult<ApplyEditResponse> apply = new EditTools(manager, TestFonts.Manager).ApplyEdit(
+            patch: InsertSpectrumOf(wav),
+            schemaVersion: SchemaVersion.Current);
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
 
-            ToolResult<RenderStillResponse> still = ToolResultReader.Read<RenderStillResponse>(
-                await TestRenderTools.Create(manager).RenderStill(Path.Combine(directory, "still.png"), timeSeconds: 0.5));
+        ToolResult<RenderStillResponse> still = ToolResultReader.Read<RenderStillResponse>(
+            await TestRenderTools.Create(manager, decoders: decoders).RenderStill(Path.Combine(directory, "still.png"), timeSeconds: 0.5));
 
-            Assert.That(still.IsSuccess, Is.True, still.Error?.Message);
-            Assert.That(still.Value!.VisibilityAnalysis!.VisiblePixels, Is.GreaterThan(0));
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
+        Assert.That(still.IsSuccess, Is.True, still.Error?.Message);
+        Assert.That(still.Value!.VisibilityAnalysis!.VisiblePixels, Is.GreaterThan(0));
     }
 
     // Only the type, a name and the sound it shows, as an agent writes it.

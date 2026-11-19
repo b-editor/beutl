@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -10,15 +11,11 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [TestFixture]
 public class SourceVideoSpeedTest
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private VideoSource? _videoSource;
     private SourceVideo? _sourceVideo;
     private SourceVideo.Resource? _sourceVideoResource;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
 
     [SetUp]
     public void SetUp()
@@ -143,7 +140,7 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 200f }, KeyTime = { Value = MediaTime.FromSeconds(10) } });
         _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         // 連続した時間での更新: ∫₀ᵗ(1 + τ/10)dτ = t + t²/20
         for (int t = 0; t <= 5; t++)
@@ -262,14 +259,14 @@ public class SourceVideoSpeedTest
     // リソースを作り、time の時点で更新する
     private SourceVideo.Resource EvaluateAt(MediaTime time)
     {
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo!.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo!.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         return ReconcileAt(time);
     }
 
     private SourceVideo.Resource ReconcileAt(MediaTime time)
     {
         var versionBumped = false;
-        _sourceVideoResource!.Reconcile(_sourceVideo!, new CompositionContext(time), ref versionBumped);
+        _sourceVideoResource!.Reconcile(_sourceVideo!, new CompositionContext(time) { Decoders = _decoders }, ref versionBumped);
         return _sourceVideoResource;
     }
 }

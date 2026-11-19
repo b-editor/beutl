@@ -727,7 +727,7 @@ public sealed class TimelineVirtualizationTests
 
         public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(int chunkCount, int samplesPerChunk,
             IThumbnailCacheService? cacheService,
-            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default, Beutl.Media.Decoding.DecoderRegistry? decoders = null)
         {
             await BeginRequest(cancellationToken);
             for (int i = 0; i < chunkCount; i++)
@@ -738,7 +738,7 @@ public sealed class TimelineVirtualizationTests
             Beutl.Media.FontManager fonts,
             int maxWidth, int maxHeight, IThumbnailCacheService? cacheService = null,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default,
-            int startIndex = 0, int endIndex = -1)
+            int startIndex = 0, int endIndex = -1, Beutl.Media.Decoding.DecoderRegistry? decoders = null)
         {
             await BeginRequest(cancellationToken);
             var bitmap = new Beutl.Media.Bitmap(4, 4);
@@ -773,6 +773,7 @@ public sealed class TimelineVirtualizationTests
             var context = TestShell.CreateEditorContextMock();
             context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+            context.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
             context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
             context.Setup(x => x.GetService(typeof(ITimelineOptionsProvider))).Returns(_options);
             context.Setup(x => x.GetService(typeof(IEditorClock))).Returns(_clock);
@@ -780,6 +781,7 @@ public sealed class TimelineVirtualizationTests
             context.Setup(x => x.GetService(typeof(IBufferStatus))).Returns(buffer.Object);
             context.Setup(x => x.GetService(typeof(Beutl.Services.LibraryService))).Returns(TestShell.Library);
             context.Setup(x => x.GetService(typeof(Beutl.Editor.Services.ObjectTemplateService))).Returns(TestShell.Templates);
+            context.Setup(x => x.GetService(typeof(Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService))).Returns(TestShell.Thumbnails);
             Model = new TimelineTabViewModel(context.Object);
             View = new TimelineTabView { DataContext = Model };
             Window = new Window { Content = View, Width = 960, Height = 420 };

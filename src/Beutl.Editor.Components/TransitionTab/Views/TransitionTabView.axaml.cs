@@ -5,8 +5,10 @@ using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TransitionTab.ViewModels;
 using Beutl.Graphics.Transitions;
+using Beutl.Media.Decoding;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.TransitionTab.Views;
 
@@ -31,7 +33,7 @@ public partial class TransitionTabView : UserControl
                 var selectVm = new SelectLibraryItemDialogViewModel(viewModel.GetService<Beutl.Media.FontManager>() ?? Beutl.Controls.ControlFonts.GetOrCreate(this), viewModel.GetRequiredService<LibraryService>(),
                     KnownLibraryItemFormats.ClipTransition,
                     typeof(ClipTransition),
-                    LibraryThumbnailCapture.ForEdge(viewModel.ShownElement, viewModel.ShownEdge, viewModel));
+                    LibraryThumbnailCapture.ForEdge(viewModel.ShownElement, viewModel.ShownEdge, viewModel), decoders: ExtensionGuard.FindService<DecoderRegistry>(viewModel) ?? Beutl.Controls.ControlDecoders.GetDecoders(this));
                 await selectVm.SelectTypeAsync(viewModel.Transition.Value?.GetType());
                 Type? type = await LibraryItemPickerHelper.ShowAsync(
                     typeEditor,

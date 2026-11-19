@@ -16,6 +16,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -42,6 +43,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private readonly IAiModelCatalogService _modelCatalog;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiJobResultEditorContext? _editor;
+    private readonly DecoderRegistry _decoders;
     private readonly ICaptionCodecProvider _captionCodecs;
     private readonly ICaptionTemplateProvider _captionTemplates;
     private readonly ICoreReadOnlyList<CaptionTemplateDescriptor> _registeredCaptionTemplates;
@@ -57,6 +59,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
     internal AiSubtitleDialogViewModel(INotificationService notifications,
         Beutl.Media.FontManager fonts,
+        DecoderRegistry decoders,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
         IAiModelCatalogService modelCatalog,
@@ -79,6 +82,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         _translation = translation ?? throw new ArgumentNullException(nameof(translation));
         ArgumentNullException.ThrowIfNull(captionCatalog);
         _editor = editor;
+        _decoders = decoders;
         TemplatePreviewRenderer = (elements, frameSize, token) => RenderTemplatePreviewAsync(fonts, elements, frameSize, token, editorConfig, proxyConfig);
         _captionDraftStore = captionDraftStore
             ?? throw new ArgumentNullException(nameof(captionDraftStore));
@@ -390,7 +394,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     }
 
     // The scene mix first, then every element that plays a sound file.
-    private static List<AudioSourceItem> CollectAudioSources(Scene scene)
+    private List<AudioSourceItem> CollectAudioSources(Scene scene)
     {
         var items = new List<AudioSourceItem>();
         items.Add(AudioSourceItem.CreateSceneMix(
@@ -408,7 +412,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                 {
                     // The original audio duration bounds what a run can send; the element can run
                     // past the end of the audio.
-                    MediaTime duration = sound.TryGetOriginalDuration(out MediaTime original)
+                    MediaTime duration = sound.TryGetOriginalDuration(out MediaTime original, _decoders)
                         ? original
                         : element.Length.Value;
                     items.Add(new AudioSourceItem(

@@ -6,6 +6,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using ModelContextProtocol.Server;
 
@@ -40,7 +41,7 @@ public sealed record ObjectTransformMatrix(
     double M33);
 
 [McpServerToolType]
-public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGenerator schemaGenerator, FontManager fonts) : ToolBase
+public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGenerator schemaGenerator, FontManager fonts, DecoderRegistry? decoders = null) : ToolBase
 {
     private const string RawHttpNote = "Raw HTTP MCP responses are Server-Sent Events. Read the JSON from the data: line, then decode result.content[0].text as the tool JSON payload. When returnImageContent=true, subsequent content blocks may include image/png data for visual review. notifications/initialized may return no body.";
 

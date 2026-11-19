@@ -10,6 +10,7 @@ using Beutl.Graphics.Transitions;
 using Beutl.JsonConverters;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
@@ -194,11 +195,11 @@ public partial class Element : Hierarchical, INotifyEdited
         return false;
     }
 
-    public bool TryGetOriginalDuration(out MediaTime timeSpan)
+    public bool TryGetOriginalDuration(out MediaTime timeSpan, DecoderRegistry? decoders = null)
     {
         foreach (EngineObject item in Objects)
         {
-            if (item is IOriginalDurationProvider provider && provider.TryGetOriginalDuration(out timeSpan))
+            if (item is IOriginalDurationProvider provider && provider.TryGetOriginalDuration(out timeSpan, decoders))
                 return true;
         }
 
