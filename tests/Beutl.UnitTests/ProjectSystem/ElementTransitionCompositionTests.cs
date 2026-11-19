@@ -377,7 +377,7 @@ public class ElementTransitionCompositionTests
         string[] incomingShot = AddShot(harness, "B", Seconds(2));
         outgoing.ExitTransition.Value = Transition(0.5);
         incoming.EnterTransition.Value = Transition(0.5);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders);
 
         ClipTransitionPresenter.Resource before = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
         string?[] fromBefore = Grouped(before.From);
@@ -409,7 +409,7 @@ public class ElementTransitionCompositionTests
         harness.AddElement(Seconds(2), Seconds(2), zIndex: 1).Objects.Add(incomingVideo);
         outgoing.ExitTransition.Value = Transition(0.5);
         incoming.EnterTransition.Value = Transition(0.5);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
 
         ClipTransitionPresenter.Resource early = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
         double? outgoingEarly = Position(early.From, outgoingVideo);
@@ -445,7 +445,7 @@ public class ElementTransitionCompositionTests
         incoming.EnterTransition.Value = Transition(0.5);
         innerOutgoing.ExitTransition.Value = Transition(0.5);
         innerIncoming.EnterTransition.Value = Transition(0.5);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders);
 
         ClipTransitionPresenter.Resource outer = SinglePresenter(compositor.EvaluateGraphics(Seconds(time)));
         Drawable.Resource[] from = [.. GroupChildren(outer.From)];
@@ -481,7 +481,7 @@ public class ElementTransitionCompositionTests
         harness.AddElement(MediaTime.Zero, Seconds(2), zIndex: 2).Objects.Add(video);
         outgoing.ExitTransition.Value = Transition(0.5);
         incoming.EnterTransition.Value = Transition(0.5);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
 
         ClipTransitionPresenter.Resource presenter = SinglePresenter(compositor.EvaluateGraphics(Seconds(2.25)));
 
@@ -503,7 +503,7 @@ public class ElementTransitionCompositionTests
         outgoing.ExitTransition.Value = Transition(0.5);
         incoming.EnterTransition.Value = Transition(0.5);
         innerOutgoing.ExitTransition.Value = Transition(0.5);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders);
 
         ClipTransitionPresenter.Resource outer = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
 
@@ -527,7 +527,7 @@ public class ElementTransitionCompositionTests
         harness.AddElement(Seconds(2), Seconds(2), 2).Objects.Add(new EllipseShape { Name = { Value = "B" } });
         outgoing.ExitTransition.Value = Transition(0.5);
         incoming.EnterTransition.Value = Transition(0.5);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders);
 
         ClipTransitionPresenter.Resource outer = SinglePresenter(compositor.EvaluateGraphics(Seconds(time)));
 
@@ -561,7 +561,7 @@ public class ElementTransitionCompositionTests
 
         outgoing.ExitTransition.Value = Transition(0.5);
         incoming.EnterTransition.Value = Transition(0.5);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders);
 
         ClipTransitionPresenter.Resource outer = SinglePresenter(compositor.EvaluateGraphics(Seconds(time)));
 
