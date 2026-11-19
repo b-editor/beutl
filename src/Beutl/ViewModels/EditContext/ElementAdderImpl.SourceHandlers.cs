@@ -11,12 +11,15 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
 
 internal sealed partial class ElementAdderImpl
 {
+    private DecoderRegistry Decoders => _context.GetRequiredService<DecoderRegistry>();
+
     private Element CreateElement(ElementDescription description)
     {
         _logger.LogDebug(
@@ -131,7 +134,7 @@ internal sealed partial class ElementAdderImpl
         try
         {
             // Both streams, so a video without audio still opens and reports no audio.
-            using var reader = MediaReader.Open(filePath, new MediaOptions(MediaMode.AudioVideo));
+            using var reader = MediaReader.Open(filePath, new MediaOptions(MediaMode.AudioVideo), Decoders);
             return new MediaProbe(MediaProbeState.Opened, reader.HasVideo, reader.HasAudio);
         }
         catch (UnsupportedMediaException ex)
@@ -392,9 +395,9 @@ internal sealed partial class ElementAdderImpl
             string fileName = ((ElementSource.File)context.Description.Source).FileName;
             FileSourceKind kind = MediaFileMatcher.IsImage(fileName)
                 ? FileSourceKind.Image
-                : MediaFileMatcher.Matches(fileName, MediaFileMatcher.VideoExtensions())
+                : MediaFileMatcher.Matches(fileName, MediaFileMatcher.VideoExtensions(owner.Decoders))
                     ? FileSourceKind.Video
-                    : MediaFileMatcher.Matches(fileName, MediaFileMatcher.AudioExtensions())
+                    : MediaFileMatcher.Matches(fileName, MediaFileMatcher.AudioExtensions(owner.Decoders))
                         ? FileSourceKind.Audio
                         : FileSourceKind.Unsupported;
             if (kind == FileSourceKind.Unsupported)
@@ -479,7 +482,7 @@ internal sealed partial class ElementAdderImpl
                         sourceVideo.Source.Value = video;
                         TrackDurationResource(
                             videoElement,
-                            () => video.ToResource(CompositionContext.Default),
+                            () => video.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = owner.Decoders }),
                             resource => !resource.IsOffline && resource.Duration > MediaTime.Zero
                                 ? resource.Duration
                                 : null,
@@ -501,7 +504,7 @@ internal sealed partial class ElementAdderImpl
                         sourceSound.Source.Value = sound;
                         TrackDurationResource(
                             soundElement,
-                            () => sound.ToResource(CompositionContext.Default),
+                            () => sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = owner.Decoders }),
                             resource => resource.Duration > MediaTime.Zero ? resource.Duration : null,
                             resources);
 
@@ -521,7 +524,7 @@ internal sealed partial class ElementAdderImpl
                         sourceAudio.Source.Value = audio;
                         TrackDurationResource(
                             audioElement,
-                            () => audio.ToResource(CompositionContext.Default),
+                            () => audio.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = owner.Decoders }),
                             resource => resource.Duration > MediaTime.Zero ? resource.Duration : null,
                             resources);
                         return ElementSourceMaterializationResult.Materialized(

@@ -25,9 +25,12 @@ public sealed class AgentHostAiBackendTests
     private const string Extension = ".agentaudio";
     private string _directory = null!;
 
+    private DecoderRegistry _decoders = null!;
+
     [SetUp]
     public void SetUp()
     {
+        _decoders = new DecoderRegistry(new());
         _directory = Path.Combine(Path.GetTempPath(), "beutl-agent-backend-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_directory);
     }
@@ -89,7 +92,7 @@ public sealed class AgentHostAiBackendTests
                 seen = scene;
                 return executor;
             },
-            new StubModelCatalog());
+            new StubModelCatalog(), _decoders);
         var scene = new Scene();
 
         IReadOnlyList<GenerativeModelInfo> models = await backend.GetModelsAsync("image.generate", CancellationToken.None);
@@ -113,29 +116,22 @@ public sealed class AgentHostAiBackendTests
         var availability = new StubAvailability();
         var transcription = new StubTranscription();
         var progress = new RecordingProgress();
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            AgentTranscript transcript = await CreateBackend(availability: availability, transcription: transcription)
-                .TranscribeAsync(path, "ja", "whisper", progress, CancellationToken.None);
+        _decoders.Register(decoder);
+        AgentTranscript transcript = await CreateBackend(availability: availability, transcription: transcription)
+            .TranscribeAsync(path, "ja", "whisper", progress, CancellationToken.None);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(transcription.Requests, Has.Count.EqualTo(2));
-                Assert.That(transcription.Requests.Select(request => request.Language), Is.All.EqualTo("ja"));
-                Assert.That(transcription.Requests.Select(request => request.Model?.Value), Is.All.EqualTo("whisper"));
-                Assert.That(availability.Requests, Has.Count.EqualTo(2));
-                Assert.That(transcript.Language, Is.EqualTo("ja"));
-                Assert.That(transcript.Segments.Select(segment => (segment.Start, segment.Text)),
-                    Is.EqualTo(new[] { (1d, "part 1"), (601d, "part 2") }), "the second part is offset by the first's ten minutes");
-                Assert.That(transcript.Words!.Select(word => word.Start), Is.EqualTo(new[] { 1d, 601d }));
-                Assert.That(progress.Values, Does.Contain("Transcribing part 2 of 2"));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(transcription.Requests, Has.Count.EqualTo(2));
+            Assert.That(transcription.Requests.Select(request => request.Language), Is.All.EqualTo("ja"));
+            Assert.That(transcription.Requests.Select(request => request.Model?.Value), Is.All.EqualTo("whisper"));
+            Assert.That(availability.Requests, Has.Count.EqualTo(2));
+            Assert.That(transcript.Language, Is.EqualTo("ja"));
+            Assert.That(transcript.Segments.Select(segment => (segment.Start, segment.Text)),
+                Is.EqualTo(new[] { (1d, "part 1"), (601d, "part 2") }), "the second part is offset by the first's ten minutes");
+            Assert.That(transcript.Words!.Select(word => word.Start), Is.EqualTo(new[] { 1d, 601d }));
+            Assert.That(progress.Values, Does.Contain("Transcribing part 2 of 2"));
+        });
     }
 
     [Test]
@@ -146,22 +142,15 @@ public sealed class AgentHostAiBackendTests
         string path = WriteSource("short" + Extension);
         var decoder = new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 602L) { ShortReadAt = sampleRate * 100L });
         var transcription = new StubTranscription();
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            AgentTranscript transcript = await CreateBackend(transcription: transcription)
-                .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+        _decoders.Register(decoder);
+        AgentTranscript transcript = await CreateBackend(transcription: transcription)
+            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(transcription.Requests, Has.Count.EqualTo(2), "the part cut short at 100.5 s, then the rest");
-                Assert.That(transcript.Segments.Select(segment => segment.Start), Is.EqualTo(new[] { 1d, 101.5d }));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(transcription.Requests, Has.Count.EqualTo(2), "the part cut short at 100.5 s, then the rest");
+            Assert.That(transcript.Segments.Select(segment => segment.Start), Is.EqualTo(new[] { 1d, 101.5d }));
+        });
     }
 
     [Test]
@@ -172,42 +161,35 @@ public sealed class AgentHostAiBackendTests
         StubAudioReader? next = null;
         var decoder = new StubDecoder(() => next!);
         var transcription = new StubTranscription();
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            // Reports 10:02 but its audio stops at 10:00: the first part is the whole transcript.
-            next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 600L };
-            AgentTranscript shorter = await CreateBackend(transcription: transcription)
-                .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
-            // Reports 10:02 but its audio stops at 10:00.2: the 0.2 s tail is the real end, so it is
-            // sent with the first part rather than taken for a broken read.
-            next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 6002L / 10 };
-            var shortSegments = new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 0.1, Text = "a" }] };
-            AgentTranscript withTail = await CreateBackend(transcription: shortSegments)
-                .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
-            // Every read from one second on comes back half full, so parts keep ending early: the
-            // recording is never read to the end, and a part of it is not a success.
-            next = new StubAudioReader(sampleRate, sampleRate * 60L) { ShortReadsFrom = sampleRate };
-            AgentAiException? pieces = await CatchAsync(
-                CreateBackend(transcription: new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 1, Text = "a" }] }),
-                path);
-            // Reads fail from 10:00: not the end of the recording, and not a success.
-            next = new StubAudioReader(sampleRate, sampleRate * 602L) { FailFrom = sampleRate * 600L };
-            AgentAiException? failed = await CatchAsync(CreateBackend(transcription: transcription), path);
+        _decoders.Register(decoder);
+        // Reports 10:02 but its audio stops at 10:00: the first part is the whole transcript.
+        next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 600L };
+        AgentTranscript shorter = await CreateBackend(transcription: transcription)
+            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+        // Reports 10:02 but its audio stops at 10:00.2: the 0.2 s tail is the real end, so it is
+        // sent with the first part rather than taken for a broken read.
+        next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 6002L / 10 };
+        var shortSegments = new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 0.1, Text = "a" }] };
+        AgentTranscript withTail = await CreateBackend(transcription: shortSegments)
+            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+        // Every read from one second on comes back half full, so parts keep ending early: the
+        // recording is never read to the end, and a part of it is not a success.
+        next = new StubAudioReader(sampleRate, sampleRate * 60L) { ShortReadsFrom = sampleRate };
+        AgentAiException? pieces = await CatchAsync(
+            CreateBackend(transcription: new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 1, Text = "a" }] }),
+            path);
+        // Reads fail from 10:00: not the end of the recording, and not a success.
+        next = new StubAudioReader(sampleRate, sampleRate * 602L) { FailFrom = sampleRate * 600L };
+        AgentAiException? failed = await CatchAsync(CreateBackend(transcription: transcription), path);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(shorter.Segments, Has.Count.EqualTo(1));
-                Assert.That(shortSegments.Requests, Has.Count.EqualTo(2), "the tail is transcribed too");
-                Assert.That(withTail.Segments.Select(segment => segment.Start), Is.EqualTo(new[] { 0d, 600d }));
-                Assert.That(failed?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
-                Assert.That(pieces?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(shorter.Segments, Has.Count.EqualTo(1));
+            Assert.That(shortSegments.Requests, Has.Count.EqualTo(2), "the tail is transcribed too");
+            Assert.That(withTail.Segments.Select(segment => segment.Start), Is.EqualTo(new[] { 0d, 600d }));
+            Assert.That(failed?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+            Assert.That(pieces?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+        });
     }
 
     [Test]
@@ -217,51 +199,44 @@ public sealed class AgentHostAiBackendTests
         var transcription = new StubTranscription();
         StubAudioReader? next = null;
         var decoder = new StubDecoder(() => next!);
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            next = new StubAudioReader(48_000, 48_000) { Audio = false };
-            AgentAiException? silent = await CatchAsync(CreateBackend(transcription: transcription), path);
-            // Thirteen hours at 48 kHz is more samples than an int position reaches.
-            next = new StubAudioReader(48_000, 48_000L * 3_600 * 13);
-            AgentAiException? tooLong = await CatchAsync(CreateBackend(transcription: transcription), path);
-            next = new StubAudioReader(16_000, 16_000);
-            AgentAiException? noCredits = await CatchAsync(
-                CreateBackend(availability: new StubAvailability { Allowed = false }, transcription: transcription), path);
-            next = new StubAudioReader(16_000, 16_000);
-            AgentAiException? refused = await CatchAsync(
-                CreateBackend(transcription: new StubTranscription { Error = new AiUsageLimitExceededException() }), path);
-            next = new StubAudioReader(16_000, 16_000);
-            // The check refuses outright when the plan lapsed after the call was accepted.
-            AgentAiException? planLapsed = await CatchAsync(
-                CreateBackend(availability: new StubAvailability { Error = new AiPlanRequiredException() }, transcription: transcription), path);
-            // A decoder that returns one sample at a time would otherwise make every sample a paid part.
-            next = new StubAudioReader(16_000, 16_000 * 60L) { Trickle = true };
-            AgentAiException? trickle = await CatchAsync(CreateBackend(transcription: transcription), path);
-            next = new StubAudioReader(16_000, 16_000) { Readable = false };
-            AgentAiException? undecodable = await CatchAsync(CreateBackend(transcription: transcription), path);
-            next = new StubAudioReader(16_000, 16_000);
-            // A one-second part cannot have speech ending at five seconds.
-            AgentAiException? badTimes = await CatchAsync(
-                CreateBackend(transcription: new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 5, Text = "late" }] }), path);
+        _decoders.Register(decoder);
+        next = new StubAudioReader(48_000, 48_000) { Audio = false };
+        AgentAiException? silent = await CatchAsync(CreateBackend(transcription: transcription), path);
+        // Thirteen hours at 48 kHz is more samples than an int position reaches.
+        next = new StubAudioReader(48_000, 48_000L * 3_600 * 13);
+        AgentAiException? tooLong = await CatchAsync(CreateBackend(transcription: transcription), path);
+        next = new StubAudioReader(16_000, 16_000);
+        AgentAiException? noCredits = await CatchAsync(
+            CreateBackend(availability: new StubAvailability { Allowed = false }, transcription: transcription), path);
+        next = new StubAudioReader(16_000, 16_000);
+        AgentAiException? refused = await CatchAsync(
+            CreateBackend(transcription: new StubTranscription { Error = new AiUsageLimitExceededException() }), path);
+        next = new StubAudioReader(16_000, 16_000);
+        // The check refuses outright when the plan lapsed after the call was accepted.
+        AgentAiException? planLapsed = await CatchAsync(
+            CreateBackend(availability: new StubAvailability { Error = new AiPlanRequiredException() }, transcription: transcription), path);
+        // A decoder that returns one sample at a time would otherwise make every sample a paid part.
+        next = new StubAudioReader(16_000, 16_000 * 60L) { Trickle = true };
+        AgentAiException? trickle = await CatchAsync(CreateBackend(transcription: transcription), path);
+        next = new StubAudioReader(16_000, 16_000) { Readable = false };
+        AgentAiException? undecodable = await CatchAsync(CreateBackend(transcription: transcription), path);
+        next = new StubAudioReader(16_000, 16_000);
+        // A one-second part cannot have speech ending at five seconds.
+        AgentAiException? badTimes = await CatchAsync(
+            CreateBackend(transcription: new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 5, Text = "late" }] }), path);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(silent?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
-                Assert.That(tooLong?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
-                Assert.That(noCredits?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
-                Assert.That(refused?.Code, Is.EqualTo(ErrorCode.AiUnavailable), "out of credits is the account's state, not a failed request");
-                Assert.That(badTimes?.Code, Is.EqualTo(ErrorCode.AiGenerationFailed));
-                Assert.That(undecodable?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "it opened, but its audio does not decode");
-                Assert.That(planLapsed?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
-                Assert.That(trickle?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
-                Assert.That(transcription.Requests, Is.Empty, "nothing was sent for a refused file");
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(silent?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+            Assert.That(tooLong?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+            Assert.That(noCredits?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
+            Assert.That(refused?.Code, Is.EqualTo(ErrorCode.AiUnavailable), "out of credits is the account's state, not a failed request");
+            Assert.That(badTimes?.Code, Is.EqualTo(ErrorCode.AiGenerationFailed));
+            Assert.That(undecodable?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "it opened, but its audio does not decode");
+            Assert.That(planLapsed?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
+            Assert.That(trickle?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+            Assert.That(transcription.Requests, Is.Empty, "nothing was sent for a refused file");
+        });
     }
 
     // Transcription opens the audio alone, and a file that then opens only as video is refused for its missing audio.
@@ -277,21 +252,14 @@ public sealed class AgentHostAiBackendTests
                 ? new StubAudioReader(48_000, 48_000) { Audio = false }
                 : null;
         });
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            AgentAiException? refused = await CatchAsync(CreateBackend(transcription: new StubTranscription()), path);
+        _decoders.Register(decoder);
+        AgentAiException? refused = await CatchAsync(CreateBackend(transcription: new StubTranscription()), path);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(refused?.Message, Is.EqualTo("The file has no audio to transcribe."));
-                Assert.That(requested, Is.EqualTo(new[] { MediaMode.Audio, MediaMode.Video }));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(refused?.Message, Is.EqualTo("The file has no audio to transcribe."));
+            Assert.That(requested, Is.EqualTo(new[] { MediaMode.Audio, MediaMode.Video }));
+        });
     }
 
     private static async Task<AgentAiException?> CatchAsync(AgentHostAiBackend backend, string path)
@@ -314,7 +282,7 @@ public sealed class AgentHostAiBackendTests
         return path;
     }
 
-    private static AgentHostAiBackend CreateBackend(
+    private AgentHostAiBackend CreateBackend(
         Func<AuthenticatedUser?>? user = null,
         IAiEntitlementService? entitlements = null,
         IAiOperationAvailabilityService? availability = null,
@@ -326,7 +294,7 @@ public sealed class AgentHostAiBackendTests
             transcription ?? new StubTranscription(),
             () => new StubCatalog([]),
             _ => new StubExecutor(),
-            new StubModelCatalog());
+            new StubModelCatalog(), _decoders);
 
     private static AiEntitlements Entitlements(bool canUseAi)
         => new(

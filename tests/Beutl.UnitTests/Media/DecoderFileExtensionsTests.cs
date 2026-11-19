@@ -3,31 +3,27 @@
 namespace Beutl.UnitTests.Media;
 
 [TestFixture]
-[NonParallelizable]
+[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
 public class DecoderFileExtensionsTests
 {
+    private readonly DecoderRegistry _decoders = new(new());
+
     [Test]
     public void Classify_ReflectsARegisteredDecoder()
     {
         var decoder = new FakeDecoderInfo([".fakevid"], [".fakeaud"]);
-        Assert.That(DecoderFileExtensions.Classify("a.fakevid"), Is.EqualTo(MediaFileKind.None));
+        Assert.That(_decoders.FileExtensions.Classify("a.fakevid"), Is.EqualTo(MediaFileKind.None));
 
-        DecoderRegistry.Register(decoder);
-        try
+        _decoders.Register(decoder);
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(DecoderFileExtensions.Classify("a.fakevid"), Is.EqualTo(MediaFileKind.Video));
-                Assert.That(DecoderFileExtensions.Classify("a.fakeaud"), Is.EqualTo(MediaFileKind.Audio));
-                Assert.That(DecoderFileExtensions.Classify("a.FAKEVID"), Is.EqualTo(MediaFileKind.Video));
-            });
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(_decoders.FileExtensions.Classify("a.fakevid"), Is.EqualTo(MediaFileKind.Video));
+            Assert.That(_decoders.FileExtensions.Classify("a.fakeaud"), Is.EqualTo(MediaFileKind.Audio));
+            Assert.That(_decoders.FileExtensions.Classify("a.FAKEVID"), Is.EqualTo(MediaFileKind.Video));
+        });
+        _decoders.Unregister(decoder);
 
-        Assert.That(DecoderFileExtensions.Classify("a.fakevid"), Is.EqualTo(MediaFileKind.None));
+        Assert.That(_decoders.FileExtensions.Classify("a.fakevid"), Is.EqualTo(MediaFileKind.None));
     }
 
     // The animated-image decoders register .png / .gif / .webp as video extensions, so anything
@@ -38,7 +34,7 @@ public class DecoderFileExtensionsTests
     [TestCase("a.webp")]
     public void Classify_PrefersImageOverVideo(string file)
     {
-        Assert.That(DecoderFileExtensions.Classify(file), Is.EqualTo(MediaFileKind.Image));
+        Assert.That(_decoders.FileExtensions.Classify(file), Is.EqualTo(MediaFileKind.Image));
     }
 
     // Every decoder for these containers ships as an optional extension, and .flac has none at all,
@@ -51,7 +47,7 @@ public class DecoderFileExtensionsTests
     [TestCase("a.FLAC", MediaFileKind.Audio)]
     public void Classify_KnownContainer_DoesNotNeedARegisteredDecoder(string file, MediaFileKind expected)
     {
-        Assert.That(DecoderFileExtensions.Classify(file), Is.EqualTo(expected));
+        Assert.That(_decoders.FileExtensions.Classify(file), Is.EqualTo(expected));
     }
 
     [TestCase("")]
@@ -59,7 +55,7 @@ public class DecoderFileExtensionsTests
     [TestCase("a.unknownext")]
     public void Classify_UnknownFile_IsNone(string file)
     {
-        Assert.That(DecoderFileExtensions.Classify(file), Is.EqualTo(MediaFileKind.None));
+        Assert.That(_decoders.FileExtensions.Classify(file), Is.EqualTo(MediaFileKind.None));
     }
 
     // FFmpeg claims '.ts' as a transport stream, which would otherwise hand every TypeScript source
@@ -68,19 +64,12 @@ public class DecoderFileExtensionsTests
     public void Classify_TypeScript_StaysNonMedia()
     {
         var decoder = new FakeDecoderInfo([".ts"], []);
-        DecoderRegistry.Register(decoder);
-        try
+        _decoders.Register(decoder);
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(DecoderFileExtensions.Classify("app.ts"), Is.EqualTo(MediaFileKind.None));
-                Assert.That(DecoderFileExtensions.IsMedia("app.ts"), Is.False);
-            });
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(_decoders.FileExtensions.Classify("app.ts"), Is.EqualTo(MediaFileKind.None));
+            Assert.That(_decoders.FileExtensions.IsMedia("app.ts"), Is.False);
+        });
     }
 
     // IDecoderInfo does not constrain the shape, and GetFilePatterns already accepts all three.
@@ -92,19 +81,12 @@ public class DecoderFileExtensionsTests
     public void ClassifyAndDecoderSelection_AgreeOnTheShapeADecoderReturns(string declared)
     {
         var decoder = new FakeDecoderInfo([declared], []);
-        DecoderRegistry.Register(decoder);
-        try
+        _decoders.Register(decoder);
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(DecoderFileExtensions.Classify("a.mp4x"), Is.EqualTo(MediaFileKind.Video));
-                Assert.That(DecoderRegistry.GuessDecoder("a.mp4x"), Does.Contain(decoder));
-            });
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(_decoders.FileExtensions.Classify("a.mp4x"), Is.EqualTo(MediaFileKind.Video));
+            Assert.That(_decoders.GuessDecoder("a.mp4x"), Does.Contain(decoder));
+        });
     }
 
     // The still-image set is Skia's own format table, so a format the image picker offers must not
@@ -115,24 +97,17 @@ public class DecoderFileExtensionsTests
     [TestCase("a.wbmp")]
     public void Classify_KnowsEverySkiaStillImageFormat(string file)
     {
-        Assert.That(DecoderFileExtensions.Classify(file), Is.EqualTo(MediaFileKind.Image));
+        Assert.That(_decoders.FileExtensions.Classify(file), Is.EqualTo(MediaFileKind.Image));
     }
 
     [Test]
     public void GetFilePatterns_NormalizesToGlobs()
     {
         var decoder = new FakeDecoderInfo([".fakevid"], []);
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            Assert.That(
-                DecoderFileExtensions.GetFilePatterns(x => x.VideoExtensions()),
-                Does.Contain("*.fakevid"));
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
+        _decoders.Register(decoder);
+        Assert.That(
+            _decoders.FileExtensions.GetFilePatterns(x => x.VideoExtensions()),
+            Does.Contain("*.fakevid"));
     }
 
     private sealed class FakeDecoderInfo(string[] video, string[] audio) : IDecoderInfo

@@ -6,7 +6,6 @@ using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -14,6 +13,7 @@ namespace Beutl.Services;
 internal sealed class ProxyMediaServices : IAsyncDisposable
 {
     private readonly INotificationService _notifications;
+    private readonly DecoderRegistry _decoders;
 
     // Host free-disk headroom kept on the store drive, independent of MaxTotalBytes.
     private const long DefaultMinFreeDiskBytes = 2L * 1024 * 1024 * 1024;
@@ -45,9 +45,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     // makes every open reader observe a version bump and reopen against the new store.
     private long _resolverVersionOffset;
 
-    public ProxyMediaServices(GlobalConfiguration configuration, INotificationService notifications)
+    public ProxyMediaServices(GlobalConfiguration configuration, INotificationService notifications, DecoderRegistry decoders)
     {
         _notifications = notifications;
+        _decoders = decoders;
         ArgumentNullException.ThrowIfNull(configuration);
         ProxyStoreConfig config = configuration.ProxyStoreConfig;
         _config = config;
@@ -66,7 +67,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // on unload; drop the queue's cached generator on either so it re-resolves and never keeps
         // rooting or invoking an unloaded extension's generator.
         ProxyGeneratorRegistry.Changed += OnGeneratorRegistryChanged;
-        DecoderRegistry.ProxyResolver = resolver;
+        _decoders.ProxyResolver = resolver;
 
         // A store-root change rebuilds the pipeline; a cap change only retargets eviction, as a rebuild
         // would cancel in-flight generation. Both apply synchronously on the UI thread, so the service
@@ -156,7 +157,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     // Resolved lazily: extensions register generators after this queue is built. The headroom wrapper
     // runs right before the encoder writes, so eviction can make room first, and it implements
     // IProxyGeneratorAvailability only when the generator does, because the queue type-tests for it.
-    private static Func<IProxyGenerator?> ResolveGeneratorFactory(ProxyStore store, ProxyEvictionService eviction)
+    private Func<IProxyGenerator?> ResolveGeneratorFactory(ProxyStore store, ProxyEvictionService eviction)
     {
         return () =>
         {
@@ -164,7 +165,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             if (factory is null)
                 return null;
 
-            IProxyGenerator generator = factory.Create(store);
+            IProxyGenerator generator = factory.Create(store, _decoders);
             return generator is IProxyGeneratorAvailability
                 ? new AvailabilityAwareDiskHeadroomProxyGenerator(generator, eviction)
                 : new DiskHeadroomProxyGenerator(generator, eviction);
@@ -240,14 +241,14 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // Repoint the facades (and their forwarded event subscriptions) at the new backing services so
         // an open editor's cached IProxyStore/Queue keeps hitting the current store, not the disposed one.
         // StoreFacade.Swap raises a synchronous Reset; a Reset handler (badge/filmstrip refresh) reads the
-        // Queue/Resolver facades, so repoint those — and DecoderRegistry.ProxyResolver — first and swap the
+        // Queue/Resolver facades, so repoint those — and _decoders.ProxyResolver — first and swap the
         // store last, or the handler recomputes against the old queue/resolver.
         ResolverFacade.Swap(newResolver);
         QueueFacade.Swap(newQueue);
         CapInfoFacade.Swap(newEviction);
-        if (ReferenceEquals(DecoderRegistry.ProxyResolver, oldResolver))
+        if (ReferenceEquals(_decoders.ProxyResolver, oldResolver))
         {
-            DecoderRegistry.ProxyResolver = newResolver;
+            _decoders.ProxyResolver = newResolver;
         }
 
         StoreFacade.Swap(newStore);
@@ -294,8 +295,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         ProxyGeneratorRegistry.Changed -= OnGeneratorRegistryChanged;
         Queue.JobChanged -= OnJobChanged;
         _configSubscription?.Dispose();
-        if (ReferenceEquals(DecoderRegistry.ProxyResolver, Resolver))
-            DecoderRegistry.ProxyResolver = null;
+        if (ReferenceEquals(_decoders.ProxyResolver, Resolver))
+            _decoders.ProxyResolver = null;
 
         await Queue.DisposeAsync().ConfigureAwait(false);
         // Config subscription is already disposed above, so no further store-root change can start a new

@@ -1,5 +1,6 @@
 ﻿using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -135,8 +136,8 @@ internal static partial class SlippableMedia
     }
 
     public static List<Target> Collect(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
-        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, SplitBatch? batch = null)
-        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, batch: batch).Collect();
+        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, SplitBatch? batch = null, DecoderRegistry? decoders = null)
+        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, batch: batch, decoders: decoders).Collect();
 
     public static MediaTime ClampSharedDelta(IReadOnlyList<Target> targets, MediaTime delta)
     {
@@ -190,12 +191,12 @@ internal static partial class SlippableMedia
         return delta;
     }
 
-    public static ResizeConstraints CreateResizeConstraints(Element element, IReadOnlySet<Element>? timingPeers = null)
-        => new(element.Start.Value, element.Length.Value, CollectResizeTargets(element, timingPeers), GetProviderDuration(element),
+    public static ResizeConstraints CreateResizeConstraints(Element element, IReadOnlySet<Element>? timingPeers = null, DecoderRegistry? decoders = null)
+        => new(element.Start.Value, element.Length.Value, CollectResizeTargets(element, timingPeers, decoders: decoders), GetProviderDuration(element, decoders),
             sharedClock: element.Objects.OfType<PortalObject>().Any(p => p.IsEnabled.Value));
 
-    private static List<Target> CollectResizeTargets(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false)
-        => new TargetCollector(element, timingPeers, ignoreLoops, null, forResize: true).Collect();
+    private static List<Target> CollectResizeTargets(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false, DecoderRegistry? decoders = null)
+        => new TargetCollector(element, timingPeers, ignoreLoops, null, forResize: true, decoders: decoders).Collect();
 
     public static MediaTime ClampSharedResizeDelta(IReadOnlyList<ResizeConstraints> constraints, MediaTime delta, bool leftEdge)
     {
@@ -211,22 +212,22 @@ internal static partial class SlippableMedia
         return delta;
     }
 
-    public static bool HasOriginalDuration(Element element)
+    public static bool HasOriginalDuration(Element element, DecoderRegistry? decoders = null)
     {
-        return CollectResizeTargets(element).Any(t => t.Total.HasValue) || GetProviderDuration(element).HasValue;
+        return CollectResizeTargets(element, decoders: decoders).Any(t => t.Total.HasValue) || GetProviderDuration(element, decoders).HasValue;
     }
 
-    public static MediaTime? GetOriginalDuration(Element element)
+    public static MediaTime? GetOriginalDuration(Element element, DecoderRegistry? decoders = null)
     {
-        List<Target> mapped = CollectResizeTargets(element);
+        List<Target> mapped = CollectResizeTargets(element, decoders: decoders);
         MediaTime? maximum = new ResizeConstraints(element.Start.Value, element.Length.Value, mapped,
-            GetProviderDuration(element)).GetMaximumDuration();
+            GetProviderDuration(element, decoders)).GetMaximumDuration();
         if (maximum.HasValue) return maximum;
         // Repetition can be unbounded while the underlying source still has an
         // original length. Offer one cycle; a frozen source falls back to source time.
-        List<Target> targets = CollectResizeTargets(element, ignoreLoops: true);
+        List<Target> targets = CollectResizeTargets(element, ignoreLoops: true, decoders: decoders);
         MediaTime? duration = new ResizeConstraints(element.Start.Value, element.Length.Value, targets,
-            GetProviderDuration(element)).GetMaximumDuration();
+            GetProviderDuration(element, decoders)).GetMaximumDuration();
         if (duration.HasValue) return duration;
         foreach (Target target in targets)
         {
@@ -238,13 +239,13 @@ internal static partial class SlippableMedia
         return duration;
     }
 
-    private static MediaTime? GetProviderDuration(Element element)
+    private static MediaTime? GetProviderDuration(Element element, DecoderRegistry? decoders)
     {
         MediaTime? duration = null;
         foreach (EngineObject obj in element.Objects)
         {
             if (obj is ITimeMappedSource || obj is not IOriginalDurationProvider provider) continue;
-            if (provider.HasOriginalDuration() && provider.TryGetOriginalDuration(out MediaTime value) && value >= MediaTime.Zero
+            if (provider.HasOriginalDuration() && provider.TryGetOriginalDuration(out MediaTime value, decoders) && value >= MediaTime.Zero
                 && (duration == null || value < duration)) duration = value;
         }
         return duration;

@@ -21,8 +21,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class SubFrameResizeClampTests
 {
-    private static readonly object s_registerLock = new();
-    private static bool s_registered;
     private static string? s_tempDir;
 
     // 10 ms: positive, but 0.3 frames at the 30 fps project rate, so FloorToRate(30) == 0.
@@ -50,7 +48,7 @@ public class SubFrameResizeClampTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("original-duration-subframe");
-        RegisterSubFrameDecoder();
+        TestShell.EnsureDecoder<SubFrameDecoderInfo>();
 
         string path = CreateSubFrameAudioFile();
         var soundSource = new SoundSource();
@@ -77,7 +75,7 @@ public class SubFrameResizeClampTests
         // Preconditions that used to make the crash deterministic:
         // the original duration resolves, is positive, but floors to zero frames.
         Assert.That(viewModel!.HasOriginalDuration(), Is.True);
-        Assert.That(element.TryGetOriginalDuration(out MediaTime original), Is.True);
+        Assert.That(element.TryGetOriginalDuration(out MediaTime original, TestShell.Decoders), Is.True);
         Assert.That(original, Is.EqualTo(SubFrameAudioDuration));
         Assert.That(original.RoundToFrame(new Rational(30), MidpointRounding.ToNegativeInfinity), Is.EqualTo(MediaTime.Zero),
             "The scenario requires an original duration shorter than one project frame.");
@@ -198,15 +196,7 @@ public class SubFrameResizeClampTests
         return ex;
     }
 
-    private static void RegisterSubFrameDecoder()
-    {
-        lock (s_registerLock)
-        {
-            if (s_registered) return;
-            DecoderRegistry.Register(new SubFrameDecoderInfo());
-            s_registered = true;
-        }
-    }
+
 
     private static string CreateSubFrameAudioFile()
     {

@@ -17,6 +17,8 @@ namespace Beutl.FFmpegIpc.Tests;
 [TestFixture]
 public sealed class ProxyGenerationEncodingTests
 {
+    private readonly DecoderRegistry _decoders = new(new());
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -26,10 +28,7 @@ public sealed class ProxyGenerationEncodingTests
     private readonly SyntheticVideoDecoderInfo _decoder = new();
 
     [OneTimeSetUp]
-    public void OneTimeSetUp() => DecoderRegistry.Register(_decoder);
-
-    [OneTimeTearDown]
-    public void OneTimeTearDown() => DecoderRegistry.Unregister(_decoder);
+    public void OneTimeSetUp() => _decoders.Register(_decoder);
 
     [Test]
     public async Task GenerateAsync_WritesProxyFileAndMetadata()
@@ -42,7 +41,7 @@ public sealed class ProxyGenerationEncodingTests
         try
         {
             var store = new ProxyStore(root);
-            var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+            var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), _decoders);
             // The decoder below opens any file with this extension as 4 frames of 64x48 at 12 fps. The fingerprint
             // reads the file, so it must not be empty.
             string source = Path.Combine(root, "source" + SyntheticVideoDecoderInfo.Extension);

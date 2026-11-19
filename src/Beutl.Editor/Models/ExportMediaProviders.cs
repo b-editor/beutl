@@ -4,6 +4,7 @@ using Beutl.Audio.Composing;
 using Beutl.Extensibility;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Models;
@@ -44,7 +45,7 @@ public sealed class ExportMediaProviders : IDisposable
         float renderScale,
         Rational frameRate,
         int sampleRate,
-        AudioChannelLayout channelLayout)
+        AudioChannelLayout channelLayout, DecoderRegistry? decoders = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
@@ -53,13 +54,13 @@ public sealed class ExportMediaProviders : IDisposable
         {
             if (videoEnabled)
             {
-                providers._renderer = ExportRendererFactory.Create(scene, fonts, renderScale);
+                providers._renderer = ExportRendererFactory.Create(scene, fonts, renderScale, decoders);
                 providers._frameProvider = new FrameProviderImpl(scene, frameRate, providers._renderer, providers._frameProgress);
             }
 
             if (audioEnabled)
             {
-                providers._composer = ExportRendererFactory.CreateComposer(scene, fonts, sampleRate);
+                providers._composer = ExportRendererFactory.CreateComposer(scene, fonts, sampleRate, decoders);
                 providers._sampleProvider = new SampleProviderImpl(
                     scene, providers._composer, sampleRate, providers._sampleProgress, channelLayout);
             }

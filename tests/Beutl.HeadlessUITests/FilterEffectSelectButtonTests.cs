@@ -327,6 +327,7 @@ public sealed class FilterEffectSelectButtonTests
         var host = TestShell.CreateEditorContextMock();
         host.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         host.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        host.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
         host.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         host.Setup(h => h.GetService(It.IsAny<Type>())).Returns((Type type) =>
             type == typeof(IEditorSelection) ? selection :

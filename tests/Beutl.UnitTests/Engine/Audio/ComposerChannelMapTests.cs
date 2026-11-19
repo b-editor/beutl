@@ -6,13 +6,17 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
 [TestFixture]
 public class ComposerChannelMapTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private const int Rate = 44100;
     private static readonly AudioChannelLayout s_sourceLayout = AudioChannelLayout.GetDefault(4);
     private static float Sample(int channel, int i) => ((i * 17 + channel * 11) % 101 - 50) / 128f;
@@ -64,7 +68,7 @@ public class ComposerChannelMapTests
             var sound = CreateSound(source, new AudioChannelMap(AudioChannelFormat.Stereo, s_sourceLayout, [0, 1]));
             sound.Speed.Value = speed;
             Sound root = grouped ? new SoundGroup { Children = { sound }, TimeRange = { Value = sound.TimeRange.Value } } : sound;
-            using var resource = root.ToResource(CompositionContext.Default);
+            using var resource = root.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
             using var composer = new Composer { SampleRate = Rate };
             using var first = Compose(root, composer, 0, 128, resource);
             AudioChannelMap[] maps =
@@ -77,7 +81,7 @@ public class ComposerChannelMapTests
             {
                 sound.ChannelMap.Value = maps[i];
                 bool changed = false;
-                resource.Reconcile(root, CompositionContext.Default, ref changed);
+                resource.Reconcile(root, new CompositionContext(MediaTime.Zero) { Decoders = _decoders }, ref changed);
                 using var actual = Compose(root, composer, (i + 1) * 128, 128, resource);
                 using var fresh = new Composer { SampleRate = Rate };
                 using var expected = Compose(root, fresh, (i + 1) * 128, 128, resource);
@@ -92,7 +96,7 @@ public class ComposerChannelMapTests
         AudioTestWaves.WithTemporaryWave(Rate, Rate, Sample, source =>
         {
             var sound = CreateSound(source, new AudioChannelMap(AudioChannelFormat.Stereo, s_sourceLayout, [0, 1]));
-            using var resource = sound.ToResource(CompositionContext.Default);
+            using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
             using var context = new AudioContext(Rate, AudioChannelLayout.Stereo);
             sound.Compose(context, resource);
             var firstSource = context.Nodes.OfType<SourceNode>().Single();
@@ -106,7 +110,7 @@ public class ComposerChannelMapTests
 
             sound.ChannelMap.Value = new AudioChannelMap(AudioChannelFormat.Mono, s_sourceLayout, [2]);
             bool changed = false;
-            resource.Reconcile(sound, CompositionContext.Default, ref changed);
+            resource.Reconcile(sound, new CompositionContext(MediaTime.Zero) { Decoders = _decoders }, ref changed);
             Assert.That(resource.GetChannelMap(), Is.EqualTo(sound.ChannelMap.Value));
             Assert.That(changed, Is.True);
             context.BeginUpdate(context.Nodes.ToArray());
@@ -135,7 +139,7 @@ public class ComposerChannelMapTests
     private static AudioBuffer Compose(Sound sound, Composer composer, int start, int count, Sound.Resource? resource = null)
     {
         var range = new TimeRange(MediaTime.FromSamples(start, Rate), MediaTime.FromSamples(count, Rate));
-        using var ownedResource = resource == null ? sound.ToResource(CompositionContext.Default) : null;
+        using var ownedResource = resource == null ? sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() }) : null;
         resource ??= ownedResource!;
         var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), range, default,
             new CompositionEligibility([sound]));

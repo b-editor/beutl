@@ -1,6 +1,7 @@
 ﻿using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Language;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -18,7 +19,7 @@ public sealed partial class ElementResizeService
         // operation — a partial roll would desync the grouped cuts it was asked to keep together.
         if (!CanRollPairs(scene, pairs)) return false;
 
-        TrimConstraints constraints = CreateTrimConstraints(scene, pairs, _configuration);
+        TrimConstraints constraints = CreateTrimConstraints(scene, pairs, _configuration, decoders: _decoders);
         MediaTime clamped = constraints.Clamp(delta);
         if (clamped == MediaTime.Zero || !constraints.TryGetOffsetChanges(clamped, out var changes)) return false;
 
@@ -52,7 +53,7 @@ public sealed partial class ElementResizeService
 
         TrimConstraints constraints = CreateTrimConstraints(scene,
             lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(), _configuration,
-            lanes.SelectMany(l => l.Middles));
+            lanes.SelectMany(l => l.Middles), decoders: _decoders);
         MediaTime clamped = constraints.Clamp(delta);
         if (clamped == MediaTime.Zero || !constraints.TryGetOffsetChanges(clamped, out var changes)) return false;
 
@@ -123,7 +124,7 @@ public sealed partial class ElementResizeService
     // The view keeps this snapshot for the gesture, including its integral caches.
     // Commit creates a fresh snapshot after validating membership and locks.
     internal static TrimConstraints CreateTrimConstraints(Scene scene, IReadOnlyList<ElementTrimPair> pairs, EditorConfig configuration,
-        IEnumerable<Element>? fixedElements = null)
+        IEnumerable<Element>? fixedElements = null, DecoderRegistry? decoders = null)
     {
         var fronts = new List<SlippableMedia.Target>();
         var backs = new List<SlippableMedia.Target>();
@@ -143,8 +144,8 @@ public sealed partial class ElementResizeService
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
-            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front, timingPeers, timingRoles: timingRoles);
-            List<SlippableMedia.Target> backTargets = SlippableMedia.Collect(back, timingPeers, timingRoles: timingRoles);
+            List<SlippableMedia.Target> frontTargets = SlippableMedia.Collect(front, timingPeers, timingRoles: timingRoles, decoders: decoders);
+            List<SlippableMedia.Target> backTargets = SlippableMedia.Collect(back, timingPeers, timingRoles: timingRoles, decoders: decoders);
             fronts.AddRange(frontTargets);
             backs.AddRange(backTargets);
             fixedOffsets.UnionWith(frontTargets.Select(t => t.Offset));
@@ -155,7 +156,7 @@ public sealed partial class ElementResizeService
         if (movedElements.Count > 0)
         {
             foreach (Element element in movedElements)
-                middles.AddRange(SlippableMedia.Collect(element, timingPeers, timingRoles: timingRoles));
+                middles.AddRange(SlippableMedia.Collect(element, timingPeers, timingRoles: timingRoles, decoders: decoders));
             fixedOffsets.UnionWith(middles.Select(t => t.Offset));
         }
         return new TrimConstraints(min, max, fronts, backs, middles, fixedOffsets,

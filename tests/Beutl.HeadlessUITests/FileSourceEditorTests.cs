@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Api.Services;
 using Beutl.Collections;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -15,6 +16,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.IO;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
@@ -34,6 +36,26 @@ public sealed class FileSourceEditorTests
 
     [TearDown]
     public void TearDown() => Directory.Delete(_directory, recursive: true);
+
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public void SourcePickerUsesTheRegistryOfItsHost(bool video)
+    {
+        UserControl control = video ? new VideoSourceEditor() : new SoundSourceEditor();
+        var picker = control.FindControl<StorageFileEditor>("FileEditor")!;
+        Assert.That(picker.OpenOptions.FileTypeFilter!.Single().Patterns, Is.Empty);
+
+        var window = new Window { Width = 320, Height = 120, Content = control };
+        var first = new DecoderRegistry(new());
+        first.Register(video ? BuiltInDecoders.AnimatedImage : BuiltInDecoders.Wave);
+        ControlDecoders.SetDecoders(window, first);
+        using var host = new ControlHost(window);
+        Assert.That(picker.OpenOptions.FileTypeFilter!.Single().Patterns, Does.Contain(video ? "*.gif" : "*.wav"));
+
+        ControlDecoders.SetDecoders(window, new DecoderRegistry(new()));
+        Assert.That(picker.OpenOptions.FileTypeFilter!.Single().Patterns, Is.Empty);
+    }
 
     [AvaloniaTest]
     [TestCase(EditorSurface.Property)]

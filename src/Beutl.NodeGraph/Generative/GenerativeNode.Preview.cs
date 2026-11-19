@@ -1,5 +1,6 @@
 ﻿using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 
 namespace Beutl.NodeGraph.Generative;
@@ -74,7 +75,18 @@ public abstract partial class GenerativeNode
     /// The preview does not wait for the graph to be evaluated, which only happens while the
     /// graph's element is rendered at the current time.
     /// </summary>
-    internal void LoadActivePreview()
+    internal void LoadActivePreview(DecoderRegistry? decoders)
+    {
+        lock (_previewLock)
+        {
+            if (_previewDecoders != decoders && _active?.Media is VideoSource)
+                _previewShownFor = Guid.Empty;
+            _previewDecoders = decoders;
+        }
+        LoadActivePreview();
+    }
+
+    private void LoadActivePreview()
     {
         int version = Interlocked.Increment(ref _previewLoadVersion);
         ActiveSnapshot? active = Volatile.Read(ref _active);
@@ -86,8 +98,10 @@ public abstract partial class GenerativeNode
             return;
         }
 
+        DecoderRegistry? decoders;
         lock (_previewLock)
         {
+            decoders = _previewDecoders;
             if (_previewShownFor == active.Id && _previewMonitor.Value is not null)
                 return;
         }
@@ -97,7 +111,7 @@ public abstract partial class GenerativeNode
             Bitmap? bitmap = null;
             try
             {
-                bitmap = DecodePreview(active.Media);
+                bitmap = DecodePreview(active.Media, decoders);
             }
             catch (Exception)
             {
@@ -115,11 +129,11 @@ public abstract partial class GenerativeNode
     }
 
     /// <summary>Decodes a kept result for display, or null when its file cannot be read.</summary>
-    internal static Bitmap? DecodeThumbnail(GenerationRecord record)
+    internal static Bitmap? DecodeThumbnail(GenerationRecord record, DecoderRegistry? decoders)
     {
         try
         {
-            return (record.Image.Value ?? (MediaSource?)record.Video.Value) is { } media ? DecodePreview(media) : null;
+            return (record.Image.Value ?? (MediaSource?)record.Video.Value) is { } media ? DecodePreview(media, decoders) : null;
         }
         catch (Exception)
         {
@@ -127,7 +141,7 @@ public abstract partial class GenerativeNode
         }
     }
 
-    private static Bitmap? DecodePreview(MediaSource media)
+    private static Bitmap? DecodePreview(MediaSource media, DecoderRegistry? decoders)
     {
         if (!media.HasUri || !media.Uri.IsFile || !File.Exists(media.Uri.LocalPath))
             return null;
@@ -136,9 +150,10 @@ public abstract partial class GenerativeNode
         if (media is ImageSource)
             return Bitmap.FromFile(path);
 
+        if (decoders == null) return null;
         using var reader = Beutl.Media.Decoding.MediaReader.Open(
             path,
-            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video) { IsBackground = true });
+            new Beutl.Media.Decoding.MediaOptions(Beutl.Media.Decoding.MediaMode.Video) { IsBackground = true }, decoders);
         if (!reader.ReadVideo(0, out Ref<Bitmap>? frame))
             return null;
         using (frame)

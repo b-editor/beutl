@@ -50,6 +50,7 @@ public sealed class AiJobVideoDurationReviewTests
                 return ValueTask.FromResult(ElementAddResult.Succeeded([new ElementAddItemResult(imported, new Element(), [])]));
             });
         var editor = new Mock<IAiJobResultEditorContext>();
+        editor.Setup(value => value.GetService(typeof(DecoderRegistry))).Returns(TestShell.Decoders);
         editor.SetupGet(value => value.Scene).Returns(scene);
         editor.SetupGet(value => value.ElementAdder).Returns(adder.Object);
         editor.Setup(value => value.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
@@ -67,7 +68,7 @@ public sealed class AiJobVideoDurationReviewTests
         var job = new AiJob(new("source-result"), AiJobKinds.Video, AiJobStatuses.Succeeded,
             JsonSerializer.SerializeToElement(new { mode, durationSeconds = requestedSeconds }), new("file"),
             new Uri("https://beutl.beditor.net/api/contents/file"), null, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             var capability = new VideoAiJobResultCapabilities();
@@ -98,7 +99,7 @@ public sealed class AiJobVideoDurationReviewTests
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
             Directory.Delete(root, recursive: true);
         }
     }

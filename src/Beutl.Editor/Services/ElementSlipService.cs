@@ -1,4 +1,5 @@
 ﻿using Beutl.Language;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -6,9 +7,11 @@ namespace Beutl.Editor.Services;
 public sealed class ElementSlipService : IElementSlipService
 {
     private readonly HistoryManager _historyManager;
+    private readonly DecoderRegistry? _decoders;
 
-    public ElementSlipService(HistoryManager historyManager)
+    public ElementSlipService(HistoryManager historyManager, DecoderRegistry? decoders = null)
     {
+        _decoders = decoders;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
@@ -36,7 +39,7 @@ public sealed class ElementSlipService : IElementSlipService
             if (!scene.Children.Contains(element)) continue;
             if (scene.IsElementLocked(element)) continue;
 
-            List<SlippableMedia.Target> targets = SlippableMedia.Collect(element);
+            List<SlippableMedia.Target> targets = SlippableMedia.Collect(element, decoders: _decoders);
             if (targets.Count == 0) continue;
 
             applicable.AddRange(targets);

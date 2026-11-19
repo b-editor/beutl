@@ -63,7 +63,7 @@ public class ScenePackageTests
             var originals = Directory.GetFiles(root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
             string package = Path.Combine(root, "shared.beutl");
 
-            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, package);
+            ExportResult result = await ProjectPackageService.Current.ExportAsync(project, TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()), package);
 
             Assert.That(result.Success, Is.True);
             Assert.That(result.FailedResources, Is.Empty);

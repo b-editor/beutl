@@ -40,6 +40,7 @@ public sealed class VideoSource : MediaSource
         private MediaReader? _reader;
         private Ref<Bitmap>? _offlineBitmap;
         private Uri? _loadedUri;
+        private DecoderRegistry? _loadedDecoders;
         private bool _loadedPreferProxy;
         private ProxyPreset _loadedPreferredProxyPreset;
         private long _loadedProxyResolverVersion;
@@ -105,7 +106,7 @@ public sealed class VideoSource : MediaSource
         {
             base.Reconcile(obj, context, ref versionBumped);
             var videoSource = (VideoSource)obj;
-            IProxyResolver? proxyResolver = context.PreferProxy ? DecoderRegistry.ProxyResolver : null;
+            IProxyResolver? proxyResolver = context.PreferProxy ? context.Decoders?.ProxyResolver : null;
             RefreshProxyVersionSource(videoSource, proxyResolver);
             // Compare only THIS source's proxy version so a proxy change to another
             // source does not force this reader to reopen.
@@ -114,6 +115,7 @@ public sealed class VideoSource : MediaSource
             // Load media reader if URI or proxy preference changed.
             if (NeedsReload(videoSource, context, proxyResolverVersion))
             {
+                var decoders = context.Decoders ?? throw new InvalidOperationException("Opening video requires a decoder registry.");
                 _reader?.Dispose();
                 _reader = null;
                 ProxyResolution = null;
@@ -127,7 +129,7 @@ public sealed class VideoSource : MediaSource
                 _proxyVersionSource = ResolveProxyVersionSource(videoSource, context);
                 proxyResolverVersion = GetSourceVersion(proxyResolver, _proxyVersionSource);
 
-                if (!TryOpenReader(videoSource, context, proxyResolverVersion))
+                if (!TryOpenReader(videoSource, context, proxyResolverVersion, decoders))
                 {
                     return;
                 }
@@ -181,12 +183,12 @@ public sealed class VideoSource : MediaSource
 
         private bool NeedsReload(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
         {
-            return (_loadedUri != videoSource.Uri
+            return videoSource.HasUri && (_loadedUri != videoSource.Uri
+                    || _loadedDecoders != context.Decoders
                     || ReloadRequested
                     || _loadedPreferProxy != context.PreferProxy
                     || _loadedPreferredProxyPreset != context.PreferredProxyPreset
-                    || _loadedProxyResolverVersion != proxyResolverVersion)
-                && videoSource.HasUri;
+                    || _loadedProxyResolverVersion != proxyResolverVersion);
         }
 
         private static string? ResolveProxyVersionSource(VideoSource videoSource, CompositionContext context)
@@ -201,7 +203,7 @@ public sealed class VideoSource : MediaSource
         // A failed open still records the inputs it was attempted with, so an unchanged source is not
         // reopened on every update.
         [MemberNotNullWhen(true, nameof(_reader))]
-        private bool TryOpenReader(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
+        private bool TryOpenReader(VideoSource videoSource, CompositionContext context, long proxyResolverVersion, DecoderRegistry decoders)
         {
             try
             {
@@ -215,11 +217,11 @@ public sealed class VideoSource : MediaSource
                 // source's proxy version, so an original opened because no proxy resolved is shared only until a
                 // proxy is registered. A reader without video never serves others.
                 _reader = context.DisableResourceShare
-                    ? MediaReader.Open(path, options)
+                    ? MediaReader.Open(path, options, decoders)
                     : SharedMediaReaders.Shared.Open(
-                        SharedMediaReaders.Key.ForFile(path, MediaMode.Video, context.PreferProxy,
+                        SharedMediaReaders.Key.ForFile(decoders, path, MediaMode.Video, context.PreferProxy,
                             context.PreferProxy ? context.PreferredProxyPreset : default, proxyResolverVersion),
-                        () => MediaReader.Open(path, options),
+                        () => MediaReader.Open(path, options, decoders),
                         opened => opened.HasVideo);
             }
             catch
@@ -246,6 +248,7 @@ public sealed class VideoSource : MediaSource
         private void RecordLoadedState(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
         {
             _loadedUri = videoSource.Uri;
+            _loadedDecoders = context.Decoders;
             _loadedPreferProxy = context.PreferProxy;
             _loadedPreferredProxyPreset = context.PreferredProxyPreset;
             _loadedProxyResolverVersion = proxyResolverVersion;

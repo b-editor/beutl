@@ -205,12 +205,12 @@ public sealed class ProxyMediaServicesReinitTests
         ProxyMediaServices services = null!;
         try
         {
-            Assert.DoesNotThrow(() => services = new ProxyMediaServices(TestShell.Configuration, TestShell.Notifications));
+            Assert.DoesNotThrow(() => services = new ProxyMediaServices(TestShell.Configuration, TestShell.Notifications, TestShell.Decoders));
 
             string defaultRoot = Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath);
             Assert.Multiple(() =>
             {
-                Assert.That(Beutl.Media.Decoding.DecoderRegistry.ProxyResolver, Is.SameAs(services.Resolver));
+                Assert.That(TestShell.Decoders.ProxyResolver, Is.SameAs(services.Resolver));
                 Assert.That(services.Store.StoreRootPath, Is.EqualTo(defaultRoot));
                 Assert.That(config.StoreRootPath.Value, Is.EqualTo(defaultRoot), "the bad persisted path must be repaired to the default");
             });
@@ -257,7 +257,7 @@ public sealed class ProxyMediaServicesReinitTests
             if (maxTotalBytes is { } cap)
                 Config.MaxTotalBytes.Value = cap;
 
-            Services = new ProxyMediaServices(TestShell.Configuration, TestShell.Notifications);
+            Services = new ProxyMediaServices(TestShell.Configuration, TestShell.Notifications, TestShell.Decoders);
         }
 
         public ProxyStoreConfig Config { get; } = TestShell.Configuration.ProxyStoreConfig;

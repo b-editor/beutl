@@ -42,6 +42,7 @@ public class ProxiesTabLayoutTests
         var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        context.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
         context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         context.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
         context.Setup(x => x.GetService(typeof(IProxyStore))).Returns(store);
@@ -168,6 +169,7 @@ public class ProxiesTabLayoutTests
             Assert.That(generateSelected.Command, Is.SameAs(model.GenerateAllCommand));
             int enqueuedBeforeAll = queue.Enqueued.Count;
             Click(generateSelected);
+            await HeadlessTestHelpers.WaitUntilAsync(() => queue.Enqueued.Count >= enqueuedBeforeAll + 2);
             Assert.That(queue.Enqueued.Skip(enqueuedBeforeAll).Select(x => Path.GetFileName(x.Source.AbsolutePath)),
                 Is.EquivalentTo(new[] { "CITY.MOV", "FAILED.MOV" }).IgnoreCase,
                 "The existing bulk action targets the remaining eligible sources, independently of selection.");

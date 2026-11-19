@@ -4,9 +4,11 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 
@@ -121,7 +123,7 @@ internal static class AiDialogResults
     }
 
     private static AiResultImporter DefaultImporter(IAiJobResultEditorContext editor)
-        => new(editor.Scene, editor.GetRequiredService<IElementAdder>());
+        => new(editor.Scene, editor.GetRequiredService<IElementAdder>(), ExtensionGuard.FindService<DecoderRegistry>(editor));
 
     // Saves bitmap as a PNG where the person picks, suggesting suggestedName and the time. A
     // failure is handed to reportFailure and shown in error as an unexpected one.

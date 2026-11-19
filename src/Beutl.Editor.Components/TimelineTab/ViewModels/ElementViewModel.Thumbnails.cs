@@ -3,10 +3,12 @@ using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
@@ -285,8 +287,8 @@ public sealed partial class ElementViewModel
                 start,
                 end,
                 PreferProxyForThumbnails,
-                PreferredProxyPresetForThumbnails)
-            : provider.GetThumbnailStripAsync(Timeline.EditorContext.GetRequiredService<FontManager>(), width, height, _thumbnailCacheService, ct, start, end);
+                PreferredProxyPresetForThumbnails, ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext))
+            : provider.GetThumbnailStripAsync(Timeline.EditorContext.GetRequiredService<FontManager>(), width, height, _thumbnailCacheService, ct, start, end, ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext));
     }
 
     private static ProxyPreset ToProxyPreset(int value)
@@ -431,7 +433,7 @@ public sealed partial class ElementViewModel
         });
 
         ct.ThrowIfCancellationRequested();
-        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, _thumbnailCacheService, ct))
+        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, _thumbnailCacheService, ct, ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext)))
         {
             if (ct.IsCancellationRequested)
                 break;

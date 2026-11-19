@@ -163,6 +163,7 @@ public partial class DelayAnimationEffect : FilterEffect
             bool selectionChanged = oldConditions.PreferProxy != _conditions.PreferProxy
                 || oldConditions.PreferredProxyPreset != _conditions.PreferredProxyPreset
                 || !ReferenceEquals(oldConditions.Fonts, _conditions.Fonts)
+                || !ReferenceEquals(oldConditions.Decoders, _conditions.Decoders)
                 || oldFontRevision != _fontRevision;
             if (!versionBumped && (oldTime != _globalTime || selectionChanged))
             {

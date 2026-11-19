@@ -7,6 +7,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -18,13 +19,12 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture]
 public class ElementSlipServiceTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private SceneHistoryHarness _harness = null!;
     private Scene _scene = null!;
     private HistoryManager _history = null!;
     private ElementSlipService _service = null!;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
 
     [SetUp]
     public void Setup()
@@ -32,7 +32,7 @@ public class ElementSlipServiceTests
         _harness = new SceneHistoryHarness("beutl_slip", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
         _history = _harness.History;
-        _service = new ElementSlipService(_history);
+        _service = new ElementSlipService(_history, decoders: _decoders);
     }
 
     [TearDown]
@@ -62,7 +62,7 @@ public class ElementSlipServiceTests
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementSlipService(null!));
+        Assert.Throws<ArgumentNullException>(() => new ElementSlipService(null!, decoders: _decoders));
     }
 
     [Test]
@@ -220,7 +220,7 @@ public class ElementSlipServiceTests
         };
         element.Objects.Add(video);
         int before = _history.UndoCount;
-        Assert.That(video.TryGetOriginalDuration(out _), Is.False);
+        Assert.That(video.TryGetOriginalDuration(out _, decoders: _decoders), Is.False);
 
         bool applied = _service.Slip(_scene, [element], MediaTime.FromSeconds(delta));
 
@@ -473,7 +473,7 @@ public class ElementSlipServiceTests
         int before = _history.UndoCount;
 
         bool applied = _service.Slip(_scene, [element], MediaTime.FromSeconds(delta));
-        using var resource = container.ToResource(new CompositionContext(MediaTime.FromSeconds(3.9)));
+        using var resource = container.ToResource(new CompositionContext(MediaTime.FromSeconds(3.9)) { Decoders = _decoders });
         var sampled = resource switch
         {
             DrawableGroup.Resource group => (SourceVideo.Resource)group.Children.Single(),
@@ -613,12 +613,12 @@ public class ElementSlipServiceTests
         if (media is SourceVideo sampledVideo)
         {
             using var lastFrame = (SourceVideo.Resource)sampledVideo.ToResource(
-                new CompositionContext(element.Range.End - MediaTime.FromSeconds(0.1)));
+                new CompositionContext(element.Range.End - MediaTime.FromSeconds(0.1)) { Decoders = _decoders });
             Assert.That(lastFrame.RequestedPosition + lastFrame.OffsetPosition, Is.LessThan(MediaTime.FromSeconds(5)));
             if (element.Range.Start < media.Start && media.Start < element.Range.End)
             {
                 using var beforeStart = (SourceVideo.Resource)sampledVideo.ToResource(
-                    new CompositionContext(media.Start - MediaTime.FromSeconds(0.1)));
+                    new CompositionContext(media.Start - MediaTime.FromSeconds(0.1)) { Decoders = _decoders });
                 Assert.That(beforeStart.RequestedPosition + beforeStart.OffsetPosition, Is.LessThan(MediaTime.FromSeconds(5)));
             }
         }
@@ -694,7 +694,7 @@ public class ElementSlipServiceTests
 
         bool applied = _service.Slip(_scene, [element], MediaTime.FromSeconds(1));
         using var resource = (DrawablePresenter.Resource)plain.ToResource(
-            new CompositionContext(MediaTime.FromSeconds(1.9)));
+            new CompositionContext(MediaTime.FromSeconds(1.9)) { Decoders = _decoders });
         var sampled = (SourceVideo.Resource)resource.Target!;
 
         Assert.Multiple(() =>
@@ -735,7 +735,7 @@ public class ElementSlipServiceTests
 
         bool applied = _service.Slip(_scene, [element], MediaTime.FromSeconds(1));
         using var resource = (DrawableTimeController.Resource)controller.ToResource(
-            new CompositionContext(MediaTime.FromSeconds(3.9)));
+            new CompositionContext(MediaTime.FromSeconds(3.9)) { Decoders = _decoders });
         var sampled = resource.Target is DrawablePresenter.Resource wrapper
             ? (SourceVideo.Resource)wrapper.Target!
             : (SourceVideo.Resource)resource.Target!;
@@ -807,7 +807,7 @@ public class ElementSlipServiceTests
                          controller.Start - MediaTime.FromSeconds(0.1)
                      }.Where(element.Range.Contains))
             {
-                using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time));
+                using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time) { Decoders = _decoders });
                 Drawable.Resource current = resource.Children.Single();
                 while (current is not SourceVideo.Resource)
                 {
@@ -851,7 +851,7 @@ public class ElementSlipServiceTests
 
         bool applied = _service.Slip(_scene, [element], MediaTime.FromSeconds(3));
         using var resource = (DrawableTimeController.Resource)controller.ToResource(
-            new CompositionContext(MediaTime.FromSeconds(9.9)));
+            new CompositionContext(MediaTime.FromSeconds(9.9)) { Decoders = _decoders });
         var sampled = (SourceVideo.Resource)resource.Target!;
 
         Assert.Multiple(() =>
@@ -906,7 +906,7 @@ public class ElementSlipServiceTests
                          video.Start - MediaTime.FromSeconds(0.1)
                      }.Where(element.Range.Contains))
             {
-                using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time));
+                using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(time) { Decoders = _decoders });
                 var sampled = (SourceVideo.Resource)resource.Children.Single();
                 Assert.That(sampled.RequestedPosition + sampled.OffsetPosition,
                     Is.GreaterThanOrEqualTo(MediaTime.Zero).And.LessThan(MediaTime.FromSeconds(5)));
@@ -946,7 +946,7 @@ public class ElementSlipServiceTests
 
         bool applied = _service.Slip(_scene, [element], MediaTime.FromSeconds(20));
 
-        using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(MediaTime.FromSeconds(7.9)));
+        using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(MediaTime.FromSeconds(7.9)) { Decoders = _decoders });
         var sampled = (SourceVideo.Resource)resource.Children.Single();
         Assert.Multiple(() =>
         {
@@ -1000,7 +1000,7 @@ public class ElementSlipServiceTests
         int after = _history.UndoCount;
         controller.IsEnabled.Value = true;
         using var resource = (DrawableTimeController.Resource)controller.ToResource(
-            new CompositionContext(MediaTime.FromSeconds(1.9)));
+            new CompositionContext(MediaTime.FromSeconds(1.9)) { Decoders = _decoders });
         var sampled = resource.Target is DrawablePresenter.Resource wrapper
             ? (SourceVideo.Resource)wrapper.Target!
             : (SourceVideo.Resource)resource.Target!;
@@ -1180,7 +1180,7 @@ public class ElementSlipServiceTests
         Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
         var video = new SourceVideo { Speed = { Expression = Expression.Create<float>("200") } };
         element.Objects.Add(video);
-        using var playback = (SourceVideo.Resource)video.ToResource(new CompositionContext(MediaTime.FromSeconds(1)));
+        using var playback = (SourceVideo.Resource)video.ToResource(new CompositionContext(MediaTime.FromSeconds(1)) { Decoders = _decoders });
         Assert.That(playback.Speed, Is.EqualTo(200));
         Assert.That(playback.RequestedPosition, Is.EqualTo(MediaTime.FromSeconds(2)));
         _history.Commit();
@@ -1205,7 +1205,7 @@ public class ElementSlipServiceTests
 
         // Replay the compositor's order: the controller has no preceding drawable to
         // consume, so the later video keeps its own 200% source-time mapping.
-        var context = new CompositionContext(MediaTime.FromSeconds(1)) { Flow = [] };
+        var context = new CompositionContext(MediaTime.FromSeconds(1)) { Decoders = _decoders, Flow = [] };
         using var controllerResource = (DrawableTimeController.Resource)controller.ToResource(context);
         context.Flow.Add(controllerResource);
         using var videoResource = (SourceVideo.Resource)video.ToResource(context);
@@ -1276,7 +1276,7 @@ public class ElementSlipServiceTests
         children.Add(videoFirst ? controller : video);
         element.Objects.Add(container);
 
-        using var resource = container.ToResource(new CompositionContext(MediaTime.FromSeconds(1)) { Flow = [] });
+        using var resource = container.ToResource(new CompositionContext(MediaTime.FromSeconds(1)) { Decoders = _decoders, Flow = [] });
         var childResources = resource is DrawableDecorator.Resource dr
             ? dr.Children : ((DrawableGroup.Resource)resource).Children;
         Assert.That(childResources.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
@@ -1311,7 +1311,7 @@ public class ElementSlipServiceTests
         element.Objects.Add(controllerFirst ? controller : presenter);
         element.Objects.Add(controllerFirst ? presenter : controller);
 
-        var context = new CompositionContext(MediaTime.FromSeconds(1)) { Flow = [] };
+        var context = new CompositionContext(MediaTime.FromSeconds(1)) { Decoders = _decoders, Flow = [] };
         using var videoResource = video.ToResource(context);
         context.Flow.Add(videoResource);
         using var presenterResource = (DrawablePresenter.Resource)presenter.ToResource(context);

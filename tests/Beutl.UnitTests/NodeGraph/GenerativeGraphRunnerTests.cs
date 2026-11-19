@@ -813,6 +813,8 @@ public sealed class GenerativeGraphRunnerTests
 
     private sealed class InlineHost : IGenerativeRunHost
     {
+        public Beutl.Media.Decoding.DecoderRegistry Decoders { get; } = new(new());
+
         public Beutl.Media.FontManager Fonts => TestFonts.Manager;
 
         public int Commits { get; private set; }

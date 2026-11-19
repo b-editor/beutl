@@ -16,18 +16,18 @@ internal sealed class FavoritesManager : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<FavoritesManager>();
     private readonly FileBrowserFavoritesStore _store;
-    private readonly ObjectTemplateService _templates;
+    private readonly FileThumbnailService _thumbnails;
     private readonly Action _onStoreChanged;
     private bool _disposed;
 
-    public FavoritesManager(ObjectTemplateService templates)
-        : this(templates, FileBrowserFavoritesStore.Instance)
+    public FavoritesManager(FileThumbnailService thumbnails)
+        : this(thumbnails, FileBrowserFavoritesStore.Instance)
     {
     }
 
-    internal FavoritesManager(ObjectTemplateService templates, FileBrowserFavoritesStore store)
+    internal FavoritesManager(FileThumbnailService thumbnails, FileBrowserFavoritesStore store)
     {
-        _templates = templates;
+        _thumbnails = thumbnails;
         _store = store;
         _onStoreChanged = () => Changed?.Invoke();
         _store.Changed += _onStoreChanged;
@@ -51,7 +51,7 @@ internal sealed class FavoritesManager : IDisposable
         {
             IEnumerable<string> paths = new[]
             {
-                _templates.DirectoryPath, BeutlEnvironment.GetMaterialsDirectoryPath()
+                _thumbnails.Templates.DirectoryPath, BeutlEnvironment.GetMaterialsDirectoryPath()
             }.Concat(Favorites).Where(path => Directory.Exists(path) || File.Exists(path));
             if (FavoriteItems.Select(item => item.FullPath).SequenceEqual(paths, StringComparer.Ordinal)
                 && FavoriteItems.All(item => item.IsDirectory == Directory.Exists(item.FullPath)))
@@ -64,7 +64,7 @@ internal sealed class FavoritesManager : IDisposable
 
         FileSystemEnumerator.DisposeAndClear(FavoriteItems);
 
-        AddFixedFolder(_templates.DirectoryPath, Strings.Templates);
+        AddFixedFolder(_thumbnails.Templates.DirectoryPath, Strings.Templates);
 
         AddFixedFolder(BeutlEnvironment.GetMaterialsDirectoryPath(), Strings.Materials);
 
@@ -72,11 +72,11 @@ internal sealed class FavoritesManager : IDisposable
         {
             if (Directory.Exists(path))
             {
-                FavoriteItems.Add(new FileSystemItemViewModel(_templates, path, true));
+                FavoriteItems.Add(new FileSystemItemViewModel(_thumbnails, path, true));
             }
             else if (File.Exists(path))
             {
-                FavoriteItems.Add(new FileSystemItemViewModel(_templates, path, false));
+                FavoriteItems.Add(new FileSystemItemViewModel(_thumbnails, path, false));
             }
         }
     }
@@ -97,7 +97,7 @@ internal sealed class FavoritesManager : IDisposable
             return;
         }
 
-        var item = new FileSystemItemViewModel(_templates, directory, true);
+        var item = new FileSystemItemViewModel(_thumbnails, directory, true);
         item.Name.Value = localizedName;
         FavoriteItems.Add(item);
     }

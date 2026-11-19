@@ -6,6 +6,7 @@ using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
@@ -18,11 +19,10 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public sealed class MediaTimeMediaPositionTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private static readonly Rational[] s_videoRates = [new(24000, 1001), new(30000, 1001), new(30)];
     private static readonly int[] s_sampleRates = [44_100, 48_000, 96_000];
-
-    [OneTimeSetUp]
-    public void RegisterDecoder() => TestMediaHelper.RegisterTestDecoder();
 
     // A time read back from a file falls up to a tick short of its frame and still shows that frame.
     [TestCaseSource(nameof(s_videoRates))]
@@ -35,7 +35,7 @@ public sealed class MediaTimeMediaPositionTests
             Source = { Value = source },
             TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromFrames(300, rate)) },
         };
-        using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
+        using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         var mismatches = new List<string>();
         for (int frame = 0; frame < 300; frame++)
@@ -44,7 +44,7 @@ public sealed class MediaTimeMediaPositionTests
             foreach (MediaTime at in (MediaTime[])[time, Saved(time)])
             {
                 bool versionBumped = false;
-                resource.Reconcile(video, new CompositionContext(at), ref versionBumped);
+                resource.Reconcile(video, new CompositionContext(at) { Decoders = _decoders }, ref versionBumped);
                 var node = new ContainerRenderNode();
                 resource.DrawInternal(new GraphicsContext2D(node, new Size(16, 16)));
                 if (node.Children.Single() is not VideoSourceRenderNode { Frame: var drawn } || drawn != frame)
@@ -74,13 +74,13 @@ public sealed class MediaTimeMediaPositionTests
             Source = { Value = source },
             TimeRange = { Value = new TimeRange(MediaTime.Zero, duration) },
         };
-        using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
+        using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         var graph = new GraphModel();
         var videoNode = new VideoSourceNode();
         videoNode.Source.Property!.SetValue(source);
         graph.Nodes.Add(videoNode);
         using var snapshot = new GraphSnapshot();
-        snapshot.Build(graph, CompositionContext.Default);
+        snapshot.Build(graph, new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         // Include the last flick, the exclusive end, and a return to the beginning after reading past EOF.
         MediaTime[] times = [
@@ -91,7 +91,7 @@ public sealed class MediaTimeMediaPositionTests
         foreach (MediaTime time in times)
         {
             bool versionBumped = false;
-            var context = new CompositionContext(time);
+            var context = new CompositionContext(time) { Decoders = _decoders };
             resource.Reconcile(video, context, ref versionBumped);
             using var root = new ContainerRenderNode();
             using (var drawing = new GraphicsContext2D(root, new Size(16, 16)))
@@ -132,11 +132,11 @@ public sealed class MediaTimeMediaPositionTests
             OffsetPosition = { Value = MediaTime.FromFrames(offsetFrames, rate) },
             IsLoop = { Value = loop },
         };
-        using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
+        using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         foreach (var (outputFrame, expected) in new[] { (lastOutputFrame, 14), (lastOutputFrame + 1, nextSourceFrame) })
         {
             bool versionBumped = false;
-            resource.Reconcile(video, new CompositionContext(MediaTime.FromFrames(outputFrame, new Rational(60))), ref versionBumped);
+            resource.Reconcile(video, new CompositionContext(MediaTime.FromFrames(outputFrame, new Rational(60))) { Decoders = _decoders }, ref versionBumped);
             using var root = new ContainerRenderNode();
             using (var drawing = new GraphicsContext2D(root, new Size(16, 16)))
                 resource.DrawInternal(drawing);
@@ -204,7 +204,7 @@ public sealed class MediaTimeMediaPositionTests
     {
         var source = new SoundSource();
         source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(sampleRate, 2, 2)));
-        using var resource = (SoundSource.Resource)source.ToResource(CompositionContext.Default);
+        using var resource = (SoundSource.Resource)source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         Assert.That(resource.Read(MediaTime.FromSamples(sampleRate / 2, sampleRate), MediaTime.FromSamples(1000, sampleRate), out AudioBuffer? sound), Is.True);
         using (sound)

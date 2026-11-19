@@ -1,7 +1,9 @@
 ﻿using Beutl.Audio;
 using Beutl.Engine.Expressions;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -9,6 +11,8 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class SoundClipLayoutTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     [Test]
     public void GroupsAndScenesUseTheProjectLayout([Values] SpeakerLayout layout)
     {
@@ -28,13 +32,13 @@ public class SoundClipLayoutTests
         AudioTestWaves.WithTemporaryWave(44100, 32, (_, _) => 0, source =>
         {
             var sound = new SourceSound { Source = { Value = source } };
-            Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround51, MediaTime.Zero), Is.EqualTo(layout));
+            Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround51, MediaTime.Zero, decoders: _decoders), Is.EqualTo(layout));
             sound.ChannelMap.Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Mono, layout);
-            Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround71, MediaTime.Zero), Is.EqualTo(AudioChannelLayout.Mono));
+            Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround71, MediaTime.Zero, decoders: _decoders), Is.EqualTo(AudioChannelLayout.Mono));
             sound.ChannelMap.Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Stereo, layout);
-            Assert.That(sound.GetClipLayout(AudioChannelLayout.Mono, MediaTime.Zero), Is.EqualTo(AudioChannelLayout.Stereo));
+            Assert.That(sound.GetClipLayout(AudioChannelLayout.Mono, MediaTime.Zero, decoders: _decoders), Is.EqualTo(AudioChannelLayout.Stereo));
             sound.ChannelMap.Value = new AudioChannelMap(AudioChannelFormat.Mono, AudioChannelLayout.Discrete(3), [0]);
-            Assert.That(sound.GetClipLayout(AudioChannelLayout.Stereo, MediaTime.Zero), Is.EqualTo(layout), "A stale map resolves to Auto.");
+            Assert.That(sound.GetClipLayout(AudioChannelLayout.Stereo, MediaTime.Zero, decoders: _decoders), Is.EqualTo(layout), "A stale map resolves to Auto.");
         }, channelCount: channels, mask: layout.Speakers);
     }
 
@@ -54,8 +58,8 @@ public class SoundClipLayoutTests
 
             Assert.That(sound.Source.Value, Is.Null);
             Assert.That(sound.ChannelMap.Value, Is.EqualTo(AudioChannelMap.Auto));
-            Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround71, MediaTime.Zero), Is.EqualTo(AudioChannelLayout.Surround51));
-            Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround71, MediaTime.FromSeconds(2)), Is.EqualTo(AudioChannelLayout.Stereo));
+            Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround71, MediaTime.Zero, decoders: _decoders), Is.EqualTo(AudioChannelLayout.Surround51));
+            Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround71, MediaTime.FromSeconds(2), decoders: _decoders), Is.EqualTo(AudioChannelLayout.Stereo));
         }, channelCount: 6, mask: AudioChannelLayout.Surround51.Speakers);
     }
 
@@ -66,7 +70,7 @@ public class SoundClipLayoutTests
         var sound = new SourceSound();
         if (unreadable)
             sound.Source.Value = SoundSource.Open(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.wav"));
-        Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround51, MediaTime.Zero), Is.EqualTo(AudioChannelLayout.Surround51));
-        Assert.That(sound.GetClipLayout(AudioChannelLayout.Stereo, MediaTime.Zero), Is.EqualTo(AudioChannelLayout.Stereo));
+        Assert.That(sound.GetClipLayout(AudioChannelLayout.Surround51, MediaTime.Zero, decoders: _decoders), Is.EqualTo(AudioChannelLayout.Surround51));
+        Assert.That(sound.GetClipLayout(AudioChannelLayout.Stereo, MediaTime.Zero, decoders: _decoders), Is.EqualTo(AudioChannelLayout.Stereo));
     }
 }

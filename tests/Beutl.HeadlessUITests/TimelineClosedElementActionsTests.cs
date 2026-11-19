@@ -126,7 +126,7 @@ public class TimelineClosedElementActionsTests
         using var viewModel = new VideoSourceEditorViewModel(adapter);
         viewModel.Accept(new EditorServices(editor, element));
         var decoder = new TestVideoDecoder();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             // What the video source editor does once a file is picked. The test video is 37 frames at 25 fps
@@ -143,7 +143,7 @@ public class TimelineClosedElementActionsTests
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
         }
     }
 
@@ -222,7 +222,7 @@ public class TimelineClosedElementActionsTests
         }
 
         public object? GetService(Type serviceType)
-            => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Element) ? element : editor.GetService(serviceType);
+            => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : serviceType == typeof(Element) ? element : editor.GetService(serviceType);
     }
 
     private sealed class TestVideoDecoder : IDecoderInfo

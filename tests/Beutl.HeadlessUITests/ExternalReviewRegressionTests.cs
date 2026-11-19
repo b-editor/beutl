@@ -31,7 +31,7 @@ public sealed class ExternalReviewRegressionTests
         editor.Scene.Children.Add(element);
         File.WriteAllText(path, "{}");
         using var browser = new FileBrowserTabViewModel(editor);
-        using var item = new FileSystemItemViewModel(TestShell.Templates, path, false);
+        using var item = new FileSystemItemViewModel(TestShell.Thumbnails, path, false);
         await browser.RenameItemAsync(item, "renamed-brush.json");
         Assert.That(File.Exists(path), Is.True);
         await browser.DeleteItemAsync(item);
@@ -47,14 +47,14 @@ public sealed class ExternalReviewRegressionTests
         string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "clip.wav");
         WriteSilentWave(path);
         var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             var element = new Element();
             element.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(path) } });
             editor.Scene.Children.Add(element);
             using var browser = new FileBrowserTabViewModel(editor);
-            using var item = new FileSystemItemViewModel(TestShell.Templates, path, false);
+            using var item = new FileSystemItemViewModel(TestShell.Thumbnails, path, false);
             using var notifications = new NotificationCapture(TestShell.Notifications);
             await browser.RenameItemAsync(item, "renamed.wav");
             Assert.That(File.Exists(path), Is.True);
@@ -66,7 +66,7 @@ public sealed class ExternalReviewRegressionTests
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
         }
     }
 
@@ -193,7 +193,7 @@ public sealed class ExternalReviewRegressionTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("open-file-review", 320, 180)).Editor;
         string path = editor.Scene.Uri!.LocalPath;
         using var browser = new FileBrowserTabViewModel(editor);
-        using var item = new FileSystemItemViewModel(TestShell.Templates, path, false);
+        using var item = new FileSystemItemViewModel(TestShell.Thumbnails, path, false);
         await browser.RenameItemAsync(item, "renamed.scene");
         await browser.DeleteItemAsync(item);
         Assert.That(File.Exists(path), Is.True);

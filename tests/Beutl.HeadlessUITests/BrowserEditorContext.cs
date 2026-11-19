@@ -36,6 +36,7 @@ internal sealed class BrowserEditorContext(
     {
         if (serviceType == typeof(Beutl.Services.INotificationService)) return TestShell.Notifications;
         if (serviceType == typeof(Beutl.Media.FontManager)) return TestShell.FontManager;
+        if (serviceType == typeof(Beutl.Media.Decoding.DecoderRegistry)) return TestShell.Decoders;
         if (serviceType == typeof(Beutl.Configuration.GlobalConfiguration)) return TestShell.Configuration;
         if (serviceType == typeof(IElementAdder))
             return this;

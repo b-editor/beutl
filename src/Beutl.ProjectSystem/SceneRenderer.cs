@@ -2,6 +2,7 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl;
@@ -20,11 +21,11 @@ public sealed class SceneRenderer : Renderer
         float maxWorkingScale = float.PositiveInfinity,
         bool forceOriginalSource = false,
         EditorConfig? editorConfig = null,
-        ProxyStoreConfig? proxyConfig = null)
+        ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
         : base(scene.FrameSize.Value.Width, scene.FrameSize.Value.Height, intent, renderScale, maxWorkingScale,
             editorConfig == null ? RenderCacheOptions.Default : RenderCacheOptions.CreateFromConfiguration(editorConfig))
     {
-        _compositor = new SceneCompositor(scene, fonts, editorConfig, proxyConfig)
+        _compositor = new SceneCompositor(scene, fonts, editorConfig, proxyConfig, decoders)
         {
             DisableResourceShare = disableResourceShare,
             ForceOriginalSource = forceOriginalSource,

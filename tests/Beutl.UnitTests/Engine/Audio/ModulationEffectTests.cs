@@ -389,7 +389,7 @@ public class ModulationEffectTests
         if (effect != null)
             sound.Effect.Value = effect;
 
-        using var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = Beutl.UnitTests.Engine.Graphics.Rendering.TestMediaHelper.CreateRegistry() });
         using var composer = new Composer { SampleRate = SampleRate };
         var range = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource),

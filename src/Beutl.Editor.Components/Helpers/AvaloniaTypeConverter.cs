@@ -5,6 +5,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using ImageBrush = Avalonia.Media.ImageBrush;
@@ -21,11 +22,11 @@ public static partial class AvaloniaTypeConverter
     }
 
     private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<MediaTime> time,
-        Func<T, CompositionContext, TResource> createResource, Action<TResource> onUpdated, FontManager? fonts = null)
+        Func<T, CompositionContext, TResource> createResource, Action<TResource> onUpdated, FontManager? fonts = null, DecoderRegistry? decoders = null)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
-        return obj.SubscribeEngineVersionedResource(time, createResource, fonts)
+        return obj.SubscribeEngineVersionedResource(time, createResource, fonts, decoders)
             .ObserveOnUIDispatcher()
             // The notification is marshalled to the UI thread, but the resource stays owned by the render
             // dispatcher; only Read holds that owner off for the length of the projection.
@@ -244,7 +245,7 @@ public static partial class AvaloniaTypeConverter
     }
 
     public static (Avalonia.Media.Brush?, IDisposable, Action?) ToAvaBrushSync(this Media.Brush? brush,
-        IObservable<MediaTime> time, FontManager? fonts)
+        IObservable<MediaTime> time, FontManager? fonts, DecoderRegistry? decoders = null)
     {
         switch (brush)
         {
@@ -287,7 +288,7 @@ public static partial class AvaloniaTypeConverter
                         {
                             handler ??= new DrawableImageBrushHandler(r, imageBrush, RenderThread.Dispatcher);
                             handler.Update();
-                        }, fonts);
+                        }, fonts, decoders);
 
                     return (
                         imageBrush,

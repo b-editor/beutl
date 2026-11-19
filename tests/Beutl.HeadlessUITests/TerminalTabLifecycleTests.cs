@@ -122,6 +122,7 @@ public class TerminalTabLifecycleTests
             var editor = TestShell.CreateEditorContextMock();
             editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+            editor.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
             editor.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
             editor.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
             using var owner = new TerminalTabViewModel(editor.Object);
@@ -239,7 +240,7 @@ public class TerminalTabLifecycleTests
             IsSelected.Dispose();
         }
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : serviceType == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : null;
 
         public void ReadFromJson(JsonObject json)
         {

@@ -290,7 +290,7 @@ public class TimelineMediaDurationTests
     {
         public bool HasOriginalDuration() => true;
 
-        public bool TryGetOriginalDuration(out MediaTime duration)
+        public bool TryGetOriginalDuration(out MediaTime duration, Beutl.Media.Decoding.DecoderRegistry? decoders)
         {
             duration = MediaTime.FromSeconds(3);
             return true;
@@ -414,7 +414,7 @@ public class TimelineMediaDurationTests
                 Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)), "Preview must not mutate the element.");
             });
         });
-        using var compositor = new SceneCompositor(model.Scene, TestShell.FontManager) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(model.Scene, TestShell.FontManager, decoders: TestShell.Decoders) { DisableResourceShare = true, ForceOriginalSource = true };
         var video = compositor.EvaluateGraphics(model.Model.Range.End - OneFrameAt30).Objects.OfType<SourceVideo.Resource>().Single();
         Assert.Multiple(() =>
         {
@@ -423,7 +423,7 @@ public class TimelineMediaDurationTests
             Assert.That(video.RequestedPosition + video.OffsetPosition, Is.LessThanOrEqualTo(MediaTime.FromSeconds(1)));
         });
         controller.IsEnabled.Value = true;
-        Assert.That(SlippableMedia.GetOriginalDuration(model.Model), Is.EqualTo(MediaTime.FromSeconds(0.8)));
+        Assert.That(SlippableMedia.GetOriginalDuration(model.Model, decoders: TestShell.Decoders), Is.EqualTo(MediaTime.FromSeconds(0.8)));
     }
 
     [AvaloniaTest]
@@ -474,7 +474,7 @@ public class TimelineMediaDurationTests
 
     private static SourceVideo CreateDurationVideo()
     {
-        DecoderRegistry.Register(new DurationVideoDecoder());
+        TestShell.EnsureDecoder<DurationVideoDecoder>();
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"duration-{Guid.NewGuid():N}.trim-duration-video");
         File.WriteAllBytes(path, []);
         var source = new VideoSource();
@@ -645,7 +645,7 @@ public class TimelineMediaDurationTests
         Assert.Multiple(() =>
         {
             Assert.That(available, Is.False);
-            Assert.That(SlippableMedia.GetOriginalDuration(model.Model), Is.Null);
+            Assert.That(SlippableMedia.GetOriginalDuration(model.Model, decoders: TestShell.Decoders), Is.Null);
             Assert.That(model.Model.Range, Is.EqualTo(before));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undo));
         });

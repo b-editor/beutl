@@ -5,6 +5,7 @@ using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
@@ -37,6 +38,7 @@ public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
     private readonly object _previewLock = new();
     private int _previewLoadVersion;
     private Guid _previewShownFor;
+    private DecoderRegistry? _previewDecoders;
     private NodeMonitor<Ref<Bitmap>?>? _previewMonitor;
     private NodeMonitor<string?>? _statusMonitor;
 

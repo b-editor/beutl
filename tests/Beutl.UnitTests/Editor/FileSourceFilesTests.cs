@@ -12,7 +12,6 @@ public sealed class FileSourceFilesTests
     [Test]
     public void A_source_that_read_a_file_names_it()
     {
-        TestMediaHelper.RegisterTestDecoder();
         string path = TestMediaHelper.CreateTestAudioFile(durationSeconds: 1.0);
         var source = new SoundSource();
         source.ReadFrom(new Uri(path));

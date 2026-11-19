@@ -11,11 +11,11 @@ namespace Beutl.Editor.Components.TimelineTab;
 // background music is meant to run under the pictures. Files no decoder claims are left out.
 internal static class FileDropLayout
 {
-    public static ElementDescription[] Create(IEnumerable<string> files, MediaTime start, MediaTime length, int layer)
+    public static ElementDescription[] Create(IEnumerable<string> files, MediaTime start, MediaTime length, int layer, DecoderRegistry decoders)
     {
         var byName = StringComparer.Create(CultureInfo.CurrentCulture, CompareOptions.NumericOrdering);
-        string[] video = [.. MediaFileMatcher.VideoExtensions()];
-        string[] audio = [.. MediaFileMatcher.AudioExtensions()];
+        var video = MediaFileMatcher.VideoExtensions(decoders);
+        var audio = MediaFileMatcher.AudioExtensions(decoders);
         string[] ordered = [.. files.OrderBy(Path.GetFileName, byName)];
 
         var pictures = new List<string>();
@@ -30,7 +30,7 @@ internal static class FileDropLayout
             }
             // Where a file goes only matters among several, and it costs an open that the element adder then repeats.
             else if (MediaFileMatcher.Matches(file, video)
-                     && (ordered.Length == 1 || !MediaFileMatcher.Matches(file, audio) || HoldsVideo(file)))
+                     && (ordered.Length == 1 || !MediaFileMatcher.Matches(file, audio) || HoldsVideo(file, decoders)))
             {
                 pictures.Add(file);
                 anyVideo = true;
@@ -54,11 +54,11 @@ internal static class FileDropLayout
     }
 
     // Sound alone can come in a container that is on both lists, such as .webm, which only opening it tells.
-    private static bool HoldsVideo(string file)
+    private static bool HoldsVideo(string file, DecoderRegistry decoders)
     {
         try
         {
-            using var reader = MediaReader.Open(file, new MediaOptions(MediaMode.AudioVideo));
+            using var reader = MediaReader.Open(file, new MediaOptions(MediaMode.AudioVideo), decoders);
             return reader.HasVideo;
         }
         catch (Exception)

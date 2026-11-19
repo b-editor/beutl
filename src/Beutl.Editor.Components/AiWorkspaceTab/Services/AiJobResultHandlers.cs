@@ -222,7 +222,7 @@ internal sealed class ImageAiJobResultCapabilities(Func<string> getDisplayName)
 
         IAiJobResultEditorContext editor = context.Editor;
         MediaTime start = editor.CurrentTime;
-        var importer = new AiResultImporter(editor.Scene, editor.ElementAdder);
+        var importer = new AiResultImporter(editor.Scene, editor.ElementAdder, ExtensionGuard.FindService<DecoderRegistry>(editor));
         ElementAddResult result = await importer.ImportImageAsync(
             bitmap,
             new AiResultImportOptions(
@@ -265,6 +265,8 @@ internal sealed class VideoAiJobResultCapabilities()
                 download.Metadata);
             string extension = metadata?.GetFileExtension() ?? ".mp4";
 
+            IAiJobResultEditorContext editor = context.Editor;
+            var decoders = ExtensionGuard.RequireService<DecoderRegistry>(editor);
             MediaTime duration = MediaTime.FromSeconds(AiJobResultInput.GetInt32(job, "durationSeconds") ?? 6);
             if (AiJobResultInput.GetString(job, "mode") is "edit" or "extend" or "motion")
             {
@@ -276,7 +278,7 @@ internal sealed class VideoAiJobResultCapabilities()
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     using var reader = MediaReader.Open(
-                        ownedPath, new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
+                        ownedPath, new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true }, decoders);
                     double seconds = reader.HasVideo ? reader.VideoInfo.Duration.ToDouble() : 0;
                     // Some backends can decode frames without duration metadata. Keep the
                     // retained/default length in that case; the importer still validates decoding.
@@ -285,9 +287,8 @@ internal sealed class VideoAiJobResultCapabilities()
                         : duration;
                 }, cancellationToken);
             }
-            IAiJobResultEditorContext editor = context.Editor;
             MediaTime start = editor.CurrentTime;
-            var importer = new AiResultImporter(editor.Scene, editor.ElementAdder);
+            var importer = new AiResultImporter(editor.Scene, editor.ElementAdder, decoders);
             ElementAddResult result = await importer.ImportVideoAsync(
                 ownedPath,
                 extension,

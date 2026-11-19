@@ -17,11 +17,15 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class SilenceWaveformTests
 {
+    private DecoderRegistry _decoders = null!;
+
+    [SetUp]
+    public void CreateDecoderRegistry() => _decoders = TestMediaHelper.CreateRegistry();
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task Analysis_UsesExpressionTargetsInsteadOfStoredSceneValues(bool indirect)
     {
-        TestMediaHelper.RegisterTestDecoder();
         var scene = new Scene();
         var referenced = new Scene { Duration = { Value = MediaTime.FromSeconds(2) } };
         var unused = new Scene { Duration = { Value = referenced.Duration.Value } };
@@ -40,7 +44,7 @@ public class SilenceWaveformTests
         Element element = AddReference(scene, referenced);
         var observed = new HashSet<Scene>();
         var chunks = new List<WaveformChunk>();
-        await foreach (var chunk in SilenceWaveform.GetChunksAsync(TestFonts.Manager, scene, element, 100, observeScene: value => observed.Add(value)))
+        await foreach (var chunk in SilenceWaveform.GetChunksAsync(TestFonts.Manager, scene, element, 100, observeScene: value => observed.Add(value), decoders: _decoders))
             chunks.Add(chunk);
         Assert.That(chunks, Has.Count.EqualTo(100));
         Assert.That(chunks.All(c => c.MaxValue > 0.4f), Is.True, "The stored empty scene must not replace the expression's audio.");
@@ -61,7 +65,6 @@ public class SilenceWaveformTests
     [Test]
     public async Task Analysis_UsesCapturedReferencedAudioWhileTheLiveSceneIsEdited()
     {
-        TestMediaHelper.RegisterTestDecoder();
         var referenced = new Scene { Duration = { Value = MediaTime.FromSeconds(3) } };
         var sound = new SourceSound { Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)) } };
         var child = new Element { Length = { Value = MediaTime.FromSeconds(3) } };
@@ -71,7 +74,7 @@ public class SilenceWaveformTests
         var element = new Element { Length = { Value = MediaTime.FromSeconds(3) } };
         element.Objects.Add(new SceneSound { ReferencedScene = { Value = referenced } });
         scene.Children.Add(element);
-        await using var reader = SilenceWaveform.GetChunksAsync(TestFonts.Manager, scene, element, 150).GetAsyncEnumerator();
+        await using var reader = SilenceWaveform.GetChunksAsync(TestFonts.Manager, scene, element, 150, decoders: _decoders).GetAsyncEnumerator();
         Assert.That(await reader.MoveNextAsync(), Is.True);
         referenced.Children.Clear();
         sound.Gain.Value = 0;
@@ -126,7 +129,6 @@ public class SilenceWaveformTests
     [Test]
     public async Task ThirtyMinuteSource_FullCoverageBenchmarksAcquisition()
     {
-        TestMediaHelper.RegisterTestDecoder();
         string path = TestMediaHelper.CreateTestAudioFile(durationSeconds: 1800);
         var source = new SoundSource();
         source.ReadFrom(new Uri(path));
@@ -146,7 +148,7 @@ public class SilenceWaveformTests
         Assert.That(count, Is.EqualTo(90000));
     }
 
-    private static IAsyncEnumerable<WaveformChunk> GetChunksAsync(Sound sound, int count, CancellationToken ct = default)
+    private IAsyncEnumerable<WaveformChunk> GetChunksAsync(Sound sound, int count, CancellationToken ct = default)
     {
         var scene = new Scene(100, 100, "silence-waveform");
         var project = new Project { SampleRate = { Value = 48000 } };
@@ -154,7 +156,7 @@ public class SilenceWaveformTests
         var element = new Element { Start = { Value = sound.TimeRange.Value.Start }, Length = { Value = sound.TimeRange.Value.Duration } };
         element.Objects.Add(sound);
         scene.Children.Add(element);
-        return SilenceWaveform.GetChunksAsync(TestFonts.Manager, scene, element, count, ct);
+        return SilenceWaveform.GetChunksAsync(TestFonts.Manager, scene, element, count, ct, decoders: _decoders);
     }
 
     [Test, Explicit("Writes a 30 minute PCM file for an end-to-end throughput measurement.")]
@@ -162,7 +164,7 @@ public class SilenceWaveformTests
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-silence-benchmark-{Guid.NewGuid():N}.wav");
         var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        _decoders.Register(decoder);
         try
         {
             const int rate = 48000;
@@ -189,7 +191,6 @@ public class SilenceWaveformTests
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
             File.Delete(path);
         }
     }

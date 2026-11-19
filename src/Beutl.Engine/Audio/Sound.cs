@@ -4,6 +4,7 @@ using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Serialization;
 
@@ -34,7 +35,7 @@ public abstract partial class Sound : EngineObject
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Audio;
 
     // Groups and scenes feed the panner in the project layout.
-    public virtual AudioChannelLayout GetClipLayout(AudioChannelLayout projectLayout, MediaTime time) => projectLayout;
+    public virtual AudioChannelLayout GetClipLayout(AudioChannelLayout projectLayout, MediaTime time, DecoderRegistry? decoders = null) => projectLayout;
 
     /// <summary>Whether <see cref="GetClipLayout"/> can answer differently at another time.</summary>
     public virtual bool HasTimeDependentClipLayout => false;

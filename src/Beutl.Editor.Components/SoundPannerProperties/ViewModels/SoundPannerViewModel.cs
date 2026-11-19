@@ -6,11 +6,13 @@ using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.SoundPannerProperties.ViewModels;
 
@@ -142,10 +144,12 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
     {
         var project = Sound.FindHierarchicalParent<Project>();
         Layout.Value = project.GetSpeakerLayout();
+        var decoders = ExtensionGuard.FindService<DecoderRegistry>(_services);
         AudioChannelLayout output = project.GetChannelLayout();
         // The short-circuit keeps mono and stereo projects from reading the clip layout.
         IsHorizontalOnly.Value = !PannerNode.PositionsOnto(output)
-            || !PannerNode.IsPositionedClip(Sound.GetClipLayout(output, CurrentTime.Value).ChannelCount);
+            || !PannerNode.IsPositionedClip((Sound is SourceSound && decoders == null
+                ? output : Sound.GetClipLayout(output, CurrentTime.Value, decoders)).ChannelCount);
         RefreshValues();
     }
 

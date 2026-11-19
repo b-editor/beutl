@@ -16,15 +16,23 @@ namespace Beutl.E2ETests.Scenarios;
 [NonParallelizable]
 public class FileBrowserTemplateThumbnailTests
 {
+    private FileThumbnailService _thumbnails = null!;
+    private DecoderRegistry _decoders = null!;
     private ObjectTemplateService _templates = null!;
 
     [SetUp]
-    public void SetUpTemplates() => _templates = new ObjectTemplateService(TestFonts.Manager,
-        Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), Guid.NewGuid().ToString("N")));
+    public void SetUpTemplates()
+    {
+        _decoders = new DecoderRegistry(new());
+        _templates = new ObjectTemplateService(TestFonts.Manager,
+            Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), Guid.NewGuid().ToString("N")), decoders: _decoders);
+        _thumbnails = new FileThumbnailService(_decoders, _templates);
+    }
 
     [TearDown]
     public void DisposeTemplates()
     {
+        _thumbnails.Dispose();
         _templates.Dispose();
         Directory.Delete(_templates.DirectoryPath, recursive: true);
     }
@@ -32,7 +40,7 @@ public class FileBrowserTemplateThumbnailTests
     [Test]
     public void IsObjectTemplateFile_OnlyMatchesJsonUnderTheTemplatesDirectory()
     {
-        FileThumbnailService service = FileThumbnailService.Instance;
+        FileThumbnailService service = _thumbnails;
         string templates = _templates.DirectoryPath;
 
         Assert.Multiple(() =>
@@ -49,26 +57,19 @@ public class FileBrowserTemplateThumbnailTests
     [Test]
     public void CanGenerateThumbnail_CoversImagesVideosAndTemplates()
     {
-        FileThumbnailService service = FileThumbnailService.Instance;
+        FileThumbnailService service = _thumbnails;
         string templates = _templates.DirectoryPath;
         var decoder = new FakeDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        _decoders.Register(decoder);
 
-        try
+        Assert.Multiple(() =>
         {
-            Assert.Multiple(() =>
-            {
-                Assert.That(service.CanGenerateThumbnail("a.png", _templates), Is.True);
-                Assert.That(service.CanGenerateThumbnail("a.fakevid", _templates), Is.True);
-                Assert.That(service.CanGenerateThumbnail(Path.Combine(templates, "a.json"), _templates), Is.True);
-                Assert.That(service.CanGenerateThumbnail("a.fakeaud", _templates), Is.False);
-                Assert.That(service.CanGenerateThumbnail("a.txt", _templates), Is.False);
-            });
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(service.CanGenerateThumbnail("a.png", _templates), Is.True);
+            Assert.That(service.CanGenerateThumbnail("a.fakevid", _templates), Is.True);
+            Assert.That(service.CanGenerateThumbnail(Path.Combine(templates, "a.json"), _templates), Is.True);
+            Assert.That(service.CanGenerateThumbnail("a.fakeaud", _templates), Is.False);
+            Assert.That(service.CanGenerateThumbnail("a.txt", _templates), Is.False);
+        });
     }
 
     [AvaloniaTest]
@@ -81,7 +82,7 @@ public class FileBrowserTemplateThumbnailTests
 
         Assert.That(item?.Preview, Is.Not.Null.And.Not.Empty);
 
-        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item!.FilePath!, _templates);
+        var thumbnail = await _thumbnails.GetThumbnailAsync(item!.FilePath!, _templates);
 
         Assert.That(thumbnail, Is.Not.Null);
         Assert.That(thumbnail!.PixelSize.Width, Is.GreaterThan(0));
@@ -95,7 +96,7 @@ public class FileBrowserTemplateThumbnailTests
 
         Assert.That(item?.Preview, Is.Null);
 
-        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item!.FilePath!, _templates);
+        var thumbnail = await _thumbnails.GetThumbnailAsync(item!.FilePath!, _templates);
 
         Assert.That(thumbnail, Is.Null);
     }
@@ -106,27 +107,20 @@ public class FileBrowserTemplateThumbnailTests
     public async Task GetMediaInfoAsync_FallsBackToTheOtherStreamKind()
     {
         var decoder = new RecordingDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        _decoders.Register(decoder);
+        string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.bothkinds");
+        await File.WriteAllBytesAsync(path, [0]);
         try
         {
-            string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.bothkinds");
-            await File.WriteAllBytesAsync(path, [0]);
-            try
-            {
-                await FileThumbnailService.Instance.GetMediaInfoAsync(path);
-            }
-            finally
-            {
-                File.Delete(path);
-            }
-
-            // Classified video (video wins an ambiguous claim), then audio once that open fails.
-            Assert.That(decoder.Requests.Select(options => options.StreamsToLoad), Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
+            await _thumbnails.GetMediaInfoAsync(path);
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
+            File.Delete(path);
         }
+
+        // Classified video (video wins an ambiguous claim), then audio once that open fails.
+        Assert.That(decoder.Requests.Select(options => options.StreamsToLoad), Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
     }
 
     // The File Browser decodes on the background worker, so a file that crashes it leaves the editor's clips.
@@ -134,18 +128,18 @@ public class FileBrowserTemplateThumbnailTests
     public async Task MediaInfoAndThumbnails_AreReadAsBackgroundWork()
     {
         var decoder = new RecordingDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        _decoders.Register(decoder);
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.bothkinds");
         try
         {
             await File.WriteAllBytesAsync(path, [0]);
-            await FileThumbnailService.Instance.GetMediaInfoAsync(path);
-            await FileThumbnailService.Instance.GetThumbnailAsync(path, _templates);
+            await _thumbnails.GetMediaInfoAsync(path);
+            await _thumbnails.GetThumbnailAsync(path, _templates);
         }
         finally
         {
             File.Delete(path);
-            DecoderRegistry.Unregister(decoder);
+            _decoders.Unregister(decoder);
         }
 
         // Two probe opens, then the thumbnail's.
@@ -162,13 +156,13 @@ public class FileBrowserTemplateThumbnailTests
         Assert.That(item?.Preview, Is.Not.Null);
 
         await File.WriteAllTextAsync(item!.FilePath!, BuildTemplateJsonWithPreview(item, 1024, 1024));
-        FileThumbnailService.Instance.ClearCache();
+        _thumbnails.ClearCache();
 
-        var thumbnail = await FileThumbnailService.Instance.GetThumbnailAsync(item.FilePath!, _templates);
+        var thumbnail = await _thumbnails.GetThumbnailAsync(item.FilePath!, _templates);
 
         Assert.That(thumbnail, Is.Not.Null);
-        Assert.That(thumbnail!.PixelSize.Width, Is.LessThanOrEqualTo(FileThumbnailService.Instance.ThumbnailSize));
-        Assert.That(thumbnail.PixelSize.Height, Is.LessThanOrEqualTo(FileThumbnailService.Instance.ThumbnailSize));
+        Assert.That(thumbnail!.PixelSize.Width, Is.LessThanOrEqualTo(_thumbnails.ThumbnailSize));
+        Assert.That(thumbnail.PixelSize.Height, Is.LessThanOrEqualTo(_thumbnails.ThumbnailSize));
     }
 
     private static RectShape CreateRedRect()

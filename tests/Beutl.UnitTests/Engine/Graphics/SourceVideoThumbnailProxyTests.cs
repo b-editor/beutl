@@ -16,25 +16,12 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [NonParallelizable]
 public class SourceVideoThumbnailProxyTests
 {
-    private IProxyResolver? _oldResolver;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
+    private DecoderRegistry _decoders = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _oldResolver = DecoderRegistry.ProxyResolver;
-        DecoderRegistry.ProxyResolver = null;
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        DecoderRegistry.ProxyResolver = _oldResolver;
+        _decoders = TestMediaHelper.CreateRegistry();
     }
 
     [Test]
@@ -42,7 +29,7 @@ public class SourceVideoThumbnailProxyTests
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
         var resolver = new SpyProxyResolver(new ProxyResolver(scope.Store));
-        DecoderRegistry.ProxyResolver = resolver;
+        _decoders.ProxyResolver = resolver;
 
         await ConsumeThumbnailProbeAsync(scope.OriginalPath, preferProxy: true);
 
@@ -54,7 +41,7 @@ public class SourceVideoThumbnailProxyTests
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
         var resolver = new SpyProxyResolver(new ProxyResolver(scope.Store));
-        DecoderRegistry.ProxyResolver = resolver;
+        _decoders.ProxyResolver = resolver;
 
         await ConsumeThumbnailProbeAsync(scope.OriginalPath, preferProxy: false);
 
@@ -66,11 +53,11 @@ public class SourceVideoThumbnailProxyTests
     {
         using var scope = ProxyTestScope.Create(new PixelSize(100, 100), new PixelSize(50, 50), ProxyPreset.Quarter);
         var resolver = new SpyProxyResolver(new ProxyResolver(scope.Store));
-        DecoderRegistry.ProxyResolver = resolver;
+        _decoders.ProxyResolver = resolver;
 
         var source = new VideoSource();
         source.ReadFrom(new Uri(scope.OriginalPath));
-        var context = new CompositionContext(MediaTime.Zero) { PreferProxy = true };
+        var context = new CompositionContext(MediaTime.Zero) { Decoders = _decoders, PreferProxy = true };
 
         using var first = source.ToResource(context);
         int resolvesAfterFirst = resolver.ResolveCallCount;
@@ -128,7 +115,7 @@ public class SourceVideoThumbnailProxyTests
 
     // startIndex > endIndex skips the per-frame rasterization loop (which needs a GPU), so only the
     // media-open seam runs — enough to observe whether the proxy resolver was consulted GPU-free.
-    private static async Task ConsumeThumbnailProbeAsync(string originalPath, bool preferProxy)
+    private async Task ConsumeThumbnailProbeAsync(string originalPath, bool preferProxy)
     {
         var media = new VideoSource();
         media.ReadFrom(new Uri(originalPath));
@@ -145,7 +132,7 @@ public class SourceVideoThumbnailProxyTests
                            cancellationToken: CancellationToken.None,
                            startIndex: 1,
                            endIndex: 0,
-                           preferProxy: preferProxy))
+                           preferProxy: preferProxy, decoders: _decoders))
         {
         }
     }

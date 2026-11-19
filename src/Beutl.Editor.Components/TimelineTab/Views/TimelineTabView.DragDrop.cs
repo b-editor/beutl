@@ -8,9 +8,11 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Editor.VersionControl;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -118,8 +120,9 @@ public sealed partial class TimelineTabView
             (string[] captions, CaptionTemplate? template) = choice;
 
             // The layout can have to open the files.
+            var decoders = ExtensionGuard.RequireService<DecoderRegistry>(viewModel);
             ElementDescription[] descriptions = await Task.Run(
-                () => FileDropLayout.Create(files.Except(captions), frame, s_defaultElementLength, layer));
+                () => FileDropLayout.Create(files.Except(captions), frame, s_defaultElementLength, layer, decoders));
             if (descriptions.Length == 0 && captions.Length == 0)
             {
                 // With no media among them, adding the first says why it cannot be added.

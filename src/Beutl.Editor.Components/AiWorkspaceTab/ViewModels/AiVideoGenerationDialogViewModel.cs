@@ -11,6 +11,7 @@ using Beutl.Editor.Services.AI;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -44,6 +45,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     private readonly AiRequestRecoveryContext _requestRecoveryContext;
     private readonly CancellationTokenSource _availabilityLifetimeCts = new();
     private readonly IAiJobResultEditorContext? _editor;
+    private readonly DecoderRegistry _decoders;
     // Preserve the user's choices separately from the displayed values, which are narrowed when
     // the model changes. Restoring the old model must also restore these values or the same intent
     // becomes a different request and no longer reaches the result named by the outstanding key.
@@ -63,7 +65,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     private double _resultDurationSeconds;
     private readonly AiRecoveryState _recovery;
 
-    internal AiVideoGenerationDialogViewModel(INotificationService notifications,
+    internal AiVideoGenerationDialogViewModel(INotificationService notifications, DecoderRegistry decoders,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
         IAiModelCatalogService modelCatalog,
@@ -91,6 +93,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         _jobMonitor = jobMonitor ?? throw new ArgumentNullException(nameof(jobMonitor));
         _jobs = jobs ?? throw new ArgumentNullException(nameof(jobs));
         _editor = editor;
+        _decoders = decoders;
         _requestRecoveryContext = requestRecoveryContext;
         _requestKey = new(
             recoveryContext: requestRecoveryContext,

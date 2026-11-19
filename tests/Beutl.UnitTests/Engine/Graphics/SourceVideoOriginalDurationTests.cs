@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -11,10 +12,9 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [TestFixture]
 public class SourceVideoOriginalDurationTests
 {
-    private static readonly MediaTime MediaDuration = MediaTime.FromSeconds(2);
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
+    private static readonly MediaTime MediaDuration = MediaTime.FromSeconds(2);
 
     private static SourceVideo CreateSourceVideo()
     {
@@ -33,7 +33,7 @@ public class SourceVideoOriginalDurationTests
         SourceVideo video = CreateSourceVideo();
         video.OffsetPosition.Value = MediaTime.FromSeconds(0.5);
 
-        Assert.That(video.TryGetOriginalDuration(out MediaTime duration), Is.True);
+        Assert.That(video.TryGetOriginalDuration(out MediaTime duration, decoders: _decoders), Is.True);
         Assert.That(duration, Is.EqualTo(MediaDuration - MediaTime.FromSeconds(0.5)));
     }
 
@@ -44,7 +44,7 @@ public class SourceVideoOriginalDurationTests
         SourceVideo video = CreateSourceVideo();
         video.OffsetPosition.Value = MediaDuration + MediaTime.FromSeconds(secondsPastEnd);
 
-        Assert.That(video.TryGetOriginalDuration(out MediaTime duration), Is.False);
+        Assert.That(video.TryGetOriginalDuration(out MediaTime duration, decoders: _decoders), Is.False);
         Assert.That(duration, Is.EqualTo(MediaTime.Zero));
     }
 }

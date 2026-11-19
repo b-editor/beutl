@@ -3,6 +3,7 @@ using Beutl.Editor.Components.AiWorkspaceTab;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Editor.Services.Captions;
+using Beutl.Media.Decoding;
 using Beutl.Services;
 using Beutl.Services.AI;
 using DynamicData;
@@ -41,7 +42,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             CreateGenerativePromptLibrary(),
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAiVideoService>(),
-            _beutlClients.GetResource<IAiJobKindRegistry>());
+            _beutlClients.GetResource<IAiJobKindRegistry>(), AppServices.GetRequiredService<DecoderRegistry>());
 
     internal Beutl.NodeGraph.Generative.IGenerativePromptLibrary CreateGenerativePromptLibrary()
         => new AiGenerativePromptLibrary(PromptLibraryProvider.For(_aiRequestRecoveryContext));
@@ -65,6 +66,7 @@ public partial class MainViewModel : IAiWorkspaceHost
         _captionCatalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates(_objectTemplateService));
         return new AiSubtitleDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
             AppServices.GetRequiredService<Beutl.Media.FontManager>(),
+            AppServices.GetRequiredService<DecoderRegistry>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAiModelCatalogService>(),
@@ -89,6 +91,7 @@ public partial class MainViewModel : IAiWorkspaceHost
     internal AiVideoGenerationDialogViewModel CreateAiVideoGenerationToolViewModel(EditViewModel editViewModel, AiSourceVideoMode? sourceMode = null)
         => new(
             AppServices.GetRequiredService<INotificationService>(),
+            AppServices.GetRequiredService<DecoderRegistry>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAiModelCatalogService>(),

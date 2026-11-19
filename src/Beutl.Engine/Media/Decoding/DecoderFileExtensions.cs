@@ -15,7 +15,7 @@ public enum MediaFileKind
 /// Video and audio extensions are the registered <see cref="IDecoderInfo"/>s' extensions unioned
 /// with a baseline. Still images are decoded by Skia rather than by a decoder, so they keep a fixed list.
 /// </remarks>
-public static class DecoderFileExtensions
+public sealed class DecoderFileExtensions
 {
     // .png / .apng / .gif / .webp are registered as *video* extensions by the animated-image
     // decoders, so a still-image check has to win over the video check. Classify bakes that
@@ -50,24 +50,34 @@ public static class DecoderFileExtensions
         ".ts"
     };
 
-    private static readonly Lock s_lock = new();
-    private static HashSet<string>? s_video;
-    private static HashSet<string>? s_audio;
+    private sealed record Extensions(string[] Registered, HashSet<string> Classified);
 
-    static DecoderFileExtensions()
+    private readonly Lock _lock = new();
+    private readonly DecoderRegistry _registry;
+    private Extensions? _video;
+    private Extensions? _audio;
+
+    internal DecoderFileExtensions(DecoderRegistry registry)
     {
-        DecoderRegistry.DecodersChanged += (_, _) => Invalidate();
+        _registry = registry;
+        registry.DecodersChanged += (_, _) => Invalidate();
     }
 
     public static IReadOnlyCollection<string> Image => s_image;
 
-    public static IReadOnlyCollection<string> Video =>
-        GetOrBuild(ref s_video, i => i.VideoExtensions(), s_videoBaseline);
+    private Extensions VideoExtensions => GetOrBuild(ref _video, i => i.VideoExtensions(), s_videoBaseline);
 
-    public static IReadOnlyCollection<string> Audio =>
-        GetOrBuild(ref s_audio, i => i.AudioExtensions(), s_audioBaseline);
+    private Extensions AudioExtensions => GetOrBuild(ref _audio, i => i.AudioExtensions(), s_audioBaseline);
 
-    public static MediaFileKind Classify(string file)
+    internal IReadOnlyList<string> RegisteredVideo => VideoExtensions.Registered;
+
+    internal IReadOnlyList<string> RegisteredAudio => AudioExtensions.Registered;
+
+    public IReadOnlyCollection<string> Video => VideoExtensions.Classified;
+
+    public IReadOnlyCollection<string> Audio => AudioExtensions.Classified;
+
+    public MediaFileKind Classify(string file)
     {
         string extension = Path.GetExtension(file);
         if (string.IsNullOrEmpty(extension) || s_nonMediaExtensions.Contains(extension))
@@ -83,34 +93,32 @@ public static class DecoderFileExtensions
         return MediaFileKind.None;
     }
 
-    public static bool IsImage(string file) => Classify(file) == MediaFileKind.Image;
+    public bool IsImage(string file) => Classify(file) == MediaFileKind.Image;
 
-    public static bool IsVideo(string file) => Classify(file) == MediaFileKind.Video;
+    public bool IsVideo(string file) => Classify(file) == MediaFileKind.Video;
 
-    public static bool IsAudio(string file) => Classify(file) == MediaFileKind.Audio;
+    public bool IsAudio(string file) => Classify(file) == MediaFileKind.Audio;
 
-    public static bool IsMedia(string file) => Classify(file) != MediaFileKind.None;
+    public bool IsMedia(string file) => Classify(file) != MediaFileKind.None;
 
-    public static string[] GetFilePatterns(Func<IDecoderInfo, IEnumerable<string>> selector)
+    public string[] GetFilePatterns(Func<IDecoderInfo, IEnumerable<string>> selector)
     {
-        return DecoderRegistry.EnumerateDecoder()
+        return _registry.EnumerateDecoder()
             .SelectMany(selector)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(NormalizePattern)
             .ToArray();
     }
 
-    private static HashSet<string> GetOrBuild(
-        ref HashSet<string>? cache, Func<IDecoderInfo, IEnumerable<string>> selector, string[] baseline)
+    private Extensions GetOrBuild(ref Extensions? cache, Func<IDecoderInfo, IEnumerable<string>> selector, string[] baseline)
     {
-        lock (s_lock)
+        lock (_lock)
         {
-            return cache ??= DecoderRegistry.EnumerateDecoder()
-                .SelectMany(selector)
-                .Concat(baseline)
-                .Select(Normalize)
-                .Where(x => x.Length > 1)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (cache != null) return cache;
+            string[] registered = _registry.EnumerateDecoder().SelectMany(selector).ToArray();
+            var classified = registered.Concat(baseline).Select(Normalize)
+                .Where(x => x.Length > 1).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return cache = new Extensions(registered, classified);
         }
     }
 
@@ -128,12 +136,12 @@ public static class DecoderFileExtensions
         return trimmed.StartsWith('.') ? trimmed : $".{trimmed}";
     }
 
-    private static void Invalidate()
+    private void Invalidate()
     {
-        lock (s_lock)
+        lock (_lock)
         {
-            s_video = null;
-            s_audio = null;
+            _video = null;
+            _audio = null;
         }
     }
 
