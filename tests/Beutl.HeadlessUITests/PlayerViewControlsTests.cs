@@ -801,6 +801,61 @@ public sealed class PlayerViewControlsTests
     }
 
     [AvaloniaTest]
+    public async Task Native_control_wheel_modifier_zooms_preview_even_when_event_modifiers_are_none()
+    {
+        EditViewModel editor = await OpenEditor();
+        PlayerViewModel player = editor.Player;
+        var view = new PlayerView(_ => KeyModifiers.Control) { DataContext = player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        try
+        {
+            await Prepare(view, window);
+            Point point = PreviewCenter(view, window);
+            player.FrameMatrix.Value = BtlMatrix.Identity;
+
+            window.MouseWheel(point, new Vector(0, 0.5), RawInputModifiers.None);
+
+            Assert.That(player.FrameMatrix.Value.M11, Is.EqualTo(MathF.Pow(1.2f, 0.5f)).Within(1e-3));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void PlayerView_releases_native_input_registration_on_detach_and_window_close()
+    {
+        int registrations = 0;
+        int removals = 0;
+        var view = new PlayerView(e => e.KeyModifiers, _ =>
+        {
+            registrations++;
+            return System.Reactive.Disposables.Disposable.Create(() => removals++);
+        });
+        var first = new Window { Content = view };
+        var second = new Window();
+        try
+        {
+            first.Show();
+            Assert.That(registrations, Is.EqualTo(1));
+            first.Content = null;
+            Assert.That(removals, Is.EqualTo(1));
+            second.Content = view;
+            second.Show();
+            Assert.That(registrations, Is.EqualTo(2));
+            second.Close();
+            Assert.That(removals, Is.EqualTo(2));
+        }
+        finally
+        {
+            first.Close();
+            second.Close();
+        }
+        Assert.That(removals, Is.EqualTo(2));
+    }
+
+    [AvaloniaTest]
     public async Task The_zoom_stops_at_its_limits()
     {
         EditViewModel editor = await OpenEditor();

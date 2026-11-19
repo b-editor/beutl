@@ -140,6 +140,21 @@ public class NodeGraphInputTests
     }
 
     [AvaloniaTest]
+    public async Task Native_control_wheel_modifier_zooms_graph_even_when_event_modifiers_are_none()
+    {
+        using GraphSession session = await GraphSession.CreateAsync(
+            _ => throw new AssertionException("Command zoom must not depend on the input device."),
+            _ => KeyGestureHelper.GetCommandModifier());
+        session.Zoom.SetMatrix(new Matrix(1.5, 0, 0, 1.5, 45, 30), true);
+        session.Zoom.EnableAnimations = true;
+        Point anchor = session.Window.TranslatePoint(session.ScrollPosition, session.Canvas)!.Value;
+        session.Scroll(new Vector(0, 0.5), RawInputModifiers.None);
+        double expected = 1.5 * Math.Pow(1.2, 0.5);
+        Assert.That(session.Zoom.ZoomX, Is.EqualTo(expected).Within(0.0001));
+        session.AssertRenderedPoint(anchor, session.ScrollPosition);
+    }
+
+    [AvaloniaTest]
     [TestCase(0.5)]
     [TestCase(1)]
     [TestCase(2)]
@@ -202,10 +217,13 @@ public class NodeGraphInputTests
 
     private sealed class GraphSession : IDisposable
     {
-        private GraphSession(NodeGraphViewModel model, Func<PointerWheelEventArgs, bool>? detector)
+        private GraphSession(NodeGraphViewModel model, Func<PointerWheelEventArgs, bool>? detector,
+            Func<PointerWheelEventArgs, KeyModifiers>? wheelModifiers)
         {
             Model = model;
-            View = detector is null ? new NodeGraphView() : new NodeGraphView(detector);
+            View = detector is null && wheelModifiers is null
+                ? new NodeGraphView()
+                : new NodeGraphView(detector ?? NativeScrollInput.UsesGestureAxes, getWheelModifiers: wheelModifiers);
             View.DataContext = model;
             Window = new Window { Content = View, Width = 640, Height = 360, RequestedThemeVariant = ThemeVariant.Dark };
             Window.Show();
@@ -221,7 +239,8 @@ public class NodeGraphInputTests
         public Canvas Canvas { get; }
         public Point ScrollPosition => new(Window.ClientSize.Width - 30, Window.ClientSize.Height - 30);
 
-        public static async Task<GraphSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector = null)
+        public static async Task<GraphSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector = null,
+            Func<PointerWheelEventArgs, KeyModifiers>? wheelModifiers = null)
         {
             (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("node-input");
             var expression = new ExpressionNode { Position = { Value = (24, 24) } };
@@ -230,7 +249,7 @@ public class NodeGraphInputTests
             var graph = new GraphModel();
             graph.Nodes.AddRange([expression, output]);
             graph.Connect(output.InputPort, expression.Output);
-            return new GraphSession(new NodeGraphViewModel(graph, editor), detector);
+            return new GraphSession(new NodeGraphViewModel(graph, editor), detector, wheelModifiers);
         }
 
         public void Scroll(Vector delta, RawInputModifiers modifiers = RawInputModifiers.None)

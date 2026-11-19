@@ -23,6 +23,7 @@ public partial class GraphEditorView : UserControl
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
+    private readonly Func<PointerWheelEventArgs, KeyModifiers> _getWheelModifiers;
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
     private TopLevel? _nativeInputRoot;
     private IDisposable? _nativeInputRegistration;
@@ -37,9 +38,12 @@ public partial class GraphEditorView : UserControl
     {
     }
 
-    internal GraphEditorView(Func<PointerWheelEventArgs, bool> usesGestureAxes, Func<TopLevel, IDisposable?>? attachNativeInput = null)
+    internal GraphEditorView(Func<PointerWheelEventArgs, bool> usesGestureAxes,
+        Func<TopLevel, IDisposable?>? attachNativeInput = null,
+        Func<PointerWheelEventArgs, KeyModifiers>? getWheelModifiers = null)
     {
         _usesGestureAxes = usesGestureAxes;
+        _getWheelModifiers = getWheelModifiers ?? NativeScrollInput.GetWheelModifiers;
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
         InitializeComponent();
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = TimelineHelper.MouseFlags.Free);

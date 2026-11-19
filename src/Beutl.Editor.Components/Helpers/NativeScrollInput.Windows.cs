@@ -11,9 +11,14 @@ internal static partial class NativeScrollInput
     internal static partial class Windows
     {
         private const uint Touchpad = 0x10; // IMDT_TOUCHPAD
+        private const uint WmMouseWheel = 0x020A;
+        private const uint WmMouseHWheel = 0x020E;
+        private const nuint MkControl = 0x0008;
+        private static readonly WheelModifierTracker s_wheelModifiers = new();
         private static readonly Func<bool, bool>? s_registerTouchpadThread = LoadTouchpadRegistration();
         private static readonly RegistrationManager s_registration = new(s_registerTouchpadThread, AttachHook,
-            () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Windows ?? []);
+            () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Windows ?? [],
+            s_wheelModifiers.Reset);
 
         static Windows() { }
 
@@ -21,12 +26,49 @@ internal static partial class NativeScrollInput
 
         internal static bool IsTouchpadScroll(Func<uint?> getCurrentDeviceType) => getCurrentDeviceType() == Touchpad;
 
+        internal static bool HasWheelControlModifier(nint hwnd, ulong timestamp)
+            => s_wheelModifiers.HasControl(hwnd, timestamp);
+
         internal static IDisposable? Attach(TopLevel root) => s_registration.Attach(root);
+
+        internal sealed class WheelModifierTracker
+        {
+            private nint _hwnd;
+            private uint _timestamp;
+            private bool _hasControl;
+
+            public void Record(nint hwnd, uint message, nint wParam, uint timestamp)
+            {
+                if (message == WmMouseWheel)
+                {
+                    _hwnd = hwnd;
+                    _timestamp = timestamp;
+                    _hasControl = ((nuint)wParam & MkControl) != 0;
+                }
+                else if (message == WmMouseHWheel)
+                {
+                    _hwnd = hwnd;
+                    _timestamp = timestamp;
+                    _hasControl = false;
+                }
+            }
+
+            public bool HasControl(nint hwnd, ulong timestamp)
+                => _hasControl && _hwnd == hwnd && _timestamp == timestamp;
+
+            public void Reset()
+            {
+                _hwnd = 0;
+                _timestamp = 0;
+                _hasControl = false;
+            }
+        }
 
         internal sealed class RegistrationManager(
             Func<bool, bool>? registerThread,
             Func<TopLevel, IDisposable?> attachHook,
-            Func<IEnumerable<Window>> getOpenWindows)
+            Func<IEnumerable<Window>> getOpenWindows,
+            Action? onHooksRemoved = null)
         {
             private ThreadRegistration? _current;
 
@@ -35,7 +77,8 @@ internal static partial class NativeScrollInput
                 Dispatcher.UIThread.VerifyAccess();
                 if (_current == null)
                 {
-                    var registration = new ThreadRegistration(registerThread, attachHook, getOpenWindows, () => _current = null);
+                    var registration = new ThreadRegistration(
+                        registerThread, attachHook, getOpenWindows, onHooksRemoved, () => _current = null);
                     if (!registration.Start(root)) return null;
                     _current = registration;
                 }
@@ -47,29 +90,35 @@ internal static partial class NativeScrollInput
         private static IDisposable? AttachHook(TopLevel root)
         {
             if (root.TryGetPlatformHandle()?.HandleDescriptor != "HWND") return null;
-            Win32Properties.AddWndProcHookCallback(root, ForwardTouchpadMessage);
+            Win32Properties.AddWndProcHookCallback(root, HandleWindowMessage);
             return System.Reactive.Disposables.Disposable.Create(
-                () => Win32Properties.RemoveWndProcHookCallback(root, ForwardTouchpadMessage));
+                () => Win32Properties.RemoveWndProcHookCallback(root, HandleWindowMessage));
         }
 
-        internal static IDisposable? RegisterInput(Func<bool, bool>? registerThread, Action installHooks, Action removeHooks)
+        internal static IDisposable RegisterInput(Func<bool, bool>? registerThread, Action installHooks, Action removeHooks)
         {
-            if (registerThread == null) return null;
             bool registered = false;
+            bool completed = false;
             try
             {
                 installHooks();
-                registered = registerThread(true);
-                if (!registered) return null;
+                registered = registerThread?.Invoke(true) == true;
+                completed = true;
                 return System.Reactive.Disposables.Disposable.Create(() =>
                 {
-                    try { registerThread(false); }
-                    finally { removeHooks(); }
+                    try
+                    {
+                        if (registered) registerThread!(false);
+                    }
+                    finally
+                    {
+                        removeHooks();
+                    }
                 });
             }
             finally
             {
-                if (!registered) removeHooks();
+                if (!completed) removeHooks();
             }
         }
 
@@ -77,6 +126,7 @@ internal static partial class NativeScrollInput
             Func<bool, bool>? registerThread,
             Func<TopLevel, IDisposable?> attachHook,
             Func<IEnumerable<Window>> getOpenWindows,
+            Action? onHooksRemoved,
             Action onReleased)
         {
             private readonly Dictionary<TopLevel, IDisposable> _roots = [];
@@ -136,11 +186,26 @@ internal static partial class NativeScrollInput
             {
                 _visibilitySubscription?.Dispose();
                 foreach (TopLevel root in _roots.Keys.ToArray()) Untrack(root);
+                onHooksRemoved?.Invoke();
             }
         }
 
-        private static nint ForwardTouchpadMessage(nint hwnd, uint message, nint wParam, nint lParam, ref bool handled)
-            => ForwardTouchpadMessage(hwnd, message, wParam, lParam, ref handled, GetPointerDeviceType, DefWindowProc);
+        private static nint HandleWindowMessage(nint hwnd, uint message, nint wParam, nint lParam, ref bool handled)
+            => HandleWindowMessage(hwnd, message, wParam, lParam, ref handled,
+                s_wheelModifiers, GetMessageTime, GetPointerDeviceType, DefWindowProc);
+
+        internal static nint HandleWindowMessage(nint hwnd, uint message, nint wParam, nint lParam,
+            ref bool handled, WheelModifierTracker wheelModifiers, Func<int> getMessageTime,
+            Func<uint, uint?> getPointerType, Func<nint, uint, nint, nint, nint> defaultProc)
+        {
+            if (!handled && message is WmMouseWheel or WmMouseHWheel)
+            {
+                wheelModifiers.Record(hwnd, message, wParam, unchecked((uint)getMessageTime()));
+                return 0;
+            }
+
+            return ForwardTouchpadMessage(hwnd, message, wParam, lParam, ref handled, getPointerType, defaultProc);
+        }
 
         internal static nint ForwardTouchpadMessage(nint hwnd, uint message, nint wParam, nint lParam,
             ref bool handled, Func<uint, uint?> getPointerType, Func<nint, uint, nint, nint, nint> defaultProc)
@@ -213,6 +278,9 @@ internal static partial class NativeScrollInput
 
         [LibraryImport("user32.dll", EntryPoint = "DefWindowProcW")]
         private static partial nint DefWindowProc(nint hwnd, uint message, nint wParam, nint lParam);
+
+        [LibraryImport("user32.dll")]
+        private static partial int GetMessageTime();
 
         [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW", StringMarshalling = StringMarshalling.Utf16)]
         private static partial nint GetModuleHandle(string module);

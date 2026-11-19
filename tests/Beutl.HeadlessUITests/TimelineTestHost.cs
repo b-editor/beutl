@@ -30,12 +30,15 @@ internal sealed class TimelineTestHost : IDisposable
         Scene scene,
         TimelineTabViewModel model,
         Func<PointerWheelEventArgs, bool>? scrollDetector,
+        Func<PointerWheelEventArgs, KeyModifiers>? wheelModifiers,
         double width,
         ThemeVariant? theme)
     {
         Scene = scene;
         Model = model;
-        View = scrollDetector is null ? new TimelineTabView() : new TimelineTabView(scrollDetector);
+        View = scrollDetector is null && wheelModifiers is null
+            ? new TimelineTabView()
+            : new TimelineTabView(scrollDetector ?? NativeScrollInput.UsesGestureAxes, getWheelModifiers: wheelModifiers);
         View.DataContext = model;
         Window = new Window { Content = View, Width = width, Height = 420 };
         if (theme is not null)
@@ -75,6 +78,7 @@ internal sealed class TimelineTestHost : IDisposable
         MediaTime duration,
         IReadOnlyList<ElementDescription>? clips = null,
         Func<PointerWheelEventArgs, bool>? scrollDetector = null,
+        Func<PointerWheelEventArgs, KeyModifiers>? wheelModifiers = null,
         double width = 960,
         ThemeVariant? theme = null)
     {
@@ -88,7 +92,7 @@ internal sealed class TimelineTestHost : IDisposable
 
         TimelineTabViewModel model = editor.FindToolTab<TimelineTabViewModel>()!;
         model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
-        return new TimelineTestHost(scene, model, scrollDetector, width, theme);
+        return new TimelineTestHost(scene, model, scrollDetector, wheelModifiers, width, theme);
     }
 
     public void Dispose()

@@ -33,6 +33,7 @@ public sealed partial class TimelineTabView : UserControl
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
+    private readonly Func<PointerWheelEventArgs, KeyModifiers> _getWheelModifiers;
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
     private TopLevel? _nativeInputRoot;
     private IDisposable? _nativeInputRegistration;
@@ -45,9 +46,11 @@ public sealed partial class TimelineTabView : UserControl
     }
 
     internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes,
-        Func<TopLevel, IDisposable?>? attachNativeInput = null)
+        Func<TopLevel, IDisposable?>? attachNativeInput = null,
+        Func<PointerWheelEventArgs, KeyModifiers>? getWheelModifiers = null)
     {
         _usesGestureAxes = usesGestureAxes;
+        _getWheelModifiers = getWheelModifiers ?? NativeScrollInput.GetWheelModifiers;
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = MouseFlags.Free);
         InitializeComponent();

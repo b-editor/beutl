@@ -35,6 +35,24 @@ internal static partial class NativeScrollInput
         return false;
     }
 
+    // Call synchronously from PointerWheelChanged: Avalonia.Win32 ignores MK_CONTROL on WM_MOUSEWHEEL,
+    // which Windows precision touchpads use for two-finger pinch gestures while physical Ctrl is up.
+    public static KeyModifiers GetWheelModifiers(PointerWheelEventArgs e)
+    {
+        KeyModifiers modifiers = e.KeyModifiers;
+        if (!OperatingSystem.IsWindows()
+            || modifiers.HasFlag(KeyModifiers.Control)
+            || e.Source is not Visual source
+            || TopLevel.GetTopLevel(source)?.TryGetPlatformHandle() is not { HandleDescriptor: "HWND" } handle)
+        {
+            return modifiers;
+        }
+
+        return Windows.HasWheelControlModifier(handle.Handle, e.Timestamp)
+            ? modifiers | KeyModifiers.Control
+            : modifiers;
+    }
+
     internal static bool IsMacGestureScroll(ulong timestamp, double nativeTimestamp, bool precise, nint phase, nint momentumPhase)
     {
         if ((ulong)(nativeTimestamp * 1000) != timestamp || !precise) return false;

@@ -200,7 +200,7 @@ public partial class PlayerView
         if (DataContext is PlayerViewModel viewModel)
         {
             // The same modifier zooms the timeline and the graph editor, so it works with every preview tool.
-            if ((e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
+            if ((_getWheelModifiers(e) & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
             {
                 ZoomFrameAtPointer(e, viewModel);
                 return;

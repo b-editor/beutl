@@ -37,6 +37,10 @@ public partial class PlayerView : UserControl
     private static readonly ILogger s_logger = Log.CreateLogger<PlayerView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<PlayerView>();
+    private readonly Func<PointerWheelEventArgs, KeyModifiers> _getWheelModifiers;
+    private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
+    private TopLevel? _nativeInputRoot;
+    private IDisposable? _nativeInputRegistration;
     private IDisposable? _imageConfigSubscription;
     private IDisposable? _boundsSubscription;
     private TopLevel? _scalingTopLevel;
@@ -52,7 +56,16 @@ public partial class PlayerView : UserControl
     private BtlDrawable? _transformHandleResourceTarget;
 
     public PlayerView()
+        : this(NativeScrollInput.GetWheelModifiers)
     {
+    }
+
+    internal PlayerView(
+        Func<PointerWheelEventArgs, KeyModifiers> getWheelModifiers,
+        Func<TopLevel, IDisposable?>? attachNativeInput = null)
+    {
+        _getWheelModifiers = getWheelModifiers;
+        _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
         InitializeComponent();
 
         zoomComboBox.ItemsSource = s_zoomOptions;
@@ -227,9 +240,13 @@ public partial class PlayerView : UserControl
         }
 
         _scalingTopLevel = TopLevel.GetTopLevel(this);
+        DetachNativeInput();
         if (_scalingTopLevel is { } topLevel)
         {
             topLevel.ScalingChanged += OnTopLevelScalingChanged;
+            _nativeInputRegistration = _attachNativeInput(topLevel);
+            _nativeInputRoot = topLevel;
+            topLevel.Closed += OnNativeInputRootClosed;
         }
         UpdateMaxFrameSize();
         UpdateZoomDisplay();
@@ -238,6 +255,7 @@ public partial class PlayerView : UserControl
     protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         Presentation?.Close();
+        DetachNativeInput();
         // The visual parent is already gone during detachment. Use the original subscription source.
         if (_scalingTopLevel is { } topLevel)
         {
@@ -256,6 +274,16 @@ public partial class PlayerView : UserControl
         {
             await viewModel.Pause();
         }
+    }
+
+    private void OnNativeInputRootClosed(object? sender, EventArgs e) => DetachNativeInput();
+
+    private void DetachNativeInput()
+    {
+        if (_nativeInputRoot != null) _nativeInputRoot.Closed -= OnNativeInputRootClosed;
+        _nativeInputRoot = null;
+        _nativeInputRegistration?.Dispose();
+        _nativeInputRegistration = null;
     }
 
     private void OnTopLevelScalingChanged(object? sender, EventArgs e)

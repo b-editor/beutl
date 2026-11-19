@@ -75,16 +75,27 @@ public class NativeScrollRegistrationTests
     }
 
     [AvaloniaTest]
-    public void Failed_registration_removes_hooks_and_can_retry_without_observing_future_windows()
+    public void Failed_thread_registration_keeps_hooks_without_unregistering_and_cleans_up_on_dispose()
     {
         var first = new Window();
         var later = new Window();
+        var afterRelease = new Window();
         var native = new RecordingNativeInput { RegistrationSucceeds = false };
         var manager = new NativeScrollInput.Windows.RegistrationManager(native.Register, native.AttachHook, () => []);
         try
         {
-            Assert.That(manager.Attach(first), Is.Null);
-            later.Show();
+            using (manager.Attach(first))
+            {
+                later.Show();
+                Assert.Multiple(() =>
+                {
+                    Assert.That(native.HookedRoots, Is.EquivalentTo(new[] { first, later }));
+                    Assert.That(native.RegistrationCount, Is.Zero);
+                    Assert.That(native.UnregisterCalls, Is.Zero);
+                });
+            }
+
+            afterRelease.Show();
             Assert.Multiple(() =>
             {
                 Assert.That(native.HookedRoots, Is.Empty);
@@ -101,6 +112,7 @@ public class NativeScrollRegistrationTests
         {
             first.Close();
             later.Close();
+            afterRelease.Close();
         }
     }
 
@@ -132,13 +144,35 @@ public class NativeScrollRegistrationTests
     }
 
     [AvaloniaTest]
-    public void Missing_native_api_does_not_install_any_hooks()
+    public void Missing_touchpad_thread_api_still_hooks_windows_until_last_owner_detaches()
     {
         var window = new Window();
-        var manager = new NativeScrollInput.Windows.RegistrationManager(null,
-            _ => throw new AssertionException("Unsupported platforms must not install hooks."), () => []);
-        try { Assert.That(manager.Attach(window), Is.Null); }
-        finally { window.Close(); }
+        var later = new Window();
+        var afterRelease = new Window();
+        var native = new RecordingNativeInput();
+        int resets = 0;
+        var manager = new NativeScrollInput.Windows.RegistrationManager(null, native.AttachHook, () => [], () => resets++);
+        try
+        {
+            using (manager.Attach(window))
+            {
+                later.Show();
+                Assert.That(native.HookedRoots, Is.EquivalentTo(new[] { window, later }));
+            }
+
+            afterRelease.Show();
+            Assert.Multiple(() =>
+            {
+                Assert.That(native.HookedRoots, Is.Empty);
+                Assert.That(resets, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            window.Close();
+            later.Close();
+            afterRelease.Close();
+        }
     }
 
     private sealed class RecordingNativeInput

@@ -177,7 +177,7 @@ public partial class SilenceSplitTabView : UserControl
     private void OnPreviewWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (_analysis == null || Waveform.Bounds.Width <= 0 || DataContext is not SilenceSplitTabViewModel vm) return;
-        if ((e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
+        if ((NativeScrollInput.GetWheelModifiers(e) & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
         {
             double anchor = e.GetPosition(Waveform).X / Waveform.Bounds.Width;
             _analysis.ZoomPreview(Math.Pow(1.2, e.Delta.Y), anchor);

@@ -57,7 +57,7 @@ public sealed partial class TimelineTabView
         float scale = viewModel.Options.Value.Scale;
         var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
 
-        if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
+        if (_getWheelModifiers(e) == KeyGestureHelper.GetCommandModifier())
         {
             UpdateZoom(e, ref scale, ref offset);
         }

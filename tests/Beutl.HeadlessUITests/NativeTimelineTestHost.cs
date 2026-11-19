@@ -34,6 +34,9 @@ internal static partial class NativeTimelineTestHost
         if (OperatingSystem.IsMacOS() && args is ["--native-menu-shortcuts"])
             return RunMenuShortcuts(args);
 
+        if (OperatingSystem.IsWindows() && args is ["--native-windows-pinch"])
+            return RunWindowsPinch(args);
+
         if (OperatingSystem.IsMacOS() && args is ["--native-context-menu", _])
             return NativeContextMenuTestHost.Run(args);
 

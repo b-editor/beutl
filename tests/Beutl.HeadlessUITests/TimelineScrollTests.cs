@@ -115,6 +115,25 @@ public class TimelineScrollTests
         });
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Native_control_wheel_modifier_zooms_timeline_even_when_event_modifiers_are_none(bool ruler)
+    {
+        using TimelineSession session = await TimelineSession.CreateAsync(
+            _ => throw new AssertionException("Zoom must not depend on the scroll device."), false,
+            _ => KeyGestureHelper.GetCommandModifier());
+        session.Scroll(new Vector(0, 0.5), ruler, RawInputModifiers.None);
+        float expectedScale = MathF.Pow(1.2f, 0.5f);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Model.Options.Value.Scale, Is.EqualTo(expectedScale).Within(0.0001));
+            Assert.That((session.Content.Offset.X + 100) / session.Model.Options.Value.Scale,
+                Is.EqualTo(400).Within(0.001));
+            Assert.That(session.Content.Offset.Y, Is.EqualTo(200));
+        });
+    }
+
     private sealed class TimelineSession : IDisposable
     {
         private readonly bool _originalSwap = TestShell.Configuration.EditorConfig.SwapTimelineScrollDirection.Value;
@@ -132,10 +151,13 @@ public class TimelineScrollTests
         public ScrollViewer Content => _host.Content;
         public ScrollViewer Pane { get; }
 
-        public static async Task<TimelineSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector, bool swap)
+        public static async Task<TimelineSession> CreateAsync(
+            Func<PointerWheelEventArgs, bool>? detector,
+            bool swap,
+            Func<PointerWheelEventArgs, KeyModifiers>? wheelModifiers = null)
         {
             TimelineTestHost host = await TimelineTestHost.CreateAsync(
-                "timeline-scroll", MediaTime.FromSeconds(30), scrollDetector: detector);
+                "timeline-scroll", MediaTime.FromSeconds(30), scrollDetector: detector, wheelModifiers: wheelModifiers);
             return new TimelineSession(host, swap);
         }
 

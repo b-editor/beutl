@@ -58,11 +58,12 @@ public partial class GraphEditorView
         if (_interactionPointer != null || ControlPointMoveState != null) return;
         double delta = target == WheelTarget.HorizontalRuler && e.Delta.X != 0 ? e.Delta.X
             : e.Delta.Y != 0 ? e.Delta.Y : e.Delta.X;
-        bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-        if (alt || e.KeyModifiers.HasFlag(KeyGestureHelper.GetCommandModifier()))
+        KeyModifiers modifiers = _getWheelModifiers(e);
+        bool alt = modifiers.HasFlag(KeyModifiers.Alt);
+        if (alt || modifiers.HasFlag(KeyGestureHelper.GetCommandModifier()))
         {
             bool horizontal = target == WheelTarget.HorizontalRuler
-                || target == WheelTarget.Plot && (alt || !e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+                || target == WheelTarget.Plot && (alt || !modifiers.HasFlag(KeyModifiers.Shift));
             if (horizontal)
                 ZoomHorizontal(model, Math.Pow(1.2, delta), e.GetPosition(scroll).X);
             else if (!model.AutoZoomHeight.Value)

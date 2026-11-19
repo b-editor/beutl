@@ -75,12 +75,20 @@ public class NativeScrollInputTests
             foreach (object? source in new object?[] { null, new object(), detached })
             {
                 var e = new PointerWheelEventArgs(source, pointer, detached, default, 1, default, KeyModifiers.None, new Vector(0, 1));
-                Assert.That(NativeScrollInput.UsesGestureAxes(e), Is.False);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(NativeScrollInput.UsesGestureAxes(e), Is.False);
+                    Assert.That(NativeScrollInput.GetWheelModifiers(e), Is.EqualTo(KeyModifiers.None));
+                });
             }
             window.Show();
             window.Close();
-            var closedEvent = new PointerWheelEventArgs(window, pointer, window, default, 1, default, KeyModifiers.None, new Vector(0, 1));
-            Assert.That(NativeScrollInput.UsesGestureAxes(closedEvent), Is.False);
+            var closedEvent = new PointerWheelEventArgs(window, pointer, window, default, 1, default, KeyModifiers.Shift, new Vector(0, 1));
+            Assert.Multiple(() =>
+            {
+                Assert.That(NativeScrollInput.UsesGestureAxes(closedEvent), Is.False);
+                Assert.That(NativeScrollInput.GetWheelModifiers(closedEvent), Is.EqualTo(KeyModifiers.Shift));
+            });
         }
         finally { window.Close(); }
     }
@@ -161,14 +169,23 @@ public class NativeScrollInputTests
     public void Windows_does_not_unregister_when_registration_is_unavailable_or_fails()
     {
         List<string> calls = [];
-        Assert.That(NativeScrollInput.Windows.RegisterInput(null, () => calls.Add("hook"), () => calls.Add("unhook")), Is.Null);
-        Assert.That(calls, Is.Empty);
-        Assert.That(NativeScrollInput.Windows.RegisterInput(enable =>
+        using (NativeScrollInput.Windows.RegisterInput(null, () => calls.Add("hook"), () => calls.Add("unhook")))
+        {
+            Assert.That(calls, Is.EqualTo(new[] { "hook" }));
+        }
+        Assert.That(calls, Is.EqualTo(new[] { "hook", "unhook" }));
+
+        calls.Clear();
+        using (NativeScrollInput.Windows.RegisterInput(enable =>
         {
             Assert.That(enable, Is.True, "Failed registration must not decrement the thread's registration count.");
+            calls.Add("register");
             return false;
-        }, () => calls.Add("hook"), () => calls.Add("unhook")), Is.Null);
-        Assert.That(calls, Is.EqualTo(new[] { "hook", "unhook" }));
+        }, () => calls.Add("hook"), () => calls.Add("unhook")))
+        {
+            Assert.That(calls, Is.EqualTo(new[] { "hook", "register" }));
+        }
+        Assert.That(calls, Is.EqualTo(new[] { "hook", "register", "unhook" }));
     }
 
     [Test]
@@ -223,6 +240,51 @@ public class NativeScrollInputTests
         NativeScrollInput.Windows.ForwardTouchpadMessage(0, message, 1, 0, ref handled,
             _ => type < 0 ? null : (uint)type, (_, _, _, _) => throw new AssertionException("Unexpected gesture conversion."));
         Assert.That(handled, Is.False);
+    }
+
+    [Test]
+    public void Windows_wheel_tracker_records_mk_control_and_clears_on_plain_or_horizontal_wheel()
+    {
+        var tracker = new NativeScrollInput.Windows.WheelModifierTracker();
+        int messageTime = 5000;
+        bool handled = false;
+        nint pinchOut = unchecked((nint)((60 << 16) | 0x0008));
+        nint pinchIn = unchecked((nint)((-60 << 16) | 0x0008));
+
+        NativeScrollInput.Windows.HandleWindowMessage(100, 0x020Au, pinchOut, 0, ref handled, tracker,
+            () => messageTime, _ => throw new AssertionException("Wheel messages must not query pointer type."),
+            (_, _, _, _) => throw new AssertionException("Wheel messages must reach Avalonia."));
+        Assert.Multiple(() =>
+        {
+            Assert.That(handled, Is.False);
+            Assert.That(tracker.HasControl(100, 5000), Is.True);
+            Assert.That(tracker.HasControl(200, 5000), Is.False, "Another window must not inherit MK_CONTROL.");
+            Assert.That(tracker.HasControl(100, 5001), Is.False, "A different timestamp must not match.");
+        });
+
+        // Negative high-word wheel delta sign-extends on 64-bit; MK_CONTROL must still be read.
+        messageTime = unchecked((int)0x80001234);
+        NativeScrollInput.Windows.HandleWindowMessage(100, 0x020Au, pinchIn, 0, ref handled, tracker,
+            () => messageTime, _ => null, (_, _, _, _) => 0);
+        Assert.That(tracker.HasControl(100, 0x80001234UL), Is.True, "Wrapped GetMessageTime must match Avalonia's unsigned timestamp.");
+
+        // A plain vertical wheel in the same millisecond clears MK_CONTROL.
+        NativeScrollInput.Windows.HandleWindowMessage(100, 0x020Au, unchecked((nint)(120 << 16)), 0, ref handled, tracker,
+            () => messageTime, _ => null, (_, _, _, _) => 0);
+        Assert.That(tracker.HasControl(100, 0x80001234UL), Is.False);
+
+        // A horizontal wheel in the same millisecond clears MK_CONTROL even if MK_CONTROL is set.
+        NativeScrollInput.Windows.HandleWindowMessage(100, 0x020Au, pinchOut, 0, ref handled, tracker,
+            () => messageTime, _ => null, (_, _, _, _) => 0);
+        Assert.That(tracker.HasControl(100, 0x80001234UL), Is.True);
+        NativeScrollInput.Windows.HandleWindowMessage(100, 0x020Eu, pinchOut, 0, ref handled, tracker,
+            () => messageTime, _ => null, (_, _, _, _) => 0);
+        Assert.That(tracker.HasControl(100, 0x80001234UL), Is.False);
+
+        NativeScrollInput.Windows.HandleWindowMessage(100, 0x020Au, pinchOut, 0, ref handled, tracker,
+            () => messageTime, _ => null, (_, _, _, _) => 0);
+        tracker.Reset();
+        Assert.That(tracker.HasControl(100, 0x80001234UL), Is.False);
     }
 
     [AvaloniaTest]

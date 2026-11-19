@@ -18,6 +18,7 @@ public partial class NodeGraphView : UserControl
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
+    private readonly Func<PointerWheelEventArgs, KeyModifiers> _getWheelModifiers;
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
     private TopLevel? _nativeInputRoot;
     private IDisposable? _nativeInputRegistration;
@@ -35,9 +36,12 @@ public partial class NodeGraphView : UserControl
     {
     }
 
-    internal NodeGraphView(Func<PointerWheelEventArgs, bool> usesGestureAxes, Func<TopLevel, IDisposable?>? attachNativeInput = null)
+    internal NodeGraphView(Func<PointerWheelEventArgs, bool> usesGestureAxes,
+        Func<TopLevel, IDisposable?>? attachNativeInput = null,
+        Func<PointerWheelEventArgs, KeyModifiers>? getWheelModifiers = null)
     {
         _usesGestureAxes = usesGestureAxes;
+        _getWheelModifiers = getWheelModifiers ?? NativeScrollInput.GetWheelModifiers;
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
         InitializeComponent();
         InitializeMenuItems();
@@ -66,7 +70,7 @@ public partial class NodeGraphView : UserControl
 
     private void OnGraphPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
+        if (_getWheelModifiers(e) == KeyGestureHelper.GetCommandModifier())
         {
             Point point = e.GetPosition(canvas);
             zoomBorder.ZoomDeltaTo(e.Delta.Y, point.X, point.Y, true);
