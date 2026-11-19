@@ -5,8 +5,9 @@ using static Beutl.Editor.Components.WebBrowserTab.WebView2Vtable;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
-// NativeWebView exposes an owned ICoreWebView2 COM reference, but its managed
-// WebResourceRequested event cannot supply a response. Use the published COM ABI.
+// NativeWebView lends its ICoreWebView2 pointer without adding a reference. The backend
+// takes its own reference, which Dispose releases. The managed WebResourceRequested
+// event cannot supply a response, so use the published COM ABI.
 internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBackend
 {
     private nint _webView;
@@ -25,6 +26,7 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
         nint extended = 0, environment = 0;
         try
         {
+            Marshal.AddRef(_webView);
             var iid = new Guid("9E8F0CF8-E670-4B5E-B2BC-73E061E3184C");
             Marshal.ThrowExceptionForHR(Marshal.QueryInterface(_webView, in iid, out extended));
             // ICoreWebView2_2::get_Environment is slot 67.

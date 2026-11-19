@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -10,6 +11,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
@@ -50,6 +52,15 @@ internal static class NativeBrowserFrameTestHost
                 window.Show();
                 using var referrerTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
                 await CheckNewTabReferrersAsync(window, referrerTimeout.Token);
+                exitCode = 0;
+                return;
+            }
+            if (scenario == "--native-browser-adblock-reference")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var adBlockTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await CheckAdBlockReferenceAsync(window, adBlockTimeout.Token);
                 exitCode = 0;
                 return;
             }
@@ -116,6 +127,50 @@ internal static class NativeBrowserFrameTestHost
         {
             window?.Close();
             lifetime.Shutdown(exitCode);
+        }
+    }
+
+    private static async Task CheckAdBlockReferenceAsync(Window window, CancellationToken token)
+    {
+        var webView = new NativeWebView();
+        webView.EnvironmentRequested += BrowserWebViewEnvironment.Configure;
+        var loaded = new TaskCompletionSource();
+        webView.NavigationCompleted += (_, _) => loaded.TrySetResult();
+        window.Content = webView;
+        webView.NavigateToString("<p>ready</p>");
+        await loaded.Task.WaitAsync(token);
+
+        var handle = (IWindowsWebView2PlatformHandle)webView.TryGetPlatformHandle()!;
+        nint pointer = handle.CoreWebView2;
+        Assert.That(pointer, Is.Not.EqualTo(nint.Zero));
+        var page = new Uri("https://page.example/");
+        const int Cycles = 3;
+        // Guard references keep an over-release from destroying the adapter's object.
+        for (int i = 0; i < Cycles; i++) Marshal.AddRef(pointer);
+        int before = ReferenceCount(pointer);
+        int after;
+        try
+        {
+            for (int i = 0; i < Cycles; i++)
+            {
+                using var backend = new WindowsAdBlockBackend(handle, BrowserAdBlockTestRules.Parse("||ads.example^"), () => page);
+                await backend.EnableAsync();
+            }
+        }
+        finally
+        {
+            after = ReferenceCount(pointer);
+            // Restore lost references before releasing the guards so a failure can be reported safely.
+            for (int i = after; i < before; i++) Marshal.AddRef(pointer);
+            for (int i = 0; i < Cycles; i++) Marshal.Release(pointer);
+        }
+        Assert.That(after, Is.EqualTo(before), "Creating and disposing the ad-block backend must not change the adapter's ICoreWebView2 reference count.");
+        Assert.That(await webView.InvokeScript("1 + 1"), Is.EqualTo("2"));
+
+        static int ReferenceCount(nint unknown)
+        {
+            Marshal.AddRef(unknown);
+            return Marshal.Release(unknown);
         }
     }
 
@@ -506,6 +561,7 @@ public class NativeBrowserFrameTests
     [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations", IncludePlatform = "MacOSX")]
     [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation", IncludePlatform = "MacOSX")]
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
+    [TestCase("--native-browser-adblock-reference", TestName = "WindowsAdBlockBackendKeepsTheAdaptersWebViewReference", IncludePlatform = "Win")]
     public async Task NativeNavigation(string scenario)
     {
         if (OperatingSystem.IsLinux() && (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"))
