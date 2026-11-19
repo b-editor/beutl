@@ -21,6 +21,13 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     private long _token;
     private bool _subscribed;
 
+    // The policy that the committed document's response header set, or null when no response was seen for it.
+    // history.pushState can change the document's address but not its origin.
+    internal BrowserReferrerPolicy? DocumentReferrerPolicy =>
+        _committedDocument is { Policy: { } policy } document && GetDocument() is { } current
+            && BrowserMediaDownload.IsSameOrigin(document.Address, current)
+            ? policy : null;
+
     private unsafe WindowsBrowserDownloadHandler(IWindowsWebView2PlatformHandle handle,
         Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload,
         Func<Uri, Uri?, BrowserReferrerPolicy, bool> onWindowOpened,

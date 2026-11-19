@@ -365,6 +365,13 @@ internal sealed partial class WindowsBrowserDownloadHandler
             }
             const observer = new MutationObserver(applyChanges);
             observer.observe(document, {subtree:true, childList:true, attributes:true, attributeOldValue:true, attributeFilter:['name','content']});
+            // Download links need the applied meta policy, even after its element is removed.
+            Object.defineProperty(window, '__beutlReferrerPolicy', {
+                value: () => {
+                    applyChanges(observer.takeRecords());
+                    return documentPolicy;
+                }
+            });
 
             function windowTarget(url, link) {
                 if (!['https:', 'http:'].includes(url.protocol) || link?.rel.toLowerCase().split(/\s+/).includes('noreferrer')) return null;
