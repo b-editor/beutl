@@ -31,7 +31,7 @@ internal static partial class NativeTimelineTestHost
             return AgentHostInstanceTestWorker.Run(directory, name, int.Parse(port, System.Globalization.CultureInfo.InvariantCulture));
 
         if (args is ["--native-browser-referrers"]
-            || OperatingSystem.IsMacOS() && args is ["--native-browser-frames" or "--native-browser-history" or "--native-browser-download-referrers"]
+            || OperatingSystem.IsMacOS() && args is ["--native-browser-frames" or "--native-browser-history" or "--native-browser-download-referrers" or "--native-browser-superseded-navigation"]
             || OperatingSystem.IsWindows() && args is ["--native-browser-adblock-reference" or "--native-browser-download-referrers" or "--native-browser-history" or "--native-browser-superseded-navigation"])
             return NativeBrowserFrameTestHost.Run(args);
 

@@ -173,7 +173,8 @@ internal static partial class NativeBrowserFrameTestHost
         server.MapGet("/stream", async (HttpContext context) =>
         {
             context.Response.ContentType = "text/html";
-            await context.Response.WriteAsync("<html><body>start", token);
+            // WebKit holds back a streaming document's first few bytes.
+            await context.Response.WriteAsync("<html><body><!--" + new string('x', 4096) + "-->start", token);
             await context.Response.Body.FlushAsync(token);
             await finish.Task.WaitAsync(token);
             await context.Response.WriteAsync("</body></html>", token);
@@ -182,6 +183,7 @@ internal static partial class NativeBrowserFrameTestHost
         {
             context.Response.ContentType = "text/html";
             // Starting B's response makes WebView2 complete the superseded document while B is still loading.
+            // WebKit cancels the streaming page (-999) before B starts, so B must stay loading after the cancellation.
             await context.Response.WriteAsync("<html><body>", token);
             await context.Response.Body.FlushAsync(token);
             await Task.Delay(ms, token);
@@ -270,7 +272,8 @@ internal static partial class NativeBrowserFrameTestHost
                 Navigate(new Uri(origin, "/hang"));
                 await hanging.Task.WaitAsync(token);
                 stop.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                await stopped.Task.WaitAsync(token);
+                // On macOS, Stop clears loading synchronously and Avalonia only reports finished loads.
+                if (OperatingSystem.IsWindows()) await stopped.Task.WaitAsync(token);
                 Assert.That(vm.IsLoading.Value, Is.False);
                 Assert.That(vm.ErrorMessage.Value, Is.Null);
             }
@@ -291,7 +294,12 @@ internal static partial class NativeBrowserFrameTestHost
             try
             {
                 Navigate(new Uri(origin, "/redirect?to=beutl-test:probe"));
-                await refused.Task.WaitAsync(token);
+                if (OperatingSystem.IsWindows()) await refused.Task.WaitAsync(token);
+                else
+                {
+                    // The macOS handler reports the policy failure directly to the tab.
+                    while (vm.IsLoading.Value) await Task.Delay(20, token);
+                }
             }
             finally { browser.NavigationCompleted -= Refused; }
             Assert.That(vm.IsLoading.Value, Is.False);
@@ -1075,7 +1083,7 @@ public class NativeBrowserFrameTests
     [TestCase("--native-browser-download-methods", TestName = "WindowsDownloadHistoryKeepsTheRequestMethod", IncludePlatform = "Win")]
     [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations", IncludePlatform = "MacOSX")]
     [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation", IncludePlatform = "MacOSX,Win")]
-    [TestCase("--native-browser-superseded-navigation", TestName = "ACommittedPageFinishingAfterTheNextNavigationStartsLeavesItLoading", IncludePlatform = "Win")]
+    [TestCase("--native-browser-superseded-navigation", TestName = "ACommittedPageFinishingAfterTheNextNavigationStartsLeavesItLoading", IncludePlatform = "Win,MacOSX")]
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
     [TestCase("--native-browser-download-referrers", TestName = "PageLinkDownloadsHonorTheDocumentReferrerPolicy", IncludePlatform = "Win,MacOSX")]
     [TestCase("--native-browser-adblock-reference", TestName = "WindowsAdBlockBackendKeepsTheAdaptersWebViewReference", IncludePlatform = "Win")]
