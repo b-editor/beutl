@@ -689,10 +689,12 @@ public class ElementTransitionCompositionTests
         Element outerElement = harness.AddElement(MediaTime.Zero, Seconds(4), 0);
         outerElement.AddObject(outer);
         ((PortalObject)outerElement.Objects[0]).Count.Value = 1;
+        var inner = new DrawableGroup();
         Element innerElement = harness.AddElement(MediaTime.Zero, Seconds(4), 1);
-        innerElement.AddObject(new DrawableGroup());
+        innerElement.AddObject(inner);
         ((PortalObject)innerElement.Objects[0]).Count.Value = 1;
-        harness.AddElement(MediaTime.Zero, Seconds(2), 2).Objects.Add(new RectShape());
+        var previous = new RectShape();
+        harness.AddElement(MediaTime.Zero, Seconds(2), 2).Objects.Add(previous);
         harness.AddElement(Seconds(2), Seconds(2), 2).Objects.Add(new EllipseShape());
         (SourceBackdrop outgoingBackdrop, SourceBackdrop incomingBackdrop) = AddBackdropPair(harness, 3);
         using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
@@ -703,6 +705,9 @@ public class ElementTransitionCompositionTests
         {
             Assert.That(Originals(presenter.From), Is.EqualTo(new object[] { outer, outgoingBackdrop }));
             Assert.That(Originals(presenter.To), Is.EqualTo(new object[] { outer, incomingBackdrop }));
+            Assert.That(Originals(GroupChildren(presenter.To)), Is.EqualTo(new object[] { inner }));
+            Assert.That(Originals(GroupChildren(GroupChildren(presenter.To))), Is.EqualTo(new object[] { previous }),
+                "the frame's shot stays inside the inner group");
         });
     }
 
