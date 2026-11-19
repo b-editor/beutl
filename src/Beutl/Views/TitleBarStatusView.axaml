@@ -2,10 +2,9 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:views="using:Beutl.Views"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="32"
              d:DesignWidth="32"
@@ -211,22 +210,9 @@
                 </ScrollViewer>
             </Flyout>
         </Button.Flyout>
-        <Panel>
-            <icons:FluentIcon HorizontalAlignment="Center"
-                              VerticalAlignment="Center"
-                              Icon="Pulse"
-                              IsVisible="{Binding !IsBusy.Value}" />
-            <ui:FAProgressRing Width="18"
-                               Height="18"
-                               MinWidth="0"
-                               MinHeight="0"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               IsIndeterminate="{Binding IsRingIndeterminate.Value}"
-                               IsVisible="{Binding IsBusy.Value}"
-                               Maximum="1"
-                               Minimum="0"
-                               Value="{Binding RingValue.Value}" />
-        </Panel>
+        <views:TitleBarActivityIndicator Accent="{DynamicResource AccentFillColorDefaultBrush}"
+                                         Activities="{Binding Activities.Value}"
+                                         IsUpdateInstalling="{Binding IsUpdateInstalling.Value}"
+                                         UpdateProgress="{Binding UpdateProgress.Value}" />
     </Button>
 </UserControl>
