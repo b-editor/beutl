@@ -104,9 +104,6 @@ internal sealed partial class WindowsBrowserDownloadHandler
         finally { Marshal.Release(named); }
     }
 
-    // An attachment can finish a navigation without replacing the displayed document.
-    internal void BeginDocument(Uri? request) => _pendingDocument = request == null ? null : new Document(request);
-
     // The response may arrive before or after ContentLoading. Both callbacks update the same document.
     private sealed class Document(Uri address)
     {
@@ -126,6 +123,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
     {
         public unsafe void Invoke(nint sender, nint args)
         {
+            owner.RecordDownloadResponse(args);
             nint request = 0, requestHeaders = 0, response = 0, responseHeaders = 0;
             try
             {

@@ -16,6 +16,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     private readonly Action<Uri?, string, IBrowserDownloadSource, Uri?> _onGeneratedDownload;
     private readonly DownloadStartingHandler _handler;
     private readonly HashSet<NativeDownload> _downloads = [];
+    private (Uri Uri, string? Method)? _downloadResponse;
     private nint _webView;
     private long _token;
     private bool _subscribed;
@@ -98,6 +99,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             Marshal.AddRef(args);
             Uri? origin = generated ? BrowserMediaDownload.GetGeneratedFileOrigin(address) : uri;
             source = new NativeDownload(this, args, operation, deferral, name, generated, origin);
+            if (_downloadResponse is { } response) source.SetRequestMethod(response.Uri, response.Method);
             operation = deferral = 0;
             source.HideDefaultDialog();
             _downloads.Add(source);
@@ -121,6 +123,51 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             }
             if (operation != 0) Marshal.Release(operation);
         }
+    }
+
+    // An attachment can finish a navigation without replacing the displayed document.
+    internal void BeginDocument(Uri? request)
+    {
+        _pendingDocument = request == null ? null : new Document(request);
+        // A download at the same URL must not inherit the previous navigation's method.
+        if (request != null) _downloadResponse = null;
+    }
+
+    private unsafe void RecordDownloadResponse(nint args)
+    {
+        nint request = 0, requestHeaders = 0, response = 0;
+        try
+        {
+            request = GetObject(args, 3);
+            if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || !BrowserMediaDownload.IsHttpUri(page)) return;
+            requestHeaders = GetObject(request, 9);
+            string? destination = GetHeader(requestHeaders, "Sec-Fetch-Dest");
+            if (destination is not ("document" or "iframe" or "frame")) return;
+            response = GetObject(args, 4);
+            int status;
+            Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(response, 4))(response, &status));
+            string? method = status == 200 ? GetString(request, 5) : null;
+            // Frame GETs must not replace a main-frame response awaiting DownloadStarting.
+            if (destination == "document" || method != null && !string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
+                RecordDownloadResponse(page, method);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError("WebView2 could not read a download response's method: {0}", ex.Message);
+        }
+        finally
+        {
+            if (response != 0) Marshal.Release(response);
+            if (requestHeaders != 0) Marshal.Release(requestHeaders);
+            if (request != 0) Marshal.Release(request);
+        }
+    }
+
+    private void RecordDownloadResponse(Uri uri, string? method)
+    {
+        _downloadResponse = (uri, method);
+        // WebView2 can deliver the response after DownloadStarting; history reads the method after saving.
+        foreach (NativeDownload download in _downloads) download.SetRequestMethod(uri, method);
     }
 
     // WebView2 reports a navigation only once its page has loaded, while scripts run from its commit. Its Source
@@ -172,10 +219,20 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         private nint _deferral = deferral;
         private DispatcherTimer? _progressTimer;
         private IProgress<(long Received, long? Total)>? _progress;
+        private bool _hasRequestMethod;
         private bool _saving;
         private bool _disposed;
 
         public bool IsGenerated => generated;
+
+        public string? RequestMethod { get; private set; }
+
+        internal void SetRequestMethod(Uri uri, string? method)
+        {
+            if (_hasRequestMethod || generated || origin != uri) return;
+            RequestMethod = method;
+            _hasRequestMethod = true;
+        }
 
         internal unsafe void HideDefaultDialog() =>
             Marshal.ThrowExceptionForHR(
