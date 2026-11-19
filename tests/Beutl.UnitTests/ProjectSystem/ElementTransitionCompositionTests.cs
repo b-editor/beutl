@@ -538,6 +538,40 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    // Each shot inside the groups is a group of its own, and those cut with the groups. A shot's group is
+    // drawn by one side only, so each side groups its own shot rather than keeping the frame's.
+    [TestCase(1.75)]
+    [TestCase(2.25)]
+    public void ShotGroupsThatCutWithTheGroups_StayOnTheirOwnSides(double time)
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_portal_shot_groups", duration: Seconds(10));
+        Element outgoing = AddGroup(harness, MediaTime.Zero);
+        Element incoming = AddGroup(harness, Seconds(2));
+        foreach ((MediaTime start, Drawable shot) in new (MediaTime, Drawable)[]
+                 {
+                     (MediaTime.Zero, new RectShape { Name = { Value = "A" } }),
+                     (Seconds(2), new EllipseShape { Name = { Value = "B" } }),
+                 })
+        {
+            Element shotGroup = harness.AddElement(start, Seconds(2), 1);
+            shotGroup.AddObject(new DrawableGroup());
+            ((PortalObject)shotGroup.Objects[0]).Count.Value = 1;
+            harness.AddElement(start, Seconds(2), 2).Objects.Add(shot);
+        }
+
+        outgoing.ExitTransition.Value = Transition(0.5);
+        incoming.EnterTransition.Value = Transition(0.5);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+
+        ClipTransitionPresenter.Resource outer = SinglePresenter(compositor.EvaluateGraphics(Seconds(time)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Grouped(GroupChildren(outer.From)), Is.EqualTo(new[] { "A" }), "the outgoing side");
+            Assert.That(Grouped(GroupChildren(outer.To)), Is.EqualTo(new[] { "B" }), "the incoming side");
+        });
+    }
+
     [Test]
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {

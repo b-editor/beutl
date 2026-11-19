@@ -440,22 +440,17 @@ public sealed partial class SceneCompositor : ICompositor
         PooledList<EngineObject.Resource> flow, CompositorContext context, PooledList<EngineObject> tmpObjects)
     {
         using var sideInputs = new PooledList<Element>(inputs.Length);
-        if (sideTime == frameTime || !HasPortal(side) || ReachesSharedFlowOperator(side, sideTime, frameTime, inputs, context))
+        HashSet<Element> participants = GetTransitionParticipants();
+        if (sideTime == frameTime || !HasPortal(side)
+            || ReachesSharedFlowOperator(side, sideTime, frameTime, inputs, participants, context))
         {
             sideInputs.AddRange(inputs);
         }
         else
         {
-            HashSet<Element> participants = GetTransitionParticipants();
             foreach (Element input in inputs)
             {
-                if (input.CoversGraphicsTime(sideTime)
-                    || (participants.Contains(input)
-                        && ElementTransitions.TryGetActive(input, frameTime, out TransitionBoundary running)
-                        && running.Region.Contains(sideTime)))
-                {
-                    sideInputs.Add(input);
-                }
+                if (IsShared(input, sideTime, frameTime, participants)) sideInputs.Add(input);
             }
 
             using var atSideTime = new PooledList<Element>();
@@ -510,11 +505,12 @@ public sealed partial class SceneCompositor : ICompositor
         }
     }
 
-    // Whether the side's portals at sideTime reach an input that plays at the frame's time and feeds a flow
+    // Whether the side's portals at sideTime reach an input the side shares with the frame that feeds a flow
     // operator, such as a group, through a portal of its own. Both sides evaluate that input into one
     // shared resource, so its portal must see the same inputs on both, and the side keeps the frame's.
     private static bool ReachesSharedFlowOperator(
-        Element side, MediaTime sideTime, MediaTime frameTime, Element[] inputs, CompositorContext context)
+        Element side, MediaTime sideTime, MediaTime frameTime, Element[] inputs, HashSet<Element> participants,
+        CompositorContext context)
     {
         MediaTime time = context.Time;
         context.Time = sideTime;
@@ -530,7 +526,7 @@ public sealed partial class SceneCompositor : ICompositor
                 {
                     if (input.ZIndex.Value >= start && input.ZIndex.Value <= end
                         && HasPortal(input) && FeedsGraphicsFlowOperator(input)
-                        && input.CoversGraphicsTime(frameTime))
+                        && IsShared(input, sideTime, frameTime, participants))
                     {
                         return true;
                     }
@@ -543,6 +539,16 @@ public sealed partial class SceneCompositor : ICompositor
         {
             context.Time = time;
         }
+    }
+
+    // Whether a side at sideTime shares the frame's input with the frame, which plays it at the frame's
+    // time: sideTime covers it too, or a transition it runs at the frame's time reaches sideTime.
+    private static bool IsShared(Element input, MediaTime sideTime, MediaTime frameTime, HashSet<Element> participants)
+    {
+        return input.CoversGraphicsTime(sideTime)
+               || (participants.Contains(input)
+                   && ElementTransitions.TryGetActive(input, frameTime, out TransitionBoundary running)
+                   && running.Region.Contains(sideTime));
     }
 
     // Whether element draws through a flow operator in the graphics pass, selected as Element.CollectObjects
