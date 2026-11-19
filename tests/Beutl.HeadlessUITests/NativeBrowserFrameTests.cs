@@ -407,7 +407,14 @@ internal static class NativeBrowserFrameTestHost
                 await browser.InvokeScript("document.querySelector('a').click()");
                 Assert.That(await requests.Reader.ReadAsync(token), Is.EqualTo(origin.AbsoluteUri));
                 Assert.That(count, Is.EqualTo(beforeFrame), "The named link should navigate the existing iframe");
-                await Check("window.open(document.querySelector('a').href, 'otherPreview')", "");
+                await Check("window.open(document.querySelector('a').href, 'otherPreview')", origin.AbsoluteUri);
+                await Check("document.querySelector('a').target='otherPreview'; document.querySelector('a').click()", origin.AbsoluteUri);
+                await browser.InvokeScript("document.querySelector('a').target='preview'");
+                beforeFrame = count;
+                await browser.InvokeScript("window.open(document.querySelector('a').href, 'preview')");
+                Assert.That(await requests.Reader.ReadAsync(token), Is.EqualTo(origin.AbsoluteUri));
+                Assert.That(count, Is.EqualTo(beforeFrame), "The named window.open should navigate the existing iframe");
+                await Check("window.open(document.querySelector('a').href, 'otherPreview')", origin.AbsoluteUri);
                 await Check("window.open(document.querySelector('a').href, 'preview', 'noopener')", origin.AbsoluteUri);
                 await Check("document.querySelector('a').rel='noopener'; document.querySelector('a').click()", origin.AbsoluteUri);
                 await browser.InvokeScript("""
