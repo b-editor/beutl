@@ -138,7 +138,11 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 if (decision != null && !owner.IsWindowTarget(decision)) return;
                 // A late message belongs to the window already handled without a referrer, not the next one.
                 if (!TakeWindowDecision(owner._unmatchedWindows, name, uri, out _))
+                {
+                    // Frame navigations never take their decisions, so a newer one for the same name and URL replaces them.
+                    owner._windowDecisions.RemoveAll(record => record.Name == name && record.Url == uri.AbsoluteUri);
                     RememberWindowDecision(owner._windowDecisions, name, uri, decision);
+                }
             }
             catch (Exception ex) { ReportWindowReferrerError(ex); }
         }
@@ -406,7 +410,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 const context = opensNewContext(destinationTarget, flags.get('noopener'));
                 const decision = !flags.get('noreferrer') ? windowTarget(destination) : null;
                 const name = context === true && decision;
-                if (!name) postWindow(destinationTarget, destination.href, decision);
+                if (!name && context !== false) postWindow(destinationTarget, destination.href, decision);
                 return name ? open.call(window, destination.href, name, features) : Reflect.apply(open, this, arguments);
             };
             const pendingTargets = new WeakMap();
@@ -419,7 +423,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 const context = opensNewContext(effectiveTarget, noopener);
                 const decision = windowTarget(new URL(link.href), link);
                 const name = context === true && decision;
-                if (!name) postWindow(effectiveTarget, link.href, decision);
+                if (!name && context !== false) postWindow(effectiveTarget, link.href, decision);
                 if (!name && !pending) return;
                 const mark = {original, assigned: name || effectiveTarget};
                 pendingTargets.set(link, mark);
