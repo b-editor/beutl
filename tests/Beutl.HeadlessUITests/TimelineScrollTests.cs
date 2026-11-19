@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Vector2 = System.Numerics.Vector2;
 
@@ -115,6 +116,54 @@ public class TimelineScrollTests
         });
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Touchpad_pinch_keeps_zoom_anchored_to_pointer(bool ruler)
+    {
+        using TimelineSession session = await TimelineSession.CreateAsync(null, false);
+        double scale = 1;
+        foreach (double delta in new[] { 0.2, -0.1, 0.001 })
+        {
+            PointerDeltaEventArgs args = session.Pinch(delta, ruler);
+            scale *= 1 + delta;
+            Assert.Multiple(() =>
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(session.Model.Options.Value.Scale, Is.EqualTo(scale).Within(0.0001));
+                Assert.That((session.Content.Offset.X + 100) / session.Model.Options.Value.Scale,
+                    Is.EqualTo(400).Within(0.001));
+                Assert.That(session.Content.Offset.Y, Is.EqualTo(200));
+            });
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Touchpad_pinch_clamps_and_ignores_invalid_magnification()
+    {
+        using TimelineSession session = await TimelineSession.CreateAsync(null, false);
+        session.Pinch(1000, ruler: false);
+        Assert.That(session.Model.Options.Value.Scale, Is.EqualTo(TimelineOptions.MaxScale));
+
+        for (int i = 0; i < 10 && session.Model.Options.Value.Scale > TimelineOptions.MinScale; i++)
+        {
+            session.Pinch(-0.99, ruler: false);
+        }
+        Assert.That(session.Model.Options.Value.Scale, Is.EqualTo(TimelineOptions.MinScale));
+
+        session.ResetOffset();
+        foreach (double delta in new[] { -1, -2, double.NaN })
+        {
+            PointerDeltaEventArgs args = session.Pinch(delta, ruler: false);
+            Assert.Multiple(() =>
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(session.Model.Options.Value.Scale, Is.EqualTo(1));
+                Assert.That(session.Content.Offset, Is.EqualTo(new Vector(300, 200)));
+            });
+        }
+    }
+
     private sealed class TimelineSession : IDisposable
     {
         private readonly bool _originalSwap = TestShell.Configuration.EditorConfig.SwapTimelineScrollDirection.Value;
@@ -152,6 +201,20 @@ public class TimelineScrollTests
             Point point = target.TranslatePoint(new Point(100, ruler ? 4 : 80), _host.Window)!.Value;
             _host.Window.MouseWheel(point, delta, modifiers);
             HeadlessTestHelpers.Render();
+        }
+
+        public PointerDeltaEventArgs Pinch(double delta, bool ruler)
+        {
+            Control target = ruler ? _host.RulerBar : Content;
+            Point point = target.TranslatePoint(new Point(100, ruler ? 4 : 80), _host.Window)!.Value;
+            TimelineTestHost.WaitForHitTest(_host.Window, target, point);
+            IInputElement source = _host.Window.InputHitTest(point)!;
+            using var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, true);
+            var args = new PointerDeltaEventArgs(InputElement.PointerTouchPadGestureMagnifyEvent,
+                source, pointer, _host.Window, point, 1, default, KeyModifiers.None, new Vector(delta, delta));
+            source.RaiseEvent(args);
+            HeadlessTestHelpers.Render();
+            return args;
         }
 
         public void Dispose()
