@@ -10,7 +10,6 @@ using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.PropertyEditors;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.Services;
@@ -52,7 +51,7 @@ internal sealed class PropertyEditorControls : IPropertyEditorHost
 
         control = null;
         var resolved = PropertyEditorResolver.RegistrationOf(context);
-        var notifications = FindNotifications(context) ?? resolved?.Notifications;
+        var notifications = ExtensionGuard.FindNotifications(context) ?? resolved?.Notifications;
         PropertyEditorRegistration? registration = resolved?.Registration ?? FindFor(context, surface, notifications);
         if (registration is null) return false;
 
@@ -64,19 +63,6 @@ internal sealed class PropertyEditorControls : IPropertyEditorHost
             ? ExtensionGuard.Call(registration.Owner, notifications, () => Prepare(context, created, registration, surface))
             : FitListItem(created, surface);
         return control != null;
-    }
-
-    // A context can come from an extension, so its service lookup is extension code that may throw.
-    private static INotificationService? FindNotifications(IPropertyEditorContext context)
-    {
-        try
-        {
-            return (context as IServiceProvider)?.GetService<INotificationService>();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
     }
 
     public bool TryCreateDefault(IPropertyAdapter property, [NotNullWhen(true)] out IPropertyEditorContext? context)

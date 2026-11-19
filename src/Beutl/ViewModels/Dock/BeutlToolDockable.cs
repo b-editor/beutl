@@ -73,7 +73,7 @@ public class BeutlToolDockable : Tool, IDisposable
         PropertyChanged += OnPropertyChanged;
     }
 
-    internal INotificationService? Notifications => ToolContext.GetService<INotificationService>()
+    internal INotificationService? Notifications => ExtensionGuard.FindNotifications(ToolContext)
         ?? EditViewModel?.GetService<INotificationService>();
 
     public IToolContext ToolContext { get; }

@@ -19,6 +19,20 @@ internal static class ExtensionGuard
 
     public static void SetPackage(Extension extension, string package) => s_packages.AddOrUpdate(extension, package);
 
+    // The notifications a context offers. A context can come from an extension, so the lookup is extension code
+    // that may throw; a failure yields null so that the caller falls back to the host's notifications.
+    public static INotificationService? FindNotifications(object? context)
+    {
+        try
+        {
+            return (context as IServiceProvider)?.GetService(typeof(INotificationService)) as INotificationService;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     public static bool IsTurnedOff(Extension extension)
         => s_packages.TryGetValue(extension, out _) && s_failed.TryGetValue(extension, out _);
 
@@ -101,7 +115,7 @@ internal static class ExtensionGuard
     }
 
     // DisplayName is extension code too.
-    private static string DisplayName(Extension extension)
+    public static string DisplayName(Extension extension)
     {
         try
         {

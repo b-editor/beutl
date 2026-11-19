@@ -3,7 +3,6 @@ using Beutl.Api.Services;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views;
 
@@ -19,7 +18,7 @@ public sealed class EditorHostView : ContentControl
         }
 
         EditorExtension extension = viewModel.Extension;
-        var notifications = viewModel.GetService<INotificationService>() ?? ControlNotifications.GetNotifications(this);
+        var notifications = ExtensionGuard.FindNotifications(viewModel) ?? ControlNotifications.GetNotifications(this);
         Control? control = ExtensionGuard.Call(extension, notifications,
             () => extension.TryCreateEditor(viewModel.Object, out Control? editor) ? editor : null);
         if (control is not null)
@@ -34,7 +33,7 @@ public sealed class EditorHostView : ContentControl
         {
             Text = $"""
                        Error:
-                           {string.Format(MessageStrings.FailedToOpenFileWithExtension, viewModel.Extension.DisplayName, viewModel.Object.Uri)}
+                           {string.Format(MessageStrings.FailedToOpenFileWithExtension, ExtensionGuard.DisplayName(viewModel.Extension), viewModel.Object.Uri)}
 
                        Message:
                            {MessageStrings.EditorContextAlreadyCreated}
