@@ -167,6 +167,10 @@ public sealed partial class SceneCompositor : ICompositor
         // cut, hold at that time like the side's own content.
         public MediaTime? FrameTime { get; set; }
 
+        // The time of the transition side being collected, while FrameTime is set. An input that plays at
+        // the frame's time changes Time, so the inputs its own portals draw read the side's time from here.
+        public MediaTime? SideTime { get; set; }
+
         public GraphicsFrameState? GraphicsState { get; set; }
 
         public bool IsMatteSource { get; init; }
@@ -189,10 +193,10 @@ public sealed partial class SceneCompositor : ICompositor
         public void EvaluateElementIntoFlow(Element element)
         {
             using var tmpObjects = new PooledList<EngineObject>();
-            MediaTime sideTime = Time;
-            if (FrameTime is { } frameTime && element.CoversGraphicsTime(frameTime))
+            MediaTime time = Time;
+            if (FrameTime is { } frameTime)
             {
-                Time = frameTime;
+                Time = element.CoversGraphicsTime(frameTime) ? frameTime : SideTime ?? time;
             }
 
             try
@@ -201,7 +205,7 @@ public sealed partial class SceneCompositor : ICompositor
             }
             finally
             {
-                Time = sideTime;
+                Time = time;
             }
         }
     }
@@ -472,6 +476,8 @@ public sealed partial class SceneCompositor : ICompositor
         context.Flow = flow;
         context.Time = sideTime;
         context.CurrentElements = sideInputs;
+        MediaTime? outerSideTime = context.SideTime;
+        context.SideTime = sideTime;
         try
         {
             CollectElementObjects(side, context, tmpObjects);
@@ -479,6 +485,7 @@ public sealed partial class SceneCompositor : ICompositor
         finally
         {
             context.CurrentElements = elements;
+            context.SideTime = outerSideTime;
         }
 
         if (sideInputs.Count == offered.Count) return;
