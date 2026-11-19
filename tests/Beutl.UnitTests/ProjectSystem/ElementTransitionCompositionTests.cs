@@ -708,6 +708,30 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    // A backdrop hidden from the output draws nothing, so its boundary with another backdrop is no scene change:
+    // the layer beneath stays in the frame under the transition, as it does after a clip.
+    [Test]
+    public void AHiddenBackdrop_LeavesTheLayersBeneathInTheFrame()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_hidden_backdrop", duration: Seconds(10));
+        var previous = new RectShape { Name = { Value = "A" } };
+        harness.AddElement(MediaTime.Zero, Seconds(2), 0).Objects.Add(previous);
+        harness.AddElement(Seconds(2), Seconds(2), 0).Objects.Add(new EllipseShape { Name = { Value = "B" } });
+        (SourceBackdrop outgoingBackdrop, SourceBackdrop incomingBackdrop) = AddBackdropPair(harness, 1);
+        harness.Scene.Children.Single(e => e.Objects.Contains(incomingBackdrop)).IsVisibleInOutput.Value = false;
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+
+        CompositionFrame frame = compositor.EvaluateGraphics(Seconds(1.75));
+        var presenter = frame.Objects.OfType<ClipTransitionPresenter.Resource>().Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(previous));
+            Assert.That(Originals(presenter.From), Is.EqualTo(new object[] { outgoingBackdrop }));
+            Assert.That(presenter.To, Is.Empty);
+        });
+    }
+
     [Test]
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {

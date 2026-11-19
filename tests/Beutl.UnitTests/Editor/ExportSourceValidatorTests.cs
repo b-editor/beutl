@@ -560,6 +560,12 @@ public sealed class ExportSourceValidatorTests
 
         incoming.Objects[0].IsEnabled.Value = false;
         Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(1.9)), Is.EquivalentTo(new[] { previous }));
+
+        // Hidden from the output, the incoming backdrop draws nothing either, so past the cut the outgoing side
+        // holds no shot of its own.
+        incoming.Objects[0].IsEnabled.Value = true;
+        incoming.IsVisibleInOutput.Value = false;
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, TimeRange.FromSeconds(2, 0.25)), Is.EquivalentTo(new[] { next }));
     }
 
     [Test]

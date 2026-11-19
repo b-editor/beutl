@@ -123,10 +123,12 @@ internal static class ElementTransitions
         return false;
     }
 
-    // Whether element draws a backdrop of what lies beneath it, as one of the objects Element.CollectObjects
-    // selects for the graphics pass.
+    // Whether element draws a backdrop of what lies beneath it in the output, as one of the objects
+    // Element.CollectObjects selects for the graphics pass. An element hidden from the output draws nothing.
     public static bool DrawsBackdrop(Element element)
     {
+        if (!element.IsVisibleInOutput.Value) return false;
+
         foreach (EngineObject obj in element.Objects)
         {
             if (obj is SourceBackdrop { IsEnabled.Value: true }) return true;
