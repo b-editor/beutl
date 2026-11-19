@@ -256,7 +256,9 @@ internal partial class WebBrowserTabView
                 if (!link.hasAttribute('download') && !/\.(mp4|webm|mov|mkv|avi|mpeg|mp3|m4a|wav|flac|ogg|opus|aac|jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(url.pathname)) return;
                 if (typeof window.invokeCSharpAction !== 'function') return;
                 let policy = link.referrerPolicy;
-                if (!policy) {
+                if (!policy && typeof window.__beutlReferrerPolicy === 'function') {
+                    policy = window.__beutlReferrerPolicy();
+                } else if (!policy) {
                     const policies = ['no-referrer','no-referrer-when-downgrade','origin','origin-when-cross-origin',
                         'same-origin','strict-origin','strict-origin-when-cross-origin','unsafe-url'];
                     for (const meta of document.querySelectorAll('meta[name],meta[http-equiv]')) {
@@ -266,7 +268,7 @@ internal partial class WebBrowserTabView
                     }
                 }
                 const noReferrer = link.rel.toLowerCase().split(/\s+/).includes('noreferrer') || policy === 'no-referrer';
-                const referrerPolicy = noReferrer ? 'no-referrer' : policy === 'same-origin' ? 'same-origin' : 'origin';
+                const referrerPolicy = noReferrer ? 'no-referrer' : policy === 'same-origin' ? 'same-origin' : policy ? 'origin' : 'document';
                 event.preventDefault();
                 event.stopImmediatePropagation();
                 window.invokeCSharpAction(JSON.stringify({kind:'beutl-download',url:url.href,name:link.getAttribute('download'),referrerPolicy}));
@@ -322,7 +324,7 @@ internal partial class WebBrowserTabView
         return false;
     }
 
-    private static BrowserReferrerPolicy ReadReferrerPolicy(JsonElement root)
+    private BrowserReferrerPolicy ReadReferrerPolicy(JsonElement root)
     {
         BrowserReferrerPolicy policy = BrowserReferrerPolicy.Origin;
         if (root.TryGetProperty("referrerPolicy", out var policyNode))
@@ -331,6 +333,7 @@ internal partial class WebBrowserTabView
             {
                 "origin" => BrowserReferrerPolicy.Origin,
                 "same-origin" => BrowserReferrerPolicy.SameOrigin,
+                "document" => (_nativeBrowserHandler as WindowsBrowserDownloadHandler)?.DocumentReferrerPolicy ?? BrowserReferrerPolicy.Origin,
                 _ => BrowserReferrerPolicy.NoReferrer
             } : BrowserReferrerPolicy.NoReferrer;
         }
