@@ -679,6 +679,33 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    // A group spanning the cut takes another spanning group, which takes the shots. The held side leaves the next
+    // shot inside the inner group as well, so both sides share the outer group as the frame draws it.
+    [Test]
+    public void ANestedGroupSpanningTheCutBeneathABackdropPair_KeepsItsShotsInside()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_backdrop_nested_group", duration: Seconds(10));
+        var outer = new DrawableGroup();
+        Element outerElement = harness.AddElement(MediaTime.Zero, Seconds(4), 0);
+        outerElement.AddObject(outer);
+        ((PortalObject)outerElement.Objects[0]).Count.Value = 1;
+        Element innerElement = harness.AddElement(MediaTime.Zero, Seconds(4), 1);
+        innerElement.AddObject(new DrawableGroup());
+        ((PortalObject)innerElement.Objects[0]).Count.Value = 1;
+        harness.AddElement(MediaTime.Zero, Seconds(2), 2).Objects.Add(new RectShape());
+        harness.AddElement(Seconds(2), Seconds(2), 2).Objects.Add(new EllipseShape());
+        (SourceBackdrop outgoingBackdrop, SourceBackdrop incomingBackdrop) = AddBackdropPair(harness, 3);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+
+        ClipTransitionPresenter.Resource presenter = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Originals(presenter.From), Is.EqualTo(new object[] { outer, outgoingBackdrop }));
+            Assert.That(Originals(presenter.To), Is.EqualTo(new object[] { outer, incomingBackdrop }));
+        });
+    }
+
     // The same group hidden from the output draws nothing and takes nothing, so each side takes the shot its
     // own time covers, as it does without the group.
     [Test]

@@ -507,6 +507,27 @@ public sealed partial class SceneCompositor : ICompositor
             AddPortalSpans(range.Element, frameTime, context, portalled);
         }
 
+        // A portal element a shared portal draws, such as a group inside a group, draws its own layers inside
+        // it too. Each span lies above the element whose portal it is, so following them ends.
+        if (portalled.Count > 0)
+        {
+            using var atFrameTime = new PooledList<Element>();
+            SortLayers(frameTime, atFrameTime, CompositionTarget.Graphics);
+            var followed = new HashSet<Element>(ReferenceEqualityComparer.Instance);
+            for (int i = 0; i < portalled.Count; i++)
+            {
+                (int start, int end) = portalled[i];
+                foreach (Element element in atFrameTime)
+                {
+                    int z = element.ZIndex.Value;
+                    if (z >= start && z <= end && followed.Add(element))
+                    {
+                        AddPortalSpans(element, frameTime, context, portalled);
+                    }
+                }
+            }
+        }
+
         // What only this time covers is evaluated at it, through its own list, so its portals take from what
         // this side holds and the frame's list stays as the main loop left it.
         using var held = new PooledList<Element>();
