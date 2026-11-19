@@ -70,26 +70,24 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(AppUpdateStatus.Idle)
             .DisposeWith(_disposables);
 
-        IObservable<bool> otherTasksRunning = IsRunningStartupTasks
-            .CombineLatest(RunningAiJobCount, RunningOutputs,
-                (startup, jobs, outputs) => startup || jobs > 0 || outputs.Length > 0);
-
-        IsBusy = otherTasksRunning
-            .CombineLatest(AppUpdate, (others, update) => others || update.IsBusy)
+        Activities = IsRunningStartupTasks
+            .CombineLatest(RunningAiJobCount, RunningOutputs, AppUpdate, ListActivities)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        // A percentage only when the update is all the ring stands for, so it cannot be read as another task's.
-        IObservable<double?> ringProgress = otherTasksRunning
-            .CombineLatest(AppUpdate, (others, update) => others ? null : update.Progress);
-
-        RingValue = ringProgress
-            .Select(progress => progress ?? 0)
+        IsBusy = Activities
+            .Select(activities => activities != TitleBarActivities.None)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsRingIndeterminate = IsBusy
-            .CombineLatest(ringProgress, (busy, progress) => busy && progress == null)
+        // The update's animation names the update, so its percentage shows even while other tasks take turns beside it.
+        UpdateProgress = AppUpdate
+            .Select(update => update.IsBusy ? update.Progress : null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IsUpdateInstalling = AppUpdate
+            .Select(update => update.IsInstalling)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -128,9 +126,11 @@ public sealed class TitleBarStatusViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<AppUpdateStatus> AppUpdate { get; }
 
-    public ReadOnlyReactivePropertySlim<double> RingValue { get; }
+    public ReadOnlyReactivePropertySlim<TitleBarActivities> Activities { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsRingIndeterminate { get; }
+    public ReadOnlyReactivePropertySlim<double?> UpdateProgress { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsUpdateInstalling { get; }
 
     public ReadOnlyReactivePropertySlim<string> ToolTip { get; }
 
@@ -328,6 +328,22 @@ public sealed class TitleBarStatusViewModel : IDisposable
             lines.Add($"{Strings.Update}: {update.Text}");
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    private static TitleBarActivities ListActivities(
+        bool runningStartupTasks, int runningAiJobs, string[] runningOutputs, AppUpdateStatus update)
+    {
+        var activities = TitleBarActivities.None;
+        if (runningStartupTasks)
+            activities |= TitleBarActivities.Startup;
+        if (runningOutputs.Length > 0)
+            activities |= TitleBarActivities.Output;
+        if (runningAiJobs > 0)
+            activities |= TitleBarActivities.AiJob;
+        if (update.IsBusy)
+            activities |= TitleBarActivities.Update;
+
+        return activities;
     }
 
     private static int CountRunningJobs(AiJobMonitorSnapshot snapshot, IAiJobKindRegistry jobKinds)

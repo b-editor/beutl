@@ -20,7 +20,7 @@ namespace Beutl.HeadlessUITests;
 public sealed class TitleBarStatusViewModelTests
 {
     [AvaloniaTest]
-    public async Task The_ring_spins_while_another_task_runs_beside_a_download()
+    public async Task The_download_keeps_its_progress_while_another_task_runs_beside_it()
     {
         var startup = new ReactivePropertySlim<bool>(true);
         var editorService = new EditorService(new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()), (_, _) => { }, TestShell.CreateEditorServices().Add<Beutl.Configuration.GlobalConfiguration>(() => TestShell.Configuration));
@@ -36,12 +36,19 @@ public sealed class TitleBarStatusViewModelTests
             () => { },
             Observable.Return(new AppUpdateStatus("Downloading", IsBusy: true, Progress: 0.5)));
         Dispatcher.UIThread.RunJobs();
-        Assert.That(status.IsRingIndeterminate.Value, Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Startup | TitleBarActivities.Update));
+            Assert.That(status.UpdateProgress.Value, Is.EqualTo(0.5));
+        });
 
         startup.Value = false;
         Dispatcher.UIThread.RunJobs();
-        Assert.That(status.IsRingIndeterminate.Value, Is.False);
-        Assert.That(status.RingValue.Value, Is.EqualTo(0.5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Update));
+            Assert.That(status.UpdateProgress.Value, Is.EqualTo(0.5));
+        });
     }
 
     [AvaloniaTest]
@@ -68,18 +75,27 @@ public sealed class TitleBarStatusViewModelTests
         update.Value = new AppUpdateStatus("Downloading", IsBusy: true);
         Dispatcher.UIThread.RunJobs();
         Assert.That(status.IsBusy.Value, Is.True);
+        Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Update));
         Assert.That(status.AppUpdate.Value.Text, Is.EqualTo("Downloading"));
-        Assert.That(status.IsRingIndeterminate.Value, Is.True);
+        Assert.That(status.UpdateProgress.Value, Is.Null);
         Assert.That(status.ToolTip.Value, Does.Contain("Downloading"));
 
         update.Value = new AppUpdateStatus("Downloading", IsBusy: true, Progress: 0.5);
         Dispatcher.UIThread.RunJobs();
-        Assert.That(status.IsRingIndeterminate.Value, Is.False);
-        Assert.That(status.RingValue.Value, Is.EqualTo(0.5));
+        Assert.That(status.UpdateProgress.Value, Is.EqualTo(0.5));
+        Assert.That(status.IsUpdateInstalling.Value, Is.False);
 
-        update.Value = new AppUpdateStatus("Ready", IsBusy: false);
+        update.Value = new AppUpdateStatus("Installing", IsBusy: true, IsInstalling: true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Update));
+        Assert.That(status.IsUpdateInstalling.Value, Is.True);
+
+        update.Value = new AppUpdateStatus("Ready", IsBusy: false, Progress: 1);
         Dispatcher.UIThread.RunJobs();
         Assert.That(status.IsBusy.Value, Is.False);
+        Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
+        Assert.That(status.UpdateProgress.Value, Is.Null);
+        Assert.That(status.IsUpdateInstalling.Value, Is.False);
         Assert.That(status.AppUpdate.Value.IsActive, Is.True);
 
         status.OpenAppUpdate();
@@ -115,6 +131,7 @@ public sealed class TitleBarStatusViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(status.IsBusy.Value, Is.True);
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Startup));
             Assert.That(status.StartupText.Value, Is.EqualTo(StatusStrings.Running));
             Assert.That(status.ToolTip.Value, Does.Contain(Strings.RunningStartupTasks));
         });
@@ -127,6 +144,7 @@ public sealed class TitleBarStatusViewModelTests
             Assert.Multiple(() =>
             {
                 Assert.That(status.IsBusy.Value, Is.True);
+                Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Output));
                 Assert.That(status.StartupText.Value, Is.EqualTo(StatusStrings.Done));
                 Assert.That(status.RunningOutputs.Value, Is.EqualTo(new[] { "intro.scene - Default" }));
             });
@@ -146,6 +164,7 @@ public sealed class TitleBarStatusViewModelTests
         {
             Assert.That(status.RunningAiJobCount.Value, Is.EqualTo(1));
             Assert.That(status.IsBusy.Value, Is.True);
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.AiJob));
             Assert.That(status.AiJobsText.Value, Is.EqualTo(string.Format(StatusStrings.RunningCount, 1)));
         });
     }

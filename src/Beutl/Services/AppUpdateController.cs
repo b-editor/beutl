@@ -11,7 +11,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public sealed record AppUpdateStatus(string? Text, bool IsBusy, double? Progress = null)
+public sealed record AppUpdateStatus(string? Text, bool IsBusy, double? Progress = null, bool IsInstalling = false)
 {
     public static AppUpdateStatus Idle { get; } = new(null, false);
 
@@ -44,7 +44,8 @@ internal sealed class AppUpdateController
                 ? Observable.Return(AppUpdateStatus.Idle)
                 : viewModel.Phase.CombineLatest(viewModel.ProgressText, viewModel.DownloadProgress,
                     (phase, text, progress) => new AppUpdateStatus(text ?? "",
-                        phase is AppUpdatePhase.Preparing or AppUpdatePhase.Installing, progress)))
+                        phase is AppUpdatePhase.Preparing or AppUpdatePhase.Installing, progress,
+                        phase is AppUpdatePhase.Installing)))
             .Switch();
     }
 
