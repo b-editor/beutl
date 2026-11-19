@@ -73,18 +73,29 @@ internal static class NativeBrowserFrameTestHost
                 exitCode = 0;
                 return;
             }
+            if (scenario == "--native-browser-superseded-navigation")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var navigationTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await CheckSupersededNavigationAsync(window, navigationTimeout.Token);
+                exitCode = 0;
+                return;
+            }
             using var temporary = new TemporaryDirectory();
             var webView = new NativeWebView();
             webView.EnvironmentRequested += (_, e) =>
             {
                 if (e is AppleWKWebViewEnvironmentRequestedEventArgs apple) apple.NonPersistentDataStore = true;
             };
-            var page = new Uri("https://page.example/");
+            bool windowsHistory = OperatingSystem.IsWindows() && scenario == "--native-browser-history";
+            // A failed startup URL creates an error page that WebView2 can retry during the history checks.
+            Uri page = windowsHistory ? WebBrowserTabViewModel.BlankPage : new Uri("https://page.example/");
             using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), page);
             using var view = new WebBrowserTabView(_ => webView, () => (true, null, false)) { DataContext = vm };
             window = new Window { Content = view, Width = 640, Height = 480, ShowActivated = false, ShowInTaskbar = false };
             window.Show();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(windowsHistory ? 30 : 10));
             if (scenario == "--native-browser-history")
             {
                 await CheckHistoryAsync(view, webView, vm, timeout.Token);
@@ -137,6 +148,128 @@ internal static class NativeBrowserFrameTestHost
             window?.Close();
             lifetime.Shutdown(exitCode);
         }
+    }
+
+    private static async Task CheckSupersededNavigationAsync(Window window, CancellationToken token)
+    {
+        await using var server = WebApplication.CreateSlimBuilder().Build();
+        server.Urls.Add("http://127.0.0.1:0");
+        var finish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var hanging = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.MapGet("/fast", () => Results.Content("<html><body>fast</body></html>", "text/html"));
+        server.MapGet("/stream", async (HttpContext context) =>
+        {
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><body>start", token);
+            await context.Response.Body.FlushAsync(token);
+            await finish.Task.WaitAsync(token);
+            await context.Response.WriteAsync("</body></html>", token);
+        });
+        server.MapGet("/slow", async (HttpContext context, int ms) =>
+        {
+            context.Response.ContentType = "text/html";
+            // Starting B's response makes WebView2 complete the superseded document while B is still loading.
+            await context.Response.WriteAsync("<html><body>", token);
+            await context.Response.Body.FlushAsync(token);
+            await Task.Delay(ms, token);
+            await context.Response.WriteAsync("slow</body></html>", token);
+        });
+        server.MapGet("/redirect", (HttpContext context) => Results.Redirect(context.Request.Query["to"].ToString()));
+        server.MapGet("/hang", async () =>
+        {
+            hanging.TrySetResult();
+            await finish.Task.WaitAsync(token);
+            return Results.Content("<html><body>done</body></html>", "text/html");
+        });
+        await server.StartAsync(token);
+        var origin = new Uri(server.Urls.Single());
+        var browser = new NativeWebView();
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), WebBrowserTabViewModel.BlankPage);
+        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        window.Content = view;
+        Button ToolbarButton(string tip) => view.GetVisualDescendants().OfType<Button>()
+            .Single(button => Equals(ToolTip.GetTip(button), tip));
+
+        void Navigate(Uri uri)
+        {
+            vm.Address.Value = uri.AbsoluteUri;
+            view.NavigateFromAddress();
+        }
+
+        async Task Load(Uri expected, Action navigate, Func<Task>? whileLoading = null)
+        {
+            var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Completed(object? sender, WebViewNavigationCompletedEventArgs e)
+            {
+                if (e.IsSuccess && e.Request == expected) loaded.TrySetResult();
+            }
+            browser.NavigationCompleted += Completed;
+            try
+            {
+                navigate();
+                if (whileLoading != null) await whileLoading();
+                await loaded.Task.WaitAsync(token);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(vm.IsLoading.Value, Is.False);
+                    Assert.That(vm.CurrentUri, Is.EqualTo(expected));
+                    Assert.That(vm.ErrorMessage.Value, Is.Null);
+                });
+            }
+            finally { browser.NavigationCompleted -= Completed; }
+        }
+
+        try
+        {
+            var fast = new Uri(origin, "/fast");
+            await Load(fast, () => Navigate(fast));
+            Button stop = ToolbarButton(Strings.Stop);
+            Button refresh = ToolbarButton(Strings.Refresh);
+            Navigate(new Uri(origin, "/stream"));
+            // Scripts can see the body once the streaming document has committed, before it finishes loading.
+            while ((await browser.InvokeScript("document.body ? document.body.textContent : ''"))?.Contains("start", StringComparison.Ordinal) != true)
+                await Task.Delay(20, token);
+
+            var slow = new Uri(origin, "/slow?ms=1500");
+            await Load(slow, () => Navigate(slow), async () =>
+            {
+                await Task.Delay(400, token);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(vm.IsLoading.Value, Is.True, "The next navigation must still be loading at 400 ms.");
+                    Assert.That(vm.CurrentUri, Is.EqualTo(slow), "The superseded completion must not restore the streaming page's address.");
+                    Assert.That(vm.ErrorMessage.Value, Is.Null);
+                    Assert.That(stop.IsVisible, Is.True);
+                });
+            });
+
+            var redirected = new Uri(origin, "/fast?n=R");
+            await Load(redirected, () => Navigate(new Uri(origin, "/redirect?to=/fast?n=R")));
+
+            var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Stopped(object? sender, WebViewNavigationCompletedEventArgs e)
+            {
+                if (!e.IsSuccess) stopped.TrySetResult();
+            }
+            browser.NavigationCompleted += Stopped;
+            try
+            {
+                Navigate(new Uri(origin, "/hang"));
+                await hanging.Task.WaitAsync(token);
+                stop.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await stopped.Task.WaitAsync(token);
+                Assert.That(vm.IsLoading.Value, Is.False);
+                Assert.That(vm.ErrorMessage.Value, Is.Null);
+            }
+            finally { browser.NavigationCompleted -= Stopped; }
+
+            await Load(redirected, () =>
+            {
+                refresh.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.That(vm.IsLoading.Value, Is.True);
+            });
+        }
+        finally { finish.TrySetResult(); }
     }
 
     private static async Task CheckAdBlockReferenceAsync(Window window, CancellationToken token)
@@ -540,7 +673,16 @@ internal static class NativeBrowserFrameTestHost
             finally { webView.NavigationCompleted -= Completed; }
         }
 
-        await LoadDocument(first, () => webView.Navigate(first));
+        await LoadDocument(first, () =>
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                // The address path retains this request while Windows starts the adapter on about:blank.
+                vm.Address.Value = first.AbsoluteUri;
+                view.NavigateFromAddress();
+            }
+            else webView.Navigate(first);
+        });
         await LoadDocument(page, () =>
         {
             vm.Address.Value = page.AbsoluteUri;
@@ -662,7 +804,8 @@ public class NativeBrowserFrameTests
 {
     [TestCase("--native-browser-download-methods", TestName = "WindowsDownloadHistoryKeepsTheRequestMethod", IncludePlatform = "Win")]
     [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations", IncludePlatform = "MacOSX")]
-    [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation", IncludePlatform = "MacOSX")]
+    [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation", IncludePlatform = "MacOSX,Win")]
+    [TestCase("--native-browser-superseded-navigation", TestName = "ACommittedPageFinishingAfterTheNextNavigationStartsLeavesItLoading", IncludePlatform = "Win")]
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
     [TestCase("--native-browser-adblock-reference", TestName = "WindowsAdBlockBackendKeepsTheAdaptersWebViewReference", IncludePlatform = "Win")]
     public async Task NativeNavigation(string scenario)

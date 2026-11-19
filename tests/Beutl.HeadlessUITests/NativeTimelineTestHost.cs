@@ -32,7 +32,7 @@ internal static partial class NativeTimelineTestHost
 
         if (args is ["--native-browser-referrers"]
             || OperatingSystem.IsMacOS() && args is ["--native-browser-frames" or "--native-browser-history"]
-            || OperatingSystem.IsWindows() && args is ["--native-browser-adblock-reference"])
+            || OperatingSystem.IsWindows() && args is ["--native-browser-adblock-reference" or "--native-browser-history" or "--native-browser-superseded-navigation"])
             return NativeBrowserFrameTestHost.Run(args);
 
         if (OperatingSystem.IsMacOS() && args is ["--native-menu-shortcuts"])
