@@ -5,7 +5,8 @@ namespace Beutl.Graphics.Transitions;
 
 /// <summary>
 /// The outgoing clip fades out to transparent over the first half and the incoming clip fades in over the
-/// second half, so whatever lies beneath the layer shows through at the midpoint.
+/// second half, so whatever lies beneath the layer shows through at the midpoint. Between two backdrops, which
+/// hold the layers beneath themselves, nothing does.
 /// </summary>
 [Display(Name = nameof(GraphicsStrings.FadeTransition), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class FadeTransition : ClipTransition

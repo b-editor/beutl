@@ -46,9 +46,14 @@ public readonly struct ClipTransitionContext
     public GraphicsContext2D Graphics => graphics;
 
     /// <summary>The outgoing side's drawables, bottom first; empty when nothing comes before.</summary>
+    /// <remarks>
+    /// Between two elements that both draw a backdrop, each side starts with the layers beneath the boundary as
+    /// they are at that side's time, and those layers are not drawn beneath the transition.
+    /// </remarks>
     public IReadOnlyList<Drawable.Resource> From => from;
 
     /// <summary>The incoming side's drawables, bottom first; empty when nothing comes after.</summary>
+    /// <remarks>Between two backdrops it starts with the layers beneath, as <see cref="From"/> does.</remarks>
     public IReadOnlyList<Drawable.Resource> To => to;
 
     /// <summary>How far the transition has played, from 0 to 1, after its easing.</summary>
@@ -82,7 +87,8 @@ public readonly struct ClipTransitionContext
     }
 
     // The outgoing clip gives way to the fill over the first half and the fill to the incoming clip over
-    // the second; without a fill the layers beneath show through at the midpoint.
+    // the second; without a fill the layers beneath show through at the midpoint, unless the sides are two
+    // backdrops holding those layers themselves.
     public void DrawThrough(Brush.Resource? fill)
     {
         bool firstHalf = progress < 0.5f;
