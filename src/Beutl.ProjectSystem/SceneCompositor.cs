@@ -433,13 +433,14 @@ public sealed partial class SceneCompositor : ICompositor
     // frame's transitions still running at this time. They also reach what the frame does not draw but this
     // time covers, held at this time, such as the next shot before the cut or the previous shot past it.
     // Each side so draws its own shot, and nothing is evaluated at two times in one frame, where both
-    // results would share one resource. The frame's elements the side took are removed from elements.
+    // results would share one resource. A side whose portals reach a shared flow operator keeps the frame's
+    // elements instead, as before. The frame's elements the side took are removed from elements.
     private void CollectTransitionSide(
         Element side, MediaTime sideTime, MediaTime frameTime, Element[] inputs, IList<Element> elements,
         PooledList<EngineObject.Resource> flow, CompositorContext context, PooledList<EngineObject> tmpObjects)
     {
         using var sideInputs = new PooledList<Element>(inputs.Length);
-        if (sideTime == frameTime || !HasPortal(side))
+        if (sideTime == frameTime || !HasPortal(side) || ReachesSharedFlowOperator(side, sideTime, frameTime, inputs, context))
         {
             sideInputs.AddRange(inputs);
         }
@@ -461,8 +462,11 @@ public sealed partial class SceneCompositor : ICompositor
             SortLayers(sideTime, atSideTime, CompositionTarget.Graphics, ignoreSolo: context.IsMatteSource);
             foreach (Element element in atSideTime)
             {
+                // A transition the frame runs into this time reaches the side through its frame element above.
                 if (!element.CoversGraphicsTime(frameTime)
-                    && !(participants.Contains(element) && ElementTransitions.TryGetActive(element, frameTime, out _)))
+                    && !(participants.Contains(element)
+                         && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
+                         && running.Region.Contains(sideTime)))
                 {
                     sideInputs.Add(element);
                 }
@@ -503,6 +507,41 @@ public sealed partial class SceneCompositor : ICompositor
                     break;
                 }
             }
+        }
+    }
+
+    // Whether the side's portals at sideTime reach an input that plays at the frame's time and feeds a flow
+    // operator, such as a group, through a portal of its own. Both sides evaluate that input into one
+    // shared resource, so its portal must see the same inputs on both, and the side keeps the frame's.
+    private static bool ReachesSharedFlowOperator(
+        Element side, MediaTime sideTime, MediaTime frameTime, Element[] inputs, CompositorContext context)
+    {
+        MediaTime time = context.Time;
+        context.Time = sideTime;
+        try
+        {
+            foreach (EngineObject obj in side.Objects)
+            {
+                if (obj is not PortalObject { IsEnabled.Value: true } portal) continue;
+
+                int start = portal.ZIndex.Value + 1;
+                int end = portal.ZIndex.Value + context.Get(portal.Count);
+                foreach (Element input in inputs)
+                {
+                    if (input.ZIndex.Value >= start && input.ZIndex.Value <= end
+                        && HasPortal(input) && input.Objects.Any(static o => o is IFlowOperator)
+                        && input.CoversGraphicsTime(frameTime))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            context.Time = time;
         }
     }
 

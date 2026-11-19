@@ -484,6 +484,56 @@ public class ElementTransitionCompositionTests
         Assert.That(Position(presenter.From, video), Is.EqualTo(2 - 1.0 / 30).Within(1e-6));
     }
 
+    // The layer the groups take cuts with them, through an exit transition of its own that ends at the cut.
+    // Before the cut that transition runs at the frame's time but is over at the incoming side's held time,
+    // so that side still groups the next shot.
+    [Test]
+    public void AnInnerTransitionThatEndsAtTheCut_LeavesTheNextShotToTheHeldSide()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_portal_inner_exit", duration: Seconds(10));
+        Element outgoing = AddGroup(harness, MediaTime.Zero);
+        Element incoming = AddGroup(harness, Seconds(2));
+        Element innerOutgoing = harness.AddElement(MediaTime.Zero, Seconds(2), 1);
+        innerOutgoing.Objects.Add(new RectShape { Name = { Value = "A" } });
+        harness.AddElement(Seconds(2), Seconds(2), 1).Objects.Add(new EllipseShape { Name = { Value = "B" } });
+        outgoing.ExitTransition.Value = Transition(0.5);
+        incoming.EnterTransition.Value = Transition(0.5);
+        innerOutgoing.ExitTransition.Value = Transition(0.5);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+
+        ClipTransitionPresenter.Resource outer = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
+
+        Assert.That(Grouped(outer.To), Is.EqualTo(new[] { "B" }));
+    }
+
+    // Inside the groups a third group spans the cut and takes, through its own portal, a layer that cuts
+    // with them. It plays at the frame's time and is evaluated once for both sides, so both sides keep the
+    // frame's shot inside it rather than the held side's shot replacing it on both.
+    [TestCase(1.75, "A")]
+    [TestCase(2.25, "B")]
+    public void AGroupSpanningTheCutInsideTheGroups_KeepsTheFramesShotOnBothSides(double time, string shot)
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_portal_nested_group", duration: Seconds(10));
+        Element outgoing = AddGroup(harness, MediaTime.Zero);
+        Element incoming = AddGroup(harness, Seconds(2));
+        Element spanning = harness.AddElement(MediaTime.Zero, Seconds(4), 1);
+        spanning.AddObject(new DrawableGroup());
+        ((PortalObject)spanning.Objects[0]).Count.Value = 1;
+        harness.AddElement(MediaTime.Zero, Seconds(2), 2).Objects.Add(new RectShape { Name = { Value = "A" } });
+        harness.AddElement(Seconds(2), Seconds(2), 2).Objects.Add(new EllipseShape { Name = { Value = "B" } });
+        outgoing.ExitTransition.Value = Transition(0.5);
+        incoming.EnterTransition.Value = Transition(0.5);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+
+        ClipTransitionPresenter.Resource outer = SinglePresenter(compositor.EvaluateGraphics(Seconds(time)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Grouped(GroupChildren(outer.From)), Is.EqualTo(new[] { shot }), "the outgoing side");
+            Assert.That(Grouped(GroupChildren(outer.To)), Is.EqualTo(new[] { shot }), "the incoming side");
+        });
+    }
+
     [Test]
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {
