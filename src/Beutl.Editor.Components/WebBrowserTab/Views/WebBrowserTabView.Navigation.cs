@@ -44,11 +44,7 @@ internal partial class WebBrowserTabView
     private void OnNativeNavigationFailed()
     {
         if (_webView == null || _viewModel == null) return;
-        OnNavigationCompleted(_webView, new WebViewNavigationCompletedEventArgs
-        {
-            Request = _latestNavigationRequest ?? _viewModel.CurrentUri,
-            IsSuccess = false
-        });
+        CompleteNavigation(_latestNavigationRequest ?? _viewModel.CurrentUri, false);
     }
 
     private void OnNativeHistoryChanged(Uri? restored)
@@ -148,6 +144,13 @@ internal partial class WebBrowserTabView
     internal void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
     {
         if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
+        // Avalonia drops the navigation ID; the Windows handler filters superseded completions.
+        if (_nativeBrowserHandler is WindowsBrowserDownloadHandler { HandlesNavigation: true }) return;
+        CompleteNavigation(e.Request, e.IsSuccess);
+    }
+
+    private void CompleteNavigation(Uri? request, bool isSuccess)
+    {
         if (_adBlockSession?.IsPreparing == true) return;
         if (_viewModel == null || _webView == null)
         {
@@ -156,32 +159,32 @@ internal partial class WebBrowserTabView
 
         // The canceled media never replaced the document. Its failure may arrive even after
         // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
-        Uri uri = e.Request ?? _webView.Source;
-        if (!e.IsSuccess && ConsumeNativeDownloadFailure(e.Request, uri))
+        Uri uri = request ?? _webView.Source;
+        if (!isSuccess && ConsumeNativeDownloadFailure(request, uri))
         {
             return;
         }
-        if (e.IsSuccess)
+        if (isSuccess)
         {
             // An iframe download can overlap this page load without producing a top-level failure.
             _nativeDownloadFailures.RemoveAll(item => item.Navigation == uri);
         }
         if (uri == _latestNavigationRequest) _latestNavigationRequest = null;
-        if (!e.IsSuccess && _mediaNavigationIntercepted) return;
+        if (!isSuccess && _mediaNavigationIntercepted) return;
 
         // WKWebView reports a page once it has loaded, after its scripts could already generate a file. That file
         // does not expire with the load; it is offered again below.
-        if (e.IsSuccess && _pendingPageDownloadRequest?.Source?.IsGenerated == true) PreservePendingNativeDownload();
-        if (e.IsSuccess) ResetPageDownloadRequests();
+        if (isSuccess && _pendingPageDownloadRequest?.Source?.IsGenerated == true) PreservePendingNativeDownload();
+        if (isSuccess) ResetPageDownloadRequests();
         else SettleAbortedPageNavigation();
-        if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage) _openerNavigation = null;
+        if (isSuccess && uri != WebBrowserTabViewModel.BlankPage) _openerNavigation = null;
         _pageRevision++;
         _findRequest?.Cancel();
-        _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
+        _viewModel.CompleteNavigation(uri, isSuccess, _webView.CanGoBack, _webView.CanGoForward);
         UpdateBlankPageState();
-        SettleLoadingPageClaims(uri, e.IsSuccess);
+        SettleLoadingPageClaims(uri, isSuccess);
         OfferNextDeferredNativeDownload();
-        if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
+        if (isSuccess && uri != WebBrowserTabViewModel.BlankPage)
         {
             _ = UpdatePageTitleAsync(uri);
             _ = InstallDownloadLinkHandlerAsync(_webView);
@@ -375,6 +378,10 @@ internal partial class WebBrowserTabView
         if (OperatingSystem.IsMacOS() && _nativeBrowserHandler is MacOSBrowserDownloadHandler mac)
         {
             if (mac.NavigateHistory(navigate)) _openerNavigation = null;
+        }
+        else if (OperatingSystem.IsWindows() && _nativeBrowserHandler is WindowsBrowserDownloadHandler { HandlesNavigation: true } windows)
+        {
+            if (windows.NavigateHistory(navigate)) _openerNavigation = null;
         }
         else if (StartNativePageNavigation(navigate))
         {

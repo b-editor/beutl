@@ -30,7 +30,8 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
 
     private unsafe WindowsBrowserDownloadHandler(IWindowsWebView2PlatformHandle handle,
         Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload,
-        Func<Uri, Uri?, BrowserReferrerPolicy, bool> onWindowOpened)
+        Func<Uri, Uri?, BrowserReferrerPolicy, bool> onWindowOpened,
+        Action<Uri, bool> onNavigationCompleted, Action<Uri?> onHistoryChanged)
     {
         _onDownload = onDownload;
         _onGeneratedDownload = onGeneratedDownload;
@@ -46,6 +47,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             Marshal.ThrowExceptionForHR(Subscribe<IDownloadStartingHandler>(75, _handler, out _token));
             _subscribed = true;
             AttachNewWindowHandlers(onWindowOpened);
+            AttachNavigationHandlers(onNavigationCompleted, onHistoryChanged);
         }
         catch
         {
@@ -72,10 +74,11 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
 
     internal static WindowsBrowserDownloadHandler? TryAttach(IPlatformHandle? handle,
         Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload,
-        Func<Uri, Uri?, BrowserReferrerPolicy, bool> onWindowOpened)
+        Func<Uri, Uri?, BrowserReferrerPolicy, bool> onWindowOpened,
+        Action<Uri, bool> onNavigationCompleted, Action<Uri?> onHistoryChanged)
     {
         if (handle is not IWindowsWebView2PlatformHandle windows) return null;
-        try { return new WindowsBrowserDownloadHandler(windows, onDownload, onGeneratedDownload, onWindowOpened); }
+        try { return new WindowsBrowserDownloadHandler(windows, onDownload, onGeneratedDownload, onWindowOpened, onNavigationCompleted, onHistoryChanged); }
         catch (Exception ex)
         {
             Trace.TraceError("WebView2 download handler could not be installed: {0}", ex);
@@ -192,6 +195,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     public void Dispose()
     {
         if (_webView == 0) return;
+        DetachNavigationHandlers();
         DetachNewWindowHandlers();
         if (_subscribed)
         {
