@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
+using System.Text.Json;
 
 using static Beutl.Editor.Components.WebBrowserTab.WebView2Vtable;
 
@@ -9,8 +10,10 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 internal sealed partial class WindowsBrowserDownloadHandler
 {
     private readonly string _windowTarget = Guid.NewGuid().ToString("N");
-    private long _windowToken, _responseToken, _contentToken;
-    private bool _observingResponses, _observingContent;
+    private long _windowToken, _responseToken, _contentToken, _windowMessageToken;
+    private bool _observingResponses, _observingContent, _observingWindowMessages;
+    private readonly List<WindowDecision> _windowDecisions = [];
+    private readonly List<WindowDecision> _unmatchedWindows = [];
     private string? _scriptId;
     private Document? _pendingDocument, _committedDocument;
     internal bool HandlesNewWindows { get; private set; }
@@ -21,6 +24,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
         _observingResponses = Subscribe<IDocumentResponseHandler>(61, new DocumentResponseHandler(this), out _responseToken) >= 0;
         // ContentLoading precedes page scripts and only fires for a new document, including on reload.
         _observingContent = Subscribe<IContentLoadingHandler>(9, new ContentLoadingHandler(this), out _contentToken) >= 0;
+        _observingWindowMessages = Subscribe<IWindowMessageHandler>(34, new WindowMessageHandler(this), out _windowMessageToken) >= 0;
         HandlesNewWindows = Subscribe<INewWindowHandler>(44, new NewWindowHandler(this, open), out _windowToken) >= 0;
     }
 
@@ -29,6 +33,9 @@ internal sealed partial class WindowsBrowserDownloadHandler
         if (HandlesNewWindows) Unsubscribe(45, _windowToken);
         if (_observingResponses) Unsubscribe(62, _responseToken);
         if (_observingContent) Unsubscribe(10, _contentToken);
+        if (_observingWindowMessages) Unsubscribe(35, _windowMessageToken);
+        _windowDecisions.Clear();
+        _unmatchedWindows.Clear();
         if (_scriptId != null)
         {
             fixed (char* id = _scriptId)
@@ -70,24 +77,103 @@ internal sealed partial class WindowsBrowserDownloadHandler
         {
             if (!Uri.TryCreate(GetString(args, 3), UriKind.Absolute, out Uri? uri)) return;
             (Uri Source, BrowserReferrerPolicy Policy)? referrer = null;
-            try { referrer = owner.ReadWindowReferrer(args); }
-            catch (Exception ex) { Trace.TraceError("WebView2 could not read a new window's referrer: {0}", ex.Message); }
+            try
+            {
+                string? name = ReadWindowName(args);
+                string? decision = name;
+                // Frames must not consume the main document's decisions, even for the same name and URL.
+                if (IsPageWindowName(name) && !owner.IsWindowTarget(name) && IsMainFrame(args))
+                {
+                    // Deferring can block the message too. Use only decisions already delivered.
+                    if (!TakeWindowDecision(owner._windowDecisions, name!, uri, out decision))
+                        RememberWindowDecision(owner._unmatchedWindows, name!, uri, null);
+                }
+                referrer = owner.ReadWindowReferrer(args, decision);
+            }
+            catch (Exception ex) { ReportWindowReferrerError(ex); }
             if (open(uri, referrer?.Source, referrer?.Policy ?? BrowserReferrerPolicy.NoReferrer))
                 _ = ((delegate* unmanaged[Stdcall]<nint, int, int>)Method(args, 6))(args, 1); // put_Handled
         }
     }
 
-    private (Uri Source, BrowserReferrerPolicy Policy)? ReadWindowReferrer(nint args)
+    private sealed record WindowDecision(string Name, string Url, string? Decision, long Time);
+
+    private static bool TakeWindowDecision(List<WindowDecision> records, string name, Uri uri, out string? decision)
+    {
+        records.RemoveAll(record => Environment.TickCount64 - record.Time > 2000);
+        int index = records.FindIndex(record => record.Name == name && record.Url == uri.AbsoluteUri);
+        decision = index < 0 ? null : records[index].Decision;
+        if (index < 0) return false;
+        records.RemoveAt(index);
+        return true;
+    }
+
+    private static void RememberWindowDecision(List<WindowDecision> records, string name, Uri uri, string? decision)
+    {
+        records.RemoveAll(record => Environment.TickCount64 - record.Time > 2000);
+        if (records.Count >= 16) records.RemoveAt(0);
+        records.Add(new WindowDecision(name, uri.AbsoluteUri, decision, Environment.TickCount64));
+    }
+
+    [GeneratedComClass]
+    private sealed partial class WindowMessageHandler(WindowsBrowserDownloadHandler owner) : IWindowMessageHandler
+    {
+        public void Invoke(nint sender, nint args)
+        {
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(GetString(args, 4) ?? "null");
+                JsonElement root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object
+                    || !root.TryGetProperty("beutlWindow", out var marker) || marker.ValueKind != JsonValueKind.String
+                    || marker.GetString() != owner._windowTarget
+                    || !Uri.TryCreate(GetString(args, 3), UriKind.Absolute, out Uri? source) || source != owner.GetDocument()
+                    || !root.TryGetProperty("name", out var target) || target.ValueKind != JsonValueKind.String
+                    || !IsPageWindowName(target.GetString())
+                    || !root.TryGetProperty("url", out var address) || address.ValueKind != JsonValueKind.String
+                    || !Uri.TryCreate(address.GetString(), UriKind.Absolute, out Uri? uri)
+                    || !root.TryGetProperty("decision", out var value) || value.ValueKind is not (JsonValueKind.Null or JsonValueKind.String)) return;
+                string name = target.GetString()!;
+                string? decision = value.GetString();
+                if (decision != null && !owner.IsWindowTarget(decision)) return;
+                // A late message belongs to the window already handled without a referrer, not the next one.
+                if (!TakeWindowDecision(owner._unmatchedWindows, name, uri, out _))
+                {
+                    // Frame navigations never take their decisions, so a newer one for the same name and URL replaces them.
+                    owner._windowDecisions.RemoveAll(record => record.Name == name && record.Url == uri.AbsoluteUri);
+                    RememberWindowDecision(owner._windowDecisions, name, uri, decision);
+                }
+            }
+            catch (Exception ex) { ReportWindowReferrerError(ex); }
+        }
+    }
+
+    private static void ReportWindowReferrerError(Exception error) =>
+        Trace.TraceError("WebView2 could not read a new window's referrer: {0}", error.Message);
+
+    private static bool IsPageWindowName(string? name) => !string.IsNullOrEmpty(name) && !name.StartsWith('_');
+
+    private static string? ReadWindowName(nint args)
     {
         // Args3 inherits Args2::get_Name (11) and adds get_OriginalSourceFrameInfo (12).
         var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
         if (Marshal.QueryInterface(args, in iid, out nint named) < 0) return null;
+        try { return GetString(named, 11); }
+        finally { Marshal.Release(named); }
+    }
+
+    private bool IsWindowTarget(string? name) =>
+        name == _windowTarget || name == _windowTarget + "-document" || name == _windowTarget + "-same-origin";
+
+    private (Uri Source, BrowserReferrerPolicy Policy)? ReadWindowReferrer(nint args, string? decision)
+    {
+        if (!IsWindowTarget(decision)) return null;
+        bool inherit = decision == _windowTarget + "-document";
+        bool sameOrigin = decision == _windowTarget + "-same-origin";
+        var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
+        if (Marshal.QueryInterface(args, in iid, out nint named) < 0) return null;
         try
         {
-            string? name = GetString(named, 11);
-            bool inherit = name == _windowTarget + "-document";
-            bool sameOrigin = name == _windowTarget + "-same-origin";
-            if (!inherit && !sameOrigin && name != _windowTarget) return null;
             nint frame = GetObject(named, 12);
             if (frame == 0) return null;
             try
@@ -104,6 +190,29 @@ internal sealed partial class WindowsBrowserDownloadHandler
         finally { Marshal.Release(named); }
     }
 
+    private static unsafe bool IsMainFrame(nint args)
+    {
+        var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
+        if (Marshal.QueryInterface(args, in iid, out nint named) < 0) return false;
+        nint frame = 0, info = 0;
+        try
+        {
+            frame = GetObject(named, 12);
+            if (frame == 0) return false;
+            iid = new Guid("56F85CFA-72C4-11EE-B962-0242AC120002"); // ICoreWebView2FrameInfo2
+            if (Marshal.QueryInterface(frame, in iid, out info) < 0) return false;
+            int kind;
+            Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(info, 7))(info, &kind));
+            return kind == 1; // COREWEBVIEW2_FRAME_KIND_MAIN_FRAME
+        }
+        finally
+        {
+            if (info != 0) Marshal.Release(info);
+            if (frame != 0) Marshal.Release(frame);
+            Marshal.Release(named);
+        }
+    }
+
     // The response may arrive before or after ContentLoading. Both callbacks update the same document.
     private sealed class Document(Uri address)
     {
@@ -114,8 +223,12 @@ internal sealed partial class WindowsBrowserDownloadHandler
     [GeneratedComClass]
     private sealed partial class ContentLoadingHandler(WindowsBrowserDownloadHandler owner) : IContentLoadingHandler
     {
-        public void Invoke(nint sender, nint args) =>
+        public void Invoke(nint sender, nint args)
+        {
+            owner._windowDecisions.Clear();
+            owner._unmatchedWindows.Clear();
             owner._committedDocument = owner._pendingDocument is { } pending && pending.Address == owner.GetDocument() ? pending : null;
+        }
     }
 
     [GeneratedComClass]
@@ -188,7 +301,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
     }
 
     // WebView2 omits Referer from NewWindowRequested. Carry the decision in the native request's
-    // target name, so two windows to the same URL cannot consume one another's policy.
+    // target name when safe, or post it before a name that might belong to an existing frame is used.
     private static string WindowScript(string target) => $$"""
         (() => {
             if (!['https:', 'http:'].includes(location.protocol) || self.origin === 'null') return;
@@ -268,7 +381,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 if (noopener) return true;
                 // Beutl opens popups in independent WebViews. Keep the native name if a frame might already own it.
                 try {
-                    if (top.opener) return false;
+                    if (top.opener) return null;
                     const frames = [top];
                     while (frames.length) {
                         const frame = frames.pop();
@@ -276,7 +389,11 @@ internal sealed partial class WindowsBrowserDownloadHandler
                         for (let i = 0; i < frame.length; i++) frames.push(frame[i]);
                     }
                     return true;
-                } catch { return false; } // A cross-origin frame can hide a named target.
+                } catch { return null; } // A cross-origin frame can hide a named target.
+            }
+            function postWindow(name, url, decision) {
+                // Frames without the host bridge keep the native name and the host's no-referrer fallback.
+                if (name && !name.startsWith('_')) window.chrome?.webview?.postMessage({beutlWindow: allowed, name, url, decision});
             }
             const open = window.open;
             window.open = function(url, target, features) {
@@ -290,7 +407,10 @@ internal sealed partial class WindowsBrowserDownloadHandler
                         flags.set(key, !value || value === 'yes' || value === 'true' || !!parseInt(value, 10));
                 }
                 const destinationTarget = target === undefined || target === '' ? '_blank' : String(target);
-                const name = !flags.get('noreferrer') && opensNewContext(destinationTarget, flags.get('noopener')) && windowTarget(destination);
+                const context = opensNewContext(destinationTarget, flags.get('noopener'));
+                const decision = !flags.get('noreferrer') ? windowTarget(destination) : null;
+                const name = context === true && decision;
+                if (!name && context !== false) postWindow(destinationTarget, destination.href, decision);
                 return name ? open.call(window, destination.href, name, features) : Reflect.apply(open, this, arguments);
             };
             const pendingTargets = new WeakMap();
@@ -300,7 +420,10 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 const original = pending?.assigned === target ? pending.original : target;
                 const effectiveTarget = original ?? document.querySelector('base[target]')?.target ?? '';
                 const noopener = link.rel.toLowerCase().split(/[\t\n\f\r ]+/).includes('noopener');
-                const name = opensNewContext(effectiveTarget, noopener) && windowTarget(new URL(link.href), link);
+                const context = opensNewContext(effectiveTarget, noopener);
+                const decision = windowTarget(new URL(link.href), link);
+                const name = context === true && decision;
+                if (!name && context !== false) postWindow(effectiveTarget, link.href, decision);
                 if (!name && !pending) return;
                 const mark = {original, assigned: name || effectiveTarget};
                 pendingTargets.set(link, mark);
@@ -363,4 +486,11 @@ internal partial interface IDocumentResponseHandler
 internal partial interface IScriptInstalledHandler
 {
     void Invoke(int hr, nint id);
+}
+
+[GeneratedComInterface(Options = ComInterfaceOptions.ManagedObjectWrapper)]
+[Guid("57213F19-00E6-49FA-8E07-898EA01ECBD2")]
+internal partial interface IWindowMessageHandler
+{
+    void Invoke(nint sender, nint args);
 }
