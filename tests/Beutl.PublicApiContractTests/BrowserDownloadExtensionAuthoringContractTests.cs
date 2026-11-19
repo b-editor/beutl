@@ -37,19 +37,22 @@ public sealed class BrowserDownloadExtensionAuthoringContractTests
     {
         var source = new Uri("https://speech.example/files/speech.mp3");
         var offer = new BrowserDownloadOffer(source, s_page, "speech.mp3", isGenerated: false);
-        var generated = new BrowserDownloadOffer(s_page, s_page, "speech.mp3", isGenerated: true);
+        var generated = new BrowserDownloadOffer(s_page, s_page, "speech.mp3", isGenerated: true) { RequestMethod = "GET" };
         var post = new BrowserDownloadOffer(source, s_page, "speech.mp3", isGenerated: false) { RequestMethod = "POST" };
-        var get = new BrowserDownloadOffer(source, s_page, "speech.mp3", isGenerated: false) { RequestMethod = "get" };
+        var get = new BrowserDownloadOffer(source, s_page, "speech.mp3", isGenerated: false) { RequestMethod = "GET" };
+        var lowercaseGet = new BrowserDownloadOffer(source, s_page, "speech.mp3", isGenerated: false) { RequestMethod = "get" };
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(offer.RequestMethod, Is.Null);
-            Assert.That(offer.CanRequestAgain, Is.True);
+            Assert.That(offer.CanRequestAgain, Is.False);
             Assert.That(generated.CanRequestAgain, Is.False);
             Assert.That(post.RequestMethod, Is.EqualTo("POST"));
             Assert.That(post.CanRequestAgain, Is.False);
-            Assert.That(get.RequestMethod, Is.Null);
+            Assert.That(get.RequestMethod, Is.EqualTo("GET"));
             Assert.That(get.CanRequestAgain, Is.True);
+            Assert.That(lowercaseGet.RequestMethod, Is.EqualTo("get"));
+            Assert.That(lowercaseGet.CanRequestAgain, Is.True);
         }
     }
 

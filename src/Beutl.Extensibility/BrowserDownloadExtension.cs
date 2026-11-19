@@ -5,8 +5,6 @@
 /// </summary>
 public sealed record BrowserDownloadOffer
 {
-    private string? _requestMethod;
-
     public BrowserDownloadOffer(Uri source, Uri page, string? suggestedName, bool isGenerated)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -34,21 +32,16 @@ public sealed record BrowserDownloadOffer
     public bool IsGenerated { get; }
 
     /// <summary>
-    /// The method of the request that <see cref="Source"/> answered when it was not a GET, such as a form's POST,
-    /// otherwise <see langword="null"/>. Requesting <see cref="Source"/> again would send a GET or submit the form
-    /// again, so claim the offer to take such a file from the browser instead of fetching its address.
+    /// The method of the request that <see cref="Source"/> answered, such as GET or a form's POST, when the browser
+    /// knows it; <see langword="null"/> when it does not.
     /// </summary>
-    public string? RequestMethod
-    {
-        get => _requestMethod;
-        init => _requestMethod = string.Equals(value, "GET", StringComparison.OrdinalIgnoreCase) ? null : value;
-    }
+    public string? RequestMethod { get; init; }
 
     /// <summary>
-    /// Whether requesting <see cref="Source"/> again can return the file. False for a file a page script generated
-    /// and for the response to a request other than a GET.
+    /// Whether requesting <see cref="Source"/> again returns the file. True only when the browser knows the file
+    /// answered a GET; false for a file a page script generated, a response to another method, or an unknown method.
     /// </summary>
-    public bool CanRequestAgain => !IsGenerated && RequestMethod == null;
+    public bool CanRequestAgain => !IsGenerated && string.Equals(RequestMethod, "GET", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>

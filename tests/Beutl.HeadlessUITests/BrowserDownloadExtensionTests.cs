@@ -87,9 +87,10 @@ public sealed class BrowserDownloadExtensionTests
     }
 
     [AvaloniaTest]
-    [TestCase("POST")]
-    [TestCase(null)]
-    public void AResponseReachesExtensionsWithTheMethodOfItsRequest(string? method)
+    [TestCase("GET", true)]
+    [TestCase("POST", false)]
+    [TestCase(null, false)]
+    public void AResponseReachesExtensionsWithTheMethodOfItsRequest(string? method, bool canRequestAgain)
     {
         using var temporary = new TemporaryDirectory();
         using var browser = Browser.Open(temporary.Path, s_speechPage);
@@ -102,7 +103,24 @@ public sealed class BrowserDownloadExtensionTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(offer.RequestMethod, Is.EqualTo(method));
-            Assert.That(offer.CanRequestAgain, Is.EqualTo(method == null));
+            Assert.That(offer.CanRequestAgain, Is.EqualTo(canRequestAgain));
+        }
+    }
+
+    [AvaloniaTest]
+    public void AFileWithoutASourceReachesExtensionsAsAGet()
+    {
+        using var temporary = new TemporaryDirectory();
+        using var browser = Browser.Open(temporary.Path, s_speechPage);
+
+        browser.View.OnNavigationResponseNotShown(new Uri("https://speech.example/files/speech.mp3"), "speech.mp3");
+        Dispatcher.UIThread.RunJobs();
+
+        BrowserDownloadOffer offer = browser.Extension.Offers.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(offer.RequestMethod, Is.EqualTo("GET"));
+            Assert.That(offer.CanRequestAgain, Is.True);
         }
     }
 

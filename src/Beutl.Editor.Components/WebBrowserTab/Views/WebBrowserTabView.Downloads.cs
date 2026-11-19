@@ -141,10 +141,15 @@ internal partial class WebBrowserTabView
 
     // The page on display offered the file unless the caller knows the document that did.
     private BrowserDownloadHandling? ClaimDownload(Uri uri, string? suggestedName, IBrowserDownloadSource? source, Uri? page)
-        => _viewModel is { } vm
-            ? vm.ClaimDownload(new BrowserDownloadOffer(uri, page ?? vm.CommittedUri, suggestedName, source?.IsGenerated == true)
-                { RequestMethod = source?.RequestMethod }, RunPageScriptAsync)
-            : null;
+    {
+        if (_viewModel is not { } vm) return null;
+        // Without a source, the browser requests the address itself with a GET.
+        var offer = new BrowserDownloadOffer(uri, page ?? vm.CommittedUri, suggestedName, source?.IsGenerated == true)
+        {
+            RequestMethod = source == null ? "GET" : source.RequestMethod
+        };
+        return vm.ClaimDownload(offer, RunPageScriptAsync);
+    }
 
     // After the user declines a file, the next one waiting is offered in the notification, so a page that queued
     // several files cannot keep opening the options each time the user cancels them.
