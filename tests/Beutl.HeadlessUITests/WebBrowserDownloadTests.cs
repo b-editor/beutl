@@ -824,6 +824,37 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public async Task DocumentReferrerPolicyFallsBackToOriginWithoutANativeHandler()
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://files.example/page"), profile);
+        using var view = CreateView(vm);
+        view.OnNativeNavigationCommitted(vm.CurrentUri);
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(temporary.Path, false));
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        var window = new Window { Content = view };
+        try
+        {
+            window.Show();
+            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+            { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3","referrerPolicy":"document"}""" });
+            Dispatcher.UIThread.RunJobs();
+            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+            Assert.That(confirm.IsVisible, Is.True);
+            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://files.example/")));
+            Assert.That(profile.Downloads.Single().ReferrerPolicy, Is.EqualTo(BrowserReferrerPolicy.Origin));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
     [TestCase(true, false)]
     [TestCase(true, true)]
     [TestCase(false, true)]

@@ -4,6 +4,8 @@ using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -24,7 +26,7 @@ using Moq;
 namespace Beutl.HeadlessUITests;
 
 // WKWebView must run on the process main thread, outside the headless dispatcher.
-internal static class NativeBrowserFrameTestHost
+internal static partial class NativeBrowserFrameTestHost
 {
     internal static int Run(string[] args)
     {
@@ -52,6 +54,15 @@ internal static class NativeBrowserFrameTestHost
                 window.Show();
                 using var downloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
                 await CheckDownloadMethodsAsync(window, downloadTimeout.Token);
+                exitCode = 0;
+                return;
+            }
+            if (scenario == "--native-browser-download-referrers")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var downloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
+                await CheckPageLinkDownloadReferrersAsync(window, downloadTimeout.Token);
                 exitCode = 0;
                 return;
             }
@@ -231,6 +242,145 @@ internal static class NativeBrowserFrameTestHost
         await webView.InvokeScript("location.assign('/offline')");
         await failed;
         Assert.That(states, Is.EqualTo(new[] { true, false }));
+    }
+
+    private static async Task CheckPageLinkDownloadReferrersAsync(Window window, CancellationToken token)
+    {
+        await using var server = WebApplication.CreateSlimBuilder().Build();
+        server.Urls.Add("http://127.0.0.1:0");
+        var requests = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        server.MapGet("/media.mp3", (HttpContext context) =>
+        {
+            requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
+            return Results.Bytes("ID3sample"u8.ToArray(), "audio/mpeg");
+        });
+        server.MapGet("/source", (HttpContext context) =>
+        {
+            var query = context.Request.Query;
+            if (query.TryGetValue("header", out var header)) context.Response.Headers["Referrer-Policy"] = header;
+            string meta = query.TryGetValue("meta", out var policy) ? $"<meta name='referrer' content='{policy}'>" : "";
+            string linkPolicy = query.TryGetValue("link", out policy) ? $" referrerpolicy='{policy}'" : "";
+            string destination = query.ContainsKey("cross") ? $"http://localhost:{context.Connection.LocalPort}/media.mp3" : "/media.mp3";
+            return Results.Content($"{meta}<a href='{destination}'{linkPolicy}>download</a>", "text/html");
+        });
+        await server.StartAsync(token);
+        var origin = new Uri(server.Urls.Single());
+        var browser = new NativeWebView();
+        var editor = TestShell.CreateEditorContextMock();
+        editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+        editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        editor.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
+        editor.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
+        using var vm = new WebBrowserTabViewModel(editor.Object, WebBrowserTabViewModel.BlankPage);
+        using var downloads = new TemporaryDirectory();
+        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        view.DownloadOptionsSelector = (_, _) =>
+            Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(downloads.Path, false));
+        window.Content = view;
+
+        async Task Check(string query, string expected, bool removeMeta = false)
+        {
+            Uri page = new(origin, "/source?" + query);
+            var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Loaded(object? sender, WebViewNavigationCompletedEventArgs e)
+            {
+                if (e.IsSuccess && e.Request == page) loaded.TrySetResult();
+            }
+            browser.NavigationCompleted += Loaded;
+            try
+            {
+                vm.Address.Value = page.AbsoluteUri;
+                view.NavigateFromAddress();
+                await loaded.Task.WaitAsync(token);
+            }
+            finally { browser.NavigationCompleted -= Loaded; }
+            while (await browser.InvokeScript("window.__beutlDownloadsInstalled === true") != "true")
+                await Task.Delay(20, token);
+            if (removeMeta)
+            {
+                await browser.InvokeScript("""
+                    const meta = document.createElement('meta');
+                    meta.name = 'referrer';
+                    meta.content = 'origin';
+                    document.head.append(meta);
+                    """);
+                // Deliver the insertion before removing the element whose policy Chromium keeps.
+                await browser.InvokeScript("document.querySelector('meta[name=referrer]').remove()");
+            }
+            int before = vm.Profile.Downloads.Count;
+            await ClickDownloadLinkAsync(browser, token);
+            string referrer = await requests.Reader.ReadAsync(token);
+            while (vm.Profile.Downloads.Count == before) await Task.Delay(20, token);
+            Assert.That(referrer, Is.EqualTo(expected), query + (removeMeta ? "; removed meta origin" : ""));
+            Assert.That(vm.Profile.Downloads.Count, Is.EqualTo(before + 1));
+            // The link script took the click, so the request was Beutl's download, not Chromium opening the file.
+            Assert.That(vm.CurrentUri, Is.EqualTo(page), query);
+        }
+
+        await Check("header=no-referrer", "");
+        await Check("header=same-origin&cross", "");
+        await Check("header=same-origin", origin.AbsoluteUri);
+        await Check("header=no-referrer&link=origin", origin.AbsoluteUri);
+        await Check("header=origin&meta=no-referrer", "");
+        await Check("header=no-referrer", origin.AbsoluteUri, removeMeta: true);
+        await Check("", origin.AbsoluteUri);
+    }
+
+    private static async Task ClickDownloadLinkAsync(NativeWebView browser, CancellationToken token)
+    {
+        // WebView2 can finish navigation before its new document is ready for input hit testing.
+        await browser.InvokeScript("requestAnimationFrame(() => requestAnimationFrame(() => window.downloadLinkReady = true))");
+        while (await browser.InvokeScript("window.downloadLinkReady === true") != "true")
+            await Task.Delay(20, token);
+        using JsonDocument point = JsonDocument.Parse((await browser.InvokeScript("""
+            (() => {
+                const rect = document.querySelector('a').getBoundingClientRect();
+                return {x: rect.x + rect.width / 2, y: rect.y + rect.height / 2};
+            })()
+            """))!);
+        double x = point.RootElement.GetProperty("x").GetDouble();
+        double y = point.RootElement.GetProperty("y").GetDouble();
+        var handle = (IWindowsWebView2PlatformHandle)browser.TryGetPlatformHandle()!;
+        nint webView = handle.CoreWebView2;
+        Assert.That(webView, Is.Not.EqualTo(nint.Zero));
+        Marshal.AddRef(webView);
+        try
+        {
+            await DispatchMouseEvent(webView, "mousePressed", x, y).WaitAsync(token);
+            await DispatchMouseEvent(webView, "mouseReleased", x, y).WaitAsync(token);
+        }
+        finally { Marshal.Release(webView); }
+    }
+
+    private static unsafe Task DispatchMouseEvent(nint webView, string type, double x, double y)
+    {
+        var handler = new MouseEventCompletedHandler();
+        void* callback = ComInterfaceMarshaller<IDevToolsMethodCompletedHandler>.ConvertToUnmanaged(handler);
+        try
+        {
+            string parameters = JsonSerializer.Serialize(new { type, x, y, button = "left", clickCount = 1 });
+            fixed (char* method = "Input.dispatchMouseEvent")
+            fixed (char* json = parameters)
+            {
+                // ICoreWebView2::CallDevToolsProtocolMethod
+                Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, char*, char*, void*, int>)WebView2Vtable.Method(webView, 36))(
+                    webView, method, json, callback));
+            }
+            return handler.Completed.Task;
+        }
+        finally { ComInterfaceMarshaller<IDevToolsMethodCompletedHandler>.Free(callback); }
+    }
+
+    [GeneratedComClass]
+    private sealed partial class MouseEventCompletedHandler : IDevToolsMethodCompletedHandler
+    {
+        internal readonly TaskCompletionSource Completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Invoke(int errorCode, nint returnObjectAsJson)
+        {
+            if (errorCode < 0) Completed.TrySetException(Marshal.GetExceptionForHR(errorCode)!);
+            else Completed.TrySetResult();
+        }
     }
 
     private static async Task CheckNewTabReferrersAsync(Window window, CancellationToken token)
@@ -664,6 +814,7 @@ public class NativeBrowserFrameTests
     [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations", IncludePlatform = "MacOSX")]
     [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation", IncludePlatform = "MacOSX")]
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
+    [TestCase("--native-browser-download-referrers", TestName = "PageLinkDownloadsHonorTheDocumentReferrerPolicy", IncludePlatform = "Win")]
     [TestCase("--native-browser-adblock-reference", TestName = "WindowsAdBlockBackendKeepsTheAdaptersWebViewReference", IncludePlatform = "Win")]
     public async Task NativeNavigation(string scenario)
     {
@@ -676,7 +827,7 @@ public class NativeBrowserFrameTests
         using Process process = Process.Start(start)!;
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario == "--native-browser-referrers" ? 90 : 60));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario is "--native-browser-referrers" or "--native-browser-download-referrers" ? 90 : 60));
         try { await process.WaitForExitAsync(timeout.Token); }
         catch
         {
