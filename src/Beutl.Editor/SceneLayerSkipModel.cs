@@ -103,12 +103,45 @@ internal static class SceneLayerSkipModel
                             }
                         }
                     }
+
+                    // A held side of a scene change between two backdrops takes the layers beneath it at its own time
+                    // (SceneCompositor.TakeBeneath), holding those its time covers over the frames they do not.
+                    if (target == CompositionTarget.Graphics && !matte && contentWindow != frameWindow
+                        && IsHeldSceneChange(element, frameWindow))
+                    {
+                        foreach (Element candidate in scene.Children)
+                        {
+                            if (candidate.ZIndex.Value >= element.ZIndex.Value
+                                || !candidate.CoversGraphicsTime(contentWindow.Start)) continue;
+                            foreach (TimeRange uncovered in Uncovered(candidate, frameWindow))
+                            {
+                                foreach (var item in Visit(candidate, contentWindow, false, origin, remapped, uncovered))
+                                    yield return item;
+                            }
+                        }
+                    }
                 }
             }
             finally
             {
                 visiting.Remove(element);
             }
+        }
+
+        // Whether one of element's boundaries over frames is a scene change between two backdrops.
+        bool IsHeldSceneChange(Element element, TimeRange frames)
+        {
+            if (!participants.Contains(element)) return false;
+            foreach (TransitionBoundary? candidate in new[] { ElementTransitions.GetBoundaryAtStart(element), ElementTransitions.GetBoundaryAtEnd(element) })
+            {
+                if (candidate is { } boundary && ElementTransitions.IsSceneChange(boundary)
+                    && (frames.IsEmpty ? boundary.Region.Contains(frames.Start) : boundary.Region.Intersects(frames)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // The parts of frames that element no longer covers, where a held side holds it instead.
