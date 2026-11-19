@@ -25,6 +25,9 @@ internal static partial class NativeTimelineTestHost
     [STAThread]
     public static int Main(string[] args)
     {
+        if (OperatingSystem.IsWindows() && args is ["--native-maximized-auto-hide-taskbar"])
+            return NativeWindowFrameTestHost.Run(args);
+
         if (OperatingSystem.IsWindows() && args is ["--native-browser-download-methods"])
             return NativeBrowserFrameTestHost.Run(args);
         if (args is ["--agent-host-instance", string directory, string name, string port])

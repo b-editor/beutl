@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Beutl.Helpers;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Windowing;
 
@@ -7,6 +8,7 @@ namespace Beutl.Views;
 public sealed partial class MainWindow : FAAppWindow
 {
     private readonly MainWindowCloseGuard _closeGuard;
+    private WindowsAutoHideTaskbar? _autoHideTaskbar;
 
     public MainWindow()
     {
@@ -27,6 +29,7 @@ public sealed partial class MainWindow : FAAppWindow
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        _autoHideTaskbar ??= WindowsAutoHideTaskbar.TryAttach(this);
         WindowPlacement.FitToWorkingArea(this);
 
         mainView.Focus();
