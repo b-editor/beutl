@@ -8,6 +8,11 @@ namespace Beutl.Views;
 // Restores, fits and saves the bounds of a main window through ViewConfig.
 internal static class WindowPlacement
 {
+    // A saved size below this, in device-independent units, was saved in a broken state: a zero width
+    // makes a window that no one can see, wherever it is placed.
+    private const int MinimumRestoredWidth = 320;
+    private const int MinimumRestoredHeight = 200;
+
     public static void Restore(Window window, ViewConfig viewConfig)
     {
         (int X, int Y)? pos = viewConfig.WindowPosition.Value;
@@ -17,7 +22,9 @@ internal static class WindowPlacement
         {
             window.WindowState = WindowState.Maximized;
         }
-        else if (pos.HasValue && size.HasValue)
+        // The position was saved together with an unusable size, so neither is kept and the window
+        // is placed as on a first launch.
+        else if (pos.HasValue && size is { Width: >= MinimumRestoredWidth, Height: >= MinimumRestoredHeight })
         {
             var rect = new PixelRect(pos.Value.X, pos.Value.Y, size.Value.Width, size.Value.Height);
             SetRect(window, rect);
