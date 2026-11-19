@@ -18,8 +18,8 @@ coverage:
 # the WebView2, WKWebView and WebKitGTK/WPE interop that needs a native web view, the macOS-only Safari version lookup,
 # the Windows-only loader for the FreeType font manager in Beutl's libSkiaSharp, the Windows-only DXGI and display
 # configuration queries for the HDR preview, the preview swapchain's Vulkan calls on a native window's surface, the
-# Windows-only XAudio2 playback sink, nor the macOS-only Metal/MoltenVK interop that pairs Skia's Metal queue with the
-# engine's Vulkan one.
+# Windows-only XAudio2 playback sink, the Windows-only window subclass that keeps a maximized window clear of an
+# auto-hide taskbar, nor the macOS-only Metal/MoltenVK interop that pairs Skia's Metal queue with the engine's Vulkan one.
 ignore:
   - "src/Beutl.Editor.Components/WebBrowserTab/WindowsBrowserDownloadHandler.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/WindowsReferrerNavigation.cs"
@@ -38,6 +38,7 @@ ignore:
   - "src/Beutl.Engine/Graphics/Backend/Vulkan/WindowsDisplayLuminance.cs"
   - "src/Beutl.Engine/Graphics/Backend/Vulkan/VulkanSwapchainRenderer.DeviceCalls.cs"
   - "src/Beutl/ViewModels/XAudio2AudioSink.cs"
+  - "src/Beutl/Helpers/WindowsAutoHideTaskbar.Windows.cs"
   - "src/Beutl.Engine/Graphics/Backend/Composite/CompositeContext.cs"
   - "src/Beutl.Engine/Graphics/Backend/Metal/MetalContext.cs"
   - "src/Beutl.Engine/Graphics/Backend/Metal/MetalVulkanTexture2D.cs"
