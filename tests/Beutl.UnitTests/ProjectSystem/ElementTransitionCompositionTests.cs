@@ -427,6 +427,40 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    // The layer the groups take cuts at the same time as the groups, through a transition of its own. That
+    // transition is running at the frame's time, so both sides share it at that time, each drawing it once,
+    // rather than the held side evaluating it again at its own time over the other side's result.
+    [TestCase(1.75, 0.25)]
+    [TestCase(2.25, 0.75)]
+    public void AnInnerTransitionAtTheSameCut_IsDrawnOnceOnEachSideAtTheFramesTime(double time, double progress)
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_portal_inner", duration: Seconds(10));
+        Element outgoing = AddGroup(harness, MediaTime.Zero);
+        Element incoming = AddGroup(harness, Seconds(2));
+        Element innerOutgoing = harness.AddElement(MediaTime.Zero, Seconds(2), 1);
+        innerOutgoing.Objects.Add(new RectShape());
+        Element innerIncoming = harness.AddElement(Seconds(2), Seconds(2), 1);
+        innerIncoming.Objects.Add(new EllipseShape());
+        outgoing.ExitTransition.Value = Transition(0.5);
+        incoming.EnterTransition.Value = Transition(0.5);
+        innerOutgoing.ExitTransition.Value = Transition(0.5);
+        innerIncoming.EnterTransition.Value = Transition(0.5);
+        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager);
+
+        ClipTransitionPresenter.Resource outer = SinglePresenter(compositor.EvaluateGraphics(Seconds(time)));
+        Drawable.Resource[] from = [.. GroupChildren(outer.From)];
+        Drawable.Resource[] to = [.. GroupChildren(outer.To)];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(from, Has.Length.EqualTo(1).And.All.InstanceOf<ClipTransitionPresenter.Resource>(), "the outgoing side");
+            Assert.That(to, Has.Length.EqualTo(1).And.All.InstanceOf<ClipTransitionPresenter.Resource>(), "the incoming side");
+            Assert.That(to.FirstOrDefault(), Is.SameAs(from.FirstOrDefault()), "both sides share the inner transition");
+            Assert.That((from.FirstOrDefault() as ClipTransitionPresenter.Resource)?.Progress,
+                Is.EqualTo(progress).Within(1e-6), "the inner transition plays at the frame's time");
+        });
+    }
+
     [Test]
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {
@@ -929,9 +963,13 @@ public class ElementTransitionCompositionTests
         return [$"{shot} rect", $"{shot} ellipse"];
     }
 
+    // The drawables a side's group took from its portal, bottom first.
+    private static IReadOnlyList<Drawable.Resource> GroupChildren(IReadOnlyList<Drawable.Resource> side)
+        => side.OfType<DrawableGroup.Resource>().Single().Children;
+
     // The names of the drawables a side's group took from its portal, bottom first.
     private static string?[] Grouped(IReadOnlyList<Drawable.Resource> side)
-        => [.. side.OfType<DrawableGroup.Resource>().Single().Children.Select(r => r.GetOriginal()?.Name.Value)];
+        => [.. GroupChildren(side).Select(r => r.GetOriginal()?.Name.Value)];
 
     // Where the side plays video, in the video's own time, or null when the side does not draw it.
     private static double? Position(IReadOnlyList<Drawable.Resource> side, SourceVideo video)

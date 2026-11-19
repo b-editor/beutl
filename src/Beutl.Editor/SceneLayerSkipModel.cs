@@ -24,8 +24,12 @@ internal static class SceneLayerSkipModel
             foreach (var item in Visit(element, window, false, frameOrigin))
                 yield return item;
 
+        // drawnOver: the frames over which a held transition side draws element while element plays at
+        // that side's held time, requested. Its matte and portal inputs follow these frames, as they do in
+        // SceneCompositor, and only its content follows the held time.
         IEnumerable<(Element, TimeRange?, MediaTime?)> Visit(
-            Element element, TimeRange? requested, bool matte, MediaTime? origin, bool remapped = false)
+            Element element, TimeRange? requested, bool matte, MediaTime? origin, bool remapped = false,
+            TimeRange? drawnOver = null)
         {
             if (!element.IsEnabled.Value
                 || layers.ShouldSkip(element.ZIndex.Value, target, ignoreSolo: matte)
@@ -35,8 +39,9 @@ internal static class SceneLayerSkipModel
             if (!visiting.Add(element)) yield break;
             try
             {
-                foreach ((TimeRange frameWindow, TimeRange contentWindow) in EvaluationWindows(element, requested))
+                foreach ((TimeRange evaluatedWindow, TimeRange contentWindow) in EvaluationWindows(element, requested))
                 {
+                    TimeRange frameWindow = drawnOver ?? evaluatedWindow;
                     MediaTime? dependencyOrigin = remapped ? null : origin;
                     yield return (element, remapped ? null : contentWindow, dependencyOrigin);
                     if (target == CompositionTarget.Graphics && element.MatteMode.Value != MatteMode.None)
@@ -59,8 +64,8 @@ internal static class SceneLayerSkipModel
 
                     // A portal's own Count uses its side's held clock; its imported elements and
                     // matte sources play at frame time, as in CompositorContext.EvaluateElementIntoFlow.
-                    // A side a transition holds at its edge frame imports only what its held time covers,
-                    // and holds those the frame's time does not cover (SceneCompositor.CollectTransitionSide).
+                    // A side a transition holds at its edge frame imports only what its held time covers, and
+                    // holds them only over the frames they do not cover (SceneCompositor.CollectTransitionSide).
                     if (target == CompositionTarget.Graphics)
                     {
                         bool held = contentWindow != frameWindow;
@@ -88,9 +93,10 @@ internal static class SceneLayerSkipModel
                                             yield return item;
                                     }
 
-                                    if (held)
+                                    if (!held) continue;
+                                    foreach (TimeRange uncovered in Uncovered(candidate, inputs))
                                     {
-                                        foreach (var item in Visit(candidate, contentWindow, matte, origin, remapsInputs))
+                                        foreach (var item in Visit(candidate, contentWindow, matte, origin, remapsInputs, uncovered))
                                             yield return item;
                                     }
                                 }
@@ -103,6 +109,26 @@ internal static class SceneLayerSkipModel
             {
                 visiting.Remove(element);
             }
+        }
+
+        // The parts of frames that element no longer covers, where a held side holds it instead.
+        static IEnumerable<TimeRange> Uncovered(Element element, TimeRange frames)
+        {
+            if (frames.IsEmpty)
+            {
+                if (!element.CoversGraphicsTime(frames.Start)) yield return frames;
+                yield break;
+            }
+
+            TimeRange covered = frames.Intersect(element.Range);
+            if (covered.IsEmpty)
+            {
+                yield return frames;
+                yield break;
+            }
+
+            if (covered.Start > frames.Start) yield return TimeRange.FromRange(frames.Start, covered.Start);
+            if (covered.End < frames.End) yield return TimeRange.FromRange(covered.End, frames.End);
         }
 
         IEnumerable<(int Source, TimeRange Window)> MatteWindows(Element element, TimeRange frames, MediaTime? origin)

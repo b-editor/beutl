@@ -163,8 +163,8 @@ public sealed partial class SceneCompositor : ICompositor
         // The frame's own time while a transition evaluates one of its sides at a held time. Elements a
         // portal draws into that side that the frame's time still covers are not the side's own content and
         // have not ended, so they play on at the frame's time, and both sides share one evaluation of them.
-        // Elements only the side's time covers, such as the next shot before the cut, hold at that time
-        // like the side's own content.
+        // Elements the frame does not draw but the side's time covers, such as the next shot before the
+        // cut, hold at that time like the side's own content.
         public MediaTime? FrameTime { get; set; }
 
         public GraphicsFrameState? GraphicsState { get; set; }
@@ -424,10 +424,12 @@ public sealed partial class SceneCompositor : ICompositor
         oldFlow?.Add(presenterResource);
     }
 
-    // Evaluates one side of a transition at its own time into flow. Its portals reach the frame's elements
-    // that this time also covers and the elements only this time covers, such as the next shot before the
-    // cut or the previous shot past it, so each side draws its own shot. The frame's elements the side
-    // took are removed from elements.
+    // Evaluates one side of a transition at its own time into flow. Its portals reach what the frame shares
+    // with this time, played at the frame's time: the frame's elements this time also covers, and the
+    // frame's transitions still running at this time. They also reach what the frame does not draw but this
+    // time covers, held at this time, such as the next shot before the cut or the previous shot past it.
+    // Each side so draws its own shot, and nothing is evaluated at two times in one frame, where both
+    // results would share one resource. The frame's elements the side took are removed from elements.
     private void CollectTransitionSide(
         Element side, MediaTime sideTime, MediaTime frameTime, Element[] inputs, IList<Element> elements,
         PooledList<EngineObject.Resource> flow, CompositorContext context, PooledList<EngineObject> tmpObjects)
@@ -439,16 +441,27 @@ public sealed partial class SceneCompositor : ICompositor
         }
         else
         {
+            HashSet<Element> participants = GetTransitionParticipants();
             foreach (Element input in inputs)
             {
-                if (input.CoversGraphicsTime(sideTime)) sideInputs.Add(input);
+                if (input.CoversGraphicsTime(sideTime)
+                    || (participants.Contains(input)
+                        && ElementTransitions.TryGetActive(input, frameTime, out TransitionBoundary running)
+                        && running.Region.Contains(sideTime)))
+                {
+                    sideInputs.Add(input);
+                }
             }
 
             using var atSideTime = new PooledList<Element>();
             SortLayers(sideTime, atSideTime, CompositionTarget.Graphics, ignoreSolo: context.IsMatteSource);
             foreach (Element element in atSideTime)
             {
-                if (!element.CoversGraphicsTime(frameTime)) sideInputs.Add(element);
+                if (!element.CoversGraphicsTime(frameTime)
+                    && !(participants.Contains(element) && ElementTransitions.TryGetActive(element, frameTime, out _)))
+                {
+                    sideInputs.Add(element);
+                }
             }
 
             Scene.ElementIndex.Sort(sideInputs);
