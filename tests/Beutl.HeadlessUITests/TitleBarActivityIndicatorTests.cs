@@ -243,6 +243,7 @@ public sealed class TitleBarActivityIndicatorTests
     {
         var indicator = new TitleBarActivityIndicator { Activities = activities, UpdateProgress = progress };
         indicator.Bind(TitleBarActivityIndicator.AccentProperty, indicator.GetResourceObservable("AccentFillColorDefaultBrush"));
+        indicator.Bind(TitleBarActivityIndicator.AccentLineProperty, indicator.GetResourceObservable("AccentTextFillColorPrimaryBrush"));
         return indicator;
     }
 

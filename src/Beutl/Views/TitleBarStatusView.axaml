@@ -211,6 +211,7 @@
             </Flyout>
         </Button.Flyout>
         <views:TitleBarActivityIndicator Accent="{DynamicResource AccentFillColorDefaultBrush}"
+                                         AccentLine="{DynamicResource AccentTextFillColorPrimaryBrush}"
                                          Activities="{Binding Activities.Value}"
                                          IsUpdateInstalling="{Binding IsUpdateInstalling.Value}"
                                          UpdateProgress="{Binding UpdateProgress.Value}" />

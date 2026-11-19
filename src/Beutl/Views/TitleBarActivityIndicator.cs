@@ -30,23 +30,27 @@ public sealed class TitleBarActivityIndicator : Control
     public static readonly StyledProperty<IBrush?> AccentProperty =
         AvaloniaProperty.Register<TitleBarActivityIndicator, IBrush?>(nameof(Accent));
 
+    public static readonly StyledProperty<IBrush?> AccentLineProperty =
+        AvaloniaProperty.Register<TitleBarActivityIndicator, IBrush?>(nameof(AccentLine));
+
     // How long each task shows before the next one takes its turn, and how long a hand-over fades.
     internal const double TurnSeconds = 2.4;
     internal const double FadeSeconds = 0.3;
 
     private const double BoxSize = 18;
     private const double TrackOpacity = 0.17;
+
     // The Pulse icon's line is thinner than the drawn tracks, so it stays darker to keep its shape while lit.
-    private const double PulseTrackOpacity = 0.35;
+    private const double PulseTrackOpacity = 0.5;
     private const double TracePeriod = 1.6;
+    private const double TraceTail = 9;
+    private const double TraceEdge = 0.8;
 
     // The output and AI animations share one 4 x 4 grid of dots, so a hand-over between them keeps every dot in place.
     private const int DotSide = 4;
     private const int DotCount = DotSide * DotSide;
     private const double DotPitch = BoxSize / DotSide;
     private const double DotRadius = 1.25;
-    private const double TraceTail = 7;
-    private const double TraceEdge = 0.8;
 
     // The order the tasks take turns in, the one the user waits on longest first.
     private static readonly TitleBarActivities[] s_turnOrder =
@@ -84,10 +88,14 @@ public sealed class TitleBarActivityIndicator : Control
     public TitleBarActivityIndicator()
     {
         // Startup lights up the idle icon itself, so the icon never changes shape when the work starts.
+        // The light runs along the filled icon, whose bolder line stands out from the regular one under it.
         _pulse = CreatePulseIcon();
         _pulseTrace = CreatePulseIcon();
+        _pulseTrace.IconVariant = IconVariant.Filled;
         _pulseTrace.Opacity = 0;
-        _pulseTrace.Bind(FluentIcon.ForegroundProperty, this.GetObservable(AccentProperty));
+        _pulseTrace.Bind(
+            FluentIcon.ForegroundProperty,
+            this.GetObservable(AccentLineProperty).CombineLatest(this.GetObservable(AccentProperty), (line, fill) => line ?? fill));
 
         LogicalChildren.Add(_pulse);
         VisualChildren.Add(_pulse);
@@ -120,10 +128,19 @@ public sealed class TitleBarActivityIndicator : Control
         set => SetValue(ForegroundProperty, value);
     }
 
+    // The accent for filled shapes: the dots and the update's ring.
     public IBrush? Accent
     {
         get => GetValue(AccentProperty);
         set => SetValue(AccentProperty, value);
+    }
+
+    // The accent for the Pulse icon's thin line. The fill accent can be too dark to read as a line on the
+    // dark title bar, so this takes the lighter shade made for accent text. Falls back to Accent.
+    public IBrush? AccentLine
+    {
+        get => GetValue(AccentLineProperty);
+        set => SetValue(AccentLineProperty, value);
     }
 
     // What the indicator shows now: one task, or None for the idle icon.
