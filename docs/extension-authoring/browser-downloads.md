@@ -53,6 +53,7 @@ public sealed class SpeechSiteExtension : BrowserDownloadExtension
 
 - `Claim` runs on the UI thread for every file a page offers, so decide from `BrowserDownloadOffer` alone and return quickly. Return `null` to leave the file to the browser.
 - `BrowserDownloadOffer.Source` is the address of the file. A generated file (`IsGenerated`) has no address that can be requested again, so `Source` is the site credited with it, usually the page itself. `Page` is the page on display when the file was offered, and `SuggestedName` the name the page or the server gave the file.
+- `RequestMethod` names the method when the file answered a request other than a GET, such as a form's POST. `CanRequestAgain` is false then and for a generated file. Claim such an offer so the browser saves the response it already received, instead of fetching `Source`, which would send a GET or submit the form again.
 - An exception from `Claim` is logged, and the browser asks the next extension.
 
 ## Reading the page

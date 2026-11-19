@@ -5,6 +5,8 @@
 /// </summary>
 public sealed record BrowserDownloadOffer
 {
+    private string? _requestMethod;
+
     public BrowserDownloadOffer(Uri source, Uri page, string? suggestedName, bool isGenerated)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -18,6 +20,7 @@ public sealed record BrowserDownloadOffer
     /// <summary>
     /// The address of the file. A file a page script generated as a <c>blob:</c> or <c>data:</c> URL has no
     /// address that can be requested again, so this is the site credited with it.
+    /// Check <see cref="CanRequestAgain"/> before requesting this address again.
     /// </summary>
     public Uri Source { get; }
 
@@ -29,6 +32,23 @@ public sealed record BrowserDownloadOffer
 
     /// <summary>Whether a page script generated the file.</summary>
     public bool IsGenerated { get; }
+
+    /// <summary>
+    /// The method of the request that <see cref="Source"/> answered when it was not a GET, such as a form's POST,
+    /// otherwise <see langword="null"/>. Requesting <see cref="Source"/> again would send a GET or submit the form
+    /// again, so claim the offer to take such a file from the browser instead of fetching its address.
+    /// </summary>
+    public string? RequestMethod
+    {
+        get => _requestMethod;
+        init => _requestMethod = string.Equals(value, "GET", StringComparison.OrdinalIgnoreCase) ? null : value;
+    }
+
+    /// <summary>
+    /// Whether requesting <see cref="Source"/> again can return the file. False for a file a page script generated
+    /// and for the response to a request other than a GET.
+    /// </summary>
+    public bool CanRequestAgain => !IsGenerated && RequestMethod == null;
 }
 
 /// <summary>

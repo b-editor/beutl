@@ -140,9 +140,10 @@ internal partial class WebBrowserTabView
         || _pageDownloadNavigationPending || _pendingPageDownloadRequest != null || _downloadCancellation != null;
 
     // The page on display offered the file unless the caller knows the document that did.
-    private BrowserDownloadHandling? ClaimDownload(Uri uri, string? suggestedName, bool isGenerated, Uri? page)
+    private BrowserDownloadHandling? ClaimDownload(Uri uri, string? suggestedName, IBrowserDownloadSource? source, Uri? page)
         => _viewModel is { } vm
-            ? vm.ClaimDownload(new BrowserDownloadOffer(uri, page ?? vm.CommittedUri, suggestedName, isGenerated), RunPageScriptAsync)
+            ? vm.ClaimDownload(new BrowserDownloadOffer(uri, page ?? vm.CommittedUri, suggestedName, source?.IsGenerated == true)
+                { RequestMethod = source?.RequestMethod }, RunPageScriptAsync)
             : null;
 
     // After the user declines a file, the next one waiting is offered in the notification, so a page that queued
@@ -173,7 +174,7 @@ internal partial class WebBrowserTabView
         {
             if (node.Value is not { LoadingPage: { } loading } deferred || loading != page) continue;
             BrowserDownloadHandling? handling = committed && loading == _viewModel?.CommittedUri
-                ? ClaimDownload(deferred.Uri, deferred.SuggestedName, deferred.Source.IsGenerated, loading)
+                ? ClaimDownload(deferred.Uri, deferred.SuggestedName, deferred.Source, loading)
                 : null;
             node.Value = deferred with { Handling = handling, LoadingPage = null };
         }
@@ -191,7 +192,7 @@ internal partial class WebBrowserTabView
     {
         if (!CanDefer(source)) return;
         _deferredNativeDownloads.AddLast(new DeferredDownload(uri, suggestedName, source,
-            ClaimDownload(uri, suggestedName, source.IsGenerated, page)));
+            ClaimDownload(uri, suggestedName, source, page)));
     }
 
     // The page a frame's file belongs to is the main-frame request still loading, if the engine reported one.
@@ -341,7 +342,7 @@ internal partial class WebBrowserTabView
             return;
         }
         OfferPageDownload(uri, suggestedName, referrerPolicy, downloadSource,
-            ClaimDownload(uri, suggestedName, downloadSource?.IsGenerated == true, page), referrer: referrer);
+            ClaimDownload(uri, suggestedName, downloadSource, page), referrer: referrer);
     }
 
     private void OfferPageDownload(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy,
