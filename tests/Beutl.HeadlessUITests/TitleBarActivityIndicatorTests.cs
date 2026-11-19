@@ -56,11 +56,65 @@ public sealed class TitleBarActivityIndicatorTests
         Assert.Multiple(() =>
         {
             Assert.That(indicator.Shown, Is.EqualTo(TitleBarActivities.None));
-            Assert.That(indicator.IsAnimating, Is.True, "the last task still fades out");
+            Assert.That(indicator.NeedsFrames, Is.True, "the last task still fades out");
         });
 
         indicator.Advance(1 + TitleBarActivityIndicator.FadeSeconds);
-        Assert.That(indicator.IsAnimating, Is.False);
+        Assert.That(indicator.NeedsFrames, Is.False);
+    }
+
+    [AvaloniaTest]
+    public void A_task_that_ends_passes_its_turn_to_the_one_after_it()
+    {
+        var indicator = new TitleBarActivityIndicator
+        {
+            Activities = TitleBarActivities.Output | TitleBarActivities.Update | TitleBarActivities.AiJob,
+        };
+        indicator.Advance(0);
+        indicator.Advance(Turn + 0.01);
+        Assert.That(indicator.Shown, Is.EqualTo(TitleBarActivities.Update));
+
+        indicator.Activities = TitleBarActivities.Output | TitleBarActivities.AiJob;
+        indicator.Advance(Turn + 0.5);
+        Assert.That(indicator.Shown, Is.EqualTo(TitleBarActivities.AiJob), "output already had its turn");
+    }
+
+    [AvaloniaTest]
+    public void An_update_that_ends_fades_out_as_it_last_looked()
+    {
+        // Both install; then one ends the way the app reports it, clearing the flag with the activity.
+        TitleBarActivityIndicator[] indicators =
+        [
+            CreateIndicator(TitleBarActivities.Update, null),
+            CreateIndicator(TitleBarActivities.Update, null),
+        ];
+        foreach (TitleBarActivityIndicator indicator in indicators)
+            indicator.IsUpdateInstalling = true;
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        row.Children.AddRange(indicators.Select(Cell));
+        var window = new Window { Width = 64, Height = 32, RequestedThemeVariant = ThemeVariant.Dark, Content = row };
+        try
+        {
+            window.Show();
+            RunTo(indicators, _ => 0);
+            RunTo(indicators, _ => 1);
+
+            indicators[0].Activities = TitleBarActivities.None;
+            indicators[0].IsUpdateInstalling = false;
+            indicators[1].Activities = TitleBarActivities.None;
+            RunTo(indicators, _ => 1 + (TitleBarActivityIndicator.FadeSeconds / 2));
+
+            var frame = HeadlessTestHelpers.CaptureFramePixels(window);
+            Assert.That(
+                Crop(frame, new PixelRect(0, 0, 32, 32)),
+                Is.EqualTo(Crop(frame, new PixelRect(32, 0, 32, 32))),
+                "the fading update should still show the gear");
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     [AvaloniaTest]
@@ -177,7 +231,7 @@ public sealed class TitleBarActivityIndicatorTests
             RunTo(indicators, i => Math.Min(cells[i].Time, Turn));
             RunTo(indicators, i => cells[i].Time);
             using var frame = window.CaptureRenderedFrame();
-            frame!.Save(Path.Combine(directory, $"titlebar-activity-{theme}-{scale}x.png"));
+            frame!.Save(Path.Combine(directory, $"titlebar-activity-{theme}-{scale}x.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         }
         finally
         {

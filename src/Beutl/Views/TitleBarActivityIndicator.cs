@@ -70,6 +70,8 @@ public sealed class TitleBarActivityIndicator : Control
     private TitleBarActivities _shown;
     private TitleBarActivities? _fading;
     private double _shownSince;
+    private double? _updateProgress;
+    private bool _isUpdateInstalling;
     private Pen? _ringPen;
     private Pen? _trackPen;
     private Pen? _glyphPen;
@@ -127,7 +129,7 @@ public sealed class TitleBarActivityIndicator : Control
     // What the indicator shows now: one task, or None for the idle icon.
     internal TitleBarActivities Shown => _shown;
 
-    internal bool IsAnimating => Activities != TitleBarActivities.None || _fading != null;
+    internal bool NeedsFrames => Activities != TitleBarActivities.None || _fading != null;
 
     // Test seam: frames read this clock, in seconds, instead of the compositor's, so a capture shows a chosen moment.
     internal double? FixedTime
@@ -144,6 +146,14 @@ public sealed class TitleBarActivityIndicator : Control
     internal void Advance(double time)
     {
         _time = time;
+
+        // An update that ends keeps the look it had, the gear or the full ring, while it fades out.
+        if (Activities.HasFlag(TitleBarActivities.Update))
+        {
+            _updateProgress = UpdateProgress;
+            _isUpdateInstalling = IsUpdateInstalling;
+        }
+
         TitleBarActivities next = ChooseShown(time);
         if (next != _shown)
         {
@@ -247,10 +257,11 @@ public sealed class TitleBarActivityIndicator : Control
             return TitleBarActivities.None;
 
         int current = Array.IndexOf(s_turnOrder, _shown);
-        if (current < 0 || !running.HasFlag(_shown))
+        if (current < 0)
             return s_turnOrder.First(kind => running.HasFlag(kind));
 
-        if (time - _shownSince < TurnSeconds)
+        // A task that ends hands over at once, to the one after it, so the others keep their turns.
+        if (running.HasFlag(_shown) && time - _shownSince < TurnSeconds)
             return _shown;
 
         for (int step = 1; step <= s_turnOrder.Length; step++)
@@ -315,7 +326,7 @@ public sealed class TitleBarActivityIndicator : Control
 
         _clockOrigin ??= time;
         Advance(_fixedTime ?? (time - _clockOrigin.Value).TotalSeconds);
-        if (IsAnimating)
+        if (NeedsFrames)
             RequestFrame();
     }
 
@@ -397,7 +408,7 @@ public sealed class TitleBarActivityIndicator : Control
         _trackPen ??= new Pen(foreground, 1.6);
         _glyphPen ??= new Pen(foreground, 1.35, null, PenLineCap.Round, PenLineJoin.Round);
 
-        if (IsUpdateInstalling)
+        if (_isUpdateInstalling)
         {
             DrawSpinningArc(context, center, radius, _time, _ringPen);
             Matrix spin = Matrix.CreateRotation(_time * 2 * Math.PI / 3) * Matrix.CreateTranslation(center.X, center.Y);
@@ -406,7 +417,7 @@ public sealed class TitleBarActivityIndicator : Control
             return;
         }
 
-        if (UpdateProgress is { } progress)
+        if (_updateProgress is { } progress)
         {
             using (context.PushOpacity(TrackOpacity))
                 context.DrawEllipse(null, _trackPen, center, radius, radius);
