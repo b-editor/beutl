@@ -87,6 +87,44 @@ public sealed class BrowserDownloadExtensionTests
     }
 
     [AvaloniaTest]
+    [TestCase("GET", true)]
+    [TestCase("POST", false)]
+    [TestCase(null, false)]
+    public void AResponseReachesExtensionsWithTheMethodOfItsRequest(string? method, bool canRequestAgain)
+    {
+        using var temporary = new TemporaryDirectory();
+        using var browser = Browser.Open(temporary.Path, s_speechPage);
+
+        browser.View.OnNativeDownloadRequested(new Uri("https://speech.example/files/speech.mp3"), "speech.mp3",
+            new ResponseSource("speech.mp3", method));
+        Dispatcher.UIThread.RunJobs();
+
+        BrowserDownloadOffer offer = browser.Extension.Offers.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(offer.RequestMethod, Is.EqualTo(method));
+            Assert.That(offer.CanRequestAgain, Is.EqualTo(canRequestAgain));
+        }
+    }
+
+    [AvaloniaTest]
+    public void AFileWithoutASourceReachesExtensionsAsAGet()
+    {
+        using var temporary = new TemporaryDirectory();
+        using var browser = Browser.Open(temporary.Path, s_speechPage);
+
+        browser.View.OnNavigationResponseNotShown(new Uri("https://speech.example/files/speech.mp3"), "speech.mp3");
+        Dispatcher.UIThread.RunJobs();
+
+        BrowserDownloadOffer offer = browser.Extension.Offers.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(offer.RequestMethod, Is.EqualTo("GET"));
+            Assert.That(offer.CanRequestAgain, Is.True);
+        }
+    }
+
+    [AvaloniaTest]
     // The browser reads the expression's value back from an envelope of its own. WebView2 returns that envelope as a
     // JSON string and WebKit as it is; either way the extension gets the page's string untouched.
     [TestCase("{\"text\":\"こんにちは\"}", true, TestName = "A JSON string from the page, quoted as WebView2 returns it")]
@@ -578,8 +616,10 @@ public sealed class BrowserDownloadExtensionTests
     }
 
     // A response the engine holds, as WebView2 hands over a frame's file.
-    private sealed class ResponseSource(string name) : IBrowserDownloadSource
+    private sealed class ResponseSource(string name, string? method = null) : IBrowserDownloadSource
     {
+        public string? RequestMethod => method;
+
         public async Task<string> SaveAsync(string directory, IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken)
         {
             await using var input = new MemoryStream([0x49, 0x44, 0x33]);
