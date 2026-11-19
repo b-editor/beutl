@@ -268,6 +268,33 @@ internal static class NativeBrowserFrameTestHost
                 refresh.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.That(vm.IsLoading.Value, Is.True);
             });
+
+            var refused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Refused(object? sender, WebViewNavigationCompletedEventArgs e)
+            {
+                if (!e.IsSuccess) refused.TrySetResult();
+            }
+            browser.NavigationCompleted += Refused;
+            try
+            {
+                Navigate(new Uri(origin, "/redirect?to=beutl-test:probe"));
+                await refused.Task.WaitAsync(token);
+            }
+            finally { browser.NavigationCompleted -= Refused; }
+            Assert.That(vm.IsLoading.Value, Is.False);
+
+            var optionsRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            view.DownloadOptionsSelector = (_, _) =>
+            {
+                optionsRequested.TrySetResult();
+                return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+            };
+            await browser.InvokeScript("""
+                window.invokeCSharpAction(JSON.stringify({kind: 'beutl-download', url: location.origin + '/file.mp3'}))
+                """);
+            await Task.WhenAny(optionsRequested.Task, Task.Delay(TimeSpan.FromSeconds(3), token));
+            Assert.That(optionsRequested.Task.IsCompleted, Is.True,
+                "DownloadOptionsSelector must be called after the refused redirect.");
         }
         finally { finish.TrySetResult(); }
     }

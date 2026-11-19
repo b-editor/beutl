@@ -53,7 +53,8 @@ internal sealed partial class WindowsBrowserDownloadHandler
         // Avalonia runs first, so this includes cancellation by the tab's NavigationStarted handler.
         if (canceled != 0)
         {
-            _canceledNavigationIds.Add(id);
+            // A refused redirect must complete the active load to unblock page downloads.
+            if (_activeNavigation?.Id != id) _canceledNavigationIds.Add(id);
             return;
         }
         Uri.TryCreate(GetString(args, 3), UriKind.Absolute, out Uri? uri);
