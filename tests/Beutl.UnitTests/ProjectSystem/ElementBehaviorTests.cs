@@ -333,7 +333,7 @@ public class ElementBehaviorTests
 
         public bool HasOriginalDuration() => true;
 
-        public bool TryGetOriginalDuration(out MediaTime timeSpan)
+        public bool TryGetOriginalDuration(out MediaTime timeSpan, Beutl.Media.Decoding.DecoderRegistry? decoders)
         {
             timeSpan = _duration;
             return true;

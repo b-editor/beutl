@@ -8,9 +8,11 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.PathEditorTab.ViewModels;
 
@@ -42,7 +44,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
             .DisposeWith(_disposables);
 
         var drawableResource = Drawable
-            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c), EditorContext.GetRequiredService<FontManager>())
+            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c), EditorContext.GetRequiredService<FontManager>(), ExtensionGuard.FindService<DecoderRegistry>(EditorContext))
             .Publish(null).RefCount();
 
         GeometryResource = drawableResource
@@ -147,7 +149,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         // 図形の編集用エディターを展開する。
         context.ExpandForEditing();
 
-        var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value) { Fonts = EditorContext.GetRequiredService<FontManager>() });
+        var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value) { Fonts = EditorContext.GetRequiredService<FontManager>(), Decoders = ExtensionGuard.FindService<DecoderRegistry>(EditorContext) });
         Avalonia.Matrix matrix = CalculateMatrix(shapeResource).ToAvaMatrix();
         if (matrix.TryInvert(out Avalonia.Matrix inverted)
             && shapeResource is GeometryShape.Resource { Data: PathGeometry.Resource pathData } geometryShapeResource

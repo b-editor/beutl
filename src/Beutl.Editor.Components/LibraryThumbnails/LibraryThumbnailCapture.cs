@@ -1,8 +1,10 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.LibraryThumbnails;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.LibraryThumbnails;
 
@@ -20,7 +22,7 @@ internal static class LibraryThumbnailCapture
         var clock = editor.GetService(typeof(IEditorClock)) as IEditorClock;
         var configuration = editor.GetRequiredService<GlobalConfiguration>();
         return cancellationToken => LibraryThumbnailSubject.CaptureElementAsync(
-            editor.GetRequiredService<Beutl.Media.FontManager>(), element, clock?.CurrentTime.Value ?? element.Start.Value, cancellationToken, configuration.EditorConfig, configuration.ProxyStoreConfig);
+            editor.GetRequiredService<Beutl.Media.FontManager>(), element, clock?.CurrentTime.Value ?? element.Start.Value, cancellationToken, configuration.EditorConfig, configuration.ProxyStoreConfig, ExtensionGuard.FindService<DecoderRegistry>(editor));
     }
 
     // Both sides of an element's edge.
@@ -30,6 +32,6 @@ internal static class LibraryThumbnailCapture
             return null;
 
         var configuration = editor.GetRequiredService<GlobalConfiguration>();
-        return cancellationToken => LibraryThumbnailSubject.CaptureEdgeAsync(editor.GetRequiredService<Beutl.Media.FontManager>(), element, edge, cancellationToken, configuration.EditorConfig, configuration.ProxyStoreConfig);
+        return cancellationToken => LibraryThumbnailSubject.CaptureEdgeAsync(editor.GetRequiredService<Beutl.Media.FontManager>(), element, edge, cancellationToken, configuration.EditorConfig, configuration.ProxyStoreConfig, ExtensionGuard.FindService<DecoderRegistry>(editor));
     }
 }

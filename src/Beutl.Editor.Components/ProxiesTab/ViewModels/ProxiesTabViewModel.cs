@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
@@ -16,6 +17,7 @@ using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.ProxiesTab.ViewModels;
 
@@ -53,6 +55,7 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
 
     public ProxiesTabViewModel(IEditorContext editorContext)
     {
+        ProbeSourceFrameSizeAsync = path => ProbeSourceFrameSizeFromMetadataAsync(ExtensionGuard.RequireService<FileThumbnailService>(editorContext), path);
         Notify = editorContext.GetRequiredService<INotificationService>().Show;
         _scene = editorContext.GetService<Scene>()!;
         _store = editorContext.GetService<IProxyStore>();

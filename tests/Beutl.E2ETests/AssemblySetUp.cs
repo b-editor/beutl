@@ -9,8 +9,6 @@ public sealed class AssemblySetUp
     public void SetUp()
     {
         BeutlHomeIsolation.Begin("beutl-e2e");
-        var configuration = new Beutl.Configuration.GlobalConfiguration();
-        Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
     }
 
     [OneTimeTearDown]

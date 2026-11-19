@@ -7,12 +7,13 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
 
-public sealed partial class StillRenderer(FontManager fonts)
+public sealed partial class StillRenderer(FontManager fonts, DecoderRegistry? decoders = null)
 {
     public async ValueTask<RenderStillResponse> RenderAsync(
         Scene scene,
@@ -102,7 +103,7 @@ public sealed partial class StillRenderer(FontManager fonts)
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            using var renderer = ExportRendererFactory.Create(scene, fonts, normalizedScale);
+            using var renderer = ExportRendererFactory.Create(scene, fonts, normalizedScale, decoders);
 
             ThrowIfSourcesMissing(scene, time + scene.Start.Value);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start.Value);

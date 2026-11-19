@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 
 namespace Beutl.Audio;
@@ -21,9 +22,9 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ITim
         Description = nameof(AudioStrings.SourceSound_ChannelMap_Description), ResourceType = typeof(AudioStrings))]
     public IExpressionProperty<AudioChannelMap> ChannelMap { get; } = Property.CreateExpression(AudioChannelMap.Auto);
 
-    public override AudioChannelLayout GetClipLayout(AudioChannelLayout projectLayout, MediaTime time)
+    public override AudioChannelLayout GetClipLayout(AudioChannelLayout projectLayout, MediaTime time, DecoderRegistry? decoders = null)
     {
-        var context = new CompositionContext(time);
+        var context = new CompositionContext(time) { Decoders = decoders };
         using var source = Source.Evaluate(context)?.ToResource(context);
         return source?.ReadableChannelLayout is { } layout
             ? ChannelMap.Evaluate(context).ResolveClipLayout(layout)
@@ -37,9 +38,9 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ITim
         return Source.Value != null;
     }
 
-    public bool TryGetOriginalDuration(out MediaTime timeSpan)
+    public bool TryGetOriginalDuration(out MediaTime timeSpan, DecoderRegistry? decoders = null)
     {
-        using var resource = Source.Value?.ToResource(CompositionContext.Default);
+        using var resource = Source.Value?.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders });
         if (resource != null && resource.Duration > MediaTime.Zero)
         {
             timeSpan = resource.Duration;
@@ -55,8 +56,8 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ITim
     // An expression on Source hides only the file's length.
     bool ITimeMappedSource.HasDynamicTimeline => Source.HasExpression;
 
-    MediaTime? ITimeMappedSource.GetSourceDuration()
-        => TryGetOriginalDuration(out MediaTime duration) ? duration : null;
+    MediaTime? ITimeMappedSource.GetSourceDuration(DecoderRegistry? decoders)
+        => TryGetOriginalDuration(out MediaTime duration, decoders) ? duration : null;
 
     public partial class Resource
     {

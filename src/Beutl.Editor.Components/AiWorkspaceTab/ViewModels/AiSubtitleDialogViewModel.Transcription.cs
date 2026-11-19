@@ -10,7 +10,6 @@ using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-
 using static Beutl.Editor.Components.AiWorkspaceTab.Services.SpeechWaveEncoder;
 
 namespace Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
@@ -86,14 +85,14 @@ public sealed partial class AiSubtitleDialogViewModel
             return await Task.Run(
                 () => MediaReader.Open(
                     filePath,
-                    new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
+                    new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }, _decoders),
                 RequestToken);
         }
         catch (UnsupportedMediaException)
         {
             bool opensAsVideo = await Task.Run(() =>
             {
-                using MediaReader? video = DecoderRegistry.OpenMediaFile(
+                using MediaReader? video = _decoders.OpenMediaFile(
                     filePath, new MediaOptions(MediaMode.Video) { IsBackground = true });
                 return video != null;
             }, RequestToken);

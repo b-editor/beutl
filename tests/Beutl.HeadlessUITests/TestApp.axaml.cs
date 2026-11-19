@@ -3,6 +3,7 @@ using Avalonia.Markup.Xaml;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Helpers;
+using Beutl.Media.Decoding;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels;
 
@@ -14,6 +15,7 @@ public sealed class TestApp : Application
     private const int BuiltInExtensionPackageId = 0;
 
     private MainViewModel? _mainViewModel;
+    internal DecoderRegistry Decoders { get; }
     internal Beutl.Media.FontManager Fonts { get; }
     internal NotificationCapture Notifications { get; } = NotificationCapture.CreateForwardingRoot();
     internal GlobalConfiguration Configuration { get; } = new();
@@ -27,12 +29,14 @@ public sealed class TestApp : Application
     public TestApp()
     {
         Tutorials = new Beutl.Services.Tutorials.TutorialServiceHandler(Configuration.TutorialConfig);
-        Beutl.Media.Decoding.DecoderRegistry.Initialize(Configuration.ExtensionConfig);
+        Decoders = new DecoderRegistry(Configuration.ExtensionConfig);
         Fonts = new Beutl.Media.FontManager(Configuration.FontConfig);
-        Templates = new(Fonts, Configuration.EditorConfig, Configuration.ProxyStoreConfig);
+        Templates = new(Fonts, Configuration.EditorConfig, Configuration.ProxyStoreConfig, Decoders);
         Services = new Beutl.Editor.Services.EditorServiceRegistry()
             .Add(() => Configuration)
             .Add(() => Fonts)
+            .Add(() => Decoders)
+            .AddOwned(() => new Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService(Decoders, Templates))
             .Add<Beutl.Services.INotificationService>(() => Notifications)
             .AddOwned(() => new Beutl.Services.AppUpdateController(Configuration.UpdateConfig, Notifications))
             .Add(() => Library)
@@ -48,6 +52,8 @@ public sealed class TestApp : Application
         {
             if (Beutl.Controls.ControlNotifications.GetNotifications(window) is null)
                 Beutl.Controls.ControlNotifications.SetNotifications(window, Notifications);
+            if (Beutl.Controls.ControlDecoders.GetDecoders(window) is null)
+                Beutl.Controls.ControlDecoders.SetDecoders(window, Decoders);
             if (Beutl.Controls.ControlFonts.GetFonts(window) is null)
                 Beutl.Controls.ControlFonts.SetFonts(window, Fonts);
             if (Beutl.Controls.ControlConfiguration.GetConfiguration(window) is null)

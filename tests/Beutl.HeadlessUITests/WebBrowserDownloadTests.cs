@@ -25,10 +25,10 @@ public class WebBrowserDownloadTests
     private readonly DownloadTestDecoder _decoder = new();
 
     [SetUp]
-    public void RegisterDownloadTestDecoder() => DecoderRegistry.Register(_decoder);
+    public void RegisterDownloadTestDecoder() => TestShell.Decoders.Register(_decoder);
 
     [TearDown]
-    public void UnregisterDownloadTestDecoder() => DecoderRegistry.Unregister(_decoder);
+    public void UnregisterDownloadTestDecoder() => TestShell.Decoders.Unregister(_decoder);
 
     // A view whose web views show the requested address, with the web view runtime available.
     // A view that reports subframe starts models macOS, whose delegate turns media responses into downloads.

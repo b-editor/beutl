@@ -6,7 +6,6 @@ using Beutl.Composition;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
-
 using static Beutl.UnitTests.Engine.Audio.AudioTestContexts;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -14,9 +13,6 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class ResampleNodeTests
 {
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
-
     [TestCase(false, 44100, 48000)]
     [TestCase(true, 44100, 48000)]
     [TestCase(false, 48000, 44100)]
@@ -36,7 +32,7 @@ public class ResampleNodeTests
             sound = group;
         }
 
-        using var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         using var uninterrupted = new AudioContext(outputRate, 2);
         using var rebuilt = new AudioContext(outputRate, 2);
         sound.Compose(uninterrupted, resource);
@@ -192,7 +188,7 @@ public class ResampleNodeTests
             Source = { Value = source },
             TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(seconds)) },
         };
-        using var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         using var composer = new Composer { SampleRate = 48000 };
         var eligibility = new CompositionEligibility([sound]);
         List<float>[] channels = [[], []];

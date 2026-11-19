@@ -177,11 +177,9 @@ public sealed partial class ProxiesTabViewModel
     // Test seam: the unit-test environment has no decoders for the synthetic source files, so tests
     // that exercise the eligibility decision inject a frame size instead of opening the media.
     internal Func<string, Task<PixelSize?>> ProbeSourceFrameSizeAsync { get; set; }
-        = ProbeSourceFrameSizeFromMetadataAsync;
 
-    private static async Task<PixelSize?> ProbeSourceFrameSizeFromMetadataAsync(string path)
+    private static async Task<PixelSize?> ProbeSourceFrameSizeFromMetadataAsync(FileThumbnailService service, string path)
     {
-        FileThumbnailService service = FileThumbnailService.Instance;
         if (!service.CanGetMediaInfo(path))
             return null;
 

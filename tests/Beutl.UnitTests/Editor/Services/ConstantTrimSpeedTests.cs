@@ -7,6 +7,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
@@ -18,6 +19,8 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture(nameof(SceneSound))]
 public class ConstantTrimSpeedTests(string mediaKind)
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private GlobalConfiguration _testConfiguration = new();
 
     private SceneHistoryHarness _harness = null!;
@@ -28,16 +31,13 @@ public class ConstantTrimSpeedTests(string mediaKind)
     private Scene Scene => _harness.Scene;
     private HistoryManager History => _harness.History;
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
-
     [SetUp]
     public void SetUp()
     {
         _testConfiguration = new();
         _harness = new SceneHistoryHarness("beutl_trim_speed", duration: MediaTime.FromSeconds(30));
-        _slip = new ElementSlipService(History);
-        _resize = new ElementResizeService(History, _testConfiguration.EditorConfig);
+        _slip = new ElementSlipService(History, decoders: _decoders);
+        _resize = new ElementResizeService(History, _testConfiguration.EditorConfig, decoders: _decoders);
         _clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
     }
 
@@ -195,7 +195,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         var fastBack = new SourceSound { Speed = { Value = 200 } };
         back.Objects.Add(fastBack);
 
-        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig, decoders: _decoders);
         Assert.That(bounds.Max, Is.EqualTo(MediaTime.FromSeconds(expectedLength - 2)));
 
         bool applied = Trim(front, middle, back, 15);
@@ -225,7 +225,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Element back = AddElement(backStart, 2);
         var offset = AddMedia(back, speed, 1);
 
-        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig, decoders: _decoders);
         Assert.That(bounds.Min, Is.EqualTo(MediaTime.FromSeconds(expectedDelta)));
 
         bool applied = Trim(front, middle, back, -10);
@@ -331,7 +331,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         History.Commit();
         int before = History.UndoCount;
 
-        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)], _testConfiguration.EditorConfig, decoders: _decoders);
         bool applied = Trim(front, middle, back, 1);
 
         Assert.Multiple(() =>
@@ -381,7 +381,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         var offset = AddMedia(element, 200, 1, new KeyFrameAnimation<float>());
         if (element.Objects[0] is SourceVideo video)
         {
-            using var playback = (SourceVideo.Resource)video.ToResource(new CompositionContext(MediaTime.FromSeconds(1)));
+            using var playback = (SourceVideo.Resource)video.ToResource(new CompositionContext(MediaTime.FromSeconds(1)) { Decoders = _decoders });
             Assert.That(playback.Speed, Is.Zero);
             Assert.That(playback.RequestedPosition, Is.EqualTo(MediaTime.Zero));
         }

@@ -13,7 +13,7 @@ public sealed class AudioRhythmAnalyzerTests
         const int sampleRate = 44100;
         const double bpm = 120;
         float[] samples = CreateClickTrack(sampleRate, durationSeconds: 8, bpm);
-        var analyzer = new AudioRhythmAnalyzer();
+        var analyzer = new AudioRhythmAnalyzer(new DecoderRegistry(new()));
 
         AudioRhythmAnalysis result = analyzer.AnalyzePcm(samples, sampleRate);
 
@@ -41,7 +41,7 @@ public sealed class AudioRhythmAnalyzerTests
     public void AnalyzePcm_Silence_ReturnsNoOnsetsAndLowConfidence()
     {
         const int sampleRate = 44100;
-        var analyzer = new AudioRhythmAnalyzer();
+        var analyzer = new AudioRhythmAnalyzer(new DecoderRegistry(new()));
 
         AudioRhythmAnalysis result = analyzer.AnalyzePcm(new float[sampleRate * 4], sampleRate);
 
@@ -64,8 +64,8 @@ public sealed class AudioRhythmAnalyzerTests
         const int sampleRate = 16000;
         float[] samples = CreateClickTrack(sampleRate, 4, 120);
         string path = Path.Combine(Path.GetTempPath(), $"rhythm-channels-{Guid.NewGuid():N}.wav");
-        var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        var decoders = new DecoderRegistry(new());
+        decoders.Register(new WaveDecoderInfo());
         try
         {
             using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channels)))
@@ -74,7 +74,7 @@ public sealed class AudioRhythmAnalyzerTests
                     for (int ch = 0; ch < channels; ch++)
                         writer.WriteSample(ch == signalChannel ? sample : 0);
             }
-            var analyzer = new AudioRhythmAnalyzer();
+            var analyzer = new AudioRhythmAnalyzer(decoders);
             float gain = channels == 6 ? 0.70710677f : 1;
             var expected = analyzer.AnalyzePcm(samples.Select(value => value * gain).ToArray(), sampleRate);
             var actual = await analyzer.AnalyzeFileAsync(path, 0, 4, null, null, CancellationToken.None);
@@ -89,7 +89,6 @@ public sealed class AudioRhythmAnalyzerTests
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
             File.Delete(path);
         }
     }

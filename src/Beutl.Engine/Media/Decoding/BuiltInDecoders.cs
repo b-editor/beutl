@@ -9,8 +9,6 @@ namespace Beutl.Media.Decoding;
 /// </summary>
 public static class BuiltInDecoders
 {
-    private static readonly object s_lock = new();
-
     public static WaveDecoderInfo Wave { get; } = new();
 
     public static AnimatedImageDecoderInfo AnimatedImage { get; } = new();
@@ -20,16 +18,16 @@ public static class BuiltInDecoders
     public static IReadOnlyList<IDecoderInfo> All { get; } = [Wave, AnimatedImage, AnimatedPng];
 
     /// <summary>Registers each built-in decoder that is not registered yet.</summary>
-    public static void Register()
+    public static void Register(DecoderRegistry decoders)
     {
-        lock (s_lock)
+        lock (decoders.RegistrationLock)
         {
-            IDecoderInfo[] registered = DecoderRegistry.EnumerateDecoder().ToArray();
+            IDecoderInfo[] registered = decoders.EnumerateDecoder().ToArray();
             foreach (IDecoderInfo decoder in All)
             {
                 if (!registered.Contains(decoder))
                 {
-                    DecoderRegistry.Register(decoder);
+                    decoders.Register(decoder);
                 }
             }
         }

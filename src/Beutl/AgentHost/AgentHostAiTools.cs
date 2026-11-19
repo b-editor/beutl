@@ -15,6 +15,7 @@ using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentHost;
@@ -638,7 +639,7 @@ internal sealed class AgentHostAiTools(
         }
     }
 
-    private static GenerativeFileInput ReadVideo(string path)
+    private GenerativeFileInput ReadVideo(string path)
     {
         string full = RequireFile(path, "sourcePath");
         if (!GenerativeInputs.IsSupportedVideoFile(full))
@@ -671,12 +672,12 @@ internal sealed class AgentHostAiTools(
         throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be opened as a video.", "sourcePath"));
     }
 
-    private static bool OpensAsVideo(string path)
+    private bool OpensAsVideo(string path)
     {
         try
         {
             using MediaReader reader = MediaReader.Open(
-                path, new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
+                path, new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true }, editorService.AppServices.GetRequiredService<DecoderRegistry>());
             return reader.HasVideo;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

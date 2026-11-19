@@ -1,6 +1,7 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 
 namespace Beutl.Composition;
@@ -21,6 +22,8 @@ public sealed record CompositionConditions
     public Rational FrameRate { get; init; } = DefaultFrameRate;
 
     public FontManager? Fonts { get; init; }
+
+    public DecoderRegistry? Decoders { get; init; }
 
     public CancellationToken CancellationToken { get; init; }
 

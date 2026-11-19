@@ -17,7 +17,7 @@ namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
 public class FileSystemItemViewModel : IDisposable
 {
-    private readonly ObjectTemplateService _templates;
+    private readonly FileThumbnailService _thumbnails;
     private readonly CompositeDisposable _disposables = new();
     private CancellationTokenSource? _thumbnailCts;
     private readonly CancellationTokenSource _metadataCts = new();
@@ -26,14 +26,14 @@ public class FileSystemItemViewModel : IDisposable
     private int _mediaInfoLoad;
     private (long Length, DateTime LastWriteTime)? _detailsStamp;
 
-    public FileSystemItemViewModel(ObjectTemplateService templates, string fullPath, bool isDirectory)
-        : this(templates, fullPath, isDirectory, loadDetails: true)
+    public FileSystemItemViewModel(FileThumbnailService thumbnails, string fullPath, bool isDirectory)
+        : this(thumbnails, fullPath, isDirectory, loadDetails: true)
     {
     }
 
-    private FileSystemItemViewModel(ObjectTemplateService templates, string fullPath, bool isDirectory, bool loadDetails)
+    private FileSystemItemViewModel(FileThumbnailService thumbnails, string fullPath, bool isDirectory, bool loadDetails)
     {
-        _templates = templates;
+        _thumbnails = thumbnails;
         FullPath = fullPath;
         IsDirectory = isDirectory;
         Name = new ReactiveProperty<string>(Path.GetFileName(fullPath));
@@ -96,7 +96,7 @@ public class FileSystemItemViewModel : IDisposable
     {
         try
         {
-            var item = await Task.Run(() => _templates.TryLoadFromFile(FullPath));
+            var item = await Task.Run(() => _thumbnails.Templates.TryLoadFromFile(FullPath));
             if (item == null)
                 return false;
 
@@ -132,8 +132,8 @@ public class FileSystemItemViewModel : IDisposable
     private async Task LoadMediaInfoAsync()
     {
         int load = Interlocked.Increment(ref _mediaInfoLoad);
-        var service = FileThumbnailService.Instance;
-        if (service.IsObjectTemplateFile(FullPath, _templates))
+        var service = _thumbnails;
+        if (service.IsObjectTemplateFile(FullPath, _thumbnails.Templates))
         {
             if (await LoadTemplateInfoAsync(load) || _disposed || load != _mediaInfoLoad)
                 return;
@@ -180,8 +180,8 @@ public class FileSystemItemViewModel : IDisposable
 
     private async Task LoadThumbnailAsync()
     {
-        var service = FileThumbnailService.Instance;
-        if (!service.CanGenerateThumbnail(FullPath, _templates))
+        var service = _thumbnails;
+        if (!service.CanGenerateThumbnail(FullPath, _thumbnails.Templates))
             return;
 
         try
@@ -190,7 +190,7 @@ public class FileSystemItemViewModel : IDisposable
             _thumbnailCts?.Dispose();
             _thumbnailCts = new CancellationTokenSource();
             CancellationToken token = _thumbnailCts.Token;
-            var bitmap = await service.GetThumbnailAsync(FullPath, _templates, token);
+            var bitmap = await service.GetThumbnailAsync(FullPath, _thumbnails.Templates, token);
             if (!token.IsCancellationRequested)
             {
                 Thumbnail.Value = bitmap;
@@ -234,7 +234,7 @@ public class FileSystemItemViewModel : IDisposable
             return icon;
         }
 
-        return DecoderFileExtensions.Classify(FullPath) switch
+        return _thumbnails.Decoders.FileExtensions.Classify(FullPath) switch
         {
             MediaFileKind.Image => Icon.Image,
             MediaFileKind.Video => Icon.Video,
@@ -254,7 +254,7 @@ public class FileSystemItemViewModel : IDisposable
         // A folder that cannot be read is shown without children.
         try
         {
-            foreach (var item in FileSystemEnumerator.EnumerateDirectory(_templates, FullPath))
+            foreach (var item in FileSystemEnumerator.EnumerateDirectory(_thumbnails, FullPath))
             {
                 Children.Add(item);
             }
@@ -319,7 +319,7 @@ public class FileSystemItemViewModel : IDisposable
         {
             if (_childrenLoaded && Children is not null)
             {
-                FileSystemEnumerator.RefreshCollection(_templates, Children, FullPath);
+                FileSystemEnumerator.RefreshCollection(_thumbnails, Children, FullPath);
                 return;
             }
             RefreshEntriesForDirectory(FullPath);
@@ -379,7 +379,7 @@ public class FileSystemItemViewModel : IDisposable
             if (dirInfo.EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible))
             {
                 // プレースホルダーを追加して展開矢印を表示させる
-                Children!.Add(new FileSystemItemViewModel(_templates, FullPath, false, loadDetails: false));
+                Children!.Add(new FileSystemItemViewModel(_thumbnails, FullPath, false, loadDetails: false));
             }
         }
         catch

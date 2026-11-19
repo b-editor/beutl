@@ -20,17 +20,17 @@ namespace Beutl.UnitTests.Editor.Services;
 [NonParallelizable]
 public class TrimDisabledFlowControllerTests
 {
+    private DecoderRegistry _decoders = null!;
+
     private GlobalConfiguration _testConfiguration = new();
 
     private SceneHistoryHarness _harness = null!;
     private ClampResizeToOriginalLengthScope _clamp = null!;
 
-    [OneTimeSetUp]
-    public void RegisterDecoder() => TestMediaHelper.RegisterTestDecoder();
-
     [SetUp]
     public void SetUp()
     {
+        _decoders = TestMediaHelper.CreateRegistry();
         _testConfiguration = new();
         _clamp = new ClampResizeToOriginalLengthScope(_testConfiguration.EditorConfig, true);
         _harness = new SceneHistoryHarness("beutl_disabled_flow_trim", duration: Seconds(30));
@@ -51,7 +51,7 @@ public class TrimDisabledFlowControllerTests
         var controller = AddDisabledController(element, offset: 1);
         int history = _harness.History.UndoCount;
 
-        bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(1));
+        bool applied = new ElementSlipService(_harness.History, decoders: _decoders).Slip(_harness.Scene, [element], Seconds(1));
         controller.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
         double position = Position(Videos(compositor.EvaluateGraphics(Seconds(3.9)).Objects.Single()).Single());
@@ -75,8 +75,8 @@ public class TrimDisabledFlowControllerTests
         var video = CreateVideo(sourceLength);
         Element element = AddElement(0, length, video);
         var controller = AddDisabledController(element, controllerSpeed, controllerOffset);
-        MediaTime preview = SlippableMedia.ClampSharedDelta(SlippableMedia.Collect(element), Seconds(requested));
-        bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(requested));
+        MediaTime preview = SlippableMedia.ClampSharedDelta(SlippableMedia.Collect(element, decoders: _decoders), Seconds(requested));
+        bool applied = new ElementSlipService(_harness.History, decoders: _decoders).Slip(_harness.Scene, [element], Seconds(requested));
         using var compositor = CreateCompositor(_harness.Scene);
         double plainPosition = Position(Videos(compositor.EvaluateGraphics(Seconds(length - 0.1)).Objects.Single()).Single());
         controller.IsEnabled.Value = true;
@@ -99,9 +99,9 @@ public class TrimDisabledFlowControllerTests
         var video = CreateVideo(5);
         Element element = AddElement(leftEdge ? 1 : 0, 3, video);
         var controller = AddDisabledController(element, offset: 1);
-        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        var constraints = SlippableMedia.CreateResizeConstraints(element, decoders: _decoders);
         MediaTime preview = leftEdge ? constraints.ClampStart(MediaTime.Zero) : constraints.ClampLength(Seconds(4.5));
-        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig).Resize(_harness.Scene,
+        new ElementResizeService(_harness.History, _testConfiguration.EditorConfig, decoders: _decoders).Resize(_harness.Scene,
             [new(element, MediaTime.Zero, Seconds(leftEdge ? 4 : 4.5), 0)]);
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = Videos(compositor.EvaluateGraphics(element.Range.End - Seconds(0.1)).Objects.Single()).Single();
@@ -115,7 +115,7 @@ public class TrimDisabledFlowControllerTests
             Assert.That(Position(resource), Is.EqualTo(leftEdge ? 3.9 : 4.4).Within(0.000001));
         });
         controller.IsEnabled.Value = true;
-        Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(4)));
+        Assert.That(SlippableMedia.GetOriginalDuration(element, decoders: _decoders), Is.EqualTo(Seconds(4)));
     }
 
     [TestCase(false)]
@@ -127,9 +127,9 @@ public class TrimDisabledFlowControllerTests
         var controller = AddDisabledController(front, offset: 1);
         Element? middle = slide ? _harness.AddElement(Seconds(3), Seconds(1)) : null;
         Element back = AddElement(slide ? 4 : 3, 4, CreateVideo(20));
-        var service = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig);
+        var service = new ElementResizeService(_harness.History, _testConfiguration.EditorConfig, decoders: _decoders);
         var pairs = new[] { new ElementTrimPair(front, back) };
-        MediaTime preview = ElementResizeService.CreateTrimConstraints(_harness.Scene, pairs, _testConfiguration.EditorConfig, middle == null ? null : [middle]).Clamp(Seconds(2));
+        MediaTime preview = ElementResizeService.CreateTrimConstraints(_harness.Scene, pairs, _testConfiguration.EditorConfig, middle == null ? null : [middle], decoders: _decoders).Clamp(Seconds(2));
         bool applied = slide
             ? service.Slide(_harness.Scene, [new(front, [middle!], back)], Seconds(2))
             : service.Roll(_harness.Scene, pairs, Seconds(2));
@@ -156,7 +156,7 @@ public class TrimDisabledFlowControllerTests
         var video = CreateVideo(10);
         element.Objects.Add(video);
 
-        Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(1)), Is.True);
+        Assert.That(new ElementSlipService(_harness.History, decoders: _decoders).Slip(_harness.Scene, [element], Seconds(1)), Is.True);
         Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
     }
 
@@ -173,8 +173,8 @@ public class TrimDisabledFlowControllerTests
         // While disabled, the final controller consumes the first video. Enabling
         // the earlier controller moves that first input to the end of Flow, so
         // the final controller consumes the second video instead.
-        MediaTime preview = SlippableMedia.ClampSharedDelta(SlippableMedia.Collect(element), Seconds(2));
-        bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(2));
+        MediaTime preview = SlippableMedia.ClampSharedDelta(SlippableMedia.Collect(element, decoders: _decoders), Seconds(2));
+        bool applied = new ElementSlipService(_harness.History, decoders: _decoders).Slip(_harness.Scene, [element], Seconds(2));
         disabled.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
         var frames = compositor.EvaluateGraphics(Seconds(1.9)).Objects.SelectMany(Videos).ToArray();
@@ -198,7 +198,7 @@ public class TrimDisabledFlowControllerTests
         var first = AddDisabledController(element, offset: 0.5);
         var second = AddDisabledController(element, offset: 0.5);
 
-        Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(2)), Is.True);
+        Assert.That(new ElementSlipService(_harness.History, decoders: _decoders).Slip(_harness.Scene, [element], Seconds(2)), Is.True);
         first.IsEnabled.Value = true;
         second.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
@@ -221,7 +221,7 @@ public class TrimDisabledFlowControllerTests
         element.Objects.Add(presenterFirst ? video : presenter);
         var controller = AddDisabledController(element, speed: 200);
 
-        Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(2)), Is.True);
+        Assert.That(new ElementSlipService(_harness.History, decoders: _decoders).Slip(_harness.Scene, [element], Seconds(2)), Is.True);
         controller.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
         var resources = compositor.EvaluateGraphics(Seconds(1.9)).Objects.SelectMany(Videos).ToArray();
@@ -249,7 +249,7 @@ public class TrimDisabledFlowControllerTests
         audio.Objects.Add(sound);
         int history = _harness.History.UndoCount;
 
-        Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element, audio], Seconds(2)), Is.True);
+        Assert.That(new ElementSlipService(_harness.History, decoders: _decoders).Slip(_harness.Scene, [element, audio], Seconds(2)), Is.True);
         Assert.Multiple(() =>
         {
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(Seconds(frozenVideo ? 0 : 0.5)));
@@ -281,7 +281,7 @@ public class TrimDisabledFlowControllerTests
         Element linkedElement = AddElement(5, 2, linked);
         int history = _harness.History.UndoCount;
 
-        Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [linkedElement, element], Seconds(1)), Is.False);
+        Assert.That(new ElementSlipService(_harness.History, decoders: _decoders).Slip(_harness.Scene, [linkedElement, element], Seconds(1)), Is.False);
         Assert.Multiple(() =>
         {
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
@@ -301,7 +301,7 @@ public class TrimDisabledFlowControllerTests
         if (!incomingFlow) element.Objects.Add(video);
         int history = _harness.History.UndoCount;
 
-        bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(1));
+        bool applied = new ElementSlipService(_harness.History, decoders: _decoders).Slip(_harness.Scene, [element], Seconds(1));
 
         Assert.Multiple(() =>
         {
@@ -315,71 +315,57 @@ public class TrimDisabledFlowControllerTests
     public void Collect_ReenableStatesOpenEachVideoAndAudioSourceOnlyOnce()
     {
         var decoder = new CountingDurationDecoder();
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            Uri videoUri = CreateCountingSourceFile(decoder, 10);
-            Uri audioUri = CreateCountingSourceFile(decoder, 8);
-            var videoSource = new VideoSource();
-            videoSource.ReadFrom(videoUri);
-            var audioSource = new SoundSource();
-            audioSource.ReadFrom(audioUri);
-            Element element = AddElement(0, 2, new SourceVideo { Source = { Value = videoSource } });
-            element.Objects.Add(new SourceSound { Source = { Value = audioSource } });
-            for (int i = 0; i < 7; i++) AddDisabledController(element, offset: 0.1);
+        _decoders.Register(decoder);
+        Uri videoUri = CreateCountingSourceFile(decoder, 10);
+        Uri audioUri = CreateCountingSourceFile(decoder, 8);
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(videoUri);
+        var audioSource = new SoundSource();
+        audioSource.ReadFrom(audioUri);
+        Element element = AddElement(0, 2, new SourceVideo { Source = { Value = videoSource } });
+        element.Objects.Add(new SourceSound { Source = { Value = audioSource } });
+        for (int i = 0; i < 7; i++) AddDisabledController(element, offset: 0.1);
 
-            var targets = SlippableMedia.Collect(element);
-            MediaTime clamped = SlippableMedia.ClampSharedDelta(targets, Seconds(15));
+        var targets = SlippableMedia.Collect(element, decoders: _decoders);
+        MediaTime clamped = SlippableMedia.ClampSharedDelta(targets, Seconds(15));
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(targets, Has.Count.EqualTo(2));
-                Assert.That(targets.Select(target => target.Total), Is.EquivalentTo(new[] { Seconds(10), Seconds(8) }));
-                Assert.That(clamped, Is.EqualTo(Seconds(6)));
-                Assert.That(decoder.Opens[videoUri.LocalPath], Is.EqualTo(1));
-                Assert.That(decoder.Opens[audioUri.LocalPath], Is.EqualTo(1));
-                Assert.That(decoder.Disposals, Is.EqualTo(2));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(targets, Has.Count.EqualTo(2));
+            Assert.That(targets.Select(target => target.Total), Is.EquivalentTo(new[] { Seconds(10), Seconds(8) }));
+            Assert.That(clamped, Is.EqualTo(Seconds(6)));
+            Assert.That(decoder.Opens[videoUri.LocalPath], Is.EqualTo(1));
+            Assert.That(decoder.Opens[audioUri.LocalPath], Is.EqualTo(1));
+            Assert.That(decoder.Disposals, Is.EqualTo(2));
+        });
     }
 
     [Test]
     public void Collect_DurationCacheIsLocalToTheOperationAndObservesSourceUriChanges()
     {
         var decoder = new CountingDurationDecoder();
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            Uri firstUri = CreateCountingSourceFile(decoder, 10);
-            Uri secondUri = CreateCountingSourceFile(decoder, 20);
-            var source = new VideoSource();
-            source.ReadFrom(firstUri);
-            Element element = AddElement(0, 2, new SourceVideo { Source = { Value = source } });
-            AddDisabledController(element);
+        _decoders.Register(decoder);
+        Uri firstUri = CreateCountingSourceFile(decoder, 10);
+        Uri secondUri = CreateCountingSourceFile(decoder, 20);
+        var source = new VideoSource();
+        source.ReadFrom(firstUri);
+        Element element = AddElement(0, 2, new SourceVideo { Source = { Value = source } });
+        AddDisabledController(element);
 
-            MediaTime? first = SlippableMedia.Collect(element).Single().Total;
-            MediaTime? repeated = SlippableMedia.Collect(element).Single().Total;
-            source.ReadFrom(secondUri);
-            MediaTime? changed = SlippableMedia.Collect(element).Single().Total;
+        MediaTime? first = SlippableMedia.Collect(element, decoders: _decoders).Single().Total;
+        MediaTime? repeated = SlippableMedia.Collect(element, decoders: _decoders).Single().Total;
+        source.ReadFrom(secondUri);
+        MediaTime? changed = SlippableMedia.Collect(element, decoders: _decoders).Single().Total;
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(first, Is.EqualTo(Seconds(10)));
-                Assert.That(repeated, Is.EqualTo(Seconds(10)));
-                Assert.That(changed, Is.EqualTo(Seconds(20)));
-                Assert.That(decoder.Opens[firstUri.LocalPath], Is.EqualTo(2));
-                Assert.That(decoder.Opens[secondUri.LocalPath], Is.EqualTo(1));
-                Assert.That(decoder.Disposals, Is.EqualTo(3));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(first, Is.EqualTo(Seconds(10)));
+            Assert.That(repeated, Is.EqualTo(Seconds(10)));
+            Assert.That(changed, Is.EqualTo(Seconds(20)));
+            Assert.That(decoder.Opens[firstUri.LocalPath], Is.EqualTo(2));
+            Assert.That(decoder.Opens[secondUri.LocalPath], Is.EqualTo(1));
+            Assert.That(decoder.Disposals, Is.EqualTo(3));
+        });
     }
 
     private Uri CreateCountingSourceFile(CountingDurationDecoder decoder, double seconds)

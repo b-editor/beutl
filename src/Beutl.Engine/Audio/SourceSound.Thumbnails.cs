@@ -5,6 +5,7 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Serialization;
 using Beutl.Threading;
 
@@ -51,7 +52,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
         IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default,
         int startIndex = 0,
-        int endIndex = -1)
+        int endIndex = -1, DecoderRegistry? decoders = null)
     {
         await Task.CompletedTask;
         yield break;
@@ -61,7 +62,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
         int chunkCount,
         int samplesPerChunk,
         IThumbnailCacheService? cacheService,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default, DecoderRegistry? decoders = null)
     {
         if (!await WaveformGate.TryEnterAsync(cancellationToken))
             yield break;
@@ -69,7 +70,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
         try
         {
             await foreach (var chunk in GetWaveformChunksCoreAsync(
-                               chunkCount, samplesPerChunk, cacheService, cancellationToken))
+                               chunkCount, samplesPerChunk, cacheService, cancellationToken, decoders))
             {
                 yield return chunk;
             }
@@ -84,10 +85,10 @@ public sealed partial class SourceSound : IThumbnailsProvider
         int chunkCount,
         int samplesPerChunk,
         IThumbnailCacheService? cacheService,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        [EnumeratorCancellation] CancellationToken cancellationToken, DecoderRegistry? decoders)
     {
         using var resource = await ComposeThread.Dispatcher.InvokeAsync(
-            () => ToResource(CompositionContext.Default), DispatchPriority.Low, cancellationToken);
+            () => ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders }), DispatchPriority.Low, cancellationToken);
         if (resource.Source == null)
             yield break;
 

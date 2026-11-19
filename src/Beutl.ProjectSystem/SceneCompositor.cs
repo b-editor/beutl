@@ -8,6 +8,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 
@@ -37,9 +38,10 @@ public sealed partial class SceneCompositor : ICompositor
     private readonly EditorConfig? _editorConfig;
     private readonly ProxyStoreConfig? _proxyConfig;
 
-    public SceneCompositor(Scene scene, FontManager? fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+    public SceneCompositor(Scene scene, FontManager? fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
     {
         Fonts = fonts;
+        Decoders = decoders;
         _editorConfig = editorConfig;
         _proxyConfig = proxyConfig;
         Scene = scene;
@@ -57,6 +59,8 @@ public sealed partial class SceneCompositor : ICompositor
     }
 
     public FontManager? Fonts { get; }
+
+    public DecoderRegistry? Decoders { get; }
 
     public Scene Scene { get; }
 
@@ -86,6 +90,7 @@ public sealed partial class SceneCompositor : ICompositor
             || field?.DisableResourceShare != context.DisableResourceShare
             || field?.ForceOriginalSource != forceOriginalSource
             || !ReferenceEquals(field?.Fonts, context.Fonts)
+            || !ReferenceEquals(field?.Decoders, context.Decoders)
             || !ReferenceEquals(field?._editorConfig, editorConfig)
             || !ReferenceEquals(field?._proxyConfig, proxyConfig))
         {
@@ -95,7 +100,7 @@ public sealed partial class SceneCompositor : ICompositor
 
         if (scene != null && field == null)
         {
-            field = new SceneCompositor(scene, context.Fonts, editorConfig, proxyConfig)
+            field = new SceneCompositor(scene, context.Fonts, editorConfig, proxyConfig, context.Decoders)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 ForceOriginalSource = forceOriginalSource,
@@ -124,6 +129,7 @@ public sealed partial class SceneCompositor : ICompositor
             Conditions = new CompositionConditions
             {
                 Fonts = compositor.Fonts,
+                Decoders = compositor.Decoders,
                 PreferProxy = !compositor.ForceOriginalSource
                     && (compositor._editorConfig?.PreviewSourceMode.Value ?? PreviewSourceMode.PreferProxy) == PreviewSourceMode.PreferProxy,
                 PreferredProxyPreset = ToPreset(compositor._proxyConfig?.DefaultPreset.Value ?? ProxyStoreConfig.DefaultPresetValue),

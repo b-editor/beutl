@@ -25,6 +25,8 @@ internal static partial class NativeTimelineTestHost
     [STAThread]
     public static int Main(string[] args)
     {
+        if (OperatingSystem.IsWindows() && args is ["--native-browser-download-methods"])
+            return NativeBrowserFrameTestHost.Run(args);
         if (args is ["--agent-host-instance", string directory, string name, string port])
             return AgentHostInstanceTestWorker.Run(directory, name, int.Parse(port, System.Globalization.CultureInfo.InvariantCulture));
 

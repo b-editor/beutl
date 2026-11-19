@@ -14,13 +14,14 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class SourceNodeTests
 {
+    private DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     [TestCase(-2000L, false)]
     [TestCase(2000L, true)]
     public void Process_ReportsUnavailableOffsetsWithoutChangingPlaybackFallback(long offset, bool failed)
     {
-        TestMediaHelper.RegisterTestDecoder();
         var source = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(192000, durationSeconds: 28800));
-        using var resource = source.ToResource(CompositionContext.Default);
+        using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         using var node = new SourceNode { Source = (resource, 0) };
         using var reads = new AudioReadScope();
         var range = new TimeRange(MediaTime.FromSamples(int.MaxValue + offset, 192000), MediaTime.FromSeconds(0.01));
@@ -190,17 +191,17 @@ public class SourceNodeTests
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.nativeaudio");
         var decoder = new BufferDecoder(path, reader);
         File.WriteAllBytes(path, []);
-        DecoderRegistry.Register(decoder);
+        var decoders = new DecoderRegistry(new());
+        decoders.Register(decoder);
         try
         {
             var source = SoundSource.Open(path);
-            using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { DisableResourceShare = true });
+            using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders, DisableResourceShare = true });
             Assert.That(resource.MediaReader, Is.SameAs(reader));
             body(resource);
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
             File.Delete(path);
         }
     }

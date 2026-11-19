@@ -54,7 +54,7 @@ public partial class MissingMediaTests
     {
         string path = Path.Combine(NewDirectory(), "image.png"); File.WriteAllBytes(path, s_png);
         var scene = new Scene(); AddImage(scene, path);
-        var service = new MissingMediaService(TestShell.FontManager); await service.UpdateFingerprintsAsync(scene);
+        var service = new MissingMediaService(TestShell.FontManager, TestShell.Decoders); await service.UpdateFingerprintsAsync(scene);
         string previous = scene.MediaFingerprints[new Uri(path).AbsoluteUri].Sha256;
         DateTime time = File.GetLastWriteTimeUtc(path);
         byte[] changed = s_png.ToArray(); changed[^1] ^= 1;
@@ -74,7 +74,7 @@ public partial class MissingMediaTests
         string directory = NewDirectory(); string path = Path.Combine(directory, "image.png");
         File.WriteAllBytes(path, s_png);
         var scene = new Scene(); AddImage(scene, path);
-        var service = new MissingMediaService(TestShell.FontManager);
+        var service = new MissingMediaService(TestShell.FontManager, TestShell.Decoders);
         Assert.That(await service.FindMissingAsync(scene, revalidateExisting: false), Is.Empty);
         // Native decoders need not honor .NET sharing flags on Unix. Changed
         // bytes exercise the cached check and explicit refresh on every platform.
@@ -99,13 +99,13 @@ public partial class MissingMediaTests
     public async Task A_check_decodes_a_file_again_only_after_it_changes()
     {
         var decoder = new RestoredMediaDecoder();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             string path = Path.Combine(NewDirectory(), "clip.relink-video");
             File.WriteAllText(path, "video");
             var scene = new Scene(); AddVideo(scene, path);
-            var service = new MissingMediaService(TestShell.FontManager);
+            var service = new MissingMediaService(TestShell.FontManager, TestShell.Decoders);
             Assert.That(await service.FindMissingAsync(scene), Is.Empty);
             Assert.That(await service.FindMissingAsync(scene), Is.Empty);
             Assert.That(decoder.OpenCount, Is.EqualTo(1));
@@ -115,7 +115,7 @@ public partial class MissingMediaTests
             File.Delete(path);
             Assert.That((await service.FindMissingAsync(scene)).Single().Name, Is.EqualTo("clip.relink-video"));
         }
-        finally { DecoderRegistry.Unregister(decoder); }
+        finally { TestShell.Decoders.Unregister(decoder); }
     }
 
     [AvaloniaTest]
@@ -123,7 +123,7 @@ public partial class MissingMediaTests
     {
         string path = Path.Combine(NewDirectory(), "image.png"); File.WriteAllBytes(path, s_png);
         var scene = new Scene(); AddImage(scene, path);
-        var service = new MissingMediaService(TestShell.FontManager);
+        var service = new MissingMediaService(TestShell.FontManager, TestShell.Decoders);
         Assert.That(await service.FindMissingAsync(scene), Is.Empty);
         if (OperatingSystem.IsWindows())
         {
@@ -153,7 +153,7 @@ public partial class MissingMediaTests
     {
         await TestReset.ResetShellAsync();
         var decoder = new RestoredMediaDecoder();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             var editor = await CreateEditorAsync();
@@ -179,7 +179,7 @@ public partial class MissingMediaTests
         finally
         {
             await TestReset.ResetShellAsync();
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
         }
     }
 
@@ -190,7 +190,7 @@ public partial class MissingMediaTests
     {
         await TestReset.ResetShellAsync();
         var decoder = new RestoredMediaDecoder { VideoOnly = fileLacksTheOtherKind };
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             var editor = await CreateEditorAsync();
@@ -232,7 +232,7 @@ public partial class MissingMediaTests
         finally
         {
             await TestReset.ResetShellAsync();
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
         }
     }
 
@@ -255,6 +255,7 @@ public partial class MissingMediaTests
             var context = TestShell.CreateEditorContextMock();
             context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
             context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+            context.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
             context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
             context.Setup(value => value.GetService(Moq.It.IsAny<Type>())).Returns((Type type)
                 => type == typeof(IProjectVersionControlCoordinator) ? session.Object : editor.GetService(type));
@@ -532,7 +533,7 @@ public partial class MissingMediaTests
         var source = new ModelSource(); source.ReadFrom(new Uri(path));
         var scene = new Scene(); var element = AddImage(scene, Path.Combine(directory, "unused.png"));
         element.Objects.Clear(); element.Objects.Add(new Model3D { Source = { Value = source } });
-        var service = new MissingMediaService(TestShell.FontManager); await service.UpdateFingerprintsAsync(scene);
+        var service = new MissingMediaService(TestShell.FontManager, TestShell.Decoders); await service.UpdateFingerprintsAsync(scene);
         Assert.That(scene.MediaFingerprints[new Uri(path).AbsoluteUri].Dependencies!.Keys, Does.Contain(missingFile));
         File.Delete(Path.Combine(directory, missingFile));
         source.ReadFrom(new Uri(path)); Assert.That(source.MeshCount, Is.EqualTo(1));

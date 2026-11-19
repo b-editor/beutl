@@ -44,7 +44,7 @@ public sealed class PackageCompatibilityTests
             new InstalledPackageRepository(),
             new ExtensionProvider(new Beutl.Configuration.ExtensionConfig()),
             new ContextCommandManager(new ContextCommandSettingsStore()),
-            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry().AddOwned<Beutl.Services.INotificationService>(() => new Beutl.Services.NotificationService()).Add<Beutl.Media.FontManager>(() => TestFonts.Manager), updateConfig: new Beutl.Configuration.UpdateConfig());
+            apiApplication: null!, services: new Beutl.Editor.Services.EditorServiceRegistry().AddOwned<Beutl.Services.INotificationService>(() => new Beutl.Services.NotificationService()).Add<Beutl.Media.FontManager>(() => TestFonts.Manager).AddOwned(() => new Beutl.Media.Decoding.DecoderRegistry(new())), updateConfig: new Beutl.Configuration.UpdateConfig());
         var package = new LocalPackage { Name = "MismatchedPlugin", InstalledPath = directory, SideLoad = true };
 
         PackageApiMismatchException exception = Assert.Throws<PackageApiMismatchException>(() => manager.Load(package))!;

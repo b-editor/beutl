@@ -78,14 +78,13 @@ public class ComposerTests
     [Test]
     public void Compose_SourceSoundWithNoAudioTrack_ReturnsSilenceInsteadOfThrowing()
     {
-        TestMediaHelper.RegisterTestDecoder();
         string videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
         var source = new SoundSource();
         source.ReadFrom(new Uri(videoPath));
         var sound = new SourceSound();
         sound.Source.Value = source;
 
-        using var resource = (SourceSound.Resource)sound.ToResource(CompositionContext.Default);
+        using var resource = (SourceSound.Resource)sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         var frame = new CompositionFrame(
             ImmutableArray.Create((EngineObject.Resource)resource),
@@ -128,13 +127,12 @@ public class ComposerTests
 
     private static float ComposeLoudPeak(bool clampsToFullScale)
     {
-        TestMediaHelper.RegisterTestDecoder();
         string path = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, channels: 2, durationSeconds: 1.0);
         var source = new SoundSource();
         source.ReadFrom(new Uri(path));
         var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         var sound = new SourceSound { Source = { Value = source }, TimeRange = { Value = range }, Gain = { Value = 1000f } };
-        using var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         var frame = new CompositionFrame(
             ImmutableArray.Create((EngineObject.Resource)resource), range, default, new CompositionEligibility([sound]));
         using var composer = new Composer { SampleRate = 44100, ClampsToFullScale = clampsToFullScale };

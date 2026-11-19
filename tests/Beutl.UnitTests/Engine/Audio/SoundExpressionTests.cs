@@ -17,9 +17,6 @@ public class SoundExpressionTests
 {
     private const int SampleRate = 44100;
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
-
     [Test]
     public void Gain_PlaysTheExpressionValue()
     {
@@ -90,7 +87,7 @@ public class SoundExpressionTests
         var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         var sound = new SourceSound { Source = { Value = source }, TimeRange = { Value = range } };
         configure(sound);
-        using var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         var frame = new CompositionFrame(
             ImmutableArray.Create((EngineObject.Resource)resource), range, default, new CompositionEligibility([sound]));
         using var composer = new Composer { SampleRate = SampleRate };

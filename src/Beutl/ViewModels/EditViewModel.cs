@@ -12,6 +12,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -66,7 +67,7 @@ public sealed partial class EditViewModel
         EditorService = editorService;
         SceneId = scene.Id.Value.ToString();
         _services = CreateServices();
-        _missingMediaDetector = new MissingMediaService(this.GetRequiredService<Beutl.Media.FontManager>());
+        _missingMediaDetector = new MissingMediaService(this.GetRequiredService<Beutl.Media.FontManager>(), this.GetRequiredService<DecoderRegistry>());
 
         _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
             .DisposeWith(_disposables);
@@ -98,7 +99,7 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables);
         Composer = scene.FrameSize.GetObservable().CombineLatest(channelLayout)
             .Select(t => new SceneComposer(Scene, this.GetRequiredService<Beutl.Media.FontManager>(), editorConfig: this.GetRequiredService<GlobalConfiguration>().EditorConfig,
-                proxyConfig: this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig)
+                proxyConfig: this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig, decoders: this.GetRequiredService<DecoderRegistry>())
             {
                 SampleRate = project.GetSampleRate(),
                 ChannelLayout = t.Second
@@ -230,7 +231,7 @@ public sealed partial class EditViewModel
             disableResourceShare: disableResourceShare,
             maxWorkingScale: WorkingScaleCeiling.Preview(scale),
             editorConfig: configuration.EditorConfig,
-            proxyConfig: configuration.ProxyStoreConfig);
+            proxyConfig: configuration.ProxyStoreConfig, decoders: this.GetRequiredService<DecoderRegistry>());
     }
 
     private IObservable<long> CreateFrameCacheMaxSize()

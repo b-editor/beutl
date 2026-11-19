@@ -484,7 +484,7 @@ public class ResamplingEffectTests
             sound.Effect.Value = effect;
 
         // Two seconds from the first.
-        using var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = Beutl.UnitTests.Engine.Graphics.Rendering.TestMediaHelper.CreateRegistry() });
         using var composer = new Composer { SampleRate = sampleRate };
         var range = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource),

@@ -18,6 +18,7 @@ public sealed record BrowserDownloadOffer
     /// <summary>
     /// The address of the file. A file a page script generated as a <c>blob:</c> or <c>data:</c> URL has no
     /// address that can be requested again, so this is the site credited with it.
+    /// Check <see cref="CanRequestAgain"/> before requesting this address again.
     /// </summary>
     public Uri Source { get; }
 
@@ -29,6 +30,18 @@ public sealed record BrowserDownloadOffer
 
     /// <summary>Whether a page script generated the file.</summary>
     public bool IsGenerated { get; }
+
+    /// <summary>
+    /// The method of the request that <see cref="Source"/> answered, such as GET or a form's POST, when the browser
+    /// knows it; <see langword="null"/> when it does not.
+    /// </summary>
+    public string? RequestMethod { get; init; }
+
+    /// <summary>
+    /// Whether requesting <see cref="Source"/> again returns the file. True only when the browser knows the file
+    /// answered a GET; false for a file a page script generated, a response to another method, or an unknown method.
+    /// </summary>
+    public bool CanRequestAgain => !IsGenerated && string.Equals(RequestMethod, "GET", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>

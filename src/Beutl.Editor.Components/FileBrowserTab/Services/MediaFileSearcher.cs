@@ -9,7 +9,7 @@ using Reactive.Bindings;
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 // プロジェクトディレクトリ内のメディアファイルを再帰的に検索する。
-internal sealed class MediaFileSearcher(ObjectTemplateService templates) : IDisposable
+internal sealed class MediaFileSearcher(FileThumbnailService thumbnails) : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<MediaFileSearcher>();
     private CancellationTokenSource? _searchCts;
@@ -63,7 +63,7 @@ internal sealed class MediaFileSearcher(ObjectTemplateService templates) : IDisp
                         return;
 
                     // A startup rescan keeps displayed results and selection while it runs.
-                    FileSystemEnumerator.RefreshCollection(templates, MediaFileItems, results.Select(path => (path, false)));
+                    FileSystemEnumerator.RefreshCollection(thumbnails, MediaFileItems, results.Select(path => (path, false)));
 
                     IsLoadingMediaFiles.Value = false;
                     HasNoMediaFiles.Value = MediaFileItems.Count == 0;
@@ -86,7 +86,7 @@ internal sealed class MediaFileSearcher(ObjectTemplateService templates) : IDisp
         }, token);
     }
 
-    private static void SearchRecursive(string directory, List<string> results, CancellationToken token, int maxCount)
+    private void SearchRecursive(string directory, List<string> results, CancellationToken token, int maxCount)
     {
         token.ThrowIfCancellationRequested();
 
@@ -100,7 +100,7 @@ internal sealed class MediaFileSearcher(ObjectTemplateService templates) : IDisp
 
                 // Hidden export files must not reach thumbnail or metadata decoders.
                 if (FileSystemEnumerator.IsVisible(file)
-                    && FileThumbnailService.Instance.IsMediaFile(file.FullName))
+                    && thumbnails.IsMediaFile(file.FullName))
                 {
                     results.Add(file.FullName);
                 }

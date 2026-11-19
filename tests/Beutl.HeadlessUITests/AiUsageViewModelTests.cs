@@ -18,7 +18,7 @@ public sealed class AiUsageViewModelTests
         await TestReset.ResetShellAsync();
         Beutl.Api.BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
         await using var viewModel = new AiVideoGenerationDialogViewModel(TestShell.Notifications,
-                clients.GetResource<IAiEntitlementService>(),
+                TestShell.Decoders, clients.GetResource<IAiEntitlementService>(),
                 clients.GetResource<IAiOperationAvailabilityService>(),
                 clients.GetResource<IAiModelCatalogService>(),
                 new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>(), new Beutl.Configuration.ViewConfig()),

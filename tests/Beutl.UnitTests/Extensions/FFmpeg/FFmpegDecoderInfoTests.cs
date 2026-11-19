@@ -5,6 +5,7 @@ using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Extensions.FFmpeg.Proxy;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
@@ -12,6 +13,8 @@ namespace Beutl.UnitTests.Extensions.FFmpeg;
 [NonParallelizable]
 public sealed class FFmpegDecoderInfoTests
 {
+    private DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     [TestCase("video.m4v")]
     [TestCase("VIDEO.M4V")]
     [TestCase("video.asf")]
@@ -23,16 +26,9 @@ public sealed class FFmpegDecoderInfoTests
     public void GuessDecoder_WindowsMediaFormats_IncludeFFmpegFallback(string file)
     {
         IDecoderInfo decoder = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            Assert.That(DecoderRegistry.GuessDecoder(file), Does.Contain(decoder),
-                "FFmpeg must remain a candidate when Media Foundation rejects a supported file extension.");
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
+        _decoders.Register(decoder);
+        Assert.That(_decoders.GuessDecoder(file), Does.Contain(decoder),
+            "FFmpeg must remain a candidate when Media Foundation rejects a supported file extension.");
     }
 
     // PackageManager.LoadExtension only instantiates [Export]-marked types, so without the attribute
@@ -101,7 +97,7 @@ public sealed class FFmpegDecoderInfoTests
             string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
             var store = new ProxyStore(Path.Combine(root, "proxies"));
-            var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService());
+            var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders: _decoders);
             string source = Path.Combine(root, "clip.mp4");
             File.WriteAllBytes(source, new byte[64]);
             // Fingerprint from the file itself so it matches the generator's pre-encode re-stat;
@@ -135,30 +131,23 @@ public sealed class FFmpegDecoderInfoTests
     public async Task ProxyGenerator_ReadsTheSourceAsBackgroundWork()
     {
         var decoder = new RecordingDecoderInfo();
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(root);
-            var generator = new FFmpegProxyGenerator(new ProxyStore(Path.Combine(root, "proxies")), new Beutl.Services.NotificationService());
-            string source = Path.Combine(root, "clip" + RecordingDecoderInfo.Extension);
-            File.WriteAllBytes(source, new byte[64]);
-            var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
+        _decoders.Register(decoder);
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var generator = new FFmpegProxyGenerator(new ProxyStore(Path.Combine(root, "proxies")), new Beutl.Services.NotificationService(), decoders: _decoders);
+        string source = Path.Combine(root, "clip" + RecordingDecoderInfo.Extension);
+        File.WriteAllBytes(source, new byte[64]);
+        var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
-            // The decoder opens nothing, so generation fails after the open and the audio probe that follows it.
-            await Assert.CatchAsync(() => generator.GenerateAsync(job).AsTask());
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    decoder.Requests.Select(options => options.StreamsToLoad),
-                    Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
-                Assert.That(decoder.Requests.Select(options => options.IsBackground), Is.All.True);
-            });
-        }
-        finally
+        // The decoder opens nothing, so generation fails after the open and the audio probe that follows it.
+        await Assert.CatchAsync(() => generator.GenerateAsync(job).AsTask());
+        Assert.Multiple(() =>
         {
-            DecoderRegistry.Unregister(decoder);
-        }
+            Assert.That(
+                decoder.Requests.Select(options => options.StreamsToLoad),
+                Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
+            Assert.That(decoder.Requests.Select(options => options.IsBackground), Is.All.True);
+        });
     }
 
     private sealed class RecordingDecoderInfo : IDecoderInfo

@@ -1,4 +1,5 @@
 ﻿using Beutl.Media;
+using Beutl.Media.Decoding;
 
 namespace Beutl.Engine;
 
@@ -21,13 +22,13 @@ public interface IThumbnailsProvider
         IThumbnailCacheService? cacheService = null,
         CancellationToken cancellationToken = default,
         int startIndex = 0,
-        int endIndex = -1);
+        int endIndex = -1, DecoderRegistry? decoders = null);
 
     IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
         int chunkCount,
         int samplesPerChunk,
         IThumbnailCacheService? cacheService,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, DecoderRegistry? decoders = null);
 }
 
 public readonly record struct WaveformChunk(int Index, float MinValue, float MaxValue);

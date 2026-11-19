@@ -10,9 +10,6 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class SourceSoundThumbnailTests
 {
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
-
     [Test]
     public void CacheKey_IncludesChannelAssignmentsAndRestoresForAuto()
     {
@@ -129,7 +126,7 @@ public class SourceSoundThumbnailTests
             Source = { Value = soundSource }
         };
 
-        bool result = sound.TryGetOriginalDuration(out MediaTime duration);
+        bool result = sound.TryGetOriginalDuration(out MediaTime duration, decoders: TestMediaHelper.CreateRegistry());
 
         Assert.That(result, Is.False,
             "音声トラックのないソースは元の長さを持たない (#2183)");
@@ -140,7 +137,7 @@ public class SourceSoundThumbnailTests
         SourceSound sound, int chunkCount, int samplesPerChunk, IThumbnailCacheService cache)
     {
         var chunks = new List<WaveformChunk>();
-        await foreach (var chunk in sound.GetWaveformChunksAsync(chunkCount, samplesPerChunk, cache))
+        await foreach (var chunk in sound.GetWaveformChunksAsync(chunkCount, samplesPerChunk, cache, decoders: TestMediaHelper.CreateRegistry()))
             chunks.Add(chunk);
         return chunks;
     }

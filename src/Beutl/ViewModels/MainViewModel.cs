@@ -16,6 +16,7 @@ using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Services.PrimitiveImpls;
@@ -103,7 +104,7 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.GetResource<IAiTranscriptionService>(),
             CreateGenerativeModelCatalog,
             CreateGenerativeNodeExecutor,
-            _beutlClients.GetResource<IAiModelCatalogService>()));
+            _beutlClients.GetResource<IAiModelCatalogService>(), appServices.GetRequiredService<DecoderRegistry>()));
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestKeyMap(Path.Combine(
@@ -260,7 +261,7 @@ public sealed partial class MainViewModel : BasePageViewModel
                 throw new IOException(MessageStrings.FileSaveException);
 
             // Keep the saved graph and its files stable while the package service copies them.
-            result = await ProjectPackageService.Current.ExportAsync(project, _projectService.Fonts, outputPath, progress, cancellationToken);
+            result = await ProjectPackageService.Current.ExportAsync(project, _projectService.Fonts, AppServices.GetRequiredService<DecoderRegistry>(), outputPath, progress, cancellationToken);
         });
         return result;
     }

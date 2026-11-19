@@ -53,7 +53,7 @@ public class SilenceSplitTabTests
         var element = new Element { Length = { Value = referenced.Duration.Value } };
         element.Objects.Add(new SoundGroup { Children = { new SoundGroup { Children = { sound } } } });
         scene.Children.Add(element);
-        using var model = new SilenceSplitViewModel(TestShell.FontManager, scene, element, editor.HistoryManager, TestShell.Configuration.EditorConfig);
+        using var model = new SilenceSplitViewModel(TestShell.FontManager, scene, element, editor.HistoryManager, TestShell.Configuration.EditorConfig, decoders: TestShell.Decoders);
 
         Assert.That(SilenceSplitViewModel.CanAnalyze(scene, element), Is.True);
         await model.AnalyzeAsync();
@@ -97,8 +97,8 @@ public class SilenceSplitTabTests
             if (!openedOnUi && !release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
             return null;
         });
-        DecoderRegistry.Register(decoder.Object);
-        using var model = new SilenceSplitViewModel(TestShell.FontManager, scene, element, editor.HistoryManager, TestShell.Configuration.EditorConfig);
+        TestShell.Decoders.Register(decoder.Object);
+        using var model = new SilenceSplitViewModel(TestShell.FontManager, scene, element, editor.HistoryManager, TestShell.Configuration.EditorConfig, decoders: TestShell.Decoders);
         Task analysis = model.AnalyzeAsync();
         try
         {
@@ -114,7 +114,7 @@ public class SilenceSplitTabTests
         {
             release.Set();
             await analysis;
-            DecoderRegistry.Unregister(decoder.Object);
+            TestShell.Decoders.Unregister(decoder.Object);
         }
     }
 
@@ -159,7 +159,7 @@ public class SilenceSplitTabTests
             if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
             return null;
         });
-        DecoderRegistry.Register(decoder.Object);
+        TestShell.Decoders.Register(decoder.Object);
         applyingContext.Value = true;
         Task applying = tab.ApplyAsync();
         applyingContext.Value = false;
@@ -180,7 +180,7 @@ public class SilenceSplitTabTests
         {
             release.Set();
             await applying;
-            DecoderRegistry.Unregister(decoder.Object);
+            TestShell.Decoders.Unregister(decoder.Object);
         }
     }
 
@@ -331,13 +331,13 @@ public class SilenceSplitTabTests
             if (!openedOnUi && !release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
             return null;
         });
-        DecoderRegistry.Register(decoder.Object);
+        TestShell.Decoders.Register(decoder.Object);
         using var cancellation = new CancellationTokenSource();
         IDisposable? pendingMutation = null;
         Task<bool>? applying = null;
         try
         {
-            applying = new SilenceSplitService(editor.HistoryManager, TestShell.Configuration.EditorConfig).ApplyAsync(scene, audio,
+            applying = new SilenceSplitService(editor.HistoryManager, TestShell.Configuration.EditorConfig, decoders: TestShell.Decoders).ApplyAsync(scene, audio,
                 [new(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1))], SilenceSplitMode.RippleDelete, true, cancellation.Token);
             await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.That(openedOnUi, Is.False, "source metadata and fragment preparation belong to the worker");
@@ -374,7 +374,7 @@ public class SilenceSplitTabTests
         {
             release.Set();
             if (applying != null) { try { await applying; } catch (OperationCanceledException) { } }
-            DecoderRegistry.Unregister(decoder.Object);
+            TestShell.Decoders.Unregister(decoder.Object);
             pendingMutation?.Dispose();
         }
     }
@@ -406,7 +406,7 @@ public class SilenceSplitTabTests
                 MediaTime.FromSeconds(3 + i * 2.5), MediaTime.FromSeconds(4 + i * 2.5))).ToArray();
             int undoCount = editor.HistoryManager.UndoCount;
             var watch = Stopwatch.StartNew();
-            await new SilenceSplitService(editor.HistoryManager, TestShell.Configuration.EditorConfig).ApplyAsync(scene, original[0], ranges, SilenceSplitMode.RippleDelete, true);
+            await new SilenceSplitService(editor.HistoryManager, TestShell.Configuration.EditorConfig, decoders: TestShell.Decoders).ApplyAsync(scene, original[0], ranges, SilenceSplitMode.RippleDelete, true);
             TestContext.Out.WriteLine($"Apply with open timeline / {silenceCount} silences / linked audio + video: {watch.Elapsed.TotalSeconds:F2} s");
             HeadlessTestHelpers.Render();
             using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None)) { }
@@ -941,7 +941,7 @@ public class SilenceSplitTabTests
         public CoreObject Object => scene;
         public EditorExtension Extension => null!;
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-        public object? GetService(Type type) => type == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : type == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : type == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : type == typeof(Scene) ? scene : type == typeof(HistoryManager) ? history
+        public object? GetService(Type type) => type == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : type == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : type == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : type == typeof(Beutl.Configuration.GlobalConfiguration) ? TestShell.Configuration : type == typeof(Scene) ? scene : type == typeof(HistoryManager) ? history
             : type == typeof(IPreviewPlayer) ? player : type == typeof(IEditorClock) ? Clock : null;
         public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
         public T? FindToolTab<T>() where T : IToolContext => default;

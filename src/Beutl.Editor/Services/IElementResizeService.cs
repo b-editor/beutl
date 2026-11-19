@@ -1,4 +1,5 @@
-﻿using Beutl.ProjectSystem;
+﻿using Beutl.Media.Decoding;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
@@ -23,6 +24,8 @@ namespace Beutl.Editor.Services;
 /// </summary>
 public interface IElementResizeService
 {
+    protected DecoderRegistry? Decoders => null;
+
     void Resize(Scene scene, IReadOnlyList<ElementResizeRequest> requests, bool ripple = false);
 
     /// <summary>
@@ -36,7 +39,7 @@ public interface IElementResizeService
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(element);
         if (scene.IsElementLocked(element)
-            || SlippableMedia.GetOriginalDuration(element) is not { } originalDuration)
+            || SlippableMedia.GetOriginalDuration(element, Decoders) is not { } originalDuration)
         {
             return false;
         }

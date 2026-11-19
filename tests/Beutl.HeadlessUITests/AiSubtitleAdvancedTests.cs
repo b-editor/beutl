@@ -736,7 +736,7 @@ public sealed class AiSubtitleAdvancedTests
         BeutlApiApplication clients,
         ICaptionDraftStore? draftStore = null,
         IObservable<CaptionDraftScope?>? scopes = null)
-        => new(TestShell.Notifications, TestShell.FontManager,
+        => new(TestShell.Notifications, TestShell.FontManager, TestShell.Decoders,
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
@@ -750,7 +750,7 @@ public sealed class AiSubtitleAdvancedTests
     private static AiSubtitleDialogViewModel CreateTeardownViewModel(
         string directory,
         IAiCaptionTranslationService? translation = null)
-        => new(TestShell.Notifications, TestShell.FontManager,
+        => new(TestShell.Notifications, TestShell.FontManager, TestShell.Decoders,
             new SubtitleStubEntitlements(),
             new SubtitleStubAvailability(),
             new SubtitleStubModelCatalog(),

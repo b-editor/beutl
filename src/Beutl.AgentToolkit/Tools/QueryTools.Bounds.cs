@@ -51,7 +51,7 @@ public sealed partial class QueryTools
         // Auxiliary graph nodes (Measure / Preview) evaluate their own subtree during ToResource, before any
         // render request exists, and a bounds-unknown effect leaves them nothing finite to resolve against.
         // The frame is the domain the measurement itself composes into, so seed it the way SceneCompositor does.
-        var context = new CompositionContext(absoluteTime) { Fonts = fonts, TargetDomain = new Rect(default, canvasSize) };
+        var context = new CompositionContext(absoluteTime) { Fonts = fonts, Decoders = decoders, TargetDomain = new Rect(default, canvasSize) };
         var measurements = new List<ObjectBoundsMeasurement>();
         foreach (Element element in scene.Children)
         {

@@ -20,7 +20,7 @@ public class AVFDecodingExtension : DecodingExtension
     {
         if (OperatingSystem.IsMacOS())
         {
-            DecoderRegistry.Register(GetDecoderInfo());
+            base.Load(context);
         }
     }
 }

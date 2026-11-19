@@ -1,4 +1,5 @@
 ﻿using Beutl.Editor;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -34,7 +35,7 @@ public sealed partial class EditViewModel
     {
         if (_fingerprintCaptureTask.IsCompleted)
             _fingerprintCaptureTask = CaptureMediaFingerprints?.Invoke(scene, _autoSaveCancellation.Token)
-                ?? new MissingMediaService(this.GetRequiredService<Beutl.Media.FontManager>()).UpdateFingerprintsAsync(scene, _mediaReferences, _autoSaveCancellation.Token, force,
+                ?? new MissingMediaService(this.GetRequiredService<Beutl.Media.FontManager>(), this.GetRequiredService<DecoderRegistry>()).UpdateFingerprintsAsync(scene, _mediaReferences, _autoSaveCancellation.Token, force,
                     cacheHashes: true);
         return _fingerprintCaptureTask;
     }

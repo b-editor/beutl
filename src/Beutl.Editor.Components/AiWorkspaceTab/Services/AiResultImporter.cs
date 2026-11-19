@@ -27,11 +27,13 @@ internal sealed class AiResultImporter
     public AiResultImporter(
         Scene scene,
         IElementAdder elementAdder,
+        DecoderRegistry? decoders,
         Func<string, CancellationToken, Task>? validateVideo = null)
     {
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _elementAdder = elementAdder ?? throw new ArgumentNullException(nameof(elementAdder));
-        _validateVideo = validateVideo ?? ValidateVideoAsync;
+        _validateVideo = validateVideo ?? ((path, token) => ValidateVideoAsync(path, token,
+            decoders ?? throw new InvalidOperationException("Opening video requires a decoder registry.")));
     }
 
     public async Task<ElementAddResult> ImportImageAsync(
@@ -104,7 +106,7 @@ internal sealed class AiResultImporter
         }
     }
 
-    private static Task ValidateVideoAsync(string path, CancellationToken cancellationToken)
+    private static Task ValidateVideoAsync(string path, CancellationToken cancellationToken, DecoderRegistry decoders)
     {
         ValidateVideoContainerSignature(path);
         return Task.Run(() =>
@@ -114,7 +116,7 @@ internal sealed class AiResultImporter
             {
                 using MediaReader reader = MediaReader.Open(
                     path,
-                    new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
+                    new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true }, decoders);
                 Ref<Bitmap>? firstFrame = null;
                 try
                 {

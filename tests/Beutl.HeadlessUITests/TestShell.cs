@@ -4,6 +4,7 @@ using Beutl.Api.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -21,6 +22,10 @@ internal static class TestShell
 
     public static Beutl.Configuration.GlobalConfiguration Configuration => ((TestApp)Application.Current!).Configuration;
 
+    public static DecoderRegistry Decoders => ((TestApp)Application.Current!).Decoders;
+
+    public static Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService Thumbnails => (Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService)MainViewModel.AppServices.GetService(typeof(Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService))!;
+
     public static Beutl.Media.FontManager FontManager => ((TestApp)Application.Current!).Fonts;
 
     public static NotificationCapture Notifications => ((TestApp)Application.Current!).Notifications;
@@ -37,14 +42,31 @@ internal static class TestShell
 
     public static ExtensionProvider Extensions => MainViewModel.ExtensionProvider;
 
+    public static void EnsureDecoder<T>() where T : IDecoderInfo, new()
+    {
+        var decoders = Decoders;
+        lock (decoders.RegistrationLock)
+        {
+            if (!decoders.EnumerateDecoder().OfType<T>().Any())
+                decoders.Register(new T());
+        }
+    }
+
+    public static EditorServiceRegistry CreateEditorServices() => new EditorServiceRegistry()
+        .Add<INotificationService>(() => Notifications)
+        .Add(() => FontManager)
+        .Add(() => Decoders);
+
     public static Moq.Mock<IEditorContext> CreateEditorContextMock()
     {
         var context = new Moq.Mock<IEditorContext>();
         context.Setup(x => x.GetService(typeof(INotificationService))).Returns(Notifications);
         context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(Configuration);
         context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(FontManager);
+        context.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
         context.Setup(x => x.GetService(typeof(Beutl.Services.LibraryService))).Returns(Library);
         context.Setup(x => x.GetService(typeof(ObjectTemplateService))).Returns(Templates);
+        context.Setup(x => x.GetService(typeof(Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService))).Returns(Thumbnails);
         return context;
     }
 

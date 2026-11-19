@@ -37,11 +37,14 @@ public sealed class MissingMediaService
     // Each file as it last decoded, so that a check of a file that has not changed since does not decode it again.
     private readonly ConcurrentDictionary<(MissingMediaKind Kind, string Path), (long Length, long LastWriteTicks)> _decoded = new();
 
-    public MissingMediaService(FontManager fonts) : this(fonts.IsRegistered) { }
+    private readonly DecoderRegistry _decoders;
 
-    internal MissingMediaService(Func<FontFamily, bool> fontExists, Func<string, IEnumerable<string>>? enumerateEntries = null)
+    public MissingMediaService(FontManager fonts, DecoderRegistry decoders) : this(fonts.IsRegistered, decoders) { }
+
+    internal MissingMediaService(Func<FontFamily, bool> fontExists, DecoderRegistry decoders, Func<string, IEnumerable<string>>? enumerateEntries = null)
     {
         _fontExists = fontExists;
+        _decoders = decoders;
         _enumerateEntries = enumerateEntries ?? (directory => Directory.EnumerateFileSystemEntries(directory, "*", new EnumerationOptions
         {
             IgnoreInaccessible = true,
@@ -379,7 +382,7 @@ public sealed class MissingMediaService
                     break;
                 case MissingMediaKind.Video:
                 case MissingMediaKind.Sound:
-                    using (var reader = MediaReader.Open(path, new MediaOptions(item.Kind == MissingMediaKind.Video ? MediaMode.Video : MediaMode.Audio)))
+                    using (var reader = MediaReader.Open(path, new MediaOptions(item.Kind == MissingMediaKind.Video ? MediaMode.Video : MediaMode.Audio), _decoders))
                         if (item.Kind == MissingMediaKind.Video ? !reader.HasVideo : !reader.HasAudio)
                             throw new InvalidDataException("The file does not contain the required media stream.");
                     break;

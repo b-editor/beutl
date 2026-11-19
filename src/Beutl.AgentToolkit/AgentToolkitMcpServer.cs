@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Configuration;
 using Beutl.Extensibility;
+using Beutl.Media.Decoding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
@@ -25,12 +26,12 @@ public static class AgentToolkitMcpServer
         ArgumentException.ThrowIfNullOrWhiteSpace(profileDirectory);
 
         var configuration = new GlobalConfiguration();
-        Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
+        var decoders = new DecoderRegistry(configuration.ExtensionConfig);
         var fonts = new Beutl.Media.FontManager(configuration.FontConfig);
 
         // Without the decoders the app registers at startup, every video, sound and animated image
         // would render as offline media and analyze_audio_rhythm could not open any file.
-        DecoderRegistration.EnsureRegistered();
+        DecoderRegistration.EnsureRegistered(decoders);
         // Without the app's fallback fonts, CJK and emoji in a font that lacks them would render as boxes.
         BundledFontRegistration.EnsureRegistered(fonts);
         // The app registers its built-in nodes at startup; without them list_node_types and edit_node_graph know none.
@@ -39,6 +40,7 @@ public static class AgentToolkitMcpServer
         services
             .AddSingleton(configuration)
             .AddSingleton(fonts)
+            .AddSingleton(decoders)
             .AddSingleton(_ => TypeRegistration.CreateLibraryService())
             .AddSingleton<SchemaGenerator>()
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)

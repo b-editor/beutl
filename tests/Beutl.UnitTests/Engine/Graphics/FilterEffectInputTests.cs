@@ -18,13 +18,15 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [TestFixture]
 public class FilterEffectInputTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     [Test]
     public void SamplesAreIndependentAndSameTimeIsReusedWithinTheFrame()
     {
         RectShape shape = Rectangle();
         var effect = new SampleInputEffect();
         shape.FilterEffect.Value = effect;
-        var clock = new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) };
+        var clock = new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) };
         using var source = shape.ToResource(clock);
         var prepared = (SampleInputEffect.Resource)source.FilterEffect!;
         Assert.Multiple(() =>
@@ -45,7 +47,6 @@ public class FilterEffectInputTests
     [TestCase("decorator")]
     public void ConsumedFlowAndControllerTimeMappingAreReplayed(string kind)
     {
-        TestMediaHelper.RegisterTestDecoder();
         var media = new VideoSource();
         media.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(16, 16, new(30, 1), 300)));
         var video = new SourceVideo { Source = { Value = media } };
@@ -58,12 +59,12 @@ public class FilterEffectInputTests
         };
         owner.FilterEffect.Value = new SampleInputEffect();
         var scene = ReferenceEquals(owner, controller) ? SceneWith(video, controller) : SceneWith(video, controller, owner);
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
         var source = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1)).Objects.OfType<Drawable.Resource>().Single();
         var samples = ((SampleInputEffect.Resource)source.FilterEffect!).Samples;
         Assert.That(samples.Select(s => Video(s.Resource!).RequestedPosition.ToSeconds()),
             Is.EqualTo(new[] { 1.8125, 1.9375, 2.0625, 2.1875 }).Within(0.000001));
-        using var independent = new SceneCompositor(scene, TestFonts.Manager);
+        using var independent = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders);
         independent.EvaluateGraphics(Seconds(2));
         Assert.That(Video(samples[0].Resource!).RequestedPosition, Is.EqualTo(Seconds(1.8125)));
 
@@ -101,7 +102,7 @@ public class FilterEffectInputTests
             "child" => SceneWith(group, controller),
             _ => SceneWith(shape, controller),
         };
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders);
         var frame = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
         var target = ((DrawableTimeController.Resource)frame.Objects.OfType<Drawable.Resource>().Single()).Target!;
         if (target is DrawableGroup.Resource children) target = children.Children.Single();
@@ -116,7 +117,7 @@ public class FilterEffectInputTests
     {
         var shape = Rectangle();
         shape.FilterEffect.Value = new SampleInputEffect();
-        var context = new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) };
+        var context = new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) };
         using var source = shape.ToResource(context);
         var old = ((SampleInputEffect.Resource)source.FilterEffect!).Samples.ToArray();
         int version = source.Version;
@@ -136,11 +137,11 @@ public class FilterEffectInputTests
         var shape = Rectangle();
         var effect = new SampleInputEffect();
         shape.FilterEffect.Value = effect;
-        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
+        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
         var first = Samples().ToArray();
         var resources = first.Select(s => s.Resource!).ToArray();
 
-        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
         Assert.Multiple(() =>
         {
             Assert.That(first.All(s => s.IsDisposed), Is.True);
@@ -151,7 +152,7 @@ public class FilterEffectInputTests
         });
 
         effect.Offsets = [-0.125, 0.125];
-        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
         Assert.Multiple(() =>
         {
             Assert.That(Samples()[0].Resource, Is.SameAs(resources[1]));
@@ -161,7 +162,7 @@ public class FilterEffectInputTests
         });
 
         shape.FilterEffect.Value = null;
-        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
         Assert.That(resources.All(r => r.IsDisposed), Is.True);
 
         List<FilterEffectInputSample> Samples() => ((SampleInputEffect.Resource)source.FilterEffect!).Samples;
@@ -170,12 +171,11 @@ public class FilterEffectInputTests
     [Test]
     public void VideoSamplesKeepTheirReadersAcrossFrames()
     {
-        TestMediaHelper.RegisterTestDecoder();
         var media = new VideoSource();
         media.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(16, 16, new(30, 1), 300)));
         var video = new SourceVideo { Source = { Value = media } };
         video.FilterEffect.Value = new SampleInputEffect();
-        using var compositor = new SceneCompositor(SceneWith(video), TestFonts.Manager) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(SceneWith(video), TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
         var rate = new Rational(30, 1);
         MediaReader?[] first = Readers(Seconds(1));
         MediaReader?[] next = Readers(Seconds(1) + MediaTime.FromFrames(1, rate));
@@ -204,11 +204,11 @@ public class FilterEffectInputTests
         chain.Children.Add(new SampleInputEffect { UseSamples = false, AfterDispose = () => disposed++ });
         chain.Children.Add(new SampleInputEffect());
         shape.FilterEffect.Value = chain;
-        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
-        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
+        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
         Assert.That(disposed, Is.Zero, "sample prefixes are reconciled rather than rebuilt");
         chain.Children.RemoveAt(0);
-        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
         Assert.That(disposed, Is.EqualTo(5), "the current chain and every sample prefix release the removed effect");
     }
 
@@ -243,7 +243,7 @@ public class FilterEffectInputTests
         group.Children.Add(new FilterEffectPresenter { Target = { Value = effect } });
         group.Children.Add(new Invert());
         shape.FilterEffect.Value = group;
-        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager });
+        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager });
         var current = (SampleInputEffect.Resource)((FilterEffectPresenter.Resource)((FilterEffectGroup.Resource)source.FilterEffect!).Children[1]).Target!;
         var first = (SampleInputEffect.Resource)((FilterEffectGroup.Resource)current.Samples[0].Resource!.FilterEffect!).Children.Single();
         Assert.That(first.Samples, Has.Count.EqualTo(1));
@@ -290,6 +290,7 @@ public class FilterEffectInputTests
         shape.FilterEffect.Value = effect;
         var context = new CompositionContext(Seconds(1))
         {
+            Decoders = _decoders,
             Fonts = TestFonts.Manager,
             PreferProxy = true,
             PreferredProxyPreset = ProxyPreset.Half,
@@ -324,7 +325,7 @@ public class FilterEffectInputTests
         var shape = Rectangle();
         shape.FilterEffect.Value = new SampleInputEffect();
         var nested = new SceneDrawable { ReferencedScene = { Value = SceneWith(shape) } };
-        using var compositor = new SceneCompositor(SceneWith(nested), TestFonts.Manager);
+        using var compositor = new SceneCompositor(SceneWith(nested), TestFonts.Manager, decoders: _decoders);
         var frame = compositor.EvaluateGraphics(MediaTime.Zero, new Rational(120, 1));
         var scene = (SceneDrawable.Resource)frame.Objects.OfType<Drawable.Resource>().Single();
         var source = scene.Frame!.Value.Objects.OfType<Drawable.Resource>().Single();
@@ -352,7 +353,7 @@ public class FilterEffectInputTests
         }
         });
         shape.FilterEffect.Value = chain;
-        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
+        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) });
         Assert.That((prefix, boundary, suffix), Is.EqualTo((5, 1, 1)));
     }
 
@@ -374,7 +375,7 @@ public class FilterEffectInputTests
         });
         chain.Children.Add(new SampleInputEffect());
         shape.FilterEffect.Value = chain;
-        Assert.That(() => shape.ToResource(new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager }),
+        Assert.That(() => shape.ToResource(new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager }),
             Throws.InvalidOperationException.With.Message.EqualTo("sample failure"));
         Assert.That(created, Is.EqualTo(2));
         Assert.That(disposed, Is.EqualTo(created));
@@ -389,8 +390,8 @@ public class FilterEffectInputTests
         Scene snapshot = SceneSnapshot.Create(live);
         shape.Width.SetKeyFrameAnimation(null);
         shape.Width.Value = 80;
-        using var export = new SceneCompositor(snapshot, TestFonts.Manager) { DisableResourceShare = true, ForceOriginalSource = true };
-        using var preview = new SceneCompositor(live, TestFonts.Manager);
+        using var export = new SceneCompositor(snapshot, TestFonts.Manager, decoders: _decoders) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var preview = new SceneCompositor(live, TestFonts.Manager, decoders: _decoders);
         var saved = export.EvaluateGraphics(Seconds(1), new Rational(2, 1)).Objects.OfType<Drawable.Resource>().Single();
         var edited = preview.EvaluateGraphics(Seconds(1), new Rational(2, 1)).Objects.OfType<Drawable.Resource>().Single();
         float Width(Drawable.Resource source) => ((RectShape.Resource)((SampleInputEffect.Resource)source.FilterEffect!).Samples[0].Resource!).Width;

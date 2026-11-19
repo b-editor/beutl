@@ -368,7 +368,7 @@ public class TimeStretchEffectTests
                 Source = { Value = source },
                 Effect = { Value = effect }
             };
-            using var resource = sound.ToResource(CompositionContext.Default);
+            using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = Beutl.UnitTests.Engine.Graphics.Rendering.TestMediaHelper.CreateRegistry() });
             using var composer = new Composer { SampleRate = outputRate };
             var range = new TimeRange(sound.Start, MediaTime.FromSeconds(1));
             var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource),
@@ -402,7 +402,7 @@ public class TimeStretchEffectTests
                 Effect = { Value = effect },
                 Gain = { Value = 75f }
             };
-            using var resource = sound.ToResource(CompositionContext.Default);
+            using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = Beutl.UnitTests.Engine.Graphics.Rendering.TestMediaHelper.CreateRegistry() });
             using var composer = new Composer { SampleRate = outputRate };
             var range = sound.TimeRange.Value;
             var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource),

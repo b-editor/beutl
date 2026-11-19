@@ -8,13 +8,17 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
 [TestFixture]
 public class MultichannelEngineTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private const int Rate = 44100;
     private static readonly TimeRange s_window = new(MediaTime.Zero, MediaTime.FromSeconds(0.1));
 
@@ -27,7 +31,7 @@ public class MultichannelEngineTests
     private static AudioBuffer Compose(Sound sound, Composer composer, TimeRange? range = null)
     {
         TimeRange window = range ?? s_window;
-        using var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
         var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), window,
             default, new CompositionEligibility([sound]));
         return composer.Compose(window, frame)!;
@@ -48,7 +52,7 @@ public class MultichannelEngineTests
                     var sound = Sound(source);
                     sound.Speed.Value = speed;
                     using var context = new AudioContext(Rate, AudioChannelLayout.Stereo);
-                    using var resource = sound.ToResource(CompositionContext.Default);
+                    using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
                     sound.Compose(context, resource);
                     Assert.That(context.Nodes.OfType<SourceNode>().Single().ClipLayout.ChannelCount, Is.EqualTo(channels));
                     Assert.That(context.Nodes.OfType<SpeedNode>().Single().ChannelCount, Is.EqualTo(channels));
@@ -142,7 +146,7 @@ public class MultichannelEngineTests
                 };
                 sound = new SoundGroup { Children = { first, second }, TimeRange = { Value = first.TimeRange.Value } };
             }
-            using var resource = sound.ToResource(CompositionContext.Default);
+            using var resource = sound.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
             var eligibility = new CompositionEligibility([sound]);
             using var composer = new Composer { SampleRate = Rate, ChannelLayout = AudioChannelLayout.Surround51 };
             var window = sound.TimeRange.Value;
@@ -160,7 +164,7 @@ public class MultichannelEngineTests
     {
         AudioTestWaves.WithTemporaryWave(Rate, Rate, (_, _) => 0.25f, source =>
         {
-            using var resource = source.ToResource(CompositionContext.Default);
+            using var resource = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
             using var context = new AudioContext(Rate, AudioChannelLayout.Surround51);
             var first = context.CreateSourceNode(resource);
             first.ClipLayout = AudioChannelLayout.Stereo;

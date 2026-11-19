@@ -4,6 +4,7 @@ using System.Runtime.ExceptionServices;
 using Beutl.IO;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Utilities;
@@ -41,6 +42,7 @@ public sealed class ProjectPackageService
     public async Task<ExportResult> ExportAsync(
         Project project,
         Media.FontManager fonts,
+        DecoderRegistry decoders,
         string outputPath,
         IProgress<(string Message, double Progress)>? progress = null,
         CancellationToken cancellationToken = default)
@@ -116,7 +118,7 @@ public sealed class ProjectPackageService
             progress?.Report((Strings.ExportingProject, 0.8));
             // Rebase and relocation are complete. Persist hashes for the packaged
             // URIs, including internal assets, instead of the original machine's paths.
-            var fingerprintService = new MissingMediaService(fonts);
+            var fingerprintService = new MissingMediaService(fonts, decoders);
             foreach (Scene scene in ExternalResourceCollector.EnumerateObjects(tempProject).OfType<Scene>())
                 await fingerprintService.UpdateFingerprintsAsync(scene, cancellationToken);
             foreach (CoreObject obj in ExternalResourceCollector.EnumerateObjects(tempProject))

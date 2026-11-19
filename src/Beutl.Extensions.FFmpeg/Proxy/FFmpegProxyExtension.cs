@@ -1,4 +1,5 @@
 ﻿using Beutl.Extensibility;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,7 +33,7 @@ public sealed class FFmpegProxyExtension : ProxyExtension
 
     private sealed class FFmpegProxyGeneratorFactory(INotificationService notifications) : IProxyGeneratorFactory
     {
-        public IProxyGenerator Create(IProxyStore store)
-            => new FFmpegProxyGenerator(store, notifications);
+        public IProxyGenerator Create(IProxyStore store, DecoderRegistry decoders)
+            => new FFmpegProxyGenerator(store, notifications, decoders);
     }
 }

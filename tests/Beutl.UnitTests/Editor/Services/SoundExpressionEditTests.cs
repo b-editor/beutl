@@ -4,7 +4,9 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -16,6 +18,8 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture(nameof(SceneSound))]
 public sealed class SoundExpressionEditTests(string soundType)
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private SceneHistoryHarness _harness = null!;
     private ElementSlipService _slip = null!;
     private ElementStructureService _structure = null!;
@@ -24,8 +28,8 @@ public sealed class SoundExpressionEditTests(string soundType)
     public void SetUp()
     {
         _harness = new SceneHistoryHarness("beutl_sound_expression", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
-        _slip = new ElementSlipService(_harness.History);
-        _structure = new ElementStructureService(_harness.History, new Beutl.Configuration.EditorConfig());
+        _slip = new ElementSlipService(_harness.History, decoders: _decoders);
+        _structure = new ElementStructureService(_harness.History, new Beutl.Configuration.EditorConfig(), decoders: _decoders);
     }
 
     [TearDown]
@@ -184,7 +188,7 @@ public sealed class SoundExpressionEditTests(string soundType)
         (Element element, Sound sound) = AddClip();
         sound.Speed.Expression = Expression.Create<float>("200");
 
-        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
+        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig(), decoders: _decoders).Apply(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5))], SilenceSplitMode.DeleteSilence, false);
 
         Assert.That(BackOffset(element), Is.EqualTo(MediaTime.FromSeconds(2)));
@@ -201,7 +205,7 @@ public sealed class SoundExpressionEditTests(string soundType)
         providerElement.AddObject(provider);
         sound.Speed.Expression = new ReferenceExpression<float>(provider.Id.Value, nameof(Sound.Speed));
 
-        await new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).ApplyAsync(_harness.Scene, element,
+        await new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig(), decoders: _decoders).ApplyAsync(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5))], SilenceSplitMode.DeleteSilence, false);
 
         Element back = _harness.Scene.Children

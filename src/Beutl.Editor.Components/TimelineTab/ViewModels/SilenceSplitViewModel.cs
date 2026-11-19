@@ -3,6 +3,7 @@ using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -13,6 +14,7 @@ public sealed class SilenceSplitViewModel : IDisposable
 {
     private readonly Scene _scene;
     private readonly Beutl.Media.FontManager _fonts;
+    private readonly DecoderRegistry? _decoders;
     private readonly Element _element;
     private readonly SilenceSplitService _service;
     private readonly IPreviewPlayer? _player;
@@ -28,12 +30,13 @@ public sealed class SilenceSplitViewModel : IDisposable
     private bool _disposed;
     private bool _applying;
 
-    public SilenceSplitViewModel(Beutl.Media.FontManager fonts, Scene scene, Element element, HistoryManager history, EditorConfig configuration, IPreviewPlayer? player = null)
+    public SilenceSplitViewModel(Beutl.Media.FontManager fonts, Scene scene, Element element, HistoryManager history, EditorConfig configuration, IPreviewPlayer? player = null, DecoderRegistry? decoders = null)
     {
         _fonts = fonts;
+        _decoders = decoders;
         _scene = scene;
         _element = element;
-        _service = new SilenceSplitService(history, configuration, player);
+        _service = new SilenceSplitService(history, configuration, player, decoders);
         _player = player;
         ClipRange = element.Range;
         HasLinkedElements = scene.Groups.Any(g => g.Contains(element.Id.Value) && g.Count > 1);
@@ -98,7 +101,7 @@ public sealed class SilenceSplitViewModel : IDisposable
                 int reported = 0;
                 // Keep the million-bin enumeration off the UI context. Only percentage changes
                 // return to its scheduler, and are awaited so none can arrive after completion.
-                await foreach (WaveformChunk chunk in SilenceWaveform.GetChunksAsync(_fonts, _scene, _element, count, ct, ObserveScene).ConfigureAwait(false))
+                await foreach (WaveformChunk chunk in SilenceWaveform.GetChunksAsync(_fonts, _scene, _element, count, ct, ObserveScene, _decoders).ConfigureAwait(false))
                 {
                     chunks[chunk.Index] = chunk;
                     int progress = (int)((long)(chunk.Index + 1) * 100 / count);

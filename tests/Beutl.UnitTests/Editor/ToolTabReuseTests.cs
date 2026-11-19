@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Extensibility;
+using Beutl.Media.Decoding;
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Editor;
@@ -113,6 +114,7 @@ public class ToolTabReuseTests
     private sealed class FakeTab(string? target, bool pinned = false) : IPinnableToolContext
     {
         private readonly Beutl.Services.INotificationService _notifications = new Beutl.Services.NotificationService();
+        private readonly DecoderRegistry _decoders = new(new());
 
         public string? Target { get; } = target;
 
@@ -130,7 +132,7 @@ public class ToolTabReuseTests
         {
         }
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? _notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? _notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : serviceType == typeof(DecoderRegistry) ? _decoders : null;
 
         public void ReadFromJson(JsonObject json)
         {
@@ -144,6 +146,7 @@ public class ToolTabReuseTests
     private sealed class TestEditorContext(params FakeTab[] tabs) : IEditorContext
     {
         private readonly Beutl.Services.INotificationService _notifications = new Beutl.Services.NotificationService();
+        private readonly DecoderRegistry _decoders = new(new());
 
         public CoreObject Object => null!;
 
@@ -151,7 +154,7 @@ public class ToolTabReuseTests
 
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? _notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : null;
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? _notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestFonts.Manager : serviceType == typeof(DecoderRegistry) ? _decoders : null;
 
         public T? FindToolTab<T>(Func<T, bool> condition)
             where T : IToolContext
