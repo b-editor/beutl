@@ -149,7 +149,8 @@ public sealed class EditorFileUsageTests
 
         public object? GetService(Type serviceType)
             => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : serviceType == typeof(IEditorFileUsage) ? usage
-                : serviceType == typeof(ObjectTemplateService) ? templates : null;
+                : serviceType == typeof(ObjectTemplateService) ? templates
+                : serviceType == typeof(Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService) ? TestShell.Thumbnails : null;
 
         public void Dispose() => IsEnabled.Dispose();
 

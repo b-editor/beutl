@@ -18,7 +18,9 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [NonParallelizable]
 public class AudioVisualizerDrawableTests
 {
-    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+    // One registry for the whole fixture: a resource that sees a different registry opens its media again.
+    private static readonly DecoderRegistry s_decoders = TestMediaHelper.CreateRegistry();
+    private readonly DecoderRegistry _decoders = s_decoders;
 
     [TestCase(false)]
     [TestCase(true)]
@@ -326,7 +328,7 @@ public class AudioVisualizerDrawableTests
         AudioSpectrumDrawable drawable, Rational frameRate, params MediaTime[] times)
     {
         var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(
-            new CompositionContext(times[0]) { Decoders = TestMediaHelper.CreateRegistry(), FrameRate = frameRate });
+            new CompositionContext(times[0]) { Decoders = s_decoders, FrameRate = frameRate });
         foreach (MediaTime time in times.Skip(1))
             ReachAgain(resource, drawable, frameRate, time);
         return resource;
@@ -336,7 +338,7 @@ public class AudioVisualizerDrawableTests
         AudioSpectrumDrawable.Resource resource, AudioSpectrumDrawable drawable, Rational frameRate, MediaTime time)
     {
         bool versionBumped = false;
-        resource.Reconcile(drawable, new CompositionContext(time) { Decoders = TestMediaHelper.CreateRegistry(), FrameRate = frameRate }, ref versionBumped);
+        resource.Reconcile(drawable, new CompositionContext(time) { Decoders = s_decoders, FrameRate = frameRate }, ref versionBumped);
     }
 
     private const int WindowTestRate = 44100;
@@ -404,7 +406,7 @@ public class AudioVisualizerDrawableTests
                 Source = { Value = source },
                 TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSamples(WindowTestFrames, WindowTestRate)) },
             };
-            var context = new CompositionContext(MediaTime.FromSamples(WindowTestFrame, WindowTestRate)) { Decoders = TestMediaHelper.CreateRegistry() };
+            var context = new CompositionContext(MediaTime.FromSamples(WindowTestFrame, WindowTestRate)) { Decoders = s_decoders };
             using var resource = (AudioVisualizerDrawable.Resource)drawable.ToResource(context);
             if (edit != null)
             {
@@ -451,7 +453,7 @@ public class AudioVisualizerDrawableTests
 
     private static void RenderOnce(Drawable drawable, float outputScale = 1f)
     {
-        using var resource = drawable.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = TestMediaHelper.CreateRegistry() });
+        using var resource = drawable.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = s_decoders });
         using var container = new ContainerRenderNode();
         using var context = new GraphicsContext2D(container, new Size(400, 200), outputScale);
         resource.Render(context);
@@ -549,7 +551,7 @@ public class AudioVisualizerDrawableTests
     // render would skip the fill path and the test would be vacuous), then rasterizes at the given scale.
     private static Bitmap RenderWithSamples(AudioVisualizerDrawable drawable, PixelSize frame, float scale)
     {
-        var ctx = new CompositionContext(MediaTime.FromSeconds(0.5)) { Decoders = TestMediaHelper.CreateRegistry() };
+        var ctx = new CompositionContext(MediaTime.FromSeconds(0.5)) { Decoders = s_decoders };
         using Drawable.Resource resource = drawable.ToResource(ctx);
         var visResource = (AudioVisualizerDrawable.Resource)resource;
         Assert.That(visResource.CachedSampleLength, Is.GreaterThan(0),
