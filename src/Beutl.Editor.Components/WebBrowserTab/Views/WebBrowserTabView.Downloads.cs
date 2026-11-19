@@ -267,6 +267,9 @@ internal partial class WebBrowserTabView
                         if (policies.includes(candidate)) policy = candidate;
                     }
                 }
+                if (!policy && typeof window.__beutlDocumentReferrerPolicy === 'string') {
+                    policy = window.__beutlDocumentReferrerPolicy;
+                }
                 const noReferrer = link.rel.toLowerCase().split(/\s+/).includes('noreferrer') || policy === 'no-referrer';
                 const referrerPolicy = noReferrer ? 'no-referrer' : policy === 'same-origin' ? 'same-origin' : policy ? 'origin' : 'document';
                 event.preventDefault();
