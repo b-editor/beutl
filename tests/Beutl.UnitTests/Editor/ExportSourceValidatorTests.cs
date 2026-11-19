@@ -457,15 +457,24 @@ public sealed class ExportSourceValidatorTests
         Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, range)), Is.Empty);
     }
 
+    // The matte layer cuts at two seconds, and its outgoing side holds its last frame through the
+    // transition. Its portal counts at that held time and imports only what that time covers: an input
+    // that spans the cut plays at the frame's time, while one that starts at the cut belongs to the next side.
     [Test]
-    public void HeldMattePortal_EvaluatesItsCountAtHeldTimeAndItsInputsAtFrameTime()
+    public void HeldMattePortal_CountsAtItsHeldTimeAndImportsOnlyWhatThatTimeCovers()
     {
         var (scene, portal, path) = CreateMattePortalScene();
         scene.Children[0].Length.Value = MediaTime.FromSeconds(4);
         scene.Children[1].Length.Value = MediaTime.FromSeconds(2);
-        scene.Children[2].Start.Value = MediaTime.FromSeconds(2);
-        scene.Children[2].Length.Value = MediaTime.FromSeconds(2);
-        portal.Count.Expression = new StringExpression<int>("Time < 2 ? 1 : 0");
+        scene.Children[2].Start.Value = MediaTime.FromSeconds(1);
+        scene.Children[2].Length.Value = MediaTime.FromSeconds(3);
+        Element next = CreateVideoElement(_root, Path.Combine(_root, "next-matte.mov"));
+        next.ZIndex.Value = 3;
+        next.Start.Value = MediaTime.FromSeconds(2);
+        next.Length.Value = MediaTime.FromSeconds(2);
+        next.IsVisibleInOutput.Value = false;
+        scene.Children.Add(next);
+        portal.Count.Expression = new StringExpression<int>("Time < 2 ? 2 : 0");
         Element incoming = ElementWith(_root, new RectShape(), MediaTime.FromSeconds(2), MediaTime.FromSeconds(2));
         incoming.ZIndex.Value = 1;
         incoming.IsVisibleInOutput.Value = false;
@@ -475,6 +484,48 @@ public sealed class ExportSourceValidatorTests
         Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(2.25)), Is.EquivalentTo(new[] { path }));
         Assert.That(ExportSourceValidator.CollectRenderableSources(scene, TimeRange.FromSeconds(2.25, 0.25)), Is.EquivalentTo(new[] { path }));
         Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(3)), Is.Empty);
+    }
+
+    // The outgoing group holds its last frame past the cut while its portal still draws two inputs: one
+    // that ended with it, held at the group's time, and one that spans the cut, drawn at the frame's time.
+    // The renderer resolves both mattes at the frame's time, so only the files the mattes switch to at the
+    // cut are required.
+    [Test]
+    public void HeldPortalInputs_ResolveTheirMattesAtTheFramesTime()
+    {
+        var scene = new Scene(64, 32, string.Empty);
+        Element outgoing = ElementWith(_root, new PortalObject { Count = { Value = 2 } }, length: MediaTime.FromSeconds(2));
+        Element incoming = ElementWith(_root, new RectShape(), MediaTime.FromSeconds(2), MediaTime.FromSeconds(2));
+        incoming.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+        scene.Children.AddRange([outgoing, incoming]);
+        string[] required = [];
+        foreach ((string name, MediaTime length, int zIndex) in new[]
+                 {
+                     ("ended", MediaTime.FromSeconds(2), 1),
+                     ("spanning", MediaTime.FromSeconds(4), 2),
+                 })
+        {
+            Element input = ElementWith(_root, new RectShape(), length: length);
+            input.ZIndex.Value = zIndex;
+            input.MatteSourceKind.Value = MatteSourceKind.Layer;
+            input.MatteSourceZIndex.Value = zIndex + 4;
+            input.MatteMode.Value = MatteMode.Alpha;
+            scene.Children.Add(input);
+            foreach ((string clip, MediaTime start) in new[] { ("old", MediaTime.Zero), ("new", MediaTime.FromSeconds(2)) })
+            {
+                string path = Path.Combine(_root, $"{name}-{clip}-matte.mov");
+                Element matte = CreateVideoElement(_root, path);
+                matte.ZIndex.Value = zIndex + 4;
+                matte.Start.Value = start;
+                matte.Length.Value = MediaTime.FromSeconds(2);
+                matte.IsVisibleInOutput.Value = false;
+                scene.Children.Add(matte);
+                if (clip == "new") required = [.. required, path];
+            }
+        }
+
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(2.25)), Is.EquivalentTo(required));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, TimeRange.FromSeconds(2.25, 0.25)), Is.EquivalentTo(required));
     }
 
     [Test]
