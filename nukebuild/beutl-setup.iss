@@ -28,6 +28,9 @@ DefaultDirName={autopf}\{#MyAppName}
 ChangesAssociations=yes
 DisableProgramGroupPage=yes
 LicenseFile={#MyLicenseFile}
+; The install mode dialog recommends installing for the current user, which needs no administrator rights.
+; An update keeps the mode of the installation it replaces without asking (UsePreviousPrivileges).
+PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir={#MyOutputDir}
 OutputBaseFilename={#MyOutputBaseFilename}
@@ -68,17 +71,68 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent; Check: ShouldOfferLaunch
+; postinstall starts Beutl as the user who started Setup, not as the administrator an all-users update runs as.
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait postinstall skipifnotsilent; Check: ShouldRelaunch
 
 [Code]
+const
+  SYNCHRONIZE = $00100000;
+  WAIT_TIMEOUT = $00000102;
+  BeutlExitTimeout = 60000;
+
 var
   GPLLicensePage: TOutputMsgMemoWizardPage;
   GPLAcceptedRadio: TRadioButton;
   GPLNotAcceptedRadio: TRadioButton;
 
-// Beutl passes /BeutlOnQuit=1 when the user is quitting, so the installer leaves it closed.
+function OpenProcess(DesiredAccess: Cardinal; InheritHandle: Integer; ProcessId: Cardinal): THandle;
+  external 'OpenProcess@kernel32.dll stdcall';
+function WaitForSingleObject(Handle: THandle; Milliseconds: Cardinal): Cardinal;
+  external 'WaitForSingleObject@kernel32.dll stdcall';
+function CloseHandle(Handle: THandle): Integer;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+// Older versions of Beutl show the wizard and pass /BeutlOnQuit=1 when the user is quitting,
+// so the installer leaves it closed.
 function ShouldOfferLaunch: Boolean;
 begin
   Result := ExpandConstant('{param:BeutlOnQuit|0}') = '0';
+end;
+
+// Beutl updates itself silently and passes /BeutlRelaunch=1 when the user chose to restart it.
+function ShouldRelaunch: Boolean;
+begin
+  Result := ExpandConstant('{param:BeutlRelaunch|0}') = '1';
+end;
+
+// Beutl passes its process ID with /BeutlPid and quits once the installer has started. A silent
+// install closes whatever still uses the files, so it waits for Beutl to finish quitting first.
+procedure WaitForBeutlToExit;
+var
+  ProcessId: Integer;
+  Process: THandle;
+begin
+  ProcessId := StrToIntDef(ExpandConstant('{param:BeutlPid|0}'), 0);
+  if ProcessId <= 0 then
+    Exit;
+
+  Process := OpenProcess(SYNCHRONIZE, 0, ProcessId);
+  if Process = 0 then
+    Exit;
+
+  try
+    Log(Format('Waiting for Beutl (process %d) to exit.', [ProcessId]));
+    if WaitForSingleObject(Process, BeutlExitTimeout) = WAIT_TIMEOUT then
+      Log('Beutl is still running.');
+  finally
+    CloseHandle(Process);
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  WaitForBeutlToExit;
+  Result := '';
 end;
 
 procedure CheckGPLAccepted(Sender: TObject);
@@ -122,6 +176,12 @@ begin
   GPLAcceptedRadio := CloneLicenseRadioButton(WizardForm.LicenseAcceptedRadio);
   GPLNotAcceptedRadio := CloneLicenseRadioButton(WizardForm.LicenseNotAcceptedRadio);
   GPLNotAcceptedRadio.Checked := True;
+end;
+
+// A silent install skips the license page, and Next could never leave this one without the user.
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = GPLLicensePage.ID) and WizardSilent;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
