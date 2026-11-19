@@ -281,15 +281,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
                     try
                     {
                         Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, nint*, nint*, int>)Method(iterator, 3))(iterator, &name, &value));
-                        foreach (string token in (Marshal.PtrToStringUni(value) ?? "").Split(','))
-                            policy = token.Trim().ToLowerInvariant() switch
-                            {
-                                "no-referrer" => BrowserReferrerPolicy.NoReferrer,
-                                "same-origin" => BrowserReferrerPolicy.SameOrigin,
-                                "origin" or "strict-origin" or "origin-when-cross-origin" or "strict-origin-when-cross-origin"
-                                    or "no-referrer-when-downgrade" or "unsafe-url" => BrowserReferrerPolicy.Origin,
-                                _ => policy
-                            };
+                        policy = BrowserMediaDownload.ParseReferrerPolicyHeader(Marshal.PtrToStringUni(value), policy) ?? policy;
                     }
                     finally { Marshal.FreeCoTaskMem(name); Marshal.FreeCoTaskMem(value); }
                     Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(iterator, 5))(iterator, &more));

@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Text.Json;
 
 using Avalonia.Platform;
 
@@ -41,6 +42,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private nint _delegate;
     private nint _uiDelegate;
     private bool _awaitingHistoryLoad;
+    private (nint Navigation, string Origin, BrowserReferrerPolicy Policy)? _pendingDocumentPolicy;
 
     private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string, IBrowserDownloadSource> onDownload,
         Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload, Action<Uri> onNavigationCommitted,
@@ -85,6 +87,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
 
     public void Dispose()
     {
+        _pendingDocumentPolicy = null;
         if (_webView == 0) return;
         foreach (string key in s_historyKeys)
             SendVoid(_webView, Selector("removeObserver:forKeyPath:"), _delegate, AutoreleasedString(key));
@@ -335,6 +338,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         if (!s_handlers.TryGetValue(self, out var handler)) return;
         try
         {
+            handler._pendingDocumentPolicy = null;
             handler._cancellations.BeginNavigation(navigation);
             handler._loadingNavigation = navigation;
             bool history = handler._awaitingHistoryLoad;
@@ -356,6 +360,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         bool forward = SendBool(handler._originalDelegate, s_respondsToSelector, selector);
         try
         {
+            if (handler._pendingDocumentPolicy?.Navigation == navigation) handler._pendingDocumentPolicy = null;
             // Consume our cancellation before Avalonia drops the WKNavigation identity.
             if (handler._cancellations.CompleteNavigation(navigation)) return;
             if (!forward && handler._loadingNavigation == navigation)
@@ -381,6 +386,34 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         if (!s_handlers.TryGetValue(self, out var handler)) return;
         try
         {
+            // Back-forward cache restores have no response, and pushState has no callback.
+            // Keep the header policy on the document so both retain it.
+            if (handler._pendingDocumentPolicy is { } pending && pending.Navigation == navigation
+                && handler._cancellations.Current == navigation)
+            {
+                try
+                {
+                    string policy = pending.Policy switch
+                    {
+                        BrowserReferrerPolicy.NoReferrer => "no-referrer",
+                        BrowserReferrerPolicy.SameOrigin => "same-origin",
+                        _ => "origin"
+                    };
+                    string script = $$"""
+                        (() => {
+                            try {
+                                if (self.origin === {{JsonSerializer.Serialize(pending.Origin)}}) {
+                                    Object.defineProperty(window, '__beutlDocumentReferrerPolicy', {
+                                        value: {{JsonSerializer.Serialize(policy)}}, writable: false, configurable: false
+                                    });
+                                }
+                            } catch {}
+                        })()
+                        """;
+                    SendVoid(webView, Selector("evaluateJavaScript:completionHandler:"), AutoreleasedString(script), 0);
+                }
+                finally { handler._pendingDocumentPolicy = null; }
+            }
             handler._cancellations.CommitNavigation(navigation);
             string? address = GetAddress(webView);
             if (Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)) handler._onNavigationCommitted(uri);
@@ -404,6 +437,22 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         {
             nint response = Send(navigationResponse, Selector("response"));
             string? address = GetAddress(response);
+            try
+            {
+                if (handler != null && SendBool(navigationResponse, Selector("isForMainFrame"))
+                    && handler._cancellations.Current != 0
+                    && SendBool(response, s_respondsToSelector, Selector("valueForHTTPHeaderField:"))
+                    && Uri.TryCreate(address, UriKind.Absolute, out Uri? document) && document.Scheme is "http" or "https"
+                    && BrowserMediaDownload.ParseReferrerPolicyHeader(GetHeader(response, "Referrer-Policy")) is { } documentPolicy)
+                {
+                    string origin = BrowserMediaDownload.FormatReferrerHeader(document).TrimEnd('/');
+                    handler._pendingDocumentPolicy = (handler._cancellations.Current, origin, documentPolicy);
+                }
+            }
+            catch
+            {
+                // A header read must not change the navigation or download decision.
+            }
             string? mediaType = ToManagedString(Send(response, Selector("MIMEType")));
             if (handler != null && SendBool(navigationResponse, Selector("isForMainFrame"))
                 && handler._cancellations.Current != 0
