@@ -16,6 +16,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     private readonly Action<Uri?, string, IBrowserDownloadSource, Uri?> _onGeneratedDownload;
     private readonly DownloadStartingHandler _handler;
     private readonly HashSet<NativeDownload> _downloads = [];
+    private (Uri Uri, string? Method)? _downloadResponse;
     private nint _webView;
     private long _token;
     private bool _subscribed;
@@ -98,6 +99,7 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             Marshal.AddRef(args);
             Uri? origin = generated ? BrowserMediaDownload.GetGeneratedFileOrigin(address) : uri;
             source = new NativeDownload(this, args, operation, deferral, name, generated, origin);
+            if (_downloadResponse is { } response) source.SetRequestMethod(response.Uri, response.Method);
             operation = deferral = 0;
             source.HideDefaultDialog();
             _downloads.Add(source);
@@ -121,6 +123,14 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             }
             if (operation != 0) Marshal.Release(operation);
         }
+    }
+
+    private void RecordDownloadResponse(Uri uri, string? method)
+    {
+        method = string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase) ? null : method;
+        _downloadResponse = (uri, method);
+        // WebView2 can deliver the response after DownloadStarting; history reads the method after saving.
+        foreach (NativeDownload download in _downloads) download.SetRequestMethod(uri, method);
     }
 
     // WebView2 reports a navigation only once its page has loaded, while scripts run from its commit. Its Source
@@ -172,10 +182,20 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         private nint _deferral = deferral;
         private DispatcherTimer? _progressTimer;
         private IProgress<(long Received, long? Total)>? _progress;
+        private bool _hasRequestMethod;
         private bool _saving;
         private bool _disposed;
 
         public bool IsGenerated => generated;
+
+        public string? RequestMethod { get; private set; }
+
+        internal void SetRequestMethod(Uri uri, string? method)
+        {
+            if (_hasRequestMethod || generated || origin != uri) return;
+            RequestMethod = method;
+            _hasRequestMethod = true;
+        }
 
         internal unsafe void HideDefaultDialog() =>
             Marshal.ThrowExceptionForHR(

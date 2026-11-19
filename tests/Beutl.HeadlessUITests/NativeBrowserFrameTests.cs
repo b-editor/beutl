@@ -44,6 +44,15 @@ internal static class NativeBrowserFrameTestHost
         int exitCode = 1;
         try
         {
+            if (scenario == "--native-browser-download-methods")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var downloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                await CheckDownloadMethodsAsync(window, downloadTimeout.Token);
+                exitCode = 0;
+                return;
+            }
             if (scenario == "--native-browser-referrers")
             {
                 window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
@@ -498,11 +507,84 @@ internal static class NativeBrowserFrameTestHost
         Assert.That(vm.CurrentUri, Is.EqualTo(first));
         Assert.That(refresh.IsVisible, Is.True);
     }
+
+    private static async Task CheckDownloadMethodsAsync(Window window, CancellationToken token)
+    {
+        await using var server = WebApplication.CreateSlimBuilder().Build();
+        server.Urls.Add("http://127.0.0.1:0");
+        server.MapGet("/source", () => Results.Content("""
+            <form method="post" action="/post"><input name="value" value="sample"><button id="post">POST</button></form>
+            <form method="post" action="/redirect-303"><button id="redirect-303">303</button></form>
+            <form method="post" action="/redirect-307"><button id="redirect-307">307</button></form>
+            <a id="get" href="/get">GET</a>
+            """, "text/html"));
+        server.MapPost("/post", () => Results.Bytes("post"u8.ToArray(), "application/octet-stream", "post.txt"));
+        server.MapPost("/redirect-303", (HttpContext context) =>
+        {
+            context.Response.Headers.Location = "/after-303";
+            return Results.StatusCode(StatusCodes.Status303SeeOther);
+        });
+        server.MapGet("/after-303", () => Results.Bytes("303"u8.ToArray(), "application/octet-stream", "303.txt"));
+        server.MapPost("/redirect-307", (HttpContext context) =>
+        {
+            context.Response.Headers.Location = "/after-307";
+            return Results.StatusCode(StatusCodes.Status307TemporaryRedirect);
+        });
+        server.MapPost("/after-307", () => Results.Bytes("307"u8.ToArray(), "application/octet-stream", "307.txt"));
+        server.MapGet("/get", () => Results.Bytes("get"u8.ToArray(), "application/octet-stream", "get.txt"));
+        await server.StartAsync(token);
+        var page = new Uri(server.Urls.Single() + "/source");
+        var browser = new NativeWebView();
+        var editor = TestShell.CreateEditorContextMock();
+        editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
+        editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        editor.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
+        using var vm = new WebBrowserTabViewModel(editor.Object, WebBrowserTabViewModel.BlankPage);
+        using var downloads = new TemporaryDirectory();
+        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        view.DownloadOptionsSelector = (_, _) =>
+            Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(downloads.Path, false));
+        window.Content = view;
+
+        async Task Check(string id, string path, string? method)
+        {
+            // Reload so each scripted download is allowed without a multiple-download permission prompt.
+            var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Loaded(object? sender, WebViewNavigationCompletedEventArgs e)
+            {
+                if (e.IsSuccess && e.Request == page) loaded.TrySetResult();
+            }
+            browser.NavigationCompleted += Loaded;
+            try
+            {
+                vm.Address.Value = page.AbsoluteUri;
+                view.NavigateFromAddress();
+                await loaded.Task.WaitAsync(token);
+            }
+            finally { browser.NavigationCompleted -= Loaded; }
+            int before = vm.Profile.Downloads.Count;
+            await browser.InvokeScript($"document.getElementById('{id}').click()");
+            while (vm.Profile.Downloads.Count == before) await Task.Delay(20, token);
+            var record = vm.Profile.Downloads[0];
+            Assert.That(new Uri(record.Url).AbsolutePath, Is.EqualTo(path), id);
+            Assert.That(record.Method, Is.EqualTo(method), id);
+            Assert.That(record.CanRequestAgain, Is.EqualTo(method == null), id);
+        }
+
+        await Assert.MultipleAsync(async () =>
+        {
+            await Check("post", "/post", "POST");
+            await Check("redirect-303", "/after-303", null);
+            await Check("redirect-307", "/after-307", "POST");
+            await Check("get", "/get", null);
+        });
+    }
 }
 
 [TestFixture]
 public class NativeBrowserFrameTests
 {
+    [TestCase("--native-browser-download-methods", TestName = "WindowsDownloadHistoryKeepsTheRequestMethod", IncludePlatform = "Win")]
     [TestCase("--native-browser-frames", TestName = "EmbeddedDocumentsLoadWithoutBecomingTopLevelNavigations", IncludePlatform = "MacOSX")]
     [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation", IncludePlatform = "MacOSX")]
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
