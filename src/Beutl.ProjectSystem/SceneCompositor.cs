@@ -529,7 +529,7 @@ public sealed partial class SceneCompositor : ICompositor
                 foreach (Element input in inputs)
                 {
                     if (input.ZIndex.Value >= start && input.ZIndex.Value <= end
-                        && HasPortal(input) && input.Objects.Any(static o => o is IFlowOperator)
+                        && HasPortal(input) && FeedsGraphicsFlowOperator(input)
                         && input.CoversGraphicsTime(frameTime))
                     {
                         return true;
@@ -543,6 +543,22 @@ public sealed partial class SceneCompositor : ICompositor
         {
             context.Time = time;
         }
+    }
+
+    // Whether element draws through a flow operator in the graphics pass, selected as Element.CollectObjects
+    // selects it.
+    private static bool FeedsGraphicsFlowOperator(Element element)
+    {
+        foreach (EngineObject obj in element.Objects)
+        {
+            if (obj is IFlowOperator && obj.IsEnabled.Value
+                && obj.GetCompositionTarget() is CompositionTarget.Unknown or CompositionTarget.Graphics)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool HasPortal(Element element)

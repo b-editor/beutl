@@ -463,16 +463,20 @@ public class ElementTransitionCompositionTests
 
     // The groups take a layer that spans the cut and draws, through a portal of its own, a video that ends
     // at the cut. Past the cut that layer plays at the frame's time, but the video it draws into the
-    // outgoing side exists only at that side's time, so it holds its last frame there.
-    [Test]
-    public void AShotANestedPortalDrawsIntoAHeldSide_HoldsAtTheSidesTime()
+    // outgoing side exists only at that side's time, so it holds its last frame there. A group turned off
+    // after that portal takes no part in drawing, so it changes nothing.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AShotANestedPortalDrawsIntoAHeldSide_HoldsAtTheSidesTime(bool disabledGroup)
     {
         using var harness = new SceneHistoryHarness("beutl_transition_nested_portal_hold", duration: Seconds(10));
         Element outgoing = harness.AddElement(MediaTime.Zero, Seconds(2));
         outgoing.Objects.Add(new PortalObject { Count = { Value = 1 } });
         Element incoming = harness.AddElement(Seconds(2), Seconds(2));
         incoming.Objects.Add(new PortalObject { Count = { Value = 1 } });
-        harness.AddElement(MediaTime.Zero, Seconds(4), zIndex: 1).Objects.Add(new PortalObject { Count = { Value = 1 } });
+        Element spanning = harness.AddElement(MediaTime.Zero, Seconds(4), zIndex: 1);
+        spanning.Objects.Add(new PortalObject { Count = { Value = 1 } });
+        if (disabledGroup) spanning.Objects.Add(new DrawableGroup { IsEnabled = { Value = false } });
         SourceVideo video = CreateVideo();
         harness.AddElement(MediaTime.Zero, Seconds(2), zIndex: 2).Objects.Add(video);
         outgoing.ExitTransition.Value = Transition(0.5);
