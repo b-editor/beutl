@@ -155,6 +155,7 @@ public sealed partial class SceneCompositor : ICompositor
         {
             var result = (CompositorContext)base.WithTime(time);
             result.CurrentElements = [];
+            result.FrameBeneath = null;
             return result;
         }
 
@@ -170,6 +171,9 @@ public sealed partial class SceneCompositor : ICompositor
         // The time of the transition side being collected, while FrameTime is set. An input that plays at
         // the frame's time changes Time, so the inputs its own portals draw read the side's time from here.
         public MediaTime? SideTime { get; set; }
+
+        // What each top-level element of the frame added, while the frame's main loop collects it.
+        public FrameBeneath? FrameBeneath { get; set; }
 
         public GraphicsFrameState? GraphicsState { get; set; }
 
@@ -246,14 +250,21 @@ public sealed partial class SceneCompositor : ICompositor
         if (services is not null)
             ctx.EvaluationServices = services;
 
+        // A scene change between two backdrops takes the layers beneath it out of the whole frame, so only the
+        // frame's own evaluation, not a query for one layer, records what each element added.
+        FrameBeneath? beneath = layer is null && Scene.HasTransitions ? new FrameBeneath(allResources, flow) : null;
+        ctx.FrameBeneath = beneath;
+
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
         {
             token.ThrowIfCancellationRequested();
-            if (layer.HasValue && currentElements[index].ZIndex.Value != layer.Value) continue;
+            Element element = currentElements[index];
+            if (layer.HasValue && element.ZIndex.Value != layer.Value) continue;
             flow.Clear();
-            CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
+            CollectResourcesFromElement(element, ctx, tmpObjects);
 
+            beneath?.Ranges.Add(new FrameRange(element, allResources.Count, flow.Count));
             allResources.AddRange(flow.Span);
         }
 
@@ -422,10 +433,186 @@ public sealed partial class SceneCompositor : ICompositor
             presenter.ZIndex.Value = zIndex;
         }
 
+        if (context.FrameBeneath is { } beneath && ReferenceEquals(oldFlow, beneath.TopFlow)
+            && ElementTransitions.IsSceneChange(boundary))
+        {
+            TakeBeneath(boundary, zIndex, beneath, from, to, context, tmpObjects);
+        }
+
         var presenterResource = (ClipTransitionPresenter.Resource)GetOrCreateResource(presenter, context);
         float progress = ClipTransition.Ease(transitionResource.Easing, boundary.GetLinearProgress(time));
         presenterResource.SetInputs(transitionResource, from.Span, to.Span, progress);
         oldFlow?.Add(presenterResource);
+    }
+
+    // A scene change between two backdrops: each side takes the frame's layers beneath the boundary's layer as
+    // they are at its own time, beneath its own drawables, and those layers leave the frame, so they are drawn
+    // only through the transition. A side at the frame's time takes them as the frame evaluated them. A held
+    // side shares those its time also covers, and evaluates at its time those only its time covers.
+    private void TakeBeneath(
+        in TransitionBoundary boundary, int layer, FrameBeneath beneath, PooledList<EngineObject.Resource> from,
+        PooledList<EngineObject.Resource> to, CompositorContext context, PooledList<EngineObject> tmpObjects)
+    {
+        MediaTime frameTime = context.Time;
+        // The frame draws its layers in order, so those beneath the boundary's layer lead it.
+        int ranges = 0;
+        while (ranges < beneath.Ranges.Count && beneath.Ranges[ranges].Element.ZIndex.Value < layer) ranges++;
+        int count = ranges == 0 ? 0 : beneath.Ranges[ranges - 1].End;
+
+        using (PooledList<EngineObject.Resource> outgoing = CollectBeneath(
+                   boundary.GetOutgoingTime(frameTime), layer, beneath, ranges, count, context, tmpObjects))
+        {
+            from.InsertRange(0, outgoing.Span);
+        }
+
+        using (PooledList<EngineObject.Resource> incoming = CollectBeneath(
+                   boundary.GetIncomingTime(frameTime), layer, beneath, ranges, count, context, tmpObjects))
+        {
+            to.InsertRange(0, incoming.Span);
+        }
+
+        beneath.Resources.RemoveRange(0, count);
+        beneath.Ranges.RemoveRange(0, ranges);
+        for (int i = 0; i < beneath.Ranges.Count; i++)
+        {
+            FrameRange range = beneath.Ranges[i];
+            beneath.Ranges[i] = range with { Start = range.Start - count };
+        }
+    }
+
+    // The layers beneath one side of a scene change at sideTime, in drawing order.
+    private PooledList<EngineObject.Resource> CollectBeneath(
+        MediaTime sideTime, int layer, FrameBeneath beneath, int ranges, int count, CompositorContext context,
+        PooledList<EngineObject> tmpObjects)
+    {
+        MediaTime frameTime = context.Time;
+        var result = new PooledList<EngineObject.Resource>(count);
+        if (sideTime == frameTime)
+        {
+            result.AddRange(beneath.Resources.Span[..count]);
+            return result;
+        }
+
+        // What the frame drew that this time also covers is shared as the frame evaluated it, along with the
+        // layers a shared portal draws, which the held side leaves inside it.
+        HashSet<Element> participants = GetTransitionParticipants();
+        var entries = new Dictionary<Element, (int Start, int Count)>(ReferenceEqualityComparer.Instance);
+        var portalled = new List<(int Start, int End)>();
+        for (int i = 0; i < ranges; i++)
+        {
+            FrameRange range = beneath.Ranges[i];
+            if (!IsShared(range.Element, sideTime, frameTime, participants)) continue;
+
+            entries[range.Element] = (range.Start, range.Count);
+            AddPortalSpans(range.Element, frameTime, context, portalled);
+        }
+
+        // What only this time covers is evaluated at it, through its own list, so its portals take from what
+        // this side holds and the frame's list stays as the main loop left it.
+        using var held = new PooledList<Element>();
+        using var atSideTime = new PooledList<Element>();
+        SortLayers(sideTime, atSideTime, CompositionTarget.Graphics);
+        foreach (Element element in atSideTime)
+        {
+            int z = element.ZIndex.Value;
+            if (z >= layer || element.CoversGraphicsTime(frameTime)) continue;
+            if (participants.Contains(element)
+                && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
+                && running.Region.Contains(sideTime)) continue;
+            if (context.GraphicsState?.Evaluated.Contains(element) == true) continue;
+            if (portalled.Exists(span => z >= span.Start && z <= span.End)) continue;
+
+            held.Add(element);
+        }
+
+        using var heldResources = new PooledList<EngineObject.Resource>();
+        var heldEntries = new Dictionary<Element, (int Start, int Count)>(ReferenceEqualityComparer.Instance);
+        IList<EngineObject.Resource>? flow = context.Flow;
+        IList<Element> elements = context.CurrentElements;
+        MediaTime? outerFrameTime = context.FrameTime;
+        MediaTime? outerSideTime = context.SideTime;
+        using var sideFlow = new PooledList<EngineObject.Resource>();
+        try
+        {
+            context.Time = sideTime;
+            context.FrameTime = frameTime;
+            context.SideTime = sideTime;
+            context.CurrentElements = held;
+            for (int i = 0; i < held.Count; i++)
+            {
+                Element element = held[i];
+                sideFlow.Clear();
+                context.Flow = sideFlow;
+                CollectResourcesFromElement(element, context, tmpObjects);
+                heldEntries[element] = (heldResources.Count, sideFlow.Count);
+                heldResources.AddRange(sideFlow.Span);
+            }
+        }
+        finally
+        {
+            context.Flow = flow;
+            context.CurrentElements = elements;
+            context.FrameTime = outerFrameTime;
+            context.SideTime = outerSideTime;
+            context.Time = frameTime;
+        }
+
+        using var order = new PooledList<Element>(entries.Count + heldEntries.Count);
+        order.AddRange(entries.Keys);
+        order.AddRange(heldEntries.Keys);
+        Scene.ElementIndex.Sort(order);
+        foreach (Element element in order)
+        {
+            if (entries.TryGetValue(element, out (int Start, int Count) shared))
+            {
+                result.AddRange(beneath.Resources.Span.Slice(shared.Start, shared.Count));
+            }
+            else
+            {
+                (int start, int length) = heldEntries[element];
+                result.AddRange(heldResources.Span.Slice(start, length));
+            }
+        }
+
+        return result;
+    }
+
+    // The layers element's enabled portals draw at time, as PortalObject takes them.
+    private static void AddPortalSpans(Element element, MediaTime time, CompositorContext context, List<(int Start, int End)> spans)
+    {
+        MediaTime previous = context.Time;
+        context.Time = time;
+        try
+        {
+            foreach (EngineObject obj in element.Objects)
+            {
+                if (obj is PortalObject { IsEnabled.Value: true } portal)
+                {
+                    spans.Add((portal.ZIndex.Value + 1, portal.ZIndex.Value + context.Get(portal.Count)));
+                }
+            }
+        }
+        finally
+        {
+            context.Time = previous;
+        }
+    }
+
+    // What one top-level element added to the frame: Count resources from Start in the frame's list.
+    private readonly record struct FrameRange(Element Element, int Start, int Count)
+    {
+        public int End => Start + Count;
+    }
+
+    // The frame's resources and what each top-level element added to them, while the main loop collects them.
+    private sealed class FrameBeneath(PooledList<EngineObject.Resource> resources, IList<EngineObject.Resource> topFlow)
+    {
+        public PooledList<EngineObject.Resource> Resources { get; } = resources;
+
+        // The list the main loop collects each element into, which tells a transition collected at the top.
+        public IList<EngineObject.Resource> TopFlow { get; } = topFlow;
+
+        public List<FrameRange> Ranges { get; } = [];
     }
 
     // Evaluates one side of a transition at its own time into flow. Its portals reach what the frame shares
@@ -586,6 +773,7 @@ public sealed partial class SceneCompositor : ICompositor
             && !element.IsVisibleInOutput.Value) return;
         // Cyclic matte references have no source contribution at the repeated element.
         if (context.GraphicsState is { } state && !state.Evaluating.Add(element)) return;
+        context.GraphicsState?.Evaluated.Add(element);
         using var flow = new PooledList<EngineObject.Resource>();
         var oldFlow = context.Flow;
         context.Flow = flow;

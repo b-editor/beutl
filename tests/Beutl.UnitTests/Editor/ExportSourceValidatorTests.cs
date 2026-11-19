@@ -528,6 +528,40 @@ public sealed class ExportSourceValidatorTests
         Assert.That(ExportSourceValidator.CollectRenderableSources(scene, TimeRange.FromSeconds(2.25, 0.25)), Is.EquivalentTo(required));
     }
 
+    // Two backdrops meet at the cut over a layer that cuts with them, so each side takes that layer at its own
+    // time: before the cut the incoming side holds the next shot's first frame, and past it the outgoing side
+    // holds the previous shot's last frame. A boundary between a backdrop and anything else takes nothing.
+    [Test]
+    public void ABackdropPair_RequiresTheShotEachHeldSideTakes()
+    {
+        string previous = Path.Combine(_root, "previous-shot.mov");
+        string next = Path.Combine(_root, "next-shot.mov");
+        var scene = new Scene(64, 32, string.Empty);
+        Element previousShot = CreateVideoElement(_root, previous);
+        previousShot.Length.Value = MediaTime.FromSeconds(2);
+        Element nextShot = CreateVideoElement(_root, next);
+        nextShot.Start.Value = MediaTime.FromSeconds(2);
+        nextShot.Length.Value = MediaTime.FromSeconds(2);
+        Element outgoing = ElementWith(_root, new SourceBackdrop(), length: MediaTime.FromSeconds(2));
+        outgoing.ZIndex.Value = 1;
+        outgoing.ExitTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(0.5) } };
+        Element incoming = ElementWith(_root, new SourceBackdrop(), MediaTime.FromSeconds(2), MediaTime.FromSeconds(2));
+        incoming.ZIndex.Value = 1;
+        incoming.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(0.5) } };
+        scene.Children.AddRange([previousShot, nextShot, outgoing, incoming]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(1.9)), Is.EquivalentTo(new[] { previous, next }));
+            Assert.That(ExportSourceValidator.CollectRenderableSources(scene, TimeRange.FromSeconds(1.75, 0.25)), Is.EquivalentTo(new[] { previous, next }));
+            Assert.That(ExportSourceValidator.CollectRenderableSources(scene, TimeRange.FromSeconds(2, 0.25)), Is.EquivalentTo(new[] { previous, next }));
+            Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(2.5)), Is.EquivalentTo(new[] { next }));
+        });
+
+        incoming.Objects[0].IsEnabled.Value = false;
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(1.9)), Is.EquivalentTo(new[] { previous }));
+    }
+
     [Test]
     public void MattePortalCount_FollowsAnAnimatedPropertyReference()
     {
