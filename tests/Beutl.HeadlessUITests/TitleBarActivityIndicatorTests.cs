@@ -66,16 +66,23 @@ public sealed class TitleBarActivityIndicatorTests
     [AvaloniaTest]
     public void Each_task_draws_its_own_picture()
     {
-        (TitleBarActivities Activities, double? Progress)[] states =
+        (string Name, TitleBarActivities Activities, double? Progress, bool Installing)[] states =
         [
-            (TitleBarActivities.None, null),
-            (TitleBarActivities.Startup, null),
-            (TitleBarActivities.Output, null),
-            (TitleBarActivities.AiJob, null),
-            (TitleBarActivities.Update, 0.4),
+            ("idle", TitleBarActivities.None, null, false),
+            ("startup", TitleBarActivities.Startup, null, false),
+            ("output", TitleBarActivities.Output, null, false),
+            ("AI job", TitleBarActivities.AiJob, null, false),
+            ("download of unknown size", TitleBarActivities.Update, null, false),
+            ("download at 40%", TitleBarActivities.Update, 0.4, false),
+            ("install", TitleBarActivities.Update, null, true),
         ];
         var indicators = states
-            .Select(state => CreateIndicator(state.Activities, state.Progress))
+            .Select(state =>
+            {
+                TitleBarActivityIndicator indicator = CreateIndicator(state.Activities, state.Progress);
+                indicator.IsUpdateInstalling = state.Installing;
+                return indicator;
+            })
             .ToArray();
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.AddRange(indicators.Select(Cell));
@@ -100,7 +107,7 @@ public sealed class TitleBarActivityIndicatorTests
             {
                 for (int j = i + 1; j < pictures.Length; j++)
                 {
-                    Assert.That(pictures[i], Is.Not.EqualTo(pictures[j]), $"{states[i].Activities} and {states[j].Activities} look the same");
+                    Assert.That(pictures[i], Is.Not.EqualTo(pictures[j]), $"{states[i].Name} and {states[j].Name} look the same");
                 }
             }
         }
