@@ -33,6 +33,7 @@ public class GraphNodeRegistryTests
 
     [TestCase(typeof(OutputNode))]
     [TestCase(typeof(FilterEffectNode<Blur>))]
+    [TestCase(typeof(FilterEffectNode<FilmGrain>))]
     [TestCase(typeof(TranslateMatrixNode))]
     public void RegisterAll_RegistersTopLevelGroupAndNestedGroupNodes(Type nodeType)
     {

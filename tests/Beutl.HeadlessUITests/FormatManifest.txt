@@ -468,6 +468,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:FallbackFilterEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:FilmGrain
+  sealed
+  keys: Amount, Animate, Animations, Color, Expressions, Id, IsEnabled, Name, Seed, Size, Softness
 [Beutl.Engine]Beutl.Graphics.Effects:FilterEffect
   abstract
 [Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup

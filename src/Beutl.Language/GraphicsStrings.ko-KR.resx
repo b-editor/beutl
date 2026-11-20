@@ -209,6 +209,36 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>이보다 작은 차이는 강조하지 않아 노이즈가 두드러지지 않습니다.</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>필름 그레인</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>크기</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>각 그레인 입자의 크기를 논리 픽셀 단위로 지정합니다.</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>부드러움</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>값이 높을수록 그레인 입자 사이의 경계가 부드러워집니다.</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>색상</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>0%에서는 모든 채널에 같은 그레인을 사용하고, 100%에서는 채널마다 다른 그레인을 사용합니다.</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>시드</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>애니메이션</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>프레임마다 그레인 패턴을 바꿉니다.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>밝기</value>
   </data>

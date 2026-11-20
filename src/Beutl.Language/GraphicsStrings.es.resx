@@ -209,6 +209,36 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>Las diferencias menores que este valor no se realzan, lo que evita que el ruido destaque.</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>Grano de película</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>Tamaño</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>Tamaño de cada celda de grano en píxeles lógicos.</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>Suavidad</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>Los valores más altos suavizan las transiciones entre las celdas de grano.</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>Al 0 %, todos los canales comparten el mismo grano. Al 100 %, cada canal tiene su propio grano.</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>Semilla</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>Animar</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>Cambia el patrón de grano en cada fotograma.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>Brillo</value>
   </data>

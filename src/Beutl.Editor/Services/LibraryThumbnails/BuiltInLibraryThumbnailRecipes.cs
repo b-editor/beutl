@@ -214,6 +214,13 @@ internal static class BuiltInLibraryThumbnailRecipes
                 ]);
             }));
 
+        // The grain cells need to span a thumbnail pixel to show up at the thumbnail's density.
+        LibraryThumbnailRecipes.Register<FilmGrain>((effect, context) =>
+        {
+            effect.Size.Value = context.Scale(8);
+            context.Animate(effect.Amount, p => 70 * Wave(p));
+        });
+
         LibraryThumbnailRecipes.Register<ColorShift>(LibraryThumbnailSample.Shapes, (effect, context) =>
         {
             context.Animate(effect.RedOffset, p => new PixelPoint((int)MathF.Round(context.Scale(36) * Wave(p)), 0));
