@@ -15,7 +15,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
     private bool _canClearCookies;
     private readonly CancellationTokenSource _lifetime = new();
 
-    public BrowserSettingsPageViewModel() : this(BrowserProfile.Default, CreateCookieClearAction) { }
+    public BrowserSettingsPageViewModel() : this(BrowserProfile.Default, BrowserWebViewRegistry.CreateCookieClearAction) { }
 
     internal BrowserSettingsPageViewModel(BrowserProfile profile, Func<Func<Task>?> getClearCookies)
     {
@@ -195,18 +195,6 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
         }
         catch (Exception ex) { if (!_disposed) Feedback.Value = ex.Message; }
         finally { if (!_disposed) IsClearingCookies.Value = false; }
-    }
-
-    private static Func<Task>? CreateCookieClearAction()
-    {
-        if (BrowserWebViewRegistry.GetCookieManager() == null) return null;
-        return async () =>
-        {
-            var manager = BrowserWebViewRegistry.GetCookieManager()
-                ?? throw new InvalidOperationException(Strings.BrowserCookiesUnsupported);
-            foreach (var cookie in await manager.GetCookiesAsync())
-                manager.DeleteCookie(cookie);
-        };
     }
 
     public void Dispose()

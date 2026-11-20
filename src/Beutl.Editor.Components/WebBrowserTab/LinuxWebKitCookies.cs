@@ -13,16 +13,15 @@ using static Beutl.Editor.Components.WebBrowserTab.LinuxWebKit;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
-// Avalonia's WebKitGTK and WPE adapters expose no cookie manager, so a download reads the session's cookies
-// from WebKit itself, as the WebView2 cookie manager provides them on Windows. Without them a download is a
-// stranger to the site the user is signed in to.
+// Read and clear cookies directly in WebKit. GTK has no Avalonia cookie manager and WPE's manager
+// can throw from a native callback when a cookie has no name.
 internal static partial class LinuxWebKitCookies
 {
     internal static async Task<IReadOnlyList<Cookie>> GetAllAsync(IPlatformHandle? handle)
     {
         try
         {
-            return TryGetWebView(handle, out nint webView, out bool wpe)
+            return TryGetWebView(handle, out nint webView, out bool wpe) && webView != 0
                 ? await GetAllAsync((wpe ? Api.Wpe : Api.Gtk).Value, webView)
                 : [];
         }
@@ -32,6 +31,45 @@ internal static partial class LinuxWebKitCookies
             Log.CreateLogger(typeof(LinuxWebKitCookies)).LogWarning(ex, "Could not read the WebKit cookies for a download.");
             return [];
         }
+    }
+
+    internal static Func<Task>? CreateClearAction(IEnumerable<IPlatformHandle?> handles)
+    {
+        var views = new List<(Api Api, nint WebView)>();
+        try
+        {
+            foreach (var handle in handles)
+            {
+                if (!TryGetWebView(handle, out nint webView, out bool wpe) || webView == 0) continue;
+                Api api = (wpe ? Api.Wpe : Api.Gtk).Value;
+                if (!api.CanClearCookies) return null;
+                views.Add((api, webView));
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.CreateLogger(typeof(LinuxWebKitCookies)).LogWarning(ex, "Could not access WebKit cookie deletion.");
+            return null;
+        }
+
+        return views.Count == 0 ? null : () => ClearAsync(views);
+    }
+
+    private static Task ClearAsync(List<(Api Api, nint WebView)> views)
+    {
+        // Multiple views can share the same store. Resolve and deduplicate their managers on GLib.
+        var managers = new HashSet<nint>();
+        return Task.WhenAll(views.Select(async view =>
+        {
+            Task pending = Task.CompletedTask;
+            await OnGlibAsync(view.WebView, () =>
+            {
+                nint manager = view.Api.GetWebsiteDataManager(view.WebView);
+                if (manager == 0) throw new InvalidOperationException(Strings.BrowserCookiesUnsupported);
+                if (managers.Add(manager)) pending = view.Api.BeginClearCookies(manager);
+            });
+            await pending;
+        }));
     }
 
     // WebView2 keeps cookies in its profile folder, but WebKitGTK and WPE keep them in memory unless the
@@ -88,6 +126,10 @@ internal static partial class LinuxWebKitCookies
         private readonly delegate* unmanaged[Cdecl]<nint, nint, int, void> _setPersistentStorage;
         private readonly delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void> _getAllCookies;
         private readonly delegate* unmanaged[Cdecl]<nint, nint, nint*, nint> _getAllCookiesFinish;
+        private readonly delegate* unmanaged[Cdecl]<nint, nint> _getSessionWebsiteDataManager;
+        private readonly delegate* unmanaged[Cdecl]<nint, uint, long, nint, delegate* unmanaged[Cdecl]<nint, nint, nint, void>, nint, void> _clear;
+        private readonly delegate* unmanaged[Cdecl]<nint, nint, GError**, int> _clearFinish;
+        private readonly uint _cookieDataType;
         private readonly delegate* unmanaged[Cdecl]<nint, nint> _getName, _getValue, _getDomain, _getPath;
         private readonly delegate* unmanaged[Cdecl]<nint, int> _getSecure, _getHttpOnly;
         private readonly delegate* unmanaged[Cdecl]<nint, void> _freeCookie;
@@ -99,11 +141,22 @@ internal static partial class LinuxWebKitCookies
                 wpe ? "webkit_web_view_get_network_session" : "webkit_web_view_get_website_data_manager");
             _getCookieManager = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit,
                 wpe ? "webkit_network_session_get_cookie_manager" : "webkit_website_data_manager_get_cookie_manager");
+            // The 2022 API removed legacy data types and shifted WEBKIT_WEBSITE_DATA_COOKIES.
+            _cookieDataType = wpe ? 1u << 6 : 1u << 8;
             _setPersistentStorage = (delegate* unmanaged[Cdecl]<nint, nint, int, void>)NativeLibrary.GetExport(webkit, "webkit_cookie_manager_set_persistent_storage");
             if (NativeLibrary.TryGetExport(webkit, "webkit_cookie_manager_get_all_cookies", out nint getAll))
             {
                 _getAllCookies = (delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void>)getAll;
                 _getAllCookiesFinish = (delegate* unmanaged[Cdecl]<nint, nint, nint*, nint>)NativeLibrary.GetExport(webkit, "webkit_cookie_manager_get_all_cookies_finish");
+            }
+            nint getSessionWebsiteDataManager = 0;
+            if (NativeLibrary.TryGetExport(webkit, "webkit_website_data_manager_clear", out nint clear)
+                && NativeLibrary.TryGetExport(webkit, "webkit_website_data_manager_clear_finish", out nint clearFinish)
+                && (!wpe || NativeLibrary.TryGetExport(webkit, "webkit_network_session_get_website_data_manager", out getSessionWebsiteDataManager)))
+            {
+                _getSessionWebsiteDataManager = (delegate* unmanaged[Cdecl]<nint, nint>)getSessionWebsiteDataManager;
+                _clear = (delegate* unmanaged[Cdecl]<nint, uint, long, nint, delegate* unmanaged[Cdecl]<nint, nint, nint, void>, nint, void>)clear;
+                _clearFinish = (delegate* unmanaged[Cdecl]<nint, nint, GError**, int>)clearFinish;
             }
             _getName = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(soup, "soup_cookie_get_name");
             _getValue = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(soup, "soup_cookie_get_value");
@@ -121,6 +174,55 @@ internal static partial class LinuxWebKitCookies
         }
 
         internal bool CanListCookies => _getAllCookies != null;
+        internal bool CanClearCookies => _clear != null;
+
+        internal nint GetWebsiteDataManager(nint webView)
+        {
+            nint store = _getStore(webView);
+            return store != 0 && _getSessionWebsiteDataManager != null ? _getSessionWebsiteDataManager(store) : store;
+        }
+
+        internal Task BeginClearCookies(nint manager)
+        {
+            var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var state = GCHandle.Alloc((this, completion));
+            // A zero timespan deletes session and persisted cookies, including those .NET cannot represent.
+            _clear(manager, _cookieDataType, 0, 0, &OnCookiesCleared, GCHandle.ToIntPtr(state));
+            return completion.Task;
+        }
+
+        [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+        private static void OnCookiesCleared(nint manager, nint result, nint data)
+        {
+            TaskCompletionSource? completion = null;
+            try
+            {
+                var handle = GCHandle.FromIntPtr(data);
+                var (api, pending) = ((Api, TaskCompletionSource))handle.Target!;
+                completion = pending;
+                handle.Free();
+                api.FinishClearCookies(manager, result);
+                completion.TrySetResult();
+            }
+            catch (Exception ex)
+            {
+                // GLib cannot accept managed exceptions from this callback.
+                try { completion?.TrySetException(ex); }
+                catch { }
+            }
+        }
+
+        private void FinishClearCookies(nint manager, nint result)
+        {
+            GError* error = null;
+            try
+            {
+                if (_clearFinish(manager, result, &error) != 0) return;
+                string? message = error != null ? Marshal.PtrToStringUTF8(error->Message) : null;
+                throw new InvalidOperationException(message ?? Strings.WebBrowserActionFailed);
+            }
+            finally { if (error != null) ErrorFree((nint)error); }
+        }
 
         internal void UsePersistentStorage(nint webView, string path)
         {
@@ -192,6 +294,14 @@ internal static partial class LinuxWebKitCookies
             finally { ListFree(list); }
             return cookies;
         }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GError
+    {
+        public uint Domain;
+        public int Code;
+        public nint Message;
     }
 
     [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_list_free")] private static partial void ListFree(nint list);

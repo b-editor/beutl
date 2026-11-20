@@ -48,9 +48,17 @@ internal partial class WebBrowserTabView
     internal bool OpensPageDownloadOptionsDirectly { get; set; } = true;
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
     internal Func<NativeWebView?, CancellationToken, Task<IReadOnlyList<Cookie>>> DownloadCookiesProvider { get; set; } =
-        static async (webView, cancellation) => webView?.TryGetCookieManager() is { } manager
-            ? await manager.GetCookiesAsync().WaitAsync(cancellation)
-            : await LinuxWebKitCookies.GetAllAsync(webView?.TryGetPlatformHandle()).WaitAsync(cancellation);
+        static async (webView, cancellation) =>
+        {
+            var handle = OperatingSystem.IsLinux() ? webView?.TryGetPlatformHandle() : null;
+            // Avalonia's WPE callback can throw on a cookie with an empty name.
+            if (LinuxWebKit.TryGetWebView(handle, out _, out _))
+                return await LinuxWebKitCookies.GetAllAsync(handle).WaitAsync(cancellation);
+
+            return webView?.TryGetCookieManager() is { } manager
+                ? await manager.GetCookiesAsync().WaitAsync(cancellation)
+                : [];
+        };
     // Sites tie session cookies to the browser that received them, so a download presents the same user agent.
     // The page reports it asynchronously. NativeWebView.UserAgent would wait on WebKitGTK's GLib thread, which may
     // itself be waiting for this UI thread in a navigation policy decision, and WPE's adapter returns null.
