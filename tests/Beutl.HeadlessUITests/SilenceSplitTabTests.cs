@@ -16,6 +16,7 @@ using Avalonia.VisualTree;
 using Beutl.Audio;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SilenceSplitTab;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.SilenceSplitTab.Views;
@@ -803,6 +804,27 @@ public class SilenceSplitTabTests
     }
 
     [AvaloniaTest]
+    public async Task Preview_NativeControlWheelModifierZoomsEvenWhenEventModifiersAreNone()
+    {
+        using var session = await PreviewSession.CreateAsync(1200,
+            _ => throw new AssertionException("Zoom must not depend on the scroll device."),
+            _ => KeyModifiers.Control);
+        var model = session.Model;
+        var waveform = session.View.FindControl<WaveformControl>("Waveform")!;
+        double anchor = model.PreviewRange.Duration.ToSeconds() * 0.25;
+
+        session.Scroll(waveform, new Point(waveform.Bounds.Width * 0.25, 2), new Vector(0, 0.5), RawInputModifiers.None);
+
+        var range = model.PreviewRange;
+        Assert.Multiple(() =>
+        {
+            Assert.That(60 / range.Duration.ToSeconds(), Is.EqualTo(Math.Pow(1.2, 0.5)).Within(0.001));
+            Assert.That(range.Start.ToSeconds() + range.Duration.ToSeconds() * 0.25, Is.EqualTo(anchor).Within(0.02));
+            Assert.That(session.View.FindControl<ScrollViewer>("BodyScroll")!.Offset, Is.EqualTo(default(Vector)));
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]
@@ -966,7 +988,8 @@ public class SilenceSplitTabTests
         public SilenceSplitTabView View { get; }
         public Window Window { get; }
 
-        private PreviewSession(int width, Func<PointerWheelEventArgs, bool>? detector)
+        private PreviewSession(int width, Func<PointerWheelEventArgs, bool>? detector,
+            Func<PointerWheelEventArgs, KeyModifiers>? wheelModifiers)
         {
             var scene = new Scene(100, 100, "navigation");
             var element = new Element { Start = { Value = MediaTime.FromSeconds(10) }, Length = { Value = MediaTime.FromSeconds(60) } };
@@ -975,15 +998,18 @@ public class SilenceSplitTabTests
             Editor = new EditorContext(scene, _history, new BlockingPreviewPlayer());
             Tab = new SilenceSplitTabViewModel(Editor);
             Tab.Show(element);
-            View = detector == null ? new SilenceSplitTabView() : new SilenceSplitTabView(detector);
+            View = detector == null && wheelModifiers == null
+                ? new SilenceSplitTabView()
+                : new SilenceSplitTabView(detector ?? NativeScrollInput.UsesGestureAxes, wheelModifiers);
             View.DataContext = Tab;
             Window = new Window { Content = View, Width = width, Height = width >= 800 ? 360 : 720 };
             Window.Show();
         }
 
-        public static async Task<PreviewSession> CreateAsync(int width, Func<PointerWheelEventArgs, bool>? detector = null)
+        public static async Task<PreviewSession> CreateAsync(int width, Func<PointerWheelEventArgs, bool>? detector = null,
+            Func<PointerWheelEventArgs, KeyModifiers>? wheelModifiers = null)
         {
-            var session = new PreviewSession(width, detector);
+            var session = new PreviewSession(width, detector, wheelModifiers);
             await HeadlessTestHelpers.WaitUntilAsync(() => !session.Model.IsBusy.Value);
             session.Model.SetWaveform(Enumerable.Range(0, 3000).Select(i => new WaveformChunk(i, 0, 0)).ToArray());
             session.Model.MinimumMilliseconds.Value = 120000; // Leave the waveform background unpainted by highlights.

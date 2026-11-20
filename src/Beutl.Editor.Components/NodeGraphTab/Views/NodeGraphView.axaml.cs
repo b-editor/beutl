@@ -4,6 +4,7 @@ using Avalonia.Controls.PanAndZoom;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
+using Avalonia.Input.GestureRecognizers;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
@@ -26,6 +27,7 @@ public partial class NodeGraphView : UserControl
     private bool _rangeSelectionPressed;
     private readonly List<(GraphNodeView GraphNode, bool IsSelectedOriginal)> _rangeSelection = [];
     private bool _matrixUpdating;
+    private Matrix? _touchStartMatrix;
     private FAMenuFlyout? _portDropMenu;
 
     // Test seam: tests reach the menu a port drop opens through this.
@@ -55,6 +57,21 @@ public partial class NodeGraphView : UserControl
         zoomBorder.AddHandler(PointerWheelChangedEvent, OnGraphPointerWheelChanged, RoutingStrategies.Tunnel);
         // Register before ZoomBorder attaches its built-in magnify handler.
         zoomBorder.AddHandler(PointerTouchPadGestureMagnifyEvent, OnGraphMagnify);
+        // ZoomBorder adds its built-in recognizers in its constructor and EnableGestures = false
+        // does not remove them from GestureRecognizers, so clear them before attaching ours.
+        zoomBorder.EnableGestures = false;
+        foreach (GestureRecognizer recognizer in zoomBorder.GestureRecognizers.ToArray())
+        {
+            if (recognizer is PinchGestureRecognizer or ScrollGestureRecognizer)
+            {
+                zoomBorder.GestureRecognizers.Remove(recognizer);
+            }
+        }
+        zoomBorder.GestureRecognizers.Add(new TwoFingerTouchGestureRecognizer(
+            OnGraphTouchStarted,
+            OnGraphTouchUpdated,
+            OnGraphTouchEnded,
+            zoomBorder));
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragEnterEvent, OnDragEnter);
@@ -95,6 +112,34 @@ public partial class NodeGraphView : UserControl
         }
         e.Handled = true;
     }
+
+    private void OnGraphTouchStarted(Point startCenter)
+    {
+        if (_rangeSelectionPressed)
+        {
+            overlay.SelectionRange = default;
+            _rangeSelection.Clear();
+            _rangeSelectionPressed = false;
+        }
+
+        _touchStartMatrix = zoomBorder.Matrix;
+    }
+
+    private void OnGraphTouchUpdated(TwoFingerTouchState state)
+    {
+        if (_touchStartMatrix is not { } start || start.M11 <= 0) return;
+
+        double newZoom = Math.Clamp(start.M11 * state.ScaleFactor, zoomBorder.MinZoomX, zoomBorder.MaxZoomX);
+        double ratio = newZoom / start.M11;
+        var delta = new Matrix(
+            ratio, 0,
+            0, ratio,
+            state.CurrentCenter.X - ratio * state.StartCenter.X,
+            state.CurrentCenter.Y - ratio * state.StartCenter.Y);
+        zoomBorder.SetMatrix(start * delta, true);
+    }
+
+    private void OnGraphTouchEnded() => _touchStartMatrix = null;
 
     private void OnDrop(object? sender, DragEventArgs e)
     {

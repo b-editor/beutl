@@ -128,6 +128,7 @@ public partial class PlayerView
     private readonly WeakReference<Drawable?> _lastSelected = new(null);
     private IMouseControlHandler? _mouseState;
     private int _lastMouseMode = -1;
+    private Matrix? _touchStartMatrix;
 
     private void FinishEditingInteraction()
     {
@@ -237,6 +238,28 @@ public partial class PlayerView
             e.Handled = true;
         }
     }
+
+    private void OnFrameTouchStarted(AvaPoint startCenter)
+    {
+        _touchStartMatrix = DataContext is PlayerViewModel viewModel ? viewModel.FrameMatrix.Value : null;
+    }
+
+    private void OnFrameTouchUpdated(TwoFingerTouchState state)
+    {
+        if (DataContext is not PlayerViewModel viewModel || _touchStartMatrix is not { } start || start.M11 <= 0)
+            return;
+
+        float newScale = Math.Clamp((float)(start.M11 * state.ScaleFactor), MinFrameMatrixScale, MaxFrameMatrixScale);
+        float ratio = newScale / start.M11;
+        var delta = new Matrix(
+            ratio, 0,
+            0, ratio,
+            (float)(state.CurrentCenter.X - ratio * state.StartCenter.X),
+            (float)(state.CurrentCenter.Y - ratio * state.StartCenter.Y));
+        viewModel.FrameMatrix.Value = start * delta;
+    }
+
+    private void OnFrameTouchEnded() => _touchStartMatrix = null;
 
     private void OnFrameKeyDown(object? sender, KeyEventArgs e)
     {

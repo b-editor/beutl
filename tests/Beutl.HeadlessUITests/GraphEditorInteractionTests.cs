@@ -608,6 +608,62 @@ public class GraphEditorInteractionTests
     }
 
     [AvaloniaTest]
+    [TestCase("plot", false)]
+    [TestCase("plot", true)]
+    [TestCase("horizontal-ruler", false)]
+    [TestCase("vertical-ruler", false)]
+    public async Task Native_control_wheel_modifier_zooms_plot_and_rulers_even_when_event_modifiers_are_none(string route, bool shift)
+    {
+        using var graph = await GraphScope.CreateAsync(selectAll: false,
+            scrollDetector: _ => throw new AssertionException("Zoom must not depend on the scroll device."),
+            wheelModifiers: e => e.KeyModifiers | KeyGestureHelper.GetCommandModifier());
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 1 };
+        graph.Model.ScaleY.Value = 2;
+        HeadlessTestHelpers.Render(3);
+        graph.Model.ScrollOffset.Value = new Vector(75, 80);
+        HeadlessTestHelpers.Render();
+
+        Control target = route switch
+        {
+            "horizontal-ruler" => graph.View.FindControl<Border>("RulerBar")!,
+            "vertical-ruler" => graph.View.FindControl<GraphEditorScale>("verticalScale")!,
+            _ => scroll
+        };
+        Point local = route switch
+        {
+            "horizontal-ruler" => new Point(180, 16),
+            "vertical-ruler" => new Point(20, 160),
+            _ => new Point(180, 160)
+        };
+        Point pointer = target.TranslatePoint(local, graph.Window)!.Value;
+        Point plotPointer = target.TranslatePoint(local, scroll)!.Value;
+        graph.HitTest(pointer);
+
+        double time = (scroll.Offset.X + plotPointer.X) / graph.Model.Options.Value.Scale;
+        double value = (graph.Model.Baseline.Value - scroll.Offset.Y - plotPointer.Y) / graph.Model.ScaleY.Value;
+        graph.Window.MouseWheel(pointer, new Vector(0, 0.5), shift ? RawInputModifiers.Shift : RawInputModifiers.None);
+        HeadlessTestHelpers.Render();
+
+        bool zoomsHorizontal = route == "horizontal-ruler" || (route == "plot" && !shift);
+        double factor = Math.Pow(1.2, 0.5);
+        Assert.Multiple(() =>
+        {
+            Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(zoomsHorizontal ? factor : 1).Within(0.001));
+            Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(zoomsHorizontal ? 2 : 2 * factor).Within(0.001));
+            if (zoomsHorizontal)
+            {
+                Assert.That((scroll.Offset.X + plotPointer.X) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
+            }
+            else
+            {
+                Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - plotPointer.Y) / graph.Model.ScaleY.Value,
+                    Is.EqualTo(value).Within(0.01));
+            }
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task Plot_pinch_zooms_time_and_shift_pinch_zooms_value(bool shift)

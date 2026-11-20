@@ -83,6 +83,21 @@ public partial class GraphEditorView : UserControl
         RulerBar.AddHandler(PointerTouchPadGestureMagnifyEvent, OnHorizontalRulerMagnify);
         graphPanel.AddHandler(PointerTouchPadGestureMagnifyEvent, OnPlotMagnify);
         verticalScale.AddHandler(PointerTouchPadGestureMagnifyEvent, OnVerticalRulerMagnify);
+        RulerBar.GestureRecognizers.Add(new TwoFingerTouchGestureRecognizer(
+            _ => OnGraphTouchStarted(WheelTarget.HorizontalRuler),
+            OnGraphTouchUpdated,
+            OnGraphTouchEnded,
+            scroll));
+        scroll.GestureRecognizers.Add(new TwoFingerTouchGestureRecognizer(
+            _ => OnGraphTouchStarted(WheelTarget.Plot),
+            OnGraphTouchUpdated,
+            OnGraphTouchEnded,
+            scroll));
+        verticalScale.GestureRecognizers.Add(new TwoFingerTouchGestureRecognizer(
+            _ => OnGraphTouchStarted(WheelTarget.VerticalRuler),
+            OnGraphTouchUpdated,
+            OnGraphTouchEnded,
+            scroll));
         scroll.ScrollChanged += OnScrollChanged;
 
         this.SubscribeDataContextChange<GraphEditorViewModel>(

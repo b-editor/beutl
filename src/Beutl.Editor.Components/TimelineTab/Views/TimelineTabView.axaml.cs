@@ -62,6 +62,16 @@ public sealed partial class TimelineTabView : UserControl
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
         RulerBar.AddHandler(PointerTouchPadGestureMagnifyEvent, OnTimelineMagnify);
         ContentScroll.AddHandler(PointerTouchPadGestureMagnifyEvent, OnTimelineMagnify);
+        RulerBar.GestureRecognizers.Add(new TwoFingerTouchGestureRecognizer(
+            _ => OnTimelineTouchStarted(ruler: true),
+            OnTimelineTouchUpdated,
+            OnTimelineTouchEnded,
+            ContentScroll));
+        ContentScroll.GestureRecognizers.Add(new TwoFingerTouchGestureRecognizer(
+            _ => OnTimelineTouchStarted(ruler: false),
+            OnTimelineTouchUpdated,
+            OnTimelineTouchEnded,
+            ContentScroll));
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
         TimelinePanel.AddHandler(PointerReleasedEvent, (_, _) => InvalidateElementViewport(), RoutingStrategies.Tunnel, true);
         TimelinePanel.AddHandler(PointerCaptureLostEvent, (_, _) => InvalidateElementViewport(), RoutingStrategies.Bubble, true);

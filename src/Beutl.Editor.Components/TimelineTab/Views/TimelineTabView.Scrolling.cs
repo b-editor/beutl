@@ -86,6 +86,49 @@ public sealed partial class TimelineTabView
         e.Handled = true;
     }
 
+    private (float Scale, Vector2 Offset, bool Ruler)? _touchGesture;
+
+    private void OnTimelineTouchStarted(bool ruler)
+    {
+        _mouseFlag = TimelineHelper.MouseFlags.Free;
+        overlay.SelectionRange = default;
+        _rulerDrag.Release();
+        _pressedMarker = null;
+        EndMarkerDrag();
+
+        if (ViewModel is not { } viewModel)
+        {
+            _touchGesture = null;
+            return;
+        }
+
+        Avalonia.Vector aOffset = ContentScroll.Offset;
+        _touchGesture = (viewModel.Options.Value.Scale, new Vector2((float)aOffset.X, (float)aOffset.Y), ruler);
+    }
+
+    private void OnTimelineTouchUpdated(TwoFingerTouchState state)
+    {
+        if (ViewModel is not { } viewModel || _touchGesture is not { } start) return;
+
+        float newScale = (float)Math.Clamp(
+            start.Scale * state.ScaleFactor,
+            Beutl.ProjectSystem.TimelineOptions.MinScale,
+            Beutl.ProjectSystem.TimelineOptions.MaxScale);
+        double anchorX = (start.Offset.X + state.StartCenter.X) / start.Scale;
+        float newOffsetX = Math.Max(0, (float)(anchorX * newScale - state.CurrentCenter.X));
+        float newOffsetY = start.Ruler
+            ? start.Offset.Y
+            : Math.Max(0, (float)(start.Offset.Y - state.PanDelta.Y));
+
+        viewModel.Options.Value = viewModel.Options.Value with
+        {
+            Scale = newScale,
+            Offset = new Vector2(newOffsetX, newOffsetY)
+        };
+    }
+
+    private void OnTimelineTouchEnded() => _touchGesture = null;
+
     private void ZoomClick(object? sender, RoutedEventArgs e)
     {
         if (e.Source is FAMenuFlyoutItem menuItem && ViewModel != null

@@ -330,7 +330,8 @@ public partial class GraphEditorView
             SelectionAdorner.Marquee = null;
             var pointer = _interactionPointer;
             _interactionPointer = null;
-            pointer?.Capture(null);
+            if (ReferenceEquals(pointer?.Captured, graphPanel))
+                pointer.Capture(null);
             graphPanel.Cursor = Cursor.Default;
             UpdateSelectionAdorner();
         }

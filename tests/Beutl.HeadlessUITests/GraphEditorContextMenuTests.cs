@@ -200,7 +200,8 @@ public class GraphEditorContextMenuTests
 
         public static async Task<GraphScope> CreateAsync(
             bool light = false, bool separateHandles = false, bool selectAll = true, MediaTime elementStart = default,
-            Func<PointerWheelEventArgs, bool>? scrollDetector = null)
+            Func<PointerWheelEventArgs, bool>? scrollDetector = null,
+            Func<PointerWheelEventArgs, KeyModifiers>? wheelModifiers = null)
         {
             (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("graph-context");
             var animation = new KeyFrameAnimation<float>();
@@ -219,7 +220,9 @@ public class GraphEditorContextMenuTests
             var model = new GraphEditorViewModel(editor, animation, scene.Children.Single());
             model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
             if (selectAll) model.SelectedView.Value!.SetSelection(animation.KeyFrames);
-            var view = scrollDetector == null ? new GraphEditorView() : new GraphEditorView(scrollDetector);
+            var view = scrollDetector == null && wheelModifiers == null
+                ? new GraphEditorView()
+                : new GraphEditorView(scrollDetector ?? NativeScrollInput.UsesGestureAxes, getWheelModifiers: wheelModifiers);
             view.DataContext = model;
             var window = new Window
             {

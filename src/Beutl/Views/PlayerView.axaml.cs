@@ -84,6 +84,11 @@ public partial class PlayerView : UserControl
         framePanel.PointerCaptureLost += OnFramePointerCaptureLost;
         framePanel.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
         framePanel.AddHandler(PointerTouchPadGestureMagnifyEvent, OnFrameMagnify);
+        previewViewport.GestureRecognizers.Add(new TwoFingerTouchGestureRecognizer(
+            OnFrameTouchStarted,
+            OnFrameTouchUpdated,
+            OnFrameTouchEnded,
+            previewViewport));
         SetupPointPicking();
 
         framePanel.Focusable = true;

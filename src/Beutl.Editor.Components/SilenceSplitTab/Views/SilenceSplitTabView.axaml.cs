@@ -18,19 +18,28 @@ public partial class SilenceSplitTabView : UserControl
     private IDisposable? _nativeInputRegistration;
     private TopLevel? _nativeInputRoot;
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
+    private readonly Func<PointerWheelEventArgs, KeyModifiers> _getWheelModifiers;
     private SilenceSplitViewModel? _analysis;
     private bool _attached;
     private bool _wide;
     private bool _updatingPreview;
+    private double _touchLastScale = 1;
+    private Point _touchLastCenter;
 
     public SilenceSplitTabView() : this(NativeScrollInput.UsesGestureAxes) { }
 
-    internal SilenceSplitTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes)
+    internal SilenceSplitTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes,
+        Func<PointerWheelEventArgs, KeyModifiers>? getWheelModifiers = null)
     {
         _usesGestureAxes = usesGestureAxes;
+        _getWheelModifiers = getWheelModifiers ?? NativeScrollInput.GetWheelModifiers;
         InitializeComponent();
         // Cover the empty waveform area and handle input before nested scroll controls consume it.
         PreviewPane.AddHandler(PointerWheelChangedEvent, OnPreviewWheelChanged, RoutingStrategies.Tunnel);
+        PreviewPane.GestureRecognizers.Add(new TwoFingerTouchGestureRecognizer(
+            OnPreviewTouchStarted,
+            OnPreviewTouchUpdated,
+            coordinateTarget: Waveform));
         Waveform.SizeChanged += (_, _) => UpdatePlayhead();
     }
 
@@ -177,7 +186,7 @@ public partial class SilenceSplitTabView : UserControl
     private void OnPreviewWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (_analysis == null || Waveform.Bounds.Width <= 0 || DataContext is not SilenceSplitTabViewModel vm) return;
-        if ((NativeScrollInput.GetWheelModifiers(e) & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
+        if ((_getWheelModifiers(e) & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
         {
             double anchor = e.GetPosition(Waveform).X / Waveform.Bounds.Width;
             _analysis.ZoomPreview(Math.Pow(1.2, e.Delta.Y), anchor);
@@ -190,6 +199,39 @@ public partial class SilenceSplitTabView : UserControl
             BodyScroll.Offset = BodyScroll.Offset.WithY(BodyScroll.Offset.Y + delta.Y);
         }
         e.Handled = true;
+    }
+
+    private void OnPreviewTouchStarted(Point startCenter)
+    {
+        _touchLastScale = 1;
+        _touchLastCenter = startCenter;
+    }
+
+    private void OnPreviewTouchUpdated(TwoFingerTouchState state)
+    {
+        if (_analysis == null || Waveform.Bounds.Width <= 0) return;
+
+        double width = Waveform.Bounds.Width;
+        double stepScale = state.ScaleFactor / _touchLastScale;
+        if (double.IsFinite(stepScale) && stepScale > 0 && Math.Abs(stepScale - 1) > 1e-4)
+        {
+            _analysis.ZoomPreview(stepScale, state.CurrentCenter.X / width);
+            _touchLastScale = state.ScaleFactor;
+        }
+
+        double panX = state.CurrentCenter.X - _touchLastCenter.X;
+        if (panX != 0)
+        {
+            _analysis.ScrollPreview(-panX * _analysis.PreviewRange.Duration.ToSeconds() / width);
+        }
+
+        double panY = state.CurrentCenter.Y - _touchLastCenter.Y;
+        if (panY != 0)
+        {
+            BodyScroll.Offset = BodyScroll.Offset.WithY(Math.Max(0, BodyScroll.Offset.Y - panY));
+        }
+
+        _touchLastCenter = state.CurrentCenter;
     }
 
     private void OnRefreshClick(object? sender, RoutedEventArgs e) => (DataContext as SilenceSplitTabViewModel)?.Refresh();

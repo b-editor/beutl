@@ -19,6 +19,7 @@ public partial class GraphEditorView
     private Point? _panStart;
     private Vector _panOffset;
     private bool _fitting;
+    private (WheelTarget Target, float ScaleX, double ScaleY, double Baseline, Vector Offset)? _touchGesture;
 
     private void OnPlotNavigationPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -109,6 +110,73 @@ public partial class GraphEditorView
         else if (!model.AutoZoomHeight.Value)
             ZoomVertical(model, factor, position.Y);
     }
+
+    private void OnGraphTouchStarted(WheelTarget target)
+    {
+        _mouseFlag = TimelineHelper.MouseFlags.Free;
+        _rulerDrag.Release();
+        _panStart = null;
+        if (DataContext is not GraphEditorViewModel model || _interactionPointer != null || ControlPointMoveState != null)
+        {
+            _touchGesture = null;
+            return;
+        }
+
+        _touchGesture = (target, model.Options.Value.Scale, model.ScaleY.Value, model.Baseline.Value, scroll.Offset);
+    }
+
+    private void OnGraphTouchUpdated(TwoFingerTouchState state)
+    {
+        if (DataContext is not GraphEditorViewModel model
+            || _touchGesture is not { } start
+            || _interactionPointer != null
+            || ControlPointMoveState != null)
+        {
+            return;
+        }
+
+        _transformAnchor = null;
+        bool zoomsVertical = start.Target == WheelTarget.VerticalRuler
+            || (start.Target == WheelTarget.Plot && state.KeyModifiers.HasFlag(KeyModifiers.Shift) && !state.KeyModifiers.HasFlag(KeyModifiers.Alt));
+
+        double newOffsetX = start.Offset.X;
+        double newOffsetY = start.Offset.Y;
+
+        if (zoomsVertical)
+        {
+            if (!model.AutoZoomHeight.Value)
+            {
+                double anchorValue = (start.Baseline - start.Offset.Y - state.StartCenter.Y) / start.ScaleY;
+                model.ScaleY.Value = Math.Clamp(start.ScaleY * state.ScaleFactor, 0.000001, 1000000);
+                model.RefreshVerticalRange();
+                graphPanel.UpdateLayout();
+                newOffsetY = model.Baseline.Value - anchorValue * model.ScaleY.Value - state.CurrentCenter.Y;
+            }
+
+            if (start.Target == WheelTarget.Plot)
+            {
+                newOffsetX = start.Offset.X - state.PanDelta.X;
+            }
+        }
+        else
+        {
+            float scale = (float)Math.Clamp(start.ScaleX * state.ScaleFactor, 0.001, 100);
+            double anchorTimePixel = (start.Offset.X + state.StartCenter.X) / start.ScaleX;
+            model.Options.Value = model.Options.Value with { Scale = scale };
+            scale = model.Options.Value.Scale;
+            graphPanel.UpdateLayout();
+            newOffsetX = anchorTimePixel * scale - state.CurrentCenter.X;
+            if (start.Target == WheelTarget.Plot && !model.AutoZoomHeight.Value)
+            {
+                newOffsetY = start.Offset.Y - state.PanDelta.Y;
+            }
+        }
+
+        SetScrollOffset(model, new Vector(newOffsetX, newOffsetY));
+        UpdateSelectionAdorner();
+    }
+
+    private void OnGraphTouchEnded() => _touchGesture = null;
 
     private void ZoomHorizontal(GraphEditorViewModel model, double factor, double pointerX)
     {
