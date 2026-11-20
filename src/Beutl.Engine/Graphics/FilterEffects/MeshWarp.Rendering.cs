@@ -262,7 +262,7 @@ public sealed partial class MeshWarp
             BoundsCapture? capture = null;
             if (context.IsPreviewFrame && GetOriginal() is MeshWarp owner)
             {
-                MediaTime time = EvaluationContext?.Time ?? MediaTime.Zero;
+                MediaTime time = EvaluationContext?.DisplayedTime ?? MediaTime.Zero;
                 if (!owner.CaptureInputBounds(time, context.Bounds))
                     capture = new BoundsCapture(owner, time);
             }

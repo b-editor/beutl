@@ -312,6 +312,45 @@ public sealed class MeshWarpEditingHandleTests
         AssertPoint(effect.GetEditingHandles(t0)[1].Position, new Point(160, 0));
     }
 
+    [AvaloniaTest]
+    public async Task TimeRemappedDrawableKeysCapturedInputBoundsByDisplayedSceneTime()
+    {
+        TestGpu.RequireAnyDevice();
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("mesh-warp-time-controller", frameRate: 24);
+        var effect = new MeshWarp { Rows = { Value = 1 }, Columns = { Value = 1 } };
+        effect.Mesh.Value = effect.Mesh.Value.WithPoint(0, new Point(-0.5f, 0));
+        var shape = new RectShape
+        {
+            Width = { Value = 200 },
+            Height = { Value = 120 },
+            FilterEffect = { Value = new FilterEffectGroup { Children = { effect } } },
+        };
+        await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(4));
+        Element element = scene.Children.Single();
+        element.AddObject(new DrawableTimeController
+        {
+            OffsetPosition = { Value = MediaTime.FromSeconds(1) },
+        });
+
+        editor.GetRequiredService<IEditorSelection>().Select(effect);
+        var player = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = player, Width = 900, Height = 640 };
+        using var preview = new Preview(editor, player, window, Inspector: null);
+        window.Show();
+        HeadlessTestHelpers.Render();
+        editor.Player.IsMoveMode.Value = true;
+
+        MediaTime sceneTime = MediaTime.Zero;
+        editor.GetRequiredService<IEditorClock>().Seek(sceneTime);
+        await preview.Render();
+
+        // Pass an intentionally shifted/warped fallbackBounds: lookup must hit the pre-warp input bounds keyed by sceneTime.
+        var postWarpFallback = new Beutl.Graphics.Rect(-100, 0, 300, 120);
+        IReadOnlyList<EditingHandle> handles = effect.GetEditingHandles(sceneTime, postWarpFallback);
+        AssertPoint(handles[0].Position, new Point(-100, 0));
+        AssertPoint(handles[1].Position, new Point(200, 0));
+    }
+
     private static async Task<Preview> Open(MeshWarp effect, bool showInspector = false, bool rotate = false,
         FilterEffect? beforeWarp = null, MediaTime start = default, MediaTime time = default)
     {

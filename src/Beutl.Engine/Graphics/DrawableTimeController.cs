@@ -189,9 +189,11 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             }
 
             var originalContextTime = context.Time;
+            MediaTime? previousDisplayTime = context.DisplayTime;
             Drawable? previousRemappedTarget = context.TimeRemappedTarget;
             try
             {
+                context.DisplayTime ??= originalContextTime;
                 context.Time = obj.CalculateTargetTime(context.Time, this, targetDrawable);
                 context.TimeRemappedTarget = targetDrawable;
                 bool changed = false;
@@ -209,6 +211,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             finally
             {
                 context.Time = originalContextTime;
+                context.DisplayTime = previousDisplayTime;
                 context.TimeRemappedTarget = previousRemappedTarget;
             }
         }
