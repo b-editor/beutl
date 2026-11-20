@@ -149,9 +149,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         }
         else if (HasExpression.Value)
         {
-            // The fields show the expression's result, so only the components the user changed are written.
             oldValue = GetEditingValue();
-            newValue = ComponentAnimations.ReplaceEditedComponents(oldValue!, ShownValue.Value, newValue!);
         }
 
         if (!CanReplace(oldValue, newValue)) return;
@@ -234,6 +232,10 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     protected virtual TValue OffsetValue(TValue value, TValue from, TValue to)
         => ComponentAnimations.OffsetValue(value, from, to);
 
+    // What typed input writes below an expression: the whole value, as a picked color or a reset does. An editor with
+    // a field per component overrides it to keep the components the user did not change.
+    protected virtual TValue ReplaceUnderExpression(TValue underlying, TValue shown, TValue input) => input;
+
     protected TValue? GetIncrementValue(TValue? shown)
         => _previewingExpression && _relativePreview ? _previewInput : shown;
 
@@ -277,9 +279,11 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
                 StartPreviewBaseline(relative);
             }
 
+            // Typed input carries the other fields as they show now, which an earlier keystroke can have changed, so it is
+            // compared with the current display and value rather than those the preview started from.
             TValue? underlying = _relativePreview
                 ? OffsetValue(_previewStart!, _shownStart!, value!)
-                : ComponentAnimations.ReplaceEditedComponents(_previewStart!, _shownStart!, value!);
+                : ReplaceUnderExpression(GetEditingValue()!, ShownValue.Value, value!);
             TValue? accepted = SetCurrentValue(underlying);
             // Incremental controls continue from accepted input, not from the expression's result.
             _previewInput = _relativePreview ? OffsetValue(_shownStart!, _previewStart!, accepted!) : accepted;

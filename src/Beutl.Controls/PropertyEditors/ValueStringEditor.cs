@@ -22,6 +22,7 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
     private HeaderScrubGesture _scrub;
     private TextBlock? _headerText;
     private IValueEditorContext<TValue>? _valueContext;
+    private bool _absoluteEdit;
 
     // canScrub makes dragging the header change the value.
     private protected ValueStringEditor(TValue value, bool canScrub)
@@ -49,7 +50,7 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
     public void Connect(IValueEditorContext<TValue> context)
     {
         _valueContext = context;
-        ConnectValue(context, ValuePropertyCore, () => _editSource != InnerTextBox);
+        ConnectValue(context, ValuePropertyCore, () => !_absoluteEdit && _editSource != InnerTextBox);
     }
 
     private TValue IncrementValue => _valueContext is { } context ? context.GetIncrementValue(Value) : Value;
@@ -81,6 +82,21 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         Value = next;
         RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(next, previous, ValueChangedEvent));
         return true;
+    }
+
+    // Like ApplyValue, for a fixed value such as the default: it replaces the value below an expression rather than
+    // offsetting it.
+    internal bool ApplyAbsoluteValue(TValue next)
+    {
+        _absoluteEdit = true;
+        try
+        {
+            return ApplyValue(next);
+        }
+        finally
+        {
+            _absoluteEdit = false;
+        }
     }
 
     // Raises ValueConfirmed when Value has moved away from oldValue, as the end of a scrub does.

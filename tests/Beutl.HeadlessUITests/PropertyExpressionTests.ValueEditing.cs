@@ -86,17 +86,12 @@ public partial class PropertyExpressionTests
 
     // A typed component comes with the other fields' shown results, which must not replace their values below.
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public void Typing_one_component_keeps_the_others_under_the_expression(bool previewed)
+    public void Typing_one_component_keeps_the_others_under_the_expression()
     {
         using var scope = new ValueEditScope<Point>(new(100, 200), "new Point(Value.X * 2, Value.Y * 2)");
-        if (previewed)
-        {
-            scope.Model.SetCurrentValueAndGetCoerced(new Point(1, 400), relative: false);
-            scope.Model.SetCurrentValueAndGetCoerced(new Point(12, 400), relative: false);
-            scope.Model.SetCurrentValueAndGetCoerced(new Point(120, 400), relative: false);
-        }
+        scope.Model.SetCurrentValueAndGetCoerced(new Point(1, 400), relative: false);
+        scope.Model.SetCurrentValueAndGetCoerced(new Point(12, 400), relative: false);
+        scope.Model.SetCurrentValueAndGetCoerced(new Point(120, 400), relative: false);
         scope.Model.SetValue(new Point(200, 400), new Point(120, 400));
 
         Assert.Multiple(() =>
@@ -106,6 +101,52 @@ public partial class PropertyExpressionTests
         });
         scope.History.Undo();
         Assert.That(scope.Property.Value, Is.EqualTo(new Point(100, 200)));
+    }
+
+    // Each keystroke comes with the other fields as the last one left them, which an expression mixing components changes.
+    [AvaloniaTest]
+    public void Typing_keeps_untouched_components_when_the_expression_mixes_them()
+    {
+        using var scope = new ValueEditScope<Point>(new(100, 200), "new Point(Value.X * 2, Value.X + Value.Y)");
+        scope.Model.SetCurrentValueAndGetCoerced(new Point(1, 300), relative: false);
+        Assert.That(scope.Property.Value, Is.EqualTo(new Point(1, 200)));
+        scope.Model.SetCurrentValueAndGetCoerced(new Point(12, 201), relative: false);
+        scope.Model.SetValue(new Point(200, 300), new Point(12, 201));
+
+        Assert.That(scope.Property.Value, Is.EqualTo(new Point(12, 200)));
+    }
+
+    // A picked color replaces the whole value below, even in the channels where it matches the expression's result.
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void A_picked_color_replaces_every_channel_under_the_expression(bool previewed)
+    {
+        using var scope = new ValueEditScope<Color>(Colors.Blue, "Colors.Red");
+        if (previewed)
+            scope.Model.SetCurrentValueAndGetCoerced(Colors.Yellow, relative: false);
+        scope.Model.SetValue(Colors.Red, Colors.Yellow);
+
+        Assert.That(scope.Property.Value, Is.EqualTo(Colors.Yellow));
+    }
+
+    // A double click on the slider puts the default below the expression instead of offsetting by it.
+    [AvaloniaTest]
+    public void Resetting_the_slider_to_its_default_is_absolute_under_the_expression()
+    {
+        using var scope = new ValueEditScope<float>(100, "Value + 50");
+        using var host = scope.Show();
+        var editor = (NumberSliderEditor<float>)scope.Control;
+        float before = editor.Value;
+
+        editor.ApplyAbsoluteValue(20);
+        editor.ConfirmValue(before);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Property.Value, Is.EqualTo(20));
+            Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        });
     }
 
     // Typing after a wheel step replaces the value, and a wheel step after typing offsets from what was typed.

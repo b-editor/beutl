@@ -19,6 +19,10 @@ public class VectorEditorViewModel<TValue, TElement, TEdit>(
 {
     protected override bool CanEditUnderExpression => true;
 
+    // Each field shows its component of the expression's result; typing in one keeps the others' own values.
+    protected override TValue ReplaceUnderExpression(TValue underlying, TValue shown, TValue input)
+        => Beutl.Animation.ComponentAnimations.ReplaceEditedComponents(underlying, shown, input);
+
     public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
     protected override TEdit ToEdit(TValue value) => toEdit(value);
