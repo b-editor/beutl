@@ -803,6 +803,29 @@ public class SilenceSplitTabTests
     }
 
     [AvaloniaTest]
+    public async Task Preview_PinchZoomsAroundThePointerAndIgnoresInvalidMagnification()
+    {
+        using var session = await PreviewSession.CreateAsync(1200);
+        var model = session.Model;
+        var waveform = session.View.FindControl<WaveformControl>("Waveform")!;
+        double anchor = model.PreviewRange.Duration.ToSeconds() * 0.25;
+        Assert.That(session.Pinch(waveform, new Point(waveform.Bounds.Width * 0.25, 2), 0.2), Is.True);
+        var range = model.PreviewRange;
+        Assert.That(60 / range.Duration.ToSeconds(), Is.EqualTo(1.2).Within(0.001));
+        Assert.That(range.Start.ToSeconds() + range.Duration.ToSeconds() * 0.25, Is.EqualTo(anchor).Within(0.02));
+        foreach (double delta in new[] { -1, -2, double.NaN })
+        {
+            Assert.That(session.Pinch(waveform, new Point(waveform.Bounds.Width * 0.25, 2), delta), Is.True);
+            Assert.That(model.PreviewRange, Is.EqualTo(range));
+        }
+        // A pinch over the scrollbar zooms as well, as the Ctrl + wheel does.
+        var scroll = session.View.FindControl<ScrollBar>("PreviewScroll")!;
+        Assert.That(session.Pinch(scroll, new Point(scroll.Bounds.Width * 0.5, scroll.Bounds.Height * 0.5), 0.5), Is.True);
+        Assert.That(model.PreviewRange.Duration.ToSeconds(), Is.LessThan(range.Duration.ToSeconds()));
+        Assert.That(session.View.FindControl<ScrollViewer>("BodyScroll")!.Offset, Is.EqualTo(default(Vector)));
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]
@@ -995,6 +1018,14 @@ public class SilenceSplitTabTests
         {
             Window.MouseWheel(target.TranslatePoint(point, Window)!.Value, delta, modifiers);
             HeadlessTestHelpers.Render();
+        }
+
+        public bool Pinch(Control target, Point point, double delta)
+        {
+            bool handled = Beutl.Editor.Components.Helpers.NativeScrollInput.RaiseMagnify(
+                Window, target.TranslatePoint(point, Window)!.Value, delta, KeyModifiers.None, 1);
+            HeadlessTestHelpers.Render();
+            return handled;
         }
 
         public void Dispose()

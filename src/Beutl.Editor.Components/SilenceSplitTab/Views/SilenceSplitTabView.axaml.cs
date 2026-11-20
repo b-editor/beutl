@@ -31,6 +31,7 @@ public partial class SilenceSplitTabView : UserControl
         InitializeComponent();
         // Cover the empty waveform area and handle input before nested scroll controls consume it.
         PreviewPane.AddHandler(PointerWheelChangedEvent, OnPreviewWheelChanged, RoutingStrategies.Tunnel);
+        PreviewPane.AddHandler(PointerTouchPadGestureMagnifyEvent, OnPreviewMagnify);
         Waveform.SizeChanged += (_, _) => UpdatePlayhead();
     }
 
@@ -189,6 +190,14 @@ public partial class SilenceSplitTabView : UserControl
             _analysis.ScrollPreview(delta.X * range.Duration.ToSeconds() / Waveform.Bounds.Width);
             BodyScroll.Offset = BodyScroll.Offset.WithY(BodyScroll.Offset.Y + delta.Y);
         }
+        e.Handled = true;
+    }
+
+    private void OnPreviewMagnify(object? sender, PointerDeltaEventArgs e)
+    {
+        if (_analysis == null || Waveform.Bounds.Width <= 0) return;
+        // Native magnification already reports the relative scale change; ZoomPreview ignores invalid factors.
+        _analysis.ZoomPreview(1 + e.Delta.X, e.GetPosition(Waveform).X / Waveform.Bounds.Width);
         e.Handled = true;
     }
 
