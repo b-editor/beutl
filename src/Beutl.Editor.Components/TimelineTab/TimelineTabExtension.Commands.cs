@@ -313,6 +313,7 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         // Switching editors cancels the command, which stops rendering the preview and saving.
         await TemplateSaving.SaveAsync(editorContext.GetRequiredService<INotificationService>(),
             editorContext.GetRequiredService<ObjectTemplateService>(),
+            editorContext.GetService<Media.FontManager>(),
             TemplateSaving.CreateElementTemplate(scene, targets),
             name.Trim(),
             cancellationToken: interaction.CancellationToken);

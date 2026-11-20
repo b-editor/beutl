@@ -45,7 +45,8 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
         float renderScale,
         int pixelDeltaThreshold,
         int foregroundLumaThreshold,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Media.FontManager? snapshotFonts = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(sampleTimes);
@@ -65,7 +66,8 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
                         scene,
                         time,
                         renderScale,
-                        cancellationToken).ConfigureAwait(false)));
+                        cancellationToken,
+                        snapshotFonts).ConfigureAwait(false)));
             }
 
             return AnalyzeFrames(

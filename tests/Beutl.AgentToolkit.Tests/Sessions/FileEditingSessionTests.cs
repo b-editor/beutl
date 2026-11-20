@@ -58,7 +58,7 @@ public sealed class FileEditingSessionTests
         FileEditingSession recovered = source.OpenProject(projectPath);
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager, TestFonts.Manager);
+        var tools = new EditTools(manager);
         JsonObject desired = recovered.Documents.Read(recovered.Scene);
         desired["Elements"]![0]!["Name"] = "Unrelated edit";
         GetFrame(desired["Elements"]![0]!)["Value"] = 20;

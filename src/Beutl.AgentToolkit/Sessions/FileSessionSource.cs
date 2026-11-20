@@ -56,8 +56,6 @@ public sealed class FileSessionSource(Media.FontManager fonts) : ISessionSource,
             _disposed = true;
             current = _currentSession;
             _currentSession = null;
-            if (current is not null)
-                fonts.ClearProjectFonts(current.Project);
         }
 
         current?.Dispose();
@@ -71,11 +69,10 @@ public sealed class FileSessionSource(Media.FontManager fonts) : ISessionSource,
         {
             disposedRace = _disposed;
             previous = disposedRace ? null : _currentSession;
+            // Each session resolves its project's fonts through its own fork (FileEditingSession.Fonts), so swapping
+            // sessions leaves the host's fonts alone.
             if (!disposedRace)
-            {
-                fonts.LoadProjectFonts(session.Project);
                 _currentSession = session;
-            }
         }
 
         // Dispose outside _swapLock: Dispose quiesces on the session's dispatch lock and must not

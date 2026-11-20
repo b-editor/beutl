@@ -31,7 +31,7 @@ public partial class EditViewModel
     private EditorServiceRegistry CreateServices() => new EditorServiceRegistry()
         .Add<FileThumbnailService>(() => EditorService.AppServices.GetRequiredService<FileThumbnailService>())
         .Add<DecoderRegistry>(() => EditorService.AppServices.GetRequiredService<DecoderRegistry>())
-        .Add<Beutl.Media.FontManager>(() => EditorService.AppServices.GetRequiredService<Beutl.Media.FontManager>())
+        .Add<Beutl.Media.FontManager>(() => _fonts)
         .Add<INotificationService>(() => EditorService.AppServices.GetRequiredService<INotificationService>())
         .Add<GlobalConfiguration>(() => EditorService.AppServices.GetRequiredService<GlobalConfiguration>())
         .Add<LibraryService>(() => EditorService.AppServices.GetRequiredService<LibraryService>())

@@ -10,7 +10,7 @@ namespace Beutl.AgentToolkit.Tests.NodeGraphs;
 
 public sealed class NodeGraphCatalogTests
 {
-    private static readonly NodeGraphTools s_tools = new(new AgentSessionManager(), TestFonts.Manager);
+    private static readonly NodeGraphTools s_tools = new(new AgentSessionManager());
 
     [OneTimeSetUp]
     public void RegisterNodes() => NodeTypeCatalog.EnsureBuiltInNodesRegistered();

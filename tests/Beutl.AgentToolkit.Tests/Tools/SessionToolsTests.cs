@@ -553,7 +553,7 @@ public sealed class SessionToolsTests
         SessionTools sessionTools = TestSessions.CreateSessionTools(source, manager);
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(fixture.ProjectPath);
         Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
-        var editTools = new EditTools(manager, TestFonts.Manager);
+        var editTools = new EditTools(manager);
         JsonObject patch = new()
         {
             ["Elements"] = new JsonArray(new JsonObject
@@ -590,7 +590,7 @@ public sealed class SessionToolsTests
         SessionTools sessionTools = TestSessions.CreateSessionTools(source, manager);
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(fixture.ProjectPath);
         Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
-        var editTools = new EditTools(manager, TestFonts.Manager);
+        var editTools = new EditTools(manager);
         JsonObject patch = new()
         {
             ["Elements"] = new JsonArray(new JsonObject

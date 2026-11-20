@@ -20,7 +20,8 @@ public sealed partial class StillRenderer(FontManager fonts, DecoderRegistry? de
         MediaTime time,
         string outputPath,
         float renderScale,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        FontManager? snapshotFonts = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
@@ -38,6 +39,7 @@ public sealed partial class StillRenderer(FontManager fonts, DecoderRegistry? de
             renderScale,
             static (renderedScene, renderer, _) =>
                 (renderer.Snapshot(), NodeGraphDiagnostics.CollectRenderFailures(renderedScene)),
+            snapshotFonts,
             cancellationToken).ConfigureAwait(false);
         using Bitmap snapshot = rendered;
 
@@ -61,13 +63,15 @@ public sealed partial class StillRenderer(FontManager fonts, DecoderRegistry? de
         Scene scene,
         MediaTime time,
         float renderScale,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        FontManager? snapshotFonts = null)
     {
         return RenderRenderedFrameAsync(
             scene,
             time,
             renderScale,
             static (_, renderer, _) => renderer.Snapshot(),
+            snapshotFonts,
             cancellationToken);
     }
 
@@ -75,7 +79,8 @@ public sealed partial class StillRenderer(FontManager fonts, DecoderRegistry? de
         Scene scene,
         MediaTime time,
         float renderScale,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        FontManager? snapshotFonts = null)
     {
         return RenderRenderedFrameAsync(
             scene,
@@ -87,6 +92,7 @@ public sealed partial class StillRenderer(FontManager fonts, DecoderRegistry? de
                     CreateRenderedTextBounds(renderedScene, renderer, renderedTime);
                 return new RenderedFrameAnalysis(renderedTime, renderer.Snapshot(), textBounds);
             },
+            snapshotFonts,
             cancellationToken);
     }
 
@@ -95,15 +101,18 @@ public sealed partial class StillRenderer(FontManager fonts, DecoderRegistry? de
         MediaTime time,
         float renderScale,
         Func<Scene, SceneRenderer, MediaTime, TResult> project,
+        FontManager? snapshotFonts,
         CancellationToken cancellationToken)
     {
+        // The fonts captured with the scene snapshot; the host's when the caller has none.
+        FontManager renderFonts = snapshotFonts ?? fonts;
         ArgumentNullException.ThrowIfNull(scene);
         await ThrowIfGpuContextUnavailableAsync(scene, time, cancellationToken).ConfigureAwait(false);
 
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            using var renderer = ExportRendererFactory.Create(scene, fonts, normalizedScale, decoders);
+            using var renderer = ExportRendererFactory.Create(scene, renderFonts, normalizedScale, decoders);
 
             ThrowIfSourcesMissing(scene, time + scene.Start.Value);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start.Value);

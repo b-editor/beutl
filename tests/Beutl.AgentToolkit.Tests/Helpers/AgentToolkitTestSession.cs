@@ -32,13 +32,15 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
 
     public DocumentAdapter Documents { get; } = new(TestFonts.Manager);
 
+    public Media.FontManager Fonts => TestFonts.Manager;
+
     public bool IsDirty => false;
 
     public void Invoke(Action action) => action();
 
     public AgentSessionManager CreateManager() => TestSessions.CreateManager(this);
 
-    public EditTools CreateEditTools() => new(CreateManager(), TestFonts.Manager);
+    public EditTools CreateEditTools() => new(CreateManager());
 
     public void Dispose()
     {

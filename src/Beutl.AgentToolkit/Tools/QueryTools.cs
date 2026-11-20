@@ -41,7 +41,9 @@ public sealed record ObjectTransformMatrix(
     double M33);
 
 [McpServerToolType]
-public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGenerator schemaGenerator, FontManager fonts, DecoderRegistry? decoders = null) : ToolBase
+public sealed partial class QueryTools(
+    AgentSessionManager sessions, SchemaGenerator schemaGenerator, FontManager fonts, DecoderRegistry? decoders = null,
+    IOpenProjectFonts? openProject = null) : ToolBase
 {
     private const string RawHttpNote = "Raw HTTP MCP responses are Server-Sent Events. Read the JSON from the data: line, then decode result.content[0].text as the tool JSON payload. When returnImageContent=true, subsequent content blocks may include image/png data for visual review. notifications/initialized may return no body.";
 
@@ -178,6 +180,10 @@ public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGener
                 : "Use name to fetch a single syntax example or starter. Examples can be adapted or combined through apply_edit."));
     }
 
+    // Only a session already bound to the call is consulted: resolving a live request target can fail before the call
+    // names its scene, and listing fonts needs no session. Without one, the host's open project's fonts are listed.
+    private FontManager? TryGetSessionFonts() => sessions.PeekSession()?.Fonts ?? openProject?.Fonts;
+
     [McpServerTool(Name = "list_fonts")]
     [Description("Returns the font families this Beutl runtime has actually registered, with each available weight/style typeface pair. Font family resolution is by typographic family name: a subfamily such as \"Inter 28pt\" is not a family and will not match, and a family that is present may still lack the typeface pair you asked for. Call this before setting FontFamily/FontWeight/FontStyle rather than guessing from what is installed on the machine.")]
     public ToolResult<FontListResponse> ListFonts(
@@ -188,7 +194,9 @@ public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGener
     {
         return Execute(() =>
         {
-            FontFamilySummary[] families = fonts.FontFamilies
+            // The current project's bundled fonts are listed with the installed ones.
+            FontManager sessionFonts = TryGetSessionFonts() ?? fonts;
+            FontFamilySummary[] families = sessionFonts.FontFamilies
                 .Where(family => string.IsNullOrWhiteSpace(nameFilter)
                                  || family.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(family => family.Name, StringComparer.OrdinalIgnoreCase)
@@ -199,7 +207,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions, SchemaGener
                         return new FontFamilySummary(family.Name, []);
                     }
 
-                    ImmutableArray<Typeface> typefaces = fonts.GetTypefaces(family);
+                    ImmutableArray<Typeface> typefaces = sessionFonts.GetTypefaces(family);
                     return new FontFamilySummary(
                         family.Name,
                         typefaces

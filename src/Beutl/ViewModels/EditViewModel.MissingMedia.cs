@@ -132,6 +132,9 @@ public sealed partial class EditViewModel : IMediaRepairHost
     void IMediaRepairHost.ScheduleMediaFingerprints(bool finishSaveSnapshot)
         => ScheduleMediaFingerprints(finishSaveSnapshot: finishSaveSnapshot);
 
+    void IMediaRepairHost.ReloadBundledFonts()
+        => _bundledFonts.LoadProjectFonts(Scene.FindHierarchicalParent<Project>() ?? new Project { Uri = Scene.Uri });
+
     void IMediaRepairHost.ClearRenderCaches()
     {
         Renderer.Value.ClearAllCaches();

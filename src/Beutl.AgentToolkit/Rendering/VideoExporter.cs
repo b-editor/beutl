@@ -35,8 +35,11 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
         CancellationToken cancellationToken,
         int? crf = null,
         int? bitrate = null,
-        Action<long, long>? onFrameProgress = null)
+        Action<long, long>? onFrameProgress = null,
+        FontManager? snapshotFonts = null)
     {
+        // The fonts captured with the scene snapshot, so an export that outlives its session keeps them.
+        FontManager renderFonts = snapshotFonts ?? fonts;
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
 
@@ -75,7 +78,7 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
             await ThrowIfExportSourcesMissingAsync(scene, frameRate, videoEnabled, audioEnabled, cancellationToken).ConfigureAwait(false);
 
             using var providers = ExportMediaProviders.Create(
-                scene, fonts,
+                scene, renderFonts,
                 videoEnabled,
                 audioEnabled,
                 normalizedScale,

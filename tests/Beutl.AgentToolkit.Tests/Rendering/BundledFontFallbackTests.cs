@@ -25,6 +25,8 @@ public sealed class BundledFontFallbackTests
 
     private string _root = null!;
     private FileSessionSource? _source;
+    // The opened project's scope of TestFonts.Manager, which resolves its bundled fonts.
+    private FontManager _projectFonts = null!;
 
     [SetUp]
     public void OpenProjectWithLatinOnlyFont()
@@ -38,7 +40,7 @@ public sealed class BundledFontFallbackTests
         using (var creator = new FileSessionSource(TestFonts.Manager))
             TestWorkspace.CreateFileSession(creator, new ProjectCreateOptions(path, 64, 64, new Rational(30), TimeSpan.FromSeconds(1))).Save(skipConflictCheck: true);
         _source = new FileSessionSource(TestFonts.Manager);
-        _source.OpenProject(path);
+        _projectFonts = _source.OpenProject(path).Fonts;
 
         // As AddAgentToolkitServer does when the standalone server starts.
         BundledFontRegistration.EnsureRegistered(TestFonts.Manager);
@@ -94,7 +96,7 @@ public sealed class BundledFontFallbackTests
     public void Project_font_keeps_its_glyphs_and_the_rest_falls_back_at_the_requested_weight(FontWeight weight)
     {
         var uiFont = new FontFamily(BundledFonts.GetUiFamilyNames(CultureInfo.CurrentUICulture)[0]);
-        Assert.That(TestFonts.Manager.IsRegistered(s_projectFont), Is.True);
+        Assert.That(_projectFonts.IsRegistered(s_projectFont), Is.True);
 
         using FormattedText latin = CreateText(Latin, s_projectFont, weight);
         using FormattedText latinInUiFont = CreateText(Latin, uiFont, weight);
@@ -147,7 +149,7 @@ public sealed class BundledFontFallbackTests
         scene.Children.Add(element);
         string output = Path.Combine(dir, "bundled-fonts.png");
 
-        await new StillRenderer(TestFonts.Manager).RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None);
+        await new StillRenderer(TestFonts.Manager).RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None, _projectFonts);
 
         using SKBitmap bitmap = SKBitmap.Decode(output);
         int opaque = 0;
@@ -182,8 +184,8 @@ public sealed class BundledFontFallbackTests
         return [.. bounds];
     }
 
-    private static FormattedText CreateText(string text, FontFamily font, FontWeight weight)
+    private FormattedText CreateText(string text, FontFamily font, FontWeight weight)
     {
-        return new FormattedText(TestFonts.Manager) { Font = font, Text = text, Size = 64f, Weight = weight };
+        return new FormattedText(_projectFonts) { Font = font, Text = text, Size = 64f, Weight = weight };
     }
 }

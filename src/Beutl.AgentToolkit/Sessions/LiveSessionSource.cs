@@ -10,6 +10,7 @@ public sealed class LiveEditingSession : IEditingSession
 
     internal LiveEditingSession(Media.FontManager fonts, string sessionId, ILiveSessionBinding binding)
     {
+        Fonts = fonts;
         Documents = new DocumentAdapter(fonts);
         SessionId = sessionId;
         _binding = binding;
@@ -36,6 +37,9 @@ public sealed class LiveEditingSession : IEditingSession
     public HistoryManager History => _binding.ActiveHistory ?? throw new SessionUnavailableException();
 
     public DocumentAdapter Documents { get; }
+
+    // The editor's fork of its project's fonts.
+    public Media.FontManager Fonts { get; }
 
     public bool IsDirty => false;
 

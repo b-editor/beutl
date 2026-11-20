@@ -47,7 +47,7 @@ public class RelativeFileSourceApplyTests
         CollectionReconciler.RemoveIds(copy);
         elements.Add(copy);
 
-        var result = new EditTools(manager, TestFonts.Manager).ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+        var result = new EditTools(manager).ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         Assert.That(scene.Children, Has.Count.EqualTo(2));

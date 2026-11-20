@@ -24,7 +24,7 @@ public sealed class NestedSoundTimeRangeTests
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager, TestFonts.Manager);
+        var tools = new EditTools(manager);
 
         JsonObject addElement = new()
         {
@@ -83,7 +83,7 @@ public sealed class NestedSoundTimeRangeTests
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager, TestFonts.Manager);
+        var tools = new EditTools(manager);
 
         JsonObject patch = new()
         {

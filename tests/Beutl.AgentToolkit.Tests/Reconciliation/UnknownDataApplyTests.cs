@@ -28,7 +28,7 @@ public sealed class UnknownDataApplyTests
         using var session = new AgentToolkitTestSession(scene);
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager, TestFonts.Manager);
+        var tools = new EditTools(manager);
         JsonObject document = session.Documents.Read(scene);
         JsonObject documentElement = document["Elements"]!.AsArray()[0]!.AsObject();
         documentElement[nameof(Element.Start)] = TimeSpan.FromSeconds(1).ToString("c");

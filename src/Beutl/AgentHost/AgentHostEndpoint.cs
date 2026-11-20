@@ -422,6 +422,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton(_ => new Beutl.AgentToolkit.Schema.SchemaGenerator(
                 _editorService.AppServices.GetRequiredService<Beutl.Services.LibraryService>()))
             .AddSingleton(_projectService.Fonts)
+            .AddSingleton<Beutl.AgentToolkit.Sessions.IOpenProjectFonts>(new OpenProjectFonts(_projectService))
             .AddSingleton(_editorService.AppServices.GetRequiredService<DecoderRegistry>())
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)

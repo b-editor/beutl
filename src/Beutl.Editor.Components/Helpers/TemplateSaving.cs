@@ -15,24 +15,25 @@ internal static class TemplateSaving
     internal static ICoreSerializable CreateElementTemplate(Scene scene, IReadOnlyList<Element> elements)
         => elements.Count == 1 ? elements[0] : ElementSetFactory.Create(scene, elements);
 
+    // fonts are the editor's, which the preview renders the instance with.
     internal static SaveAsTemplateFlyout ShowSaveFlyout(INotificationService notifications,
-        ObjectTemplateService templates, Control target, ICoreSerializable instance, string name, bool showAtPointer, Action? onSaved = null)
+        ObjectTemplateService templates, Media.FontManager? fonts, Control target, ICoreSerializable instance, string name, bool showAtPointer, Action? onSaved = null)
     {
         var flyout = new SaveAsTemplateFlyout { Text = name };
-        flyout.Confirmed += async (_, confirmed) => await SaveAsync(notifications, templates, instance, confirmed, onSaved);
+        flyout.Confirmed += async (_, confirmed) => await SaveAsync(notifications, templates, fonts, instance, confirmed, onSaved);
         flyout.ShowAt(target, showAtPointer);
         return flyout;
     }
 
     // A refused or failed save shows the same error; a cancelled one is not reported as a failure.
     internal static async Task<bool> SaveAsync(INotificationService notifications,
-        ObjectTemplateService templates, ICoreSerializable instance, string? name, Action? onSaved = null, CancellationToken cancellationToken = default)
+        ObjectTemplateService templates, Media.FontManager? fonts, ICoreSerializable instance, string? name, Action? onSaved = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
 
         try
         {
-            if (await templates.AddFromInstanceAsync(instance, name, cancellationToken) is not null)
+            if (await templates.AddFromInstanceAsync(instance, name, cancellationToken, fonts) is not null)
             {
                 onSaved?.Invoke();
                 return true;

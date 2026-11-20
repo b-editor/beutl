@@ -1,6 +1,7 @@
 ﻿using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Beutl.Configuration;
@@ -11,35 +12,44 @@ using SkiaSharp;
 
 namespace Beutl.Media;
 
+// A manager made by the constructor holds the installed fonts. Fork makes a manager that resolves the fonts loaded
+// into it (LoadProjectFonts) ahead of its parent's: the host shares one manager, an open project forks it, and an
+// editor forks its project's. A fork asks its parent for everything it does not hold, so it sees the installed fonts,
+// the fallback order and its parent's fonts as they change, and loading fonts into it leaves its parent and siblings
+// alone.
 public sealed class FontManager
 {
     private readonly ILogger _logger = Log.CreateLogger<FontManager>();
     private readonly Lock _gate = new();
+    // The manager this one was forked from; null for one made by the constructor.
+    private readonly FontManager? _parent;
+    // The manager made by the constructor at the top of the forks.
+    private readonly FontManager _root;
     private long _revision;
-    internal long Revision => Volatile.Read(ref _revision);
-    internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
-    internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
+    // The fonts loaded into this manager, ahead of its parent's (a fork) or the installed ones.
     private Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _projectFonts = [];
     private WeakReference<Project>? _projectFontsOwner;
-    private readonly Dictionary<string, SKTypeface> _projectFontCache = [];
+    private Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> _lazyProjectFaces = [];
     private readonly HashSet<FontFamily> _reportedMissingFamilies = [];
-    // Keyed by reference to a matched typeface; null when it has no wght axis.
-    private readonly Dictionary<SKTypeface, WeightAxis?> _weightAxes = [];
-    // Variable typefaces moved to another weight, keyed by the typeface they were cloned from and the wght
-    // value. Like the registered typefaces, they live as long as the manager.
-    private readonly Dictionary<(SKTypeface Typeface, float Weight), SKTypeface> _weightInstances = [];
-    private readonly RenderFaceCache _renderFaces = new(FreeTypeFonts.Manager);
     private readonly string[] _fontDirs;
+
+    // The rest belongs to the root and is left empty in a fork.
+    internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
+    internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
+    // Faces loaded from a project, by content hash and face index. Weak, so the faces of a closed project go once
+    // nothing (a fork, or text drawn with them) holds them, and a project opened again shares the live ones.
+    private readonly Dictionary<string, WeakReference<SKTypeface>> _projectFontCache = [];
+    private readonly FaceCache _faces = new(FreeTypeFonts.Manager);
     private FontFamily[] _fallbackFamilies = [];
     private FontFamily? _emojiFamily;
     private readonly Dictionary<FontFamily, Dictionary<Typeface, Lazy<SKTypeface?>>> _deferredFonts = [];
     // macOS faces after the first of a collection, loaded with their family on its first lookup.
     private readonly Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> _lazyFaces = [];
-    private Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> _lazyProjectFaces = [];
 
     public FontManager(FontConfig configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+        _root = this;
         // A material package installs its fonts under the home directory, which is not one
         // of the OS font directories the user configures.
         _fontDirs =
@@ -51,6 +61,26 @@ public sealed class FontManager
         RegisterInstalledFonts();
         DefaultTypeface = ResolveDefaultTypeface();
     }
+
+    private FontManager(FontManager parent)
+    {
+        _parent = parent;
+        _root = parent._root;
+        _fontDirs = parent._fontDirs;
+        DefaultTypeface = parent.DefaultTypeface;
+    }
+
+    // Changes whenever the fonts this manager resolves do: its own counter only grows, and so does its parent's.
+    internal long Revision => Volatile.Read(ref _revision) + (_parent?.Revision ?? 0);
+
+    /// <summary>
+    /// Creates a manager that resolves the fonts loaded into it ahead of this one's, and the rest through this one.
+    /// </summary>
+    /// <remarks>
+    /// A fork holds no installed fonts of its own, so it costs little to make. It lives as long as something holds
+    /// it, such as a render or an export that captured it, even after its owner, say a closed project, lets it go.
+    /// </remarks>
+    public FontManager Fork() => new(this);
 
     private void RegisterInstalledFonts()
     {
@@ -139,6 +169,14 @@ public sealed class FontManager
         {
             // Dictionary はスレッドセーフでない。AddFont と並行して列挙すると
             // 内部状態が壊れて無限ループや null 例外になり得るのでスナップショットを返す。
+            if (_parent is not null)
+            {
+                FontFamily[] own;
+                lock (_gate)
+                    own = [.. _projectFonts.Keys, .. _lazyProjectFaces.Keys];
+                return own.Concat(_parent.FontFamilies).Distinct().ToArray();
+            }
+
             lock (_gate)
             {
                 return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys)
@@ -151,6 +189,9 @@ public sealed class FontManager
     {
         get
         {
+            if (_parent is not null)
+                return FontFamilies.Count();
+
             lock (_gate)
             {
                 return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys)
@@ -166,14 +207,24 @@ public sealed class FontManager
 
     internal FontName? GetFontName(FontFamily family)
     {
+        if (_parent is not null)
+            return _parent.GetFontName(family);
+
         lock (_gate)
         {
             return _fontNames.GetValueOrDefault(family);
         }
     }
 
+    // The fallback order belongs to the root, so every fork falls back alike.
     internal void SetFallbackFonts(IEnumerable<FontFamily> families, FontFamily? emojiFamily)
     {
+        if (_parent is not null)
+        {
+            _root.SetFallbackFonts(families, emojiFamily);
+            return;
+        }
+
         FontFamily[] fallbackFamilies = families.Distinct().ToArray();
         lock (_gate)
         {
@@ -188,6 +239,9 @@ public sealed class FontManager
 
     internal (FontFamily[] Families, FontFamily? Emoji) GetFallbackFamilies()
     {
+        if (_parent is not null)
+            return _root.GetFallbackFamilies();
+
         lock (_gate)
         {
             // The array is replaced as a unit by SetFallbackFonts and is never mutated.
@@ -197,6 +251,12 @@ public sealed class FontManager
 
     internal void RegisterFont(Typeface typeface, Func<Stream> openStream)
     {
+        if (_parent is not null)
+        {
+            _root.RegisterFont(typeface, openStream);
+            return;
+        }
+
         lock (_gate)
         {
             if (!_deferredFonts.TryGetValue(typeface.FontFamily, out var fonts))
@@ -248,7 +308,7 @@ public sealed class FontManager
         {
             if (TryResolveTypeface(typeface, out face!))
             {
-                face = InstantiateWeight(_renderFaces.Get(face), typeface.Weight);
+                face = _root._faces.Get(face, typeface.Weight);
                 return true;
             }
             return false;
@@ -266,7 +326,7 @@ public sealed class FontManager
                 return null;
         }
 
-        // Registered faces live as long as the manager, so their data is read outside the gate.
+        // The face is held here, so its data is read outside the gate.
         using SKStreamAsset? stream = face.OpenStream(out int index);
         using SKData? data = stream is null ? null : SKData.Create(stream);
         if (data is null)
@@ -317,8 +377,15 @@ public sealed class FontManager
         }
     }
 
+    // Adds an installed font, which every fork shares.
     public void AddFont(Stream stream)
     {
+        if (_parent is not null)
+        {
+            _root.AddFont(stream);
+            return;
+        }
+
         SKTypeface? typeface = SKTypeface.FromStream(stream);
         if (typeface == null) return;
         // 重複登録された SKTypeface は AddFont 側で false が返るので、
@@ -519,15 +586,30 @@ public sealed class FontManager
         return faces;
     }
 
-    // Renderers can still hold registered faces, so faces are cached by content across project switches.
+    // Every manager of a root shares the faces of the same file while any of them, or text drawn with them, holds them.
     private SKTypeface? LoadProjectFace(string hash, int index, Func<SKTypeface?> load)
     {
         string key = hash + ":" + index;
-        lock (_gate)
+        Dictionary<string, WeakReference<SKTypeface>> cache = _root._projectFontCache;
+        lock (cache)
         {
-            if (_projectFontCache.TryGetValue(key, out SKTypeface? cached)) return cached;
+            if (cache.TryGetValue(key, out WeakReference<SKTypeface>? cached) && cached.TryGetTarget(out SKTypeface? live))
+                return live;
             SKTypeface? face = load();
-            if (face is not null) _projectFontCache.Add(key, face);
+            if (face is not null)
+            {
+                // Entries of faces that went are dropped as faces are added, so the cache does not grow with them.
+                if (cache.Count > 0 && cache.Count % 64 == 0)
+                {
+                    foreach ((string staleKey, WeakReference<SKTypeface> stale) in cache)
+                    {
+                        if (!stale.TryGetTarget(out _))
+                            cache.Remove(staleKey);
+                    }
+                }
+
+                cache[key] = new WeakReference<SKTypeface>(face);
+            }
             return face;
         }
     }
@@ -600,6 +682,8 @@ public sealed class FontManager
             LoadLazyFaces(fontFamily);
             if (_projectFonts.TryGetValue(fontFamily, out var project))
                 return project.Keys;
+            if (_parent is not null)
+                return _parent.GetTypefaces(fontFamily);
             if (_deferredFonts.TryGetValue(fontFamily, out var deferred))
                 return [.. deferred.Keys];
             return _fonts.TryGetValue(fontFamily, out var value) ? value.Keys : [];
@@ -614,7 +698,7 @@ public sealed class FontManager
             // as "Inter 28pt"), so this runs inside the render pass and must not throw.
             if (TryResolveTypeface(typeface, out SKTypeface? face))
             {
-                return InstantiateWeight(_renderFaces.Get(face), typeface.Weight);
+                return _root._faces.Get(face, typeface.Weight);
             }
 
             // ToSkia() runs per text layout, so an unregistered family in a multi-frame render
@@ -628,17 +712,18 @@ public sealed class FontManager
             }
 
             return TryResolveTypeface(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight), out var fallback)
-                ? InstantiateWeight(_renderFaces.Get(fallback), typeface.Weight)
-                : _renderFaces.Get(SKTypeface.Default);
+                ? _root._faces.Get(fallback, typeface.Weight)
+                : _root._faces.GetRenderFace(SKTypeface.Default);
         }
     }
 
     // Test-only (via InternalsVisibleTo): the face a registered typeface renders with.
     internal SKTypeface GetRenderFace(SKTypeface typeface)
     {
-        lock (_gate) return _renderFaces.Get(typeface);
+        return _root._faces.GetRenderFace(typeface);
     }
 
+    // Callers hold _gate. A fork asks its parent, under the parent's gate, for a family it does not hold.
     private bool TryResolveTypeface(Typeface typeface, out SKTypeface face)
     {
         LoadLazyFaces(typeface.FontFamily);
@@ -646,6 +731,11 @@ public sealed class FontManager
         {
             face = project.Get(typeface);
             return true;
+        }
+        if (_parent is not null)
+        {
+            lock (_parent._gate)
+                return _parent.TryResolveTypeface(typeface, out face);
         }
         if (_deferredFonts.TryGetValue(typeface.FontFamily, out var deferred)
             && deferred.Get(typeface).Value is { } loaded)
@@ -662,18 +752,64 @@ public sealed class FontManager
         return false;
     }
 
-    // A variable font registers once, as its default instance, so every weight resolves to that instance.
-    // Move the matched typeface along its wght axis to the requested weight instead; a typeface without the
-    // axis, or already at that weight, is returned as is. Callers hold _gate.
-    private SKTypeface InstantiateWeight(SKTypeface typeface, FontWeight weight)
+    public bool IsRegistered(FontFamily fontFamily)
     {
-        if (!_weightAxes.TryGetValue(typeface, out WeightAxis? axis))
+        lock (_gate)
         {
-            axis = WeightAxis.Find(typeface);
-            _weightAxes.Add(typeface, axis);
+            if (_projectFonts.ContainsKey(fontFamily) || _lazyProjectFaces.ContainsKey(fontFamily))
+                return true;
+            if (_parent is not null)
+                return _parent.IsRegistered(fontFamily);
+            return _fonts.ContainsKey(fontFamily) || _deferredFonts.ContainsKey(fontFamily) || _lazyFaces.ContainsKey(fontFamily);
+        }
+    }
+}
+
+// Maps a matched typeface to the face text draws with. Entries are keyed weakly by the matched typeface, so the faces
+// made for fonts a closed project loaded go with them. Shared by a root and its forks, so it locks for itself.
+internal sealed class FaceCache(SKFontManager? manager)
+{
+    private readonly Lock _gate = new();
+    private readonly ConditionalWeakTable<SKTypeface, SKTypeface> _renderFaces = new();
+    private readonly ConditionalWeakTable<SKTypeface, WeightInstances> _weights = new();
+
+    public SKTypeface Get(SKTypeface typeface, FontWeight weight)
+    {
+        lock (_gate) return InstantiateWeight(GetRenderFaceCore(typeface), weight);
+    }
+
+    // On Windows the face is FreeType's, created from the same font data (see FreeTypeFonts); without a manager it is
+    // the typeface itself.
+    public SKTypeface GetRenderFace(SKTypeface typeface)
+    {
+        lock (_gate) return GetRenderFaceCore(typeface);
+    }
+
+    private SKTypeface GetRenderFaceCore(SKTypeface typeface)
+    {
+        if (manager is null)
+        {
+            return typeface;
         }
 
-        if (axis is not { } weightAxis)
+        if (!_renderFaces.TryGetValue(typeface, out SKTypeface? face))
+        {
+            // CreateTypeface takes the stream over. A font the manager cannot open keeps drawing as is.
+            SKStreamAsset? stream = typeface.OpenStream(out int index);
+            face = (stream is null ? null : manager.CreateTypeface(stream, index)) ?? typeface;
+            _renderFaces.Add(typeface, face);
+        }
+
+        return face;
+    }
+
+    // A variable font registers once, as its default instance, so every weight resolves to that instance.
+    // Move the matched typeface along its wght axis to the requested weight instead; a typeface without the
+    // axis, or already at that weight, is returned as is.
+    private SKTypeface InstantiateWeight(SKTypeface typeface, FontWeight weight)
+    {
+        WeightInstances instances = _weights.GetValue(typeface, static face => new WeightInstances(WeightAxis.Find(face)));
+        if (instances.Axis is not { } weightAxis)
         {
             return typeface;
         }
@@ -685,14 +821,22 @@ public sealed class FontManager
             return typeface;
         }
 
-        if (!_weightInstances.TryGetValue((typeface, value), out SKTypeface? instance))
+        if (!instances.Faces.TryGetValue(value, out SKTypeface? instance))
         {
             ReadOnlySpan<SKFontVariationPositionCoordinate> position = [new() { Axis = WeightAxis.Tag, Value = value }];
             instance = typeface.Clone(position) ?? typeface;
-            _weightInstances.Add((typeface, value), instance);
+            instances.Faces.Add(value, instance);
         }
 
         return instance;
+    }
+
+    // Axis is null when the typeface has no wght axis; Faces holds its instances by wght value.
+    private sealed class WeightInstances(WeightAxis? axis)
+    {
+        public WeightAxis? Axis { get; } = axis;
+
+        public Dictionary<float, SKTypeface> Faces { get; } = [];
     }
 
     private readonly record struct WeightAxis(float Min, float Max, float Position)
@@ -723,41 +867,6 @@ public sealed class FontManager
 
             return null;
         }
-    }
-
-    public bool IsRegistered(FontFamily fontFamily)
-    {
-        lock (_gate)
-        {
-            return _projectFonts.ContainsKey(fontFamily) || _fonts.ContainsKey(fontFamily) || _deferredFonts.ContainsKey(fontFamily)
-                || _lazyFaces.ContainsKey(fontFamily) || _lazyProjectFaces.ContainsKey(fontFamily);
-        }
-    }
-}
-
-// Maps a matched typeface to the face text draws with. On Windows that face is FreeType's, created from the
-// same font data (see FreeTypeFonts); without a manager it is the typeface itself. FontManager holds _gate.
-internal sealed class RenderFaceCache(SKFontManager? manager)
-{
-    // Keyed by reference. Like the registered typefaces, the faces live as long as the cache.
-    private readonly Dictionary<SKTypeface, SKTypeface> _faces = [];
-
-    public SKTypeface Get(SKTypeface typeface)
-    {
-        if (manager is null)
-        {
-            return typeface;
-        }
-
-        if (!_faces.TryGetValue(typeface, out SKTypeface? face))
-        {
-            // CreateTypeface takes the stream over. A font the manager cannot open keeps drawing as is.
-            SKStreamAsset? stream = typeface.OpenStream(out int index);
-            face = (stream is null ? null : manager.CreateTypeface(stream, index)) ?? typeface;
-            _faces.Add(typeface, face);
-        }
-
-        return face;
     }
 }
 

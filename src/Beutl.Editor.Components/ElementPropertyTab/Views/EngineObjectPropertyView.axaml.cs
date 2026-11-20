@@ -38,7 +38,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
         string defaultName = TypeDisplayHelpers.GetLocalizedName(viewModel.Model.GetType());
         var templates = viewModel.GetRequiredService<ObjectTemplateService>();
         TemplateSaving.ShowSaveFlyout(viewModel.GetRequiredService<INotificationService>(),
-            templates, this, viewModel.Model, templates.GetUniqueName(defaultName), showAtPointer: false);
+            templates, viewModel.GetService<Media.FontManager>(), this, viewModel.Model, templates.GetUniqueName(defaultName), showAtPointer: false);
     }
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
