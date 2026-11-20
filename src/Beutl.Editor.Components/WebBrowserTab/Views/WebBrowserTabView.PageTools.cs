@@ -121,14 +121,20 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private async void OnBrowserKeyDown(object? sender, KeyEventArgs e)
+    private void OnBrowserKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (TryHandleBrowserShortcut(e.Key, e.KeyModifiers)) e.Handled = true;
+    }
+
+    internal bool TryHandleBrowserShortcut(Key key, KeyModifiers modifiers)
     {
         KeyModifiers modifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
-        if (!e.KeyModifiers.HasFlag(modifier)) return;
-        if (e.Key == Key.F) { e.Handled = true; OnFindPageClick(this, e); }
-        else if (e.Key is Key.Add or Key.OemPlus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent + BrowserPageTools.ZoomStepPercent); }
-        else if (e.Key is Key.Subtract or Key.OemMinus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent - BrowserPageTools.ZoomStepPercent); }
-        else if (e.Key is Key.D0 or Key.NumPad0) { e.Handled = true; await SetPageZoomAsync(BrowserPageTools.DefaultZoomPercent); }
+        if (!modifiers.HasFlag(modifier)) return false;
+        if (key == Key.F) { OnFindPageClick(this, new RoutedEventArgs()); return true; }
+        if (key is Key.Add or Key.OemPlus) { _ = SetPageZoomAsync(_zoomPercent + BrowserPageTools.ZoomStepPercent); return true; }
+        if (key is Key.Subtract or Key.OemMinus) { _ = SetPageZoomAsync(_zoomPercent - BrowserPageTools.ZoomStepPercent); return true; }
+        if (key is Key.D0 or Key.NumPad0) { _ = SetPageZoomAsync(BrowserPageTools.DefaultZoomPercent); return true; }
+        return false;
     }
 
     private void OnWebViewKeyDown(object? sender, KeyEventArgs e)

@@ -86,6 +86,43 @@ public sealed class WebBrowserTabShortcutsTests
     }
 
     [AvaloniaTest]
+    public void Browser_local_shortcuts_still_work_when_webview_is_focused()
+    {
+        var page = new Uri("https://example.com/");
+        NativeWebView? webView = null;
+        using var vm = new WebBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, page);
+        using var view = new WebBrowserTabView(uri => webView = new NativeWebView { Source = uri }, () => (true, null, false))
+        {
+            DataContext = vm,
+            PageScriptRunner = _ => Task.FromResult<string?>("true")
+        };
+        vm.CompleteNavigation(page, true, false, false);
+        var window = new Window { Content = view, Width = 640, Height = 480 };
+        window.Show();
+        try
+        {
+            HeadlessTestHelpers.Render();
+            Assert.That(webView, Is.Not.Null);
+            webView!.Focus();
+
+            KeyModifiers modifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+            KeyEventArgs find = KeyDown(webView, Key.F, modifier);
+            webView.RaiseEvent(find);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(find.Handled, Is.True);
+                Assert.That(view.FindControl<Grid>("FindPanel")!.IsVisible, Is.True);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Keys_while_webview_is_focused_do_not_trigger_editor_or_main_shortcuts()
     {
         (Window window, MainView mainView, EditViewModel editor) = await ShowEditorAsync("browser-shortcuts-docked");

@@ -91,8 +91,7 @@ internal static partial class NativeBrowserFrameTestHost
                 window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
                 window.Show();
                 using var focusTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                await CheckLinuxFocusAsync(window, focusTimeout.Token);
-                exitCode = 0;
+                exitCode = await CheckLinuxFocusAsync(window, focusTimeout.Token) ? 0 : SkippedExitCode;
                 return;
             }
             if (scenario == "--native-browser-adblock-reference")
@@ -242,9 +241,9 @@ internal static partial class NativeBrowserFrameTestHost
         return true;
     }
 
-    private static async Task CheckLinuxFocusAsync(Window window, CancellationToken token)
+    private static async Task<bool> CheckLinuxFocusAsync(Window window, CancellationToken token)
     {
-        if (!OperatingSystem.IsLinux()) return;
+        if (!OperatingSystem.IsLinux()) return false;
 
         var page = new Uri("https://page.example/");
         var browser = new NativeWebView();
@@ -264,37 +263,207 @@ internal static partial class NativeBrowserFrameTestHost
         await loaded.Task.WaitAsync(token);
 
         IPlatformHandle? handle = browser.TryGetPlatformHandle();
-        if (handle is IGtkWebViewPlatformHandle && handle.HandleDescriptor == "XID" && handle.Handle != 0)
+        if (handle is not IGtkWebViewPlatformHandle gtk || handle.HandleDescriptor != "XID" || handle.Handle == 0 || gtk.WebKitWebView == 0)
         {
-            const nint keyPressAndReleaseMask = 0x3;
-            nint? mask = null;
-            while (mask is null || (mask.Value & keyPressAndReleaseMask) != keyPressAndReleaseMask)
-            {
-                mask = await LinuxWebKitFocus.ReadDoNotPropagateMaskAsync(handle.Handle).WaitAsync(token);
-                if (mask is not null && (mask.Value & keyPressAndReleaseMask) == keyPressAndReleaseMask) break;
-                await Task.Delay(20, token);
-            }
-
-            Assert.That(mask!.Value & keyPressAndReleaseMask, Is.EqualTo(keyPressAndReleaseMask),
-                "WebKitGTK's embedded X11 window must block core KeyPress/KeyRelease propagation to Avalonia.");
+            Console.WriteLine("Linux X11 focus test requires the GTK X11 WebKit adapter.");
+            return false;
         }
 
-        var keyDown = new KeyEventArgs
+        const nint keyPressAndReleaseMask = 0x3;
+        nint? mask = null;
+        while (mask is null || (mask.Value & keyPressAndReleaseMask) != keyPressAndReleaseMask)
         {
-            RoutedEvent = InputElement.KeyDownEvent,
-            Source = browser,
-            Key = Key.M,
-            KeyModifiers = KeyModifiers.None,
-            PhysicalKey = PhysicalKey.None
-        };
-        browser.RaiseEvent(keyDown);
+            mask = await LinuxWebKitFocus.ReadDoNotPropagateMaskAsync(handle.Handle).WaitAsync(token);
+            if (mask is not null && (mask.Value & keyPressAndReleaseMask) == keyPressAndReleaseMask) break;
+            await Task.Delay(20, token);
+        }
+
+        Assert.That(mask!.Value & keyPressAndReleaseMask, Is.EqualTo(keyPressAndReleaseMask),
+            "WebKitGTK's embedded X11 window must block core KeyPress/KeyRelease propagation to Avalonia.");
+
+        // 1. Send a real core X11 KeyPress with propagate=True to WebKitGTK's X11 window.
+        // Without do_not_propagate_mask, X11 propagates this event up to Avalonia's host window.
+        nint hostXid = window.TryGetPlatformHandle()?.Handle ?? 0;
+        Assert.That(hostXid, Is.Not.EqualTo(nint.Zero));
+        await SendX11KeyPressAsync(handle.Handle, 0x06d /* XK_m */, state: 0).WaitAsync(token);
+        await Task.Delay(100, token);
+        Assert.That(leakedToWindow, Is.Zero,
+            "Core X11 KeyPress on the embedded WebKitGTK window must not propagate to Avalonia's host window.");
+
+        // 2. Focus the page input and send a native GTK key-press-event for 'm'; it must enter the input without triggering Avalonia shortcuts.
+        await browser.InvokeScript("document.getElementById('box').focus()").WaitAsync(token);
+        await SendGtkKeyPressAsync(gtk.WebKitWebView, 0x06d /* GDK_KEY_m */, state: 0, text: "m").WaitAsync(token);
+        string? typedValue = null;
+        for (int attempt = 0; attempt < 25; attempt++)
+        {
+            typedValue = WebBrowserTabView.NormalizePageTitle(await browser.InvokeScript("document.getElementById('box').value").WaitAsync(token));
+            if (typedValue == "m") break;
+            await Task.Delay(20, token);
+        }
         Assert.Multiple(() =>
         {
-            Assert.That(ContextCommandInput.IsFromTextInput(keyDown), Is.True);
-            Assert.That(keyDown.Handled, Is.True);
-            Assert.That(leakedToWindow, Is.Zero);
+            Assert.That(typedValue, Is.EqualTo("m"), "Native GTK key input must type into the focused page input.");
+            Assert.That(leakedToWindow, Is.Zero, "Typing into the page input must not trigger Avalonia shortcuts.");
+        });
+
+        // 3. Browser-local shortcuts (Ctrl+F, Ctrl++) must still work from GTK key-press-event while the page has focus.
+        const uint gdkControlMask = 1u << 2;
+        const uint gdkShiftMask = 1u << 0;
+        await SendGtkKeyPressAsync(gtk.WebKitWebView, 0x02b /* GDK_KEY_plus */, gdkControlMask | gdkShiftMask).WaitAsync(token);
+        var zoomReset = view.FindControl<FluentAvalonia.UI.Controls.FAMenuFlyoutItem>("ZoomResetMenuItem")!;
+        for (int attempt = 0; attempt < 25; attempt++)
+        {
+            if (zoomReset.Text?.Contains("110%", StringComparison.Ordinal) == true) break;
+            await Task.Delay(20, token);
+        }
+        Assert.That(zoomReset.Text, Does.Contain("110%"), "Ctrl++ inside the page must invoke browser zoom.");
+
+        await SendGtkKeyPressAsync(gtk.WebKitWebView, 0x066 /* GDK_KEY_f */, gdkControlMask).WaitAsync(token);
+        Grid findPanel = view.FindControl<Grid>("FindPanel")!;
+        for (int attempt = 0; attempt < 25; attempt++)
+        {
+            if (findPanel.IsVisible) break;
+            await Task.Delay(20, token);
+        }
+        Assert.That(findPanel.IsVisible, Is.True, "Ctrl+F inside the page must open the browser find panel.");
+
+        // 4. Once focus leaves NativeWebView (Ctrl+F moved focus to FindTextBox -> move to Window), X11 KeyPress on the host window reaches Avalonia normally.
+        window.Focusable = true;
+        window.Focus();
+        await SendX11KeyPressAsync(hostXid, 0x06d /* XK_m */, state: 0).WaitAsync(token);
+        for (int attempt = 0; attempt < 25; attempt++)
+        {
+            if (leakedToWindow > 0) break;
+            await Task.Delay(20, token);
+        }
+        Assert.That(leakedToWindow, Is.GreaterThan(0),
+            "After focus leaves the browser, X11 KeyPress on the host window must reach Avalonia normally.");
+
+        return true;
+    }
+
+    private static Task SendX11KeyPressAsync(nint targetWindow, nuint keysym, uint state)
+    {
+        return LinuxWebKit.OnGlibAsync(() =>
+        {
+            nint gdkDisplay = GdkDisplayGetDefault();
+            nint xDisplay = GdkX11DisplayGetXDisplay(gdkDisplay);
+            uint keycode = XKeysymToKeycode(xDisplay, keysym);
+            var ev = new XKeyEventBuffer
+            {
+                Type = 2, // KeyPress
+                Display = xDisplay,
+                Window = targetWindow,
+                Root = XDefaultRootWindow(xDisplay),
+                State = state,
+                Keycode = keycode,
+                SameScreen = 1
+            };
+            XSendEvent(xDisplay, targetWindow, propagate: 1, eventMask: 1 /* KeyPressMask */, ref ev);
+            XSync(xDisplay, 0);
         });
     }
+
+    private static unsafe Task SendGtkKeyPressAsync(nint gtkWidget, uint keyval, uint state, string? text = null)
+    {
+        return LinuxWebKit.OnGlibAsync(gtkWidget, () =>
+        {
+            GtkWidgetGrabFocus(gtkWidget);
+            nint gdkDisplay = GdkDisplayGetDefault();
+            nint xDisplay = GdkX11DisplayGetXDisplay(gdkDisplay);
+            ushort keycode = (ushort)XKeysymToKeycode(xDisplay, keyval);
+            nint gdkWindow = GtkWidgetGetWindow(gtkWidget);
+            nint evPtr = GdkEventNew(8 /* GDK_KEY_PRESS */);
+            nint textPtr = text != null ? Marshal.StringToCoTaskMemUTF8(text) : 0;
+            try
+            {
+                var ev = (GdkEventKey*)evPtr;
+                ev->Window = gdkWindow != 0 ? LinuxWebKit.ObjectRef(gdkWindow) : 0;
+                ev->SendEvent = 1;
+                ev->State = state;
+                ev->Keyval = keyval;
+                ev->Length = text?.Length ?? 0;
+                ev->String = textPtr;
+                ev->HardwareKeycode = keycode;
+                GtkWidgetEvent(gtkWidget, evPtr);
+                ev->String = 0;
+            }
+            finally
+            {
+                if (textPtr != 0) Marshal.FreeCoTaskMem(textPtr);
+                GdkEventFree(evPtr);
+            }
+        });
+    }
+
+    [StructLayout(LayoutKind.Explicit, Size = 192)]
+    private struct XKeyEventBuffer
+    {
+        [FieldOffset(0)] public int Type;
+        [FieldOffset(8)] public nuint Serial;
+        [FieldOffset(16)] public int SendEvent;
+        [FieldOffset(24)] public nint Display;
+        [FieldOffset(32)] public nint Window;
+        [FieldOffset(40)] public nint Root;
+        [FieldOffset(48)] public nint Subwindow;
+        [FieldOffset(56)] public nuint Time;
+        [FieldOffset(64)] public int X;
+        [FieldOffset(68)] public int Y;
+        [FieldOffset(72)] public int XRoot;
+        [FieldOffset(76)] public int YRoot;
+        [FieldOffset(80)] public uint State;
+        [FieldOffset(84)] public uint Keycode;
+        [FieldOffset(88)] public int SameScreen;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GdkEventKey
+    {
+        public int Type;
+        public nint Window;
+        public sbyte SendEvent;
+        public uint Time;
+        public uint State;
+        public uint Keyval;
+        public int Length;
+        public nint String;
+        public ushort HardwareKeycode;
+        public byte Group;
+        public uint IsModifier;
+    }
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_display_get_default")]
+    private static partial nint GdkDisplayGetDefault();
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_x11_display_get_xdisplay")]
+    private static partial nint GdkX11DisplayGetXDisplay(nint display);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_event_new")]
+    private static partial nint GdkEventNew(int type);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_event_free")]
+    private static partial void GdkEventFree(nint ev);
+
+    [LibraryImport("libgtk-3.so.0", EntryPoint = "gtk_widget_grab_focus")]
+    private static partial void GtkWidgetGrabFocus(nint widget);
+
+    [LibraryImport("libgtk-3.so.0", EntryPoint = "gtk_widget_get_window")]
+    private static partial nint GtkWidgetGetWindow(nint widget);
+
+    [LibraryImport("libgtk-3.so.0", EntryPoint = "gtk_widget_event")]
+    private static partial int GtkWidgetEvent(nint widget, nint ev);
+
+    [LibraryImport("libX11.so.6")]
+    private static partial nint XDefaultRootWindow(nint display);
+
+    [LibraryImport("libX11.so.6")]
+    private static partial uint XKeysymToKeycode(nint display, nuint keysym);
+
+    [LibraryImport("libX11.so.6")]
+    private static partial int XSendEvent(nint display, nint window, int propagate, nint eventMask, ref XKeyEventBuffer ev);
+
+    [LibraryImport("libX11.so.6")]
+    private static partial int XSync(nint display, int discard);
 
     private static async Task CheckSupersededNavigationAsync(Window window, CancellationToken token)
     {

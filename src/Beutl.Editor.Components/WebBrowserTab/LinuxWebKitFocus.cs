@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
+using Avalonia.Threading;
 
 using static Beutl.Editor.Components.WebBrowserTab.LinuxWebKit;
 
@@ -28,22 +29,29 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
     private const int IsViewable = 2;
     private const int RevertToParent = 2;
     private const nuint CurrentTime = 0;
+    private const uint GdkShiftMask = 1u << 0;
+    private const uint GdkControlMask = 1u << 2;
+    private const uint GdkMod1Mask = 1u << 3;
+    private const uint GdkSuperMask = 1u << 26;
 
     private readonly NativeWebView _webView;
     private readonly nint _gtkWebView;
     private readonly nint _x11Window;
+    private readonly Action<Key, KeyModifiers>? _onBrowserShortcut;
     private readonly GCHandle _selfHandle;
     private Window? _hostWindow;
     private nint _hostXid;
     private nuint _buttonPressSignal;
+    private nuint _keyPressSignal;
     private bool _ewmhFocusTracking;
     private volatile bool _disposed;
 
-    private LinuxWebKitFocus(NativeWebView webView, nint gtkWebView, nint x11Window)
+    private LinuxWebKitFocus(NativeWebView webView, nint gtkWebView, nint x11Window, Action<Key, KeyModifiers>? onBrowserShortcut)
     {
         _webView = webView;
         _gtkWebView = gtkWebView;
         _x11Window = x11Window;
+        _onBrowserShortcut = onBrowserShortcut;
         _selfHandle = GCHandle.Alloc(this);
 
         _webView.GotFocus += OnWebViewGotFocus;
@@ -56,7 +64,10 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
         _ = OnGlibAsync(() => InitializeOnGlib(initiallyFocused));
     }
 
-    internal static LinuxWebKitFocus? TryAttach(NativeWebView webView, IPlatformHandle? handle)
+    internal static LinuxWebKitFocus? TryAttach(
+        NativeWebView webView,
+        IPlatformHandle? handle,
+        Action<Key, KeyModifiers>? onBrowserShortcut = null)
     {
         if (handle is not IGtkWebViewPlatformHandle gtk
             || handle.HandleDescriptor != "XID"
@@ -75,7 +86,7 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
 
             // Retain before dispatch; release on GLib too because the last unref can destroy a widget.
             nint retained = ObjectRef(gtk.WebKitWebView);
-            return new LinuxWebKitFocus(webView, retained, handle.Handle);
+            return new LinuxWebKitFocus(webView, retained, handle.Handle, onBrowserShortcut);
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
         {
@@ -219,6 +230,19 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
             _ewmhFocusTracking = SupportsEwmhFocusTracking(xDisplay);
         });
 
+        if (_onBrowserShortcut != null)
+        {
+            // Blocking core X11 propagation keeps editor/shell shortcuts from seeing page keys, so
+            // forward the browser tab's own find/zoom shortcuts directly from GTK key-press-event.
+            _keyPressSignal = SignalConnect(
+                _gtkWebView,
+                "key-press-event",
+                (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, int>)&OnKeyPress,
+                GCHandle.ToIntPtr(_selfHandle),
+                0,
+                0);
+        }
+
         if (_ewmhFocusTracking)
         {
             _buttonPressSignal = SignalConnect(
@@ -238,6 +262,12 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
 
     private void DisposeOnGlib(nint previousHostXid)
     {
+        if (_keyPressSignal != 0)
+        {
+            SignalHandlerDisconnect(_gtkWebView, _keyPressSignal);
+            _keyPressSignal = 0;
+        }
+
         if (_buttonPressSignal != 0)
         {
             SignalHandlerDisconnect(_gtkWebView, _buttonPressSignal);
@@ -251,6 +281,65 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
 
         _selfHandle.Free();
         ObjectUnref(_gtkWebView);
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static int OnKeyPress(nint widget, nint ev, nint data)
+    {
+        try
+        {
+            if (GCHandle.FromIntPtr(data).Target is LinuxWebKitFocus { _disposed: false, _onBrowserShortcut: { } onShortcut } self
+                && GdkEventGetKeyval(ev, out uint keyval) != 0
+                && GdkEventGetState(ev, out uint state) != 0
+                && TryMapBrowserShortcut(keyval, state, out Key key, out KeyModifiers modifiers))
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (!self._disposed) onShortcut(key, modifiers);
+                });
+                return 1; // TRUE: handled by the browser tab.
+            }
+        }
+        catch
+        {
+            // Never allow managed exceptions to escape back into GTK/GLib.
+        }
+
+        return 0; // FALSE: let WebKitGTK handle the key normally.
+    }
+
+    private static bool TryMapBrowserShortcut(uint keyval, uint state, out Key key, out KeyModifiers modifiers)
+    {
+        key = Key.None;
+        modifiers = KeyModifiers.None;
+
+        if ((state & (GdkControlMask | GdkMod1Mask | GdkSuperMask)) != GdkControlMask)
+        {
+            return false;
+        }
+
+        bool shift = (state & GdkShiftMask) != 0;
+        switch (keyval)
+        {
+            case 0x066 /* GDK_KEY_f */ or 0x046 /* GDK_KEY_F */ when !shift:
+                key = Key.F;
+                modifiers = KeyModifiers.Control;
+                return true;
+            case 0x02b /* GDK_KEY_plus */ or 0x03d /* GDK_KEY_equal */ or 0xffab /* GDK_KEY_KP_Add */:
+                key = Key.OemPlus;
+                modifiers = shift ? KeyModifiers.Control | KeyModifiers.Shift : KeyModifiers.Control;
+                return true;
+            case 0x02d /* GDK_KEY_minus */ or 0xffad /* GDK_KEY_KP_Subtract */ when !shift:
+                key = Key.OemMinus;
+                modifiers = KeyModifiers.Control;
+                return true;
+            case 0x030 /* GDK_KEY_0 */ or 0xffb0 /* GDK_KEY_KP_0 */ when !shift:
+                key = Key.D0;
+                modifiers = KeyModifiers.Control;
+                return true;
+            default:
+                return false;
+        }
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
@@ -465,6 +554,12 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
 
     [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_x11_display_error_trap_pop_ignored")]
     private static partial void GdkX11DisplayErrorTrapPopIgnored(nint display);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_event_get_keyval")]
+    private static partial int GdkEventGetKeyval(nint ev, out uint keyval);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_event_get_state")]
+    private static partial int GdkEventGetState(nint ev, out uint state);
 
     [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_type_check_instance_is_a")]
     private static partial int TypeCheckInstanceIsA(nint instance, nuint type);

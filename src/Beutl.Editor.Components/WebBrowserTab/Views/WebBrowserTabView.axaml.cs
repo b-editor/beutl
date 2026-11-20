@@ -355,7 +355,10 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             {
                 if (IsCurrent()) OnNavigationResponseNotShown(uri, name);
             }, OnGeneratedDownload, OnNativeNewWindowRequested, OnWindowOpened);
-            IDisposable? focus = LinuxWebKitFocus.TryAttach(webView, handle);
+            IDisposable? focus = LinuxWebKitFocus.TryAttach(webView, handle, (key, modifiers) =>
+            {
+                if (IsCurrent()) TryHandleBrowserShortcut(key, modifiers);
+            });
             _nativeBrowserHandler = new CompositeDisposable(
                 pageLoad ?? Disposable.Empty,
                 downloads ?? Disposable.Empty,
