@@ -521,6 +521,54 @@ public sealed class MeshWarpTests
     }
 
     [Test]
+    public void ManyDistinctSplitTargetsKeepAllTargetsRendered()
+    {
+        const int smallCount = 130;
+        const int extent = 1000;
+        var backings = new List<RenderTarget>(smallCount + 1);
+        using var targets = new EffectTargets();
+        try
+        {
+            RenderTarget largeBacking = CpuRenderTargets.Create(extent, extent);
+            backings.Add(largeBacking);
+            largeBacking.Value.Canvas.Clear(SKColors.White);
+            largeBacking.Value.Canvas.Flush();
+            targets.Add(new EffectTarget(largeBacking, new Rect(0, 0, extent, extent), EffectiveScale.At(1), new PixelRect(0, 0, extent, extent)));
+
+            for (int i = 0; i < smallCount; i++)
+            {
+                int pos = 2 + 7 * i;
+                RenderTarget smallBacking = CpuRenderTargets.Create(1, 1);
+                backings.Add(smallBacking);
+                smallBacking.Value.Canvas.Clear(SKColors.Red);
+                smallBacking.Value.Canvas.Flush();
+                targets.Add(new EffectTarget(smallBacking, new Rect(pos, pos, 1, 1), EffectiveScale.At(1), new PixelRect(pos, pos, 1, 1)));
+            }
+
+            var effect = Create(1, 1, MeshWarpInterpolation.Smooth);
+            effect.Mesh.Value = MapGrid(effect.Mesh.Value, p => p + new Point(0.1f, 0));
+
+            using var context = Record(effect, new Rect(0, 0, extent, extent));
+            using var builder = new SKImageFilterBuilder();
+            using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Preview, RenderRequestPurpose.Auxiliary,
+                drawableBrushMaterializer: null, workingScale: 1, maxWorkingScale: 1);
+            executor.Apply(context);
+            executor.Flush(false);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(targets, Has.Count.EqualTo(smallCount + 1));
+                Assert.That(targets[0].Bounds, Is.EqualTo(new Rect(100, 0, extent, extent)));
+            });
+        }
+        finally
+        {
+            foreach (RenderTarget backing in backings)
+                backing.Dispose();
+        }
+    }
+
+    [Test]
     public void SourceApronDoesNotBleedIntoEdgePixelsWhenStretching()
     {
         var input = new Rect(10, 20, 40, 32);

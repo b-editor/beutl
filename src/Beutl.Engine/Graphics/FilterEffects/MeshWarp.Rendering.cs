@@ -54,14 +54,16 @@ public sealed partial class MeshWarp
 
             Tessellation? tileMesh = data.Mesh;
             Rect warpBounds = target.Bounds;
-            if (sharedGrid is { } samples)
+            if (sharedSpace)
             {
                 float subLeft = (float)(((double)target.Bounds.X - sharedBounds.X) / sharedBounds.Width);
                 float subTop = (float)(((double)target.Bounds.Y - sharedBounds.Y) / sharedBounds.Height);
                 float subRight = (float)(((double)target.Bounds.Right - sharedBounds.X) / sharedBounds.Width);
                 float subBottom = (float)(((double)target.Bounds.Bottom - sharedBounds.Y) / sharedBounds.Height);
                 var subRect = new Rect(subLeft, subTop, subRight - subLeft, subBottom - subTop);
-                tileMesh = data.Mesh.CreateSubMesh(subRect, samples.Xs, samples.Ys);
+                tileMesh = sharedGrid is { } samples
+                    ? data.Mesh.CreateSubMesh(subRect, samples.Xs, samples.Ys)
+                    : data.Mesh.CreateGlobalSubMesh(subRect);
                 warpBounds = sharedBounds;
             }
 
@@ -72,7 +74,7 @@ public sealed partial class MeshWarp
             }
 
             Rect bounds = new(MapPoint(warpBounds, tileMesh.Minimum), MapPoint(warpBounds, tileMesh.Maximum));
-            if (sharedGrid is not null && float.IsFinite(context.WorkingScale) && context.WorkingScale > 0)
+            if (sharedSpace && float.IsFinite(context.WorkingScale) && context.WorkingScale > 0)
             {
                 // Snap split tiles onto a common working-pixel grid so shared triangle edges share identical pixel centers.
                 float scale = context.WorkingScale;
@@ -212,7 +214,7 @@ public sealed partial class MeshWarp
         public Point Minimum { get; private set; }
         public Point Maximum { get; private set; }
 
-        public (float[] Xs, float[] Ys) CreateSharedSamples(EffectTargets targets, Rect sharedBounds)
+        public (float[] Xs, float[] Ys)? CreateSharedSamples(EffectTargets targets, Rect sharedBounds)
         {
             var boundaryXs = new List<float>(targets.Count * 2);
             var boundaryYs = new List<float>(targets.Count * 2);
@@ -238,6 +240,14 @@ public sealed partial class MeshWarp
                 subdivisions--;
             }
 
+            // If even the coarsest shared lattice exceeds the ushort vertex limit (e.g. many PartsSplitEffect contours),
+            // let each tile tessellate against the global grid lines plus its own bounds instead of dropping targets.
+            if ((long)(grid.Rows * subdivisions + uniqueBoundaryYs.Length + 1)
+                * (grid.Columns * subdivisions + uniqueBoundaryXs.Length + 1) > ushort.MaxValue)
+            {
+                return null;
+            }
+
             int globalRows = grid.Rows * subdivisions;
             int globalColumns = grid.Columns * subdivisions;
             return (MergeWithGlobal(uniqueBoundaryXs, globalColumns), MergeWithGlobal(uniqueBoundaryYs, globalRows));
@@ -249,6 +259,29 @@ public sealed partial class MeshWarp
 
             float[] tileXs = SliceRange(sharedXs, normalizedSubRect.X, normalizedSubRect.Right);
             float[] tileYs = SliceRange(sharedYs, normalizedSubRect.Y, normalizedSubRect.Bottom);
+            if ((long)tileXs.Length * tileYs.Length > ushort.MaxValue)
+                return CreateGlobalSubMesh(normalizedSubRect);
+
+            return CreateFromSamples(grid, strength, interpolation, tileXs, tileYs, normalizedSubRect);
+        }
+
+        public Tessellation? CreateGlobalSubMesh(Rect normalizedSubRect)
+        {
+            if (!HasArea(normalizedSubRect)) return null;
+
+            int subdivisions = 8;
+            while (subdivisions > 1
+                && (long)(grid.Rows * subdivisions + 3) * (grid.Columns * subdivisions + 3) > ushort.MaxValue)
+            {
+                subdivisions--;
+            }
+
+            float[] tileXs = SliceRange(
+                MergeWithGlobal(SortAndDeduplicate([normalizedSubRect.X, normalizedSubRect.Right]), grid.Columns * subdivisions),
+                normalizedSubRect.X, normalizedSubRect.Right);
+            float[] tileYs = SliceRange(
+                MergeWithGlobal(SortAndDeduplicate([normalizedSubRect.Y, normalizedSubRect.Bottom]), grid.Rows * subdivisions),
+                normalizedSubRect.Y, normalizedSubRect.Bottom);
             return CreateFromSamples(grid, strength, interpolation, tileXs, tileYs, normalizedSubRect);
         }
 
