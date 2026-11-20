@@ -1,5 +1,5 @@
 ﻿using Beutl.Logging;
-
+using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Media.Proxy;
@@ -10,7 +10,7 @@ namespace Beutl.Media.Proxy;
 /// </summary>
 public interface IProxyGeneratorFactory
 {
-    IProxyGenerator Create(IProxyStore store);
+    IProxyGenerator Create(IProxyStore store, DecoderRegistry decoders);
 }
 
 /// <summary>

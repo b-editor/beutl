@@ -8,6 +8,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 
@@ -37,9 +38,10 @@ public sealed partial class SceneCompositor : ICompositor
     private readonly EditorConfig? _editorConfig;
     private readonly ProxyStoreConfig? _proxyConfig;
 
-    public SceneCompositor(Scene scene, FontManager? fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+    public SceneCompositor(Scene scene, FontManager? fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
     {
         Fonts = fonts;
+        Decoders = decoders;
         _editorConfig = editorConfig;
         _proxyConfig = proxyConfig;
         Scene = scene;
@@ -57,6 +59,8 @@ public sealed partial class SceneCompositor : ICompositor
     }
 
     public FontManager? Fonts { get; }
+
+    public DecoderRegistry? Decoders { get; }
 
     public Scene Scene { get; }
 
@@ -86,6 +90,7 @@ public sealed partial class SceneCompositor : ICompositor
             || field?.DisableResourceShare != context.DisableResourceShare
             || field?.ForceOriginalSource != forceOriginalSource
             || !ReferenceEquals(field?.Fonts, context.Fonts)
+            || !ReferenceEquals(field?.Decoders, context.Decoders)
             || !ReferenceEquals(field?._editorConfig, editorConfig)
             || !ReferenceEquals(field?._proxyConfig, proxyConfig))
         {
@@ -95,7 +100,7 @@ public sealed partial class SceneCompositor : ICompositor
 
         if (scene != null && field == null)
         {
-            field = new SceneCompositor(scene, context.Fonts, editorConfig, proxyConfig)
+            field = new SceneCompositor(scene, context.Fonts, editorConfig, proxyConfig, context.Decoders)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 ForceOriginalSource = forceOriginalSource,
@@ -124,6 +129,7 @@ public sealed partial class SceneCompositor : ICompositor
             Conditions = new CompositionConditions
             {
                 Fonts = compositor.Fonts,
+                Decoders = compositor.Decoders,
                 PreferProxy = !compositor.ForceOriginalSource
                     && (compositor._editorConfig?.PreviewSourceMode.Value ?? PreviewSourceMode.PreferProxy) == PreviewSourceMode.PreferProxy,
                 PreferredProxyPreset = ToPreset(compositor._proxyConfig?.DefaultPreset.Value ?? ProxyStoreConfig.DefaultPresetValue),
@@ -155,15 +161,25 @@ public sealed partial class SceneCompositor : ICompositor
         {
             var result = (CompositorContext)base.WithTime(time);
             result.CurrentElements = [];
+            result.FrameBeneath = null;
             return result;
         }
 
         public CompositionTarget Target { get; set; }
 
         // The frame's own time while a transition evaluates one of its sides at a held time. Elements a
-        // portal draws into that side are not the side's own content and have not ended, so they play on
-        // at the frame's time, and both sides share one evaluation of them.
+        // portal draws into that side that the frame's time still covers are not the side's own content and
+        // have not ended, so they play on at the frame's time, and both sides share one evaluation of them.
+        // Elements the frame does not draw but the side's time covers, such as the next shot before the
+        // cut, hold at that time like the side's own content.
         public MediaTime? FrameTime { get; set; }
+
+        // The time of the transition side being collected, while FrameTime is set. An input that plays at
+        // the frame's time changes Time, so the inputs its own portals draw read the side's time from here.
+        public MediaTime? SideTime { get; set; }
+
+        // What each top-level element of the frame added, while the frame's main loop collects it.
+        public FrameBeneath? FrameBeneath { get; set; }
 
         public GraphicsFrameState? GraphicsState { get; set; }
 
@@ -187,15 +203,19 @@ public sealed partial class SceneCompositor : ICompositor
         public void EvaluateElementIntoFlow(Element element)
         {
             using var tmpObjects = new PooledList<EngineObject>();
-            MediaTime sideTime = Time;
-            Time = FrameTime ?? sideTime;
+            MediaTime time = Time;
+            if (FrameTime is { } frameTime)
+            {
+                Time = element.CoversGraphicsTime(frameTime) ? frameTime : SideTime ?? time;
+            }
+
             try
             {
                 _compositor.CollectResourcesFromElement(element, this, tmpObjects);
             }
             finally
             {
-                Time = sideTime;
+                Time = time;
             }
         }
     }
@@ -236,14 +256,21 @@ public sealed partial class SceneCompositor : ICompositor
         if (services is not null)
             ctx.EvaluationServices = services;
 
+        // A scene change between two backdrops takes the layers beneath it out of the whole frame, so only the
+        // frame's own evaluation, not a query for one layer, records what each element added.
+        FrameBeneath? beneath = layer is null && Scene.HasTransitions ? new FrameBeneath(allResources, flow) : null;
+        ctx.FrameBeneath = beneath;
+
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
         {
             token.ThrowIfCancellationRequested();
-            if (layer.HasValue && currentElements[index].ZIndex.Value != layer.Value) continue;
+            Element element = currentElements[index];
+            if (layer.HasValue && element.ZIndex.Value != layer.Value) continue;
             flow.Clear();
-            CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
+            CollectResourcesFromElement(element, ctx, tmpObjects);
 
+            beneath?.Ranges.Add(new FrameRange(element, allResources.Count, flow.Count));
             allResources.AddRange(flow.Span);
         }
 
@@ -377,41 +404,27 @@ public sealed partial class SceneCompositor : ICompositor
         IList<EngineObject.Resource>? oldFlow = context.Flow;
         MediaTime time = context.Time;
         IList<Element> elements = context.CurrentElements;
-        // A portal takes the elements it draws out of the current ones, so each side starts from the same
-        // elements; whatever either side took stays out of the frame afterwards.
+        // A portal takes the elements it draws out of the ones it is given, so each side starts from the
+        // frame's elements; whatever either side took stays out of the frame afterwards.
         Element[] inputs = [.. elements];
-        var incomingInputs = new List<Element>(inputs);
         MediaTime? frameTime = context.FrameTime;
         context.FrameTime = time;
         try
         {
             if (boundary.Outgoing is { } outgoing)
             {
-                context.Flow = from;
-                context.Time = boundary.GetOutgoingTime(time);
-                CollectElementObjects(outgoing, context, tmpObjects);
+                CollectTransitionSide(outgoing, boundary.GetOutgoingTime(time), time, inputs, elements, from, context, tmpObjects);
             }
 
             if (boundary.Incoming is { } incoming)
             {
-                context.Flow = to;
-                context.Time = boundary.GetIncomingTime(time);
-                context.CurrentElements = incomingInputs;
-                CollectElementObjects(incoming, context, tmpObjects);
+                CollectTransitionSide(incoming, boundary.GetIncomingTime(time), time, inputs, elements, to, context, tmpObjects);
             }
         }
         finally
         {
             context.FrameTime = frameTime;
             context.CurrentElements = elements;
-            foreach (Element input in inputs)
-            {
-                if (!incomingInputs.Contains(input))
-                {
-                    elements.Remove(input);
-                }
-            }
-
             context.Flow = oldFlow;
             context.Time = time;
         }
@@ -426,10 +439,359 @@ public sealed partial class SceneCompositor : ICompositor
             presenter.ZIndex.Value = zIndex;
         }
 
+        if (context.FrameBeneath is { } beneath && ReferenceEquals(oldFlow, beneath.TopFlow)
+            && ElementTransitions.IsSceneChange(boundary))
+        {
+            TakeBeneath(boundary, zIndex, beneath, from, to, context, tmpObjects);
+        }
+
         var presenterResource = (ClipTransitionPresenter.Resource)GetOrCreateResource(presenter, context);
         float progress = ClipTransition.Ease(transitionResource.Easing, boundary.GetLinearProgress(time));
         presenterResource.SetInputs(transitionResource, from.Span, to.Span, progress);
         oldFlow?.Add(presenterResource);
+    }
+
+    // A scene change between two backdrops: each side takes the frame's layers beneath the boundary's layer as
+    // they are at its own time, beneath its own drawables, and those layers leave the frame, so they are drawn
+    // only through the transition. A side at the frame's time takes them as the frame evaluated them. A held
+    // side shares those its time also covers, and evaluates at its time those only its time covers.
+    private void TakeBeneath(
+        in TransitionBoundary boundary, int layer, FrameBeneath beneath, PooledList<EngineObject.Resource> from,
+        PooledList<EngineObject.Resource> to, CompositorContext context, PooledList<EngineObject> tmpObjects)
+    {
+        MediaTime frameTime = context.Time;
+        // The frame draws its layers in order, so those beneath the boundary's layer lead it.
+        int ranges = 0;
+        while (ranges < beneath.Ranges.Count && beneath.Ranges[ranges].Element.ZIndex.Value < layer) ranges++;
+        int count = ranges == 0 ? 0 : beneath.Ranges[ranges - 1].End;
+
+        using (PooledList<EngineObject.Resource> outgoing = CollectBeneath(
+                   boundary.GetOutgoingTime(frameTime), layer, beneath, ranges, count, context, tmpObjects))
+        {
+            from.InsertRange(0, outgoing.Span);
+        }
+
+        using (PooledList<EngineObject.Resource> incoming = CollectBeneath(
+                   boundary.GetIncomingTime(frameTime), layer, beneath, ranges, count, context, tmpObjects))
+        {
+            to.InsertRange(0, incoming.Span);
+        }
+
+        beneath.Resources.RemoveRange(0, count);
+        beneath.Ranges.RemoveRange(0, ranges);
+        for (int i = 0; i < beneath.Ranges.Count; i++)
+        {
+            FrameRange range = beneath.Ranges[i];
+            beneath.Ranges[i] = range with { Start = range.Start - count };
+        }
+    }
+
+    // The layers beneath one side of a scene change at sideTime, in drawing order.
+    private PooledList<EngineObject.Resource> CollectBeneath(
+        MediaTime sideTime, int layer, FrameBeneath beneath, int ranges, int count, CompositorContext context,
+        PooledList<EngineObject> tmpObjects)
+    {
+        MediaTime frameTime = context.Time;
+        var result = new PooledList<EngineObject.Resource>(count);
+        if (sideTime == frameTime)
+        {
+            result.AddRange(beneath.Resources.Span[..count]);
+            return result;
+        }
+
+        // What the frame drew that this time also covers is shared as the frame evaluated it, along with the
+        // layers a shared portal draws, which the held side leaves inside it.
+        HashSet<Element> participants = GetTransitionParticipants();
+        var entries = new Dictionary<Element, (int Start, int Count)>(ReferenceEqualityComparer.Instance);
+        var portalled = new List<(int Start, int End)>();
+        for (int i = 0; i < ranges; i++)
+        {
+            FrameRange range = beneath.Ranges[i];
+            if (!IsShared(range.Element, sideTime, frameTime, participants)) continue;
+
+            entries[range.Element] = (range.Start, range.Count);
+            AddPortalSpans(range.Element, frameTime, context, portalled);
+        }
+
+        // A portal element a shared portal draws, such as a group inside a group, draws its own layers inside
+        // it too. Each span lies above the element whose portal it is, so following them ends.
+        if (portalled.Count > 0)
+        {
+            using var atFrameTime = new PooledList<Element>();
+            SortLayers(frameTime, atFrameTime, CompositionTarget.Graphics);
+            var followed = new HashSet<Element>(ReferenceEqualityComparer.Instance);
+            for (int i = 0; i < portalled.Count; i++)
+            {
+                (int start, int end) = portalled[i];
+                foreach (Element element in atFrameTime)
+                {
+                    int z = element.ZIndex.Value;
+                    if (z >= start && z <= end && followed.Add(element))
+                    {
+                        AddPortalSpans(element, frameTime, context, portalled);
+                    }
+                }
+            }
+        }
+
+        // What only this time covers is evaluated at it, through its own list, so its portals take from what
+        // this side holds and the frame's list stays as the main loop left it.
+        using var held = new PooledList<Element>();
+        using var atSideTime = new PooledList<Element>();
+        SortLayers(sideTime, atSideTime, CompositionTarget.Graphics);
+        foreach (Element element in atSideTime)
+        {
+            int z = element.ZIndex.Value;
+            if (z >= layer || element.CoversGraphicsTime(frameTime)) continue;
+            if (participants.Contains(element)
+                && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
+                && running.Region.Contains(sideTime)) continue;
+            if (context.GraphicsState?.Evaluated.Contains(element) == true) continue;
+            if (portalled.Exists(span => z >= span.Start && z <= span.End)) continue;
+
+            held.Add(element);
+        }
+
+        using var heldResources = new PooledList<EngineObject.Resource>();
+        var heldEntries = new Dictionary<Element, (int Start, int Count)>(ReferenceEqualityComparer.Instance);
+        IList<EngineObject.Resource>? flow = context.Flow;
+        IList<Element> elements = context.CurrentElements;
+        MediaTime? outerFrameTime = context.FrameTime;
+        MediaTime? outerSideTime = context.SideTime;
+        using var sideFlow = new PooledList<EngineObject.Resource>();
+        try
+        {
+            context.Time = sideTime;
+            context.FrameTime = frameTime;
+            context.SideTime = sideTime;
+            context.CurrentElements = held;
+            for (int i = 0; i < held.Count; i++)
+            {
+                Element element = held[i];
+                sideFlow.Clear();
+                context.Flow = sideFlow;
+                CollectResourcesFromElement(element, context, tmpObjects);
+                heldEntries[element] = (heldResources.Count, sideFlow.Count);
+                heldResources.AddRange(sideFlow.Span);
+            }
+        }
+        finally
+        {
+            context.Flow = flow;
+            context.CurrentElements = elements;
+            context.FrameTime = outerFrameTime;
+            context.SideTime = outerSideTime;
+            context.Time = frameTime;
+        }
+
+        using var order = new PooledList<Element>(entries.Count + heldEntries.Count);
+        order.AddRange(entries.Keys);
+        order.AddRange(heldEntries.Keys);
+        Scene.ElementIndex.Sort(order);
+        foreach (Element element in order)
+        {
+            if (entries.TryGetValue(element, out (int Start, int Count) shared))
+            {
+                result.AddRange(beneath.Resources.Span.Slice(shared.Start, shared.Count));
+            }
+            else
+            {
+                (int start, int length) = heldEntries[element];
+                result.AddRange(heldResources.Span.Slice(start, length));
+            }
+        }
+
+        return result;
+    }
+
+    // The layers element's enabled portals draw at time, as PortalObject takes them. An element hidden from the
+    // output is not evaluated, so its portals take nothing.
+    private static void AddPortalSpans(Element element, MediaTime time, CompositorContext context, List<(int Start, int End)> spans)
+    {
+        if (!element.IsVisibleInOutput.Value) return;
+
+        MediaTime previous = context.Time;
+        context.Time = time;
+        try
+        {
+            foreach (EngineObject obj in element.Objects)
+            {
+                if (obj is PortalObject { IsEnabled.Value: true } portal)
+                {
+                    spans.Add((portal.ZIndex.Value + 1, portal.ZIndex.Value + context.Get(portal.Count)));
+                }
+            }
+        }
+        finally
+        {
+            context.Time = previous;
+        }
+    }
+
+    // What one top-level element added to the frame: Count resources from Start in the frame's list.
+    private readonly record struct FrameRange(Element Element, int Start, int Count)
+    {
+        public int End => Start + Count;
+    }
+
+    // The frame's resources and what each top-level element added to them, while the main loop collects them.
+    private sealed class FrameBeneath(PooledList<EngineObject.Resource> resources, IList<EngineObject.Resource> topFlow)
+    {
+        public PooledList<EngineObject.Resource> Resources { get; } = resources;
+
+        // The list the main loop collects each element into, which tells a transition collected at the top.
+        public IList<EngineObject.Resource> TopFlow { get; } = topFlow;
+
+        public List<FrameRange> Ranges { get; } = [];
+    }
+
+    // Evaluates one side of a transition at its own time into flow. Its portals reach what the frame shares
+    // with this time, played at the frame's time: the frame's elements this time also covers, and the
+    // frame's transitions still running at this time. They also reach what the frame does not draw but this
+    // time covers, held at this time, such as the next shot before the cut or the previous shot past it.
+    // Each side so draws its own shot, and nothing is evaluated at two times in one frame, where both
+    // results would share one resource. A side whose portals reach a shared flow operator keeps the frame's
+    // elements instead, as before. The frame's elements the side took are removed from elements.
+    private void CollectTransitionSide(
+        Element side, MediaTime sideTime, MediaTime frameTime, Element[] inputs, IList<Element> elements,
+        PooledList<EngineObject.Resource> flow, CompositorContext context, PooledList<EngineObject> tmpObjects)
+    {
+        using var sideInputs = new PooledList<Element>(inputs.Length);
+        HashSet<Element> participants = GetTransitionParticipants();
+        if (sideTime == frameTime || !HasPortal(side)
+            || ReachesSharedFlowOperator(side, sideTime, frameTime, inputs, participants, context))
+        {
+            sideInputs.AddRange(inputs);
+        }
+        else
+        {
+            foreach (Element input in inputs)
+            {
+                if (IsShared(input, sideTime, frameTime, participants)) sideInputs.Add(input);
+            }
+
+            using var atSideTime = new PooledList<Element>();
+            SortLayers(sideTime, atSideTime, CompositionTarget.Graphics, ignoreSolo: context.IsMatteSource);
+            foreach (Element element in atSideTime)
+            {
+                // A transition the frame runs into this time reaches the side through its frame element above.
+                if (!element.CoversGraphicsTime(frameTime)
+                    && !(participants.Contains(element)
+                         && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
+                         && running.Region.Contains(sideTime)))
+                {
+                    sideInputs.Add(element);
+                }
+            }
+
+            Scene.ElementIndex.Sort(sideInputs);
+        }
+
+        using var offered = new PooledList<Element>(sideInputs.Count);
+        offered.AddRange(sideInputs.Span);
+        context.Flow = flow;
+        context.Time = sideTime;
+        context.CurrentElements = sideInputs;
+        MediaTime? outerSideTime = context.SideTime;
+        context.SideTime = sideTime;
+        try
+        {
+            CollectElementObjects(side, context, tmpObjects);
+        }
+        finally
+        {
+            context.CurrentElements = elements;
+            context.SideTime = outerSideTime;
+        }
+
+        if (sideInputs.Count == offered.Count) return;
+
+        var remaining = new HashSet<Element>(sideInputs, ReferenceEqualityComparer.Instance);
+        foreach (Element element in offered)
+        {
+            if (remaining.Contains(element)) continue;
+
+            for (int i = 0; i < elements.Count; i++)
+            {
+                if (ReferenceEquals(elements[i], element))
+                {
+                    elements.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Whether the side's portals at sideTime reach an input the side shares with the frame that feeds a flow
+    // operator, such as a group, through a portal of its own. Both sides evaluate that input into one
+    // shared resource, so its portal must see the same inputs on both, and the side keeps the frame's.
+    private static bool ReachesSharedFlowOperator(
+        Element side, MediaTime sideTime, MediaTime frameTime, Element[] inputs, HashSet<Element> participants,
+        CompositorContext context)
+    {
+        MediaTime time = context.Time;
+        context.Time = sideTime;
+        try
+        {
+            foreach (EngineObject obj in side.Objects)
+            {
+                if (obj is not PortalObject { IsEnabled.Value: true } portal) continue;
+
+                int start = portal.ZIndex.Value + 1;
+                int end = portal.ZIndex.Value + context.Get(portal.Count);
+                foreach (Element input in inputs)
+                {
+                    if (input.ZIndex.Value >= start && input.ZIndex.Value <= end
+                        && HasPortal(input) && FeedsGraphicsFlowOperator(input)
+                        && IsShared(input, sideTime, frameTime, participants))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            context.Time = time;
+        }
+    }
+
+    // Whether a side at sideTime shares the frame's input with the frame, which plays it at the frame's
+    // time: sideTime covers it too, or a transition it runs at the frame's time reaches sideTime.
+    private static bool IsShared(Element input, MediaTime sideTime, MediaTime frameTime, HashSet<Element> participants)
+    {
+        return input.CoversGraphicsTime(sideTime)
+               || (participants.Contains(input)
+                   && ElementTransitions.TryGetActive(input, frameTime, out TransitionBoundary running)
+                   && running.Region.Contains(sideTime));
+    }
+
+    // Whether element draws through a flow operator in the graphics pass, selected as Element.CollectObjects
+    // selects it.
+    private static bool FeedsGraphicsFlowOperator(Element element)
+    {
+        foreach (EngineObject obj in element.Objects)
+        {
+            if (obj is IFlowOperator && obj.IsEnabled.Value
+                && obj.GetCompositionTarget() is CompositionTarget.Unknown or CompositionTarget.Graphics)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasPortal(Element element)
+    {
+        foreach (EngineObject obj in element.Objects)
+        {
+            if (obj is PortalObject { IsEnabled.Value: true }) return true;
+        }
+
+        return false;
     }
 
     private void CollectElementObjects(
@@ -441,6 +803,7 @@ public sealed partial class SceneCompositor : ICompositor
             && !element.IsVisibleInOutput.Value) return;
         // Cyclic matte references have no source contribution at the repeated element.
         if (context.GraphicsState is { } state && !state.Evaluating.Add(element)) return;
+        context.GraphicsState?.Evaluated.Add(element);
         using var flow = new PooledList<EngineObject.Resource>();
         var oldFlow = context.Flow;
         context.Flow = flow;

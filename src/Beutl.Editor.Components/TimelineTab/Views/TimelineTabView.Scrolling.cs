@@ -33,16 +33,13 @@ public sealed partial class TimelineTabView
         viewModel.Options.Value = viewModel.Options.Value with { Offset = offset };
     }
 
-    private void UpdateZoom(PointerWheelEventArgs e, ref float scale, ref Vector2 offset)
+    private void UpdateZoom(PointerEventArgs e, double factor, ref float scale, ref Vector2 offset)
     {
         float oldScale = scale;
         Point pointerPos = e.GetCurrentPoint(TimelinePanel).Position;
 
-        const float ZoomSpeed = 1.2f;
-        float delta = (float)e.Delta.Y;
-
-        scale = Math.Clamp(
-            MathF.Pow(ZoomSpeed, delta) * scale,
+        scale = (float)Math.Clamp(
+            factor * scale,
             Beutl.ProjectSystem.TimelineOptions.MinScale,
             Beutl.ProjectSystem.TimelineOptions.MaxScale);
 
@@ -59,7 +56,7 @@ public sealed partial class TimelineTabView
 
         if (_getWheelModifiers(e) == KeyGestureHelper.GetCommandModifier())
         {
-            UpdateZoom(e, ref scale, ref offset);
+            UpdateZoom(e, MathF.Pow(1.2f, (float)e.Delta.Y), ref scale, ref offset);
         }
         else
         {
@@ -69,6 +66,22 @@ public sealed partial class TimelineTabView
         }
 
         viewModel.Options.Value = viewModel.Options.Value with { Scale = scale, Offset = offset };
+
+        e.Handled = true;
+    }
+
+    private void OnTimelineMagnify(object? sender, PointerDeltaEventArgs e)
+    {
+        // Native magnification already reports the relative scale change.
+        double factor = 1 + e.Delta.X;
+        if (ViewModel is { } viewModel && double.IsFinite(factor) && factor > 0)
+        {
+            Avalonia.Vector aOffset = ContentScroll.Offset;
+            float scale = viewModel.Options.Value.Scale;
+            var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
+            UpdateZoom(e, factor, ref scale, ref offset);
+            viewModel.Options.Value = viewModel.Options.Value with { Scale = scale, Offset = offset };
+        }
 
         e.Handled = true;
     }

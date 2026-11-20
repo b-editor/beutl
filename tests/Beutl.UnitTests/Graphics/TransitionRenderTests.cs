@@ -221,6 +221,69 @@ public partial class TransitionRenderTests
         });
     }
 
+    // Red until the cut and blue from it, with the transition from 1.5 to 2.5 seconds: a quarter of the way
+    // through, the outgoing side inverts the red it takes and the incoming side the blue it holds from the
+    // cut, so a quarter of yellow joins three quarters of cyan.
+    [Test]
+    public void ACrossDissolveBetweenBackdrops_BlendsTheShotEachSideTakes()
+    {
+        Bgra8888 pixel = RenderBackdropSceneChange(() => new CrossDissolveTransition(), 1.75);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pixel.A, Is.EqualTo(255));
+            Assert.That(pixel.G, Is.GreaterThan(250));
+            Assert.That(pixel.R, Is.InRange(100, 170), "a quarter of the yellow the incoming side holds");
+            Assert.That(pixel.B, Is.InRange(200, 240), "three quarters of the cyan the outgoing side takes");
+        });
+    }
+
+    // A fade between backdrops passes through nothing: the layers beneath them are drawn only through the
+    // transition, so nothing shows at the midpoint.
+    [TestCase(1.75, 128, true)]
+    [TestCase(2.0, 0, false)]
+    [TestCase(2.25, 128, false)]
+    public void AFadeBetweenBackdrops_PassesThroughNothing(double seconds, int alpha, bool outgoing)
+    {
+        Bgra8888 pixel = RenderBackdropSceneChange(() => new FadeTransition(), seconds);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pixel.A, Is.InRange(Math.Max(alpha - 28, 0), alpha + 28));
+            if (alpha > 0)
+            {
+                Assert.That(pixel.G, Is.GreaterThan(240));
+                Assert.That(outgoing ? pixel.B : pixel.R, Is.GreaterThan(240), "the inverted shot of the side that shows");
+                Assert.That(outgoing ? pixel.R : pixel.B, Is.LessThan(16));
+            }
+        });
+    }
+
+    // Over one shot that runs on across the cut, both sides take the same picture, so the dissolve looks as
+    // it did before backdrops took the layers beneath them.
+    [Test]
+    public void ACrossDissolveBetweenBackdropsOverOneShot_KeepsThePicture()
+    {
+        Bgra8888 pixel = RenderBackdropSceneChange(() => new CrossDissolveTransition(), 2.0, continuous: true);
+
+        Assert.That((pixel.A, pixel.R < 16, pixel.G > 240, pixel.B > 240), Is.EqualTo((255, true, true, true)));
+    }
+
+    [Test]
+    public void HitTest_InsideASceneChangeSelectsTheIncomingBackdrop()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            (Scene scene, SourceBackdrop incoming) = CreateBackdropSceneChange(() => new CrossDissolveTransition(), continuous: false);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+            var frame = renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(1.75));
+            renderer.Render(frame);
+
+            Assert.That(renderer.HitTest(frame, new Point(Width / 2f, Height / 2f)), Is.SameAs(incoming));
+        });
+    }
+
     [Test]
     public void HitTest_InsideATransitionSelectsTheIncomingClip()
     {
@@ -656,6 +719,60 @@ public partial class TransitionRenderTests
         incoming.EnterTransition.Value = transition;
         scene.Children.Add(incoming);
         return (scene, outgoingShape, leftHalf, corner);
+    }
+
+    // Red fills the frame until two seconds and blue from then on, or red throughout when continuous. Above
+    // it two backdrops meet at two seconds, each inverting and clearing what it takes, with half a second of
+    // the transition on each side.
+    private static (Scene Scene, SourceBackdrop Incoming) CreateBackdropSceneChange(Func<ClipTransition> transition, bool continuous)
+    {
+        var scene = new Scene(Width, Height, string.Empty);
+        AddClip(scene, CreateRect(s_red), 0, continuous ? 4 : 2, 0);
+        if (!continuous) AddClip(scene, CreateRect(s_blue), 2, 2, 0);
+        var incomingBackdrop = CreateInvertingBackdrop();
+        Element outgoing = AddClip(scene, CreateInvertingBackdrop(), 0, 2, 1);
+        Element incoming = AddClip(scene, incomingBackdrop, 2, 2, 1);
+        ClipTransition exit = transition();
+        exit.Duration.Value = MediaTime.FromSeconds(0.5);
+        outgoing.ExitTransition.Value = exit;
+        ClipTransition enter = transition();
+        enter.Duration.Value = MediaTime.FromSeconds(0.5);
+        incoming.EnterTransition.Value = enter;
+        return (scene, incomingBackdrop);
+    }
+
+    private static Bgra8888 RenderBackdropSceneChange(Func<ClipTransition> transition, double seconds, bool continuous = false)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        return VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            (Scene scene, _) = CreateBackdropSceneChange(transition, continuous);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(seconds)));
+            using Bitmap snapshot = renderer.Snapshot();
+            using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            return srgb.GetRow<Bgra8888>(Height / 2)[Width / 2];
+        });
+    }
+
+    private static SourceBackdrop CreateInvertingBackdrop()
+    {
+        var backdrop = new SourceBackdrop { Clear = { Value = true } };
+        backdrop.FilterEffect.Value = new Invert();
+        return backdrop;
+    }
+
+    private static Element AddClip(Scene scene, Drawable drawable, double start, double length, int zIndex)
+    {
+        var element = new Element
+        {
+            Start = { Value = MediaTime.FromSeconds(start) },
+            Length = { Value = MediaTime.FromSeconds(length) },
+            ZIndex = { Value = zIndex },
+        };
+        element.Objects.Add(drawable);
+        scene.Children.Add(element);
+        return element;
     }
 
     private static RectShape CreateRect(Color color)

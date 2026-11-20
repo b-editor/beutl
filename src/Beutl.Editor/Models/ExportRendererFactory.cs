@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Models;
@@ -20,7 +21,7 @@ public static class ExportRendererFactory
     /// </summary>
     /// <param name="scene">The scene to render.</param>
     /// <param name="renderScale">Output scale in device px per logical unit.</param>
-    public static SceneRenderer Create(Scene scene, FontManager fonts, float renderScale = 1f)
+    public static SceneRenderer Create(Scene scene, FontManager fonts, float renderScale = 1f, DecoderRegistry? decoders = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
@@ -30,7 +31,7 @@ public static class ExportRendererFactory
             renderScale,
             disableResourceShare: true,
             maxWorkingScale: WorkingScaleCeiling.Export(),
-            forceOriginalSource: true);
+            forceOriginalSource: true, decoders: decoders);
         try
         {
             renderer.CacheOptions = RenderCacheOptions.Disabled;
@@ -50,9 +51,9 @@ public static class ExportRendererFactory
     /// </summary>
     /// <param name="scene">The scene to compose.</param>
     /// <param name="sampleRate">Output sample rate in Hz.</param>
-    public static SceneComposer CreateComposer(Scene scene, FontManager fonts, int sampleRate)
+    public static SceneComposer CreateComposer(Scene scene, FontManager fonts, int sampleRate, DecoderRegistry? decoders = null)
     {
-        return new SceneComposer(scene, fonts, disableResourceShare: true, forceOriginalSource: true)
+        return new SceneComposer(scene, fonts, disableResourceShare: true, forceOriginalSource: true, decoders: decoders)
         {
             SampleRate = sampleRate,
             ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),

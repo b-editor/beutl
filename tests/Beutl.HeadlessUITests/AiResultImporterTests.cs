@@ -28,7 +28,7 @@ public sealed class AiResultImporterTests
         Uri savedUri = scene.Uri!;
         scene.Uri = null;
         using var bitmap = new Bitmap(2, 2);
-        var importer = new AiResultImporter(scene, editor.GetRequiredService<IElementAdder>());
+        var importer = new AiResultImporter(scene, editor.GetRequiredService<IElementAdder>(), new Beutl.Media.Decoding.DecoderRegistry(new()));
         ElementAddResult added = await importer.ImportImageAsync(bitmap,
             new AiResultImportOptions(MediaTime.Zero, MediaTime.FromSeconds(2), 0, "Shared resource"));
         Assert.That(added.IsSuccess, Is.True);
@@ -59,7 +59,7 @@ public sealed class AiResultImporterTests
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(
             editor.Scene,
-            editor.GetRequiredService<IElementAdder>());
+            editor.GetRequiredService<IElementAdder>(), new Beutl.Media.Decoding.DecoderRegistry(new()));
 
         ElementAddResult result = await importer.ImportImageAsync(
             bitmap,
@@ -90,7 +90,7 @@ public sealed class AiResultImporterTests
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-result-importer-encode-failure");
         using var bitmap = new Bitmap(new SKBitmap());
         var adder = new CapturingElementAdder(producedElementCount: 1);
-        var importer = new AiResultImporter(editor.Scene, adder);
+        var importer = new AiResultImporter(editor.Scene, adder, new Beutl.Media.Decoding.DecoderRegistry(new()));
         string resourceDirectory = Path.Combine(
             Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!,
             "resources",
@@ -126,7 +126,7 @@ public sealed class AiResultImporterTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-video-importer");
         var adder = new CapturingElementAdder(producedElementCount: 2);
-        var importer = new AiResultImporter(editor.Scene, adder, AcceptVideoAsync);
+        var importer = new AiResultImporter(editor.Scene, adder, new Beutl.Media.Decoding.DecoderRegistry(new()), AcceptVideoAsync);
 
         ElementAddResult result = await ImportVideoFileAsync(
             importer,
@@ -150,7 +150,7 @@ public sealed class AiResultImporterTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-webm-importer");
         var adder = new CapturingElementAdder(producedElementCount: 1);
-        var importer = new AiResultImporter(editor.Scene, adder, AcceptVideoAsync);
+        var importer = new AiResultImporter(editor.Scene, adder, new Beutl.Media.Decoding.DecoderRegistry(new()), AcceptVideoAsync);
         string sourcePath = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.webm");
         await File.WriteAllBytesAsync(sourcePath, [1, 2, 3]);
         try
@@ -176,7 +176,7 @@ public sealed class AiResultImporterTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-rejected-importer");
         var adder = new CapturingElementAdder(producedElementCount: 0);
-        var importer = new AiResultImporter(editor.Scene, adder, AcceptVideoAsync);
+        var importer = new AiResultImporter(editor.Scene, adder, new Beutl.Media.Decoding.DecoderRegistry(new()), AcceptVideoAsync);
 
         ElementAddResult result = await ImportVideoFileAsync(
             importer,
@@ -204,7 +204,7 @@ public sealed class AiResultImporterTests
         Scene scene = editor.Scene;
         scene.Uri = null;
         var adder = new CapturingElementAdder(producedElementCount: 1);
-        var importer = new AiResultImporter(scene, adder, AcceptVideoAsync);
+        var importer = new AiResultImporter(scene, adder, new Beutl.Media.Decoding.DecoderRegistry(new()), AcceptVideoAsync);
         string unrelatedDirectory = UnsavedSceneStorage.GetDirectory(Guid.NewGuid());
         string unrelatedFile = Path.Combine(unrelatedDirectory, "keep.txt");
         Directory.CreateDirectory(unrelatedDirectory);
@@ -247,7 +247,7 @@ public sealed class AiResultImporterTests
         Uri savedUri = scene.Uri!;
         scene.Uri = null;
         var adder = new CapturingElementAdder(producedElementCount: 1);
-        var importer = new AiResultImporter(scene, adder, AcceptVideoAsync);
+        var importer = new AiResultImporter(scene, adder, new Beutl.Media.Decoding.DecoderRegistry(new()), AcceptVideoAsync);
         string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id.Value);
 
         try
@@ -290,7 +290,7 @@ public sealed class AiResultImporterTests
             Uri = new Uri(Path.Combine(directory, "scene.scene")),
         };
         var adder = new CapturingElementAdder(producedElementCount: 1);
-        var importer = new AiResultImporter(scene, adder);
+        var importer = new AiResultImporter(scene, adder, new Beutl.Media.Decoding.DecoderRegistry(new()));
         string resourceDirectory = Path.Combine(directory, "resources", "ai");
         try
         {
@@ -443,7 +443,7 @@ public sealed class AiResultImporterTests
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(
             scene,
-            editor.GetRequiredService<IElementAdder>());
+            editor.GetRequiredService<IElementAdder>(), new Beutl.Media.Decoding.DecoderRegistry(new()));
 
         try
         {
@@ -562,7 +562,7 @@ public sealed class AiResultImporterTests
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(
             scene,
-            editor.GetRequiredService<IElementAdder>());
+            editor.GetRequiredService<IElementAdder>(), new Beutl.Media.Decoding.DecoderRegistry(new()));
 
         try
         {
@@ -629,7 +629,7 @@ public sealed class AiResultImporterTests
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(
             scene,
-            editor.GetRequiredService<IElementAdder>());
+            editor.GetRequiredService<IElementAdder>(), new Beutl.Media.Decoding.DecoderRegistry(new()));
 
         try
         {

@@ -59,15 +59,9 @@ public partial class GraphEditorView
         double delta = target == WheelTarget.HorizontalRuler && e.Delta.X != 0 ? e.Delta.X
             : e.Delta.Y != 0 ? e.Delta.Y : e.Delta.X;
         KeyModifiers modifiers = _getWheelModifiers(e);
-        bool alt = modifiers.HasFlag(KeyModifiers.Alt);
-        if (alt || modifiers.HasFlag(KeyGestureHelper.GetCommandModifier()))
+        if (modifiers.HasFlag(KeyModifiers.Alt) || modifiers.HasFlag(KeyGestureHelper.GetCommandModifier()))
         {
-            bool horizontal = target == WheelTarget.HorizontalRuler
-                || target == WheelTarget.Plot && (alt || !modifiers.HasFlag(KeyModifiers.Shift));
-            if (horizontal)
-                ZoomHorizontal(model, Math.Pow(1.2, delta), e.GetPosition(scroll).X);
-            else if (!model.AutoZoomHeight.Value)
-                ZoomVertical(model, Math.Pow(1.2, delta), e.GetPosition(scroll).Y);
+            ZoomAtPointer(model, target, modifiers, Math.Pow(1.2, delta), e.GetPosition(scroll));
         }
         else
         {
@@ -86,6 +80,34 @@ public partial class GraphEditorView
             SetScrollOffset(model, scroll.Offset + movement);
         }
         UpdateSelectionAdorner();
+    }
+
+    private void OnPlotMagnify(object? sender, PointerDeltaEventArgs e) => HandleMagnify(e, WheelTarget.Plot);
+    private void OnHorizontalRulerMagnify(object? sender, PointerDeltaEventArgs e) => HandleMagnify(e, WheelTarget.HorizontalRuler);
+    private void OnVerticalRulerMagnify(object? sender, PointerDeltaEventArgs e) => HandleMagnify(e, WheelTarget.VerticalRuler);
+
+    private void HandleMagnify(PointerDeltaEventArgs e, WheelTarget target)
+    {
+        if (DataContext is not GraphEditorViewModel model) return;
+        e.Handled = true;
+        if (_interactionPointer != null || ControlPointMoveState != null) return;
+
+        // Native magnification already reports the relative scale change.
+        double factor = 1 + e.Delta.X;
+        if (!double.IsFinite(factor) || factor <= 0) return;
+
+        ZoomAtPointer(model, target, e.KeyModifiers, factor, e.GetPosition(scroll));
+        UpdateSelectionAdorner();
+    }
+
+    private void ZoomAtPointer(GraphEditorViewModel model, WheelTarget target, KeyModifiers modifiers, double factor, Point position)
+    {
+        bool horizontal = target == WheelTarget.HorizontalRuler
+            || target == WheelTarget.Plot && (modifiers.HasFlag(KeyModifiers.Alt) || !modifiers.HasFlag(KeyModifiers.Shift));
+        if (horizontal)
+            ZoomHorizontal(model, factor, position.X);
+        else if (!model.AutoZoomHeight.Value)
+            ZoomVertical(model, factor, position.Y);
     }
 
     private void ZoomHorizontal(GraphEditorViewModel model, double factor, double pointerX)

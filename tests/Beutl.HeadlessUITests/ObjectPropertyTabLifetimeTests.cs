@@ -27,6 +27,7 @@ public class ObjectPropertyTabLifetimeTests
         var context = TestShell.CreateEditorContextMock();
         context.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         context.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        context.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
         context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         context.Setup(x => x.GetService(typeof(IPropertiesEditorFactory))).Returns(factory.Object);
         var tab = new ObjectPropertyTabViewModel(context.Object);

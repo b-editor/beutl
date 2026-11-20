@@ -13,6 +13,7 @@ using Beutl.Helpers;
 using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -448,7 +449,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             renderScale,
             videoSettings.FrameRate.Value,
             audioSettings.SampleRate.Value,
-            audioSettings.GetChannelLayout());
+            audioSettings.GetChannelLayout(), decoders: _editViewModel.GetRequiredService<DecoderRegistry>());
         IObservable<MediaTime> frameProgress = providers.FrameProgress;
         IObservable<MediaTime> sampleProgress = providers.SampleProgress;
 

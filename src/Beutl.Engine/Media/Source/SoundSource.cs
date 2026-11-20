@@ -40,6 +40,7 @@ public sealed class SoundSource : MediaSource
     {
         private MediaReader? _reader;
         private Uri? _loadedUri;
+        private DecoderRegistry? _loadedDecoders;
 
         public MediaTime Duration { get; private set; }
 
@@ -113,21 +114,23 @@ public sealed class SoundSource : MediaSource
             var soundSource = (SoundSource)obj;
 
             // A relink can restore the file at its original URI.
-            if (soundSource.HasUri && (_loadedUri != soundSource.Uri || ReloadRequested))
+            if (soundSource.HasUri && (_loadedUri != soundSource.Uri || _loadedDecoders != context.Decoders || ReloadRequested))
             {
+                var decoders = context.Decoders ?? throw new InvalidOperationException("Opening audio requires a decoder registry.");
                 _reader?.Dispose();
                 _reader = null;
 
+                _loadedDecoders = decoders;
                 try
                 {
                     string path = soundSource.Uri.LocalPath;
                     // Encoding keeps its own reader; other resources share the file's readers. A media without an
                     // audio stream never serves others, which would give them a silent source.
                     _reader = context.DisableResourceShare
-                        ? MediaReader.Open(path, new(MediaMode.Audio))
+                        ? MediaReader.Open(path, new(MediaMode.Audio), decoders)
                         : SharedMediaReaders.Shared.Open(
-                            SharedMediaReaders.Key.ForFile(path, MediaMode.Audio),
-                            () => MediaReader.Open(path, new(MediaMode.Audio)),
+                            SharedMediaReaders.Key.ForFile(decoders, path, MediaMode.Audio),
+                            () => MediaReader.Open(path, new(MediaMode.Audio), decoders),
                             opened => opened.HasAudio);
                 }
                 catch

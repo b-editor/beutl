@@ -215,7 +215,7 @@ public sealed class AppUpdateControllerTests
             Assert.That(ready.Title, Is.EqualTo(MessageStrings.UpdateReady_Title));
             Assert.That(ready.Actions!.Select(action => action.Text), Is.EqualTo(new[]
             {
-                MessageStrings.UpdateAction_StartInstaller, MessageStrings.UpdateAction_UpdateOnQuit, MessageStrings.ReleaseNotes,
+                MessageStrings.UpdateAction_RestartAndUpdate, MessageStrings.UpdateAction_UpdateOnQuit, MessageStrings.ReleaseNotes,
             }));
         });
     }
@@ -315,7 +315,7 @@ public sealed class AppUpdateControllerTests
         {
             Assert.That(actions.Select(action => action.Text), Is.EqualTo(new[]
             {
-                MessageStrings.UpdateAction_StartInstaller, MessageStrings.UpdateAction_UpdateOnQuit, MessageStrings.ReleaseNotes,
+                MessageStrings.UpdateAction_RestartAndUpdate, MessageStrings.UpdateAction_UpdateOnQuit, MessageStrings.ReleaseNotes,
             }));
             Assert.That(actions[^1].DismissOnInvoke, Is.False);
         });

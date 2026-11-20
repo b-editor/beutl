@@ -400,6 +400,51 @@ public class GraphEditorInteractionTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Ruler_pinch_zooms_the_hovered_axis_and_keeps_the_pointer_anchor(bool horizontal)
+    {
+        using var graph = await GraphScope.CreateAsync(selectAll: false);
+        graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 1 };
+        graph.Model.ScaleY.Value = 2;
+        HeadlessTestHelpers.Render(3);
+        graph.Model.ScrollOffset.Value = new Vector(75, 80);
+        HeadlessTestHelpers.Render();
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        Control ruler = horizontal ? graph.View.FindControl<Border>("RulerBar")!
+            : graph.View.FindControl<GraphEditorScale>("verticalScale")!;
+        Point local = horizontal ? new Point(180, 16) : new Point(20, 160);
+        Point pointer = ruler.TranslatePoint(local, graph.Window)!.Value;
+        Point plotPointer = ruler.TranslatePoint(local, scroll)!.Value;
+        foreach (double delta in new[] { 0.2, -0.1 })
+        {
+            float scaleX = graph.Model.Options.Value.Scale;
+            double scaleY = graph.Model.ScaleY.Value;
+            Vector offset = scroll.Offset;
+            double time = (offset.X + plotPointer.X) / scaleX;
+            double value = (graph.Model.Baseline.Value - offset.Y - plotPointer.Y) / scaleY;
+
+            PointerDeltaEventArgs args = Pinch(graph, pointer, delta);
+
+            double factor = 1 + delta;
+            Assert.That(args.Handled, Is.True);
+            Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(horizontal ? scaleX * factor : scaleX).Within(0.001));
+            Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(horizontal ? scaleY : scaleY * factor).Within(0.001));
+            if (horizontal)
+            {
+                Assert.That((scroll.Offset.X + plotPointer.X) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
+                Assert.That(scroll.Offset.Y, Is.EqualTo(offset.Y).Within(0.01));
+            }
+            else
+            {
+                Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - plotPointer.Y) / graph.Model.ScaleY.Value,
+                    Is.EqualTo(value).Within(0.01));
+                Assert.That(scroll.Offset.X, Is.EqualTo(offset.X).Within(0.01));
+            }
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Ruler_zoom_at_the_time_scale_limit_does_not_pan()
     {
         using var graph = await GraphScope.CreateAsync(selectAll: false);
@@ -560,6 +605,65 @@ public class GraphEditorInteractionTests
         Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(shift ? 2.4 : 2).Within(0.001));
         Assert.That((scroll.Offset.X + 180) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
         Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - 160) / graph.Model.ScaleY.Value, Is.EqualTo(value).Within(0.01));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Plot_pinch_zooms_time_and_shift_pinch_zooms_value(bool shift)
+    {
+        using var graph = await GraphScope.CreateAsync(selectAll: false,
+            scrollDetector: _ => throw new AssertionException("Zoom must not depend on the scroll device."));
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        graph.Model.ScaleY.Value = 2;
+        HeadlessTestHelpers.Render(3);
+        graph.Model.ScrollOffset.Value = new Vector(75, 80);
+        HeadlessTestHelpers.Render();
+        Point plotPointer = new(180, 160);
+        Point pointer = scroll.TranslatePoint(plotPointer, graph.Window)!.Value;
+        double time = (scroll.Offset.X + plotPointer.X) / graph.Model.Options.Value.Scale;
+        double value = (graph.Model.Baseline.Value - scroll.Offset.Y - plotPointer.Y) / graph.Model.ScaleY.Value;
+
+        PointerDeltaEventArgs args = Pinch(graph, pointer, 0.2, shift ? KeyModifiers.Shift : KeyModifiers.None);
+
+        Assert.That(args.Handled, Is.True);
+        Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(shift ? 1 : 1.2).Within(0.001));
+        Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(shift ? 2.4 : 2).Within(0.001));
+        Assert.That((scroll.Offset.X + plotPointer.X) / graph.Model.Options.Value.Scale, Is.EqualTo(time).Within(0.01));
+        Assert.That((graph.Model.Baseline.Value - scroll.Offset.Y - plotPointer.Y) / graph.Model.ScaleY.Value,
+            Is.EqualTo(value).Within(0.01));
+    }
+
+    [AvaloniaTest]
+    public async Task Pinch_ignores_invalid_magnification_and_respects_auto_height()
+    {
+        using var graph = await GraphScope.CreateAsync(selectAll: false);
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        graph.Model.ScaleY.Value = 2;
+        HeadlessTestHelpers.Render(3);
+        graph.Model.ScrollOffset.Value = new Vector(75, 80);
+        HeadlessTestHelpers.Render();
+        Point pointer = scroll.TranslatePoint(new Point(180, 160), graph.Window)!.Value;
+        float scaleX = graph.Model.Options.Value.Scale;
+        double scaleY = graph.Model.ScaleY.Value;
+        Vector offset = scroll.Offset;
+        foreach (double delta in new[] { -1, -2, double.NaN })
+        {
+            PointerDeltaEventArgs args = Pinch(graph, pointer, delta);
+            Assert.That(args.Handled, Is.True);
+            Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(scaleX));
+            Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(scaleY));
+            Assert.That(scroll.Offset, Is.EqualTo(offset));
+        }
+
+        graph.Model.AutoZoomHeight.Value = true;
+        HeadlessTestHelpers.Render(3);
+        scaleY = graph.Model.ScaleY.Value;
+        var ruler = graph.View.FindControl<GraphEditorScale>("verticalScale")!;
+        Point rulerPointer = ruler.TranslatePoint(new Point(20, 160), graph.Window)!.Value;
+        PointerDeltaEventArgs rulerArgs = Pinch(graph, rulerPointer, 0.2);
+        Assert.That(rulerArgs.Handled, Is.True);
+        Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(scaleY));
     }
 
     [AvaloniaTest]
@@ -757,6 +861,18 @@ public class GraphEditorInteractionTests
             Assert.That(graph.Second.Value.Value, Is.EqualTo(redo ? 300 : 500));
             Assert.That(playingWhenMoved, Is.False, "the history moves only after playback has paused");
         });
+    }
+
+    private static PointerDeltaEventArgs Pinch(GraphScope graph, Point point, double delta, KeyModifiers modifiers = KeyModifiers.None)
+    {
+        graph.HitTest(point);
+        IInputElement source = graph.Window.InputHitTest(point)!;
+        using var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, true);
+        var args = new PointerDeltaEventArgs(InputElement.PointerTouchPadGestureMagnifyEvent,
+            source, pointer, graph.Window, point, 1, default, modifiers, new Vector(delta, delta));
+        source.RaiseEvent(args);
+        HeadlessTestHelpers.Render();
+        return args;
     }
 
     private static IKeyFrame[] Selected(GraphScope graph) => graph.Model.SelectedView.Value!.KeyFrames

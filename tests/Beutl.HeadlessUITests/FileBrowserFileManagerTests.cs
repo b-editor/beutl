@@ -92,7 +92,8 @@ public sealed class FileBrowserFileManagerTests
         try
         {
             using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestShell.FontManager, root);
-            using FileSystemItemViewModel item = FileSystemEnumerator.EnumerateDirectory(templates, root).Single();
+            using var thumbnails = new Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService(TestShell.Decoders, templates);
+            using FileSystemItemViewModel item = FileSystemEnumerator.EnumerateDirectory(thumbnails, root).Single();
             Assert.That(item.IsDirectory, Is.True);
 
             ProcessStartInfo startInfo = FileManagerLauncher.CreateStartInfo(item.FullPath, item.IsDirectory, OSPlatform.OSX);
@@ -187,7 +188,7 @@ public sealed class FileBrowserFileManagerTests
         string file = Path.Combine(root, "sample.txt");
         File.WriteAllText(file, "sample");
         using var vm = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object);
-        using var item = new FileSystemItemViewModel(TestShell.Templates, file, isDirectory: false);
+        using var item = new FileSystemItemViewModel(TestShell.Thumbnails, file, isDirectory: false);
         using var notifications = new NotificationCapture(TestShell.Notifications);
         int launches = 0;
         try

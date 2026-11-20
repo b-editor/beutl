@@ -25,10 +25,14 @@ internal static partial class NativeTimelineTestHost
     [STAThread]
     public static int Main(string[] args)
     {
+        if (OperatingSystem.IsWindows() && args is ["--native-browser-download-methods"])
+            return NativeBrowserFrameTestHost.Run(args);
         if (args is ["--agent-host-instance", string directory, string name, string port])
             return AgentHostInstanceTestWorker.Run(directory, name, int.Parse(port, System.Globalization.CultureInfo.InvariantCulture));
 
-        if (args is ["--native-browser-referrers"] || OperatingSystem.IsMacOS() && args is ["--native-browser-frames" or "--native-browser-history"])
+        if (args is ["--native-browser-referrers"]
+            || OperatingSystem.IsMacOS() && args is ["--native-browser-frames" or "--native-browser-history" or "--native-browser-download-referrers" or "--native-browser-superseded-navigation"]
+            || OperatingSystem.IsWindows() && args is ["--native-browser-adblock-reference" or "--native-browser-download-referrers" or "--native-browser-history" or "--native-browser-superseded-navigation"])
             return NativeBrowserFrameTestHost.Run(args);
 
         if (OperatingSystem.IsMacOS() && args is ["--native-menu-shortcuts"])

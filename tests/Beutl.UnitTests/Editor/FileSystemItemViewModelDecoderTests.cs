@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+﻿using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Media.Decoding;
 using Icon = FluentIcons.Common.Icon;
@@ -9,6 +10,7 @@ namespace Beutl.UnitTests.Editor;
 [NonParallelizable]
 public class FileSystemItemViewModelDecoderTests
 {
+    private FileThumbnailService _thumbnails = null!;
     private ObjectTemplateService _templates = null!;
     private string _root = null!;
 
@@ -18,11 +20,13 @@ public class FileSystemItemViewModelDecoderTests
         _root = Path.Combine(Path.GetTempPath(), $"beutl-fsitem-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_root);
         _templates = new ObjectTemplateService(TestFonts.Manager, Path.Combine(_root, "templates"));
+        _thumbnails = new FileThumbnailService(new DecoderRegistry(new()), _templates);
     }
 
     [TearDown]
     public void TearDown()
     {
+        _thumbnails.Dispose();
         _templates.Dispose();
         if (Directory.Exists(_root))
         {
@@ -41,7 +45,7 @@ public class FileSystemItemViewModelDecoderTests
         string path = Path.Combine(_root, fileName);
         File.WriteAllBytes(path, [0]);
 
-        using var item = new FileSystemItemViewModel(_templates, path, false);
+        using var item = new FileSystemItemViewModel(_thumbnails, path, false);
 
         Assert.That(item.IconSymbol.Value.ToString(), Is.EqualTo(expected));
     }
@@ -52,20 +56,13 @@ public class FileSystemItemViewModelDecoderTests
     public void IconSymbol_TypeScript_StaysCode()
     {
         var decoder = new TransportStreamDecoderInfo();
-        DecoderRegistry.Register(decoder);
-        try
-        {
-            string path = Path.Combine(_root, "app.ts");
-            File.WriteAllBytes(path, [0]);
+        _thumbnails.Decoders.Register(decoder);
+        string path = Path.Combine(_root, "app.ts");
+        File.WriteAllBytes(path, [0]);
 
-            using var item = new FileSystemItemViewModel(_templates, path, false);
+        using var item = new FileSystemItemViewModel(_thumbnails, path, false);
 
-            Assert.That(item.IconSymbol.Value, Is.EqualTo(Icon.Code));
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-        }
+        Assert.That(item.IconSymbol.Value, Is.EqualTo(Icon.Code));
     }
 
     // The placeholder that gives a collapsed folder its expand arrow must not read the folder as a file:
@@ -83,7 +80,7 @@ public class FileSystemItemViewModelDecoderTests
         AppDomain.CurrentDomain.FirstChanceException += OnFirstChance;
         try
         {
-            using var item = new FileSystemItemViewModel(_templates, folder, true);
+            using var item = new FileSystemItemViewModel(_thumbnails, folder, true);
             Assert.That(item.Children, Has.Count.EqualTo(1));
         }
         finally

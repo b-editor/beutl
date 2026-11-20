@@ -33,7 +33,7 @@ internal sealed partial class MacOSBrowserDownloadHandler
             _fileName = fileName;
             _charset = charset;
             _origin = origin;
-            RequestMethod = method == "GET" ? null : method;
+            RequestMethod = method;
         }
 
         // A file the page generated, which WebKit names only when it asks where to save it. It is offered then.

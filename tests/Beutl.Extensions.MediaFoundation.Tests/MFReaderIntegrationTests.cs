@@ -203,39 +203,33 @@ public class MFReaderIntegrationTests
     {
         string wav = SineWav.Write(_workDir, seconds: 2);
         IDecoderInfo decoder = CreateDecoderInfo();
-        DecoderRegistry.Register(decoder);
-        try
+        var decoders = new DecoderRegistry(new());
+        decoders.Register(decoder);
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(wav));
+        // A private reader, so the check sees what the decoder opened rather than a shared handle.
+        using var metadata = source.ToResource(new CompositionContext(MediaTime.Zero) { DisableResourceShare = true, Decoders = decoders });
+        Assert.That(metadata.MediaReader, Is.TypeOf<MFReader>());
+
+        var sound = new SourceSound
         {
-            var source = new SoundSource();
-            source.ReadFrom(new Uri(wav));
-            // A private reader, so the check sees what the decoder opened rather than a shared handle.
-            using var metadata = source.ToResource(new CompositionContext(MediaTime.Zero) { DisableResourceShare = true });
-            Assert.That(metadata.MediaReader, Is.TypeOf<MFReader>());
+            Source = { Value = source },
+            TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(duration)) },
+            OffsetPosition = { Value = MediaTime.FromSeconds(offset) },
+            Speed = { Value = speed }
+        };
 
-            var sound = new SourceSound
-            {
-                Source = { Value = source },
-                TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(duration)) },
-                OffsetPosition = { Value = MediaTime.FromSeconds(offset) },
-                Speed = { Value = speed }
-            };
-
-            var chunks = new List<WaveformChunk>();
-            await foreach (var chunk in sound.GetWaveformChunksAsync(20, 4096, null))
-            {
-                chunks.Add(chunk);
-            }
-
-            Assert.That(chunks.Select(chunk => chunk.Index), Is.EqualTo(Enumerable.Range(0, 20)));
-            Assert.That(chunks[0].MinValue, Is.LessThan(-0.1f));
-            Assert.That(chunks[0].MaxValue, Is.GreaterThan(0.1f));
-            Assert.That(chunks[^1].MinValue, Is.EqualTo(0f).Within(1e-6f));
-            Assert.That(chunks[^1].MaxValue, Is.EqualTo(0f).Within(1e-6f));
-        }
-        finally
+        var chunks = new List<WaveformChunk>();
+        await foreach (var chunk in sound.GetWaveformChunksAsync(20, 4096, null, decoders: decoders))
         {
-            DecoderRegistry.Unregister(decoder);
+            chunks.Add(chunk);
         }
+
+        Assert.That(chunks.Select(chunk => chunk.Index), Is.EqualTo(Enumerable.Range(0, 20)));
+        Assert.That(chunks[0].MinValue, Is.LessThan(-0.1f));
+        Assert.That(chunks[0].MaxValue, Is.GreaterThan(0.1f));
+        Assert.That(chunks[^1].MinValue, Is.EqualTo(0f).Within(1e-6f));
+        Assert.That(chunks[^1].MaxValue, Is.EqualTo(0f).Within(1e-6f));
     }
 
     [Test]

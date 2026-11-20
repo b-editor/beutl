@@ -2,6 +2,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Media.Decoding;
 #if DEBUG
 using Avalonia.Diagnostics;
 #endif
@@ -50,6 +52,7 @@ public sealed class App : Application
     private readonly ITutorialService _tutorialService;
     private readonly GlobalConfiguration _configuration;
     private readonly Media.FontManager _fonts;
+    private readonly DecoderRegistry _decoders;
     private readonly INotificationService _notifications = new NotificationService(new NotificationServiceHandler());
     private readonly AppUpdateController _appUpdateController;
     private readonly ColorPaletteService _colorPalettes = ColorPaletteService.CreateDefault();
@@ -70,17 +73,19 @@ public sealed class App : Application
         _configuration = configuration;
         _tutorialService = new TutorialServiceHandler(configuration.TutorialConfig);
         _appUpdateController = new AppUpdateController(configuration.UpdateConfig, _notifications);
-        Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
+        _decoders = new DecoderRegistry(configuration.ExtensionConfig);
         _fonts = new Media.FontManager(configuration.FontConfig);
-        _objectTemplateService = new(_fonts, configuration.EditorConfig, configuration.ProxyStoreConfig);
+        _objectTemplateService = new(_fonts, configuration.EditorConfig, configuration.ProxyStoreConfig, _decoders);
         _sessionId = sessionId;
         _appServices = new EditorServiceRegistry()
             .Add(() => _configuration)
             .Add(() => _fonts)
+            .Add(() => _decoders)
             .Add(() => _notifications)
             .Add(() => _appUpdateController)
             .Add(() => _libraryService)
             .Add(() => _objectTemplateService)
+            .AddOwned(() => new FileThumbnailService(_decoders, _objectTemplateService))
             .Add<ITutorialService>(() => _tutorialService)
             .Add(() => _colorPalettes)
             .Add<ProxyMediaServices>(() => _proxyMediaServices);
@@ -159,7 +164,7 @@ public sealed class App : Application
         {
             try
             {
-                _proxyMediaServices = new ProxyMediaServices(_configuration, _notifications);
+                _proxyMediaServices = new ProxyMediaServices(_configuration, _notifications, _decoders);
             }
             catch (Exception ex)
             {
@@ -223,6 +228,7 @@ public sealed class App : Application
             desktop.Exit += (_, _) =>
             {
                 _activationCts.Cancel();
+                _appServices.Dispose();
                 _objectTemplateService.Dispose();
                 _libraryService.Dispose();
             };

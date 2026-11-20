@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 
 namespace Beutl.Composition;
@@ -52,6 +53,12 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
     {
         get => Conditions.Fonts;
         set => Conditions = Conditions with { Fonts = value };
+    }
+
+    public DecoderRegistry? Decoders
+    {
+        get => Conditions.Decoders;
+        set => Conditions = Conditions with { Decoders = value };
     }
 
     /// <inheritdoc cref="CompositionConditions.FrameRate"/>

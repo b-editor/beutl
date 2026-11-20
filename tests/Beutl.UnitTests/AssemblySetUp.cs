@@ -18,9 +18,6 @@ public sealed class AssemblySetUp
 
         string home = BeutlHomeIsolation.Begin("beutl-unit");
 
-        var configuration = new GlobalConfiguration();
-        Beutl.Media.Decoding.DecoderRegistry.Initialize(configuration.ExtensionConfig);
-
         Assert.That(
             GlobalConfiguration.DefaultFilePath,
             Is.EqualTo(Path.Combine(home, "settings.json")));

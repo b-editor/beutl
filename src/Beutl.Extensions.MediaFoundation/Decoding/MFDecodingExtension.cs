@@ -27,7 +27,7 @@ public sealed class MFDecodingExtension : DecodingExtension
     {
         if (OperatingSystem.IsWindows())
         {
-            DecoderRegistry.Register(GetDecoderInfo());
+            base.Load(context);
         }
     }
 }

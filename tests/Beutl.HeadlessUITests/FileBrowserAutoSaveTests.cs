@@ -276,7 +276,7 @@ public class FileBrowserAutoSaveTests
             Assert.That(items.Select(x => x.Name.Value), Is.EquivalentTo(visibleNames));
 
             // Expanding a folder uses the same enumeration path as the top-level listing.
-            using var folder = new FileSystemItemViewModel(TestShell.Templates, root, isDirectory: true);
+            using var folder = new FileSystemItemViewModel(TestShell.Thumbnails, root, isDirectory: true);
             folder.LoadChildren();
             Assert.That(folder.Children!.Select(x => x.Name.Value), Is.EquivalentTo(visibleNames));
 

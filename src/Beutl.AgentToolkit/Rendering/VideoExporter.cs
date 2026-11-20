@@ -9,13 +9,14 @@ using Beutl.FFmpegIpc;
 using Beutl.Graphics.Rendering;
 using Beutl.IO;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
 
-public sealed class VideoExporter(EncoderRegistration encoders, FontManager fonts)
+public sealed class VideoExporter(EncoderRegistration encoders, FontManager fonts, DecoderRegistry? decoders = null)
 {
     // True only when FFmpeg is the sole encoder for this container, so a missing worker leaves no
     // fallback. AVFoundation (macOS .mp4/.mov) makes this false and the export must not preflight-reject.
@@ -80,7 +81,7 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
                 normalizedScale,
                 frameRate,
                 normalizedSampleRate,
-                controller.AudioSettings.GetChannelLayout());
+                controller.AudioSettings.GetChannelLayout(), decoders: decoders);
             IFrameProvider frameProvider = providers.FrameProvider;
             ISampleProvider sampleProvider = providers.SampleProvider;
             using IDisposable frameProgressSubscription = onFrameProgress is null

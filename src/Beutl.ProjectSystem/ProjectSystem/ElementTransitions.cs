@@ -1,4 +1,6 @@
 ﻿using Beutl.Collections.Pooled;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
 
@@ -120,6 +122,26 @@ internal static class ElementTransitions
         boundary = default;
         return false;
     }
+
+    // Whether element draws a backdrop of what lies beneath it in the output, as one of the objects
+    // Element.CollectObjects selects for the graphics pass. An element hidden from the output draws nothing.
+    public static bool DrawsBackdrop(Element element)
+    {
+        if (!element.IsVisibleInOutput.Value) return false;
+
+        foreach (EngineObject obj in element.Objects)
+        {
+            if (obj is SourceBackdrop { IsEnabled.Value: true }) return true;
+        }
+
+        return false;
+    }
+
+    // Whether boundary is a scene change: both of its elements draw a backdrop, so each side takes the layers
+    // beneath it as they are at its own time, and the transition draws them in place of the layers themselves.
+    public static bool IsSceneChange(in TransitionBoundary boundary)
+        => boundary is { Outgoing: { } outgoing, Incoming: { } incoming }
+           && DrawsBackdrop(outgoing) && DrawsBackdrop(incoming);
 
     // The elements that can take part in a boundary transition: those that set an active side, and those
     // adjacent across such a side. No other element has a boundary at either end, so callers that look

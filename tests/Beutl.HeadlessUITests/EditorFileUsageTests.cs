@@ -90,8 +90,8 @@ public sealed class EditorFileUsageTests
         using var context = new Context(usage, TestShell.Templates);
         using var browser = new FileBrowserTabViewModel(context);
         browser.ConfirmAsync = _ => Task.FromResult(FAContentDialogResult.Primary);
-        using var firstItem = new FileSystemItemViewModel(TestShell.Templates, first, isDirectory: false);
-        using var secondItem = new FileSystemItemViewModel(TestShell.Templates, second, isDirectory: false);
+        using var firstItem = new FileSystemItemViewModel(TestShell.Thumbnails, first, isDirectory: false);
+        using var secondItem = new FileSystemItemViewModel(TestShell.Thumbnails, second, isDirectory: false);
         using var notifications = new NotificationCapture(TestShell.Notifications);
 
         await browser.DeleteItemsAsync([firstItem, secondItem]);
@@ -148,8 +148,9 @@ public sealed class EditorFileUsageTests
         }
 
         public object? GetService(Type serviceType)
-            => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(IEditorFileUsage) ? usage
-                : serviceType == typeof(ObjectTemplateService) ? templates : null;
+            => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : serviceType == typeof(IEditorFileUsage) ? usage
+                : serviceType == typeof(ObjectTemplateService) ? templates
+                : serviceType == typeof(Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService) ? TestShell.Thumbnails : null;
 
         public void Dispose() => IsEnabled.Dispose();
 

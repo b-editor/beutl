@@ -66,10 +66,34 @@ public class WindowPlacementTests
     [TestCase(true)]
     public async Task An_editor_window_saved_on_an_unplugged_display_opens_on_the_primary_screen(bool mac)
     {
+        OpenedWindow window = await OpenEditorWindowAsync(mac, (5000, -3000), (800, 600));
+
+        Assert.That(window.Position, Is.EqualTo(new PixelPoint(560, 340)));
+        Assert.That((window.Width, window.Height), Is.EqualTo((800d, 600d)));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task An_editor_window_saved_with_no_width_opens_as_on_a_first_launch(bool mac)
+    {
+        // A broken save left these bounds; restored, they make a window that no one can see.
+        OpenedWindow broken = await OpenEditorWindowAsync(mac, (1430, 33), (0, 66));
+        OpenedWindow firstLaunch = await OpenEditorWindowAsync(mac, null, null);
+
+        Assert.That(firstLaunch.ClientSize.Width, Is.GreaterThan(0), "precondition: a first launch shows a window");
+        Assert.That((broken.Position, broken.ClientSize), Is.EqualTo((firstLaunch.Position, firstLaunch.ClientSize)));
+    }
+
+    private readonly record struct OpenedWindow(PixelPoint Position, double Width, double Height, Size ClientSize);
+
+    private static async Task<OpenedWindow> OpenEditorWindowAsync(
+        bool mac, (int X, int Y)? savedPosition, (int Width, int Height)? savedSize)
+    {
         ViewConfig config = TestShell.Configuration.ViewConfig;
         var previous = (WindowPosition: config.WindowPosition.Value, WindowSize: config.WindowSize.Value, IsWindowMaximized: config.IsWindowMaximized.Value);
-        config.WindowPosition.Value = (5000, -3000);
-        config.WindowSize.Value = (800, 600);
+        config.WindowPosition.Value = savedPosition;
+        config.WindowSize.Value = savedSize;
         config.IsWindowMaximized.Value = false;
         Window window = mac ? new MacWindow() : HeadlessAppWindow.Create(() => new MainWindow());
         window.DataContext = TestShell.MainViewModel;
@@ -79,8 +103,7 @@ public class WindowPlacementTests
             window.Show();
             HeadlessTestHelpers.Render();
 
-            Assert.That(window.Position, Is.EqualTo(new PixelPoint(560, 340)));
-            Assert.That((window.Width, window.Height), Is.EqualTo((800d, 600d)));
+            return new OpenedWindow(window.Position, window.Width, window.Height, window.ClientSize);
         }
         finally
         {

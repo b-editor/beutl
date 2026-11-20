@@ -17,7 +17,7 @@ internal sealed class AgentHostAiBackend(
     IAiTranscriptionService transcription,
     Func<IGenerativeModelCatalog> catalog,
     Func<Scene, IGenerativeNodeExecutor> executor,
-    IAiModelCatalogService modelCatalog) : IAgentAiBackend
+    IAiModelCatalogService modelCatalog, DecoderRegistry decoders) : IAgentAiBackend
 {
     // The longest piece of audio sent at once: ten minutes of 16 kHz mono stays under the upload limit.
     private static readonly TimeSpan s_chunkDuration = TimeSpan.FromMinutes(10);
@@ -82,7 +82,7 @@ internal sealed class AgentHostAiBackend(
         {
             // Audio alone: an FFmpeg reader that also decodes video starts its audio after the first frame.
             opened = await Task.Run(
-                () => MediaReader.Open(path, new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
+                () => MediaReader.Open(path, new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }, decoders),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (UnsupportedMediaException)
@@ -90,7 +90,7 @@ internal sealed class AgentHostAiBackend(
             // A file that opens only as video has no audio to transcribe.
             bool opensAsVideo = await Task.Run(() =>
             {
-                using MediaReader? video = DecoderRegistry.OpenMediaFile(
+                using MediaReader? video = decoders.OpenMediaFile(
                     path, new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
                 return video != null;
             }, cancellationToken).ConfigureAwait(false);

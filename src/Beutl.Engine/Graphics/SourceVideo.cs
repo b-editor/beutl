@@ -5,6 +5,7 @@ using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 
 namespace Beutl.Graphics;
@@ -35,9 +36,9 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
         return Source.Value != null;
     }
 
-    public bool TryGetOriginalDuration(out MediaTime timeSpan)
+    public bool TryGetOriginalDuration(out MediaTime timeSpan, DecoderRegistry? decoders = null)
     {
-        using var resource = ToResource(CompositionContext.Default);
+        using var resource = ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders });
         var ts = CalculateOriginalTime((Resource)resource);
         if (ts.HasValue && ts.Value - OffsetPosition.Value > MediaTime.Zero)
         {
@@ -59,9 +60,9 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
 
     private bool SwitchesFiles => AnimationSampler.IsAnimated(Source);
 
-    MediaTime? ITimeMappedSource.GetSourceDuration()
+    MediaTime? ITimeMappedSource.GetSourceDuration(DecoderRegistry? decoders)
     {
-        using var resource = Source.Value?.ToResource(CompositionContext.Default);
+        using var resource = Source.Value?.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders });
         // An offline reader reports a zero duration; treat it as unknown so a placeholder clip keeps
         // the length the user asked for and stays resizable.
         return resource is { Duration: var duration } && duration > MediaTime.Zero ? duration : null;

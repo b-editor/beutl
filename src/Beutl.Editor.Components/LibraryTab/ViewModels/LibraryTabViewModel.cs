@@ -7,11 +7,13 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Services;
+using Beutl.Media.Decoding;
 using Beutl.NodeGraph;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.LibraryTab.ViewModels;
 
@@ -44,7 +46,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         _editor = editor;
         _lifetimeToken = _lifetimeCancellation.Token;
         _preview = LibraryPreviewCapture.Create(editor);
-        Thumbnails = new LibraryThumbnailSet(fonts, _preview == null ? null : _preview.CaptureAsync);
+        Thumbnails = new LibraryThumbnailSet(fonts, _preview == null ? null : _preview.CaptureAsync, ExtensionGuard.FindService<DecoderRegistry>(editor));
         _disposables.Add(Thumbnails);
         ObservePreview();
 

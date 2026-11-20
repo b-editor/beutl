@@ -82,6 +82,21 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     // Uri names a scheme's default port when an address leaves it out, so both spellings compare equal.
     internal static bool IsSameOrigin(Uri a, Uri b) => a.Scheme == b.Scheme && a.IdnHost == b.IdnHost && a.Port == b.Port;
 
+    // Browsers apply the last recognized token across all header lines.
+    internal static BrowserReferrerPolicy? ParseReferrerPolicyHeader(string? value, BrowserReferrerPolicy? policy = null)
+    {
+        foreach (string token in (value ?? "").Split(','))
+            policy = token.Trim().ToLowerInvariant() switch
+            {
+                "no-referrer" => BrowserReferrerPolicy.NoReferrer,
+                "same-origin" => BrowserReferrerPolicy.SameOrigin,
+                "origin" or "strict-origin" or "origin-when-cross-origin" or "strict-origin-when-cross-origin"
+                    or "no-referrer-when-downgrade" or "unsafe-url" => BrowserReferrerPolicy.Origin,
+                _ => policy
+            };
+        return policy;
+    }
+
     private static Uri ToOrigin(Uri uri) => new(uri.GetLeftPart(UriPartial.Authority) + "/");
 
     private static bool IsMediaExtension(string extension) =>

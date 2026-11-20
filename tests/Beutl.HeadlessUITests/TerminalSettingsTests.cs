@@ -117,6 +117,7 @@ public class TerminalSettingsTests
         var editor = TestShell.CreateEditorContextMock();
         editor.Setup(x => x.GetService(typeof(GlobalConfiguration))).Returns(owned);
         editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
+        editor.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
         editor.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
         using var owner = new TerminalTabViewModel(editor.Object);
         using var view = new TerminalTabView();

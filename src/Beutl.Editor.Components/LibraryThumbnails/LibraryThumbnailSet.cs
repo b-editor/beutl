@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using Beutl.Controls;
 using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
 using BtlBitmap = Beutl.Media.Bitmap;
 
@@ -43,8 +44,8 @@ internal sealed class LibraryThumbnailSet : IDisposable
     /// <param name="capture">
     /// Captures the content the thumbnails show types on, or is <see langword="null"/> to show them on the samples.
     /// </param>
-    public LibraryThumbnailSet(Beutl.Media.FontManager fonts, Func<CancellationToken, Task<LibraryThumbnailSubject?>>? capture)
-        : this(capture, (type, subject, stillOnly, cancellationToken) => LibraryThumbnailRenderer.RenderAsync(fonts, type, subject, stillOnly, cancellationToken))
+    public LibraryThumbnailSet(Beutl.Media.FontManager fonts, Func<CancellationToken, Task<LibraryThumbnailSubject?>>? capture, DecoderRegistry? decoders = null)
+        : this(capture, (type, subject, stillOnly, cancellationToken) => LibraryThumbnailRenderer.RenderAsync(fonts, type, subject, stillOnly, cancellationToken, decoders))
     {
     }
 

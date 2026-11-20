@@ -25,7 +25,7 @@ public sealed partial class AiSubtitleDialogViewModel
         Task<byte[]?>> TemplatePreviewRenderer
     { get; set; } = null!;
 
-    private static Task<byte[]?> RenderTemplatePreviewAsync(Beutl.Media.FontManager fonts, IReadOnlyList<Element> elements, Beutl.Media.PixelSize frameSize, CancellationToken cancellationToken, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
+    private Task<byte[]?> RenderTemplatePreviewAsync(Beutl.Media.FontManager fonts, IReadOnlyList<Element> elements, Beutl.Media.PixelSize frameSize, CancellationToken cancellationToken, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
         =>
             frameSize.Width <= 0 || frameSize.Height <= 0
                 ? Task.FromResult<byte[]?>(null)
@@ -36,7 +36,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     frameSize,
                     new Beutl.Media.PixelSize(1024, 576),
                     cancellationToken,
-                    editorConfig, proxyConfig).AsTask();
+                    editorConfig, proxyConfig, _decoders).AsTask();
 
     private void RefreshTemplatePreview()
     {

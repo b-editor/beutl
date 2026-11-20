@@ -2,8 +2,10 @@
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Media.Decoding;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Helpers;
 
@@ -18,6 +20,7 @@ internal static class HostServices
             services.GetRequiredService<ColorPaletteService>(),
             services.GetRequiredService<GlobalConfiguration>(),
             services.GetRequiredService<Beutl.Media.FontManager>(),
+            ExtensionGuard.FindService<DecoderRegistry>(services),
             services.GetRequiredService<INotificationService>());
     }
 
@@ -28,6 +31,7 @@ internal static class HostServices
             ColorPaletteService.GetService(owner),
             ControlConfiguration.GetConfiguration(owner),
             ControlFonts.GetFonts(owner),
+            ControlDecoders.GetDecoders(owner),
             ControlNotifications.GetNotifications(owner));
     }
 
@@ -36,11 +40,13 @@ internal static class HostServices
         ColorPaletteService? palettes,
         GlobalConfiguration? configuration,
         Beutl.Media.FontManager? fonts,
+        DecoderRegistry? decoders,
         INotificationService? notifications)
     {
         ColorPaletteService.SetService(target, palettes);
         ControlConfiguration.SetConfiguration(target, configuration);
         ControlFonts.SetFonts(target, fonts);
+        ControlDecoders.SetDecoders(target, decoders);
         ControlNotifications.SetNotifications(target, notifications);
     }
 }

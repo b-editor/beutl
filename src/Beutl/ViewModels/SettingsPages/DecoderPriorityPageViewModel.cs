@@ -38,10 +38,10 @@ public sealed class DecoderPriorityPageViewModel : BasePageViewModel
         }
     }
 
-    public DecoderPriorityPageViewModel(ExtensionConfig configuration)
+    public DecoderPriorityPageViewModel(ExtensionConfig configuration, DecoderRegistry decoders)
     {
         _extensionConfig = configuration;
-        Items = new(DecoderRegistry.EnumerateDecoder().Select(v => new DecoderDetailViewModel(v)));
+        Items = new(decoders.EnumerateDecoder().Select(v => new DecoderDetailViewModel(v)));
 
         NavigateParent.Subscribe(async () =>
         {

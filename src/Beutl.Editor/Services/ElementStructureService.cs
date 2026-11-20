@@ -4,6 +4,7 @@ using Beutl.Audio;
 using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Language;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -11,11 +12,13 @@ namespace Beutl.Editor.Services;
 public sealed class ElementStructureService : IElementStructureService
 {
     private readonly HistoryManager _historyManager;
+    private readonly DecoderRegistry? _decoders;
     private readonly EditorConfig _configuration;
 
-    public ElementStructureService(HistoryManager historyManager, EditorConfig configuration)
+    public ElementStructureService(HistoryManager historyManager, EditorConfig configuration, DecoderRegistry? decoders = null)
     {
         _configuration = configuration;
+        _decoders = decoders;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
@@ -42,12 +45,12 @@ public sealed class ElementStructureService : IElementStructureService
 
         if (!targets.Any(target => !scene.IsElementLocked(target) && LeavesAFrameOnEachSide(scene, target, at)))
             return;
-        _historyManager.ExecuteInTransaction(() => SplitCore(scene, targets, at, autoAdjustDuration: _configuration.AutoAdjustSceneDuration.Value), CommandNames.SplitElement);
+        _historyManager.ExecuteInTransaction(() => SplitCore(scene, targets, at, autoAdjustDuration: _configuration.AutoAdjustSceneDuration.Value, decoders: _decoders), CommandNames.SplitElement);
     }
 
     // Shared by single-cut Razor and batch edits; the caller owns the history transaction.
     internal static IReadOnlyList<Element> SplitCore(Scene scene, IReadOnlyList<Element> targets, MediaTime at,
-        SplitBatch? batch = null, bool autoAdjustDuration = true)
+        SplitBatch? batch = null, bool autoAdjustDuration = true, DecoderRegistry? decoders = null)
     {
         var groupUpdates = new Dictionary<ImmutableHashSet<Guid>, List<Guid>>(ReferenceEqualityComparer.Instance);
         var added = new List<Element>();
@@ -55,7 +58,7 @@ public sealed class ElementStructureService : IElementStructureService
         {
             if (scene.IsElementLocked(target) || !LeavesAFrameOnEachSide(scene, target, at)) continue;
 
-            Element backward = SplitElement(scene, target, at, batch, autoAdjustDuration);
+            Element backward = SplitElement(scene, target, at, batch, autoAdjustDuration, decoders: decoders);
             added.Add(backward);
 
             if (scene.FindGroup(target.Id.Value) is { } group)
@@ -77,12 +80,12 @@ public sealed class ElementStructureService : IElementStructureService
         return added;
     }
 
-    private static Element SplitElement(Scene scene, Element target, MediaTime at, SplitBatch? batch, bool autoAdjustDuration)
+    private static Element SplitElement(Scene scene, Element target, MediaTime at, SplitBatch? batch, bool autoAdjustDuration, DecoderRegistry? decoders)
     {
         MediaTime forwardDuration = at - target.Start.Value;
         MediaTime backwardDuration = target.Length.Value - forwardDuration;
 
-        List<SplitSource> sources = CaptureSplitSources(target, forwardDuration, batch);
+        List<SplitSource> sources = CaptureSplitSources(target, forwardDuration, batch, decoders: decoders);
 
         ObjectRegenerator.Regenerate(target, out Element backward);
 
@@ -107,7 +110,7 @@ public sealed class ElementStructureService : IElementStructureService
             scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target, autoAdjustDuration);
             scene.AddChild(backward, autoAdjustDuration: autoAdjustDuration);
         }
-        ApplySplitSourceDeltas(backward, sources, forwardDuration, batch);
+        ApplySplitSourceDeltas(backward, sources, forwardDuration, batch, decoders: decoders);
         foreach (SplitSource source in sources)
             source.Source.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
         return backward;
@@ -298,13 +301,13 @@ public sealed class ElementStructureService : IElementStructureService
     private readonly record struct SplitSource(
         ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, bool Supported);
 
-    private static List<SplitSource> CaptureSplitSources(Element element, MediaTime forwardDuration, SplitBatch? batch)
+    private static List<SplitSource> CaptureSplitSources(Element element, MediaTime forwardDuration, SplitBatch? batch, DecoderRegistry? decoders)
     {
         List<ISplittable> splittables = OwnedSplittables(element);
         var sources = new List<SplitSource>(splittables.Count);
         if (splittables.Count == 0) return sources;
 
-        Dictionary<ISplittable, SlippableMedia.Target> targets = CollectSplitTargets(element, splittables, batch);
+        Dictionary<ISplittable, SlippableMedia.Target> targets = CollectSplitTargets(element, splittables, batch, decoders: decoders);
         foreach (ISplittable splittable in splittables)
         {
             if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsMappingSupported
@@ -325,14 +328,14 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private static Dictionary<ISplittable, SlippableMedia.Target> CollectSplitTargets(
-        Element element, IReadOnlyList<ISplittable> splittables, SplitBatch? batch)
+        Element element, IReadOnlyList<ISplittable> splittables, SplitBatch? batch, DecoderRegistry? decoders)
     {
         var targets = new Dictionary<ISplittable, SlippableMedia.Target>(ReferenceEqualityComparer.Instance);
         if (splittables.Count == 0) return targets;
 
         var owned = new HashSet<ISplittable>(splittables, ReferenceEqualityComparer.Instance);
         var conflicts = new HashSet<ISplittable>(ReferenceEqualityComparer.Instance);
-        foreach (SlippableMedia.Target target in SlippableMedia.Collect(element, batch: batch))
+        foreach (SlippableMedia.Target target in SlippableMedia.Collect(element, batch: batch, decoders: decoders))
         {
             if (target.Offset.GetOwnerObject() is not ISplittable owner || !owned.Contains(owner)) continue;
             if (!targets.TryAdd(owner, target))
@@ -345,7 +348,7 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private static void ApplySplitSourceDeltas(
-        Element backward, IReadOnlyList<SplitSource> sources, MediaTime forwardDuration, SplitBatch? batch)
+        Element backward, IReadOnlyList<SplitSource> sources, MediaTime forwardDuration, SplitBatch? batch, DecoderRegistry? decoders)
     {
         List<ISplittable> copies = OwnedSplittables(backward);
         if (copies.Count != sources.Count
@@ -367,7 +370,7 @@ public sealed class ElementStructureService : IElementStructureService
             }
         }
 
-        Dictionary<ISplittable, SlippableMedia.Target> backTargets = CollectSplitTargets(backward, copies, batch);
+        Dictionary<ISplittable, SlippableMedia.Target> backTargets = CollectSplitTargets(backward, copies, batch, decoders: decoders);
         var supported = new bool[copies.Count];
         bool shifted = false;
         for (int i = 0; i < copies.Count; i++)
@@ -384,7 +387,7 @@ public sealed class ElementStructureService : IElementStructureService
         }
 
         if (shifted)
-            backTargets = CollectSplitTargets(backward, copies, batch);
+            backTargets = CollectSplitTargets(backward, copies, batch, decoders: decoders);
 
         for (int i = 0; i < copies.Count; i++)
         {

@@ -24,17 +24,18 @@ public abstract class MediaReader : IDisposable
 
     public virtual ProxyResolution? ProxyResolution => null;
 
-    public static MediaReader Open(string file)
+    public static MediaReader Open(string file, DecoderRegistry decoders)
     {
-        return Open(file, new MediaOptions());
+        return Open(file, new MediaOptions(), decoders);
     }
 
-    public static MediaReader Open(string file, MediaOptions options)
+    public static MediaReader Open(string file, MediaOptions options, DecoderRegistry decoders)
     {
         ArgumentNullException.ThrowIfNull(file);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(decoders);
 
-        MediaReader? reader = DecoderRegistry.OpenMediaFile(file, options);
+        MediaReader? reader = decoders.OpenMediaFile(file, options);
         if (reader is not null)
         {
             return reader;

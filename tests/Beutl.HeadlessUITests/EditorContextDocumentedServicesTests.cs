@@ -21,7 +21,7 @@ public class EditorContextDocumentedServicesTests
         using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestShell.FontManager, Path.Combine(workspace, "templates"));
         var tutorials = new Beutl.Services.Tutorials.TutorialServiceHandler(TestShell.Configuration.TutorialConfig);
         var palettes = new Beutl.Controls.PropertyEditors.ColorPaletteService(null);
-        var services = new Beutl.Editor.Services.EditorServiceRegistry().Add<Beutl.Services.INotificationService>(() => TestShell.Notifications).Add<Beutl.Media.FontManager>(() => TestShell.FontManager)
+        var services = TestShell.CreateEditorServices()
             .Add(() => TestShell.Configuration)
             .Add(() => library)
             .Add(() => templates)
@@ -35,6 +35,7 @@ public class EditorContextDocumentedServicesTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(context.GetService(typeof(Beutl.Configuration.GlobalConfiguration)), Is.SameAs(TestShell.Configuration));
+                Assert.That(context.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry)), Is.SameAs(TestShell.Decoders));
                 Assert.That(context.GetService(typeof(Beutl.Media.FontManager)), Is.SameAs(TestShell.FontManager));
                 Assert.That(context.GetService(typeof(Beutl.Services.LibraryService)), Is.SameAs(library));
                 Assert.That(context.GetService(typeof(Beutl.Editor.Services.ObjectTemplateService)), Is.SameAs(templates));

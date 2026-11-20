@@ -38,7 +38,7 @@ public class MediaFingerprintPersistenceTests
         // The fingerprint file is not written at all. The scene file is written again, as every save does,
         // with the same bytes.
         (Scene scene, string media) = CreateSceneWithImage(_root);
-        var service = new MissingMediaService(TestFonts.Manager);
+        var service = new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()));
         await service.UpdateFingerprintsAsync(scene, force: true);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
@@ -214,7 +214,7 @@ public class MediaFingerprintPersistenceTests
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
         byte[] savedScene = File.ReadAllBytes(scene.Uri.LocalPath);
-        await new MissingMediaService(TestFonts.Manager).UpdateFingerprintsAsync(scene, force: true);
+        await new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new())).UpdateFingerprintsAsync(scene, force: true);
         bool keptInTheScene = scene.MediaFingerprintFile is not null;
 
         bool updated = MediaFingerprintFile.Update(scene.Uri, scene.Id.Value, scene.MediaFingerprints);
@@ -239,7 +239,7 @@ public class MediaFingerprintPersistenceTests
     public async Task BackgroundUpdate_RewritesOnlyTheFileTheSceneFileReferences_AndTheNextSaveKeepsBothFiles()
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);
-        var service = new MissingMediaService(TestFonts.Manager);
+        var service = new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()));
         await service.UpdateFingerprintsAsync(scene, force: true);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
@@ -270,7 +270,7 @@ public class MediaFingerprintPersistenceTests
     public async Task RemovingTheLastFingerprint_DropsTheReferenceAndDeletesTheFileOnTheNextSave()
     {
         (Scene scene, _) = CreateSceneWithImage(_root);
-        var service = new MissingMediaService(TestFonts.Manager);
+        var service = new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()));
         await service.UpdateFingerprintsAsync(scene, force: true);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
@@ -322,7 +322,7 @@ public class MediaFingerprintPersistenceTests
     {
         string original = Path.Combine(_root, "original");
         (Scene scene, string media) = CreateSceneWithImage(original);
-        await new MissingMediaService(TestFonts.Manager).UpdateFingerprintsAsync(scene, force: true);
+        await new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new())).UpdateFingerprintsAsync(scene, force: true);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         // As on another machine: the folder is copied elsewhere, and there the media file is renamed next to a
         // file of the same size and other content.
@@ -335,7 +335,7 @@ public class MediaFingerprintPersistenceTests
         decoy[^1] ^= 0xff;
         File.WriteAllBytes(Path.Combine(moved, "decoy.png"), decoy);
 
-        var service = new MissingMediaService(TestFonts.Manager);
+        var service = new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()));
         Scene copy = CoreSerializer.RestoreFromUri<Scene>(new Uri(sceneFile));
         MissingMedia missing = (await service.FindMissingAsync(copy)).Single();
         IReadOnlyDictionary<MissingMedia, IReadOnlyList<string>> matches = await service.FindMatchesAsync([missing], moved);
@@ -355,7 +355,7 @@ public class MediaFingerprintPersistenceTests
     public async Task AnUnreadableFingerprintFile_DoesNotStopTheSceneFromLoading_AndTheNextSaveReplacesIt(string content)
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);
-        var service = new MissingMediaService(TestFonts.Manager);
+        var service = new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()));
         await service.UpdateFingerprintsAsync(scene, force: true);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
@@ -388,7 +388,7 @@ public class MediaFingerprintPersistenceTests
     public async Task AFingerprintFileWithALaterVersion_IsNeitherUsedNorRewrittenNorDeleted()
     {
         (Scene scene, _) = CreateSceneWithImage(_root);
-        var service = new MissingMediaService(TestFonts.Manager);
+        var service = new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()));
         await service.UpdateFingerprintsAsync(scene, force: true);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
@@ -436,7 +436,7 @@ public class MediaFingerprintPersistenceTests
     public async Task AnIncompleteFingerprint_IsSkippedOnLoading_AndTheNextSaveRewritesTheFile(string gap)
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);
-        await new MissingMediaService(TestFonts.Manager).UpdateFingerprintsAsync(scene, force: true);
+        await new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new())).UpdateFingerprintsAsync(scene, force: true);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
         // Valid JSON, as a hand edit or a merge can leave it: null for a model's dependency, or a fingerprint without
@@ -474,7 +474,7 @@ public class MediaFingerprintPersistenceTests
     public async Task AFailedSave_PutsTheFingerprintFileBack(bool removeEveryFingerprint)
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);
-        await new MissingMediaService(TestFonts.Manager).UpdateFingerprintsAsync(scene, force: true);
+        await new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new())).UpdateFingerprintsAsync(scene, force: true);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
         byte[] saved = File.ReadAllBytes(path);
@@ -565,7 +565,7 @@ public class MediaFingerprintPersistenceTests
     {
         // An overwrite that keeps both keeps its old hash, the accepted cost of not reading unchanged files.
         (Scene scene, string media) = CreateSceneWithImage(_root);
-        var service = new MissingMediaService(TestFonts.Manager);
+        var service = new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()));
         await service.UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
         string key = new Uri(media).AbsoluteUri;
         string first = scene.MediaFingerprints[key].Sha256;
@@ -589,7 +589,7 @@ public class MediaFingerprintPersistenceTests
     public async Task ForcedPass_ReadsAFileWithoutAFingerprint_EvenWhenItsHashIsCached()
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);
-        var service = new MissingMediaService(TestFonts.Manager);
+        var service = new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()));
         await service.UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
         string key = new Uri(media).AbsoluteUri;
         OverwriteKeepingLengthAndTime(media);
@@ -609,7 +609,7 @@ public class MediaFingerprintPersistenceTests
         var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(_root, "other.belm")) };
         element.Objects.Add(new SourceImage { Source = { Value = TestImages.WriteImage(other) } });
         scene.Children.Add(element);
-        var service = new MissingMediaService(TestFonts.Manager);
+        var service = new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new()));
         string cache = Path.Combine(_root, ".beutl", "media-hashes.json");
 
         await service.UpdateFingerprintsAsync(scene, force: true);
@@ -637,7 +637,7 @@ public class MediaFingerprintPersistenceTests
         Directory.CreateDirectory(Path.GetDirectoryName(cache)!);
         File.WriteAllText(cache, content);
 
-        await new MissingMediaService(TestFonts.Manager).UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
+        await new MissingMediaService(TestFonts.Manager, new Beutl.Media.Decoding.DecoderRegistry(new())).UpdateFingerprintsAsync(scene, force: true, cacheHashes: true);
 
         string hash = await MissingMediaService.HashFileAsync(media, default);
         Assert.Multiple(() =>

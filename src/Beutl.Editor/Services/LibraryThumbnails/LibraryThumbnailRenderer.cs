@@ -8,6 +8,7 @@ using Beutl.Graphics.Transformation;
 using Beutl.Graphics.Transitions;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -142,13 +143,13 @@ internal static class LibraryThumbnailRenderer
     /// Each frame is drawn on its own at low priority on the render thread, so the preview's frames go first.
     /// </remarks>
     public static async Task<LibraryThumbnailSheet?> RenderAsync(
-        FontManager fonts, Type type, LibraryThumbnailSubject? subject, bool stillOnly, CancellationToken cancellationToken = default)
+        FontManager fonts, Type type, LibraryThumbnailSubject? subject, bool stillOnly, CancellationToken cancellationToken = default, DecoderRegistry? decoders = null)
     {
         if (GetLayout(type) is not { } layout)
             return null;
 
         Session? session = await RenderThread.Dispatcher.InvokeAsync(
-            () => Session.TryCreate(fonts, type, layout, subject, stillOnly), DispatchPriority.Low, cancellationToken);
+            () => Session.TryCreate(fonts, type, layout, subject, stillOnly, decoders), DispatchPriority.Low, cancellationToken);
         if (session == null)
             return null;
 
@@ -370,7 +371,7 @@ internal static class LibraryThumbnailRenderer
     }
 
     // Thumbnails and the content they show are drawn at preview quality, sharing resources, without a render cache.
-    internal static SceneRenderer CreateRenderer(Scene scene, FontManager fonts, float scale, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+    internal static SceneRenderer CreateRenderer(Scene scene, FontManager fonts, float scale, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
     {
         var renderer = new SceneRenderer(
             scene, fonts,
@@ -378,7 +379,7 @@ internal static class LibraryThumbnailRenderer
             scale,
             disableResourceShare: false,
             maxWorkingScale: WorkingScaleCeiling.Preview(scale),
-            editorConfig: editorConfig, proxyConfig: proxyConfig);
+            editorConfig: editorConfig, proxyConfig: proxyConfig, decoders: decoders);
         try
         {
             renderer.CacheOptions = RenderCacheOptions.Disabled;
@@ -404,12 +405,12 @@ internal static class LibraryThumbnailRenderer
         // The scene is drawn at the scale that makes its frame a thumbnail's width. Resources are shared, so the
         // captured pictures, which stay decoded, are not decoded again, and a sample picture is decoded once for the
         // thumbnails drawing it; nothing else in the scene is shared.
-        private Session(FontManager fonts, Type type, Scene scene, Func<int, MediaTime>? timeOf, PixelSize sheetSize)
+        private Session(FontManager fonts, Type type, Scene scene, Func<int, MediaTime>? timeOf, PixelSize sheetSize, DecoderRegistry? decoders)
         {
             _type = type;
             _timeOf = timeOf;
             float scale = LibraryThumbnailLayout.FrameSize.Width / (float)scene.FrameSize.Value.Width;
-            _renderer = CreateRenderer(scene, fonts, scale);
+            _renderer = CreateRenderer(scene, fonts, scale, decoders: decoders);
             try
             {
                 _sheet = new Bitmap(
@@ -423,14 +424,14 @@ internal static class LibraryThumbnailRenderer
         }
 
         public static Session? TryCreate(
-            FontManager fonts, Type type, LibraryThumbnailLayout layout, LibraryThumbnailSubject? subject, bool stillOnly)
+            FontManager fonts, Type type, LibraryThumbnailLayout layout, LibraryThumbnailSubject? subject, bool stillOnly, DecoderRegistry? decoders)
         {
             try
             {
                 (Scene scene, Func<int, MediaTime>? timeOf) = type.IsAssignableTo(typeof(ClipTransition))
                     ? CreateTransitionScene(type, subject)
                     : (CreateEffectScene(type, subject), null);
-                return new Session(fonts, type, scene, timeOf, stillOnly ? LibraryThumbnailLayout.FrameSize : layout.SheetSize);
+                return new Session(fonts, type, scene, timeOf, stillOnly ? LibraryThumbnailLayout.FrameSize : layout.SheetSize, decoders);
             }
             catch (Exception ex)
             {

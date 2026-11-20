@@ -8,6 +8,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Audio;
@@ -19,18 +20,17 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture]
 public sealed class ElementSplitSpeedTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     private SceneHistoryHarness _harness = null!;
     private ElementStructureService _service = null!;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
 
     [SetUp]
     public void SetUp()
     {
         _harness = new SceneHistoryHarness("beutl_split_speed", start: MediaTime.Zero,
             duration: MediaTime.FromSeconds(60));
-        _service = new ElementStructureService(_harness.History, new Beutl.Configuration.EditorConfig());
+        _service = new ElementStructureService(_harness.History, new Beutl.Configuration.EditorConfig(), decoders: _decoders);
     }
 
     [TearDown]
@@ -169,7 +169,7 @@ public sealed class ElementSplitSpeedTests
         Element back = _harness.Scene.Children.Single(child => child != element);
         SourceVideo backVideo = BackObject<SourceVideo>(back);
         using var resource = (SourceVideo.Resource)backVideo.ToResource(
-            new CompositionContext(back.Range.Start + MediaTime.FromSeconds(3)) { Fonts = TestFonts.Manager });
+            new CompositionContext(back.Range.Start + MediaTime.FromSeconds(3)) { Decoders = _decoders, Fonts = TestFonts.Manager });
         Assert.Multiple(() =>
         {
             Assert.That(backVideo.OffsetPosition.Value.ToSeconds(),
@@ -192,7 +192,7 @@ public sealed class ElementSplitSpeedTests
         element.Objects.Add(new DrawableTimeController { Speed = { Value = 200f } });
 
         if (batch)
-            new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
+            new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig(), decoders: _decoders).Apply(_harness.Scene, element,
                 [new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
         else
             _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(2));
@@ -217,7 +217,7 @@ public sealed class ElementSplitSpeedTests
         Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), sound);
 
         if (batch)
-            new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
+            new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig(), decoders: _decoders).Apply(_harness.Scene, element,
                 [new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.5))], SilenceSplitMode.DeleteSilence, false);
         else
             _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
@@ -261,7 +261,7 @@ public sealed class ElementSplitSpeedTests
         Element back = _harness.Scene.Children.Single(child => child != element);
         SourceVideo backVideo = BackObject<SourceVideo>(back);
         using var resource = (SourceVideo.Resource)backVideo.ToResource(
-            new CompositionContext(back.Range.Start) { Fonts = TestFonts.Manager });
+            new CompositionContext(back.Range.Start) { Decoders = _decoders, Fonts = TestFonts.Manager });
         Assert.Multiple(() =>
         {
             Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
@@ -288,7 +288,7 @@ public sealed class ElementSplitSpeedTests
         Element back = _harness.Scene.Children.Single(child => child != element);
         SourceVideo backVideo = BackObject<SourceVideo>(back);
         using var resource = (SourceVideo.Resource)backVideo.ToResource(
-            new CompositionContext(back.Range.Start) { Fonts = TestFonts.Manager });
+            new CompositionContext(back.Range.Start) { Decoders = _decoders, Fonts = TestFonts.Manager });
         Assert.Multiple(() =>
         {
             Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
@@ -319,7 +319,7 @@ public sealed class ElementSplitSpeedTests
         element.Objects.Add(new DrawableTimeController { Speed = { Value = 200f } });
 
         using var original = (SourceVideo.Resource)video.ToResource(
-            new CompositionContext(MediaTime.FromSeconds(3)) { Fonts = TestFonts.Manager });
+            new CompositionContext(MediaTime.FromSeconds(3)) { Decoders = _decoders, Fonts = TestFonts.Manager });
         MediaTime before = original.RequestedPosition + original.OffsetPosition;
 
         _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
@@ -327,7 +327,7 @@ public sealed class ElementSplitSpeedTests
         Element back = _harness.Scene.Children.Single(child => child != element);
         SourceVideo backVideo = BackObject<SourceVideo>(back);
         using var after = (SourceVideo.Resource)backVideo.ToResource(
-            new CompositionContext(back.Range.Start + MediaTime.FromSeconds(1)) { Fonts = TestFonts.Manager });
+            new CompositionContext(back.Range.Start + MediaTime.FromSeconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager });
 
         Assert.That((after.RequestedPosition + after.OffsetPosition).ToSeconds(),
             Is.EqualTo(before.ToSeconds()).Within(0.01));
@@ -335,7 +335,7 @@ public sealed class ElementSplitSpeedTests
 
     private static MediaTime PlaybackPosition(SourceVideo video, MediaTime time)
     {
-        using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(time) { Fonts = TestFonts.Manager });
+        using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(time) { Decoders = TestMediaHelper.CreateRegistry(), Fonts = TestFonts.Manager });
         return resource.RequestedPosition + resource.OffsetPosition;
     }
 
@@ -382,7 +382,7 @@ public sealed class ElementSplitSpeedTests
 
         float[] Play(TimeRange range)
         {
-            using var compositor = new SceneCompositor(_harness.Scene, TestFonts.Manager);
+            using var compositor = new SceneCompositor(_harness.Scene, TestFonts.Manager, decoders: _decoders);
             using var composer = new Composer { SampleRate = rate };
             using AudioBuffer? buffer = composer.Compose(range, compositor.EvaluateAudio(range));
             return buffer!.GetChannelData(0).ToArray();
@@ -436,7 +436,7 @@ public sealed class ElementSplitSpeedTests
         // Half a second after the last cut, at 3 s, which the controller's offset moves on by a second.
         MediaTime uncut = PlaybackPosition(video, MediaTime.FromSeconds(4.5));
 
-        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
+        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig(), decoders: _decoders).Apply(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
 
         Element back = _harness.Scene.Children.Single(child => child != element && child != providerElement);
@@ -596,7 +596,7 @@ public sealed class ElementSplitSpeedTests
         MediaTime later = MediaTime.FromSeconds(3.5);
         MediaTime uncut = ComposedPosition(later);
 
-        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
+        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig(), decoders: _decoders).Apply(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
 
         Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
@@ -713,7 +713,7 @@ public sealed class ElementSplitSpeedTests
         MediaTime later = MediaTime.FromSeconds(3.5);
         MediaTime uncut = ComposedPosition(later);
 
-        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig()).Apply(_harness.Scene, element,
+        new SilenceSplitService(_harness.History, new Beutl.Configuration.EditorConfig(), decoders: _decoders).Apply(_harness.Scene, element,
             [new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
 
         Assert.That(ComposedPosition(later).ToSeconds(), Is.EqualTo(uncut.ToSeconds()).Within(0.01));
@@ -804,7 +804,7 @@ public sealed partial class ContractOnlySound : Sound, ITimeMappedSource
 {
     public ContractOnlySound() => ScanProperties<ContractOnlySound>();
 
-    MediaTime? ITimeMappedSource.GetSourceDuration() => MediaTime.FromSeconds(10);
+    MediaTime? ITimeMappedSource.GetSourceDuration(Beutl.Media.Decoding.DecoderRegistry? decoders) => MediaTime.FromSeconds(10);
 
     public partial class Resource
     {

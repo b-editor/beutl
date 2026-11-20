@@ -102,7 +102,7 @@ public sealed class FileBrowserWriteAdmissionTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-delete", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
-        using var item = new FileSystemItemViewModel(TestShell.Templates, fixture.CopySource, isDirectory: false);
+        using var item = new FileSystemItemViewModel(TestShell.Thumbnails, fixture.CopySource, isDirectory: false);
         using var notifications = new NotificationCapture(TestShell.Notifications);
 
         // The mutation starts while the confirmation is open, and the user confirms into it.
@@ -136,8 +136,8 @@ public sealed class FileBrowserWriteAdmissionTests
         EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-multi-delete", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
-        using var first = new FileSystemItemViewModel(TestShell.Templates, fixture.CopySource, isDirectory: false);
-        using var second = new FileSystemItemViewModel(TestShell.Templates, fixture.MoveSource, isDirectory: false);
+        using var first = new FileSystemItemViewModel(TestShell.Thumbnails, fixture.CopySource, isDirectory: false);
+        using var second = new FileSystemItemViewModel(TestShell.Thumbnails, fixture.MoveSource, isDirectory: false);
         using var notifications = new NotificationCapture(TestShell.Notifications);
 
         using (var confirmation = new ConfirmationDuringMutation(browser))
@@ -457,7 +457,7 @@ public sealed class FileBrowserWriteAdmissionTests
         string resourcesDir = Path.Combine(browser.ProjectDirectory ?? projectRoot, "resources");
         browser.RootPath.Value = fixture.TargetDir;
         HeadlessTestHelpers.Settle();
-        using var renameItem = new FileSystemItemViewModel(TestShell.Templates, fixture.RenameSource, isDirectory: false);
+        using var renameItem = new FileSystemItemViewModel(TestShell.Thumbnails, fixture.RenameSource, isDirectory: false);
         using var notifications = new NotificationCapture(TestShell.Notifications);
 
         IDisposable? mutation = TestShell.Editor.TryBeginWorktreeMutation();
@@ -671,7 +671,7 @@ public sealed class FileBrowserWriteAdmissionTests
         {
         }
 
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : TestShell.MainViewModel.AppServices.GetService(serviceType);
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : TestShell.MainViewModel.AppServices.GetService(serviceType);
 
         public void Dispose() => IsEnabled.Dispose();
     }

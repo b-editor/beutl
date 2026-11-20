@@ -1108,7 +1108,7 @@ public class NestedNodePortTests
 
     private sealed record EditorVisitor(IEditorContext Context) : IPropertyEditorContextVisitor, IServiceProvider
     {
-        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : Context.GetService(serviceType);
+        public object? GetService(Type serviceType) => serviceType == typeof(Beutl.Services.INotificationService) ? TestShell.Notifications : serviceType == typeof(Beutl.Media.FontManager) ? TestShell.FontManager : serviceType == typeof(Beutl.Media.Decoding.DecoderRegistry) ? TestShell.Decoders : Context.GetService(serviceType);
         public void Visit(IPropertyEditorContext context) { }
     }
 

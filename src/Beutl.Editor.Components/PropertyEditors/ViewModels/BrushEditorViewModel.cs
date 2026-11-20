@@ -7,10 +7,12 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
@@ -34,7 +36,7 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
             var (v, fonts) = pair;
             _revoker?.Dispose();
             _revoker = null;
-            (AvaloniaBrush.Value, _revoker, _update) = v.ToAvaBrushSync(CurrentTime, fonts);
+            (AvaloniaBrush.Value, _revoker, _update) = v.ToAvaBrushSync(CurrentTime, fonts, ExtensionGuard.FindService<DecoderRegistry>(this));
             ShowInSwatch(v);
         });
 

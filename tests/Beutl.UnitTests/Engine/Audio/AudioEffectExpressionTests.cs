@@ -12,8 +12,6 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class AudioEffectExpressionTests
 {
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => Beutl.UnitTests.Engine.Graphics.Rendering.TestMediaHelper.RegisterTestDecoder();
 
     private static TestCaseData Case<T>(string name, float value, Func<T, IExpressionProperty<float>> parameter, Func<T>? create = null)
         where T : AudioEffect, new()

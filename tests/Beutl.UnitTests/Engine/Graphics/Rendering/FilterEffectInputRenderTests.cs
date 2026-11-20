@@ -8,6 +8,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -20,6 +21,8 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [NonParallelizable]
 public class FilterEffectInputRenderTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     [TestCase("brush")]
     [TestCase("preview")]
     [TestCase("translate")]
@@ -47,8 +50,8 @@ public class FilterEffectInputRenderTests
             }
             Scene scene = FilterEffectInputTests.SceneWith(input);
             Scene referenceScene = FilterEffectInputTests.SceneWith(referenceInput);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, kind == "preview" ? RenderIntent.Preview : RenderIntent.Delivery, forceOriginalSource: true);
-            using var reference = new SceneRenderer(referenceScene, TestFonts.Manager, RenderIntent.Delivery, forceOriginalSource: true);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, kind == "preview" ? RenderIntent.Preview : RenderIntent.Delivery, forceOriginalSource: true, decoders: _decoders);
+            using var reference = new SceneRenderer(referenceScene, TestFonts.Manager, RenderIntent.Delivery, forceOriginalSource: true, decoders: _decoders);
             using Bitmap actual = Render(renderer, 1);
             var expected = new float[96 * 64 * 4];
             foreach (double time in new[] { 0.8125, 0.9375, 1.0625, 1.1875 })
@@ -82,7 +85,7 @@ public class FilterEffectInputRenderTests
             second.Width.SetKeyFrameAnimation(null);
             var blur = new SampleInputEffect();
             var group = new DrawableGroup { FilterEffect = { Value = blur }, Opacity = { Value = 50 } };
-            using var renderer = new SceneRenderer(FilterEffectInputTests.SceneWith(first, second, group), TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(FilterEffectInputTests.SceneWith(first, second, group), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
             using Bitmap image = Render(renderer, 1);
             Rgba pixel = ImageMetrics.ReadPixel(image, 48, 32);
             Assert.Multiple(() =>
@@ -109,7 +112,7 @@ public class FilterEffectInputRenderTests
                 chain.Children.Add(blurFirst ? new SampleInputEffect() : threshold);
                 chain.Children.Add(blurFirst ? threshold : new SampleInputEffect());
                 shape.FilterEffect.Value = chain;
-                using var renderer = new SceneRenderer(FilterEffectInputTests.SceneWith(shape), TestFonts.Manager, RenderIntent.Delivery);
+                using var renderer = new SceneRenderer(FilterEffectInputTests.SceneWith(shape), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
                 using Bitmap image = Render(renderer, 1);
                 return ImageMetrics.ReadPixel(image, 48, 32).Alpha;
             }
@@ -128,7 +131,7 @@ public class FilterEffectInputRenderTests
         {
             using var source = new CancellationTokenSource();
             using var root = new CancelRenderNode(source);
-            using var shape = FilterEffectInputTests.Rectangle().ToResource(CompositionContext.Default);
+            using var shape = FilterEffectInputTests.Rectangle().ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
             using (var graphics = new GraphicsContext2D(root, new Size(16, 16)))
             {
                 graphics.DrawDrawable(shape);
@@ -167,8 +170,8 @@ public class FilterEffectInputRenderTests
                 if (sampled) shape.FilterEffect.Value = new SampleInputEffect();
                 return FilterEffectInputTests.SceneWith(background, shape);
             }
-            using var renderer = new SceneRenderer(MakeScene(true), TestFonts.Manager, RenderIntent.Delivery);
-            using var reference = new SceneRenderer(MakeScene(false), TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(MakeScene(true), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
+            using var reference = new SceneRenderer(MakeScene(false), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
             using var actual = Render(renderer, 1);
             using var expected = Render(reference, 1);
             GoldenImageHarness.AssertByteIdentical(expected, actual, mode.ToString(), requireVisibleContent: true);
@@ -189,7 +192,7 @@ public class FilterEffectInputRenderTests
                 context.CustomEffect(0, (_, _) => { if (++calls == 2) cancellation.Cancel(); })));
             chain.Children.Add(new SampleInputEffect());
             shape.FilterEffect.Value = chain;
-            using var source = shape.ToResource(new CompositionContext(MediaTime.FromSeconds(1)) { FrameRate = new(2, 1) });
+            using var source = shape.ToResource(new CompositionContext(MediaTime.FromSeconds(1)) { Decoders = _decoders, FrameRate = new(2, 1) });
             using var root = new ContainerRenderNode();
             using (var graphics = new GraphicsContext2D(root, new Size(96, 64))) graphics.DrawDrawable(source);
             using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest { Intent = RenderIntent.Delivery });
@@ -211,8 +214,8 @@ public class FilterEffectInputRenderTests
         shape.FilterEffect.Value = new SampleInputEffect();
         var scene = FilterEffectInputTests.SceneWith(shape);
         scene.Duration.Value = MediaTime.FromSeconds(1);
-        using var renderer = ExportRendererFactory.Create(scene, TestFonts.Manager);
-        using var reference = ExportRendererFactory.Create(scene, TestFonts.Manager);
+        using var renderer = ExportRendererFactory.Create(scene, TestFonts.Manager, decoders: _decoders);
+        using var reference = ExportRendererFactory.Create(scene, TestFonts.Manager, decoders: _decoders);
         using var progress = new Subject<MediaTime>();
         var expected = new List<ushort[]>();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -253,7 +256,6 @@ public class FilterEffectInputRenderTests
     {
         if (kind == "video")
         {
-            TestMediaHelper.RegisterTestDecoder();
             var source = new VideoSource();
             source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(96, 64, new(30, 1), 120)));
             return new SourceVideo { Source = { Value = source } };

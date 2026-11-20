@@ -93,6 +93,31 @@ public sealed class ExtensionGuardTests
         }
     }
 
+    [Test]
+    public void A_context_whose_service_lookup_throws_offers_no_notifications()
+    {
+        using var notifications = new NotificationCapture();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(ExtensionGuard.FindNotifications(new Services(notifications)), Is.SameAs(notifications));
+            Assert.That(ExtensionGuard.FindNotifications(new Services(null)), Is.Null);
+            Assert.That(ExtensionGuard.FindNotifications(new ThrowingServices()), Is.Null);
+            Assert.That(ExtensionGuard.FindNotifications(new object()), Is.Null);
+            Assert.That(ExtensionGuard.FindNotifications(null), Is.Null);
+        }
+    }
+
+    private sealed class Services(object? service) : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => service;
+    }
+
+    private sealed class ThrowingServices : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => throw new InvalidOperationException("broken lookup");
+    }
+
     private sealed class NamedExtension : Extension
     {
         public override string DisplayName => "Named";

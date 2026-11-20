@@ -17,6 +17,39 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class BrowserMediaDownloadTests
 {
+    [TestCase(null, null)]
+    [TestCase(null, (int)BrowserReferrerPolicy.Origin)]
+    [TestCase("", null)]
+    [TestCase("", (int)BrowserReferrerPolicy.SameOrigin)]
+    [TestCase("unknown, other", null)]
+    [TestCase("unknown, other", (int)BrowserReferrerPolicy.NoReferrer)]
+    [TestCase("never", null)]
+    [TestCase("never", (int)BrowserReferrerPolicy.SameOrigin)]
+    public void UnrecognizedReferrerPolicyHeadersPreserveTheGivenPolicy(string? value, int? policyValue)
+    {
+        var policy = (BrowserReferrerPolicy?)policyValue;
+        Assert.That(BrowserMediaDownload.ParseReferrerPolicyHeader(value, policy), Is.EqualTo(policy));
+    }
+
+    [TestCase("no-referrer", (int)BrowserReferrerPolicy.NoReferrer)]
+    [TestCase("same-origin", (int)BrowserReferrerPolicy.SameOrigin)]
+    [TestCase("origin", (int)BrowserReferrerPolicy.Origin)]
+    [TestCase("strict-origin", (int)BrowserReferrerPolicy.Origin)]
+    [TestCase("origin-when-cross-origin", (int)BrowserReferrerPolicy.Origin)]
+    [TestCase("strict-origin-when-cross-origin", (int)BrowserReferrerPolicy.Origin)]
+    [TestCase("no-referrer-when-downgrade", (int)BrowserReferrerPolicy.Origin)]
+    [TestCase("unsafe-url", (int)BrowserReferrerPolicy.Origin)]
+    [TestCase("  NO-REFERRER\t", (int)BrowserReferrerPolicy.NoReferrer)]
+    [TestCase("\tSaMe-OrIgIn ", (int)BrowserReferrerPolicy.SameOrigin)]
+    [TestCase("no-referrer, same-origin", (int)BrowserReferrerPolicy.SameOrigin)]
+    [TestCase("same-origin, no-referrer", (int)BrowserReferrerPolicy.NoReferrer)]
+    [TestCase("no-referrer, unknown", (int)BrowserReferrerPolicy.NoReferrer)]
+    public void ReferrerPolicyHeadersUseTheLastRecognizedToken(string value, int expectedValue)
+    {
+        var expected = (BrowserReferrerPolicy)expectedValue;
+        Assert.That(BrowserMediaDownload.ParseReferrerPolicyHeader(value), Is.EqualTo(expected));
+    }
+
     [Test]
     public async Task PartialContentCannotBePublishedAsACompleteDownload()
     {

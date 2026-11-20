@@ -5,6 +5,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
@@ -19,6 +20,8 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [TestFixture]
 public class MotionBlurTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     [TestCase(ShutterPosition.Start, 360, 2, 1.0625, 0.125)]
     [TestCase(ShutterPosition.Center, 360, 2, 0.8125, 0.125)]
     [TestCase(ShutterPosition.End, 360, 2, 0.5625, 0.125)]
@@ -36,7 +39,7 @@ public class MotionBlurTests
         blur.ShutterPosition.Value = position;
         blur.ShutterAngle.Value = angle;
         shape.FilterEffect.Value = blur;
-        var context = new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager, FrameRate = new(frameRate, 1) };
+        var context = new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(frameRate, 1) };
         using var resource = shape.ToResource(context);
         var samples = ((MotionBlur.Resource)resource.FilterEffect!).TimeSamples;
         Assert.Multiple(() =>
@@ -62,7 +65,7 @@ public class MotionBlurTests
         var blur = Blur();
         blur.SourceMix.Value = 35;
         shape.FilterEffect.Value = blur;
-        var context = new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager };
+        var context = new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager };
         using var resource = shape.ToResource(context);
         var effect = (MotionBlur.Resource)resource.FilterEffect!;
         var previous = effect.TimeSamples.ToArray();
@@ -90,7 +93,7 @@ public class MotionBlurTests
         blur.Samples.Value = 3; // The center sample also supplies the current-time input.
         Animate(blur.SourceMix, 0, 100);
         shape.FilterEffect.Value = blur;
-        var context = new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager };
+        var context = new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager };
         using var resource = shape.ToResource(context);
         var effect = (MotionBlur.Resource)resource.FilterEffect!;
         var previous = effect.TimeSamples.ToArray();
@@ -117,7 +120,7 @@ public class MotionBlurTests
         var blur = Blur();
         Animate(blur.ShutterAngle, 0, 360);
         shape.FilterEffect.Value = blur;
-        var context = new CompositionContext(Seconds(1)) { Fonts = TestFonts.Manager, FrameRate = new(2, 1) };
+        var context = new CompositionContext(Seconds(1)) { Decoders = _decoders, Fonts = TestFonts.Manager, FrameRate = new(2, 1) };
         using var resource = shape.ToResource(context);
         var effect = (MotionBlur.Resource)resource.FilterEffect!;
         Assert.That(Times(), Is.EqualTo(new[] { 0.90625, 0.96875, 1.03125, 1.09375 }).Within(0.000001));
@@ -150,6 +153,7 @@ public class MotionBlurTests
         using var cancellation = new CancellationTokenSource();
         var context = new CompositionContext(Seconds(2))
         {
+            Decoders = _decoders,
             Fonts = TestFonts.Manager,
             FrameRate = new(60, 1),
             CancellationToken = cancellation.Token,
@@ -180,7 +184,7 @@ public class MotionBlurTests
         scene.Children.Add(holder);
         var portalInput = Rectangle();
         scene.Children.Add(Clip(0.5, 0.5, 1, portalInput));
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager);
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders);
 
         foreach (bool enabled in new[] { false, true, false })
         {
@@ -211,7 +215,7 @@ public class MotionBlurTests
         var content = Rectangle();
         var child = new DrawableGroup { FilterEffect = { Value = Blur() }, Children = { content } };
         var parent = new DrawableGroup { Children = { child } };
-        using var compositor = new SceneCompositor(SceneWith(sibling, parent), TestFonts.Manager);
+        using var compositor = new SceneCompositor(SceneWith(sibling, parent), TestFonts.Manager, decoders: _decoders);
         var frame = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
         var container = frame.Objects.OfType<DrawableGroup.Resource>().Single();
         var source = container.Children.OfType<DrawableGroup.Resource>().Single();
@@ -224,7 +228,6 @@ public class MotionBlurTests
     [Test]
     public void PortalSamplesReleasePreviousClipsAndReuseActiveReaders()
     {
-        TestMediaHelper.RegisterTestDecoder();
         string path = TestMediaHelper.CreateTestVideoFile(16, 16, new Rational(30, 1), 60);
         var blur = Blur();
         var group = new DrawableGroup { FilterEffect = { Value = blur } };
@@ -236,7 +239,7 @@ public class MotionBlurTests
             media.ReadFrom(new Uri(path));
             scene.Children.Add(Clip(i, 1, 1, new SourceVideo { Source = { Value = media } }));
         }
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
         var visited = new HashSet<SourceVideo.Resource>();
         foreach (int i in Enumerable.Range(0, 10).Concat([0, 5, 9]))
         {

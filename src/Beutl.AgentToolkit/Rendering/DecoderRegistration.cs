@@ -11,32 +11,20 @@ namespace Beutl.AgentToolkit.Rendering;
 /// </summary>
 public static class DecoderRegistration
 {
-    private static readonly object s_lock = new();
-    private static bool s_registered;
-
-    // DecoderRegistry is process-wide, so this registers once however many servers a process builds.
-    public static void EnsureRegistered()
+    public static void EnsureRegistered(DecoderRegistry decoders)
     {
-        lock (s_lock)
+        lock (decoders.RegistrationLock)
         {
-            if (s_registered)
+            BuiltInDecoders.Register(decoders);
+            if (!decoders.EnumerateDecoder().OfType<FFmpegDecoderInfo>().Any())
             {
-                return;
+                decoders.Register(new FFmpegDecoderInfo(new FFmpegDecodingSettings()));
             }
 
-            BuiltInDecoders.Register();
-            // A process that also loaded the app's extensions (such as a test host) has its own.
-            if (!DecoderRegistry.EnumerateDecoder().OfType<FFmpegDecoderInfo>().Any())
+            if (OperatingSystem.IsMacOS() && !decoders.EnumerateDecoder().OfType<AVFDecoderInfo>().Any())
             {
-                DecoderRegistry.Register(new FFmpegDecoderInfo(new FFmpegDecodingSettings()));
+                decoders.Register(new AVFDecodingExtension().GetDecoderInfo());
             }
-
-            if (OperatingSystem.IsMacOS() && !DecoderRegistry.EnumerateDecoder().OfType<AVFDecoderInfo>().Any())
-            {
-                DecoderRegistry.Register(new AVFDecodingExtension().GetDecoderInfo());
-            }
-
-            s_registered = true;
         }
     }
 }

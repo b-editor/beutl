@@ -7,12 +7,16 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
 [TestFixture]
 public class ComposerNativeChannelTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     [Test]
     public void Compose_DefaultSoundSettingsPreserveRealWaveSamplesExactly([Values(1, 2)] int channels, [Values(44100, 48000)] int sampleRate, [Values] bool grouped, [Values] bool effect)
     {
@@ -26,7 +30,7 @@ public class ComposerNativeChannelTests
             };
             if (effect) sound.Effect.Value = new DelayEffect();
             Sound root = grouped ? new SoundGroup { Children = { sound }, TimeRange = { Value = sound.TimeRange.Value } } : sound;
-            using var resource = root.ToResource(CompositionContext.Default);
+            using var resource = root.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
             using var composer = new Composer { SampleRate = sampleRate };
             var range = new TimeRange(MediaTime.FromSamples(sampleRate / 5, sampleRate), MediaTime.FromSamples(sampleRate / 5, sampleRate));
             var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), range, default, new CompositionEligibility([root]));
@@ -37,7 +41,7 @@ public class ComposerNativeChannelTests
             if (effect)
             {
                 // The pre-panner stereo graph: SourceNode folded to stereo before gain and effects.
-                using var sourceResource = source.ToResource(CompositionContext.Default);
+                using var sourceResource = source.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
                 using var legacy = new AudioContext(sampleRate, 2);
                 var input = legacy.AddNode(new SourceNode { Source = sourceResource.Capture() });
                 var gain = legacy.CreateGainNode(sound.Gain);

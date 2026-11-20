@@ -7,6 +7,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -18,6 +19,8 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [NonParallelizable]
 public class MotionBlurRenderTests
 {
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
+
     [TestCase("translate", 360, 0, ShutterPosition.Center)]
     [TestCase("rotate", 360, 0, ShutterPosition.Center)]
     [TestCase("deform", 360, 0, ShutterPosition.Center)]
@@ -45,8 +48,8 @@ public class MotionBlurRenderTests
             input.FilterEffect.Value = chain;
             Scene scene = MotionBlurTests.SceneWith(input);
             Scene referenceScene = MotionBlurTests.SceneWith(CreateInput(kind));
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, forceOriginalSource: true);
-            using var reference = new SceneRenderer(referenceScene, TestFonts.Manager, RenderIntent.Delivery, forceOriginalSource: true);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, forceOriginalSource: true, decoders: _decoders);
+            using var reference = new SceneRenderer(referenceScene, TestFonts.Manager, RenderIntent.Delivery, forceOriginalSource: true, decoders: _decoders);
             using Bitmap actual = Render(renderer, 1);
             if (Environment.GetEnvironmentVariable("BEUTL_MOTION_BLUR_CAPTURE") is { Length: > 0 } directory)
             {
@@ -99,7 +102,7 @@ public class MotionBlurRenderTests
             var blur = MotionBlurTests.Blur();
             blur.SourceMix.Value = sourceMix;
             var group = new DrawableGroup { FilterEffect = { Value = blur }, Opacity = { Value = 50 } };
-            using var renderer = new SceneRenderer(MotionBlurTests.SceneWith(first, second, group), TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(MotionBlurTests.SceneWith(first, second, group), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
             using Bitmap image = Render(renderer, time);
             Rgba pixel = ImageMetrics.ReadPixel(image, 48, 32);
             Assert.Multiple(() =>
@@ -126,7 +129,7 @@ public class MotionBlurRenderTests
             RectShape shape = MotionBlurTests.Rectangle();
             shape.Width.SetKeyFrameAnimation(null);
             scene.Children.Add(MotionBlurTests.Clip(0.5, 0.5, 1, shape));
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
             foreach ((double time, double alpha) in new[]
                      {
                          (1.05, 0.5), (0.45, 0.5), (0.5, 0.5), (1.0, 0.5), (1.0625, 0.25),
@@ -156,7 +159,7 @@ public class MotionBlurRenderTests
                 shape.Fill.Value = new SolidColorBrush(color);
                 scene.Children.Add(MotionBlurTests.Clip(start, 0.5, 1, shape));
             }
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
             foreach (double time in new[] { 0.5, 0.45, 0.55, 0.5 })
             {
                 using Bitmap image = Render(renderer, time);
@@ -243,7 +246,7 @@ public class MotionBlurRenderTests
                 scene.Children.Add(MotionBlurTests.Clip(0, 4, 1, inputs));
             }
             else scene = MotionBlurTests.SceneWith([background, .. inputs]);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
             using Bitmap expected = Render(renderer, 1);
             foreach ((int count, float mix) in new[] { (2, 0f), (4, 0f), (8, 0f), (4, 35f), (4, 100f) })
             {
@@ -273,7 +276,7 @@ public class MotionBlurRenderTests
                 chain.Children.Add(blurFirst ? MotionBlurTests.Blur() : threshold);
                 chain.Children.Add(blurFirst ? threshold : MotionBlurTests.Blur());
                 shape.FilterEffect.Value = chain;
-                using var renderer = new SceneRenderer(MotionBlurTests.SceneWith(shape), TestFonts.Manager, RenderIntent.Delivery);
+                using var renderer = new SceneRenderer(MotionBlurTests.SceneWith(shape), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
                 using Bitmap image = Render(renderer, 1);
                 return ImageMetrics.ReadPixel(image, 48, 32).Alpha;
             }
@@ -288,7 +291,6 @@ public class MotionBlurRenderTests
     {
         if (kind == "video")
         {
-            TestMediaHelper.RegisterTestDecoder();
             var source = new VideoSource();
             source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(96, 64, new(30, 1), 120)));
             return new SourceVideo { Source = { Value = source } };

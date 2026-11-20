@@ -6,9 +6,11 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -433,7 +435,7 @@ public sealed partial class ElementView
 
             _resizeContexts = participants.Select(elem =>
             {
-                var constraints = clampToOriginal ? SlippableMedia.CreateResizeConstraints(elem.Model, timingPeers) : null;
+                var constraints = clampToOriginal ? SlippableMedia.CreateResizeConstraints(elem.Model, timingPeers, decoders: ExtensionGuard.FindService<DecoderRegistry>(elem.Timeline.EditorContext)) : null;
                 MediaTime? originalDuration = _resizeType == AlignmentX.Right && constraints?.HasMonotonicDuration == true
                     ? constraints.GetMaximumDuration()
                     : null;
@@ -495,7 +497,7 @@ public sealed partial class ElementView
                 backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value);
             }
 
-            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene, pairs, viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig);
+            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene, pairs, viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, decoders: ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext));
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Roll,
@@ -536,7 +538,7 @@ public sealed partial class ElementView
 
             var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene,
                 lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(), viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig,
-                lanes.SelectMany(l => l.Middles));
+                lanes.SelectMany(l => l.Middles), decoders: ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext));
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Slide,

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Proxy;
 
-public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificationService notifications) : IProxyGenerator, IProxyGeneratorAvailability
+public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificationService notifications, DecoderRegistry decoders) : IProxyGenerator, IProxyGeneratorAvailability
 {
     private static readonly ILogger s_logger = Log.CreateLogger<FFmpegProxyGenerator>();
 
@@ -195,7 +195,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
         {
             return MediaReader.Open(
                 sourcePath,
-                new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
+                new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true }, decoders);
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {
@@ -215,9 +215,9 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
         }
     }
 
-    private static bool OpensAsAudio(string sourcePath)
+    private bool OpensAsAudio(string sourcePath)
     {
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+        using MediaReader? reader = decoders.OpenMediaFile(
             sourcePath, new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true });
         return reader != null;
     }

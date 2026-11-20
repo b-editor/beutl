@@ -145,6 +145,7 @@ public class SoundPannerEditorTests
             sound => sound.ChannelMap.Value = AudioChannelMap.CreateDefault(AudioChannelFormat.Surround51, AudioChannelLayout.Surround51), width);
         var adapter = PropertyAdapterFactory.CreateAdapter(host.Sound.ChannelMap, host.Sound);
         using var map = (ChannelMapEditorViewModel)PropertyEditorResolver.CreateContext(adapter, Extensions, PropertyEditorSurface.Panel)!;
+        map.Accept(PropertyEditorTestHost.ServiceVisitor.For(host.History));
         map.IsExpanded.Value = true;
         Assert.That(PropertyEditorHost.TryCreateControl(map, PropertyEditorSurface.Panel, out var control), Is.True);
         control!.DataContext = map;
@@ -387,7 +388,7 @@ public class SoundPannerEditorTests
     {
         int calls = 0;
         var probe = new Mock<Sound> { CallBase = true };
-        probe.Setup(s => s.GetClipLayout(It.IsAny<AudioChannelLayout>(), It.IsAny<MediaTime>())).Returns(() =>
+        probe.Setup(s => s.GetClipLayout(It.IsAny<AudioChannelLayout>(), It.IsAny<MediaTime>(), It.IsAny<DecoderRegistry?>())).Returns(() =>
         {
             calls++;
             return AudioChannelLayout.Stereo;
@@ -785,7 +786,7 @@ public class SoundPannerEditorTests
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
         string path = Path.Combine(Path.GetTempPath(), $"beutl-source-panel-{Guid.NewGuid():N}.wav");
         var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             WriteWave(path, channels);
@@ -838,7 +839,7 @@ public class SoundPannerEditorTests
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
             File.Delete(path);
             CultureInfo.CurrentUICulture = previousCulture;
         }
@@ -887,7 +888,7 @@ public class SoundPannerEditorTests
         public PannerHost(SpeakerLayout layout, int channels, Action<SourceSound>? configure = null, int width = 400, bool expand = true)
         {
             ((IModifiableHierarchical)new ComponentTestRoot()).AddChild(Project);
-            DecoderRegistry.Register(_decoder);
+            TestShell.Decoders.Register(_decoder);
             WriteWave(_path, channels);
             Sound = new SourceSound { Source = { Value = SoundSource.Open(_path) } };
             configure?.Invoke(Sound);
@@ -969,7 +970,7 @@ public class SoundPannerEditorTests
             ViewModel.Dispose();
             _history.Dispose();
             Time.Dispose();
-            DecoderRegistry.Unregister(_decoder);
+            TestShell.Decoders.Unregister(_decoder);
             File.Delete(_path);
         }
     }

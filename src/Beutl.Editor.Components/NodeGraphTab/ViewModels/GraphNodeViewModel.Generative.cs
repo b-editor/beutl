@@ -2,8 +2,10 @@
 using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Beutl.Controls;
+using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Generative;
 using Microsoft.Extensions.DependencyInjection;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
@@ -79,7 +81,8 @@ public sealed partial class GraphNodeViewModel
             return;
 
         GenerationRecord[] records = [.. node.Generations];
-        Beutl.Media.Bitmap?[] thumbnails = await Task.Run(() => records.Select(GenerativeNode.DecodeThumbnail).ToArray());
+        var decoders = ExtensionGuard.FindService<DecoderRegistry>(EditorContext);
+        Beutl.Media.Bitmap?[] thumbnails = await Task.Run(() => records.Select(record => GenerativeNode.DecodeThumbnail(record, decoders)).ToArray());
         var refs = new List<Beutl.Media.Source.Ref<Beutl.Media.Bitmap>>();
         try
         {

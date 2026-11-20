@@ -5,6 +5,7 @@ using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.WebBrowserTab.ViewModels;
 
@@ -97,8 +98,8 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal bool CanAddDownloadedFile(string fileName) => CanAddDownloadedMedia
         && (Graphics.Image.SupportedExtensions.Contains(Path.GetExtension(fileName), StringComparer.OrdinalIgnoreCase)
-            || DecoderRegistry.EnumerateDecoder().SelectMany(decoder => decoder.VideoExtensions().Concat(decoder.AudioExtensions()))
-                .Select(DecoderFileExtensions.Normalize).Contains(Path.GetExtension(fileName), StringComparer.OrdinalIgnoreCase));
+            || ExtensionGuard.FindService<DecoderRegistry>(_editorContext)?.EnumerateDecoder().SelectMany(decoder => decoder.VideoExtensions().Concat(decoder.AudioExtensions()))
+                .Select(DecoderFileExtensions.Normalize).Contains(Path.GetExtension(fileName), StringComparer.OrdinalIgnoreCase) == true);
 
     internal async Task AddDownloadedMediaAsync(string fileName, CancellationToken cancellationToken)
     {

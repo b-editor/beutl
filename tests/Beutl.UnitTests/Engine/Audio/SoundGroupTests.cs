@@ -6,6 +6,7 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -14,8 +15,7 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class SoundGroupTests
 {
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
+    private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
 
     // An edit composes the group again; its children keep their nodes, and with them the state of a playing stream.
     [Test]
@@ -28,7 +28,7 @@ public class SoundGroupTests
         var child = new SourceSound { Source = { Value = source }, TimeRange = { Value = range } };
         var group = new SoundGroup { TimeRange = { Value = range } };
         group.Children.Add(child);
-        using var resource = group.ToResource(CompositionContext.Default);
+        using var resource = group.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
 
         var first = new AudioContext(44100, 2);
         group.Compose(first, resource);
@@ -58,7 +58,7 @@ public class SoundGroupTests
         var child = new SourceSound { Source = { Value = source }, TimeRange = { Value = range } };
         var group = new SoundGroup { TimeRange = { Value = range } };
         group.Children.Add(child);
-        using var resource = group.ToResource(CompositionContext.Default);
+        using var resource = group.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         var frame = new CompositionFrame(
             ImmutableArray.Create((EngineObject.Resource)resource), range, default, new CompositionEligibility([group]));
         using var composer = new Composer { SampleRate = 44100 };
@@ -80,7 +80,7 @@ public class SoundGroupTests
         inner.Children.Add(new SourceSound { Source = { Value = source }, TimeRange = { Value = range } });
         var outer = new SoundGroup { TimeRange = { Value = range } };
         outer.Children.Add(inner);
-        using var resource = outer.ToResource(CompositionContext.Default);
+        using var resource = outer.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = _decoders });
         var frame = new CompositionFrame(
             ImmutableArray.Create((EngineObject.Resource)resource), range, default, new CompositionEligibility([outer]));
         using var composer = new Composer { SampleRate = 44100 };

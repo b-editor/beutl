@@ -34,7 +34,8 @@ public class MediaThumbnailThreadingTests
             if (!openedOnUi && !release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
             return null;
         });
-        DecoderRegistry.Register(decoder.Object);
+        var decoders = new DecoderRegistry(new());
+        decoders.Register(decoder.Object);
         var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
         EngineObject source = video
             ? new SourceVideo { Source = { Value = VideoSource.Open(path) } }
@@ -54,15 +55,15 @@ public class MediaThumbnailThreadingTests
         {
             release.Set();
             try { await loading; }
-            finally { DecoderRegistry.Unregister(decoder.Object); File.Delete(path); }
+            finally { File.Delete(path); }
         }
 
         async Task ReadAsync()
         {
             if (video)
-                await foreach (var (_, _, thumbnail) in provider.GetThumbnailStripAsync(TestShell.FontManager, 100, 25, null)) thumbnail.Dispose();
+                await foreach (var (_, _, thumbnail) in provider.GetThumbnailStripAsync(TestShell.FontManager, 100, 25, null, decoders: decoders)) thumbnail.Dispose();
             else
-                await foreach (var chunk in provider.GetWaveformChunksAsync(10, 128, null)) { }
+                await foreach (var chunk in provider.GetWaveformChunksAsync(10, 128, null, decoders: decoders)) { }
         }
     }
 }

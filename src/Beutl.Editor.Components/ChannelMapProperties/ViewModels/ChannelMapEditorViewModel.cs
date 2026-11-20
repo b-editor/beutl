@@ -4,8 +4,10 @@ using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Media.Decoding;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.ChannelMapProperties.ViewModels;
 
@@ -52,9 +54,16 @@ public sealed class ChannelMapEditorViewModel : ValueEditorViewModel<AudioChanne
 
     public ObservableCollection<ChannelAssignmentViewModel> Channels { get; } = [];
 
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        RefreshSource();
+    }
+
     private void RefreshSource()
     {
-        using var source = _sound?.Source.Value?.ToResource(CompositionContext.Default);
+        var decoders = ExtensionGuard.FindService<DecoderRegistry>(this);
+        using var source = decoders == null ? null : _sound?.Source.Value?.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders });
         _sourceLayout = source?.ReadableChannelLayout;
         _hasSource.Value = _sourceLayout != null;
 

@@ -2,8 +2,10 @@
 using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
+using Beutl.Media.Decoding;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
+using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -17,7 +19,7 @@ internal static class CoreObjectPickerHelper
             (editor as IServiceProvider)?.GetService<Beutl.Media.FontManager>()
                 ?? Beutl.Controls.ControlFonts.GetOrCreate(control),
             ((IServiceProvider)editor!).GetRequiredService<LibraryService>(),
-            format, baseType, captureThumbnails ? LibraryThumbnailCapture.ForObject(editor as IServiceProvider) : null);
+            format, baseType, captureThumbnails ? LibraryThumbnailCapture.ForObject(editor as IServiceProvider) : null, decoders: ExtensionGuard.FindService<DecoderRegistry>(editor) ?? Beutl.Controls.ControlDecoders.GetDecoders(control));
     }
 
     public static async Task<object?> ShowTypeOrReferenceAsync(

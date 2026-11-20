@@ -1,6 +1,7 @@
 ﻿using System.Runtime.ExceptionServices;
 using Beutl.Composition;
 using Beutl.Language;
+using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes.Group;
 
@@ -13,6 +14,8 @@ public interface IGenerativeRunHost
     MediaTime CurrentTime { get; }
 
     Media.FontManager Fonts { get; }
+
+    DecoderRegistry? Decoders { get; }
 
     /// <summary>Runs graph evaluation where rendering is allowed to happen.</summary>
     Task<T> InvokeOnRenderThreadAsync<T>(Func<T> func);
@@ -132,7 +135,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                         host.MarkUnsaved(node);
                     }
 
-                    node.LoadActivePreview();
+                    node.LoadActivePreview(host.Decoders);
                     node.SetStatus(GenerativeNodeStatus.Failed, ex.Message);
                 });
             }
@@ -144,7 +147,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 failed.Add(node);
                 await host.InvokeOnUIThreadAsync(() =>
                 {
-                    node.LoadActivePreview();
+                    node.LoadActivePreview(host.Decoders);
                     node.SetStatus(GenerativeNodeStatus.Failed);
                 });
                 if (unexpected is null)
@@ -209,7 +212,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         {
             for (int j = from; j < order.Count; j++)
             {
-                order[j].LoadActivePreview();
+                order[j].LoadActivePreview(host.Decoders);
                 order[j].SetStatus(GenerativeNodeStatus.Canceled);
             }
         });
@@ -220,7 +223,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         // A snapshot of its own: the editor's snapshot belongs to the render loop and
         // may be rebuilt at any time. Evaluating here also picks up the generation a
         // dependency has just produced.
-        var context = new CompositionContext(host.CurrentTime) { Fonts = host.Fonts };
+        var context = new CompositionContext(host.CurrentTime) { Fonts = host.Fonts, Decoders = host.Decoders };
         using var snapshot = new GraphSnapshot();
         snapshot.Build(model, context);
         snapshot.Evaluate(context);

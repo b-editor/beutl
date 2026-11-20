@@ -284,7 +284,7 @@ public class ElementAddEntryPointTests
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-several-files-drop");
         var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         using var notifications = new NotificationCapture(TestShell.Notifications);
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
@@ -354,7 +354,7 @@ public class ElementAddEntryPointTests
         {
             window.Close();
             HeadlessTestHelpers.Settle();
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
         }
     }
 
@@ -366,7 +366,7 @@ public class ElementAddEntryPointTests
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-sound-in-video-container-drop");
         var decoder = new SoundInVideoContainerDecoder();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 900, Height = 600 };
 
@@ -410,7 +410,7 @@ public class ElementAddEntryPointTests
         {
             window.Close();
             HeadlessTestHelpers.Settle();
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
         }
     }
 

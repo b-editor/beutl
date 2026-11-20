@@ -5,6 +5,7 @@ using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -17,7 +18,7 @@ internal static class SilenceWaveform
 {
     public static async IAsyncEnumerable<WaveformChunk> GetChunksAsync(
         FontManager fonts, Scene scene, Element element, int chunkCount, [EnumeratorCancellation] CancellationToken cancellationToken = default,
-        Action<Scene>? observeScene = null)
+        Action<Scene>? observeScene = null, DecoderRegistry? decoders = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(chunkCount);
@@ -104,8 +105,8 @@ internal static class SilenceWaveform
         }
 
         using var composer = new Composer { SampleRate = sampleRate, ChannelLayout = channelLayout };
-        SceneCompositor compositor = isolated ? new SceneCompositor(scene, fonts) { ForceOriginalSource = true }
-            : await Task.Factory.StartNew(() => new SceneCompositor(scene, fonts) { ForceOriginalSource = true },
+        SceneCompositor compositor = isolated ? new SceneCompositor(scene, fonts, decoders: decoders) { ForceOriginalSource = true }
+            : await Task.Factory.StartNew(() => new SceneCompositor(scene, fonts, decoders: decoders) { ForceOriginalSource = true },
                 cancellationToken, TaskCreationOptions.DenyChildAttach, owner).ConfigureAwait(false);
         try
         {

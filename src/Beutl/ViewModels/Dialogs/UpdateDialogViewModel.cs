@@ -77,11 +77,7 @@ public class UpdateDialogViewModel
         _timeProvider = timeProvider ?? TimeProvider.System;
         ExtensionUpdateSummary = _preparedExtensionCount.CombineLatest(
             _configuration.ExtensionUpdates.GetObservable(), (_, _) => IncludedExtensions);
-        PrimaryButtonText = new(isFlatpak
-            ? ExtensionsStrings.Install
-            : OperatingSystem.IsWindows()
-                ? MessageStrings.UpdateAction_StartInstaller
-                : MessageStrings.UpdateAction_RestartAndUpdate);
+        PrimaryButtonText = new(isFlatpak ? ExtensionsStrings.Install : MessageStrings.UpdateAction_RestartAndUpdate);
     }
 
     public AppUpdateResponse Update { get; set; }
@@ -279,12 +275,13 @@ public class UpdateDialogViewModel
             return null;
         }
 
-        // beutl-setup.iss reads this switch to leave out its "Launch Beutl" option.
+        // /SILENT skips the wizard and still shows the progress and any error. beutl-setup.iss waits for
+        // /BeutlPid to exit before it replaces the files, and starts Beutl again for /BeutlRelaunch=1.
         return new ProcessStartInfo(_downloadFile)
         {
             UseShellExecute = true,
             Verb = "open",
-            Arguments = relaunch ? "" : "/BeutlOnQuit=1",
+            Arguments = $"/SILENT /BeutlPid={Environment.ProcessId}{(relaunch ? " /BeutlRelaunch=1" : "")}",
         };
     }
 
@@ -489,7 +486,9 @@ public class UpdateDialogViewModel
                 _cts.Token.Register(cache.Dispose);
                 cache = null;
                 ProgressText.Value = MessageStrings.StartInstaller;
-                PrimaryButtonText.Value = MessageStrings.UpdateAction_StartInstaller;
+                // The Windows installer runs without its wizard and starts Beutl again, as the other updates do.
+                if (metadata.Type == "debian")
+                    PrimaryButtonText.Value = MessageStrings.UpdateAction_StartInstaller;
                 return AppUpdatePhase.Ready;
             }
 

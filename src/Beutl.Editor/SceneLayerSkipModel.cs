@@ -24,8 +24,12 @@ internal static class SceneLayerSkipModel
             foreach (var item in Visit(element, window, false, frameOrigin))
                 yield return item;
 
+        // drawnOver: the frames over which a held transition side draws element while element plays at
+        // that side's held time, requested. Its matte and portal inputs follow these frames, as they do in
+        // SceneCompositor, and only its content follows the held time.
         IEnumerable<(Element, TimeRange?, MediaTime?)> Visit(
-            Element element, TimeRange? requested, bool matte, MediaTime? origin, bool remapped = false)
+            Element element, TimeRange? requested, bool matte, MediaTime? origin, bool remapped = false,
+            TimeRange? drawnOver = null)
         {
             if (!element.IsEnabled.Value
                 || layers.ShouldSkip(element.ZIndex.Value, target, ignoreSolo: matte)
@@ -35,8 +39,9 @@ internal static class SceneLayerSkipModel
             if (!visiting.Add(element)) yield break;
             try
             {
-                foreach ((TimeRange frameWindow, TimeRange contentWindow) in EvaluationWindows(element, requested))
+                foreach ((TimeRange evaluatedWindow, TimeRange contentWindow) in EvaluationWindows(element, requested))
                 {
+                    TimeRange frameWindow = drawnOver ?? evaluatedWindow;
                     MediaTime? dependencyOrigin = remapped ? null : origin;
                     yield return (element, remapped ? null : contentWindow, dependencyOrigin);
                     if (target == CompositionTarget.Graphics && element.MatteMode.Value != MatteMode.None)
@@ -59,8 +64,11 @@ internal static class SceneLayerSkipModel
 
                     // A portal's own Count uses its side's held clock; its imported elements and
                     // matte sources play at frame time, as in CompositorContext.EvaluateElementIntoFlow.
+                    // A side a transition holds at its edge frame imports only what its held time covers, and
+                    // holds them only over the frames they do not cover (SceneCompositor.CollectTransitionSide).
                     if (target == CompositionTarget.Graphics)
                     {
+                        bool held = contentWindow != frameWindow;
                         foreach (PortalObject portal in element.Objects.OfType<PortalObject>())
                         {
                             if (!portal.IsEnabled.Value) continue;
@@ -69,7 +77,7 @@ internal static class SceneLayerSkipModel
                             // widen the replayed inputs rather than every output layer in the scene.
                             bool remapsInputs = remapped || element.Objects.SkipWhile(obj => obj != portal).Skip(1)
                                 .OfType<DrawableTimeController>().Any(controller => controller.IsEnabled.Value);
-                            if (!matte && !remapsInputs) continue;
+                            if (!matte && !remapsInputs && !held) continue;
                             foreach ((int? count, TimeRange inputs) in PortalWindows(portal, frameWindow, contentWindow, origin))
                             {
                                 int start = portal.ZIndex.Value + 1;
@@ -77,9 +85,38 @@ internal static class SceneLayerSkipModel
                                 foreach (Element candidate in scene.Children)
                                 {
                                     if (candidate.ZIndex.Value < start || (end is { } last && candidate.ZIndex.Value > last)) continue;
-                                    foreach (var item in Visit(candidate, inputs, matte, origin, remapsInputs))
-                                        yield return item;
+                                    if (held && !candidate.CoversGraphicsTime(contentWindow.Start)) continue;
+                                    // Output inputs the frame's time covers are walked on their own.
+                                    if (matte || remapsInputs)
+                                    {
+                                        foreach (var item in Visit(candidate, inputs, matte, origin, remapsInputs))
+                                            yield return item;
+                                    }
+
+                                    if (!held) continue;
+                                    foreach (TimeRange uncovered in Uncovered(candidate, inputs))
+                                    {
+                                        foreach (var item in Visit(candidate, contentWindow, matte, origin, remapsInputs, uncovered))
+                                            yield return item;
+                                    }
                                 }
+                            }
+                        }
+                    }
+
+                    // A held side of a scene change between two backdrops takes the layers beneath it at its own time
+                    // (SceneCompositor.TakeBeneath), holding those its time covers over the frames they do not.
+                    if (target == CompositionTarget.Graphics && !matte && contentWindow != frameWindow
+                        && IsHeldSceneChange(element, frameWindow))
+                    {
+                        foreach (Element candidate in scene.Children)
+                        {
+                            if (candidate.ZIndex.Value >= element.ZIndex.Value
+                                || !candidate.CoversGraphicsTime(contentWindow.Start)) continue;
+                            foreach (TimeRange uncovered in Uncovered(candidate, frameWindow))
+                            {
+                                foreach (var item in Visit(candidate, contentWindow, false, origin, remapped, uncovered))
+                                    yield return item;
                             }
                         }
                     }
@@ -89,6 +126,42 @@ internal static class SceneLayerSkipModel
             {
                 visiting.Remove(element);
             }
+        }
+
+        // Whether one of element's boundaries over frames is a scene change between two backdrops.
+        bool IsHeldSceneChange(Element element, TimeRange frames)
+        {
+            if (!participants.Contains(element)) return false;
+            foreach (TransitionBoundary? candidate in new[] { ElementTransitions.GetBoundaryAtStart(element), ElementTransitions.GetBoundaryAtEnd(element) })
+            {
+                if (candidate is { } boundary && ElementTransitions.IsSceneChange(boundary)
+                    && (frames.IsEmpty ? boundary.Region.Contains(frames.Start) : boundary.Region.Intersects(frames)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // The parts of frames that element no longer covers, where a held side holds it instead.
+        static IEnumerable<TimeRange> Uncovered(Element element, TimeRange frames)
+        {
+            if (frames.IsEmpty)
+            {
+                if (!element.CoversGraphicsTime(frames.Start)) yield return frames;
+                yield break;
+            }
+
+            TimeRange covered = frames.Intersect(element.Range);
+            if (covered.IsEmpty)
+            {
+                yield return frames;
+                yield break;
+            }
+
+            if (covered.Start > frames.Start) yield return TimeRange.FromRange(frames.Start, covered.Start);
+            if (covered.End < frames.End) yield return TimeRange.FromRange(covered.End, frames.End);
         }
 
         IEnumerable<(int Source, TimeRange Window)> MatteWindows(Element element, TimeRange frames, MediaTime? origin)

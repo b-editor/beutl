@@ -405,7 +405,7 @@ public class ChannelMapEditorTests
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-channel-editor-{Guid.NewGuid():N}.wav");
         var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
+        TestShell.Decoders.Register(decoder);
         try
         {
             using (var writer = new BinaryWriter(File.Create(path)))
@@ -433,7 +433,7 @@ public class ChannelMapEditorTests
         }
         finally
         {
-            DecoderRegistry.Unregister(decoder);
+            TestShell.Decoders.Unregister(decoder);
             File.Delete(path);
         }
     }

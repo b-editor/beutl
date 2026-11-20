@@ -26,6 +26,8 @@ namespace Beutl.UnitTests.Graphics;
 [NonParallelizable]
 public class PreviewFrameOrderIndependenceTests
 {
+    private DecoderRegistry _decoders = null!;
+
     private GlobalConfiguration _testConfiguration = new();
 
     private const int Rate = 30;
@@ -43,29 +45,21 @@ public class PreviewFrameOrderIndependenceTests
 
     private static readonly int[] s_recheck = [7, 3, 12, 1, 9, 15, 0, 5, 11, 2, 14, 6, 8, 4, 13, 10];
 
-    private IProxyResolver? _oldResolver;
     private PreviewSourceMode _oldPreviewSourceMode;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        TestMediaHelper.RegisterTestDecoder();
-    }
 
     [SetUp]
     public void SetUp()
     {
         _testConfiguration = new();
-        _oldResolver = DecoderRegistry.ProxyResolver;
+        _decoders = TestMediaHelper.CreateRegistry();
         _oldPreviewSourceMode = _testConfiguration.EditorConfig.PreviewSourceMode.Value;
-        DecoderRegistry.ProxyResolver = null;
+        _decoders.ProxyResolver = null;
         _testConfiguration.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
     }
 
     [TearDown]
     public void TearDown()
     {
-        DecoderRegistry.ProxyResolver = _oldResolver;
         _testConfiguration.EditorConfig.PreviewSourceMode.Value = _oldPreviewSourceMode;
     }
 
@@ -79,10 +73,10 @@ public class PreviewFrameOrderIndependenceTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var media = new SceneMedia(_testConfiguration.EditorConfig, preferProxy, withEffect, withBackdrops);
+            using var media = new SceneMedia(_decoders, _testConfiguration.EditorConfig, preferProxy, withEffect, withBackdrops);
 
             string[] baseline = new string[FrameCount];
-            using (var renderer = new SceneRenderer(media.NewScene(), TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig, decoders: _decoders) { CacheOptions = RenderCacheOptions.Default })
             {
                 for (int frame = 0; frame < FrameCount; frame++)
                 {
@@ -96,7 +90,7 @@ public class PreviewFrameOrderIndependenceTests
             Assert.That(baseline.Distinct().Count(), Is.EqualTo(FrameCount),
                 "the scene has to look different on every frame or the comparisons below prove nothing");
 
-            using (var renderer = new SceneRenderer(media.NewScene(), TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig, decoders: _decoders) { CacheOptions = RenderCacheOptions.Default })
             {
                 var rendered = new HashSet<int>();
                 foreach (int frame in s_scrub)
@@ -131,7 +125,7 @@ public class PreviewFrameOrderIndependenceTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var media = new SceneMedia(_testConfiguration.EditorConfig, preferProxy: false, withEffect: false);
+            using var media = new SceneMedia(_decoders, _testConfiguration.EditorConfig, preferProxy: false, withEffect: false);
 
             var shape = new RectShape();
             shape.Width.Value = SquareWidth;
@@ -146,7 +140,7 @@ public class PreviewFrameOrderIndependenceTests
             group.Children.Add(glass);
 
             Scene scene = media.NewSceneWith(group);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig) { CacheOptions = RenderCacheOptions.Default };
+            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, editorConfig: _testConfiguration.EditorConfig, proxyConfig: _testConfiguration.ProxyStoreConfig, decoders: _decoders) { CacheOptions = RenderCacheOptions.Default };
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
 
             using Bitmap snapshot = renderer.Snapshot();
@@ -182,14 +176,16 @@ public class PreviewFrameOrderIndependenceTests
 
     private sealed class SceneMedia : IDisposable
     {
+        private readonly DecoderRegistry _decoders;
         private readonly string _root;
         private readonly bool _preferProxy;
         private readonly bool _withEffect;
         private readonly bool _withBackdrops;
         private readonly ProxyStore? _store;
 
-        public SceneMedia(EditorConfig configuration, bool preferProxy, bool withEffect, bool withBackdrops = false)
+        public SceneMedia(DecoderRegistry decoders, EditorConfig configuration, bool preferProxy, bool withEffect, bool withBackdrops = false)
         {
+            _decoders = decoders;
             _preferProxy = preferProxy;
             _withEffect = withEffect;
             _withBackdrops = withBackdrops;
@@ -199,7 +195,7 @@ public class PreviewFrameOrderIndependenceTests
             if (preferProxy)
             {
                 _store = new ProxyStore(_root);
-                DecoderRegistry.ProxyResolver = new ProxyResolver(_store);
+                _decoders.ProxyResolver = new ProxyResolver(_store);
                 configuration.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
             }
         }
@@ -310,7 +306,7 @@ public class PreviewFrameOrderIndependenceTests
 
         public void Dispose()
         {
-            DecoderRegistry.ProxyResolver = null;
+            _decoders.ProxyResolver = null;
             // A resolved proxy touches the store, scheduling a delayed flush that would recreate this
             // directory after the delete, or race it.
             _store?.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();

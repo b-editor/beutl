@@ -26,43 +26,39 @@ public class ConfigurationOwnershipTests
         });
     }
 
-    [Test, NonParallelizable]
-    public void Reinitializing_decoder_priorities_detaches_the_old_section_and_subscribes_once()
+    [Test]
+    public void DecoderRegistriesOwnTheirRegistrationsAndPriorityChanges()
     {
-        var first = new ExtensionConfig();
-        var second = new ExtensionConfig();
-        var a = new FirstDecoder();
-        var b = new SecondDecoder();
-        int changes = 0;
-        void Changed(object? sender, EventArgs e) => changes++;
-        DecoderRegistry.Register(a);
-        DecoderRegistry.Register(b);
-        try
-        {
-            DecoderRegistry.Initialize(first);
-            DecoderRegistry.DecodersChanged += Changed;
-            first.DecoderPriority.Add(new(TypeFormat.ToString(typeof(SecondDecoder))));
-            Assert.That(DecoderRegistry.EnumerateDecoder().First(), Is.SameAs(b));
-            Assert.That(changes, Is.EqualTo(1));
+        var configA = new ExtensionConfig();
+        var configB = new ExtensionConfig();
+        var a = new DecoderRegistry(configA);
+        var b = new DecoderRegistry(configB);
+        var aFirst = new FirstDecoder();
+        var aSecond = new SecondDecoder();
+        var bFirst = new FirstDecoder();
+        var bSecond = new SecondDecoder();
+        a.Register(aFirst);
+        a.Register(aSecond);
+        Assert.That(b.FileExtensions.IsVideo("clip.second"), Is.False);
+        b.Register(bSecond);
+        b.Register(bFirst);
+        int changesA = 0, changesB = 0;
+        a.DecodersChanged += (_, _) => changesA++;
+        b.DecodersChanged += (_, _) => changesB++;
 
-            DecoderRegistry.Initialize(second);
-            DecoderRegistry.Initialize(second);
-            changes = 0;
-            first.DecoderPriority.Clear();
-            Assert.That(changes, Is.Zero);
-            second.DecoderPriority.Add(new(TypeFormat.ToString(typeof(FirstDecoder))));
-            Assert.That(DecoderRegistry.EnumerateDecoder().First(), Is.SameAs(a));
-            Assert.That(changes, Is.EqualTo(1));
-            second.DecoderPriority.Clear();
-            Assert.That(changes, Is.EqualTo(2));
-        }
-        finally
-        {
-            DecoderRegistry.DecodersChanged -= Changed;
-            DecoderRegistry.Unregister(a);
-            DecoderRegistry.Unregister(b);
-            DecoderRegistry.Initialize(new ExtensionConfig());
-        }
+        configA.DecoderPriority.Add(new(TypeFormat.ToString(typeof(SecondDecoder))));
+        Assert.That(changesB, Is.Zero);
+        configB.DecoderPriority.Add(new(TypeFormat.ToString(typeof(FirstDecoder))));
+        Assert.That(a.EnumerateDecoder(), Is.EqualTo(new IDecoderInfo[] { aSecond, aFirst }));
+        Assert.That(b.EnumerateDecoder(), Is.EqualTo(new IDecoderInfo[] { bFirst, bSecond }));
+        configA.DecoderPriority.Clear();
+        b.Unregister(bSecond);
+        Assert.That(a.EnumerateDecoder(), Is.EqualTo(new IDecoderInfo[] { aFirst, aSecond }));
+        Assert.That(b.EnumerateDecoder(), Is.EqualTo(new IDecoderInfo[] { bFirst }));
+        Assert.That(a.FileExtensions.IsVideo("clip.second"), Is.True);
+        Assert.That(b.FileExtensions.IsVideo("clip.second"), Is.False);
+        Assert.That(changesA, Is.EqualTo(2));
+        Assert.That(changesB, Is.EqualTo(2));
     }
 
     [TestCase(false)]
@@ -81,10 +77,7 @@ public class ConfigurationOwnershipTests
             fontConfig.FontDirectories.Clear();
             var decoderConfig = new ExtensionConfig();
             decoderConfig.DecoderPriority.Add(new(TypeFormat.ToString(typeof(SecondDecoder))));
-            if (explicitInitialization)
-            {
-                DecoderRegistry.Initialize(decoderConfig);
-            }
+            var decoders = new DecoderRegistry(explicitInitialization ? decoderConfig : new ExtensionConfig());
 
             var fonts = new FontManager(explicitInitialization ? fontConfig : new FontConfig());
             FontFamily[] families = fonts.FontFamilies.ToArray();
@@ -96,17 +89,11 @@ public class ConfigurationOwnershipTests
 
             var first = new FirstDecoder();
             var second = new SecondDecoder();
-            DecoderRegistry.Register(first);
-            DecoderRegistry.Register(second);
-            Assert.That(DecoderRegistry.EnumerateDecoder(), Is.EqualTo(explicitInitialization
+            decoders.Register(first);
+            decoders.Register(second);
+            Assert.That(decoders.EnumerateDecoder(), Is.EqualTo(explicitInitialization
                 ? new IDecoderInfo[] { second, first } : [first, second]));
-            DecoderRegistry.Initialize(decoderConfig);
-            DecoderRegistry.Initialize(decoderConfig);
-            int changes = 0;
-            DecoderRegistry.DecodersChanged += (_, _) => changes++;
-            decoderConfig.DecoderPriority.Clear();
-            Assert.That(changes, Is.EqualTo(1));
-            Assert.That(DecoderRegistry.EnumerateDecoder(), Is.EqualTo(new IDecoderInfo[] { first, second }));
+
         }
         finally { BeutlHomeIsolation.End(); }
     }
@@ -115,9 +102,12 @@ public class ConfigurationOwnershipTests
     {
         public string Name => GetType().Name;
         public MediaReader? Open(string file, MediaOptions options) => null;
-        public IEnumerable<string> VideoExtensions() => [];
+        public virtual IEnumerable<string> VideoExtensions() => [];
         public IEnumerable<string> AudioExtensions() => [];
     }
 
-    private sealed class SecondDecoder : FirstDecoder;
+    private sealed class SecondDecoder : FirstDecoder
+    {
+        public override IEnumerable<string> VideoExtensions() => [".second"];
+    }
 }
