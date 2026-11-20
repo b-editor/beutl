@@ -1940,4 +1940,31 @@
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>Umbral alfa</value>
   </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>Deformación de malla</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>Filas</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>Columnas</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>Interpolación</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>Suave</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>Malla</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>Arrastra los puntos de control en la vista previa. Los tiradores muestran la malla completa con cualquier intensidad.</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>Restablecer malla</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>Punto de malla {0}, {1}</value>
+  </data>
 </root>

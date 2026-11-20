@@ -108,7 +108,7 @@ internal static class RasterShaderMapping
         => ResolveSemanticSource(sourceBounds, sourceScale, sourceDeviceBounds, sourceRasterBounds)
             .RasterBounds.Position;
 
-    private static (PixelRect DeviceBounds, Rect RasterBounds) ResolveSemanticSource(
+    internal static (PixelRect DeviceBounds, Rect RasterBounds) ResolveSemanticSource(
         Rect sourceBounds,
         float sourceScale,
         PixelRect sourceDeviceBounds,
