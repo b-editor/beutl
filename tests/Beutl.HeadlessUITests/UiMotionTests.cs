@@ -1,6 +1,6 @@
 ﻿using System.Collections.ObjectModel;
-using Avalonia.Controls;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Headless.NUnit;
@@ -127,6 +127,26 @@ public sealed class UiMotionTests
             window.Show();
             HeadlessTestHelpers.Render();
             Assert.That(content.IsVisible, Is.False);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void A_disposed_helper_leaves_the_content_alone()
+    {
+        var toggle = new ToggleButton();
+        var content = new Border { Height = 40 };
+        ExpandTransitionHelper.Attach(toggle, content).Dispose();
+        content.IsVisible = true;
+        var window = new Window { Content = new StackPanel { Children = { toggle, content } }, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(content.IsVisible, Is.True);
         }
         finally
         {

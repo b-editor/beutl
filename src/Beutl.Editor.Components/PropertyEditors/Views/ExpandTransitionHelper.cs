@@ -16,7 +16,7 @@ public static class ExpandTransitionHelper
 
         // Content whose visibility is also bound can be shown by its data context after the first state was applied,
         // so collapsed content is hidden again once it is in a window.
-        content.AttachedToVisualTree += (_, _) =>
+        void OnAttached(object? sender, VisualTreeAttachmentEventArgs e)
         {
             if (toggle.IsChecked != true && content.IsVisible)
             {
@@ -24,9 +24,11 @@ public static class ExpandTransitionHelper
                 content.IsVisible = false;
                 content.Opacity = 1;
             }
-        };
+        }
 
-        return toggle.GetObservable(ToggleButton.IsCheckedProperty)
+        content.AttachedToVisualTree += OnAttached;
+
+        IDisposable subscription = toggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
             {
                 if (v == true)
@@ -44,5 +46,11 @@ public static class ExpandTransitionHelper
                     });
                 }
             });
+
+        return Disposable.Create(() =>
+        {
+            subscription.Dispose();
+            content.AttachedToVisualTree -= OnAttached;
+        });
     }
 }
