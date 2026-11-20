@@ -48,7 +48,7 @@ public partial class PropertyExpressionTests
         Assert.That(shown, Is.EqualTo(20f));
     }
 
-    // Keyframes supply Value to the expression, so the first key keeps its stored value and the result stays the same.
+    // The first key keeps the stored value; the editor shows its expression result while the scene keeps the playhead's.
     [AvaloniaTest]
     public void Editing_the_animation_keeps_the_expression_and_starts_at_the_stored_value()
     {
@@ -72,7 +72,8 @@ public partial class PropertyExpressionTests
         {
             Assert.That(property.HasExpression, Is.True);
             Assert.That(((KeyFrame<float>)property.GetKeyFrameAnimation()!.KeyFrames.Single()).Value.Value, Is.EqualTo(75f));
-            Assert.That(shown, Is.EqualTo(95f));
+            Assert.That(shown, Is.EqualTo(75f));
+            Assert.That(property.Evaluate(new EvaluationContext(MediaTime.FromSeconds(2))), Is.EqualTo(95f));
         });
     }
 

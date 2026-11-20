@@ -836,7 +836,7 @@ public sealed class CombinedEditorTests
             PropertyEditorMenu[] menus = [.. window.GetVisualDescendants().OfType<PropertyEditorMenu>().Where(menu => menu.IsEffectivelyVisible)];
             bool separated = menus.Length > 1;
             Assert.That(menus.Select(menu => ReferenceEquals(menu.DataContext, combined)), Is.All.EqualTo(!separated));
-            return [.. menus.Select(menu => menu.GetVisualDescendants().OfType<FluentIcon>().Single())
+            return [.. menus.Select(menu => menu.GetVisualDescendants().OfType<FluentIcon>().Single(icon => icon.Name == "symbolIcon"))
                 .Select(icon => (icon.Icon, icon.IconVariant))];
         }
     }

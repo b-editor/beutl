@@ -68,14 +68,12 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public new ReadOnlyReactiveProperty<KeyFrame<TValue>?> EditingKeyFrame { get; }
 
-    // The value to show: the expression's result at the current time, else the edited keyframe's or the property's.
+    // Expressions use the edited keyframe's time; separated components and properties without keys use the playhead.
     protected ReadOnlyReactiveProperty<TValue> ShownValue => _shownValue ??= HasExpression
         .CombineLatest(SeparatedComponents, (hasExpression, components) => hasExpression || components != null)
         .Select(evaluate =>
             evaluate && PropertyAdapter.GetEngineProperty() is IExpressionProperty<TValue> engineProperty
-                ? ObserveEditingTime().CombineLatest(Observable.FromEventPattern(h => engineProperty.Edited += h, h => engineProperty.Edited -= h)
-                    .Select(_ => 0).StartWith(0), (time, _) => !engineProperty.HasExpression && SeparatedComponents.Value is IComponentAnimation<TValue> split
-                        ? split.GetEditingValue(time) : engineProperty.Evaluate(new EvaluationContext(time)))
+                ? ObserveShownValue(engineProperty)
                 : EditingKeyFrame
                     .Select(x => (x as KeyFrame<TValue>)?.Value.GetObservable())
                     .Select(x => x ?? PropertyAdapter.GetObservable())
@@ -83,6 +81,27 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         .Switch()
         .ToReadOnlyReactiveProperty()
         .AddTo(Disposables)!;
+
+    private IObservable<TValue> ObserveShownValue(IExpressionProperty<TValue> property)
+        => ObserveEditingTime()
+            .CombineLatest(EditingKeyFrame.Select(key => key?.KeyTime.GetObservable()
+                ?? Observable.ReturnThenNever(MediaTime.Zero)).Switch(), (time, _) => time)
+            .CombineLatest(Observable.FromEventPattern(h => property.Edited += h, h => property.Edited -= h)
+                .Select(_ => 0).StartWith(0), (time, _) => EvaluateShownValue(property, time));
+
+    private TValue EvaluateShownValue(IExpressionProperty<TValue> property, MediaTime time)
+    {
+        if (SeparatedComponents.Value is IComponentAnimation<TValue> components)
+        {
+            if (!property.HasExpression) return components.GetEditingValue(time);
+        }
+        else if (property.HasExpression && EditingKeyFrame.Value is { } key && GetAnimation() is { } animation)
+        {
+            time = key.KeyTime.Value + AnimationOperations.GetTimeOrigin(animation, AnimationOwner);
+        }
+
+        return property.Evaluate(new EvaluationContext(time));
+    }
 
     // Moving the owner changes expression times and edited component keys even if the playhead stays still.
     private IObservable<MediaTime> ObserveEditingTime()
