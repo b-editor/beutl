@@ -213,6 +213,9 @@
   <data name="Brightness" xml:space="preserve">
     <value>Brightness</value>
   </data>
+  <data name="OpacityEffect" xml:space="preserve">
+    <value>Opacity</value>
+  </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>Chroma key</value>
   </data>
@@ -380,6 +383,39 @@
   </data>
   <data name="DelayAnimationEffect_Effect" xml:space="preserve">
     <value>Filter Effect</value>
+  </data>
+  <data name="DelayAnimationEffect_Order" xml:space="preserve">
+    <value>Order</value>
+  </data>
+  <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
+    <value>Which part starts first. The position orders sweep across the parts one part size per delay step, so parts level with each other start together.</value>
+  </data>
+  <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
+    <value>Random seed</value>
+  </data>
+  <data name="DelayAnimationOrder_Forward" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="DelayAnimationOrder_Reverse" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="DelayAnimationOrder_FromCenter" xml:space="preserve">
+    <value>From center</value>
+  </data>
+  <data name="DelayAnimationOrder_Random" xml:space="preserve">
+    <value>Random</value>
+  </data>
+  <data name="DelayAnimationOrder_LeftToRight" xml:space="preserve">
+    <value>Left to right</value>
+  </data>
+  <data name="DelayAnimationOrder_RightToLeft" xml:space="preserve">
+    <value>Right to left</value>
+  </data>
+  <data name="DelayAnimationOrder_TopToBottom" xml:space="preserve">
+    <value>Top to bottom</value>
+  </data>
+  <data name="DelayAnimationOrder_BottomToTop" xml:space="preserve">
+    <value>Bottom to top</value>
   </data>
   <data name="Dilate" xml:space="preserve">
     <value>Dilate</value>

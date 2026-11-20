@@ -62,6 +62,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<Threshold>>(GraphicsStrings.Threshold)
             .Add<FilterEffectNode<EdgeDetection>>(GraphicsStrings.EdgeDetection)
             .Add<FilterEffectNode<Brightness>>(GraphicsStrings.Brightness)
+            .Add<FilterEffectNode<OpacityEffect>>(GraphicsStrings.OpacityEffect)
             .Add<FilterEffectNode<Gamma>>(GraphicsStrings.Gamma)
             .Add<FilterEffectNode<ColorGrading>>(GraphicsStrings.ColorGrading)
             .Add<FilterEffectNode<Curves>>(GraphicsStrings.Curves)

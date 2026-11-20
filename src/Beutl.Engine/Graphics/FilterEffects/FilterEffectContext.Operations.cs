@@ -318,6 +318,19 @@ public sealed partial class FilterEffectContext
         ShaderColorMatrix(array);
     }
 
+    /// <summary>Multiplies the alpha of every pixel by <paramref name="opacity"/>, from 0 (transparent) to 1 (unchanged).</summary>
+    public void Opacity(float opacity)
+    {
+        if (float.IsNaN(opacity) || opacity >= 1)
+            return;
+
+        using var lease = PooledColorMatrix.Rent(out float[] array);
+        array[0] = array[6] = array[12] = 1;
+        array[18] = Math.Max(opacity, 0);
+
+        ShaderColorMatrix(array);
+    }
+
     public void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
     {
         // A configuration Skia's HighContrast returns null for stays a no-op.

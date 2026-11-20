@@ -127,6 +127,9 @@ Beutl.Utilities
   keys: (no public parameterless constructor)
 [Beutl.Engine]Beutl.Animation:KeyFrame<T>
   sealed
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:DelayAnimationOrder>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionOriginal>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -210,6 +213,9 @@ Beutl.Utilities
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<T>
   unsealed
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:DelayAnimationOrder>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:EdgeDetectionOriginal>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
@@ -435,7 +441,7 @@ Beutl.Utilities
   keys: Animations, BlueCurve, Expressions, GreenCurve, HueVsHue, HueVsLuminance, HueVsSaturation, Id, IsEnabled, LuminanceVsSaturation, MasterCurve, Name, RedCurve, SaturationVsSaturation
 [Beutl.Engine]Beutl.Graphics.Effects:DelayAnimationEffect
   unsealed
-  keys: Animations, Delay, Effect, Expressions, Id, IsEnabled, Name
+  keys: Animations, Delay, Effect, Expressions, Id, IsEnabled, Name, Order, RandomSeed
 [Beutl.Engine]Beutl.Graphics.Effects:DiagonalClipping
   sealed
   keys: Angle, Animations, Expressions, Id, IsEnabled, Name, Position, Width
@@ -524,6 +530,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:Negaposi
   unsealed
   keys: Animations, Blue, Expressions, Green, Id, IsEnabled, Name, Red, Strength
+[Beutl.Engine]Beutl.Graphics.Effects:OpacityEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Opacity
 [Beutl.Engine]Beutl.Graphics.Effects:PartsSplitEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name

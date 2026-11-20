@@ -212,6 +212,9 @@
   <data name="Brightness" xml:space="preserve">
     <value>Brillo</value>
   </data>
+  <data name="OpacityEffect" xml:space="preserve">
+    <value>Opacidad</value>
+  </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>Clave de croma</value>
   </data>
@@ -379,6 +382,39 @@
   </data>
   <data name="DelayAnimationEffect_Effect" xml:space="preserve">
     <value>Efecto de filtro</value>
+  </data>
+  <data name="DelayAnimationEffect_Order" xml:space="preserve">
+    <value>Orden</value>
+  </data>
+  <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
+    <value>Determina qué parte empieza primero. En los órdenes por posición, el barrido avanza el tamaño de una parte por cada intervalo de retardo. Las partes que comparten la misma posición en el eje del barrido empiezan al mismo tiempo.</value>
+  </data>
+  <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
+    <value>Semilla aleatoria</value>
+  </data>
+  <data name="DelayAnimationOrder_Forward" xml:space="preserve">
+    <value>De principio a fin</value>
+  </data>
+  <data name="DelayAnimationOrder_Reverse" xml:space="preserve">
+    <value>De fin a principio</value>
+  </data>
+  <data name="DelayAnimationOrder_FromCenter" xml:space="preserve">
+    <value>Desde el centro</value>
+  </data>
+  <data name="DelayAnimationOrder_Random" xml:space="preserve">
+    <value>Aleatorio</value>
+  </data>
+  <data name="DelayAnimationOrder_LeftToRight" xml:space="preserve">
+    <value>De izquierda a derecha</value>
+  </data>
+  <data name="DelayAnimationOrder_RightToLeft" xml:space="preserve">
+    <value>De derecha a izquierda</value>
+  </data>
+  <data name="DelayAnimationOrder_TopToBottom" xml:space="preserve">
+    <value>De arriba abajo</value>
+  </data>
+  <data name="DelayAnimationOrder_BottomToTop" xml:space="preserve">
+    <value>De abajo arriba</value>
   </data>
   <data name="Dilate" xml:space="preserve">
     <value>Dilatar</value>
