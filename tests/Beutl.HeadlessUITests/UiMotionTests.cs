@@ -206,6 +206,32 @@ public sealed class UiMotionTests
         }
     }
 
+    // Inside a node the ports stay on its edge by layout, so the rows only fade rather than move away from them.
+    [AvaloniaTest]
+    public async Task Content_where_slides_are_off_only_fades_in()
+    {
+        var toggle = new ToggleButton();
+        var content = new Border { Height = 40, Background = Brushes.Gray };
+        ExpandTransitionHelper.Attach(toggle, content);
+        var host = new StackPanel { Children = { toggle, content } };
+        UiMotion.SetSlides(host, false);
+        var window = new Window { Content = host, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            toggle.IsChecked = true;
+            Assert.That(content.Opacity, Is.EqualTo(0));
+            Assert.That(content.RenderTransform, Is.Null);
+            await WaitUntil(() => content.Opacity == 1, "The content did not settle open.");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public void A_disposed_helper_leaves_the_content_alone()
     {

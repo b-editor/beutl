@@ -19,6 +19,11 @@ public static class UiMotion
     // How far, in device-independent pixels, something that appears moves into place.
     public const double RevealOffset = 4;
 
+    // Whether what appears inside moves into place or only fades. Off where something laid out beside it stays put
+    // while it moves, such as the ports on a node's edge beside the node's rows.
+    public static readonly AttachedProperty<bool> SlidesProperty =
+        AvaloniaProperty.RegisterAttached<Visual, bool>("Slides", typeof(UiMotion), defaultValue: true, inherits: true);
+
     private static readonly ConditionalWeakTable<Visual, object> s_runs = new();
     private static readonly ConditionalWeakTable<Visual, TranslateTransform> s_slides = new();
 
@@ -74,13 +79,13 @@ public static class UiMotion
         }
     }
 
-    // Fades the target in while it moves down into place from just above. A target with a transform of its own only
-    // fades.
+    // Fades the target in while it moves down into place from just above. A target with a transform of its own, or
+    // where Slides is off, only fades.
     public static void Reveal(Visual target, TimeSpan duration, Action? completed = null)
     {
         Cancel(target);
         TranslateTransform? slide = null;
-        if (target.RenderTransform is null)
+        if (target.RenderTransform is null && GetSlides(target))
         {
             slide = new TranslateTransform(0, -RevealOffset);
             target.RenderTransform = slide;
@@ -103,6 +108,10 @@ public static class UiMotion
         if (slide != null && ReferenceEquals(target.RenderTransform, slide))
             s_slides.AddOrUpdate(target, slide);
     }
+
+    public static bool GetSlides(Visual visual) => visual.GetValue(SlidesProperty);
+
+    public static void SetSlides(Visual visual, bool value) => visual.SetValue(SlidesProperty, value);
 
     private static bool IsCurrent(Visual target, object run)
     {
