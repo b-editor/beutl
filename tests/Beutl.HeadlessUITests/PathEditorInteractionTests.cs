@@ -2060,8 +2060,11 @@ public class PathEditorInteractionTests
 
         public bool Pinch(Point point, double delta)
         {
+            // The pinch finds its target by hit testing, which answers nothing until a frame has been rendered.
+            Point windowPoint = WindowPoint(point);
+            TimelineTestHost.WaitForHitTest(Window, View, windowPoint);
             bool handled = Beutl.Editor.Components.Helpers.NativeScrollInput.RaiseMagnify(
-                Window, WindowPoint(point), delta, KeyModifiers.None, 1);
+                Window, windowPoint, delta, KeyModifiers.None, 1);
             HeadlessTestHelpers.Render();
             return handled;
         }
