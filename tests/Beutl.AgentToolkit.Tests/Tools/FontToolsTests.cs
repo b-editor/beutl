@@ -208,6 +208,36 @@ public sealed class FontToolsTests
         });
     }
 
+    [Test]
+    public void List_fonts_without_a_session_lists_the_open_projects_bundled_fonts()
+    {
+        string root = TestWorkspace.CreateDirectory();
+        string fontDirectory = Directory.CreateDirectory(Path.Combine(root, "resources", "fonts")).FullName;
+        using (Stream input = typeof(FontToolsTests).Assembly.GetManifestResourceStream("ProjectFontFixture.ttf")!)
+        using (Stream output = File.Create(Path.Combine(fontDirectory, "custom.ttf")))
+            input.CopyTo(output);
+        FontManager projectFonts = TestFonts.Manager.Fork();
+        projectFonts.LoadProjectFonts(new Project { Uri = new Uri(Path.Combine(root, "project.bep")) });
+        const string family = "Beutl Test Variable";
+        // As the live endpoint: a manager per request, with no session bound to list_fonts.
+        var open = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager,
+            openProject: new OpenProject(projectFonts));
+        var closed = new QueryTools(new AgentSessionManager(), new SchemaGenerator(_library), TestFonts.Manager,
+            openProject: new OpenProject(null));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(open.ListFonts(nameFilter: family).Value!.Families.Select(item => item.Name), Does.Contain(family));
+            Assert.That(open.ListFonts(nameFilter: family).Value!.Families.Single(item => item.Name == family).Typefaces, Is.Not.Empty);
+            Assert.That(closed.ListFonts(nameFilter: family).Value!.Families.Select(item => item.Name), Does.Not.Contain(family));
+        });
+    }
+
+    private sealed class OpenProject(FontManager? fonts) : IOpenProjectFonts
+    {
+        public FontManager? Fonts => fonts;
+    }
+
     private static FontFamily[] RequireRegisteredFamilies()
     {
         FontFamily[] families = TestFonts.Manager.FontFamilies.ToArray();

@@ -77,8 +77,12 @@ public sealed partial class ObjectTemplateService : IDisposable
     /// the thread pool because the render dispatcher completes its task on the render thread, and a
     /// caller with no synchronization context would otherwise write the file there.
     /// </remarks>
+    /// <param name="fonts">
+    /// The fonts the instance renders with in its editor, so the preview draws the project's bundled fonts; the
+    /// service's own (the host's) when null.
+    /// </param>
     public async ValueTask<ObjectTemplateItem?> AddFromInstanceAsync(
-        ICoreSerializable instance, string name, CancellationToken cancellationToken = default)
+        ICoreSerializable instance, string name, CancellationToken cancellationToken = default, FontManager? fonts = null)
     {
         if (string.IsNullOrWhiteSpace(name) || !IsValidTemplateName(name))
             return null;
@@ -92,7 +96,7 @@ public sealed partial class ObjectTemplateService : IDisposable
             _logger.LogError(ex, "Unable to serialize template {Name}.", name);
             return null;
         }
-        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(_fonts, instance, cancellationToken, _editorConfig, _proxyConfig, _decoders);
+        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(fonts ?? _fonts, instance, cancellationToken, _editorConfig, _proxyConfig, _decoders);
 
         return await Task.Run(
             () =>

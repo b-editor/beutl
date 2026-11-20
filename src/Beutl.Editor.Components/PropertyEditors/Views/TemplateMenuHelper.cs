@@ -29,7 +29,7 @@ public static class TemplateMenuHelper
             var templates = ((IServiceProvider)vm).GetRequiredService<ObjectTemplateService>();
             var notifications = ((IServiceProvider)vm).GetRequiredService<INotificationService>();
             TemplateSaving.ShowSaveFlyout(notifications,
-                templates, control, target, templates.GetUniqueName(vm.GetTemplateDefaultName()), showAtPointer: true,
+                templates, ((IServiceProvider)vm).GetService<Media.FontManager>(), control, target, templates.GetUniqueName(vm.GetTemplateDefaultName()), showAtPointer: true,
                 () => notifications.ShowInformation(Strings.Templates, Strings.TemplateSaved));
         };
 
