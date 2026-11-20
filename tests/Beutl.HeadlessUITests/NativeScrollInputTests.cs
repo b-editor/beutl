@@ -3,8 +3,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Testing.Headless;
 using static Beutl.HeadlessUITests.MacNative;
 
 namespace Beutl.HeadlessUITests;
@@ -223,6 +225,117 @@ public class NativeScrollInputTests
         NativeScrollInput.Windows.ForwardTouchpadMessage(0, message, 1, 0, ref handled,
             _ => type < 0 ? null : (uint)type, (_, _, _, _) => throw new AssertionException("Unexpected gesture conversion."));
         Assert.That(handled, Is.False);
+    }
+
+    [AvaloniaTest]
+    [TestCase(0x0008, 120, false, KeyModifiers.None)] // A pinch: MK_CONTROL and a whole notch.
+    [TestCase(0x0008, -45, false, KeyModifiers.None)] // A fine pinch inward.
+    [TestCase(0x0000, 30, true, KeyModifiers.None)] // Ctrl reported only by the key state.
+    [TestCase(0x000c, 120, false, KeyModifiers.Shift)] // MK_SHIFT | MK_CONTROL keeps Shift.
+    public void Windows_touchpad_zoom_reaches_the_view_as_a_pinch(int keys, int delta, bool controlKey, KeyModifiers modifiers)
+    {
+        var target = new Border { Background = Brushes.Transparent };
+        var window = new Window { Content = target, Width = 400, Height = 300 };
+        PointerDeltaEventArgs? pinch = null;
+        target.AddHandler(InputElement.PointerTouchPadGestureMagnifyEvent, (_, e) => pinch = e);
+        var point = new Point(120, 80);
+        ShowForInput(window, point);
+        try
+        {
+            bool converted = NativeScrollInput.Windows.ConvertTouchpadZoom(window, 0x020a, WheelParam(keys, delta),
+                ScreenParam(window, point), () => 0x10, key => controlKey && key == 0x11, 42);
+            Assert.That(converted, Is.True, "The wheel message must not reach Avalonia as well.");
+            Assert.That(pinch, Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(pinch!.Source, Is.SameAs(target));
+                Assert.That(pinch.Delta.X, Is.EqualTo(Math.Pow(1.2, delta / 120.0) - 1).Within(1e-12),
+                    "A pinch must zoom as far as the same Ctrl + wheel did.");
+                Assert.That(pinch.Delta.Y, Is.EqualTo(pinch.Delta.X));
+                Assert.That(pinch.GetPosition(window), Is.EqualTo(point));
+                Assert.That(pinch.KeyModifiers, Is.EqualTo(modifiers));
+                Assert.That(pinch.Timestamp, Is.EqualTo(42));
+            });
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public void Windows_touchpad_zoom_keeps_held_modifiers_except_the_gestures_ctrl()
+    {
+        var window = new Window { Content = new Border { Background = Brushes.Transparent } };
+        KeyModifiers? modifiers = null;
+        window.AddHandler(InputElement.PointerTouchPadGestureMagnifyEvent, (_, e) => modifiers = e.KeyModifiers);
+        ShowForInput(window, new Point(10, 10));
+        try
+        {
+            // Ctrl, Alt and the right Windows key are down.
+            NativeScrollInput.Windows.ConvertTouchpadZoom(window, 0x020a, WheelParam(0x0008, 120),
+                ScreenParam(window, new Point(10, 10)), () => 0x10, key => key is 0x11 or 0x12 or 0x5c, 1);
+            Assert.That(modifiers, Is.EqualTo(KeyModifiers.Alt | KeyModifiers.Meta));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public void Windows_touchpad_zoom_goes_to_the_first_enabled_ancestor()
+    {
+        var disabled = new Border { Background = Brushes.Transparent, IsEnabled = false };
+        var parent = new Panel { Children = { disabled } };
+        var window = new Window { Content = parent };
+        object? source = null;
+        window.AddHandler(InputElement.PointerTouchPadGestureMagnifyEvent, (_, e) => source = e.Source);
+        ShowForInput(window, new Point(10, 10));
+        try
+        {
+            NativeScrollInput.Windows.ConvertTouchpadZoom(window, 0x020a, WheelParam(0x0008, 120),
+                ScreenParam(window, new Point(10, 10)), () => 0x10, _ => false, 1);
+            Assert.That(source, Is.SameAs(parent), "Avalonia routes native pointer input past disabled elements the same way.");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(0x020au, 0x0008, 0x02)] // A mouse's Ctrl + wheel keeps zooming through the wheel handlers.
+    [TestCase(0x020au, 0x0008, -1)] // An unidentified source.
+    [TestCase(0x020au, 0x0000, 0x10)] // A touchpad scroll.
+    [TestCase(0x020eu, 0x0008, 0x10)] // A horizontal touchpad scroll with Ctrl held.
+    [TestCase(0x0246u, 0x0008, 0x10)] // WM_POINTERDOWN.
+    public void Windows_other_wheels_reach_Avalonia_unchanged(uint message, int keys, int deviceType)
+    {
+        var window = new Window { Content = new Border { Background = Brushes.Transparent } };
+        int pinches = 0;
+        window.AddHandler(InputElement.PointerTouchPadGestureMagnifyEvent, (_, _) => pinches++);
+        ShowForInput(window, new Point(10, 10));
+        try
+        {
+            bool converted = NativeScrollInput.Windows.ConvertTouchpadZoom(window, message, WheelParam(keys, 120),
+                ScreenParam(window, new Point(10, 10)), () => deviceType < 0 ? null : (uint)deviceType, _ => false, 1);
+            Assert.That(converted, Is.False);
+            Assert.That(pinches, Is.Zero);
+        }
+        finally { window.Close(); }
+    }
+
+    // WM_MOUSEWHEEL packs the key flags and the wheel delta into wParam, and the screen position into lParam.
+    internal static nint WheelParam(int keys, int delta) => (nint)(((delta & 0xffff) << 16) | (keys & 0xffff));
+
+    internal static nint ScreenParam(TopLevel root, Point point)
+    {
+        PixelPoint screen = root.PointToScreen(point);
+        return (nint)(((screen.Y & 0xffff) << 16) | (screen.X & 0xffff));
+    }
+
+    // Hit testing finds nothing until the window has rendered a frame, which can take several ticks.
+    private static void ShowForInput(Window window, Point point)
+    {
+        window.Show();
+        for (int i = 0; i < 20 && window.InputHitTest(point, enabledElementsOnly: false) == null; i++)
+        {
+            HeadlessTestHelpers.Render();
+        }
+
+        Assert.That(window.InputHitTest(point, enabledElementsOnly: false), Is.Not.Null, "The window never rendered a frame.");
     }
 
     [AvaloniaTest]

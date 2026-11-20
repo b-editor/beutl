@@ -10,7 +10,9 @@
              d:DesignWidth="800"
              x:CompileBindings="True"
              x:DataType="viewModels:CommandPaletteViewModel"
-             IsVisible="{Binding IsOpen.Value}"
+             IsVisible="False"
+             controls:OverlayMotion.IsOpen="{Binding IsOpen.Value}"
+             controls:OverlayMotion.Surface="{Binding #PaletteContainer}"
              mc:Ignorable="d">
     <Panel>
         <!-- Light-dismiss backdrop -->

@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
 using Avalonia.Threading;
 
 namespace Beutl.Editor.Components.Helpers;
@@ -11,6 +12,12 @@ internal static partial class NativeScrollInput
     internal static partial class Windows
     {
         private const uint Touchpad = 0x10; // IMDT_TOUCHPAD
+        private const uint MouseWheel = 0x020a; // WM_MOUSEWHEEL
+        private const int ShiftKeyFlag = 0x0004; // MK_SHIFT
+        private const int ControlKeyFlag = 0x0008; // MK_CONTROL
+        private const int ShiftKey = 0x10, ControlKey = 0x11, AltKey = 0x12, LeftWinKey = 0x5b, RightWinKey = 0x5c;
+        // The step of the Ctrl + wheel zoom in the views that take a pinch.
+        private const double WheelZoomStep = 1.2;
         private static readonly Func<bool, bool>? s_registerTouchpadThread = LoadTouchpadRegistration();
         private static readonly RegistrationManager s_registration = new(s_registerTouchpadThread, AttachHook,
             () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Windows ?? []);
@@ -47,9 +54,47 @@ internal static partial class NativeScrollInput
         private static IDisposable? AttachHook(TopLevel root)
         {
             if (root.TryGetPlatformHandle()?.HandleDescriptor != "HWND") return null;
-            Win32Properties.AddWndProcHookCallback(root, ForwardTouchpadMessage);
-            return System.Reactive.Disposables.Disposable.Create(
-                () => Win32Properties.RemoveWndProcHookCallback(root, ForwardTouchpadMessage));
+            Win32Properties.CustomWndProcHookCallback hook = (nint hwnd, uint message, nint wParam, nint lParam, ref bool handled) =>
+            {
+                nint result = ForwardTouchpadMessage(hwnd, message, wParam, lParam, ref handled);
+                // The hook sees every message of the window, so check the message before any native query.
+                if (!handled && message == MouseWheel
+                    && ConvertTouchpadZoom(root, message, wParam, lParam, GetCurrentDeviceType, IsKeyDown,
+                        unchecked((uint)GetMessageTime())))
+                {
+                    handled = true;
+                }
+
+                return result;
+            };
+            Win32Properties.AddWndProcHookCallback(root, hook);
+            return System.Reactive.Disposables.Disposable.Create(() => Win32Properties.RemoveWndProcHookCallback(root, hook));
+        }
+
+        // Windows delivers a precision touchpad pinch as Ctrl + vertical wheel. Only a touchpad-capable
+        // thread can tell it from a mouse wheel, so this runs only while the registration is active.
+        // The views then receive the pinch that macOS delivers, and nothing else reads it as a wheel.
+        internal static bool ConvertTouchpadZoom(TopLevel root, uint message, nint wParam, nint lParam,
+            Func<uint?> getCurrentDeviceType, Func<int, bool> isKeyDown, ulong timestamp)
+        {
+            int keys = (int)((nuint)wParam & 0xffff);
+            if (message != MouseWheel
+                || ((keys & ControlKeyFlag) == 0 && !isKeyDown(ControlKey))
+                || getCurrentDeviceType() != Touchpad)
+            {
+                return false;
+            }
+
+            short delta = unchecked((short)((nuint)wParam >> 16));
+            // A Mac pinch carries no command key, and the Ctrl here belongs to the gesture.
+            KeyModifiers modifiers = KeyModifiers.None;
+            if ((keys & ShiftKeyFlag) != 0 || isKeyDown(ShiftKey)) modifiers |= KeyModifiers.Shift;
+            if (isKeyDown(AltKey)) modifiers |= KeyModifiers.Alt;
+            if (isKeyDown(LeftWinKey) || isKeyDown(RightWinKey)) modifiers |= KeyModifiers.Meta;
+
+            var screen = new PixelPoint(unchecked((short)lParam), unchecked((short)((nuint)lParam >> 16)));
+            RaiseMagnify(root, root.PointToClient(screen), Math.Pow(WheelZoomStep, delta / 120.0) - 1, modifiers, timestamp);
+            return true;
         }
 
         internal static IDisposable? RegisterInput(Func<bool, bool>? registerThread, Action installHooks, Action removeHooks)
@@ -167,6 +212,8 @@ internal static partial class NativeScrollInput
             return GetCurrentInputMessageSource(out InputMessageSource input) ? input.DeviceType : null;
         }
 
+        private static bool IsKeyDown(int virtualKey) => GetKeyState(virtualKey) < 0;
+
         private static Func<bool, bool>? LoadTouchpadRegistration()
         {
             if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000)) return null;
@@ -213,6 +260,12 @@ internal static partial class NativeScrollInput
 
         [LibraryImport("user32.dll", EntryPoint = "DefWindowProcW")]
         private static partial nint DefWindowProc(nint hwnd, uint message, nint wParam, nint lParam);
+
+        [LibraryImport("user32.dll")]
+        private static partial short GetKeyState(int virtualKey);
+
+        [LibraryImport("user32.dll")]
+        private static partial int GetMessageTime();
 
         [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW", StringMarshalling = StringMarshalling.Utf16)]
         private static partial nint GetModuleHandle(string module);
