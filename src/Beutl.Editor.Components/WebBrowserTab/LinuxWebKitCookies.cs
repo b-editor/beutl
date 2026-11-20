@@ -33,6 +33,10 @@ internal static partial class LinuxWebKitCookies
         }
     }
 
+    // webkit_cookie_manager_get_all_cookies exists since WebKit 2.42; older versions list no cookies.
+    internal static bool CanListCookies(IPlatformHandle? handle) =>
+        TryGetWebView(handle, out _, out bool wpe) && (wpe ? Api.Wpe : Api.Gtk).Value.CanListCookies;
+
     internal static Func<Task>? CreateClearAction(IEnumerable<IPlatformHandle?> handles)
     {
         var views = new List<(Api Api, nint WebView)>();

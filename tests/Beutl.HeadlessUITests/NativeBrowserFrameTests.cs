@@ -82,8 +82,7 @@ internal static partial class NativeBrowserFrameTestHost
                 window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
                 window.Show();
                 using var cookieTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                await CheckLinuxCookieClearAsync(window, cookieTimeout.Token);
-                exitCode = 0;
+                exitCode = await CheckLinuxCookieClearAsync(window, cookieTimeout.Token) ? 0 : SkippedExitCode;
                 return;
             }
             if (scenario == "--native-browser-adblock-reference")
@@ -172,7 +171,10 @@ internal static partial class NativeBrowserFrameTestHost
         }
     }
 
-    private static async Task CheckLinuxCookieClearAsync(Window window, CancellationToken token)
+    // Tells NativeNavigation that the scenario cannot run on this system, as Assert.Ignore would in-process.
+    internal const int SkippedExitCode = 77;
+
+    private static async Task<bool> CheckLinuxCookieClearAsync(Window window, CancellationToken token)
     {
         await using var server = WebApplication.CreateSlimBuilder().Build();
         server.Urls.Add("http://127.0.0.1:0");
@@ -206,6 +208,11 @@ internal static partial class NativeBrowserFrameTestHost
         await loaded.Task.WaitAsync(token);
 
         var handle = browser.TryGetPlatformHandle();
+        if (!LinuxWebKitCookies.CanListCookies(handle))
+        {
+            Console.WriteLine("This WebKit cannot list cookies (webkit_cookie_manager_get_all_cookies needs WebKit 2.42).");
+            return false;
+        }
         var cookies = await LinuxWebKitCookies.GetAllAsync(handle).WaitAsync(token);
         Assert.That(cookies.Select(cookie => (cookie.Name, cookie.Value)),
             Is.EquivalentTo(new[] { ("session", "one"), ("persistent", "two") }));
@@ -222,6 +229,7 @@ internal static partial class NativeBrowserFrameTestHost
             await browser.InvokeScript("void fetch('/cookies/after', { cache: 'no-store' });").WaitAsync(token);
             Assert.That(await after.Task.WaitAsync(token), Is.Null);
         });
+        return true;
     }
 
     private static async Task CheckSupersededNavigationAsync(Window window, CancellationToken token)
@@ -1173,6 +1181,7 @@ public class NativeBrowserFrameTests
             process.Kill(entireProcessTree: true);
             throw;
         }
+        if (process.ExitCode == NativeBrowserFrameTestHost.SkippedExitCode) Assert.Ignore(await output);
         Assert.That(process.ExitCode, Is.Zero, await output + "\n" + await error);
     }
 }
