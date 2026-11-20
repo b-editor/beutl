@@ -17,6 +17,8 @@ public partial class ChromaKey : FilterEffect
         uniform float hueRange;
         uniform float saturationRange;
         uniform float boundary;
+        uniform float spillSuppression;
+        uniform float3 spillAxis;
 
         // Match in linear light, where 8-bit quantization error is uniform, plus the half-storage error.
         const float kLinearQuantum = 0.5 / 255.0;
@@ -93,7 +95,17 @@ public partial class ChromaKey : FilterEffect
             half maskSat = smoothstep(satEdge0, satEdge0 + width, satDiff);
             half mask = max(maskHue, maskSat) * (1.0 - onKeyColor);
 
-            return color * mask;
+            // Preserve the original premultiplied channels when there is no suppression.
+            float amount = spillSuppression * float(hueSignal);
+            if (amount <= 0.0 || mask == 0.0) return color * mask;
+
+            // The limit is a min of averages, which scales with alpha, so despill the premultiplied
+            // channels directly and leave the other two untouched by an unpremultiply round trip.
+            float3 premulRgb = float3(color.rgb);
+            float channel = dot(premulRgb, spillAxis);
+            float limit = dot(premulRgb, float3(1.0) - spillAxis) * 0.5;
+            float3 despilled = mix(premulRgb, float3(min(channel, limit)), spillAxis * amount);
+            return half4(half3(despilled), alpha) * mask;
         }
         """;
 
@@ -117,6 +129,10 @@ public partial class ChromaKey : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ChromaKey_Boundary), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
+    [Display(Name = nameof(GraphicsStrings.ChromaKey_SpillSuppression), ResourceType = typeof(GraphicsStrings))]
+    [Range(0, 100)]
+    public IExpressionProperty<float> SpillSuppression { get; } = Property.CreateAnimatable<float>();
+
     public new partial class Resource
     {
         protected override void ApplyTo(FilterEffectContext context)
@@ -125,16 +141,25 @@ public partial class ChromaKey : FilterEffect
                 s_shaderSource,
                 bindings =>
                 {
+                    Vector3 keyColorLinear = Color.ToLinear().AsVector3();
+                    // Prefer green, then blue when the dominant channels tie.
+                    Vector3 spillAxis = keyColorLinear.Y >= MathF.Max(keyColorLinear.X, keyColorLinear.Z)
+                        ? Vector3.UnitY
+                        : keyColorLinear.Z >= keyColorLinear.X ? Vector3.UnitZ : Vector3.UnitX;
+                    float spillSuppression = float.IsNaN(SpillSuppression) ? 0f : Math.Clamp(SpillSuppression / 100f, 0f, 1f);
+
                     bindings.Uniform(
                         "keyColor",
                         new Vector3(
                             Color.R / 255f,
                             Color.G / 255f,
                             Color.B / 255f));
-                    bindings.Uniform("keyColorLinear", Color.ToLinear().AsVector3());
+                    bindings.Uniform("keyColorLinear", keyColorLinear);
                     bindings.Uniform("hueRange", HueRange / 360f);
                     bindings.Uniform("saturationRange", SaturationRange / 100f);
                     bindings.Uniform("boundary", Boundary / 100f);
+                    bindings.Uniform("spillSuppression", spillSuppression);
+                    bindings.Uniform("spillAxis", spillAxis);
                 }));
         }
     }

@@ -220,6 +220,9 @@
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>彩度範囲</value>
   </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>スピル抑制</value>
+  </data>
   <data name="LumaKey" xml:space="preserve">
     <value>輝度キー</value>
   </data>

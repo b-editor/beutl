@@ -594,6 +594,7 @@ public sealed partial class SchemaGenerator
                 chromaKey.HueRange.Value = 12;
                 chromaKey.SaturationRange.Value = 35;
                 chromaKey.Boundary.Value = 3;
+                chromaKey.SpillSuppression.Value = 50;
                 break;
             case ColorKey colorKey:
                 colorKey.Color.Value = Color.Parse("#ffffffff");

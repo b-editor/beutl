@@ -224,6 +224,9 @@
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>Rango de saturación</value>
   </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>Supresión de derrame</value>
+  </data>
   <data name="LumaKey" xml:space="preserve">
     <value>Clave de luminancia</value>
   </data>
