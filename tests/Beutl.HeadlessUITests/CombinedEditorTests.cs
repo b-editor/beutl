@@ -577,6 +577,24 @@ public sealed class CombinedEditorTests
         finally { window.Close(); }
     }
 
+    // Typing in one field of the row carries the other field's shown result, which must not replace its own value.
+    [AvaloniaTest]
+    public void Typing_one_field_under_an_expression_keeps_the_other_property()
+    {
+        var transform = new TranslateTransform();
+        transform.X.Value = 100;
+        transform.Y.Value = 200;
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        Assert.That(combined.SetExpression("new Point(150, 250)", out string? error), Is.True, error);
+
+        combined.SetCurrentValueAndGetCoerced((120f, 250f), relative: false);
+        combined.SetValue((150f, 250f), (120f, 250f));
+
+        Assert.That((transform.X.Value, transform.Y.Value), Is.EqualTo((120f, 200f)));
+    }
+
     [AvaloniaTest]
     public void One_expression_reaches_both_as_one_history_entry()
     {
