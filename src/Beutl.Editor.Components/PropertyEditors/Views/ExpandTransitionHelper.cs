@@ -14,9 +14,10 @@ public static class ExpandTransitionHelper
     {
         TimeSpan revealDuration = duration ?? DefaultDuration;
 
-        // Content whose visibility is also bound can be shown by its data context after the first state was applied,
-        // so collapsed content is hidden again once it is in a window.
-        void OnAttached(object? sender, VisualTreeAttachmentEventArgs e)
+        // Content whose visibility is also bound (rows shown only outside presenter mode) can be shown by that binding
+        // while collapsed: when its data context arrives after the first state was applied, or when it leaves presenter
+        // mode. Collapsed content is hidden again then, and once it is in a window.
+        void HideIfCollapsed()
         {
             if (toggle.IsChecked != true && content.IsVisible)
             {
@@ -26,7 +27,13 @@ public static class ExpandTransitionHelper
             }
         }
 
+        void OnAttached(object? sender, VisualTreeAttachmentEventArgs e) => HideIfCollapsed();
+
         content.AttachedToVisualTree += OnAttached;
+        IDisposable shown = content.GetObservable(Visual.IsVisibleProperty)
+            .Skip(1)
+            .Where(visible => visible)
+            .Subscribe(_ => HideIfCollapsed());
 
         IDisposable subscription = toggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
@@ -50,6 +57,7 @@ public static class ExpandTransitionHelper
         return Disposable.Create(() =>
         {
             subscription.Dispose();
+            shown.Dispose();
             content.AttachedToVisualTree -= OnAttached;
         });
     }

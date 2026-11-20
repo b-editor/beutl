@@ -152,6 +152,53 @@ public sealed class UiMotionTests
         }
     }
 
+    public sealed class Presenter : System.ComponentModel.INotifyPropertyChanged
+    {
+        private bool _isShown;
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        public bool IsShown
+        {
+            get => _isShown;
+            set
+            {
+                _isShown = value;
+                PropertyChanged?.Invoke(this, new(nameof(IsShown)));
+            }
+        }
+    }
+
+    // A list item leaving presenter mode while collapsed shows its rows through the binding; they stay hidden.
+    [AvaloniaTest]
+    public void Collapsed_content_stays_hidden_when_its_bound_visibility_turns_on_in_a_window()
+    {
+        var toggle = new ToggleButton();
+        var content = new Border { Height = 40 };
+        var presenter = new Presenter();
+        content.Bind(Visual.IsVisibleProperty, new Binding(nameof(Presenter.IsShown)));
+        content.DataContext = presenter;
+        ExpandTransitionHelper.Attach(toggle, content);
+        var window = new Window { Content = new StackPanel { Children = { toggle, content } }, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            presenter.IsShown = true;
+            HeadlessTestHelpers.Render();
+            Assert.That(content.IsVisible, Is.False);
+
+            // The binding still drives it: opened, the rows show.
+            toggle.IsChecked = true;
+            Assert.That(content.IsVisible, Is.True);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public void A_disposed_helper_leaves_the_content_alone()
     {
