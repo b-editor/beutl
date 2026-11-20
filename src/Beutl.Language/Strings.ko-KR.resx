@@ -1158,7 +1158,8 @@
     <value>함수</value>
   </data>
   <data name="Expression_Variables_Description" xml:space="preserve">
-    <value>Time: 요소 시작 기준 현재 시간(초)
+    <value>Value: 표현식을 적용하기 전 이 속성의 값(키프레임 값 또는 설정값)
+Time: 요소 시작 기준 현재 시간(초)
 Start: 요소 시작 시간(초)
 Duration: 요소 길이(초)
 Progress: 정규화된 진행률(0.0~1.0)
@@ -1180,9 +1181,14 @@ PI: 수학 상수 π (3.14159...)</value>
     <value>유틸리티: Radians, Degrees, Mod, Frac
 무작위: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
   </data>
+  <data name="Expression_Functions_Time" xml:space="preserve">
+    <value>다른 시점: ValueAtTime(time), GetProperty&lt;T&gt;(path, time)</value>
+  </data>
   <data name="Expression_GetProperty_Description" xml:space="preserve">
     <value>다른 속성 참조:
 GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
+다른 시점 지정(이 요소의 시작부터 초 단위):
+GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyName", time)
 예: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="Histogram" xml:space="preserve">

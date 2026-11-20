@@ -1158,7 +1158,8 @@
     <value>函数</value>
   </data>
   <data name="Expression_Variables_Description" xml:space="preserve">
-    <value>Time：相对于元素开始的当前时间（秒）
+    <value>Value：此属性应用表达式之前的值（关键帧值或设定值）
+Time：相对于元素开始的当前时间（秒）
 Start：元素开始时间（秒）
 Duration：元素时长（秒）
 Progress：归一化进度（0.0 到 1.0）
@@ -1180,9 +1181,14 @@ PI：数学常数 π (3.14159...)</value>
     <value>实用工具：Radians、Degrees、Mod、Frac
 随机：Random(seed)、Random(seed, min, max)、FrameRandom()、FrameRandom(min, max)</value>
   </data>
+  <data name="Expression_Functions_Time" xml:space="preserve">
+    <value>其他时间：ValueAtTime(time)、GetProperty&lt;T&gt;(path, time)</value>
+  </data>
   <data name="Expression_GetProperty_Description" xml:space="preserve">
     <value>引用其他属性：
 GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
+指定其他时间（从当前元素开始计算的秒数）：
+GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName", time)
 示例：GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="Histogram" xml:space="preserve">
