@@ -80,7 +80,8 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
 
     private protected void OnLiveColorChanged(TColor newValue, TColor oldValue)
     {
-        if (IsLivePreviewEnabled && !EqualityComparer<TColor>.Default.Equals(newValue, oldValue))
+        // Compared with the editor's value: the picker's reported old color can already be the new one.
+        if (IsLivePreviewEnabled && !EqualityComparer<TColor>.Default.Equals(newValue, Value))
         {
             _hasColorEdit = true;
             Value = newValue;
