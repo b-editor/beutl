@@ -88,7 +88,11 @@ public static class ItemsMotion
             if (!Dispatcher.UIThread.CheckAccess() || TopLevel.GetTopLevel(_owner) is not { } topLevel) return;
 
             _changes++;
-            _addedIndex = e is { Action: NotifyCollectionChangedAction.Add, NewItems.Count: 1 } ? e.NewStartingIndex : -1;
+            // A row added while the list is hidden (a list editor fills its rows just before it opens) appears with the
+            // list, even if the list shows by the next frame.
+            _addedIndex = e is { Action: NotifyCollectionChangedAction.Add, NewItems.Count: 1 } && _owner.IsEffectivelyVisible
+                ? e.NewStartingIndex
+                : -1;
             // Decided at the start of the next frame, before it draws the new row, once every change made with this
             // one is known.
             if (!_scheduled)

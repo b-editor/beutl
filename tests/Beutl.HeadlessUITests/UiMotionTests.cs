@@ -114,6 +114,13 @@ public sealed class UiMotionTests
             Assert.That(list.ContainerFromIndex(0)!.Opacity, Is.EqualTo(1), "A row of a refilled source was revealed.");
             Assert.That(list.ContainerFromIndex(1)!.Opacity, Is.EqualTo(1), "A row of a refilled source was revealed.");
 
+            // A row added while the list is hidden, with the list shown again before the next frame.
+            list.IsVisible = false;
+            items.Add("r");
+            list.IsVisible = true;
+            HeadlessTestHelpers.Render();
+            Assert.That(list.ContainerFromIndex(2)!.Opacity, Is.EqualTo(1), "A row added while hidden was revealed.");
+
             list.ItemsSource = new ObservableCollection<string> { "x", "y" };
             HeadlessTestHelpers.Render();
             Assert.That(list.ContainerFromIndex(0)!.Opacity, Is.EqualTo(1), "A row of a new source was revealed.");
