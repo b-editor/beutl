@@ -25,6 +25,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly Func<NativeWebView, IAsyncDisposable> _beginReparenting;
     private readonly bool _navigationStartedIncludesSubframes;
     private readonly bool _handlesMediaResponsesNatively;
+    private readonly bool? _reportsNavigationCommits;
     private NativeWebView? _webView;
     private BrowserAdBlockSession? _adBlockSession;
     private IDisposable? _nativeBrowserHandler;
@@ -51,7 +52,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         bool? handlesMediaResponsesNatively = null,
         Func<NativeWebView, Task<string?>>? getPageContentType = null,
         Func<NativeWebView, Uri, Uri, bool>? navigateWithReferrer = null,
-        Func<NativeWebView, IAsyncDisposable>? beginReparenting = null)
+        Func<NativeWebView, IAsyncDisposable>? beginReparenting = null,
+        bool? reportsNavigationCommits = null)
     {
         _createWebView = createWebView;
         _getWebViewAvailability = getWebViewAvailability;
@@ -66,6 +68,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         // The macOS and Windows handlers turn a main-frame media response into a download. WebKitGTK shows media
         // itself, so Linux checks the request or the shown page instead.
         _handlesMediaResponsesNatively = handlesMediaResponsesNatively ?? !OperatingSystem.IsLinux();
+        _reportsNavigationCommits = reportsNavigationCommits;
         FaviconLoader = faviconLoader;
         InitializeComponent();
         AddressTextBox.SearchSuggestionsChanged += OnSearchSuggestionsChanged;
