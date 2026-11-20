@@ -139,6 +139,29 @@ public class TimelineScrollTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Windows_touchpad_zoom_zooms_like_a_pinch(bool ruler)
+    {
+        using TimelineSession session = await TimelineSession.CreateAsync(null, false);
+        double scale = 1;
+        // Both steps start from a whole offset: from a fractional one the view zooms around the panel's
+        // pixel-rounded position, a few thousandths of a pixel away, whatever the input.
+        foreach (int delta in new[] { 120, -60 })
+        {
+            double x = session.WindowsTouchpadZoom(delta, ruler);
+            scale *= Math.Pow(1.2, delta / 120.0);
+            Assert.Multiple(() =>
+            {
+                Assert.That(session.Model.Options.Value.Scale, Is.EqualTo(scale).Within(0.0001));
+                Assert.That((session.Content.Offset.X + x) / session.Model.Options.Value.Scale,
+                    Is.EqualTo(300 + x).Within(0.001));
+                Assert.That(session.Content.Offset.Y, Is.EqualTo(200));
+            });
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Touchpad_pinch_clamps_and_ignores_invalid_magnification()
     {
         using TimelineSession session = await TimelineSession.CreateAsync(null, false);
@@ -215,6 +238,21 @@ public class TimelineScrollTests
             source.RaiseEvent(args);
             HeadlessTestHelpers.Render();
             return args;
+        }
+
+        // Sends the Ctrl + wheel message that Windows makes from a precision touchpad pinch. The message
+        // carries whole screen pixels, so this returns the x in the target where the view saw the pointer.
+        public double WindowsTouchpadZoom(int delta, bool ruler)
+        {
+            Control target = ruler ? _host.RulerBar : Content;
+            Point point = target.TranslatePoint(new Point(100, ruler ? 4 : 80), _host.Window)!.Value;
+            TimelineTestHost.WaitForHitTest(_host.Window, target, point);
+            Assert.That(NativeScrollInput.Windows.ConvertTouchpadZoom(_host.Window, 0x020a,
+                NativeScrollInputTests.WheelParam(0x0008, delta), NativeScrollInputTests.ScreenParam(_host.Window, point),
+                () => 0x10, _ => false, 1), Is.True);
+            HeadlessTestHelpers.Render();
+            Point seen = _host.Window.PointToClient(_host.Window.PointToScreen(point));
+            return _host.Window.TranslatePoint(seen, target)!.Value.X;
         }
 
         public void Dispose()

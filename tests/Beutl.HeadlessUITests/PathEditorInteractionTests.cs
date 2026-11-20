@@ -303,6 +303,28 @@ public class PathEditorInteractionTests
     }
 
     [AvaloniaTest]
+    public async Task Pinch_zooms_around_the_pointer_and_ignores_invalid_magnification()
+    {
+        using var editor = await Fixture.Create();
+        Point screen = new(230, 170);
+        Point local = editor.View.Matrix.Invert().Transform(screen);
+        Assert.That(editor.Pinch(screen, 0.2), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.View.Matrix.M11, Is.EqualTo(1.2).Within(1e-9), "A pinch scales by 1 + its magnification.");
+            Assert.That(((Vector)(editor.View.Matrix.Transform(local) - screen)).Length, Is.LessThan(.001));
+        });
+        Matrix zoomed = editor.View.Matrix;
+        foreach (double delta in new[] { -1, -2, double.NaN })
+        {
+            Assert.That(editor.Pinch(screen, delta), Is.True);
+            Assert.That(editor.View.Matrix, Is.EqualTo(zoomed));
+        }
+        Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
+    }
+
+    [AvaloniaTest]
     public async Task Pen_adds_curves_closes_path_and_delete_is_one_undo_step()
     {
         using var editor = await Fixture.Create(empty: true);
@@ -2035,6 +2057,14 @@ public class PathEditorInteractionTests
 
         public void MouseWheel(Point point, Vector delta, RawInputModifiers modifiers = RawInputModifiers.None)
             => Window.MouseWheel(WindowPoint(point), delta, modifiers);
+
+        public bool Pinch(Point point, double delta)
+        {
+            bool handled = Beutl.Editor.Components.Helpers.NativeScrollInput.RaiseMagnify(
+                Window, WindowPoint(point), delta, KeyModifiers.None, 1);
+            HeadlessTestHelpers.Render();
+            return handled;
+        }
 
         public void ClickControl(Control control, RawInputModifiers modifiers = RawInputModifiers.None, Action? beforePress = null)
         {
