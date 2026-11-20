@@ -4,6 +4,8 @@ using System.Text;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -26,7 +28,11 @@ public sealed class SvgImageTests
         </svg>
         """;
 
-    private const string TooLargeForPixels = """<svg xmlns="http://www.w3.org/2000/svg" width="16384" height="16384"/>""";
+    private const string TooLargeForPixels = """
+        <svg xmlns="http://www.w3.org/2000/svg" width="16384" height="16384">
+          <rect width="8192" height="16384" fill="#ff0000"/>
+        </svg>
+        """;
 
     private static readonly Bgra8888 s_green = new(10, 200, 30, 255);
 
@@ -224,33 +230,49 @@ public sealed class SvgImageTests
         });
     }
 
-    [Test]
-    public void A_brush_of_an_SVG_too_large_for_pixels_fills_nothing_in_a_preview()
+    [TestCase(RenderIntent.Preview)]
+    [TestCase(RenderIntent.Delivery)]
+    public void A_brush_of_an_SVG_too_large_for_pixels_draws_from_its_drawing(RenderIntent intent)
     {
         using ImageBrush.Resource brush = OpenBrush(TooLargeForPixels);
         var constructor = new BrushConstructor(
-            new Rect(0, 0, 8, 8), brush, BlendMode.SrcOver, RenderIntent.Preview, drawableBrushMaterializer: null);
+            new Rect(0, 0, 8, 8), brush, BlendMode.SrcOver, intent, drawableBrushMaterializer: null);
+        using var surface = SKSurface.Create(new SKImageInfo(8, 8, SKColorType.Bgra8888, SKAlphaType.Premul));
         using var paint = new SKPaint();
 
         constructor.ConfigurePaint(paint);
+        surface.Canvas.Clear(SKColors.Transparent);
+        surface.Canvas.DrawRect(new SKRect(0, 0, 8, 8), paint);
+        using SKPixmap pixels = surface.PeekPixels();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(paint.Shader, Is.Not.Null);
+            Assert.That(pixels.GetPixelColor(1, 4), Is.EqualTo(new SKColor(255, 0, 0, 255)));
+            Assert.That(pixels.GetPixelColor(6, 4).Alpha, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void An_image_brush_without_a_source_fills_nothing_in_preview_and_stops_delivery()
+    {
+        using ImageBrush.Resource brush = new ImageBrush().ToResource(CompositionContext.Default);
+        var preview = new BrushConstructor(
+            new Rect(0, 0, 8, 8), brush, BlendMode.SrcOver, RenderIntent.Preview, drawableBrushMaterializer: null);
+        var delivery = new BrushConstructor(
+            new Rect(0, 0, 8, 8), brush, BlendMode.SrcOver, RenderIntent.Delivery, drawableBrushMaterializer: null);
+        using var paint = new SKPaint();
+
+        preview.ConfigurePaint(paint);
 
         Assert.Multiple(() =>
         {
             Assert.That(paint.Shader, Is.Null);
             Assert.That(paint.Color.Alpha, Is.Zero);
+            Assert.That(
+                () => delivery.CreateShader(),
+                Throws.InvalidOperationException.With.Message.Contain("no pixels"));
         });
-    }
-
-    [Test]
-    public void An_export_stops_at_a_brush_of_an_SVG_too_large_for_pixels()
-    {
-        using ImageBrush.Resource brush = OpenBrush(TooLargeForPixels);
-        var constructor = new BrushConstructor(
-            new Rect(0, 0, 8, 8), brush, BlendMode.SrcOver, RenderIntent.Delivery, drawableBrushMaterializer: null);
-
-        Assert.That(
-            () => constructor.CreateShader(),
-            Throws.InvalidOperationException.With.Message.Contain("no pixels"));
     }
 
     // Older Illustrator files declare their namespaces this way.
@@ -374,6 +396,137 @@ public sealed class SvgImageTests
             using Bitmap rendered = GoldenImageHarness.RenderAtScale(resource, new PixelSize(20, 10), 8f);
 
             // The edge is at device x = 80. Pixels at 8x would blur across a few of these.
+            Assert.Multiple(() =>
+            {
+                Assert.That(ReadRed(rendered, 78, 40), Is.EqualTo(1f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 79, 40), Is.EqualTo(1f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 80, 40), Is.EqualTo(0f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 81, 40), Is.EqualTo(0f).Within(0.001f));
+            });
+        });
+    }
+
+    [Test]
+    public void An_SVG_image_brush_stays_sharp_when_scaled_up()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var source = new ImageSource();
+            source.ReadFrom(new Uri(Write(HalfRed)));
+            var rect = new RectShape
+            {
+                Width = { Value = 20 },
+                Height = { Value = 10 },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                Fill = { Value = new ImageBrush(source) { Stretch = { Value = Stretch.Fill } } },
+            };
+            using Drawable.Resource resource = rect.ToResource(CompositionContext.Default);
+
+            using Bitmap rendered = GoldenImageHarness.RenderAtScale(resource, new PixelSize(20, 10), 8f);
+
+            // The edge is at device x = 80. Rasterizing the SVG at declared 20x10 would blur across pixels 76..83.
+            Assert.Multiple(() =>
+            {
+                Assert.That(ReadRed(rendered, 78, 40), Is.EqualTo(1f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 79, 40), Is.EqualTo(1f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 80, 40), Is.EqualTo(0f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 81, 40), Is.EqualTo(0f).Within(0.001f));
+            });
+        });
+    }
+
+    [Test]
+    public void An_SVG_image_brush_stays_sharp_when_stretched_past_its_declared_size()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var source = new ImageSource();
+            source.ReadFrom(new Uri(Write(HalfRed)));
+            var rect = new RectShape
+            {
+                Width = { Value = 160 },
+                Height = { Value = 80 },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                Fill = { Value = new ImageBrush(source) { Stretch = { Value = Stretch.Fill } } },
+            };
+            using Drawable.Resource resource = rect.ToResource(CompositionContext.Default);
+
+            using Bitmap rendered = GoldenImageHarness.RenderAtScale(resource, new PixelSize(160, 80), 1f);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ReadRed(rendered, 78, 40), Is.EqualTo(1f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 79, 40), Is.EqualTo(1f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 80, 40), Is.EqualTo(0f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 81, 40), Is.EqualTo(0f).Within(0.001f));
+            });
+        });
+    }
+
+    [Test]
+    public void An_SVG_image_brush_stays_sharp_under_a_scale_transform()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var source = new ImageSource();
+            source.ReadFrom(new Uri(Write(HalfRed)));
+            var rect = new RectShape
+            {
+                Width = { Value = 20 },
+                Height = { Value = 10 },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                TransformOrigin = { Value = RelativePoint.TopLeft },
+                Transform = { Value = new ScaleTransform { Scale = { Value = 800 } } },
+                Fill = { Value = new ImageBrush(source) { Stretch = { Value = Stretch.Fill } } },
+            };
+            using Drawable.Resource resource = rect.ToResource(CompositionContext.Default);
+
+            using Bitmap rendered = GoldenImageHarness.RenderAtScale(resource, new PixelSize(160, 80), 1f);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ReadRed(rendered, 78, 40), Is.EqualTo(1f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 79, 40), Is.EqualTo(1f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 80, 40), Is.EqualTo(0f).Within(0.001f));
+                Assert.That(ReadRed(rendered, 81, 40), Is.EqualTo(0f).Within(0.001f));
+            });
+        });
+    }
+
+    [Test]
+    public void An_SVG_image_brush_stays_sharp_under_its_own_scale_transform()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var source = new ImageSource();
+            source.ReadFrom(new Uri(Write(HalfRed)));
+            var brush = new ImageBrush(source)
+            {
+                Stretch = { Value = Stretch.None },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                TransformOrigin = { Value = RelativePoint.TopLeft },
+                Transform = { Value = new ScaleTransform { Scale = { Value = 800 } } },
+            };
+            var rect = new RectShape
+            {
+                Width = { Value = 160 },
+                Height = { Value = 80 },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                Fill = { Value = brush },
+            };
+            using Drawable.Resource resource = rect.ToResource(CompositionContext.Default);
+
+            using Bitmap rendered = GoldenImageHarness.RenderAtScale(resource, new PixelSize(160, 80), 1f);
+
             Assert.Multiple(() =>
             {
                 Assert.That(ReadRed(rendered, 78, 40), Is.EqualTo(1f).Within(0.001f));

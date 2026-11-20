@@ -22,6 +22,7 @@ public readonly struct BrushConstructor(
     private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer = drawableBrushMaterializer;
     private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
+    private readonly float _svgCanvasDensity = scale;
 
     /// <summary>
     /// Binds the constructor to the render pass's lease session so a tile-brush intermediate is allocated
@@ -35,10 +36,12 @@ public readonly struct BrushConstructor(
         float maxWorkingScale,
         RenderIntent intent,
         DrawableBrushMaterializer? drawableBrushMaterializer,
-        RenderTargetLeaseSession? renderTargetLeaseSession)
+        RenderTargetLeaseSession? renderTargetLeaseSession,
+        float? svgCanvasDensity = null)
         : this(bounds, brush, blendMode, intent, drawableBrushMaterializer, scale, maxWorkingScale)
     {
         _renderTargetLeaseSession = renderTargetLeaseSession;
+        _svgCanvasDensity = svgCanvasDensity ?? scale;
     }
 
     public Rect Bounds { get; } = bounds;
@@ -304,16 +307,21 @@ public readonly struct BrushConstructor(
     private SKShader? CreateTileShader(TileBrush.Resource tileBrush)
     {
         float s = Scale;
-        if (!TryResolveTileSource(tileBrush, s, out SKImage? skImage, out Size contentSize, out float contentDensity))
+        if (!TryResolveTileSource(tileBrush, s, out SKImage? skImage, out SKPicture? skPicture, out Size contentSize, out float contentDensity))
             return null;
 
         RenderTarget? intermediate = null;
         RenderTargetLease? intermediateLease = null;
         try
         {
-            if (skImage == null) return null;
+            if (skImage == null && skPicture == null) return null;
 
             var calc = new TileBrushCalculator(tileBrush, contentSize, Bounds.Size);
+
+            if (skPicture != null)
+            {
+                s = ResolveSvgTileDensity(tileBrush, calc.IntermediateSize, s);
+            }
 
             int iw = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Width * s));
             int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
@@ -331,7 +339,7 @@ public readonly struct BrushConstructor(
                 return null;
             }
 
-            RasterizeTileContent(intermediate, tileBrush, in calc, skImage, s, contentDensity);
+            RasterizeTileContent(intermediate, tileBrush, in calc, skImage, skPicture, contentSize, s, contentDensity);
 
             SKMatrix tileTransform = tileBrush.TileMode != TileMode.None
                 ? SKMatrix.CreateTranslation(-calc.DestinationRect.X, -calc.DestinationRect.Y)
@@ -372,18 +380,21 @@ public readonly struct BrushConstructor(
     }
 
     /// <summary>
-    /// Resolves the image a tile brush tiles at density <paramref name="s"/>, which the caller disposes, with the
-    /// logical size and the device pixels per logical unit of its content.
+    /// Resolves the image or vector drawing a tile brush tiles at density <paramref name="s"/>, with the
+    /// logical size and the device pixels per logical unit of its content. The caller disposes <paramref name="skImage"/>
+    /// (never <paramref name="skPicture"/>, which belongs to the source).
     /// </summary>
     /// <returns><see langword="false"/> when the brush has no image to tile; the fill degrades to transparent.</returns>
     private bool TryResolveTileSource(
         TileBrush.Resource tileBrush,
         float s,
         out SKImage? skImage,
+        out SKPicture? skPicture,
         out Size contentSize,
         out float contentDensity)
     {
         skImage = null;
+        skPicture = null;
         contentSize = default;
         contentDensity = 0;
         if (tileBrush is DrawableBrush.Resource drawableBrush)
@@ -414,7 +425,16 @@ public readonly struct BrushConstructor(
 
         if (tileBrush is ImageBrush.Resource imageBrush)
         {
-            // An SVG too large to turn into pixels has none, and no source has none either.
+            if (imageBrush.Source?.Picture is { } picture
+                && imageBrush.Source.FrameSize.Width > 0
+                && imageBrush.Source.FrameSize.Height > 0)
+            {
+                skPicture = picture;
+                contentSize = imageBrush.Source.FrameSize.ToSize(1);
+                contentDensity = 1f;
+                return true;
+            }
+
             if (imageBrush.Source?.Bitmap is not { } bitmap)
             {
                 s_logger.LogWarning(
@@ -431,6 +451,33 @@ public readonly struct BrushConstructor(
         }
 
         throw new InvalidOperationException($"'{tileBrush.GetType().Name}' not supported.");
+    }
+
+    private float ResolveSvgTileDensity(TileBrush.Resource tileBrush, Size intermediateSize, float baseScale)
+    {
+        float desired = _svgCanvasDensity;
+        if (tileBrush.Transform is not null)
+        {
+            Matrix transform = CreateBrushTransform(tileBrush.TransformOrigin, tileBrush.Transform);
+            if (!DeviceGridAlignment.IsPerspective(transform))
+            {
+                float brushScale = DeviceGridAlignment.ResolveAffineDensity(transform, 1f);
+                float combined = desired * brushScale;
+                if (float.IsFinite(combined) && combined > 0f)
+                    desired = combined;
+            }
+        }
+
+        if (!float.IsFinite(desired) || desired <= baseScale)
+            return baseScale;
+
+        desired = MathF.Min(desired, MaxWorkingScale);
+        if (desired <= baseScale)
+            return baseScale;
+
+        float clamped = BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation)
+            .ClampWorkingScale(new Rect(intermediateSize), desired);
+        return MathF.Max(baseScale, clamped);
     }
 
     /// <summary>
@@ -453,13 +500,14 @@ public readonly struct BrushConstructor(
         RenderTarget intermediate,
         TileBrush.Resource tileBrush,
         in TileBrushCalculator calc,
-        SKImage skImage,
+        SKImage? skImage,
+        SKPicture? skPicture,
+        Size contentSize,
         float s,
         float contentDensity)
     {
         // Density 1: the SetMatrix below builds an absolute device matrix with Scale(s) folded in.
         using (var canvas = new ImmediateCanvas(intermediate, Intent, 1f, MaxWorkingScale))
-        using (var paintTmp = new SKPaint())
         {
             canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
             canvas.Canvas.Clear();
@@ -468,12 +516,22 @@ public readonly struct BrushConstructor(
             canvas.Canvas.ClipRect(new SKRect(
                 (float)clip.Left * s, (float)clip.Top * s, (float)clip.Right * s, (float)clip.Bottom * s));
             SKMatrix draw = SKMatrix.CreateScale(s, s)
-                .PreConcat(calc.IntermediateTransform.ToSKMatrix())
-                .PreConcat(SKMatrix.CreateScale(1f / contentDensity, 1f / contentDensity));
-            canvas.Canvas.SetMatrix(draw);
+                .PreConcat(calc.IntermediateTransform.ToSKMatrix());
 
-            canvas.Canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(),
-                paintTmp);
+            if (skPicture is not null)
+            {
+                canvas.Canvas.SetMatrix(draw);
+                canvas.Canvas.ClipRect(SKRect.Create(contentSize.Width, contentSize.Height));
+                canvas.Canvas.DrawPicture(skPicture);
+            }
+            else
+            {
+                draw = draw.PreConcat(SKMatrix.CreateScale(1f / contentDensity, 1f / contentDensity));
+                canvas.Canvas.SetMatrix(draw);
+                using var paintTmp = new SKPaint();
+                canvas.Canvas.DrawImage(skImage!, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(),
+                    paintTmp);
+            }
 
             canvas.Canvas.Restore();
         }

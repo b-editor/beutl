@@ -2,6 +2,7 @@
 using System.Numerics;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -28,8 +29,8 @@ public sealed partial class ImageTextureSource : TextureSource
         private readonly CachedTexture[] _gpuTextures = new CachedTexture[3];
         private int? _versionWithoutStraightColors;
 
-        // A decoded bitmap has a fixed pixel count, so surfaceDensity is ignored here —
-        // unlike DrawableTextureSource, whose vector content re-rasterizes at the surface density.
+        // A decoded bitmap has a fixed pixel count, so surfaceDensity is ignored for raster images,
+        // while an SVG re-rasterizes its vector drawing at the surface density.
         public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
         {
             return GetTexture(graphicsContext, surfaceDensity, TextureContentKind.Color);
@@ -37,8 +38,39 @@ public sealed partial class ImageTextureSource : TextureSource
 
         public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity, TextureContentKind contentKind)
         {
-            return GetCachedTexture(graphicsContext, (int)contentKind, contentKind,
-                static (bitmap, kind) => CreateUploadBitmap(bitmap, kind));
+            if (Source == null)
+            {
+                DisposeGpuTextures();
+                return null;
+            }
+
+            if (Source.Picture != null)
+            {
+                float sanitizedDensity = RenderScaleUtilities.SanitizeOutputScale(surfaceDensity);
+                int maxDimension = BufferDimensionBudget.ForDevice(graphicsContext).MaxDimension;
+                PixelSize targetSize = Source.ResolveSvgRasterSize(sanitizedDensity, maxDimension);
+                return GetCachedTexture(
+                    graphicsContext,
+                    (int)contentKind,
+                    targetSize,
+                    sanitizedDensity,
+                    (Source, targetSize, contentKind),
+                    static state => CreateSvgUploadBitmap(state.Source, state.targetSize, state.contentKind));
+            }
+
+            if (Source.Bitmap is not { } bitmap)
+            {
+                DisposeGpuTextures();
+                return null;
+            }
+
+            return GetCachedTexture(
+                graphicsContext,
+                (int)contentKind,
+                Source.FrameSize,
+                1f,
+                (bitmap, contentKind),
+                static state => CreateUploadBitmap(state.bitmap, state.contentKind));
         }
 
         internal override ITexture2D? GetStraightColorTexture(IGraphicsContext graphicsContext)
@@ -46,24 +78,46 @@ public sealed partial class ImageTextureSource : TextureSource
             if (_versionWithoutStraightColors == Version)
                 return null;
 
-            ITexture2D? texture = GetCachedTexture(graphicsContext, StraightColorSlot, this, static (bitmap, self) =>
+            if (Source?.Picture != null)
             {
-                using Bitmap? decoded = self.Source?.DecodeUnpremultiplied();
-                // A file replaced since it was loaded can hold another size than the texture is made for.
-                return decoded?.Width == bitmap.Width && decoded.Height == bitmap.Height
-                    ? CreateStraightColorUploadBitmap(decoded)
-                    : null;
-            });
+                _versionWithoutStraightColors = Version;
+                return null;
+            }
+
+            if (Source?.Bitmap is not { } sourceBitmap)
+            {
+                DisposeGpuTextures();
+                _versionWithoutStraightColors = Version;
+                return null;
+            }
+
+            ITexture2D? texture = GetCachedTexture(
+                graphicsContext,
+                StraightColorSlot,
+                Source.FrameSize,
+                1f,
+                (Source, sourceBitmap),
+                static state =>
+                {
+                    using Bitmap? decoded = state.Source.DecodeUnpremultiplied();
+                    // A file replaced since it was loaded can hold another size than the texture is made for.
+                    return decoded?.Width == state.sourceBitmap.Width && decoded.Height == state.sourceBitmap.Height
+                        ? CreateStraightColorUploadBitmap(decoded)
+                        : null;
+                });
             if (texture == null)
                 _versionWithoutStraightColors = Version;
 
             return texture;
         }
 
-        internal override bool TryGetAlpha(Vector2 texCoord, out float alpha)
+        internal override bool TryGetAlpha(Vector2 texCoord, out float alpha, float? surfaceDensity = null)
         {
+            if (Source?.Picture is { } picture)
+                return TryGetPictureAlpha(picture, Source, texCoord, ResolveHitTestSvgRasterSize(Source, surfaceDensity), out alpha);
+
             if (Source?.Bitmap is not { } bitmap)
-                return base.TryGetAlpha(texCoord, out alpha);
+                return base.TryGetAlpha(texCoord, out alpha, surfaceDensity);
 
             // Filtered and clamped to the edge, as the materials sample their maps.
             float x = texCoord.X * bitmap.Width - 0.5f;
@@ -77,38 +131,99 @@ public sealed partial class ImageTextureSource : TextureSource
             return true;
         }
 
+        private PixelSize ResolveHitTestSvgRasterSize(ImageSource.Resource source, float? surfaceDensity)
+        {
+            ref readonly CachedTexture cachedColor = ref _gpuTextures[(int)TextureContentKind.Color];
+            if (cachedColor.Texture != null && cachedColor.Version == Version)
+            {
+                if (surfaceDensity is null
+                    || RenderScaleUtilities.SanitizeOutputScale(surfaceDensity.Value) == cachedColor.Density)
+                {
+                    return new PixelSize(cachedColor.Texture.Width, cachedColor.Texture.Height);
+                }
+            }
+
+            IGraphicsContext? context = cachedColor.Context ?? GraphicsContextFactory.SharedContext;
+            int maxDimension = BufferDimensionBudget.ForDevice(context).MaxDimension;
+            return source.ResolveSvgRasterSize(surfaceDensity ?? 1f, maxDimension);
+        }
+
+        private static bool TryGetPictureAlpha(
+            SKPicture picture,
+            ImageSource.Resource source,
+            Vector2 texCoord,
+            PixelSize rasterSize,
+            out float alpha)
+        {
+            PixelSize frameSize = source.FrameSize;
+            if (frameSize.Width <= 0 || frameSize.Height <= 0 || rasterSize.Width <= 0 || rasterSize.Height <= 0)
+            {
+                alpha = 1;
+                return false;
+            }
+
+            // Rasterize only the 2x2 texel neighborhood at the rendered texture's resolution and filter linearly
+            // with clamp-to-edge, matching how the material samples the uploaded texture.
+            float x = texCoord.X * rasterSize.Width - 0.5f;
+            float y = texCoord.Y * rasterSize.Height - 0.5f;
+            int left = (int)MathF.Floor(x);
+            int top = (int)MathF.Floor(y);
+            int x0 = Math.Clamp(left, 0, rasterSize.Width - 1);
+            int x1 = Math.Clamp(left + 1, 0, rasterSize.Width - 1);
+            int y0 = Math.Clamp(top, 0, rasterSize.Height - 1);
+            int y1 = Math.Clamp(top + 1, 0, rasterSize.Height - 1);
+            int patchWidth = x1 - x0 + 1;
+            int patchHeight = y1 - y0 + 1;
+
+            using var surface = SKSurface.Create(new SKImageInfo(patchWidth, patchHeight, SKColorType.Bgra8888, SKAlphaType.Premul));
+            surface.Canvas.Clear(SKColors.Transparent);
+            surface.Canvas.Translate(-x0, -y0);
+            surface.Canvas.Scale((float)rasterSize.Width / frameSize.Width, (float)rasterSize.Height / frameSize.Height);
+            surface.Canvas.ClipRect(SKRect.Create(frameSize.Width, frameSize.Height));
+            surface.Canvas.DrawPicture(picture);
+            using SKPixmap pixels = surface.PeekPixels();
+            float a00 = pixels.GetPixelColor(0, 0).Alpha / 255f;
+            float a10 = pixels.GetPixelColor(x1 - x0, 0).Alpha / 255f;
+            float a01 = pixels.GetPixelColor(0, y1 - y0).Alpha / 255f;
+            float a11 = pixels.GetPixelColor(x1 - x0, y1 - y0).Alpha / 255f;
+            alpha = float.Lerp(
+                float.Lerp(a00, a10, x - left),
+                float.Lerp(a01, a11, x - left),
+                y - top);
+            return true;
+        }
+
         private static float ReadAlpha(Bitmap bitmap, int x, int y)
             => bitmap.SKBitmap.GetPixel(Math.Clamp(x, 0, bitmap.Width - 1), Math.Clamp(y, 0, bitmap.Height - 1)).Alpha / 255f;
 
         private ITexture2D? GetCachedTexture<TState>(
-            IGraphicsContext graphicsContext, int slot, TState state, Func<Bitmap, TState, Bitmap?> createUpload)
+            IGraphicsContext graphicsContext,
+            int slot,
+            PixelSize targetSize,
+            float density,
+            TState state,
+            Func<TState, Bitmap?> createUpload)
         {
-            if (Source?.Bitmap == null)
-            {
-                DisposeGpuTextures();
-                return null;
-            }
-
             ref CachedTexture cached = ref _gpuTextures[slot];
 
             bool needsRecreate = cached.Texture == null ||
                                  !ReferenceEquals(cached.Context, graphicsContext) ||
                                  cached.Version != Version ||
-                                 cached.Texture.Width != Source.FrameSize.Width ||
-                                 cached.Texture.Height != Source.FrameSize.Height;
+                                 cached.Texture.Width != targetSize.Width ||
+                                 cached.Texture.Height != targetSize.Height;
 
             if (needsRecreate)
             {
                 cached.Texture?.Dispose();
                 cached.Texture = null;
 
-                using Bitmap? uploadBitmap = createUpload(Source.Bitmap, state);
+                using Bitmap? uploadBitmap = createUpload(state);
                 if (uploadBitmap == null)
                     return null;
 
                 var texture = graphicsContext.CreateTexture2D(
-                    Source.FrameSize.Width,
-                    Source.FrameSize.Height,
+                    uploadBitmap.Width,
+                    uploadBitmap.Height,
                     uploadBitmap.ColorType == BitmapColorType.RgbaF16
                         ? TextureFormat.RGBA16Float
                         : TextureFormat.BGRA8Unorm);
@@ -134,9 +249,34 @@ public sealed partial class ImageTextureSource : TextureSource
                 cached.Texture = texture;
                 cached.Context = graphicsContext;
                 cached.Version = Version;
+                cached.Density = density;
             }
 
             return cached.Texture;
+        }
+
+        private static Bitmap? CreateSvgUploadBitmap(
+            ImageSource.Resource source,
+            PixelSize targetSize,
+            TextureContentKind contentKind)
+        {
+            if (contentKind == TextureContentKind.Color)
+            {
+                return source.RasterizePicture(
+                    targetSize,
+                    BitmapColorType.RgbaF16,
+                    BitmapAlphaType.Premul,
+                    BitmapColorSpace.LinearSrgb);
+            }
+
+            // Skia cannot draw directly to an unpremultiplied canvas, so rasterize premultiplied sRGB first
+            // and convert to unpremultiplied BGRA8 for data maps.
+            using Bitmap? rasterized = source.RasterizePicture(
+                targetSize,
+                BitmapColorType.Bgra8888,
+                BitmapAlphaType.Premul,
+                BitmapColorSpace.Srgb);
+            return rasterized is null ? null : CreateUploadBitmap(rasterized, TextureContentKind.Data);
         }
 
         /// <summary>
@@ -215,6 +355,7 @@ public sealed partial class ImageTextureSource : TextureSource
             public ITexture2D? Texture;
             public IGraphicsContext? Context;
             public int Version;
+            public float Density;
         }
     }
 }

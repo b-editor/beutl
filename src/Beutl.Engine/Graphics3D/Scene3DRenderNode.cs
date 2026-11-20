@@ -267,7 +267,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 width,
                 height,
                 Camera,
-                Objects) is not null;
+                Objects,
+                WorkingScale) is not null;
         }
     }
 

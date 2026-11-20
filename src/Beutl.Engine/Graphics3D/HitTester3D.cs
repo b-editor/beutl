@@ -53,6 +53,15 @@ public static class HitTester3D
         int height,
         Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects)
+        => HitTest(screenPoint, width, height, camera, objects, surfaceDensity: null);
+
+    internal static Object3D.Resource? HitTest(
+        Point screenPoint,
+        int width,
+        int height,
+        Camera3D.Resource camera,
+        IReadOnlyList<Object3D.Resource> objects,
+        float? surfaceDensity)
     {
         if (objects.Count == 0)
             return null;
@@ -65,7 +74,7 @@ public static class HitTester3D
 
         foreach (var obj in objects)
         {
-            var (hitObj, distance) = HitTestRecursive(ray, maxDistance, obj, Matrix4x4.Identity);
+            var (hitObj, distance) = HitTestRecursive(ray, maxDistance, obj, Matrix4x4.Identity, surfaceDensity);
             if (hitObj != null && IsCloser(hitObj, distance, closestObject, closestDistance))
             {
                 closestDistance = distance;
@@ -83,7 +92,8 @@ public static class HitTester3D
         Ray3D ray,
         float maxDistance,
         Object3D.Resource obj,
-        Matrix4x4 parentMatrix)
+        Matrix4x4 parentMatrix,
+        float? surfaceDensity)
     {
         if (!obj.IsEnabled)
             return (null, float.MaxValue);
@@ -96,7 +106,7 @@ public static class HitTester3D
         var children = obj.GetChildResources();
         foreach (var child in children)
         {
-            var (hitObj, distance) = HitTestRecursive(ray, maxDistance, child, worldMatrix);
+            var (hitObj, distance) = HitTestRecursive(ray, maxDistance, child, worldMatrix, surfaceDensity);
             if (hitObj != null && IsCloser(hitObj, distance, closestObject, closestDistance))
             {
                 closestDistance = distance;
@@ -104,7 +114,7 @@ public static class HitTester3D
             }
         }
 
-        if (TryHitObject(ray, maxDistance, obj, worldMatrix, out float meshDistance)
+        if (TryHitObject(ray, maxDistance, obj, worldMatrix, surfaceDensity, out float meshDistance)
             && meshDistance < closestDistance)
         {
             closestDistance = meshDistance;
@@ -129,8 +139,17 @@ public static class HitTester3D
         int height,
         Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects)
+        => HitTestWithPath(screenPoint, width, height, camera, objects, surfaceDensity: null);
+
+    internal static IReadOnlyList<Object3D.Resource> HitTestWithPath(
+        Point screenPoint,
+        int width,
+        int height,
+        Camera3D.Resource camera,
+        IReadOnlyList<Object3D.Resource> objects,
+        float? surfaceDensity)
     {
-        if (HitTest(screenPoint, width, height, camera, objects) is not { } hit)
+        if (HitTest(screenPoint, width, height, camera, objects, surfaceDensity) is not { } hit)
             return [];
 
         var path = new List<Object3D.Resource>();
@@ -253,6 +272,7 @@ public static class HitTester3D
         float maxDistance,
         Object3D.Resource obj,
         Matrix4x4 worldMatrix,
+        float? surfaceDensity,
         out float distance)
     {
         distance = float.MaxValue;
@@ -272,7 +292,8 @@ public static class HitTester3D
                 cullBackFaces: obj.Material?.IsDoubleSided != true,
                 mirrored: worldMatrix.GetDeterminant() < 0,
                 obj.Material?.Cutout,
-                out float localDistance))
+                out float localDistance,
+                surfaceDensity))
         {
             return false;
         }
@@ -362,7 +383,8 @@ public static class HitTester3D
         bool cullBackFaces,
         bool mirrored,
         AlphaCutout? cutout,
-        out float distance)
+        out float distance,
+        float? surfaceDensity = null)
     {
         distance = float.MaxValue;
         bool hit = false;
@@ -394,7 +416,7 @@ public static class HitTester3D
                         Vector2 texCoord = vertices[(int)indices[i]].TexCoord * (1 - u - v)
                             + vertices[(int)indices[i + 1]].TexCoord * u
                             + vertices[(int)indices[i + 2]].TexCoord * v;
-                        if (holes.IsCutOutAt(texCoord))
+                        if (holes.IsCutOutAt(texCoord, surfaceDensity))
                             continue;
                     }
 
