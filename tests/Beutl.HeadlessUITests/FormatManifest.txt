@@ -417,7 +417,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, Script
 [Beutl.Engine]Beutl.Graphics.Effects:ChromaKey
   unsealed
-  keys: Animations, Boundary, Color, Expressions, HueRange, Id, IsEnabled, Name, SaturationRange
+  keys: Animations, Boundary, Color, Expressions, HueRange, Id, IsEnabled, Name, SaturationRange, SpillSuppression
 [Beutl.Engine]Beutl.Graphics.Effects:Clipping
   sealed
   keys: Animations, AutoCenter, AutoClip, Bottom, Expressions, Id, IsEnabled, Left, Name, Right, Top
