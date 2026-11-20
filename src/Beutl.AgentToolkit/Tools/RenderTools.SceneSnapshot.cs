@@ -8,9 +8,12 @@ namespace Beutl.AgentToolkit.Tools;
 
 public sealed partial class RenderTools
 {
-    internal Scene RequireSceneSnapshot()
+    // The session's fonts are captured with the snapshot: a render or background job that runs after the session
+    // is replaced, or its project closes, still resolves that project's fonts.
+    internal Scene RequireSceneSnapshot(out Media.FontManager? fonts)
     {
         IEditingSession session = sessions.RequireSession();
+        fonts = session.Fonts;
         return CreateSceneSnapshot(session);
     }
 

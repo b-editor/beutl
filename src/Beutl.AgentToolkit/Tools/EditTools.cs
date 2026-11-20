@@ -85,7 +85,8 @@ internal sealed record ResolvedEdit(JsonObject Document, HashSet<Guid> KnownNewI
 [McpServerToolType]
 public sealed partial class EditTools(AgentSessionManager sessions, Media.FontManager fonts) : ToolBase
 {
-    private readonly Reconciler _reconciler = new(fonts);
+    // Validates font families against the session's project fonts.
+    private Reconciler ReconcilerFor(IEditingSession session) => new(session.Fonts ?? fonts);
     private readonly CompositionTemplateCatalog _compositionCatalog = new();
 
     [McpServerTool(Name = "apply_edit")]
@@ -108,10 +109,10 @@ public sealed partial class EditTools(AgentSessionManager sessions, Media.FontMa
             IEditingSession session = sessions.RequireSession();
             RequireExactlyOneEdit(desired, patch);
             ReconcileResult result = desired is not null
-                ? _reconciler.Apply(session, ResolveDesiredEdit(desired, schemaVersion), cancellationToken: cancellationToken)
+                ? ReconcilerFor(session).Apply(session, ResolveDesiredEdit(desired, schemaVersion), cancellationToken: cancellationToken)
                 // Resolve the patch inside the reconcile dispatch so the read + merge is atomic with
                 // the mutation on a live session (see Reconciler.ApplyFromCurrent).
-                : _reconciler.ApplyFromCurrent(session, current =>
+                : ReconcilerFor(session).ApplyFromCurrent(session, current =>
                 {
                     ResolvedEdit resolved = ResolvePatchEdit(current, patch!, schemaVersion);
                     return (resolved.Document, resolved.KnownNewIds);

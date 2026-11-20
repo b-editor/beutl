@@ -21,7 +21,10 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
 
     internal FileEditingSession(Media.FontManager fonts, string sessionId, Project project, Scene scene, DateTime projectLastWriteUtc)
     {
-        Documents = new DocumentAdapter(fonts);
+        // A scope of the host's fonts: the project's bundled fonts resolve here without becoming the host's
+        // active palette, which other sessions and the desktop editor share.
+        Fonts = fonts.ForProject(project);
+        Documents = new DocumentAdapter(Fonts);
         SessionId = sessionId;
         Project = project;
         Scene = scene;
@@ -43,6 +46,8 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
     public HistoryManager History => _recording.History;
 
     public DocumentAdapter Documents { get; }
+
+    public Media.FontManager Fonts { get; }
 
     public bool IsDirty { get; internal set; }
 

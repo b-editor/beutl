@@ -12,6 +12,7 @@ public sealed partial class RenderTools
 {
     private StoryboardRenderPlan PlanStoryboardOutputs(
         Scene scene,
+        FontManager? fonts,
         float renderScale,
         IReadOnlyList<ResolvedStoryboardFrame> resolvedShots,
         string normalizedDirectory,
@@ -33,7 +34,7 @@ public sealed partial class RenderTools
         string contactSheetPath = Path.Combine(normalizedDirectory, $"{safeBasename}-contact-sheet.png");
         string resolvedContactSheetPath = ToolPaths.ResolveForWrite(contactSheetPath, "outputDirectory");
         destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
-        return new StoryboardRenderPlan(scene, renderScale, plannedShots, resolvedContactSheetPath, confirmOverwrite);
+        return new StoryboardRenderPlan(scene, fonts, renderScale, plannedShots, resolvedContactSheetPath, confirmOverwrite);
     }
 
     private async Task<RenderStoryboardResponse> RenderStoryboardFramesAsync(
@@ -60,7 +61,8 @@ public sealed partial class RenderTools
                 plan.Scene,
                 shot.Time,
                 plan.RenderScale,
-                token).ConfigureAwait(false);
+                token,
+                plan.Fonts).ConfigureAwait(false);
             SaveStoryboardStill(frame.Bitmap, resolvedPath);
             StillFrameVisibilityAnalysis visibility = StillRenderer.AnalyzeFrameVisibility(frame.Bitmap);
             NormalizedFocalPoint? focalPoint = string.Equals(shot.Kind, StoryboardFrameKindShot, StringComparison.Ordinal)
@@ -479,6 +481,7 @@ public sealed partial class RenderTools
 
     private sealed record StoryboardRenderPlan(
         Scene Scene,
+        FontManager? Fonts,
         float RenderScale,
         IReadOnlyList<(ResolvedStoryboardFrame Shot, string ResolvedPath)> Shots,
         string ContactSheetPath,

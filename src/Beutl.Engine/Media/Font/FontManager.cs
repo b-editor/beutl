@@ -1,6 +1,7 @@
 ﻿using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Beutl.Configuration;
@@ -11,35 +12,53 @@ using SkiaSharp;
 
 namespace Beutl.Media;
 
+// A manager made by the constructor holds the installed fonts and the active project's palette, which follows
+// LoadProjectFonts. ForProject returns a scope of it that shares the installed fonts but always resolves one
+// project's bundled fonts, so a render or export holding the scope is unaffected when another project becomes
+// active, or when its own project closes. Every scope of a manager shares its gate.
 public sealed class FontManager
 {
     private readonly ILogger _logger = Log.CreateLogger<FontManager>();
-    private readonly Lock _gate = new();
-    private long _revision;
-    internal long Revision => Volatile.Read(ref _revision);
-    internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
-    internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
-    private Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _projectFonts = [];
-    private WeakReference<Project>? _projectFontsOwner;
-    private readonly Dictionary<string, SKTypeface> _projectFontCache = [];
-    private readonly HashSet<FontFamily> _reportedMissingFamilies = [];
-    // Keyed by reference to a matched typeface; null when it has no wght axis.
-    private readonly Dictionary<SKTypeface, WeightAxis?> _weightAxes = [];
-    // Variable typefaces moved to another weight, keyed by the typeface they were cloned from and the wght
-    // value. Like the registered typefaces, they live as long as the manager.
-    private readonly Dictionary<(SKTypeface Typeface, float Weight), SKTypeface> _weightInstances = [];
-    private readonly RenderFaceCache _renderFaces = new(FreeTypeFonts.Manager);
+    private readonly Lock _gate;
+    // The manager this one is a project scope of; null for a manager made by the constructor.
+    private readonly FontManager? _parent;
+    // Root only. Every revision of a root and its scopes is drawn from this counter, so a manager's Revision,
+    // the largest of the revisions it depends on, changes whenever one of them does.
+    private long _revisionSource;
+    // Root only: installed fonts and fallback order, shared with every scope.
+    private long _catalogRevision;
+    // Root only: the last switch of the active project palette.
+    private long _paletteRevision;
+    // Root: the active project palette, replaced by LoadProjectFonts. Scope: its project's fonts.
+    private ProjectFontSet? _projectFonts;
+    // Root only. Holds a scope while its project is alive; the scope does not keep the project alive.
+    private readonly ConditionalWeakTable<Project, FontManager>? _scopes;
+    // Project faces by content hash and face index. Weak, so a closed project's faces go once nothing
+    // (a scope, the palette, or text drawn with them) holds them, and a reopened project shares the live ones.
+    private readonly Dictionary<string, WeakReference<SKTypeface>> _projectFaceCache;
+    internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts;
+    internal readonly Dictionary<FontFamily, FontName> _fontNames;
+    private readonly HashSet<FontFamily> _reportedMissingFamilies;
+    private readonly FaceCache _faces;
     private readonly string[] _fontDirs;
     private FontFamily[] _fallbackFamilies = [];
     private FontFamily? _emojiFamily;
-    private readonly Dictionary<FontFamily, Dictionary<Typeface, Lazy<SKTypeface?>>> _deferredFonts = [];
+    private readonly Dictionary<FontFamily, Dictionary<Typeface, Lazy<SKTypeface?>>> _deferredFonts;
     // macOS faces after the first of a collection, loaded with their family on its first lookup.
-    private readonly Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> _lazyFaces = [];
-    private Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> _lazyProjectFaces = [];
+    private readonly Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> _lazyFaces;
 
     public FontManager(FontConfig configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+        _gate = new();
+        _scopes = new();
+        _projectFaceCache = [];
+        _fonts = [];
+        _fontNames = [];
+        _reportedMissingFamilies = [];
+        _faces = new FaceCache(FreeTypeFonts.Manager);
+        _deferredFonts = [];
+        _lazyFaces = [];
         // A material package installs its fonts under the home directory, which is not one
         // of the OS font directories the user configures.
         _fontDirs =
@@ -51,6 +70,41 @@ public sealed class FontManager
         RegisterInstalledFonts();
         DefaultTypeface = ResolveDefaultTypeface();
     }
+
+    private FontManager(FontManager parent, ProjectFontSet projectFonts)
+    {
+        _parent = parent;
+        _gate = parent._gate;
+        _projectFaceCache = parent._projectFaceCache;
+        _fonts = parent._fonts;
+        _fontNames = parent._fontNames;
+        _reportedMissingFamilies = parent._reportedMissingFamilies;
+        _faces = parent._faces;
+        _deferredFonts = parent._deferredFonts;
+        _lazyFaces = parent._lazyFaces;
+        _fontDirs = parent._fontDirs;
+        _projectFonts = projectFonts;
+        DefaultTypeface = parent.DefaultTypeface;
+    }
+
+    private FontManager Root => _parent ?? this;
+
+    // Compared for inequality by the text caches; it never returns to an earlier value.
+    internal long Revision
+    {
+        get
+        {
+            long revision = Math.Max(Volatile.Read(ref Root._catalogRevision), Volatile.Read(ref _paletteRevision));
+            return Volatile.Read(ref _projectFonts) is { } projectFonts
+                ? Math.Max(revision, Volatile.Read(ref projectFonts.Revision))
+                : revision;
+        }
+    }
+
+    private long NextRevision() => Interlocked.Increment(ref Root._revisionSource);
+
+    // Callers hold _gate.
+    private void BumpCatalogRevision() => Volatile.Write(ref Root._catalogRevision, NextRevision());
 
     private void RegisterInstalledFonts()
     {
@@ -141,8 +195,7 @@ public sealed class FontManager
             // 内部状態が壊れて無限ループや null 例外になり得るのでスナップショットを返す。
             lock (_gate)
             {
-                return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys)
-                    .Concat(_lazyFaces.Keys).Concat(_lazyProjectFaces.Keys).Distinct().ToArray();
+                return EnumerateFamilyKeys().Distinct().ToArray();
             }
         }
     }
@@ -153,10 +206,21 @@ public sealed class FontManager
         {
             lock (_gate)
             {
-                return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys)
-                    .Concat(_lazyFaces.Keys).Concat(_lazyProjectFaces.Keys).Distinct().Count();
+                return EnumerateFamilyKeys().Distinct().Count();
             }
         }
+    }
+
+    // Callers hold _gate.
+    private IEnumerable<FontFamily> EnumerateFamilyKeys()
+    {
+        IEnumerable<FontFamily> project = [], lazyProject = [];
+        if (_projectFonts is { } projectFonts)
+        {
+            project = projectFonts.Families.Keys;
+            lazyProject = projectFonts.LazyFaces.Keys;
+        }
+        return _fonts.Keys.Concat(project).Concat(_deferredFonts.Keys).Concat(_lazyFaces.Keys).Concat(lazyProject);
     }
 
     public Typeface DefaultTypeface { get; }
@@ -174,6 +238,12 @@ public sealed class FontManager
 
     internal void SetFallbackFonts(IEnumerable<FontFamily> families, FontFamily? emojiFamily)
     {
+        if (_parent is not null)
+        {
+            _parent.SetFallbackFonts(families, emojiFamily);
+            return;
+        }
+
         FontFamily[] fallbackFamilies = families.Distinct().ToArray();
         lock (_gate)
         {
@@ -182,12 +252,15 @@ public sealed class FontManager
 
             _fallbackFamilies = fallbackFamilies;
             _emojiFamily = emojiFamily;
-            Interlocked.Increment(ref _revision);
+            BumpCatalogRevision();
         }
     }
 
     internal (FontFamily[] Families, FontFamily? Emoji) GetFallbackFamilies()
     {
+        if (_parent is not null)
+            return _parent.GetFallbackFamilies();
+
         lock (_gate)
         {
             // The array is replaced as a unit by SetFallbackFonts and is never mutated.
@@ -197,6 +270,12 @@ public sealed class FontManager
 
     internal void RegisterFont(Typeface typeface, Func<Stream> openStream)
     {
+        if (_parent is not null)
+        {
+            _parent.RegisterFont(typeface, openStream);
+            return;
+        }
+
         lock (_gate)
         {
             if (!_deferredFonts.TryGetValue(typeface.FontFamily, out var fonts))
@@ -212,7 +291,7 @@ public sealed class FontManager
             // The pinned bundled face takes precedence over an installed duplicate, without
             // opening its stream until requested. Other styles in the family remain available.
             fonts[typeface] = new Lazy<SKTypeface?>(() => LoadRegisteredFont(typeface, openStream));
-            Interlocked.Increment(ref _revision);
+            BumpCatalogRevision();
         }
     }
 
@@ -248,7 +327,7 @@ public sealed class FontManager
         {
             if (TryResolveTypeface(typeface, out face!))
             {
-                face = InstantiateWeight(_renderFaces.Get(face), typeface.Weight);
+                face = _faces.Get(face, typeface.Weight);
                 return true;
             }
             return false;
@@ -266,7 +345,7 @@ public sealed class FontManager
                 return null;
         }
 
-        // Registered faces live as long as the manager, so their data is read outside the gate.
+        // The face is held here, so its data is read outside the gate.
         using SKStreamAsset? stream = face.OpenStream(out int index);
         using SKData? data = stream is null ? null : SKData.Create(stream);
         if (data is null)
@@ -275,9 +354,125 @@ public sealed class FontManager
         return data.AsSpan().StartsWith("ttcf"u8) ? FontCollection.CopyFace(data.AsSpan(), index) : data.ToArray();
     }
 
+    /// <summary>
+    /// Returns the manager that resolves <paramref name="project"/>'s bundled fonts ahead of the installed ones,
+    /// whichever project is active.
+    /// </summary>
+    /// <remarks>
+    /// A project has one scope for as long as it is alive, so text laid out with it keeps its caches. The scope
+    /// does not keep the project alive, and a render or export that captured it keeps resolving the project's
+    /// fonts after the project closes or another one becomes active. <see cref="LoadProjectFonts"/> on either
+    /// manager reads the project's fonts again for both.
+    /// </remarks>
+    public FontManager ForProject(Project project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        if (_parent is not null)
+            return IsScopeOf(project) ? this : _parent.ForProject(project);
+
+        return GetOrCreateScope(project, out _);
+    }
+
+    // Root only.
+    private FontManager GetOrCreateScope(Project project, out bool created)
+    {
+        lock (_gate)
+        {
+            if (_scopes!.TryGetValue(project, out FontManager? existing))
+            {
+                created = false;
+                return existing;
+            }
+        }
+
+        // Files are read outside the gate; a scope made meanwhile by another thread wins.
+        var projectFonts = new ProjectFontSet(project);
+        (projectFonts.Families, projectFonts.LazyFaces) = ReadProjectFonts(project);
+        lock (_gate)
+        {
+            if (_scopes!.TryGetValue(project, out FontManager? existing))
+            {
+                created = false;
+                return existing;
+            }
+
+            projectFonts.Revision = NextRevision();
+            var scope = new FontManager(this, projectFonts);
+            _scopes.Add(project, scope);
+            created = true;
+            return scope;
+        }
+    }
+
+    private bool IsScopeOf(Project project)
+        => _parent is not null && _projectFonts!.Owner.TryGetTarget(out Project? owner) && ReferenceEquals(owner, project);
+
+    /// <summary>
+    /// Reads <paramref name="project"/>'s bundled fonts again. On a manager made by the constructor, they also
+    /// become the active palette, ahead of the installed fonts, until another project is loaded or
+    /// <see cref="ClearProjectFonts"/>. A project scope accepts only its own project.
+    /// </summary>
     public void LoadProjectFonts(Project project)
     {
         ArgumentNullException.ThrowIfNull(project);
+        if (_parent is not null)
+        {
+            if (!IsScopeOf(project))
+                throw new ArgumentException("A project scope loads only its own project's fonts.", nameof(project));
+            Reload(_projectFonts!, project);
+            return;
+        }
+
+        FontManager scope = GetOrCreateScope(project, out bool created);
+        ProjectFontSet projectFonts = scope._projectFonts!;
+        if (!created)
+            Reload(projectFonts, project);
+
+        lock (_gate)
+        {
+            // A bundle's family takes precedence as a unit, including nearest-weight
+            // matching. Keep system fonts separate so the next project can restore them.
+            Volatile.Write(ref _projectFonts, projectFonts);
+            Volatile.Write(ref _paletteRevision, NextRevision());
+        }
+    }
+
+    private void Reload(ProjectFontSet projectFonts, Project project)
+    {
+        (Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> families,
+            Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> lazyFaces) = ReadProjectFonts(project);
+        lock (_gate)
+        {
+            projectFonts.Families = families;
+            projectFonts.LazyFaces = lazyFaces;
+            Volatile.Write(ref projectFonts.Revision, NextRevision());
+        }
+    }
+
+    /// <summary>
+    /// Clears the active palette, or, with <paramref name="expectedProject"/>, only while that project is active.
+    /// A scope's fonts stay in place; a project scope has no palette to clear.
+    /// </summary>
+    public void ClearProjectFonts(Project? expectedProject = null)
+    {
+        if (_parent is not null)
+            throw new InvalidOperationException("A project scope always resolves its own project's fonts.");
+
+        lock (_gate)
+        {
+            if (_projectFonts is null)
+                return;
+            if (expectedProject is not null
+                && (!_projectFonts.Owner.TryGetTarget(out Project? owner) || !ReferenceEquals(owner, expectedProject)))
+                return;
+            Volatile.Write(ref _projectFonts, null);
+            Volatile.Write(ref _paletteRevision, NextRevision());
+        }
+    }
+
+    private (Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> Families,
+        Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> LazyFaces) ReadProjectFonts(Project project)
+    {
         var fonts = new List<SKTypeface>();
         var lazyFaces = new Dictionary<FontFamily, List<(FontCollection Collection, int Index)>>();
         if (project.Uri is { IsFile: true } uri)
@@ -285,40 +480,24 @@ public sealed class FontManager
             string directory = Path.Combine(Path.GetDirectoryName(uri.LocalPath)!, "resources", "fonts");
             if (Directory.Exists(directory))
             {
+                PruneProjectFaceCache();
                 foreach (string file in EnumerateFontCandidates(directory))
                     fonts.AddRange(LoadProjectFontFaces(file, lazyFaces));
             }
         }
 
-        lock (_gate)
-        {
-            // A bundle's family takes precedence as a unit, including nearest-weight
-            // matching. Keep system fonts separate so the next project can restore them.
-            _projectFonts = fonts.GroupBy(font => font.FamilyName).ToDictionary(
-                group => new FontFamily(group.Key), group => TypefaceCollection.Create(group.ToArray()));
-            _lazyProjectFaces = lazyFaces;
-            _projectFontsOwner = new WeakReference<Project>(project);
-            Interlocked.Increment(ref _revision);
-        }
-    }
-
-    public void ClearProjectFonts(Project? expectedProject = null)
-    {
-        lock (_gate)
-        {
-            if (expectedProject is not null
-                && (_projectFontsOwner is null || !_projectFontsOwner.TryGetTarget(out Project? owner)
-                    || !ReferenceEquals(owner, expectedProject)))
-                return;
-            _projectFonts = [];
-            _lazyProjectFaces = [];
-            _projectFontsOwner = null;
-            Interlocked.Increment(ref _revision);
-        }
+        return (fonts.GroupBy(font => font.FamilyName).ToDictionary(
+            group => new FontFamily(group.Key), group => TypefaceCollection.Create(group.ToArray())), lazyFaces);
     }
 
     public void AddFont(Stream stream)
     {
+        if (_parent is not null)
+        {
+            _parent.AddFont(stream);
+            return;
+        }
+
         SKTypeface? typeface = SKTypeface.FromStream(stream);
         if (typeface == null) return;
         // 重複登録された SKTypeface は AddFont 側で false が返るので、
@@ -329,7 +508,7 @@ public sealed class FontManager
         }
         else
         {
-            Interlocked.Increment(ref _revision);
+            BumpCatalogRevision();
         }
     }
 
@@ -519,16 +698,30 @@ public sealed class FontManager
         return faces;
     }
 
-    // Renderers can still hold registered faces, so faces are cached by content across project switches.
+    // Projects, and the same project read again, share the faces of the same file while any of them is alive.
     private SKTypeface? LoadProjectFace(string hash, int index, Func<SKTypeface?> load)
     {
         string key = hash + ":" + index;
         lock (_gate)
         {
-            if (_projectFontCache.TryGetValue(key, out SKTypeface? cached)) return cached;
+            if (_projectFaceCache.TryGetValue(key, out WeakReference<SKTypeface>? cached)
+                && cached.TryGetTarget(out SKTypeface? live))
+                return live;
             SKTypeface? face = load();
-            if (face is not null) _projectFontCache.Add(key, face);
+            if (face is not null) _projectFaceCache[key] = new WeakReference<SKTypeface>(face);
             return face;
+        }
+    }
+
+    private void PruneProjectFaceCache()
+    {
+        lock (_gate)
+        {
+            foreach ((string key, WeakReference<SKTypeface> face) in _projectFaceCache)
+            {
+                if (!face.TryGetTarget(out _))
+                    _projectFaceCache.Remove(key);
+            }
         }
     }
 
@@ -557,7 +750,7 @@ public sealed class FontManager
     // Loads the lazy faces of the family with their own keys. Callers hold _gate.
     private void LoadLazyFaces(FontFamily family)
     {
-        if (_lazyProjectFaces.Remove(family, out var projectFaces))
+        if (_projectFonts is { } projectFonts && projectFonts.LazyFaces.Remove(family, out var projectFaces))
         {
             foreach (IGrouping<string, SKTypeface> loaded in projectFaces
                          .Select(lazy => LoadProjectFace(lazy.Collection.Hash!, lazy.Index, () => LoadLazyFace(lazy.Collection, lazy.Index)))
@@ -565,8 +758,8 @@ public sealed class FontManager
                          .GroupBy(face => face.FamilyName))
             {
                 var loadedFamily = new FontFamily(loaded.Key);
-                SKTypeface[] known = _projectFonts.TryGetValue(loadedFamily, out var existing) ? [.. existing.Values] : [];
-                _projectFonts[loadedFamily] = TypefaceCollection.Create([.. known, .. loaded]);
+                SKTypeface[] known = projectFonts.Families.TryGetValue(loadedFamily, out var existing) ? [.. existing.Values] : [];
+                projectFonts.Families[loadedFamily] = TypefaceCollection.Create([.. known, .. loaded]);
             }
         }
 
@@ -598,7 +791,7 @@ public sealed class FontManager
         lock (_gate)
         {
             LoadLazyFaces(fontFamily);
-            if (_projectFonts.TryGetValue(fontFamily, out var project))
+            if (_projectFonts?.Families.TryGetValue(fontFamily, out var project) == true)
                 return project.Keys;
             if (_deferredFonts.TryGetValue(fontFamily, out var deferred))
                 return [.. deferred.Keys];
@@ -614,7 +807,7 @@ public sealed class FontManager
             // as "Inter 28pt"), so this runs inside the render pass and must not throw.
             if (TryResolveTypeface(typeface, out SKTypeface? face))
             {
-                return InstantiateWeight(_renderFaces.Get(face), typeface.Weight);
+                return _faces.Get(face, typeface.Weight);
             }
 
             // ToSkia() runs per text layout, so an unregistered family in a multi-frame render
@@ -628,21 +821,21 @@ public sealed class FontManager
             }
 
             return TryResolveTypeface(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight), out var fallback)
-                ? InstantiateWeight(_renderFaces.Get(fallback), typeface.Weight)
-                : _renderFaces.Get(SKTypeface.Default);
+                ? _faces.Get(fallback, typeface.Weight)
+                : _faces.GetRenderFace(SKTypeface.Default);
         }
     }
 
     // Test-only (via InternalsVisibleTo): the face a registered typeface renders with.
     internal SKTypeface GetRenderFace(SKTypeface typeface)
     {
-        lock (_gate) return _renderFaces.Get(typeface);
+        lock (_gate) return _faces.GetRenderFace(typeface);
     }
 
     private bool TryResolveTypeface(Typeface typeface, out SKTypeface face)
     {
         LoadLazyFaces(typeface.FontFamily);
-        if (_projectFonts.TryGetValue(typeface.FontFamily, out var project))
+        if (_projectFonts?.Families.TryGetValue(typeface.FontFamily, out var project) == true)
         {
             face = project.Get(typeface);
             return true;
@@ -662,18 +855,63 @@ public sealed class FontManager
         return false;
     }
 
-    // A variable font registers once, as its default instance, so every weight resolves to that instance.
-    // Move the matched typeface along its wght axis to the requested weight instead; a typeface without the
-    // axis, or already at that weight, is returned as is. Callers hold _gate.
-    private SKTypeface InstantiateWeight(SKTypeface typeface, FontWeight weight)
+    public bool IsRegistered(FontFamily fontFamily)
     {
-        if (!_weightAxes.TryGetValue(typeface, out WeightAxis? axis))
+        lock (_gate)
         {
-            axis = WeightAxis.Find(typeface);
-            _weightAxes.Add(typeface, axis);
+            return _fonts.ContainsKey(fontFamily) || _deferredFonts.ContainsKey(fontFamily) || _lazyFaces.ContainsKey(fontFamily)
+                || _projectFonts?.Families.ContainsKey(fontFamily) == true || _projectFonts?.LazyFaces.ContainsKey(fontFamily) == true;
+        }
+    }
+}
+
+// A project's bundled fonts, shared by its scope and, while it is active, the root's palette. Fields change
+// under the manager's gate.
+internal sealed class ProjectFontSet(Project owner)
+{
+    public readonly WeakReference<Project> Owner = new(owner);
+    public Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> Families = [];
+    // macOS faces after the first of a collection, loaded with their family on its first lookup.
+    public Dictionary<FontFamily, List<(FontCollection Collection, int Index)>> LazyFaces = [];
+    public long Revision;
+}
+
+// Maps a matched typeface to the face text draws with. Entries are keyed weakly by the matched typeface, so the
+// faces made for a closed project's fonts go with them. FontManager holds its gate.
+internal sealed class FaceCache(SKFontManager? manager)
+{
+    private readonly ConditionalWeakTable<SKTypeface, SKTypeface> _renderFaces = new();
+    private readonly ConditionalWeakTable<SKTypeface, WeightInstances> _weights = new();
+
+    public SKTypeface Get(SKTypeface typeface, FontWeight weight) => InstantiateWeight(GetRenderFace(typeface), weight);
+
+    // On Windows the face is FreeType's, created from the same font data (see FreeTypeFonts); without a manager it
+    // is the typeface itself.
+    public SKTypeface GetRenderFace(SKTypeface typeface)
+    {
+        if (manager is null)
+        {
+            return typeface;
         }
 
-        if (axis is not { } weightAxis)
+        if (!_renderFaces.TryGetValue(typeface, out SKTypeface? face))
+        {
+            // CreateTypeface takes the stream over. A font the manager cannot open keeps drawing as is.
+            SKStreamAsset? stream = typeface.OpenStream(out int index);
+            face = (stream is null ? null : manager.CreateTypeface(stream, index)) ?? typeface;
+            _renderFaces.Add(typeface, face);
+        }
+
+        return face;
+    }
+
+    // A variable font registers once, as its default instance, so every weight resolves to that instance.
+    // Move the matched typeface along its wght axis to the requested weight instead; a typeface without the
+    // axis, or already at that weight, is returned as is.
+    private SKTypeface InstantiateWeight(SKTypeface typeface, FontWeight weight)
+    {
+        WeightInstances instances = _weights.GetValue(typeface, static face => new WeightInstances(WeightAxis.Find(face)));
+        if (instances.Axis is not { } weightAxis)
         {
             return typeface;
         }
@@ -685,14 +923,22 @@ public sealed class FontManager
             return typeface;
         }
 
-        if (!_weightInstances.TryGetValue((typeface, value), out SKTypeface? instance))
+        if (!instances.Faces.TryGetValue(value, out SKTypeface? instance))
         {
             ReadOnlySpan<SKFontVariationPositionCoordinate> position = [new() { Axis = WeightAxis.Tag, Value = value }];
             instance = typeface.Clone(position) ?? typeface;
-            _weightInstances.Add((typeface, value), instance);
+            instances.Faces.Add(value, instance);
         }
 
         return instance;
+    }
+
+    // Axis is null when the typeface has no wght axis; Faces holds its instances by wght value.
+    private sealed class WeightInstances(WeightAxis? axis)
+    {
+        public WeightAxis? Axis { get; } = axis;
+
+        public Dictionary<float, SKTypeface> Faces { get; } = [];
     }
 
     private readonly record struct WeightAxis(float Min, float Max, float Position)
@@ -723,41 +969,6 @@ public sealed class FontManager
 
             return null;
         }
-    }
-
-    public bool IsRegistered(FontFamily fontFamily)
-    {
-        lock (_gate)
-        {
-            return _projectFonts.ContainsKey(fontFamily) || _fonts.ContainsKey(fontFamily) || _deferredFonts.ContainsKey(fontFamily)
-                || _lazyFaces.ContainsKey(fontFamily) || _lazyProjectFaces.ContainsKey(fontFamily);
-        }
-    }
-}
-
-// Maps a matched typeface to the face text draws with. On Windows that face is FreeType's, created from the
-// same font data (see FreeTypeFonts); without a manager it is the typeface itself. FontManager holds _gate.
-internal sealed class RenderFaceCache(SKFontManager? manager)
-{
-    // Keyed by reference. Like the registered typefaces, the faces live as long as the cache.
-    private readonly Dictionary<SKTypeface, SKTypeface> _faces = [];
-
-    public SKTypeface Get(SKTypeface typeface)
-    {
-        if (manager is null)
-        {
-            return typeface;
-        }
-
-        if (!_faces.TryGetValue(typeface, out SKTypeface? face))
-        {
-            // CreateTypeface takes the stream over. A font the manager cannot open keeps drawing as is.
-            SKStreamAsset? stream = typeface.OpenStream(out int index);
-            face = (stream is null ? null : manager.CreateTypeface(stream, index)) ?? typeface;
-            _faces.Add(typeface, face);
-        }
-
-        return face;
     }
 }
 
