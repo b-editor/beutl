@@ -149,6 +149,25 @@ public partial class PropertyExpressionTests
         });
     }
 
+    // The expression can already show the default while the value below differs; the reset still writes it there.
+    [AvaloniaTest]
+    public void Resetting_the_slider_writes_the_default_even_when_the_expression_shows_it()
+    {
+        using var scope = new ValueEditScope<float>(50, "Value + 50");
+        using var host = scope.Show();
+        var editor = (NumberSliderEditor<float>)scope.Control;
+        Assert.That(editor.Value, Is.EqualTo(100));
+
+        editor.ApplyAbsoluteValue(100);
+        editor.ConfirmValue(100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Property.Value, Is.EqualTo(100));
+            Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        });
+    }
+
     // Typing after a wheel step replaces the value, and a wheel step after typing offsets from what was typed.
     [AvaloniaTest]
     [TestCase(true)]

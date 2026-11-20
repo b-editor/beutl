@@ -85,13 +85,15 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
     }
 
     // Like ApplyValue, for a fixed value such as the default: it replaces the value below an expression rather than
-    // offsetting it.
-    internal bool ApplyAbsoluteValue(TValue next)
+    // offsetting it, so it goes through even when an expression already shows it.
+    internal void ApplyAbsoluteValue(TValue next)
     {
         _absoluteEdit = true;
         try
         {
-            return ApplyValue(next);
+            TValue previous = Value;
+            Value = next;
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(next, previous, ValueChangedEvent));
         }
         finally
         {
