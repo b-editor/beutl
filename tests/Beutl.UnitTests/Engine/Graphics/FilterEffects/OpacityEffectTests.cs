@@ -44,6 +44,21 @@ public sealed class OpacityEffectTests
         Assert.That(after, Is.EqualTo(before.Select(channel => channel * 0.5f)).Within(0.001f));
     }
 
+    // An exposure or HDR source leaves straight colors past 1 in the half-float buffer; fading must keep them.
+    [Test]
+    public void HalfOpacityKeepsColorsOutsideTheUnitRange()
+    {
+        var effect = new OpacityEffect { Opacity = { Value = 50 } };
+        (float[] before, float[] after) = FilterEffectTestHarness.RunOnSolidTarget(
+            effect, new SKColorF(2f, 1f, 0f, 1f), new PixelSize(1, 1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(before.Max(), Is.GreaterThan(1f), "the source must hold a color past 1");
+            Assert.That(after, Is.EqualTo(before.Select(channel => channel * 0.5f)).Within(0.01f));
+        });
+    }
+
     [Test]
     public void ZeroOpacityMakesEveryChannelTransparent()
     {

@@ -34,10 +34,23 @@ internal static class FilterEffectTestHarness
     /// on it, and reads every channel before and after.
     /// </summary>
     public static (float[] Before, float[] After) RunOnSolidTarget(FilterEffect effect, SKColor color, PixelSize size)
+        => RunOnSolidTarget(effect, canvas => canvas.Clear(color), size);
+
+    /// <summary>
+    /// As <see cref="RunOnSolidTarget(FilterEffect, SKColor, PixelSize)"/>, with a float color that can lie outside
+    /// [0, 1], as the output of an HDR or exposure effect does.
+    /// </summary>
+    public static (float[] Before, float[] After) RunOnSolidTarget(FilterEffect effect, SKColorF color, PixelSize size)
+        => RunOnSolidTarget(effect, canvas => canvas.Clear(color), size);
+
+    private static (float[] Before, float[] After) RunOnSolidTarget(
+        FilterEffect effect,
+        Action<SKCanvas> fill,
+        PixelSize size)
     {
         var bounds = new Rect(0, 0, size.Width, size.Height);
         using RenderTarget backing = CpuRenderTargets.Create(size.Width, size.Height);
-        backing.Value.Canvas.Clear(color);
+        fill(backing.Value.Canvas);
         backing.Value.Canvas.Flush();
         using Bitmap beforeBitmap = backing.Snapshot();
         float[] before = ReadChannels(beforeBitmap);
