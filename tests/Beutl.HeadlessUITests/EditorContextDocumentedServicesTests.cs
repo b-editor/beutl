@@ -36,7 +36,10 @@ public class EditorContextDocumentedServicesTests
             {
                 Assert.That(context.GetService(typeof(Beutl.Configuration.GlobalConfiguration)), Is.SameAs(TestShell.Configuration));
                 Assert.That(context.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry)), Is.SameAs(TestShell.Decoders));
-                Assert.That(context.GetService(typeof(Beutl.Media.FontManager)), Is.SameAs(TestShell.FontManager));
+                // The editor's fonts are its own fork of the host's, which still resolves the host's fonts.
+                var fonts = context.GetService(typeof(Beutl.Media.FontManager)) as Beutl.Media.FontManager;
+                Assert.That(fonts, Is.Not.Null.And.Not.SameAs(TestShell.FontManager));
+                Assert.That(fonts?.IsRegistered(TestShell.FontManager.DefaultTypeface.FontFamily), Is.True);
                 Assert.That(context.GetService(typeof(Beutl.Services.LibraryService)), Is.SameAs(library));
                 Assert.That(context.GetService(typeof(Beutl.Editor.Services.ObjectTemplateService)), Is.SameAs(templates));
                 Assert.That(context.GetService(typeof(Beutl.Services.Tutorials.ITutorialService)), Is.SameAs(tutorials));
