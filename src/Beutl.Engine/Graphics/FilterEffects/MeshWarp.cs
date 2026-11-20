@@ -17,11 +17,13 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.MeshWarp), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, IComponentInterpolator<MeshWarpGrid>
 {
+    private readonly record struct CapturedPreviewFrame(Rect InputBounds, MediaTime EvaluationTime);
+
     private static readonly Color s_cornerColor = Color.FromRgb(255, 179, 77);
     private const int MaxCachedInputBounds = 512;
     private readonly Lock _inputBoundsLock = new();
-    private readonly Dictionary<MediaTime, Rect> _renderedInputBounds = [];
-    private readonly Queue<MediaTime> _renderedInputBoundsOrder = [];
+    private readonly Dictionary<MediaTime, CapturedPreviewFrame> _renderedPreviewFrames = [];
+    private readonly Queue<MediaTime> _renderedPreviewFramesOrder = [];
 
     public MeshWarp()
     {
@@ -84,17 +86,18 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
     }
 
     /// <summary>Resets the base mesh or the mesh keyframe on the current frame to its rest grid.</summary>
-    public void ResetMesh(MediaTime time) => EditMesh(time, grid => MeshWarpGrid.CreateIdentity(grid.Rows, grid.Columns));
+    public void ResetMesh(MediaTime time)
+        => EditMesh(ResolveEvaluationTime(time), grid => MeshWarpGrid.CreateIdentity(grid.Rows, grid.Columns));
 
     public IReadOnlyList<EditingHandle> GetEditingHandles(MediaTime time)
         => GetEditingHandles(time, default);
 
     public IReadOnlyList<EditingHandle> GetEditingHandles(MediaTime time, Rect fallbackBounds)
     {
-        Rect bounds = GetEditingInputBounds(time, fallbackBounds);
+        Rect bounds = GetEditingFrame(time, fallbackBounds, out MediaTime evaluationTime);
         if (!HasArea(bounds)) return [];
 
-        MeshWarpGrid grid = GetEditingGrid(new EvaluationContext(time));
+        MeshWarpGrid grid = GetEditingGrid(new EvaluationContext(evaluationTime));
         var handles = new List<EditingHandle>(grid.Points.Length);
         for (int row = 0; row <= grid.Rows; row++)
         {
@@ -121,10 +124,10 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
 
     public IReadOnlyList<EditingGuideLine> GetEditingGuides(MediaTime time, Rect fallbackBounds)
     {
-        Rect bounds = GetEditingInputBounds(time, fallbackBounds);
+        Rect bounds = GetEditingFrame(time, fallbackBounds, out MediaTime evaluationTime);
         if (!HasArea(bounds)) return [];
 
-        MeshWarpGrid grid = GetEditingGrid(new EvaluationContext(time));
+        MeshWarpGrid grid = GetEditingGrid(new EvaluationContext(evaluationTime));
         int stride = grid.Columns + 1;
         var points = grid.Points.Select(p => MapPoint(bounds, p)).ToArray();
         var guides = new List<EditingGuideLine>(grid.Rows * stride + grid.Columns * (grid.Rows + 1));
@@ -152,12 +155,15 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
 
     public Action<Point> BeginEditingHandleDrag(string id, MediaTime time, Rect fallbackBounds)
     {
-        Rect inputBounds = GetEditingInputBounds(time, fallbackBounds);
-        return position => MoveEditingHandle(id, position, time, inputBounds);
+        Rect inputBounds = GetEditingFrame(time, fallbackBounds, out MediaTime evaluationTime);
+        return position => MoveEditingHandle(id, position, evaluationTime, inputBounds);
     }
 
     public void MoveEditingHandle(string id, Point position, MediaTime time)
-        => MoveEditingHandle(id, position, time, GetEditingInputBounds(time, default));
+    {
+        Rect inputBounds = GetEditingFrame(time, default, out MediaTime evaluationTime);
+        MoveEditingHandle(id, position, evaluationTime, inputBounds);
+    }
 
     private void MoveEditingHandle(string id, Point position, MediaTime time, Rect bounds)
     {
@@ -224,11 +230,15 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
         return MeshWarpGridAnimator.Interpolate(progress, oldValue, newValue, rows, columns, interpolation);
     }
 
-    private Rect GetEditingInputBounds(MediaTime time, Rect fallbackBounds)
+    private Rect GetEditingFrame(MediaTime time, Rect fallbackBounds, out MediaTime evaluationTime)
     {
-        if (IsEnabled.Value && TryGetCapturedInputBounds(time, out Rect captured))
-            return captured;
+        if (IsEnabled.Value && TryGetCapturedPreviewFrame(time, out CapturedPreviewFrame captured))
+        {
+            evaluationTime = captured.EvaluationTime;
+            return captured.InputBounds;
+        }
 
+        evaluationTime = time;
         if (HasArea(fallbackBounds))
             return fallbackBounds;
 
@@ -238,45 +248,50 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
         return new Rect(resource.Measure(Size.Infinity));
     }
 
+    private MediaTime ResolveEvaluationTime(MediaTime time)
+        => IsEnabled.Value && TryGetCapturedPreviewFrame(time, out CapturedPreviewFrame captured)
+            ? captured.EvaluationTime
+            : time;
+
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(in args);
-        ClearCapturedInputBounds();
+        ClearCapturedPreviewFrames();
     }
 
-    private void ClearCapturedInputBounds()
+    private void ClearCapturedPreviewFrames()
     {
         lock (_inputBoundsLock)
         {
-            _renderedInputBounds.Clear();
-            _renderedInputBoundsOrder.Clear();
+            _renderedPreviewFrames.Clear();
+            _renderedPreviewFramesOrder.Clear();
         }
     }
 
-    private bool TryGetCapturedInputBounds(MediaTime time, out Rect bounds)
+    private bool TryGetCapturedPreviewFrame(MediaTime time, out CapturedPreviewFrame frame)
     {
         lock (_inputBoundsLock)
-            return _renderedInputBounds.TryGetValue(time, out bounds);
+            return _renderedPreviewFrames.TryGetValue(time, out frame);
     }
 
-    private bool CaptureInputBounds(MediaTime time, Rect bounds)
+    private bool CapturePreviewFrame(MediaTime displayTime, Rect bounds, MediaTime evaluationTime)
     {
         if (!HasArea(bounds)) return false;
 
         lock (_inputBoundsLock)
         {
-            if (!_renderedInputBounds.ContainsKey(time))
+            if (!_renderedPreviewFrames.ContainsKey(displayTime))
             {
-                if (_renderedInputBounds.Count >= MaxCachedInputBounds)
+                if (_renderedPreviewFrames.Count >= MaxCachedInputBounds)
                 {
-                    MediaTime oldest = _renderedInputBoundsOrder.Dequeue();
-                    _renderedInputBounds.Remove(oldest);
+                    MediaTime oldest = _renderedPreviewFramesOrder.Dequeue();
+                    _renderedPreviewFrames.Remove(oldest);
                 }
 
-                _renderedInputBoundsOrder.Enqueue(time);
+                _renderedPreviewFramesOrder.Enqueue(displayTime);
             }
 
-            _renderedInputBounds[time] = bounds;
+            _renderedPreviewFrames[displayTime] = new CapturedPreviewFrame(bounds, evaluationTime);
         }
 
         return true;

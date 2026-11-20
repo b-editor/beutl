@@ -351,6 +351,64 @@ public sealed class MeshWarpEditingHandleTests
         AssertPoint(handles[1].Position, new Point(200, 0));
     }
 
+    [AvaloniaTest]
+    public async Task TimeRemappedAnimatedMeshUsesRemappedClockForHandlesEditsAndReset()
+    {
+        TestGpu.RequireAnyDevice();
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("mesh-warp-time-remapped-anim", frameRate: 24);
+        var effect = new MeshWarp { Rows = { Value = 1 }, Columns = { Value = 1 } };
+        MeshWarpGrid key0Grid = MeshWarpGrid.CreateIdentity(1, 1).WithPoint(0, new Point(-0.25f, 0));
+        MeshWarpGrid key1Grid = MeshWarpGrid.CreateIdentity(1, 1).WithPoint(0, new Point(-0.5f, 0));
+        var key0 = new KeyFrame<MeshWarpGrid> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = key0Grid } };
+        var key1 = new KeyFrame<MeshWarpGrid> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = key1Grid } };
+        effect.Mesh.SetKeyFrameAnimation(new KeyFrameAnimation<MeshWarpGrid> { KeyFrames = { key0, key1 } });
+
+        var shape = new RectShape
+        {
+            Width = { Value = 200 },
+            Height = { Value = 120 },
+            FilterEffect = { Value = new FilterEffectGroup { Children = { effect } } },
+        };
+        await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(4));
+        Element element = scene.Children.Single();
+        element.AddObject(new DrawableTimeController
+        {
+            OffsetPosition = { Value = MediaTime.FromSeconds(1) },
+        });
+
+        editor.GetRequiredService<IEditorSelection>().Select(effect);
+        var player = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = player, Width = 900, Height = 640 };
+        using var preview = new Preview(editor, player, window, Inspector: null);
+        window.Show();
+        HeadlessTestHelpers.Render();
+        editor.Player.IsMoveMode.Value = true;
+
+        MediaTime sceneTime = MediaTime.Zero;
+        editor.GetRequiredService<IEditorClock>().Seek(sceneTime);
+        await preview.Render();
+
+        // Scene time 0s renders remapped time 1s (-0.5 * 200 = -100), not 0s (-0.25 * 200 = -50).
+        IReadOnlyList<EditingHandle> handles = effect.GetEditingHandles(sceneTime);
+        IReadOnlyList<EditingGuideLine> guides = effect.GetEditingGuides(sceneTime);
+        AssertPoint(handles[0].Position, new Point(-100, 0));
+        AssertPoint(guides[0].Start, new Point(-100, 0));
+
+        // Dragging at scene time 0s must modify the 1s keyframe and leave the 0s keyframe untouched.
+        Point from = handles[0].Position;
+        Point to = new(-140, 24);
+        preview.Press(from);
+        preview.Move(to);
+        preview.Release(to);
+        AssertPoint(key0.Value.Value!.Points[0], key0Grid.Points[0]);
+        AssertPoint(key1.Value.Value!.Points[0], new Point(-0.7f, 0.2f));
+
+        // ResetMesh at scene time 0s must reset the 1s keyframe and keep the 0s keyframe intact.
+        effect.ResetMesh(sceneTime);
+        AssertPoint(key0.Value.Value!.Points[0], key0Grid.Points[0]);
+        AssertPoint(key1.Value.Value!.Points[0], new Point(0, 0));
+    }
+
     private static async Task<Preview> Open(MeshWarp effect, bool showInspector = false, bool rotate = false,
         FilterEffect? beforeWarp = null, MediaTime start = default, MediaTime time = default)
     {

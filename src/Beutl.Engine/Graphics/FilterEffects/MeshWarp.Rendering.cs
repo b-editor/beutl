@@ -26,12 +26,12 @@ public sealed partial class MeshWarp
         return HasArea(output) ? output : Rect.Empty;
     }
 
-    private readonly record struct BoundsCapture(MeshWarp Owner, MediaTime Time);
+    private readonly record struct BoundsCapture(MeshWarp Owner, MediaTime DisplayTime, MediaTime EvaluationTime);
 
     private static void CaptureOnly(BoundsCapture capture, CustomFilterEffectContext context)
     {
         if (context is { Intent: RenderIntent.Preview, Purpose: RenderRequestPurpose.Frame })
-            capture.Owner.CaptureInputBounds(capture.Time, context.Targets.CalculateCompleteBounds());
+            capture.Owner.CapturePreviewFrame(capture.DisplayTime, context.Targets.CalculateCompleteBounds(), capture.EvaluationTime);
     }
 
     private static void Apply((Tessellation Mesh, BoundsCapture? Capture) data, CustomFilterEffectContext context)
@@ -40,7 +40,7 @@ public sealed partial class MeshWarp
         if (context is { Intent: RenderIntent.Preview, Purpose: RenderRequestPurpose.Frame }
             && data.Capture is { } capture)
         {
-            capture.Owner.CaptureInputBounds(capture.Time, sharedBounds);
+            capture.Owner.CapturePreviewFrame(capture.DisplayTime, sharedBounds, capture.EvaluationTime);
         }
 
         bool sharedSpace = context.Targets.Count > 1 && HasArea(sharedBounds);
@@ -408,9 +408,10 @@ public sealed partial class MeshWarp
             BoundsCapture? capture = null;
             if (context.IsPreviewFrame && GetOriginal() is MeshWarp owner)
             {
-                MediaTime time = EvaluationContext?.DisplayedTime ?? MediaTime.Zero;
-                if (!owner.CaptureInputBounds(time, context.Bounds))
-                    capture = new BoundsCapture(owner, time);
+                MediaTime displayTime = EvaluationContext?.DisplayedTime ?? MediaTime.Zero;
+                MediaTime evaluationTime = EvaluationContext?.Time ?? displayTime;
+                if (!owner.CapturePreviewFrame(displayTime, context.Bounds, evaluationTime))
+                    capture = new BoundsCapture(owner, displayTime, evaluationTime);
             }
 
             if (!float.IsFinite(Strength) || Strength == 0 || Mesh is null || Mesh.IsIdentity())
