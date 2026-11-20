@@ -1,13 +1,13 @@
-﻿using System.Collections;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
 namespace Beutl.Controls;
 
-// Reveals the rows an ItemsControl gains while it is on screen (an effect added to a list, say). Rows it shows when it
-// opens or when its items are replaced appear at once, and rows that only move keep their place.
+// Reveals a row an ItemsControl gains while it is on screen (an effect added to a list, say). Only a lone addition
+// counts: rows filled in when a list opens or is replaced, and rows a reorder removes and inserts again, come with
+// other changes and appear at once.
 public static class ItemsMotion
 {
     public static readonly AttachedProperty<bool> RevealsAddedItemsProperty =
@@ -33,9 +33,11 @@ public static class ItemsMotion
     private sealed class Tracker : IDisposable
     {
         private readonly ItemsControl _owner;
-        // Items added before their row exists, revealed when it is prepared.
-        private readonly List<object> _pending = [];
         private INotifyCollectionChanged? _source;
+        // The changes since the last frame, and where the one added row went if that was all of them.
+        private int _changes;
+        private int _addedIndex = -1;
+        private bool _scheduled;
 
         public Tracker(ItemsControl owner)
         {
@@ -43,7 +45,6 @@ public static class ItemsMotion
             _owner.PropertyChanged += OnOwnerPropertyChanged;
             _owner.AttachedToVisualTree += OnAttached;
             _owner.DetachedFromVisualTree += OnDetached;
-            _owner.ContainerPrepared += OnContainerPrepared;
             if (TopLevel.GetTopLevel(_owner) is not null) Subscribe();
         }
 
@@ -53,7 +54,6 @@ public static class ItemsMotion
             _owner.PropertyChanged -= OnOwnerPropertyChanged;
             _owner.AttachedToVisualTree -= OnAttached;
             _owner.DetachedFromVisualTree -= OnDetached;
-            _owner.ContainerPrepared -= OnContainerPrepared;
         }
 
         private void OnAttached(object? sender, VisualTreeAttachmentEventArgs e) => Subscribe();
@@ -79,41 +79,33 @@ public static class ItemsMotion
         {
             if (_source is not null) _source.CollectionChanged -= OnSourceChanged;
             _source = null;
-            _pending.Clear();
+            _changes = 0;
+            _addedIndex = -1;
         }
 
         private void OnSourceChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
-            if (e.Action != NotifyCollectionChangedAction.Add
-                || e.NewItems is not IList items
-                || !Dispatcher.UIThread.CheckAccess()
-                || !_owner.IsEffectivelyVisible
-                || TopLevel.GetTopLevel(_owner) is not { } topLevel)
-            {
-                return;
-            }
+            if (!Dispatcher.UIThread.CheckAccess() || TopLevel.GetTopLevel(_owner) is not { } topLevel) return;
 
-            foreach (object? item in items)
+            _changes++;
+            _addedIndex = e is { Action: NotifyCollectionChangedAction.Add, NewItems.Count: 1 } ? e.NewStartingIndex : -1;
+            // Decided at the start of the next frame, before it draws the new row, once every change made with this
+            // one is known.
+            if (!_scheduled)
             {
-                if (item is null) continue;
-                if (_owner.ContainerFromItem(item) is { } container)
-                    UiMotion.Reveal(container, UiMotion.Normal);
-                else
-                    _pending.Add(item);
+                _scheduled = true;
+                topLevel.RequestAnimationFrame(_ => Flush());
             }
-
-            // A row not prepared by the next frame is not shown, so it is not revealed later either.
-            if (_pending.Count > 0)
-                topLevel.RequestAnimationFrame(_ => _pending.Clear());
         }
 
-        private void OnContainerPrepared(object? sender, ContainerPreparedEventArgs e)
+        private void Flush()
         {
-            if (_pending.Count == 0 || _owner.ItemFromContainer(e.Container) is not { } item) return;
-            int index = _pending.FindIndex(pending => ReferenceEquals(pending, item));
-            if (index < 0) return;
-            _pending.RemoveAt(index);
-            UiMotion.Reveal(e.Container, UiMotion.Normal);
+            int index = _changes == 1 ? _addedIndex : -1;
+            _scheduled = false;
+            _changes = 0;
+            _addedIndex = -1;
+            if (index >= 0 && _owner.IsEffectivelyVisible && _owner.ContainerFromIndex(index) is { } container)
+                UiMotion.Reveal(container, UiMotion.Normal);
         }
     }
 }

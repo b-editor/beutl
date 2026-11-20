@@ -74,7 +74,7 @@ public sealed class UiMotionTests
     }
 
     [AvaloniaTest]
-    public async Task Only_rows_added_while_shown_are_revealed()
+    public async Task Only_a_row_added_on_its_own_while_shown_is_revealed()
     {
         var items = new ObservableCollection<string> { "a", "b" };
         var list = new ItemsControl { ItemsSource = items };
@@ -86,8 +86,11 @@ public sealed class UiMotionTests
             HeadlessTestHelpers.Render();
             Assert.That(list.ContainerFromIndex(0)!.Opacity, Is.EqualTo(1), "A row shown with the list was revealed.");
 
-            items.Insert(1, "c");
-            Control added = list.ContainerFromIndex(1)!;
+            // The same value as a row already there: the new row is the one revealed.
+            items.Add("a");
+            HeadlessTestHelpers.Render();
+            Control added = list.ContainerFromIndex(2)!;
+            Assert.That(list.ContainerFromIndex(0)!.Opacity, Is.EqualTo(1), "The earlier row with the same value was revealed.");
             Assert.That(added.Opacity, Is.EqualTo(0));
             Assert.That(added.RenderTransform, Is.TypeOf<TranslateTransform>());
             await WaitUntil(() => added.Opacity == 1 && added.RenderTransform is null, "The added row did not settle.");
@@ -95,6 +98,21 @@ public sealed class UiMotionTests
             items.Move(0, 2);
             HeadlessTestHelpers.Render();
             Assert.That(list.ContainerFromIndex(2)!.Opacity, Is.EqualTo(1), "A moved row was revealed.");
+
+            // A reorder that removes the row and inserts it again.
+            string moved = items[0];
+            items.RemoveAt(0);
+            items.Insert(1, moved);
+            HeadlessTestHelpers.Render();
+            Assert.That(list.ContainerFromIndex(1)!.Opacity, Is.EqualTo(1), "A row inserted again by a reorder was revealed.");
+
+            // The same source filled again, as a list editor does when its list is replaced or first opened.
+            items.Clear();
+            items.Add("p");
+            items.Add("q");
+            HeadlessTestHelpers.Render();
+            Assert.That(list.ContainerFromIndex(0)!.Opacity, Is.EqualTo(1), "A row of a refilled source was revealed.");
+            Assert.That(list.ContainerFromIndex(1)!.Opacity, Is.EqualTo(1), "A row of a refilled source was revealed.");
 
             list.ItemsSource = new ObservableCollection<string> { "x", "y" };
             HeadlessTestHelpers.Render();
