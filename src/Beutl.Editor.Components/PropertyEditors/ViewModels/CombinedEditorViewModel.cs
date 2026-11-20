@@ -21,6 +21,10 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
     where T : struct, INumber<T>
     where TTuple : struct
 {
+    protected override bool CanEditUnderExpression => true;
+
+    protected override TTuple OffsetValue(TTuple value, TTuple from, TTuple to) => _adapter.OffsetValue(value, from, to);
+
     private const string KeepsSeparatedKey = "KeepsSeparated";
 
     private readonly CombinedPropertyAdapter<T, TTuple> _adapter;
@@ -298,12 +302,22 @@ internal sealed class CombinedPropertyAdapter<T, TTuple>
         for (int i = 0; i < Components.Count; i++)
         {
             if (Components[i].GetEditingValue() != values[i])
-                Components[i].SetCurrentValueAndGetCoerced(values[i]);
+                Components[i].SetCurrentValue(values[i]);
         }
     }
 
     public IObservable<TTuple> GetObservable()
         => Components.Select(component => component.EditValue).CombineLatest(values => _compose([.. values]));
+
+    public TTuple OffsetValue(TTuple value, TTuple from, TTuple to)
+    {
+        T[] values = _split(value);
+        T[] start = _split(from);
+        T[] end = _split(to);
+        for (int i = 0; i < values.Length; i++)
+            values[i] = NumericOffset.Add(values[i], start[i], end[i]);
+        return _compose(values);
+    }
 
     public void EditAll(Action edit)
     {

@@ -59,6 +59,7 @@ public class ColorGradingWheel : PropertyEditor
     private bool _masterDragging;
     private bool _dragStopped;
     private bool _editingComponents;
+    private bool _valueChanged;
 
     public GradingColor Color
     {
@@ -105,6 +106,7 @@ public class ColorGradingWheel : PropertyEditor
     // with it, so that the cursor its pointer lock hid comes back without waiting for the release.
     public void StopDrag()
     {
+        _valueChanged = false;
         _dragStopped = _padDragging || _masterDragging;
         _pad?.StopDrag();
     }
@@ -272,7 +274,9 @@ public class ColorGradingWheel : PropertyEditor
 
         GradingColor oldValue = _components.ToGradingColorFromTuple(args.OldValue);
         GradingColor newValue = _components.ToGradingColorFromTuple(args.NewValue);
-        if (oldValue != newValue)
+        bool changed = _valueChanged;
+        _valueChanged = false;
+        if (changed || oldValue != newValue)
             RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(newValue, oldValue, ValueConfirmedEvent));
     }
 
@@ -296,13 +300,16 @@ public class ColorGradingWheel : PropertyEditor
             return;
 
         Color = value;
+        _valueChanged = true;
         RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(value, previous, ValueChangedEvent));
     }
 
     private void Confirm(GradingColor oldColor)
     {
         GradingColor current = Color;
-        if (oldColor != current)
+        bool changed = _valueChanged;
+        _valueChanged = false;
+        if (changed || oldColor != current)
             RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(current, oldColor, ValueConfirmedEvent));
     }
 }

@@ -17,6 +17,8 @@ public class VectorEditorViewModel<TValue, TElement, TEdit>(
     : PropertyEditorViewModel<TValue, TEdit>(property), IConfigureUniformEditor
     where TElement : INumber<TElement>
 {
+    protected override bool CanEditUnderExpression => true;
+
     public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
     protected override TEdit ToEdit(TValue value) => toEdit(value);

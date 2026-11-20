@@ -2,4 +2,7 @@
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public sealed class FontFamilyEditorViewModel(IPropertyAdapter<FontFamily?> property) : ValueEditorViewModel<FontFamily?>(property);
+public sealed class FontFamilyEditorViewModel(IPropertyAdapter<FontFamily?> property) : ValueEditorViewModel<FontFamily?>(property)
+{
+    protected override bool CanEditUnderExpression => true;
+}

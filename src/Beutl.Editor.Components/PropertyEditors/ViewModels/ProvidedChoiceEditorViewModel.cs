@@ -15,6 +15,8 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : PropertyEditorViewModel<T?, int>
     where TProvider : IChoicesProvider
 {
+    protected override bool CanEditUnderExpression => true;
+
     private readonly ReadOnlyObservableCollection<EnumItem> _choices;
     private readonly IReadOnlyList<object> _originalChoices;
 

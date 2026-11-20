@@ -7,6 +7,8 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 public sealed class RelativeRectEditorViewModel(IPropertyAdapter<Graphics.RelativeRect> property)
     : ValueEditorViewModel<Graphics.RelativeRect>(property), IConfigureUniformEditor, IRelativeUnitEditor
 {
+    protected override bool CanEditUnderExpression => true;
+
     public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
     IObservable<Graphics.RelativeUnit> IRelativeUnitEditor.Unit => Value.Select(value => value.Unit);

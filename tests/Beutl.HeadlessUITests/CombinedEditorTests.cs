@@ -597,7 +597,7 @@ public sealed class CombinedEditorTests
             Assert.That(history.History.UndoCount, Is.EqualTo(before + 1));
             Assert.That(IsSeparated(combined), Is.False);
             Assert.That(combined.HasExpression.Value, Is.True);
-            Assert.That(combined.CanEdit.Value, Is.False);
+            Assert.That(combined.CanEdit.Value, Is.True);
             Assert.That(combined.GetExpressionString(), Is.EqualTo("new Point(Time + 10, 20)"));
         });
 
@@ -787,7 +787,7 @@ public sealed class CombinedEditorTests
                 Assert.That(shape.Width.Evaluate(context), Is.EqualTo(30f));
                 Assert.That(shape.Height.Evaluate(context), Is.EqualTo(40f));
                 Assert.That(editor.IsEffectivelyVisible, Is.True);
-                Assert.That(editor.IsReadOnly, Is.True);
+                Assert.That(editor.IsReadOnly, Is.False);
                 Assert.That(editor.FirstValue, Is.EqualTo(30f));
                 Assert.That(editor.SecondValue, Is.EqualTo(40f));
             });

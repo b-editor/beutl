@@ -19,6 +19,11 @@ namespace Beutl.Editor.PropertyEditors;
 public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 {
     private ReadOnlyReactiveProperty<TValue>? _shownValue;
+    private bool _previewingExpression;
+    private bool _relativePreview;
+    private TValue? _previewStart;
+    private TValue? _shownStart;
+    private TValue? _previewInput;
 
     protected PropertyEditorViewModel(IPropertyAdapter<TValue> property)
         : base(property)
@@ -103,8 +108,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     internal void SetValue(TValue? oldValue, TValue? newValue, string? commandName)
     {
         // Every element takes the value as its own editor would, from what it shows itself: the value shown is one
-        // element's, so the others can still differ from it even when it stays. One whose value an expression gives
-        // takes none, as its own editor lets no value be entered.
+        // element's, so the others can still differ from it even when it stays. Other elements keep their expressions.
         if (MirrorsValue(
                 (editor, own) => editor.SetValue(
                     own ? oldValue : editor.GetEditingValue(),
@@ -113,6 +117,19 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
                 commitName: commandName))
         {
             return;
+        }
+
+        if (HasExpression.Value && !CanEditUnderExpression) return;
+        if (_previewingExpression)
+        {
+            // Controls confirm the displayed result; the preview already wrote the underlying value.
+            oldValue = _previewStart;
+            newValue = GetEditingValue();
+            _previewingExpression = false;
+        }
+        else if (HasExpression.Value)
+        {
+            oldValue = GetEditingValue();
         }
 
         if (!CanReplace(oldValue, newValue)) return;
@@ -144,7 +161,8 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
         // Like SetValue(oldValue, newValue): replacing the current value can repair the element, as when a
         // file-backed editor puts a valid file in place of a source that loading dropped.
-        if (IsDisposed || !CanReplace(GetEditingValue(), newValue)) return;
+        _previewingExpression = false;
+        if (IsDisposed || (HasExpression.Value && !CanEditUnderExpression) || !CanReplace(GetEditingValue(), newValue)) return;
         WriteValue(newValue);
 
         CompleteElementRepair();
@@ -191,7 +209,19 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         }
     }
 
+    protected virtual TValue OffsetValue(TValue value, TValue from, TValue to)
+        => ComponentAnimations.OffsetValue(value, from, to);
+
+    protected TValue? GetIncrementValue(TValue? shown)
+        => _previewingExpression && _relativePreview ? _previewInput : shown;
+
+    // A host with its own history session also ends previews on cancellation or capture loss.
+    protected void EndValuePreview() => _previewingExpression = false;
+
     public TValue? SetCurrentValueAndGetCoerced(TValue? value)
+        => SetCurrentValueAndGetCoerced(value, relative: true);
+
+    internal TValue? SetCurrentValueAndGetCoerced(TValue? value, bool relative)
     {
         if (IsDisposed) return default;
 
@@ -200,7 +230,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         if (MirrorsValue(
                 (editor, own) =>
                 {
-                    TValue? result = editor.SetCurrentValueAndGetCoerced(own ? value : CopyForOtherElement(value));
+                    TValue? result = editor.SetCurrentValueAndGetCoerced(own ? value : CopyForOtherElement(value), relative);
                     if (own) coerced = result;
                 },
                 commit: false))
@@ -208,26 +238,37 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             return coerced;
         }
 
-        if (!IsElementEditable)
-            return GetEditingValue();
-        if (SeparatedComponents.Value is IComponentAnimation<TValue> components)
+        if (!IsElementEditable || (HasExpression.Value && !CanEditUnderExpression))
+            return ShownValue.Value;
+
+        if (HasExpression.Value)
         {
-            components.SetValue(value!, CurrentTimeValue);
-            InvalidateFrameCache();
-            return components.GetEditingValue(CurrentTimeValue);
+            if (!_previewingExpression)
+            {
+                _previewStart = GetEditingValue();
+                _shownStart = ShownValue.Value;
+                _relativePreview = relative;
+                _previewingExpression = true;
+            }
+
+            TValue? underlying = _relativePreview ? OffsetValue(_previewStart!, _shownStart!, value!) : value;
+            TValue? accepted = SetCurrentValue(underlying);
+            // Incremental controls continue from accepted input, not from the expression's result.
+            _previewInput = _relativePreview ? OffsetValue(_shownStart!, _previewStart!, accepted!) : accepted;
+            return ShownValue.Value;
         }
-        if (EditingKeyFrame.Value != null)
-        {
-            EditingKeyFrame.Value.Value.Value = value!;
-            InvalidateFrameCache();
-            return EditingKeyFrame.Value.Value.Value;
-        }
-        else
-        {
-            PropertyAdapter.SetValue(value);
-            InvalidateFrameCache();
-            return PropertyAdapter.GetValue();
-        }
+
+        _previewingExpression = false;
+        return SetCurrentValue(value);
+    }
+
+    // Also used by a combined editor, which owns the preview and commit for all its properties.
+    internal TValue? SetCurrentValue(TValue? value)
+    {
+        if (!IsElementEditable) return GetEditingValue();
+        WriteValue(value);
+        InvalidateFrameCache();
+        return GetEditingValue();
     }
 
     public override void InsertKeyFrame(MediaTime keyTime)
@@ -280,23 +321,14 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             && animatableProperty.Animation is not KeyFrameAnimation<TValue>)
         {
             var newAnimation = new KeyFrameAnimation<TValue>();
-            // The keyframes take over from an expression, so they start at the value it shows.
-            TValue initialValue = PropertyAdapter.GetEngineProperty() is IExpressionProperty<TValue> { HasExpression: true } engineProperty
-                ? engineProperty.Evaluate(new EvaluationContext(CurrentTimeValue))
-                : animatableProperty.GetValue()!;
             newAnimation.KeyFrames.Add(new KeyFrame<TValue>
             {
-                Value = { Value = initialValue },
+                Value = { Value = animatableProperty.GetValue()! },
                 Easing = { Value = new SplineEasing() },
                 KeyTime = { Value = MediaTime.Zero }
             });
 
             animatableProperty.Animation = newAnimation;
-            if (PropertyAdapter is IExpressionPropertyAdapter<TValue> ep)
-            {
-                ep.Expression = null;
-            }
-
             Commit();
         }
     }

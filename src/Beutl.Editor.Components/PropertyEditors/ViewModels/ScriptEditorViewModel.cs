@@ -6,6 +6,8 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
 {
+    protected override bool CanEditUnderExpression => true;
+
     private readonly IScriptCompilableEffect? _validator;
 
     public ScriptEditorViewModel(IPropertyAdapter<string?> property)

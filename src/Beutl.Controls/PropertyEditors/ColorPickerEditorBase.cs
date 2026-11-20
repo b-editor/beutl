@@ -30,6 +30,7 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
     private TFlyout? _flyout;
 
     private bool _flyoutActive;
+    private bool _hasColorEdit;
     private Button? _button;
 
     private TColor _oldValue;
@@ -79,8 +80,9 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
 
     private protected void OnLiveColorChanged(TColor newValue, TColor oldValue)
     {
-        if (IsLivePreviewEnabled)
+        if (IsLivePreviewEnabled && !EqualityComparer<TColor>.Default.Equals(newValue, oldValue))
         {
+            _hasColorEdit = true;
             Value = newValue;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(newValue, oldValue, ValueChangedEvent));
         }
@@ -139,6 +141,7 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         _flyout.ShowAt(this);
 
         _flyoutActive = true;
+        _hasColorEdit = false;
 
         _oldValue = _value;
     }
@@ -154,6 +157,7 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         {
             Value = GetFlyoutColor(_flyout);
             RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(Value, _oldValue, ValueConfirmedEvent));
+            _hasColorEdit = false;
             if (!EqualityComparer<TColor>.Default.Equals(Value, _oldValue))
             {
                 OnColorApplied(Value);
@@ -166,7 +170,8 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         if (_flyout != null && IsLivePreviewEnabled)
         {
             SetLivePreview(_flyout, false);
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(Value, _oldValue, ValueConfirmedEvent));
+            if (_hasColorEdit)
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(Value, _oldValue, ValueConfirmedEvent));
             if (_flyoutActive && !EqualityComparer<TColor>.Default.Equals(Value, _oldValue))
             {
                 OnColorApplied(Value);
@@ -174,5 +179,6 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         }
 
         _flyoutActive = false;
+        _hasColorEdit = false;
     }
 }

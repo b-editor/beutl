@@ -6,6 +6,8 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
 public sealed class StringEditorViewModel(IPropertyAdapter<string?> property) : PropertyEditorViewModel<string?, string>(property)
 {
+    protected override bool CanEditUnderExpression => true;
+
     protected override string ToEdit(string? value) => value ?? string.Empty;
 
     protected override string? FromEdit(string edit) => edit;
