@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -117,8 +117,8 @@ public sealed class MeshWarpGrid : IEquatable<MeshWarpGrid>
     {
         float x = rest.X * Columns;
         float y = rest.Y * Rows;
-        int column = Math.Min((int)x, Columns - 1);
-        int row = Math.Min((int)y, Rows - 1);
+        int column = Math.Clamp((int)MathF.Floor(x), 0, Columns - 1);
+        int row = Math.Clamp((int)MathF.Floor(y), 0, Rows - 1);
         float tx = x - column;
         float ty = y - row;
 

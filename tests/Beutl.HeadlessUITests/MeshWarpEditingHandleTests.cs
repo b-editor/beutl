@@ -1,4 +1,4 @@
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -269,6 +269,47 @@ public sealed class MeshWarpEditingHandleTests
 
         await preview.Render();
         AssertPoint(effect.GetEditingHandles(MediaTime.Zero, preview.Player.transformHandlesOverlay.LocalBounds)[0].Position, to);
+    }
+
+    [AvaloniaTest]
+    public async Task SeekingBackToEarlierFrameKeepsItsOwnCapturedInputBounds()
+    {
+        TestGpu.RequireAnyDevice();
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("mesh-warp-cached-time", frameRate: 24);
+        var effect = new MeshWarp { Rows = { Value = 1 }, Columns = { Value = 1 } };
+        var shape = new RectShape { Height = { Value = 120 } };
+        shape.Width.SetKeyFrameAnimation(new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 160 } },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 320 } },
+            },
+        });
+        ((FilterEffectGroup)shape.FilterEffect.Value!).Children.Add(effect);
+        await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(4));
+
+        editor.GetRequiredService<IEditorSelection>().Select(effect);
+        var player = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = player, Width = 900, Height = 640 };
+        using var preview = new Preview(editor, player, window, Inspector: null);
+        window.Show();
+        HeadlessTestHelpers.Render();
+        editor.Player.IsMoveMode.Value = true;
+
+        MediaTime t0 = MediaTime.Zero;
+        MediaTime t1 = MediaTime.FromSeconds(1);
+
+        editor.GetRequiredService<IEditorClock>().Seek(t0);
+        await preview.Render();
+        AssertPoint(effect.GetEditingHandles(t0)[1].Position, new Point(160, 0));
+
+        editor.GetRequiredService<IEditorClock>().Seek(t1);
+        await preview.Render();
+        AssertPoint(effect.GetEditingHandles(t1)[1].Position, new Point(320, 0));
+
+        // Even without triggering a fresh preview render (as on a cached frame), handles at t0 keep t0's bounds.
+        AssertPoint(effect.GetEditingHandles(t0)[1].Position, new Point(160, 0));
     }
 
     private static async Task<Preview> Open(MeshWarp effect, bool showInspector = false, bool rotate = false,

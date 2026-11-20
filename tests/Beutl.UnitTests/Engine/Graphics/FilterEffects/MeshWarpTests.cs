@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using Beutl.Animation;
 using Beutl.Animation.Animators;
@@ -130,6 +130,16 @@ public sealed class MeshWarpTests
             Assert.That(resized.Columns, Is.EqualTo(3));
             Assert.That(resized.Points[3], Is.EqualTo(midpoint.Points[1]));
             Assert.That(resized.Points[8].X, Is.EqualTo(midpoint.Resample(2, 3).Points[8].X).Within(1e-6));
+
+            // Finer source -> coarser destination must retain the source's interior deformation during interpolation.
+            var fine = MeshWarpGrid.CreateIdentity(2, 2).WithPoint(1, 1, new Point(0.8f, 0.2f));
+            var coarseIdentity = MeshWarpGrid.CreateIdentity(1, 1);
+            MeshWarpGrid fineToCoarse = animator.Interpolate(0.5f, fine, coarseIdentity);
+            Assert.That(fineToCoarse.Rows, Is.EqualTo(2));
+            Assert.That(fineToCoarse.Columns, Is.EqualTo(2));
+            Assert.That(fineToCoarse.Points[4].X, Is.EqualTo(0.65f).Within(1e-6));
+            Assert.That(fineToCoarse.Points[4].Y, Is.EqualTo(0.35f).Within(1e-6));
+
             Assert.That(animator.Interpolate(0.5f, null!, null!), Is.EqualTo(MeshWarpGrid.Default));
             Assert.That(animator.Interpolate(0.5f, start, null!), Is.SameAs(start));
         });
@@ -301,6 +311,44 @@ public sealed class MeshWarpTests
         {
             Assert.That(effect.Mesh.Value.Rows, Is.EqualTo(2));
             Assert.That(key.Value.Value!.Columns, Is.EqualTo(4));
+        });
+    }
+
+    [Test]
+    public void SplitTargetsWarpInSharedCoordinateSpace()
+    {
+        var leftBounds = new Rect(0, 0, 50, 40);
+        var rightBounds = new Rect(50, 0, 50, 40);
+        var combinedBounds = new Rect(0, 0, 100, 40);
+
+        using RenderTarget leftBacking = CpuRenderTargets.Create(50, 40);
+        leftBacking.Value.Canvas.Clear(SKColors.Red);
+        leftBacking.Value.Canvas.Flush();
+        using RenderTarget rightBacking = CpuRenderTargets.Create(50, 40);
+        rightBacking.Value.Canvas.Clear(SKColors.Blue);
+        rightBacking.Value.Canvas.Flush();
+
+        var effect = Create(1, 1);
+        // Translating every mesh point by +0.5 horizontally should move both tiles by 50px (half of combined 100px width).
+        effect.Mesh.Value = MapGrid(effect.Mesh.Value, p => p + new Point(0.5f, 0));
+
+        using var targets = new EffectTargets
+        {
+            new EffectTarget(leftBacking, leftBounds, EffectiveScale.At(1), new PixelRect(0, 0, 50, 40)),
+            new EffectTarget(rightBacking, rightBounds, EffectiveScale.At(1), new PixelRect(50, 0, 50, 40)),
+        };
+        using var context = Record(effect, combinedBounds);
+        using var builder = new SKImageFilterBuilder();
+        using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Preview, RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null, workingScale: 1, maxWorkingScale: 1);
+        executor.Apply(context);
+        executor.Flush(false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(targets, Has.Count.EqualTo(2));
+            Assert.That(targets[0].Bounds, Is.EqualTo(new Rect(50, 0, 50, 40)));
+            Assert.That(targets[1].Bounds, Is.EqualTo(new Rect(100, 0, 50, 40)));
         });
     }
 

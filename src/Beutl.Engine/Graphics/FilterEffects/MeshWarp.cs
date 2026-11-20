@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 
 using Beutl.Animation;
@@ -17,7 +17,10 @@ namespace Beutl.Graphics.Effects;
 public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider
 {
     private static readonly Color s_cornerColor = Color.FromRgb(255, 179, 77);
-    private InputBounds? _renderedInputBounds;
+    private const int MaxCachedInputBounds = 512;
+    private readonly Lock _inputBoundsLock = new();
+    private readonly Dictionary<MediaTime, Rect> _renderedInputBounds = [];
+    private readonly Queue<MediaTime> _renderedInputBoundsOrder = [];
 
     public MeshWarp()
     {
@@ -206,8 +209,8 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider
 
     private Rect GetEditingInputBounds(MediaTime time, Rect fallbackBounds)
     {
-        if (IsEnabled.Value && Volatile.Read(ref _renderedInputBounds) is { } input)
-            return input.Bounds;
+        if (IsEnabled.Value && TryGetCapturedInputBounds(time, out Rect captured))
+            return captured;
 
         if (HasArea(fallbackBounds))
             return fallbackBounds;
@@ -224,17 +227,41 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider
         ClearCapturedInputBounds();
     }
 
-    private void ClearCapturedInputBounds() => Volatile.Write(ref _renderedInputBounds, null);
+    private void ClearCapturedInputBounds()
+    {
+        lock (_inputBoundsLock)
+        {
+            _renderedInputBounds.Clear();
+            _renderedInputBoundsOrder.Clear();
+        }
+    }
 
-    private bool CaptureInputBounds(Rect bounds)
+    private bool TryGetCapturedInputBounds(MediaTime time, out Rect bounds)
+    {
+        lock (_inputBoundsLock)
+            return _renderedInputBounds.TryGetValue(time, out bounds);
+    }
+
+    private bool CaptureInputBounds(MediaTime time, Rect bounds)
     {
         if (!HasArea(bounds)) return false;
 
-        if (Volatile.Read(ref _renderedInputBounds)?.Bounds != bounds)
-            Volatile.Write(ref _renderedInputBounds, new InputBounds(bounds));
+        lock (_inputBoundsLock)
+        {
+            if (!_renderedInputBounds.ContainsKey(time))
+            {
+                if (_renderedInputBounds.Count >= MaxCachedInputBounds)
+                {
+                    MediaTime oldest = _renderedInputBoundsOrder.Dequeue();
+                    _renderedInputBounds.Remove(oldest);
+                }
+
+                _renderedInputBoundsOrder.Enqueue(time);
+            }
+
+            _renderedInputBounds[time] = bounds;
+        }
+
         return true;
     }
-
-    // One atomic snapshot from the preview render thread, read by the editor.
-    private sealed record InputBounds(Rect Bounds);
 }
