@@ -21,6 +21,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     private ReadOnlyReactiveProperty<TValue>? _shownValue;
     private bool _previewingExpression;
     private bool _relativePreview;
+    private TValue? _historyStart;
     private TValue? _previewStart;
     private TValue? _shownStart;
     private TValue? _previewInput;
@@ -142,13 +143,15 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         if (_previewingExpression)
         {
             // Controls confirm the displayed result; the preview already wrote the underlying value.
-            oldValue = _previewStart;
+            oldValue = _historyStart;
             newValue = GetEditingValue();
             _previewingExpression = false;
         }
         else if (HasExpression.Value)
         {
+            // The fields show the expression's result, so only the components the user changed are written.
             oldValue = GetEditingValue();
+            newValue = ComponentAnimations.ReplaceEditedComponents(oldValue!, ShownValue.Value, newValue!);
         }
 
         if (!CanReplace(oldValue, newValue)) return;
@@ -264,13 +267,19 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         {
             if (!_previewingExpression)
             {
-                _previewStart = GetEditingValue();
-                _shownStart = ShownValue.Value;
-                _relativePreview = relative;
+                _historyStart = GetEditingValue();
+                StartPreviewBaseline(relative);
                 _previewingExpression = true;
             }
+            else if (relative != _relativePreview)
+            {
+                // Typing after a wheel step (or the reverse) keeps each input's meaning; undo still goes back to the start.
+                StartPreviewBaseline(relative);
+            }
 
-            TValue? underlying = _relativePreview ? OffsetValue(_previewStart!, _shownStart!, value!) : value;
+            TValue? underlying = _relativePreview
+                ? OffsetValue(_previewStart!, _shownStart!, value!)
+                : ComponentAnimations.ReplaceEditedComponents(_previewStart!, _shownStart!, value!);
             TValue? accepted = SetCurrentValue(underlying);
             // Incremental controls continue from accepted input, not from the expression's result.
             _previewInput = _relativePreview ? OffsetValue(_shownStart!, _previewStart!, accepted!) : accepted;
@@ -279,6 +288,13 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
         _previewingExpression = false;
         return SetCurrentValue(value);
+    }
+
+    private void StartPreviewBaseline(bool relative)
+    {
+        _previewStart = GetEditingValue();
+        _shownStart = ShownValue.Value;
+        _relativePreview = relative;
     }
 
     // Also used by a combined editor, which owns the preview and commit for all its properties.

@@ -9,6 +9,7 @@ public static class ComponentAnimations
     private static readonly Dictionary<Type, (Func<IProperty, IComponentAnimation> Separate, Action<IProperty, MediaTime> Unseparate)> s_operations = [];
     private static readonly Dictionary<Type, object> s_definitions = [];
     private static readonly Dictionary<Type, object> s_offsets = [];
+    private static readonly Dictionary<Type, object> s_replacements = [];
 
     static ComponentAnimations()
     {
@@ -108,6 +109,19 @@ public static class ComponentAnimations
                 value = component.Set(value, NumericOffset.Add(component.Get(value), component.Get(from), component.Get(to)));
             return value;
         });
+        s_replacements[typeof(T)] = (Func<T, T, T, T>)((value, shown, input) =>
+        {
+            if (unitChanged?.Invoke(shown, input) == true || unitChanged?.Invoke(value, shown) == true)
+                return input;
+
+            foreach (var component in components)
+            {
+                TComponent edited = component.Get(input);
+                if (edited != component.Get(shown))
+                    value = component.Set(value, edited);
+            }
+            return value;
+        });
         s_operations[typeof(T)] = (property => ComponentAnimation<T, TComponent>.Create((IProperty<T>)property), (property, time) =>
         {
             // Capture the rendered value, including component expressions and interpolation, before detaching the tracks.
@@ -137,6 +151,10 @@ public static class ComponentAnimations
 
     public static T OffsetValue<T>(T value, T from, T to)
         => s_offsets.TryGetValue(typeof(T), out object? offset) ? ((Func<T, T, T, T>)offset)(value, from, to) : to;
+
+    // Takes the components of input that differ from shown, and keeps value's other components.
+    public static T ReplaceEditedComponents<T>(T value, T shown, T input)
+        => s_replacements.TryGetValue(typeof(T), out object? replace) ? ((Func<T, T, T, T>)replace)(value, shown, input) : input;
 
     public static IComponentAnimation Separate(IProperty property)
     {

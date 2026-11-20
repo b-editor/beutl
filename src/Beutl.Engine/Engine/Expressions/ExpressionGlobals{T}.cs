@@ -8,7 +8,8 @@ public class ExpressionGlobals<T>(ExpressionContext context, IExpression<T>? bel
 
     private T ValueAt(MediaTime sceneTime)
     {
-        if (below != null)
+        // Keyframes without a key give the animator's default, not a value; the stored value stands then.
+        if (below is not null and not Beutl.Animation.IKeyFrameAnimation { KeyFrames.Count: 0 })
         {
             T value = below.Evaluate(Context.WithTime(sceneTime));
             if (value is not null)

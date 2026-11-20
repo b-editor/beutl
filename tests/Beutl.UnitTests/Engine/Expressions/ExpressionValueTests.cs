@@ -55,6 +55,20 @@ public class ExpressionValueTests
         }
     }
 
+    // Keyframes without a key give no value of their own, so the stored value stands, as it does for a split animation.
+    [Test]
+    public void Value_OverKeyFramesWithoutAKey_UsesStoredValue()
+    {
+        var property = Make(1.0);
+        property.Value = 7;
+        property.SetKeyFrameAnimation(new KeyFrameAnimation<double>());
+        property.Expression = Expression.Create<double>("Value * 2");
+
+        double value = property.Evaluate(new CompositionContext(MediaTime.FromSeconds(1)));
+
+        Assert.That(value, Is.EqualTo(14));
+    }
+
     [Test]
     public void ValueAtTime_UsesOwnerLocalTime()
     {

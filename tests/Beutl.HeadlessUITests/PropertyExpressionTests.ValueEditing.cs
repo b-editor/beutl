@@ -84,6 +84,78 @@ public partial class PropertyExpressionTests
         Assert.That(scope.Property.Value, Is.EqualTo(125), "The next direct edit is absolute.");
     }
 
+    // A typed component comes with the other fields' shown results, which must not replace their values below.
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Typing_one_component_keeps_the_others_under_the_expression(bool previewed)
+    {
+        using var scope = new ValueEditScope<Point>(new(100, 200), "new Point(Value.X * 2, Value.Y * 2)");
+        if (previewed)
+        {
+            scope.Model.SetCurrentValueAndGetCoerced(new Point(1, 400), relative: false);
+            scope.Model.SetCurrentValueAndGetCoerced(new Point(12, 400), relative: false);
+            scope.Model.SetCurrentValueAndGetCoerced(new Point(120, 400), relative: false);
+        }
+        scope.Model.SetValue(new Point(200, 400), new Point(120, 400));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Property.Value, Is.EqualTo(new Point(120, 200)));
+            Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        });
+        scope.History.Undo();
+        Assert.That(scope.Property.Value, Is.EqualTo(new Point(100, 200)));
+    }
+
+    // Typing after a wheel step replaces the value, and a wheel step after typing offsets from what was typed.
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Switching_between_wheel_and_typing_keeps_each_inputs_meaning(bool wheelFirst)
+    {
+        using var scope = new ValueEditScope<float>(100, "Value + 50");
+        if (wheelFirst)
+        {
+            scope.Model.SetCurrentValueAndGetCoerced(151, relative: true);
+            Assert.That(scope.Property.Value, Is.EqualTo(101));
+            scope.Model.SetCurrentValueAndGetCoerced(120, relative: false);
+            Assert.That(scope.Property.Value, Is.EqualTo(120));
+        }
+        else
+        {
+            scope.Model.SetCurrentValueAndGetCoerced(120, relative: false);
+            Assert.That(scope.Property.Value, Is.EqualTo(120));
+            scope.Model.SetCurrentValueAndGetCoerced(171, relative: true);
+            Assert.That(scope.Property.Value, Is.EqualTo(121));
+        }
+        scope.Model.SetValue(150, wheelFirst ? 170 : 171);
+
+        Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        scope.History.Undo();
+        Assert.That(scope.Property.Value, Is.EqualTo(100), "Undo goes back to the value before the first input.");
+    }
+
+    [AvaloniaTest]
+    public void Rational_and_time_drags_offset_the_value_under_the_expression()
+    {
+        using (var scope = new ValueEditScope<Rational>(new Rational(1), "Value + Value"))
+        {
+            Assert.That(scope.Model, Is.InstanceOf<RationalEditorViewModel>());
+            scope.Model.SetCurrentValueAndGetCoerced(new Rational(3));
+            scope.Model.SetValue(new Rational(2), new Rational(3));
+            Assert.That(scope.Property.Value, Is.EqualTo(new Rational(2)));
+        }
+
+        using (var scope = new ValueEditScope<MediaTime>(MediaTime.FromSeconds(10), "Value + Value"))
+        {
+            Assert.That(scope.Model, Is.InstanceOf<MediaTimeEditorViewModel>());
+            scope.Model.SetCurrentValueAndGetCoerced(MediaTime.FromSeconds(30));
+            scope.Model.SetValue(MediaTime.FromSeconds(20), MediaTime.FromSeconds(30));
+            Assert.That(scope.Property.Value, Is.EqualTo(MediaTime.FromSeconds(20)));
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]

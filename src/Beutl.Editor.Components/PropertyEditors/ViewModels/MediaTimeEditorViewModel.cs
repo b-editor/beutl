@@ -3,4 +3,6 @@
 public sealed class MediaTimeEditorViewModel(IPropertyAdapter<MediaTime> property) : ValueEditorViewModel<MediaTime>(property)
 {
     protected override bool CanEditUnderExpression => true;
+
+    protected override MediaTime OffsetValue(MediaTime value, MediaTime from, MediaTime to) => value + (to - from);
 }
