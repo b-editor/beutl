@@ -2,6 +2,7 @@
 using System.Globalization;
 
 using Beutl.Animation;
+using Beutl.Animation.Animators;
 using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Editor;
@@ -14,7 +15,7 @@ using Beutl.Serialization;
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.MeshWarp), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider
+public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, IComponentInterpolator<MeshWarpGrid>
 {
     private static readonly Color s_cornerColor = Color.FromRgb(255, 179, 77);
     private const int MaxCachedInputBounds = 512;
@@ -205,6 +206,22 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider
         MeshWarpGrid? grid = keyValue ?? Mesh.Evaluate(evaluation);
         return grid?.Resample(rows, columns, Interpolation.Evaluate(evaluation))
             ?? MeshWarpGrid.CreateIdentity(rows, columns);
+    }
+
+    MeshWarpGrid IComponentInterpolator<MeshWarpGrid>.Interpolate(
+        KeyFrameAnimation<MeshWarpGrid> animation,
+        float progress,
+        MeshWarpGrid oldValue,
+        MeshWarpGrid newValue,
+        MediaTime previousTime,
+        MediaTime nextTime,
+        MediaTime time)
+    {
+        var evaluation = new EvaluationContext(animation.ToScene(time));
+        int rows = Rows.Evaluate(evaluation);
+        int columns = Columns.Evaluate(evaluation);
+        MeshWarpInterpolation interpolation = Interpolation.Evaluate(evaluation);
+        return MeshWarpGridAnimator.Interpolate(progress, oldValue, newValue, rows, columns, interpolation);
     }
 
     private Rect GetEditingInputBounds(MediaTime time, Rect fallbackBounds)

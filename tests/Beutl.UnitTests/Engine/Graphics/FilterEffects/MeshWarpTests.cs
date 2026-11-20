@@ -353,6 +353,140 @@ public sealed class MeshWarpTests
     }
 
     [Test]
+    public void CoprimeGridSizesPreserveEndpointSurfaceDuringAnimation()
+    {
+        var animator = AnimatorRegistry.CreateAnimator<MeshWarpGrid>();
+        var twoCol = MeshWarpGrid.CreateIdentity(1, 2)
+            .WithPoint(0, 1, new Point(0.75f, 0))
+            .WithPoint(1, 1, new Point(0.75f, 1));
+        var threeColIdentity = MeshWarpGrid.CreateIdentity(1, 3);
+
+        MeshWarpGrid standalone = animator.Interpolate(0.001f, twoCol, threeColIdentity);
+        Assert.Multiple(() =>
+        {
+            Assert.That(standalone.Columns, Is.EqualTo(6));
+            Assert.That(standalone.Resample(1, 2).Points[1].X, Is.EqualTo(0.75f).Within(1e-3));
+        });
+
+        var effect = Create(1, 2, MeshWarpInterpolation.Linear);
+        effect.Mesh.SetKeyFrameAnimation(new KeyFrameAnimation<MeshWarpGrid>
+        {
+            KeyFrames = { Key(0, twoCol), Key(1, threeColIdentity) }
+        });
+
+        MeshWarpGrid atStart = effect.Mesh.Evaluate(new EvaluationContext(MediaTime.Zero)).Resample(1, 2, MeshWarpInterpolation.Linear);
+        MeshWarpGrid justAfterStart = effect.Mesh.Evaluate(new EvaluationContext(MediaTime.FromSeconds(0.001)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(atStart.Points[1].X, Is.EqualTo(0.75f).Within(1e-6));
+            Assert.That(justAfterStart.Columns, Is.EqualTo(2));
+            Assert.That(justAfterStart.Points[1].X, Is.EqualTo(0.75f).Within(1e-3));
+        });
+    }
+
+    [Test]
+    public void AnimatedMismatchedKeyFramesUseEffectsInterpolationMode()
+    {
+        var coarse = MeshWarpGrid.CreateIdentity(2, 2).WithPoint(1, 1, new Point(0.75f, 0.5f));
+        var fineIdentity = MeshWarpGrid.CreateIdentity(4, 4);
+
+        var smoothEffect = Create(4, 4, MeshWarpInterpolation.Smooth);
+        smoothEffect.Mesh.SetKeyFrameAnimation(new KeyFrameAnimation<MeshWarpGrid>
+        {
+            KeyFrames = { Key(0, coarse), Key(1, fineIdentity) }
+        });
+
+        var linearEffect = Create(4, 4, MeshWarpInterpolation.Linear);
+        linearEffect.Mesh.SetKeyFrameAnimation(new KeyFrameAnimation<MeshWarpGrid>
+        {
+            KeyFrames = { Key(0, coarse), Key(1, fineIdentity) }
+        });
+
+        float expectedSmooth = coarse.Resample(4, 4, MeshWarpInterpolation.Smooth).Points[6].X;
+        float expectedLinear = coarse.Resample(4, 4, MeshWarpInterpolation.Linear).Points[6].X;
+        MeshWarpGrid smoothJustAfter = smoothEffect.Mesh.Evaluate(new EvaluationContext(MediaTime.FromSeconds(0.001)));
+        MeshWarpGrid linearJustAfter = linearEffect.Mesh.Evaluate(new EvaluationContext(MediaTime.FromSeconds(0.001)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expectedSmooth, Is.EqualTo(0.3291015625f).Within(1e-6));
+            Assert.That(expectedLinear, Is.EqualTo(0.3125f).Within(1e-6));
+            Assert.That(smoothJustAfter.Points[6].X, Is.EqualTo(expectedSmooth).Within(1e-3));
+            Assert.That(linearJustAfter.Points[6].X, Is.EqualTo(expectedLinear).Within(1e-3));
+        });
+    }
+
+    [TestCase(0.5f)]
+    [TestCase(0.3f)]
+    public void UnequalHeightSplitTargetsShareEdgeSamplesWithoutGaps(float leftSplitFraction)
+    {
+        const int size = 600;
+        int splitY = (int)(size * leftSplitFraction);
+        var upperLeftBounds = new Rect(0, 0, size / 2, splitY);
+        var lowerLeftBounds = new Rect(0, splitY, size / 2, size - splitY);
+        var rightBounds = new Rect(size / 2, 0, size / 2, size);
+        var combinedBounds = new Rect(0, 0, size, size);
+
+        using RenderTarget upperLeftBacking = CpuRenderTargets.Create(size / 2, splitY);
+        upperLeftBacking.Value.Canvas.Clear(SKColors.White);
+        upperLeftBacking.Value.Canvas.Flush();
+        using RenderTarget lowerLeftBacking = CpuRenderTargets.Create(size / 2, size - splitY);
+        lowerLeftBacking.Value.Canvas.Clear(SKColors.White);
+        lowerLeftBacking.Value.Canvas.Flush();
+        using RenderTarget rightBacking = CpuRenderTargets.Create(size / 2, size);
+        rightBacking.Value.Canvas.Clear(SKColors.White);
+        rightBacking.Value.Canvas.Flush();
+
+        var effect = Create(1, 1, MeshWarpInterpolation.Smooth);
+        effect.Mesh.Value = effect.Mesh.Value
+            .WithPoint(1, 0, new Point(0.5f, 1))
+            .WithPoint(1, 1, new Point(1.5f, 1));
+
+        using var targets = new EffectTargets
+        {
+            new EffectTarget(upperLeftBacking, upperLeftBounds, EffectiveScale.At(1), new PixelRect(0, 0, size / 2, splitY)),
+            new EffectTarget(lowerLeftBacking, lowerLeftBounds, EffectiveScale.At(1), new PixelRect(0, splitY, size / 2, size - splitY)),
+            new EffectTarget(rightBacking, rightBounds, EffectiveScale.At(1), new PixelRect(size / 2, 0, size / 2, size)),
+        };
+        using var context = Record(effect, combinedBounds);
+        using var builder = new SKImageFilterBuilder();
+        using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Preview, RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null, workingScale: 1, maxWorkingScale: 1);
+        executor.Apply(context);
+        executor.Flush(false);
+
+        int compositeWidth = (int)MathF.Ceiling(size * 1.5f) + 4;
+        using RenderTarget composite = CpuRenderTargets.Create(compositeWidth, size + 4);
+        SKCanvas canvas = composite.Value.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        foreach (EffectTarget tile in targets)
+        {
+            using SKImage image = tile.RenderTarget!.Value.Snapshot();
+            canvas.DrawImage(image, tile.Placement.RasterBounds.X, tile.Placement.RasterBounds.Y, SKSamplingOptions.Default);
+        }
+        canvas.Flush();
+
+        using Bitmap bitmap = composite.Snapshot();
+        // Check horizontal scanlines around Y=1/16, the split T-junction, and mid-height across the shared seam.
+        int[] sampleRows = [(int)(size / 16f), splitY, size / 2];
+        Assert.Multiple(() =>
+        {
+            foreach (int y in sampleRows)
+            {
+                // Inside the warped strip around the shared seam (X = 0.5 + displacement), every pixel must stay covered.
+                float t = y / (float)size;
+                float dx = ((-0.5f * t + 0.75f) * t + 0.25f) * t;
+                int seamX = (int)MathF.Round((0.5f + dx) * size);
+                for (int x = seamX - 10; x <= seamX + 10; x++)
+                {
+                    Rgba pixel = ImageMetrics.ReadPixel(bitmap, x, y);
+                    Assert.That(pixel.Alpha, Is.GreaterThan(0.5f), $"gap at ({x}, {y}) for split={leftSplitFraction}");
+                }
+            }
+        });
+    }
+
+    [Test]
     public void SourceApronDoesNotBleedIntoEdgePixelsWhenStretching()
     {
         var input = new Rect(10, 20, 40, 32);

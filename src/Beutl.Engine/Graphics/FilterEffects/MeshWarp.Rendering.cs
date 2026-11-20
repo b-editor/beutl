@@ -44,6 +44,9 @@ public sealed partial class MeshWarp
         }
 
         bool sharedSpace = context.Targets.Count > 1 && HasArea(sharedBounds);
+        (float[] Xs, float[] Ys)? sharedGrid = sharedSpace
+            ? data.Mesh.CreateSharedSamples(context.Targets, sharedBounds)
+            : null;
         for (int i = 0; i < context.Targets.Count; i++)
         {
             EffectTarget target = context.Targets[i];
@@ -51,14 +54,14 @@ public sealed partial class MeshWarp
 
             Tessellation? tileMesh = data.Mesh;
             Rect warpBounds = target.Bounds;
-            if (sharedSpace)
+            if (sharedGrid is { } samples)
             {
-                var subRect = new Rect(
-                    (target.Bounds.X - sharedBounds.X) / sharedBounds.Width,
-                    (target.Bounds.Y - sharedBounds.Y) / sharedBounds.Height,
-                    target.Bounds.Width / sharedBounds.Width,
-                    target.Bounds.Height / sharedBounds.Height);
-                tileMesh = data.Mesh.CreateSubMesh(subRect);
+                float subLeft = (float)(((double)target.Bounds.X - sharedBounds.X) / sharedBounds.Width);
+                float subTop = (float)(((double)target.Bounds.Y - sharedBounds.Y) / sharedBounds.Height);
+                float subRight = (float)(((double)target.Bounds.Right - sharedBounds.X) / sharedBounds.Width);
+                float subBottom = (float)(((double)target.Bounds.Bottom - sharedBounds.Y) / sharedBounds.Height);
+                var subRect = new Rect(subLeft, subTop, subRight - subLeft, subBottom - subTop);
+                tileMesh = data.Mesh.CreateSubMesh(subRect, samples.Xs, samples.Ys);
                 warpBounds = sharedBounds;
             }
 
@@ -69,6 +72,19 @@ public sealed partial class MeshWarp
             }
 
             Rect bounds = new(MapPoint(warpBounds, tileMesh.Minimum), MapPoint(warpBounds, tileMesh.Maximum));
+            if (sharedGrid is not null && float.IsFinite(context.WorkingScale) && context.WorkingScale > 0)
+            {
+                // Snap split tiles onto a common working-pixel grid so shared triangle edges share identical pixel centers.
+                float scale = context.WorkingScale;
+                float x0 = MathF.Floor(bounds.X * scale) / scale;
+                float y0 = MathF.Floor(bounds.Y * scale) / scale;
+                float x1 = MathF.Ceiling(bounds.Right * scale) / scale;
+                float y1 = MathF.Ceiling(bounds.Bottom * scale) / scale;
+                Rect snapped = new(x0, y0, x1 - x0, y1 - y0);
+                if (HasArea(snapped))
+                    bounds = snapped;
+            }
+
             if (!HasArea(bounds))
             {
                 context.Targets.RemoveAt(i--);
@@ -188,20 +204,58 @@ public sealed partial class MeshWarp
         int count,
         int indexCount)
     {
+        private const float SampleMergeEpsilon = 1e-6f;
+
         public Point[] Rest { get; } = new Point[count];
         public Point[] Warped { get; } = new Point[count];
         public ushort[] Indices { get; } = new ushort[indexCount];
         public Point Minimum { get; private set; }
         public Point Maximum { get; private set; }
 
-        public Tessellation? CreateSubMesh(Rect normalizedSubRect)
-            => Create(grid, strength, interpolation, normalizedSubRect);
+        public (float[] Xs, float[] Ys) CreateSharedSamples(EffectTargets targets, Rect sharedBounds)
+        {
+            var boundaryXs = new List<float>(targets.Count * 2);
+            var boundaryYs = new List<float>(targets.Count * 2);
+            for (int i = 0; i < targets.Count; i++)
+            {
+                EffectTarget target = targets[i];
+                if (!target.IsMaterialized) continue;
+
+                boundaryXs.Add((float)(((double)target.Bounds.X - sharedBounds.X) / sharedBounds.Width));
+                boundaryXs.Add((float)(((double)target.Bounds.Right - sharedBounds.X) / sharedBounds.Width));
+                boundaryYs.Add((float)(((double)target.Bounds.Y - sharedBounds.Y) / sharedBounds.Height));
+                boundaryYs.Add((float)(((double)target.Bounds.Bottom - sharedBounds.Y) / sharedBounds.Height));
+            }
+
+            float[] uniqueBoundaryXs = SortAndDeduplicate(boundaryXs);
+            float[] uniqueBoundaryYs = SortAndDeduplicate(boundaryYs);
+
+            int subdivisions = 8;
+            while (subdivisions > 1
+                && (long)(grid.Rows * subdivisions + uniqueBoundaryYs.Length + 1)
+                    * (grid.Columns * subdivisions + uniqueBoundaryXs.Length + 1) > ushort.MaxValue)
+            {
+                subdivisions--;
+            }
+
+            int globalRows = grid.Rows * subdivisions;
+            int globalColumns = grid.Columns * subdivisions;
+            return (MergeWithGlobal(uniqueBoundaryXs, globalColumns), MergeWithGlobal(uniqueBoundaryYs, globalRows));
+        }
+
+        public Tessellation? CreateSubMesh(Rect normalizedSubRect, float[] sharedXs, float[] sharedYs)
+        {
+            if (!HasArea(normalizedSubRect)) return null;
+
+            float[] tileXs = SliceRange(sharedXs, normalizedSubRect.X, normalizedSubRect.Right);
+            float[] tileYs = SliceRange(sharedYs, normalizedSubRect.Y, normalizedSubRect.Bottom);
+            return CreateFromSamples(grid, strength, interpolation, tileXs, tileYs, normalizedSubRect);
+        }
 
         public static Tessellation? Create(
             MeshWarpGrid grid,
             float strength,
-            MeshWarpInterpolation interpolation,
-            Rect? normalizedSubRect = null)
+            MeshWarpInterpolation interpolation)
         {
             int subdivisions = 8;
             while ((grid.Rows * subdivisions + 1) * (grid.Columns * subdivisions + 1) > ushort.MaxValue)
@@ -209,6 +263,29 @@ public sealed partial class MeshWarp
 
             int rows = grid.Rows * subdivisions;
             int columns = grid.Columns * subdivisions;
+            var xs = new float[columns + 1];
+            for (int c = 0; c <= columns; c++)
+                xs[c] = c / (float)columns;
+            var ys = new float[rows + 1];
+            for (int r = 0; r <= rows; r++)
+                ys[r] = r / (float)rows;
+
+            return CreateFromSamples(grid, strength, interpolation, xs, ys, normalizedSubRect: null);
+        }
+
+        private static Tessellation? CreateFromSamples(
+            MeshWarpGrid grid,
+            float strength,
+            MeshWarpInterpolation interpolation,
+            float[] xs,
+            float[] ys,
+            Rect? normalizedSubRect)
+        {
+            if (xs.Length < 2 || ys.Length < 2 || (long)xs.Length * ys.Length > ushort.MaxValue)
+                return null;
+
+            int rows = ys.Length - 1;
+            int columns = xs.Length - 1;
             int stride = columns + 1;
             var result = new Tessellation(grid, strength, interpolation, (rows + 1) * stride, rows * columns * 6);
             float left = float.PositiveInfinity, top = float.PositiveInfinity;
@@ -217,17 +294,24 @@ public sealed partial class MeshWarp
 
             for (int row = 0; row <= rows; row++)
             {
+                float sharedY = ys[row];
+                float tileRestY = normalizedSubRect is { } subForY
+                    ? row == 0 ? 0f : row == rows ? 1f : Math.Clamp((float)(((double)sharedY - subForY.Y) / subForY.Height), 0f, 1f)
+                    : sharedY;
+
                 for (int column = 0; column <= columns; column++)
                 {
                     int vertex = row * stride + column;
-                    var tileRest = new Point(column / (float)columns, row / (float)rows);
-                    Point sharedRest = normalizedSubRect is { } sub
-                        ? new Point(sub.X + tileRest.X * sub.Width, sub.Y + tileRest.Y * sub.Height)
-                        : tileRest;
+                    float sharedX = xs[column];
+                    float tileRestX = normalizedSubRect is { } subForX
+                        ? column == 0 ? 0f : column == columns ? 1f : Math.Clamp((float)(((double)sharedX - subForX.X) / subForX.Width), 0f, 1f)
+                        : sharedX;
+
+                    var sharedRest = new Point(sharedX, sharedY);
                     Point warped = MeshWarpGrid.Lerp(sharedRest, grid.Evaluate(sharedRest, interpolation), strength);
                     if (!MeshWarpGrid.IsFinite(warped)) return null;
 
-                    result.Rest[vertex] = tileRest;
+                    result.Rest[vertex] = new Point(tileRestX, tileRestY);
                     result.Warped[vertex] = warped;
                     left = MathF.Min(left, warped.X);
                     top = MathF.Min(top, warped.Y);
@@ -249,6 +333,68 @@ public sealed partial class MeshWarp
             result.Minimum = new Point(left, top);
             result.Maximum = new Point(right, bottom);
             return result;
+        }
+
+        private static float[] SortAndDeduplicate(List<float> values)
+        {
+            if (values.Count == 0) return [];
+            values.Sort();
+            var result = new List<float>(values.Count) { values[0] };
+            for (int i = 1; i < values.Count; i++)
+            {
+                if (values[i] - result[^1] > SampleMergeEpsilon)
+                    result.Add(values[i]);
+            }
+
+            return result.ToArray();
+        }
+
+        private static float[] MergeWithGlobal(float[] boundaries, int globalCells)
+        {
+            var merged = new List<float>(boundaries.Length + globalCells + 1);
+            merged.AddRange(boundaries);
+            for (int i = 0; i <= globalCells; i++)
+            {
+                float sample = i / (float)globalCells;
+                if (!ContainsNear(boundaries, sample))
+                    merged.Add(sample);
+            }
+
+            merged.Sort();
+            return merged.ToArray();
+        }
+
+        private static bool ContainsNear(float[] sorted, float value)
+        {
+            int idx = Array.BinarySearch(sorted, value);
+            if (idx >= 0) return true;
+            int next = ~idx;
+            if (next < sorted.Length && MathF.Abs(sorted[next] - value) <= SampleMergeEpsilon) return true;
+            if (next > 0 && MathF.Abs(sorted[next - 1] - value) <= SampleMergeEpsilon) return true;
+            return false;
+        }
+
+        private static float[] SliceRange(float[] shared, float start, float end)
+        {
+            if (end - start <= SampleMergeEpsilon || shared.Length < 2)
+                return [start, end];
+
+            int startIdx = FindNearestIndex(shared, start);
+            int endIdx = FindNearestIndex(shared, end);
+            if (endIdx <= startIdx)
+                return [start, end];
+
+            return shared[startIdx..(endIdx + 1)];
+        }
+
+        private static int FindNearestIndex(float[] sorted, float value)
+        {
+            int idx = Array.BinarySearch(sorted, value);
+            if (idx >= 0) return idx;
+            int next = ~idx;
+            if (next == 0) return 0;
+            if (next >= sorted.Length) return sorted.Length - 1;
+            return MathF.Abs(sorted[next] - value) < MathF.Abs(value - sorted[next - 1]) ? next : next - 1;
         }
     }
 

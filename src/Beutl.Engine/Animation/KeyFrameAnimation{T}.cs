@@ -74,9 +74,9 @@ public partial class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IP
 
     public T EvaluateAt(MediaTime time) => GetAnimatedValue(time)!;
 
-    private T InterpolateValues(float progress, T previous, T next, MediaTime previousTime, MediaTime nextTime)
+    private T InterpolateValues(float progress, T previous, T next, MediaTime previousTime, MediaTime nextTime, MediaTime time)
         => HierarchicalParent is IComponentInterpolator<T> interpolate
-            ? interpolate.Interpolate(this, progress, previous, next, previousTime, nextTime)
+            ? interpolate.Interpolate(this, progress, previous, next, previousTime, nextTime, time)
             : KeyFrame<T>.s_animator.Interpolate(progress, previous, next);
 
     public T Evaluate(ExpressionContext context) => GetAnimatedValue(context.Time)!;
@@ -122,7 +122,7 @@ public partial class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IP
             else if (nextValue == null)
                 return prevValue;
 
-            T? value = InterpolateValues(ease, prevValue, nextValue, prevTime, nextTime);
+            T? value = InterpolateValues(ease, prevValue, nextValue, prevTime, nextTime, timeSpan);
 
             return value;
         }
