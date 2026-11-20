@@ -153,7 +153,9 @@ public partial class PropertyExpressionTests
         animation.KeyFrames.Add(new KeyFrame<Beutl.Graphics.Point> { Value = { Value = new(100, 200) } });
         animation.KeyFrames.Add(new KeyFrame<Beutl.Graphics.Point>
         {
-            KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = new(300, 400) }, Easing = { Value = new LinearEasing() }
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = new(300, 400) },
+            Easing = { Value = new LinearEasing() }
         });
         owner.Value.SetKeyFrameAnimation(animation);
         ComponentAnimations.Separate(owner.Value);
@@ -198,7 +200,10 @@ public partial class PropertyExpressionTests
             }
             using var host = new ControlHost(new Window
             {
-                Content = rows, Width = 460, Height = 240, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+                Content = rows,
+                Width = 460,
+                Height = 240,
+                RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
             });
             for (int i = 0; i < states.Length; i++)
             {
@@ -320,7 +325,9 @@ public partial class PropertyExpressionTests
             for (int i = 0; i < values.Length; i++)
                 animation.KeyFrames.Add(new KeyFrame<float>
                 {
-                    KeyTime = { Value = MediaTime.FromSeconds(i * 2) }, Value = { Value = values[i] }, Easing = { Value = new LinearEasing() }
+                    KeyTime = { Value = MediaTime.FromSeconds(i * 2) },
+                    Value = { Value = values[i] },
+                    Easing = { Value = new LinearEasing() }
                 });
             return animation;
         }
@@ -328,7 +335,8 @@ public partial class PropertyExpressionTests
         public ControlHost Show()
             => new(new Border
             {
-                Focusable = true, Child = new StackPanel { Children = { WidthEditor, HeightEditor } }
+                Focusable = true,
+                Child = new StackPanel { Children = { WidthEditor, HeightEditor } }
             }, width: 500, height: 100);
 
         public void Dispose()

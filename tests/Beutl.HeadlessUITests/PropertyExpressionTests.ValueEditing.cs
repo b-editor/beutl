@@ -397,7 +397,9 @@ public partial class PropertyExpressionTests
         {
             var window = new Window
             {
-                Content = new Border { Focusable = true, Child = content ?? Control }, Width = 500, Height = height
+                Content = new Border { Focusable = true, Child = content ?? Control },
+                Width = 500,
+                Height = height
             };
             Beutl.Controls.ControlConfiguration.SetConfiguration(window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(window, TestShell.FontManager);
