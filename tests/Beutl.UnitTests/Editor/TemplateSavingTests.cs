@@ -28,7 +28,7 @@ public class TemplateSavingTests
         using var notifications = new NotificationCapture();
         int saved = 0;
 
-        bool result = await TemplateSaving.SaveAsync(notifications, _templates,
+        bool result = await TemplateSaving.SaveAsync(notifications, _templates, null,
             new Audio.Effects.AudioEffectGroup(), $"saving-{Guid.NewGuid():N}", () => saved++);
 
         Assert.That(result, Is.True);
@@ -42,7 +42,7 @@ public class TemplateSavingTests
         using var notifications = new NotificationCapture();
         int saved = 0;
 
-        bool result = await TemplateSaving.SaveAsync(notifications, _templates, new Audio.Effects.AudioEffectGroup(), "a/b", () => saved++);
+        bool result = await TemplateSaving.SaveAsync(notifications, _templates, null, new Audio.Effects.AudioEffectGroup(), "a/b", () => saved++);
 
         Assert.That(result, Is.False);
         Assert.That(saved, Is.Zero);
