@@ -412,13 +412,13 @@ public partial class MissingMediaTests
                 await vm.WaitForCandidatesAsync();
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(vm.Rows, Is.Empty);
-            Assert.That(TestShell.FontManager.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
+            Assert.That(((FontManager)editor.GetService(typeof(FontManager))!).GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
                 Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
             string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
             string bundled = Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts");
             Assert.That(Directory.GetFiles(bundled), Has.Length.EqualTo(2));
             await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
-            Assert.That(TestShell.FontManager.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
+            Assert.That(TestShell.Project.ProjectFonts!.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
                 Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
         }
         finally { await TestReset.ResetShellAsync(); }
@@ -459,7 +459,7 @@ public partial class MissingMediaTests
             string bundled = Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts");
             Assert.That(Directory.GetFiles(bundled), Has.Length.EqualTo(2));
             await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
-            Assert.That(TestShell.FontManager.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
+            Assert.That(TestShell.Project.ProjectFonts!.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
                 Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
         }
         finally { await TestReset.ResetShellAsync(); }

@@ -29,7 +29,7 @@ public sealed class InsertedAudioSpectrumRenderTests
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
 
-        ToolResult<ApplyEditResponse> apply = new EditTools(manager, TestFonts.Manager).ApplyEdit(
+        ToolResult<ApplyEditResponse> apply = new EditTools(manager).ApplyEdit(
             patch: InsertSpectrumOf(wav),
             schemaVersion: SchemaVersion.Current);
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);

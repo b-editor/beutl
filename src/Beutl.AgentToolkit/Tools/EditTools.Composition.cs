@@ -37,7 +37,7 @@ public sealed partial class EditTools
             // Resolve the patch and plan inside the session dispatch so a LiveEditor plan does not
             // read the UI-owned scene on the MCP request thread.
             ResolvedEdit resolved = null!;
-            ReconcilePlan plan = _reconciler.PlanFromCurrent(session, current =>
+            ReconcilePlan plan = ReconcilerFor(session).PlanFromCurrent(session, current =>
             {
                 JsonObject patch = CompositionTemplateCatalog.OffsetPatchElementStarts(
                     composition.Patch, ReadSceneStart(current));
@@ -84,7 +84,7 @@ public sealed partial class EditTools
                 // the lookup must not let a plan for the swapped-in project apply to this scene.
                 CompositionPlanState state = sessions.GetCompositionPlan(
                     planId.Trim(), sessions.GetSessionKey(session));
-                ReconcileResult storedResult = _reconciler.ApplyValidated(
+                ReconcileResult storedResult = ReconcilerFor(session).ApplyValidated(
                     session,
                     _ => ((JsonObject)state.DesiredDocument.DeepClone(), state.KnownNewIds.ToHashSet()),
                     plan => ChangeSetMatches(plan, state.ExpectedChangeSet)
@@ -112,7 +112,7 @@ public sealed partial class EditTools
                 inputProps,
                 sessions.ResolveCompositionSeed(seed));
             JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
-            ReconcileResult result = _reconciler.ApplyValidated(
+            ReconcileResult result = ReconcilerFor(session).ApplyValidated(
                 session,
                 current =>
                 {

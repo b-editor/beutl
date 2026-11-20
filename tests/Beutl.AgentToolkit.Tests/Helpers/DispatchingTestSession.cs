@@ -28,6 +28,8 @@ internal sealed class DispatchingTestSession(CoreObject root, bool rootOnlyInsid
 
     public DocumentAdapter Documents => _inner.Documents;
 
+    public Media.FontManager Fonts => _inner.Fonts;
+
     public bool IsDirty => false;
 
     public void Invoke(Action action)

@@ -19,7 +19,7 @@ public sealed class LiveSessionTests
         LiveEditingSession session = LiveEditingSession.Create(binding, TestFonts.Manager);
         var manager = new AgentSessionManager();
         manager.UseRequestTarget(() => session);
-        var tools = new EditTools(manager, TestFonts.Manager);
+        var tools = new EditTools(manager);
 
         JsonObject patch = new()
         {

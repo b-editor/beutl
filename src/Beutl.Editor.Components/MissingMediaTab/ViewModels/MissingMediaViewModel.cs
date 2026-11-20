@@ -389,8 +389,7 @@ public sealed class MissingMediaViewModel : IToolContext
                     RelocationResult result = await relocation.RelocateFontsAsync(_editor.GetRequiredService<FontManager>(), fontRows.Select(row => row.Media.FontFamily!),
                         projectDirectory, _token);
                     if (result.FailedResources.Count > 0) throw new IOException(MissingMediaStrings.FontCopyFailed);
-                    var project = _scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _scene.Uri };
-                    _editor.GetRequiredService<FontManager>().LoadProjectFonts(project);
+                    _host.ReloadBundledFonts();
                 }
                 using (history.SuppressRecording())
                 {
@@ -420,7 +419,7 @@ public sealed class MissingMediaViewModel : IToolContext
                         if (Directory.Exists(fontsDirectory))
                             foreach (string file in Directory.GetFiles(fontsDirectory).Where(file => !originalFonts.Contains(file)))
                                 File.Delete(file);
-                        _editor.GetRequiredService<FontManager>().LoadProjectFonts(_scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _scene.Uri });
+                        _host.ReloadBundledFonts();
                     }
                     catch (Exception ex) { s_logger.LogWarning(ex, "Could not roll back copied repair fonts."); }
                 }

@@ -65,7 +65,9 @@ public partial class MainViewModel : IAiWorkspaceHost
     {
         _captionCatalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates(_objectTemplateService));
         return new AiSubtitleDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
-            AppServices.GetRequiredService<Beutl.Media.FontManager>(),
+            // The editor's fonts, so caption previews draw the project's bundled fonts.
+            editViewModel?.GetService(typeof(Beutl.Media.FontManager)) as Beutl.Media.FontManager
+                ?? AppServices.GetRequiredService<Beutl.Media.FontManager>(),
             AppServices.GetRequiredService<DecoderRegistry>(),
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),

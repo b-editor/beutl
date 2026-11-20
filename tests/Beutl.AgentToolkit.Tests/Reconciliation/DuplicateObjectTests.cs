@@ -327,7 +327,7 @@ public sealed class DuplicateObjectTests
         element.AddObject(rect);
 
         using var session = new DispatchingTestSession(scene);
-        var tools = new EditTools(TestSessions.CreateManager(session), TestFonts.Manager);
+        var tools = new EditTools(TestSessions.CreateManager(session));
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: true);
 

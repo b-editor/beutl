@@ -152,6 +152,9 @@ public sealed partial class EditorService
 
     internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator { get; set; }
 
+    // The fonts a scene editor forks: its project's fork while the project is open, else the host's.
+    internal Func<Project?, Beutl.Media.FontManager>? ProjectFonts { get; set; }
+
     internal IProjectVersionControlSession? ProjectVersionControlSession
         => ProjectVersionControlCoordinator as IProjectVersionControlSession;
 

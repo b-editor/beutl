@@ -25,6 +25,10 @@ public sealed class AgentSessionManager(CompositionPlanStore? plans = null)
         ? _requestSession ??= resolve()
         : _currentSource?.CurrentSession;
 
+    // The session already bound to this call, without resolving a live request target, which can fail before
+    // the call names its scene.
+    internal IEditingSession? PeekSession() => _requestTarget is null ? _currentSource?.CurrentSession : _requestSession;
+
     // Live MCP registers this manager per request. Resolve lazily, after the MCP argument filter,
     // and capture one binding so later UI navigation cannot retarget this call.
     public void UseRequestTarget(Func<IEditingSession> resolve)

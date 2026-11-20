@@ -58,7 +58,7 @@ public sealed record EditNodeGraphResponse(
 
 // Builds and edits node graphs, the declarative way to compose GPU shader passes and other node-based content.
 [McpServerToolType]
-public sealed class NodeGraphTools(AgentSessionManager sessions, Media.FontManager fonts, DecoderRegistry? decoders = null) : ToolBase
+public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry? decoders = null) : ToolBase
 {
     // What undo and read_history call one edit_node_graph call.
     public const string HistoryEntryName = "Agent node graph edit";
@@ -160,7 +160,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, Media.FontManag
                 NodeGraphTarget copy = NodeGraphLocator.Locate(SceneSnapshot.Create(scene), graphId);
                 IReadOnlyList<NodeView> nodes = [];
                 IReadOnlyList<ConnectionView> connections = [];
-                List<NodeGraphDiagnostic> diagnostics = NodeGraphDiagnostics.Evaluate(fonts, decoders, copy, NodeGraphDiagnostics.Label, () =>
+                List<NodeGraphDiagnostic> diagnostics = NodeGraphDiagnostics.Evaluate(session.Fonts, decoders, copy, NodeGraphDiagnostics.Label, () =>
                 {
                     nodes = NodeGraphView.DescribeNodes(copy.Graph, includeCode);
                     connections = NodeGraphView.DescribeConnections(copy.Graph);
@@ -200,12 +200,12 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, Media.FontManag
                 Guid[] nodeIds = NodeGraphEditor.MintNodeIds(steps);
 
                 NodeGraphTarget copy = NodeGraphLocator.Locate(SceneSnapshot.Create(scene), graphId);
-                List<NodeGraphDiagnostic> before = NodeGraphDiagnostics.Evaluate(fonts, decoders, copy, NodeGraphDiagnostics.Label);
+                List<NodeGraphDiagnostic> before = NodeGraphDiagnostics.Evaluate(session.Fonts, decoders, copy, NodeGraphDiagnostics.Label);
                 var editor = new NodeGraphEditor(copy.Graph, frameRate);
                 editor.Apply(steps, nodeIds);
                 string Label(GraphNode node) => editor.RefOf(node) ?? NodeGraphDiagnostics.Label(node);
                 IReadOnlyDictionary<string, IReadOnlyList<PortSummary>> ports = new Dictionary<string, IReadOnlyList<PortSummary>>();
-                List<NodeGraphDiagnostic> after = NodeGraphDiagnostics.Evaluate(fonts, decoders, copy, Label, () =>
+                List<NodeGraphDiagnostic> after = NodeGraphDiagnostics.Evaluate(session.Fonts, decoders, copy, Label, () =>
                 {
                     ports = editor.Touched
                         .Where(node => IsInside(node, copy.Graph))

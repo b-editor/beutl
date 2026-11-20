@@ -55,6 +55,23 @@ internal sealed class BeutlFontCollection(Media.FontManager fonts, long maxCopie
         }
     }
 
+    // Takes the collections made for fonts out of the managers they were added to, for a fork whose owner, such as an
+    // editor, has closed. Text still drawn with its copies keeps them.
+    public static void Unregister(Media.FontManager fonts)
+    {
+        lock (s_registrationGate)
+        {
+            foreach ((FontManager manager, ConditionalWeakTable<Media.FontManager, BeutlFontCollection> sources) in s_registrations)
+            {
+                if (sources.TryGetValue(fonts, out BeutlFontCollection? collection))
+                {
+                    sources.Remove(fonts);
+                    manager.RemoveFontCollection(collection.Key);
+                }
+            }
+        }
+    }
+
     public bool TryGetGlyphTypeface(string familyName, FontStyle style, FontWeight weight, FontStretch stretch,
         [NotNullWhen(true)] out GlyphTypeface? glyphTypeface)
         => TryGetTypeface(familyName, style, weight, stretch, nearest: false, out glyphTypeface);

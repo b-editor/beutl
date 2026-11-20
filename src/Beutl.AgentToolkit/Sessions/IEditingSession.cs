@@ -23,6 +23,11 @@ public interface IEditingSession
 
     bool IsDirty { get; }
 
+    // The fonts this session's scenes render with: a file session's fork of the host's fonts with its project's
+    // bundled fonts, or a live editor's. Captured with a scene snapshot, so a render or export keeps them after the
+    // session is replaced.
+    Media.FontManager Fonts { get; }
+
     void Invoke(Action action);
 
     // For edits: a live session runs them after the user's edit session, waiting up to a deadline.
