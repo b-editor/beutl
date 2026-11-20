@@ -58,7 +58,7 @@ public sealed partial class FilmGrain : FilterEffect
         }
 
         float3 grain(float2 fragCoord) {
-            if (cellSize < 1.0) return grainAt(floor(fragCoord));
+            if (cellSize < 1.0) return grainAt(floor(fragCoord - origin));
 
             // Put the interpolation samples at the hard cells' centers, so they agree at one pixel per cell.
             float2 position = (fragCoord - origin) / cellSize - 0.5;

@@ -228,11 +228,14 @@ public sealed class FilmGrainTests
         Assert.That(half, Is.EqualTo(full / 2).Within(10).Percent);
     }
 
-    [TestCase(1f)]
-    [TestCase(0.5f)]
-    public void Rendering_a_region_matches_cropping_the_full_render(float scale)
+    [TestCase(1f, 1.5f)]
+    [TestCase(0.5f, 1.5f)]
+    // Cells smaller than a device pixel take the per-pixel path, which must place its cells the same way.
+    [TestCase(1f, 0.5f)]
+    [TestCase(0.5f, 0.25f)]
+    public void Rendering_a_region_matches_cropping_the_full_render(float scale, float size)
     {
-        RectShape shape = GrayRectangle(new FilmGrain());
+        RectShape shape = GrayRectangle(new FilmGrain { Size = { Value = size } });
         var region = new Rect(22, 18, 64, 44);
 
         byte[] full = Render(shape, scale);
