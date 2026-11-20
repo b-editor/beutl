@@ -24,6 +24,7 @@ public static class AnimatorRegistry
         (type => typeof(Matrix3x2).IsAssignableFrom(type), typeof(Matrix3x2Animator)),
         (type => typeof(Matrix4x4).IsAssignableFrom(type), typeof(Matrix4x4Animator)),
         (type => typeof(Matrix).IsAssignableFrom(type), typeof(MatrixAnimator)),
+        (type => typeof(MeshWarpGrid).IsAssignableFrom(type), typeof(MeshWarpGridAnimator)),
         (type => typeof(PixelPoint).IsAssignableFrom(type), typeof(PixelPointAnimator)),
         (type => typeof(PixelRect).IsAssignableFrom(type), typeof(PixelRectAnimator)),
         (type => typeof(PixelSize).IsAssignableFrom(type), typeof(PixelSizeAnimator)),

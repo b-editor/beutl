@@ -136,6 +136,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:MeshWarpInterpolation>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -143,6 +146,9 @@ Beutl.Utilities
   sealed
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:Matrix>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:MeshWarpGrid>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:Point>
@@ -219,6 +225,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:MeshWarpInterpolation>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
@@ -226,6 +235,9 @@ Beutl.Utilities
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:Matrix>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:MeshWarpGrid>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:Point>
@@ -515,6 +527,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:LutEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Source, Strength
+[Beutl.Engine]Beutl.Graphics.Effects:MeshWarp
+  sealed
+  keys: Animations, Columns, Expressions, Id, Interpolation, IsEnabled, Mesh, Name, Rows, Strength
 [Beutl.Engine]Beutl.Graphics.Effects:MosaicEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Origin, TileSize

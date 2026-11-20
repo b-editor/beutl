@@ -352,6 +352,10 @@ public sealed partial class SchemaGenerator
         {
             hints.Add("Use serialized Beutl color values such as '#ffffb34d' or copy the exact shape returned by read_document/get_schema; do not use palette names such as 'Amber'.");
         }
+        else if (type == typeof(MeshWarpGrid))
+        {
+            hints.Add("Use {\"Rows\":1,\"Columns\":1,\"Points\":[\"0, 0\",\"1, 0\",\"0, 1\",\"1, 1\"]} for a one-cell identity mesh. List (Rows + 1) × (Columns + 1) normalized points in row-major order. Values outside 0–1 extend past the input rectangle. Set the effect's Rows and Columns to the desired grid resolution.");
+        }
         else if (type == typeof(Pen))
         {
             hints.Add(ValidationEvaluator.PenValueHint);

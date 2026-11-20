@@ -19,6 +19,7 @@ public partial class PlayerView
         private PlayerViewportTransform? _viewport;
         private MediaTime _time;
         private DragSession? _drag;
+        private Action<BtlPoint>? _moveUnbound;
         private KeyFrameState<BtlPoint>? _keyFrames;
         private (BtlPoint Previous, BtlPoint Next) _keyFrameStart;
         private BtlPoint _valueStart;
@@ -45,6 +46,10 @@ public partial class PlayerView
                 _keyFrames = FindKeyFramePair(property, clock, model.EditViewModel.Scene);
                 _valueStart = property.Value;
                 _keyFrameStart = KeyFrameDeltaHelper.CaptureStartValues(_keyFrames?.Previous, _keyFrames?.Next, _valueStart);
+            }
+            else
+            {
+                _moveUnbound = provider.BeginEditingHandleDrag(handle.Id, _time, view.transformHandlesOverlay.LocalBounds);
             }
             _pointer = e.Pointer;
             _pointer.Capture(view.framePanel);
@@ -80,7 +85,7 @@ public partial class PlayerView
         {
             if (handle.Property is not { } property)
             {
-                provider.MoveEditingHandle(handle.Id, position, _time);
+                _moveUnbound?.Invoke(position);
                 return;
             }
 
@@ -115,6 +120,7 @@ public partial class PlayerView
             IPointer? pointer = _pointer;
             _pointer = null;
             _drag = null;
+            _moveUnbound = null;
             if (pointer is not null && ReferenceEquals(pointer.Captured, view.framePanel))
                 pointer.Capture(null);
         }
