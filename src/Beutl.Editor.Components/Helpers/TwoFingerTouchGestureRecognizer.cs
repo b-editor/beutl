@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.GestureRecognizers;
 using Avalonia.Interactivity;
@@ -27,6 +27,7 @@ internal sealed class TwoFingerTouchGestureRecognizer(
     private Point _startCenter;
     private double _startDistance;
     private bool _active;
+    private bool _firstCapturedByRecognizer;
     private bool _suppressTouchHolding;
     private IInputElement? _holdingTarget;
 
@@ -42,7 +43,8 @@ internal sealed class TwoFingerTouchGestureRecognizer(
         EnsureHoldingHandler();
 
         // Discard a stale first contact if its touch ended on a detached child without bubbling here.
-        if (_firstContact != null && !_active && _firstContact.Captured == null)
+        // A contact captured by this recognizer has Captured == null in Avalonia, so keep it alive.
+        if (_firstContact != null && !_active && !_firstCapturedByRecognizer && _firstContact.Captured == null)
         {
             _firstContact = null;
         }
@@ -52,6 +54,7 @@ internal sealed class TwoFingerTouchGestureRecognizer(
             _suppressTouchHolding = false;
             _firstContact = e.Pointer;
             _firstPoint = e.GetPosition(visual);
+            _firstCapturedByRecognizer = false;
             return;
         }
 
@@ -62,6 +65,7 @@ internal sealed class TwoFingerTouchGestureRecognizer(
             _startCenter = Midpoint(_firstPoint, _secondPoint);
             _startDistance = Distance(_firstPoint, _secondPoint);
             _active = true;
+            _firstCapturedByRecognizer = true;
             // Avalonia's Gestures.PointerPressed arms a touch-hold timer on RouteFinished even after
             // a GestureRecognizer captures the pointer, and captured TouchUpdate/TouchEnd bypass the
             // element tree so that timer is never cancelled. Suppress the resulting stale HoldingEvent.
@@ -178,6 +182,10 @@ internal sealed class TwoFingerTouchGestureRecognizer(
             _firstContact = _secondContact;
             _firstPoint = _secondPoint;
             _secondContact = null;
+            if (_firstContact == null)
+            {
+                _firstCapturedByRecognizer = false;
+            }
         }
 
         if (_active)

@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Headless;
@@ -288,15 +288,40 @@ public class TwoFingerTouchGestureTests
             HeadlessTestHelpers.Render();
 
             WaveformControl waveform = view.FindControl<WaveformControl>("Waveform")!;
-            Point center = waveform.TranslatePoint(new Point(waveform.Bounds.Width * 0.5, waveform.Bounds.Height * 0.5), window)!.Value;
+            double width = waveform.Bounds.Width;
+            Point center = waveform.TranslatePoint(new Point(width * 0.5, waveform.Bounds.Height * 0.5), window)!.Value;
 
+            // Pinching in past full-clip clamp then returning to initial distance stays at 60s.
+            IHeadlessTouchPointer clampP1 = window.TouchBegin(new Point(center.X - 60, center.Y));
+            IHeadlessTouchPointer clampP2 = window.TouchBegin(new Point(center.X + 60, center.Y));
+            window.TouchMove(clampP1, new Point(center.X - 20, center.Y));
+            window.TouchMove(clampP2, new Point(center.X + 20, center.Y));
+            HeadlessTestHelpers.Render();
+            window.TouchMove(clampP1, new Point(center.X - 60, center.Y));
+            window.TouchMove(clampP2, new Point(center.X + 60, center.Y));
+            HeadlessTestHelpers.Render();
+            window.TouchEnd(clampP1, new Point(center.X - 60, center.Y));
+            window.TouchEnd(clampP2, new Point(center.X + 60, center.Y));
+            HeadlessTestHelpers.Render();
+            Assert.That(model.PreviewRange.Duration.ToSeconds(), Is.EqualTo(60).Within(0.5));
+
+            // Combined pinch (2x) + pan (+100px) keeps the time originally at center anchored at center + 100px.
+            double anchorTime = model.PreviewRange.Start.ToSeconds() + 0.5 * model.PreviewRange.Duration.ToSeconds();
             DispatchTwoFingerGesture(
                 window,
                 new Point(center.X - 40, center.Y),
                 new Point(center.X + 40, center.Y),
-                new Point(center.X - 80, center.Y),
-                new Point(center.X + 80, center.Y));
-            Assert.That(model.PreviewRange.Duration.ToSeconds(), Is.EqualTo(30).Within(1.0));
+                new Point(center.X + 100 - 80, center.Y),
+                new Point(center.X + 100 + 80, center.Y),
+                steps: 1);
+            double newAnchorFraction = (width * 0.5 + 100) / width;
+            double timeAtNewCenter = model.PreviewRange.Start.ToSeconds()
+                + newAnchorFraction * model.PreviewRange.Duration.ToSeconds();
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.PreviewRange.Duration.ToSeconds(), Is.EqualTo(30).Within(1.0));
+                Assert.That(timeAtNewCenter, Is.EqualTo(anchorTime).Within(0.5));
+            });
 
             double startBeforePan = model.PreviewRange.Start.ToSeconds();
             DispatchTwoFingerGesture(
@@ -311,6 +336,40 @@ public class TwoFingerTouchGestureTests
         {
             window.Close();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Timeline_re_touching_second_finger_starts_new_pinch_without_lifting_first()
+    {
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync("touch-recontact", MediaTime.FromSeconds(30));
+        host.Model.Options.Value = host.Model.Options.Value with { Scale = 0.5f, Offset = new Vector2(300, 200) };
+        HeadlessTestHelpers.Render();
+
+        Point centerLocal = new(180, 80);
+        Point center = host.Content.TranslatePoint(centerLocal, host.Window)!.Value;
+        TimelineTestHost.WaitForHitTest(host.Window, host.Content, center);
+
+        IHeadlessTouchPointer p1 = host.Window.TouchBegin(new Point(center.X - 40, center.Y));
+        IHeadlessTouchPointer p2 = host.Window.TouchBegin(new Point(center.X + 40, center.Y));
+        host.Window.TouchMove(p1, new Point(center.X - 80, center.Y));
+        host.Window.TouchMove(p2, new Point(center.X + 80, center.Y));
+        HeadlessTestHelpers.Render();
+        Assert.That(host.Model.Options.Value.Scale, Is.EqualTo(1f).Within(0.01f));
+
+        // Lift only the second finger while keeping the first finger captured by the recognizer.
+        host.Window.TouchEnd(p2, new Point(center.X + 80, center.Y));
+        HeadlessTestHelpers.Render();
+
+        // Touch down a new second finger and spread again to double scale once more.
+        IHeadlessTouchPointer p3 = host.Window.TouchBegin(new Point(center.X, center.Y));
+        host.Window.TouchMove(p1, new Point(center.X - 120, center.Y));
+        host.Window.TouchMove(p3, new Point(center.X + 40, center.Y));
+        HeadlessTestHelpers.Render();
+        host.Window.TouchEnd(p1, new Point(center.X - 120, center.Y));
+        host.Window.TouchEnd(p3, new Point(center.X + 40, center.Y));
+        HeadlessTestHelpers.Render();
+
+        Assert.That(host.Model.Options.Value.Scale, Is.EqualTo(2f).Within(0.01f));
     }
 
     private static void DispatchTwoFingerGesture(

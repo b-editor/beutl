@@ -23,8 +23,7 @@ public partial class SilenceSplitTabView : UserControl
     private bool _attached;
     private bool _wide;
     private bool _updatingPreview;
-    private double _touchLastScale = 1;
-    private Point _touchLastCenter;
+    private (double StartSeconds, double DurationSeconds, double OffsetY)? _touchGesture;
 
     public SilenceSplitTabView() : this(NativeScrollInput.UsesGestureAxes) { }
 
@@ -39,7 +38,8 @@ public partial class SilenceSplitTabView : UserControl
         PreviewPane.GestureRecognizers.Add(new TwoFingerTouchGestureRecognizer(
             OnPreviewTouchStarted,
             OnPreviewTouchUpdated,
-            coordinateTarget: Waveform));
+            OnPreviewTouchEnded,
+            Waveform));
         Waveform.SizeChanged += (_, _) => UpdatePlayhead();
     }
 
@@ -203,36 +203,37 @@ public partial class SilenceSplitTabView : UserControl
 
     private void OnPreviewTouchStarted(Point startCenter)
     {
-        _touchLastScale = 1;
-        _touchLastCenter = startCenter;
+        if (_analysis == null)
+        {
+            _touchGesture = null;
+            return;
+        }
+
+        var range = _analysis.PreviewRange;
+        _touchGesture = (range.Start.ToSeconds(), range.Duration.ToSeconds(), BodyScroll.Offset.Y);
     }
 
     private void OnPreviewTouchUpdated(TwoFingerTouchState state)
     {
-        if (_analysis == null || Waveform.Bounds.Width <= 0) return;
+        if (_analysis == null || _touchGesture is not { } start || Waveform.Bounds.Width <= 0 || start.DurationSeconds <= 0)
+            return;
 
         double width = Waveform.Bounds.Width;
-        double stepScale = state.ScaleFactor / _touchLastScale;
+        double desiredDuration = start.DurationSeconds / state.ScaleFactor;
+        double currentDuration = _analysis.PreviewRange.Duration.ToSeconds();
+        double stepScale = desiredDuration > 0 ? currentDuration / desiredDuration : 1;
         if (double.IsFinite(stepScale) && stepScale > 0 && Math.Abs(stepScale - 1) > 1e-4)
         {
-            _analysis.ZoomPreview(stepScale, state.CurrentCenter.X / width);
-            _touchLastScale = state.ScaleFactor;
+            _analysis.ZoomPreview(stepScale, 0);
         }
 
-        double panX = state.CurrentCenter.X - _touchLastCenter.X;
-        if (panX != 0)
-        {
-            _analysis.ScrollPreview(-panX * _analysis.PreviewRange.Duration.ToSeconds() / width);
-        }
-
-        double panY = state.CurrentCenter.Y - _touchLastCenter.Y;
-        if (panY != 0)
-        {
-            BodyScroll.Offset = BodyScroll.Offset.WithY(Math.Max(0, BodyScroll.Offset.Y - panY));
-        }
-
-        _touchLastCenter = state.CurrentCenter;
+        double actualDuration = _analysis.PreviewRange.Duration.ToSeconds();
+        double anchorTime = start.StartSeconds + (state.StartCenter.X / width) * start.DurationSeconds;
+        _analysis.PanPreview(anchorTime - (state.CurrentCenter.X / width) * actualDuration);
+        BodyScroll.Offset = BodyScroll.Offset.WithY(Math.Max(0, start.OffsetY - state.PanDelta.Y));
     }
+
+    private void OnPreviewTouchEnded() => _touchGesture = null;
 
     private void OnRefreshClick(object? sender, RoutedEventArgs e) => (DataContext as SilenceSplitTabViewModel)?.Refresh();
 
