@@ -528,7 +528,7 @@ public sealed class DeclarativeAnimationTests
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource(TestFonts.Manager);
         var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new DestructiveGuard(), new RenderJobManager());
-        var editTools = new EditTools(manager, TestFonts.Manager);
+        var editTools = new EditTools(manager);
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             Path.Combine(workspace, "local-keyframes.bep"),
             width: 320,
@@ -587,7 +587,7 @@ public sealed class DeclarativeAnimationTests
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource(TestFonts.Manager);
         var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new DestructiveGuard(), new RenderJobManager());
-        var editTools = new EditTools(manager, TestFonts.Manager);
+        var editTools = new EditTools(manager);
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
             Path.Combine(workspace, "nested-local-keyframes.bep"),
             width: 320,

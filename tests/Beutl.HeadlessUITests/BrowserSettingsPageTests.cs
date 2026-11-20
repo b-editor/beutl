@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Editor.Components.WebBrowserTab;
+using Beutl.Language;
 using Beutl.Pages;
 using Beutl.Pages.SettingsPages;
 using Beutl.Services;
@@ -160,5 +161,31 @@ public class BrowserSettingsPageTests
         vm.Dispose();
         pending.SetResult();
         await operation;
+    }
+
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task CookieDeletion_WaitsForTheClearActionAndReportsItsResult(bool succeeds)
+    {
+        string file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "profile.json");
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var vm = new BrowserSettingsPageViewModel(new BrowserProfile(file), () => () => pending.Task);
+        vm.CookieDeletionConfirmed.Value = true;
+
+        Task operation = vm.ClearCookiesAsync();
+        Assert.That(operation.IsCompleted, Is.False);
+        Assert.That(vm.IsClearingCookies.Value, Is.True);
+        Assert.That(vm.CookieDeletionConfirmed.Value, Is.True);
+        Assert.That(vm.Feedback.Value, Is.Null);
+
+        var error = new InvalidOperationException("Cookie store could not be cleared.");
+        if (succeeds) pending.SetResult();
+        else pending.SetException(error);
+        await operation;
+
+        Assert.That(vm.IsClearingCookies.Value, Is.False);
+        Assert.That(vm.CookieDeletionConfirmed.Value, Is.EqualTo(!succeeds));
+        Assert.That(vm.Feedback.Value, Is.EqualTo(succeeds ? Strings.BrowserCookiesCleared : error.Message));
     }
 }

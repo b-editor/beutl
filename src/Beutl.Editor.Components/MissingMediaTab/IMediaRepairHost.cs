@@ -26,4 +26,8 @@ internal interface IMediaRepairHost
     void ScheduleMediaFingerprints(bool finishSaveSnapshot);
 
     void ClearRenderCaches();
+
+    // Reads again the fonts bundled where the scene's project (or the scene, without one) keeps them, after a repair
+    // copied fonts there or took them back.
+    void ReloadBundledFonts();
 }

@@ -52,6 +52,16 @@ public sealed class ImageSource : MediaSource
         // The drawing of an SVG; null for an image that is only pixels.
         internal SKPicture? Picture => _counter?.Value.Picture;
 
+        internal PixelSize ResolveSvgRasterSize(float density, int maxDimension)
+            => _counter?.Value.ResolveSvgRasterSize(density, maxDimension) ?? FrameSize;
+
+        internal Bitmap? RasterizePicture(
+            PixelSize targetSize,
+            BitmapColorType colorType,
+            BitmapAlphaType alphaType,
+            BitmapColorSpace colorSpace)
+            => _counter?.Value.RasterizePicture(targetSize, colorType, alphaType, colorSpace);
+
         internal Bitmap? DecodeUnpremultiplied() => _counter?.Value.DecodeUnpremultiplied();
 
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)

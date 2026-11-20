@@ -21,7 +21,7 @@ public sealed class SceneMarkerApplyTests
         FileEditingSession session = CreateSession(source);
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager, TestFonts.Manager);
+        var tools = new EditTools(manager);
 
         JsonObject markerJson = CoreSerializer.SerializeToJsonObject(
             new SceneMarker(MediaTime.FromSeconds(2), "beat", note: "drop"));
@@ -51,7 +51,7 @@ public sealed class SceneMarkerApplyTests
         FileEditingSession session = CreateSession(source);
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager, TestFonts.Manager);
+        var tools = new EditTools(manager);
 
         JsonObject patch = new()
         {
@@ -78,7 +78,7 @@ public sealed class SceneMarkerApplyTests
         session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "keep"));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager, TestFonts.Manager);
+        var tools = new EditTools(manager);
 
         JsonObject patch = new()
         {
@@ -163,7 +163,7 @@ public sealed class SceneMarkerApplyTests
         int originalWidth = session.Scene.FrameSize.Value.Width;
         var manager = new AgentSessionManager();
         manager.UseSource(source);
-        var tools = new EditTools(manager, TestFonts.Manager);
+        var tools = new EditTools(manager);
 
         JsonObject patch = new()
         {

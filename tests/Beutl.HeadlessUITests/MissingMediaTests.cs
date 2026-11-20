@@ -359,7 +359,7 @@ public partial class MissingMediaTests
             element.Objects.Clear();
             element.Objects.Add(text);
         }
-        using var textResource = text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager, Decoders = TestShell.Decoders });
+        using var textResource = text.ToResource(new CompositionContext(MediaTime.Zero) { Fonts = ((FontManager)editor.GetService(typeof(FontManager))!), Decoders = TestShell.Decoders });
         var fallbackText = textResource.GetTextElements();
         using var vm = new MissingMediaViewModel(editor);
         Assert.That(vm.Rows.Single().Media.Kind, Is.EqualTo(MissingMediaKind.Font));
@@ -367,14 +367,14 @@ public partial class MissingMediaTests
         await vm.WaitForCandidatesAsync();
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
         bool versionBumped = false;
-        textResource.Reconcile(text, new CompositionContext(MediaTime.Zero) { Fonts = TestShell.FontManager, Decoders = TestShell.Decoders }, ref versionBumped);
+        textResource.Reconcile(text, new CompositionContext(MediaTime.Zero) { Fonts = ((FontManager)editor.GetService(typeof(FontManager))!), Decoders = TestShell.Decoders }, ref versionBumped);
         Assert.That(textResource.GetTextElements(), Is.Not.SameAs(fallbackText), "Relinking refreshes a cached fallback font without changing the text.");
         string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
         Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts", "renamed-font.ttf")), Is.True);
         await TestReset.ResetShellAsync();
         await TestShell.Project.OpenProject(projectPath);
-        Assert.That(TestShell.FontManager.IsRegistered(family), Is.True);
-        Assert.That(new MissingMediaService(TestShell.FontManager, TestShell.Decoders).FindMissing(BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single()), Is.Empty);
+        Assert.That(TestShell.Project.ProjectFonts!.IsRegistered(family), Is.True);
+        Assert.That(new MissingMediaService(TestShell.Project.ProjectFonts!, TestShell.Decoders).FindMissing(BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single()), Is.Empty);
         await TestReset.ResetShellAsync();
     }
 
@@ -1374,15 +1374,15 @@ public partial class MissingMediaTests
             await vm.WaitForCandidatesAsync();
             Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(path));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
-            Assert.That(TestShell.FontManager.IsRegistered(family), Is.True);
-            Assert.That(TestShell.FontManager.IsRegistered(firstFamily), Is.True);
-            var firstFaces = TestShell.FontManager.GetTypefaces(firstFamily);
-            var secondFaces = TestShell.FontManager.GetTypefaces(family);
+            Assert.That(((FontManager)editor.GetService(typeof(FontManager))!).IsRegistered(family), Is.True);
+            Assert.That(((FontManager)editor.GetService(typeof(FontManager))!).IsRegistered(firstFamily), Is.True);
+            var firstFaces = ((FontManager)editor.GetService(typeof(FontManager))!).GetTypefaces(firstFamily);
+            var secondFaces = ((FontManager)editor.GetService(typeof(FontManager))!).GetTypefaces(family);
             string project = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
             await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(project);
-            Assert.That(TestShell.FontManager.IsRegistered(family), Is.True);
-            Assert.That(TestShell.FontManager.GetTypefaces(firstFamily), Is.EquivalentTo(firstFaces));
-            Assert.That(TestShell.FontManager.GetTypefaces(family), Is.EquivalentTo(secondFaces));
+            Assert.That(TestShell.Project.ProjectFonts!.IsRegistered(family), Is.True);
+            Assert.That(TestShell.Project.ProjectFonts!.GetTypefaces(firstFamily), Is.EquivalentTo(firstFaces));
+            Assert.That(TestShell.Project.ProjectFonts!.GetTypefaces(family), Is.EquivalentTo(secondFaces));
         }
         finally { await TestReset.ResetShellAsync(); }
     }

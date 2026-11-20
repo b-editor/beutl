@@ -77,6 +77,14 @@ internal static partial class NativeBrowserFrameTestHost
                 exitCode = 0;
                 return;
             }
+            if (scenario == "--native-browser-cookie-clear")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var cookieTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                exitCode = await CheckLinuxCookieClearAsync(window, cookieTimeout.Token) ? 0 : SkippedExitCode;
+                return;
+            }
             if (scenario == "--native-browser-adblock-reference")
             {
                 window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
@@ -161,6 +169,67 @@ internal static partial class NativeBrowserFrameTestHost
             window?.Close();
             lifetime.Shutdown(exitCode);
         }
+    }
+
+    // Tells NativeNavigation that the scenario cannot run on this system, as Assert.Ignore would in-process.
+    internal const int SkippedExitCode = 77;
+
+    private static async Task<bool> CheckLinuxCookieClearAsync(Window window, CancellationToken token)
+    {
+        await using var server = WebApplication.CreateSlimBuilder().Build();
+        server.Urls.Add("http://127.0.0.1:0");
+        server.MapGet("/", (HttpContext context) =>
+        {
+            context.Response.Headers.SetCookie = new Microsoft.Extensions.Primitives.StringValues(
+                ["session=one; Path=/; HttpOnly", "persistent=two; Max-Age=3600; Path=/; HttpOnly", "abc"]);
+            return Results.Content("<html><body>Cookies</body></html>", "text/html");
+        });
+        var before = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var after = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.MapGet("/cookies/{phase}", (HttpContext context, string phase) =>
+        {
+            (phase == "before" ? before : after).TrySetResult(
+                context.Request.Headers.TryGetValue("Cookie", out var cookies) ? cookies.ToString() : null);
+            return Results.NoContent();
+        });
+        await server.StartAsync(token);
+
+        var page = new Uri(server.Urls.Single());
+        var browser = new NativeWebView();
+        // The host sets BEUTL_HOME before starting Avalonia, so persistence uses a throwaway store.
+        browser.AdapterCreated += LinuxWebKitCookies.PersistCookies;
+        var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        browser.NavigationCompleted += (_, e) =>
+        {
+            if (e.IsSuccess && e.Request == page) loaded.TrySetResult();
+        };
+        window.Content = browser;
+        browser.Navigate(page);
+        await loaded.Task.WaitAsync(token);
+
+        var handle = browser.TryGetPlatformHandle();
+        if (!LinuxWebKitCookies.CanListCookies(handle))
+        {
+            Console.WriteLine("This WebKit cannot list cookies (webkit_cookie_manager_get_all_cookies needs WebKit 2.42).");
+            return false;
+        }
+        var cookies = await LinuxWebKitCookies.GetAllAsync(handle).WaitAsync(token);
+        Assert.That(cookies.Select(cookie => (cookie.Name, cookie.Value)),
+            Is.EquivalentTo(new[] { ("session", "one"), ("persistent", "two") }));
+        await browser.InvokeScript("void fetch('/cookies/before', { cache: 'no-store' });").WaitAsync(token);
+        Assert.That(await before.Task.WaitAsync(token), Does.Contain("session=one").And.Contain("persistent=two"));
+
+        var clear = LinuxWebKitCookies.CreateClearAction([handle]);
+        Assert.That<Func<Task>?>(clear, Is.Not.Null);
+        await clear!().WaitAsync(token);
+
+        await Assert.MultipleAsync(async () =>
+        {
+            Assert.That(await LinuxWebKitCookies.GetAllAsync(handle).WaitAsync(token), Is.Empty);
+            await browser.InvokeScript("void fetch('/cookies/after', { cache: 'no-store' });").WaitAsync(token);
+            Assert.That(await after.Task.WaitAsync(token), Is.Null);
+        });
+        return true;
     }
 
     private static async Task CheckSupersededNavigationAsync(Window window, CancellationToken token)
@@ -1085,6 +1154,7 @@ public class NativeBrowserFrameTests
     [TestCase("--native-browser-history", TestName = "HistoryButtonsSettleAfterSameDocumentNavigation", IncludePlatform = "MacOSX,Win")]
     [TestCase("--native-browser-superseded-navigation", TestName = "ACommittedPageFinishingAfterTheNextNavigationStartsLeavesItLoading", IncludePlatform = "Win,MacOSX")]
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
+    [TestCase("--native-browser-cookie-clear", TestName = "LinuxCookieClearRemovesSessionAndPersistentCookies", IncludePlatform = "Linux")]
     [TestCase("--native-browser-download-referrers", TestName = "PageLinkDownloadsHonorTheDocumentReferrerPolicy", IncludePlatform = "Win,MacOSX")]
     [TestCase("--native-browser-adblock-reference", TestName = "WindowsAdBlockBackendKeepsTheAdaptersWebViewReference", IncludePlatform = "Win")]
     public async Task NativeNavigation(string scenario)
@@ -1093,6 +1163,12 @@ public class NativeBrowserFrameTests
             || !WebBrowserTabView.GetWebViewAvailability().IsAvailable))
             Assert.Ignore("Native browser navigation requires an X display and a WebKit runtime.");
         var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
+        using var webKitHome = scenario == "--native-browser-cookie-clear" ? new TemporaryDirectory() : null;
+        if (webKitHome != null)
+        {
+            start.Environment["XDG_CACHE_HOME"] = Path.Combine(webKitHome.Path, "cache");
+            start.Environment["XDG_DATA_HOME"] = Path.Combine(webKitHome.Path, "data");
+        }
         start.ArgumentList.Add(typeof(NativeBrowserFrameTestHost).Assembly.Location);
         start.ArgumentList.Add(scenario);
         using Process process = Process.Start(start)!;
@@ -1105,6 +1181,7 @@ public class NativeBrowserFrameTests
             process.Kill(entireProcessTree: true);
             throw;
         }
+        if (process.ExitCode == NativeBrowserFrameTestHost.SkippedExitCode) Assert.Ignore(await output);
         Assert.That(process.ExitCode, Is.Zero, await output + "\n" + await error);
     }
 }

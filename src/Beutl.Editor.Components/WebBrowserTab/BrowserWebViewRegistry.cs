@@ -29,7 +29,28 @@ internal static class BrowserWebViewRegistry
 
     private static void OnAdapterChanged(object? sender, WebViewAdapterEventArgs e) => Changed?.Invoke();
 
-    internal static NativeWebViewCookieManager? GetCookieManager()
+    internal static Func<Task>? CreateCookieClearAction()
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            if (CreateLinuxClearAction() == null) return null;
+            // Resolve the handles again when invoked, since the registered views may have changed.
+            return static () => (CreateLinuxClearAction() ?? throw new InvalidOperationException(Strings.BrowserCookiesUnsupported))();
+        }
+
+        if (GetCookieManager() == null) return null;
+        return static async () =>
+        {
+            var manager = GetCookieManager() ?? throw new InvalidOperationException(Strings.BrowserCookiesUnsupported);
+            foreach (var cookie in await manager.GetCookiesAsync())
+                manager.DeleteCookie(cookie);
+        };
+    }
+
+    private static Func<Task>? CreateLinuxClearAction() => LinuxWebKitCookies.CreateClearAction(s_views.Select(reference =>
+        reference.TryGetTarget(out var view) ? view.TryGetPlatformHandle() : null));
+
+    private static NativeWebViewCookieManager? GetCookieManager()
     {
         foreach (var reference in s_views)
         {

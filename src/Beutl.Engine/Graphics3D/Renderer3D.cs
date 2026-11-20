@@ -519,7 +519,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
             return null;
 
-        return HitTester3D.HitTest(ToDevice(screenPoint), Width, Height, _lastCamera, _lastObjects);
+        return HitTester3D.HitTest(ToDevice(screenPoint), Width, Height, _lastCamera, _lastObjects, SurfaceDensity);
     }
 
     /// <summary>
@@ -534,7 +534,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
             return [];
 
-        return HitTester3D.HitTestWithPath(ToDevice(screenPoint), Width, Height, _lastCamera, _lastObjects);
+        return HitTester3D.HitTestWithPath(ToDevice(screenPoint), Width, Height, _lastCamera, _lastObjects, SurfaceDensity);
     }
 
     public GizmoAxis GizmoHitTest(Point screenPoint, Object3D.Resource? gizmoTarget, GizmoMode gizmoMode)

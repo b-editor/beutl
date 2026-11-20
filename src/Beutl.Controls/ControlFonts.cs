@@ -16,6 +16,13 @@ public sealed class ControlFonts
 
     public static void SetFonts(AvaloniaObject element, FontManager? fonts) => element.SetValue(FontsProperty, fonts);
 
+    // For the owner of a fork it handed to controls, once they no longer show it: the UI copies of its fonts go.
+    public static void Release(FontManager fonts)
+    {
+        ArgumentNullException.ThrowIfNull(fonts);
+        PropertyEditors.BeutlFontCollection.Unregister(fonts);
+    }
+
     internal static FontManager GetOrCreate(AvaloniaObject element)
     {
         if ((GetFonts(element) ?? element.GetValue(s_fallbackProperty)) is { } fonts)

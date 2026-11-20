@@ -10,8 +10,8 @@ namespace Beutl.Graphics3D.Materials;
 internal readonly record struct AlphaCutout(TextureSource.Resource Map, float AlphaScale, float Cutoff)
 {
     /// <summary>A map without pixels at hand keeps its whole surface.</summary>
-    public bool IsCutOutAt(Vector2 texCoord)
-        => Map.TryGetAlpha(texCoord, out float alpha) && AlphaScale * alpha < Cutoff;
+    public bool IsCutOutAt(Vector2 texCoord, float? surfaceDensity = null)
+        => Map.TryGetAlpha(texCoord, out float alpha, surfaceDensity) && AlphaScale * alpha < Cutoff;
 
     internal Vector4 ShaderParameters => new(AlphaScale, Cutoff, 0, 0);
 }

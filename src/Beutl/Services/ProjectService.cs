@@ -27,7 +27,18 @@ public sealed partial class ProjectService
 
     private readonly ViewConfig _configuration;
 
+    // The host's fonts, which every project's fonts fork.
     public Media.FontManager Fonts { get; }
+
+    // A fork of Fonts with the open project's bundled fonts; null while no project is open. The editors of the
+    // project's scenes fork it in turn.
+    public Media.FontManager? ProjectFonts { get; private set; }
+
+    // The fonts the scenes of a project resolve: the open project's fork, or the host's for any other project.
+    internal Media.FontManager GetFonts(Project? project)
+        => project is not null && ReferenceEquals(project, _app.Project.Value) && ProjectFonts is { } projectFonts
+            ? projectFonts
+            : Fonts;
 
     public ProjectService(ViewConfig configuration, Media.FontManager fonts, INotificationService notifications)
     {
@@ -358,7 +369,7 @@ public sealed partial class ProjectService
             DuplicateIds.Report(project, "close");
             _app.Project.Value = null;
             Interlocked.Exchange(ref _projectNoticeDismissal, null)?.Cancel();
-            Fonts.ClearProjectFonts(project);
+            ProjectFonts = null;
             try
             {
                 _configuration.LastOpenedProjectFile.Value = null;
@@ -486,13 +497,18 @@ public sealed partial class ProjectService
     {
         try
         {
-            Fonts.LoadProjectFonts(project);
+            Media.FontManager projectFonts = Fonts.Fork();
+            projectFonts.LoadProjectFonts(project);
+            ProjectFonts = projectFonts;
             _app.Project.Value = project;
             await NotifyOpenedAsync(project);
         }
         catch
         {
             await RollBackFailedActivationAsync(project);
+            // The rollback clears the fork only while the project became current.
+            if (!ReferenceEquals(_app.Project.Value, project))
+                ProjectFonts = null;
             throw;
         }
 
@@ -548,7 +564,7 @@ public sealed partial class ProjectService
             if (ReferenceEquals(_app.Project.Value, project))
             {
                 _app.Project.Value = null;
-                Fonts.ClearProjectFonts(project);
+                ProjectFonts = null;
             }
         }
         finally

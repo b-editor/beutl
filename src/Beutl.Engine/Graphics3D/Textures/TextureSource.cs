@@ -31,7 +31,7 @@ public abstract partial class TextureSource : EngineObject
         internal virtual ITexture2D? GetStraightColorTexture(IGraphicsContext graphicsContext) => null;
 
         /// <summary>Reads the alpha at a texture coordinate, for a source with its pixels at hand.</summary>
-        internal virtual bool TryGetAlpha(Vector2 texCoord, out float alpha)
+        internal virtual bool TryGetAlpha(Vector2 texCoord, out float alpha, float? surfaceDensity = null)
         {
             alpha = 1;
             return false;

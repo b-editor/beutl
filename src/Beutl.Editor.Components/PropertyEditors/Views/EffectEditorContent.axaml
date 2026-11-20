@@ -15,7 +15,9 @@
                                     DataContext="{Binding Properties.Value}" />
         </controls:TreeLineDecorator>
 
-        <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
+        <ItemsControl controls:ItemsMotion.RevealsAddedItems="True"
+                      DataContext="{Binding Group.Value}"
+                      ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <local:ListItemEditor />

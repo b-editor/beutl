@@ -67,7 +67,7 @@ public sealed partial class RenderTools(
         return ExecuteMcpAsync<RenderStillResponse>(async () =>
         {
             using OwnedOutputOperation outputOperation = BeginOutputOperation();
-            Scene scene = RequireSceneSnapshot();
+            Scene scene = RequireSceneSnapshot(out Media.FontManager fonts);
             renderScale = ValidateRenderScale(scene, renderScale, "render_still");
             string resolvedPath = ToolPaths.ResolveForWrite(outputPath, nameof(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
@@ -76,7 +76,8 @@ public sealed partial class RenderTools(
                 MediaTime.FromSeconds(Math.Max(0, timeSeconds)),
                 resolvedPath,
                 renderScale,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                fonts).ConfigureAwait(false);
             ImageContentBlock? image = returnImageContent
                 ? ImageContentBlock.FromBytes(
                     ImagePreviewEncoder.EncodePngFile(response.OutputPath),
@@ -120,6 +121,7 @@ public sealed partial class RenderTools(
             }
 
             IEditingSession session = sessions.RequireSession();
+            Media.FontManager fonts = session.Fonts;
             Scene scene = CreateSceneSnapshot(session);
             renderScale = ValidateRenderScale(scene, renderScale, "render_storyboard");
             int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
@@ -136,6 +138,7 @@ public sealed partial class RenderTools(
             string safeBasename = NormalizeStoryboardBasename(basename ?? $"storyboard-{session.SessionId}");
             StoryboardRenderPlan plan = PlanStoryboardOutputs(
                 scene,
+                fonts,
                 renderScale,
                 resolvedShots,
                 normalizedDirectory,
@@ -181,12 +184,12 @@ public sealed partial class RenderTools(
         return ExecuteAsync(async () =>
         {
             using OwnedOutputOperation outputOperation = BeginOutputOperation();
-            Scene scene = RequireSceneSnapshot();
+            Scene scene = RequireSceneSnapshot(out Media.FontManager fonts);
             renderScale = ValidateRenderScale(scene, renderScale, "measure_frame_differences");
             IReadOnlyList<MediaTime> sampleTimes = ResolveFrameSampleTimes(scene, timeSeconds, sampleCount);
             return await frameDifferenceAnalyzer.AnalyzeAsync(
                 scene, sampleTimes, renderScale, pixelDeltaThreshold, foregroundLumaThreshold,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, fonts).ConfigureAwait(false);
         });
     }
 
@@ -252,7 +255,7 @@ public sealed partial class RenderTools(
         return ExecuteAsync<ExportVideoResult>(async () =>
         {
             using OwnedOutputOperation outputOperation = BeginOutputOperation();
-            Scene scene = RequireSceneSnapshot();
+            Scene scene = RequireSceneSnapshot(out Media.FontManager fonts);
             renderScale = ValidateRenderScale(scene, renderScale, "export_video");
             string resolvedPath = ToolPaths.ResolveForWrite(outputPath, nameof(outputPath));
 
@@ -291,7 +294,8 @@ public sealed partial class RenderTools(
                     token,
                     crf,
                     bitrate,
-                    (encoded, total) => progress.Report((int)Math.Min(encoded, int.MaxValue), (int)Math.Min(total, int.MaxValue), "encoding")).ConfigureAwait(false);
+                    (encoded, total) => progress.Report((int)Math.Min(encoded, int.MaxValue), (int)Math.Min(total, int.MaxValue), "encoding"),
+                    fonts).ConfigureAwait(false);
                 return exported;
             }
 

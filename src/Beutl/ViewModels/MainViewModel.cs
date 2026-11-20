@@ -83,6 +83,7 @@ public sealed partial class MainViewModel : BasePageViewModel
         _extensionProvider = new ExtensionProvider(Configuration.ExtensionConfig, appServices.GetRequiredService<INotificationService>());
         _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(), appServices.GetRequiredService<INotificationService>());
         _editorService = new EditorService(_extensionProvider, AppServices);
+        _editorService.ProjectFonts = _projectService.GetFonts;
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
         _ = new ProjectThumbnailService(_projectService, _editorService);
@@ -261,7 +262,7 @@ public sealed partial class MainViewModel : BasePageViewModel
                 throw new IOException(MessageStrings.FileSaveException);
 
             // Keep the saved graph and its files stable while the package service copies them.
-            result = await ProjectPackageService.Current.ExportAsync(project, _projectService.Fonts, AppServices.GetRequiredService<DecoderRegistry>(), outputPath, progress, cancellationToken);
+            result = await ProjectPackageService.Current.ExportAsync(project, _projectService.GetFonts(project), AppServices.GetRequiredService<DecoderRegistry>(), outputPath, progress, cancellationToken);
         });
         return result;
     }

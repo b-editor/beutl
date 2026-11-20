@@ -41,6 +41,8 @@ public sealed partial class EditViewModel
     private readonly HistoryMutationPlaybackGuard _historyMutationPlaybackGuard = new();
 
     private readonly CompositeDisposable _disposables = [];
+    private readonly Beutl.Media.FontManager _fonts;
+    private readonly Beutl.Media.FontManager _bundledFonts;
     private readonly TimelineOptionsProviderImpl _timelineOptionsProvider;
     private readonly EditorClockImpl _editorClock;
     private readonly EditorSelectionImpl _editorSelection;
@@ -66,6 +68,14 @@ public sealed partial class EditViewModel
         ExtensionProvider = extensionProvider;
         EditorService = editorService;
         SceneId = scene.Id.Value.ToString();
+        // A fork of the open project's fonts (or the host's, for a scene outside it), which the editor's services,
+        // renders and font pickers resolve with.
+        Beutl.Media.FontManager hostFonts = editorService.AppServices.GetRequiredService<Beutl.Media.FontManager>();
+        Beutl.Media.FontManager projectFonts = editorService.ProjectFonts?.Invoke(scene.FindHierarchicalParent<Project>()) ?? hostFonts;
+        _fonts = projectFonts.Fork();
+        // A repair loads the fonts it copies into the project's fork, which the project's other scenes share; without
+        // one, into this editor's.
+        _bundledFonts = ReferenceEquals(projectFonts, hostFonts) ? _fonts : projectFonts;
         _services = CreateServices();
         _missingMediaDetector = new MissingMediaService(this.GetRequiredService<Beutl.Media.FontManager>(), this.GetRequiredService<DecoderRegistry>());
 
@@ -387,6 +397,8 @@ public sealed partial class EditViewModel
             Cleanup(_services.Dispose);
             Cleanup(_historyMutationPlaybackGuard.Dispose);
             Cleanup(_disposables.Dispose);
+            // Renders that captured the fork keep it; the font pickers' copies of its fonts go with the editor.
+            Cleanup(() => Beutl.Controls.ControlFonts.Release(_fonts));
             Cleanup(IsEnabled.Dispose);
             Player = null!;
             BufferStatus = null!;

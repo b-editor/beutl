@@ -41,7 +41,7 @@ public sealed class ReadDocumentTests
         var query = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
         string name = query.ListCompositions().Value!.Compositions[1].Name;
         manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var edit = new EditTools(manager, TestFonts.Manager);
+        var edit = new EditTools(manager);
 
         ToolResult<ApplyCompositionResponse> first = edit.ApplyComposition(name: name);
         ToolResult<ApplyCompositionResponse> second = edit.ApplyComposition(name: name);
@@ -442,7 +442,7 @@ public sealed class ReadDocumentTests
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
         var queryTools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
-        var editTools = new EditTools(manager, TestFonts.Manager);
+        var editTools = new EditTools(manager);
 
         ToolResult<RenderCompositionPatchResponse> render = queryTools.RenderCompositionPatch();
         ToolResult<PlanCompositionResponse> plan = editTools.PlanComposition();
@@ -559,7 +559,7 @@ public sealed class ReadDocumentTests
         using var session = new AgentToolkitTestSession(scene);
         AgentSessionManager manager = session.CreateManager();
         var queryTools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
-        var editTools = new EditTools(manager, TestFonts.Manager);
+        var editTools = new EditTools(manager);
 
         ToolResult<ListCompositionsResponse> firstList = queryTools.ListCompositions();
         ToolResult<ListCompositionsResponse> sameList = queryTools.ListCompositions();
@@ -594,7 +594,7 @@ public sealed class ReadDocumentTests
         var manager = new AgentSessionManager();
         manager.UseSource(source);
         var queryTools = new QueryTools(manager, new SchemaGenerator(_library), TestFonts.Manager);
-        var editTools = new EditTools(manager, TestFonts.Manager);
+        var editTools = new EditTools(manager);
 
         ToolResult<ListCompositionsResponse> firstList = queryTools.ListCompositions();
         string selectedName = firstList.Value!.Compositions.First().Name;
@@ -1061,6 +1061,8 @@ public sealed class ReadDocumentTests
         public HistoryManager History => inner.History;
 
         public DocumentAdapter Documents => inner.Documents;
+
+        public Beutl.Media.FontManager Fonts => inner.Fonts;
 
         public bool IsDirty => inner.IsDirty;
 

@@ -77,7 +77,7 @@
     <PackageVersion Include="NUnit" Version="5.0.0" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.3.1" />
     <PackageVersion Include="OpenTelemetry" Version="1.21.0" />
-    <PackageVersion Include="QRCoder" Version="1.8.1" />
+    <PackageVersion Include="QRCoder" Version="1.9.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.10.0" />
     <PackageVersion Include="RoyalApps.RoyalTerminal.Avalonia" Version="0.7.2" />
     <PackageVersion Include="Dock.Avalonia" Version="12.1.5" />

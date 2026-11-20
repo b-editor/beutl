@@ -41,7 +41,7 @@ public sealed partial class EditTools
             // LiveEditor duplicate does not read the UI-owned scene on the MCP request thread.
             string elementId2 = string.Empty;
             string copyId = string.Empty;
-            ReconcileResult result = _reconciler.ApplyFromCurrent(session, desired =>
+            ReconcileResult result = ReconcilerFor(session).ApplyFromCurrent(session, desired =>
             {
                 (JsonObject element, JsonArray objects, JsonObject source) = FindObjectInElements(desired, objectId, elementId);
                 elementId2 = ReadId(element) ?? string.Empty;

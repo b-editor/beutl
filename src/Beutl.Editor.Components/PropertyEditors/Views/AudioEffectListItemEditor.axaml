@@ -48,6 +48,7 @@
                                     DataContext="{Binding Properties.Value}" />
 
             <ItemsControl Margin="{StaticResource ListItemContentMargin}"
+                          controls:ItemsMotion.RevealsAddedItems="True"
                           DataContext="{Binding Group.Value}"
                           ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
