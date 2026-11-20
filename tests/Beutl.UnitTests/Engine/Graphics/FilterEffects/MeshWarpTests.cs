@@ -416,6 +416,40 @@ public sealed class MeshWarpTests
         });
     }
 
+    [Test]
+    public void CyclicGridPropertyExpressionReadingAnimatedMeshDoesNotStackOverflow()
+    {
+        var effect = Create(2, 2, MeshWarpInterpolation.Smooth);
+        MeshWarpGrid start = MeshWarpGrid.CreateIdentity(2, 2).WithPoint(1, 1, new Point(0.75f, 0.5f));
+        MeshWarpGrid end = MeshWarpGrid.CreateIdentity(3, 3);
+        effect.Mesh.SetKeyFrameAnimation(new KeyFrameAnimation<MeshWarpGrid>
+        {
+            KeyFrames = { Key(0, start), Key(1, end) }
+        });
+        effect.Rows.Expression = new DelegateExpression<int>(ctx => effect.Mesh.Evaluate(ctx).Rows);
+
+        var mid = new EvaluationContext(MediaTime.FromSeconds(0.5));
+        MeshWarpGrid evaluatedMesh = effect.Mesh.Evaluate(mid);
+        int evaluatedRows = effect.Rows.Evaluate(mid);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(evaluatedMesh.Rows, Is.EqualTo(2));
+            Assert.That(evaluatedRows, Is.EqualTo(2));
+        });
+    }
+
+    private sealed class DelegateExpression<T>(Func<ExpressionContext, T> eval) : IExpression<T>
+    {
+        public string ExpressionString => string.Empty;
+        public T Evaluate(ExpressionContext context) => eval(context);
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
+    }
+
     [TestCase(0.5f)]
     [TestCase(0.3f)]
     public void UnequalHeightSplitTargetsShareEdgeSamplesWithoutGaps(float leftSplitFraction)

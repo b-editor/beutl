@@ -19,6 +19,9 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
 {
     private readonly record struct CapturedPreviewFrame(Rect InputBounds, MediaTime EvaluationTime);
 
+    [ThreadStatic]
+    private static HashSet<MeshWarp>? s_interpolating;
+
     private static readonly Color s_cornerColor = Color.FromRgb(255, 179, 77);
     private const int MaxCachedInputBounds = 512;
     private readonly Lock _inputBoundsLock = new();
@@ -223,11 +226,25 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
         MediaTime nextTime,
         MediaTime time)
     {
-        var evaluation = new EvaluationContext(animation.ToScene(time));
-        int rows = Rows.Evaluate(evaluation);
-        int columns = Columns.Evaluate(evaluation);
-        MeshWarpInterpolation interpolation = Interpolation.Evaluate(evaluation);
-        return MeshWarpGridAnimator.Interpolate(progress, oldValue, newValue, rows, columns, interpolation);
+        HashSet<MeshWarp> active = s_interpolating ??= [];
+        if (!active.Add(this))
+        {
+            return MeshWarpGridAnimator.Interpolate(
+                progress, oldValue, newValue, Rows.Value, Columns.Value, Interpolation.Value);
+        }
+
+        try
+        {
+            var evaluation = new EvaluationContext(animation.ToScene(time));
+            int rows = Rows.Evaluate(evaluation);
+            int columns = Columns.Evaluate(evaluation);
+            MeshWarpInterpolation interpolation = Interpolation.Evaluate(evaluation);
+            return MeshWarpGridAnimator.Interpolate(progress, oldValue, newValue, rows, columns, interpolation);
+        }
+        finally
+        {
+            active.Remove(this);
+        }
     }
 
     private Rect GetEditingFrame(MediaTime time, Rect fallbackBounds, out MediaTime evaluationTime)
