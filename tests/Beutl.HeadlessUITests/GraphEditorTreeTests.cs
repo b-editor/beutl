@@ -38,6 +38,28 @@ namespace Beutl.HeadlessUITests;
 public class GraphEditorTreeTests
 {
     [AvaloniaTest]
+    public async Task Animating_an_expression_keeps_it_and_starts_at_the_stored_value()
+    {
+        using var scope = await TreeScope.CreateAsync();
+        scope.Shape.Width.Value = 100;
+        var expression = new StringExpression<float>("Value + 50");
+        scope.Shape.Width.Expression = expression;
+        scope.Base.Model.HistoryManager.Commit("Setup expression");
+
+        scope.Model.EnableAnimation(scope.Find(scope.Shape.Width));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Shape.Width.Expression?.ExpressionString, Is.EqualTo(expression.ExpressionString));
+            Assert.That(((KeyFrame<float>)scope.Shape.Width.GetKeyFrameAnimation()!.KeyFrames.Single()).Value.Value, Is.EqualTo(100));
+            Assert.That(scope.Shape.Width.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(150));
+        });
+        scope.Base.Model.HistoryManager.Undo();
+        Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.Null);
+        Assert.That(scope.Shape.Width.Expression, Is.SameAs(expression));
+    }
+
+    [AvaloniaTest]
     [TestCase(640, false)]
     [TestCase(640, true)]
     [TestCase(960, false)]

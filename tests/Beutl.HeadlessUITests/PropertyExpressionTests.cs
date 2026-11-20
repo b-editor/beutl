@@ -28,7 +28,7 @@ using Reactive.Bindings;
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
-public class PropertyExpressionTests
+public partial class PropertyExpressionTests
 {
     // A control connects after the panel has handed the editor its clock, so the editor must keep the paused time.
     [AvaloniaTest]
@@ -48,27 +48,32 @@ public class PropertyExpressionTests
         Assert.That(shown, Is.EqualTo(20f));
     }
 
-    // The animation takes over from the expression, so it starts at the value on screen and not at one from before it.
+    // The first key keeps the stored value; the editor shows its expression result while the scene keeps the playhead's.
     [AvaloniaTest]
-    public void Editing_the_animation_of_an_expression_starts_at_the_value_it_shows()
+    public void Editing_the_animation_keeps_the_expression_and_starts_at_the_stored_value()
     {
         var shape = new RectShape();
         var property = (AnimatableProperty<float>)shape.Opacity;
         property.Value = 75;
-        property.Expression = new StringExpression<float>("(float)Time * 10");
+        property.Expression = new StringExpression<float>("Value + (float)Time * 10");
         var clock = new Mock<IEditorClock>();
         clock.SetupGet(x => x.CurrentTime).Returns(new ReactivePropertySlim<MediaTime>(MediaTime.FromSeconds(2)));
         using var history = new PropertyEditorTestHost.HistoryScope(shape);
         using var model = new FloatEditorViewModel((IPropertyAdapter<float>)PropertyAdapterFactory.CreateAdapter(property, shape));
         model.Accept(new PropertyEditorTestHost.ServiceVisitor(
             (typeof(IEditorClock), clock.Object), (typeof(Beutl.Editor.HistoryManager), history.History)));
+        float shown = float.NaN;
+        using IDisposable subscription = model.EditValue.Subscribe(value => shown = value);
+        Assert.That(shown, Is.EqualTo(95f));
 
         model.PrepareToEditAnimation();
 
         Assert.Multiple(() =>
         {
-            Assert.That(property.HasExpression, Is.False);
-            Assert.That(((KeyFrame<float>)property.GetKeyFrameAnimation()!.KeyFrames.Single()).Value.Value, Is.EqualTo(20f));
+            Assert.That(property.HasExpression, Is.True);
+            Assert.That(((KeyFrame<float>)property.GetKeyFrameAnimation()!.KeyFrames.Single()).Value.Value, Is.EqualTo(75f));
+            Assert.That(shown, Is.EqualTo(75f));
+            Assert.That(property.Evaluate(new EvaluationContext(MediaTime.FromSeconds(2))), Is.EqualTo(95f));
         });
     }
 

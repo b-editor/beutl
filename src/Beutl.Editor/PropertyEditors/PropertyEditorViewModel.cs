@@ -96,7 +96,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
             .AddTo(Disposables);
 
         CanEdit = CanEditProperty
-            .CombineLatest(hasExpression, (canEdit, hasExpr) => canEdit && !hasExpr)
+            .CombineLatest(hasExpression, (canEdit, hasExpr) => canEdit && (!hasExpr || CanEditUnderExpression))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
@@ -222,8 +222,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
-    // Expressions prevent editing the value, but must still be editable/removable
-    // on an unlocked clip. Menus use this state rather than CanEdit.
+    // Only editors that replace the whole value can edit the value below an expression.
+    protected virtual bool CanEditUnderExpression => false;
+
+    // Menus can replace an expression even when its result cannot be edited in place.
     public ReadOnlyReactivePropertySlim<bool> CanEditProperty { get; }
 
     protected internal bool IsElementEditable => !IsDisposed && ElementEditability.IsEditable(_element, _scene);

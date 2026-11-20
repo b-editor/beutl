@@ -101,6 +101,30 @@ public sealed class PickerToggleTests
         }
     }
 
+    // An expression can set the shown color back while the picker is open, so going back to that color is still a change.
+    [AvaloniaTest]
+    public void A_live_picker_reports_a_return_to_the_color_the_editor_shows()
+    {
+        var editor = new ColorEditor { Header = "Color", Value = Colors.Red, IsLivePreviewEnabled = true };
+        var changed = new List<Color>();
+        editor.ValueChanged += (_, e) => changed.Add(((PropertyEditorValueChangedEventArgs<Color>)e).NewValue);
+        Window window = Show(editor);
+        try
+        {
+            Click(window, Part<Button>(editor, "PART_ColorPickerButton"));
+            var picker = (SimpleColorPicker)Single<SimpleColorPickerFlyoutPresenter>(window).Content!;
+            picker.Color = Colors.Lime;
+            editor.Value = Colors.Red;
+            picker.Color = Colors.Red;
+
+            Assert.That(changed, Is.EqualTo(new[] { Colors.Lime, Colors.Red }));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public void The_grading_color_button_closes_its_picker()
     {

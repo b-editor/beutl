@@ -29,6 +29,8 @@ public sealed partial class PropertyEditorMenu : UserControl
                     .CombineLatest(viewModel.HasExpression)
                     .Select(t => t switch
                     {
+                        (true, true) =>
+                            $"- {MessageStrings.RightClickToShowMenu}\n- {MessageStrings.AnimationIsEnabled}\n- {MessageStrings.ExpressionIsSet}",
                         (true, _) =>
                             $"- {MessageStrings.RightClickToShowMenu}\n- {MessageStrings.AnimationIsEnabled}",
                         (_, true) => $"- {MessageStrings.RightClickToShowMenu}\n- {MessageStrings.ExpressionIsSet}",

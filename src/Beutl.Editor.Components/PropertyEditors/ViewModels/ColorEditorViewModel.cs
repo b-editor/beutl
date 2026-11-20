@@ -14,6 +14,8 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 public sealed class ColorEditorViewModel(IPropertyAdapter<Color> property)
     : PropertyEditorViewModel<Color, AColor>(property), IConfigureLivePreview
 {
+    protected override bool CanEditUnderExpression => true;
+
     public ReactivePropertySlim<bool> IsLivePreviewEnabled { get; } = new(true);
 
     protected override AColor ToEdit(Color value) => value.ToAvaColor();

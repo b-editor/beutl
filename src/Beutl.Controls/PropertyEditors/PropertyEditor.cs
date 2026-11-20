@@ -164,19 +164,21 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty)
     {
         CompositeDisposable connection = StartConnection();
+        TEdit shown = default!;
+        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
         Bind(valueProperty, context.EditValue.ToBinding()).DisposeWith(connection);
-        ConfirmEdits(context, connection);
+        ConfirmEdits(context, connection, () => SetValue(valueProperty, shown));
         return connection;
     }
 
     // Also previews the value while the user changes it and shows the value the context kept.
     private protected CompositeDisposable ConnectValue<TEdit>(
-        IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty)
+        IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty, Func<bool>? relative = null)
     {
         CompositeDisposable connection = ConnectConfirmedValue(context, valueProperty);
         this.AddDisposableHandler(
                 ValueChangedEvent,
-                (_, _) => SetValue(valueProperty, context.PreviewEdit(AvaloniaObjectExtensions.GetValue(this, valueProperty))))
+                (_, _) => SetValue(valueProperty, PreviewEdit(context, AvaloniaObjectExtensions.GetValue(this, valueProperty), relative?.Invoke() ?? false)))
             .DisposeWith(connection);
         return connection;
     }
@@ -211,9 +213,18 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     // Ends the earlier connection and returns the one that holds the new connection's subscriptions.
     private protected CompositeDisposable StartConnection()
     {
+        HasUnconfirmedEdit = false;
         var connection = new CompositeDisposable();
         _connection.Disposable = connection;
         return connection;
+    }
+
+    internal bool HasUnconfirmedEdit { get; private set; }
+
+    private protected TEdit PreviewEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value, bool relative)
+    {
+        HasUnconfirmedEdit = true;
+        return context.PreviewEdit(value, relative);
     }
 
     // Hands the edits this editor confirms to the context, then runs afterConfirm.
@@ -226,6 +237,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
                 {
                     if (e.Expect<TEdit>(s) is { } args)
                     {
+                        HasUnconfirmedEdit = false;
                         context.ConfirmEdit(args.OldValue, args.NewValue);
                         afterConfirm?.Invoke();
                     }

@@ -83,15 +83,23 @@ public class Vector3Editor<TElement> : Vector3Editor, IValueEditorControl<(TElem
     public void Connect(IValueEditorContext<(TElement, TElement, TElement)> context)
     {
         CompositeDisposable connection = StartConnection();
+        (TElement, TElement, TElement) shown = (TElement.Zero, TElement.Zero, TElement.Zero);
+        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
+        _values.ReadIncrementValues = () =>
+        {
+            var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue));
+            return [value.Item1, value.Item2, value.Item3];
+        };
         BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
         BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
         BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
-        this.AddDisposableHandler(ValueChangedEvent, (_, _) =>
+        this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
             {
-                (FirstValue, SecondValue, ThirdValue) = context.PreviewEdit((FirstValue, SecondValue, ThirdValue));
+                if (e.Expect<(TElement, TElement, TElement)>(s) is { } args)
+                    (FirstValue, SecondValue, ThirdValue) = PreviewEdit(context, args.NewValue, IsRelativeEdit);
             })
             .DisposeWith(connection);
-        ConfirmEdits(context, connection);
+        ConfirmEdits(context, connection, () => (FirstValue, SecondValue, ThirdValue) = shown);
     }
 }
 

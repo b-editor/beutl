@@ -1,12 +1,30 @@
 ﻿namespace Beutl;
 
-public class ExpressionContext(MediaTime time, IProperty currentProperty, PropertyLookup propertyLookup) : EvaluationContext(time)
+public class ExpressionContext : EvaluationContext
 {
-    private readonly HashSet<IProperty> _evaluationStack = [];
+    private readonly HashSet<IProperty> _evaluationStack;
 
-    public IProperty CurrentProperty { get; set; } = currentProperty;
+    public ExpressionContext(MediaTime time, IProperty currentProperty, PropertyLookup propertyLookup)
+        : this(time, currentProperty, propertyLookup, [])
+    {
+    }
 
-    public PropertyLookup PropertyLookup { get; init; } = propertyLookup;
+    private ExpressionContext(MediaTime time, IProperty currentProperty, PropertyLookup propertyLookup,
+        HashSet<IProperty> evaluationStack) : base(time)
+    {
+        CurrentProperty = currentProperty;
+        PropertyLookup = propertyLookup;
+        _evaluationStack = evaluationStack;
+    }
+
+    public IProperty CurrentProperty { get; set; }
+
+    public PropertyLookup PropertyLookup { get; init; }
+
+    public ExpressionContext WithTime(MediaTime time)
+    {
+        return new ExpressionContext(time, CurrentProperty, PropertyLookup, _evaluationStack);
+    }
 
     public bool TryGetPropertyValue<T>(string path, out T? value)
     {

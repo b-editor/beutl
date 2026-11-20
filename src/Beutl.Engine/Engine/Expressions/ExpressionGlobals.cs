@@ -6,6 +6,8 @@ public class ExpressionGlobals
 {
     private readonly ExpressionContext _context;
 
+    protected ExpressionContext Context => _context;
+
     public ExpressionGlobals(ExpressionContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
@@ -37,6 +39,26 @@ public class ExpressionGlobals
     public T GetProperty<T>(Guid objectId, string propertyName)
     {
         if (_context.TryGetPropertyValue<T>(objectId, propertyName, out var value))
+        {
+            return value!;
+        }
+        return default!;
+    }
+
+    public T GetProperty<T>(string path, double time)
+    {
+        var context = _context.WithTime(MediaTime.FromSeconds(Start + time));
+        if (context.TryGetPropertyValue<T>(path, out var value))
+        {
+            return value!;
+        }
+        return default!;
+    }
+
+    public T GetProperty<T>(Guid objectId, string propertyName, double time)
+    {
+        var context = _context.WithTime(MediaTime.FromSeconds(Start + time));
+        if (context.TryGetPropertyValue<T>(objectId, propertyName, out var value))
         {
             return value!;
         }

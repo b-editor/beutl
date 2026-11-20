@@ -6,6 +6,8 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 public sealed class EnumEditorViewModel<T> : PropertyEditorViewModel<T, int>
     where T : struct, Enum
 {
+    protected override bool CanEditUnderExpression => true;
+
     private readonly T[] _enumValues;
     private readonly EnumItem[] _enumItems;
 

@@ -21,6 +21,13 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
     where T : struct, INumber<T>
     where TTuple : struct
 {
+    protected override bool CanEditUnderExpression => true;
+
+    protected override TTuple OffsetValue(TTuple value, TTuple from, TTuple to) => _adapter.OffsetValue(value, from, to);
+
+    protected override TTuple ReplaceUnderExpression(TTuple underlying, TTuple shown, TTuple input)
+        => _adapter.ReplaceEditedComponents(underlying, shown, input);
+
     private const string KeepsSeparatedKey = "KeepsSeparated";
 
     private readonly CombinedPropertyAdapter<T, TTuple> _adapter;
@@ -298,12 +305,36 @@ internal sealed class CombinedPropertyAdapter<T, TTuple>
         for (int i = 0; i < Components.Count; i++)
         {
             if (Components[i].GetEditingValue() != values[i])
-                Components[i].SetCurrentValueAndGetCoerced(values[i]);
+                Components[i].SetCurrentValue(values[i]);
         }
     }
 
     public IObservable<TTuple> GetObservable()
         => Components.Select(component => component.EditValue).CombineLatest(values => _compose([.. values]));
+
+    public TTuple OffsetValue(TTuple value, TTuple from, TTuple to)
+    {
+        T[] values = _split(value);
+        T[] start = _split(from);
+        T[] end = _split(to);
+        for (int i = 0; i < values.Length; i++)
+            values[i] = NumericOffset.Add(values[i], start[i], end[i]);
+        return _compose(values);
+    }
+
+    // Takes the fields of input that differ from shown, and keeps value's other fields.
+    public TTuple ReplaceEditedComponents(TTuple value, TTuple shown, TTuple input)
+    {
+        T[] values = _split(value);
+        T[] displayed = _split(shown);
+        T[] typed = _split(input);
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (typed[i] != displayed[i])
+                values[i] = typed[i];
+        }
+        return _compose(values);
+    }
 
     public void EditAll(Action edit)
     {

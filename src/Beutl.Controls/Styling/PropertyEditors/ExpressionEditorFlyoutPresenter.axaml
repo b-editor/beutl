@@ -107,6 +107,10 @@
                                                        TextWrapping="Wrap"
                                                        FontFamily="Consolas, Menlo, monospace"
                                                        FontSize="11" />
+                                            <TextBlock Text="{x:Static lang:Strings.Expression_Functions_Time}"
+                                                       TextWrapping="Wrap"
+                                                       FontFamily="Consolas, Menlo, monospace"
+                                                       FontSize="11" />
                                         </StackPanel>
                                     </StackPanel>
 

@@ -50,7 +50,7 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
 
         try
         {
-            var globals = new ExpressionGlobals(context);
+            var globals = new ExpressionGlobals<T>(context, Replaced);
             var evalResult = result.ScriptRunner(globals).GetAwaiter().GetResult();
             return ConvertResult(evalResult);
         }
@@ -88,7 +88,7 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
             var script = CSharpScript.Create<object>(
                 ExpressionString,
                 s_scriptOptions,
-                typeof(ExpressionGlobals));
+                typeof(ExpressionGlobals<T>));
 
             var errors = SynchronousScriptCompiler.GetErrors(script);
 

@@ -211,13 +211,14 @@ public class LockedClipPropertyTests
             Button button = menu.GetVisualDescendants().OfType<Button>().First();
             button.ContextFlyout!.ShowAt(button);
             HeadlessTestHelpers.Render();
-            Assert.That(property.CanEdit.Value, Is.False);
+            Assert.That(property.CanEdit.Value, Is.True);
             Assert.That(property.CanEditProperty.Value, Is.True);
             Assert.That(MenuItem(button, "editExpressionItem").IsEnabled, Is.True);
             Assert.That(MenuItem(button, "removeExpressionItem").IsEnabled, Is.True);
 
             element.IsLocked.Value = true;
             HeadlessTestHelpers.Settle();
+            Assert.That(property.CanEdit.Value, Is.False);
             Assert.That(MenuItem(button, "editExpressionItem").IsEnabled, Is.False);
             Assert.That(MenuItem(button, "removeExpressionItem").IsEnabled, Is.False);
             int before = editor.HistoryManager.UndoCount;

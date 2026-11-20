@@ -7,6 +7,12 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 public sealed class RelativePointEditorViewModel(IPropertyAdapter<Graphics.RelativePoint> property)
     : ValueEditorViewModel<Graphics.RelativePoint>(property), IConfigureUniformEditor, IRelativeUnitEditor
 {
+    protected override bool CanEditUnderExpression => true;
+
+    protected override Graphics.RelativePoint ReplaceUnderExpression(
+        Graphics.RelativePoint underlying, Graphics.RelativePoint shown, Graphics.RelativePoint input)
+        => Beutl.Animation.ComponentAnimations.ReplaceEditedComponents(underlying, shown, input);
+
     public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
     IObservable<Graphics.RelativeUnit> IRelativeUnitEditor.Unit => Value.Select(value => value.Unit);

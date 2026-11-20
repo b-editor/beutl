@@ -33,6 +33,12 @@ public abstract class PropertyEditorViewModel<TValue, TEdit> : PropertyEditorVie
         return ToEdit(SetCurrentValueAndGetCoerced(FromEdit(value))!);
     }
 
+    public virtual TEdit PreviewEdit(TEdit value, bool relative)
+        => relative || !HasExpression.Value ? PreviewEdit(value)
+            : ToEdit(SetCurrentValueAndGetCoerced(FromEdit(value), relative: false)!);
+
+    public TEdit GetIncrementValue(TEdit shown) => ToEdit(base.GetIncrementValue(FromEdit(shown))!);
+
     public virtual void ConfirmEdit(TEdit oldValue, TEdit newValue)
     {
         if (IsDisposed) return;

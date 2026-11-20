@@ -148,7 +148,7 @@ public class NumberSliderEditor<TValue> : NumberEditor<TValue>
         {
             // The default is applied as it is, even when it does not fall on a step.
             TValue before = Value;
-            ApplyValue(TValue.CreateTruncating(Origin));
+            ApplyAbsoluteValue(TValue.CreateTruncating(Origin));
             ConfirmValue(before);
             return;
         }
