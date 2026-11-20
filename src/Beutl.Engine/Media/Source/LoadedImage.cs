@@ -1,4 +1,6 @@
-﻿using Beutl.Serialization;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Serialization;
 using SkiaSharp;
 using Svg;
 using Svg.Model;
@@ -6,13 +8,13 @@ using Svg.Skia;
 
 namespace Beutl.Media.Source;
 
-// What an ImageSource opened. An SVG stays a drawing, which is sharp at any scale, and gets pixels at its own size
-// only for what cannot take a drawing, such as an image brush.
+// What an ImageSource opened. An SVG stays a drawing, which is sharp at any scale; density-aware paths draw or
+// rasterize Picture at the required density, while Bitmap provides pixels at its declared size for pixel-only callers.
 internal sealed class LoadedImage : IDisposable
 {
     // A few bytes of SVG can declare any size. A drawing costs the same at any of them, but pixels do not.
-    private const int MaxSvgSide = 16384;
-    private const long MaxSvgPixels = 64L * 1024 * 1024;
+    internal const int MaxSvgSide = 16384;
+    internal const long MaxSvgPixels = 64L * 1024 * 1024;
 
     private readonly SKSvg? _svg;
     private readonly Lazy<Bitmap?> _bitmap;
@@ -120,14 +122,67 @@ internal sealed class LoadedImage : IDisposable
         }
     }
 
-    private Bitmap? Rasterize()
+    // Computes the raster pixel size for an SVG at the requested density, bounded by both axis and total pixel budgets.
+    public PixelSize ResolveSvgRasterSize(float density, int maxDimension)
     {
-        if ((long)Size.Width * Size.Height > MaxSvgPixels)
-            return null;
+        if (Size.Width <= 0 || Size.Height <= 0)
+            return Size;
 
-        var bitmap = new Bitmap(Size.Width, Size.Height, BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
-        using var canvas = new SKCanvas(bitmap.SKBitmap);
-        canvas.DrawPicture(Picture);
-        return bitmap;
+        int maxSide = maxDimension > 0 ? Math.Min(maxDimension, MaxSvgSide) : MaxSvgSide;
+        float sanitized = RenderScaleUtilities.SanitizeOutputScale(density);
+        float clamped = BufferDimensionBudget.Named(maxSide).ClampWorkingScale(
+            new Rect(0, 0, Size.Width, Size.Height),
+            sanitized);
+
+        int width = Math.Clamp((int)MathF.Ceiling(Size.Width * clamped), 1, maxSide);
+        int height = Math.Clamp((int)MathF.Ceiling(Size.Height * clamped), 1, maxSide);
+
+        if ((long)width * height > MaxSvgPixels)
+        {
+            double fit = Math.Sqrt((double)MaxSvgPixels / ((double)width * height));
+            width = Math.Clamp((int)Math.Floor(width * fit), 1, maxSide);
+            height = Math.Clamp((int)Math.Floor(height * fit), 1, maxSide);
+        }
+
+        return new PixelSize(width, height);
     }
+
+    public Bitmap? RasterizePicture(
+        PixelSize targetSize,
+        BitmapColorType colorType,
+        BitmapAlphaType alphaType,
+        BitmapColorSpace colorSpace)
+    {
+        if (Picture == null
+            || Size.Width <= 0
+            || Size.Height <= 0
+            || targetSize.Width <= 0
+            || targetSize.Height <= 0
+            || (long)targetSize.Width * targetSize.Height > MaxSvgPixels)
+        {
+            return null;
+        }
+
+        var bitmap = new Bitmap(targetSize.Width, targetSize.Height, colorType, alphaType, colorSpace);
+        try
+        {
+            using var canvas = new SKCanvas(bitmap.SKBitmap);
+            canvas.Clear(SKColors.Transparent);
+            if (targetSize != Size)
+            {
+                canvas.Scale((float)targetSize.Width / Size.Width, (float)targetSize.Height / Size.Height);
+            }
+
+            canvas.DrawPicture(Picture);
+            return bitmap;
+        }
+        catch
+        {
+            bitmap.Dispose();
+            throw;
+        }
+    }
+
+    private Bitmap? Rasterize()
+        => RasterizePicture(Size, BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
 }

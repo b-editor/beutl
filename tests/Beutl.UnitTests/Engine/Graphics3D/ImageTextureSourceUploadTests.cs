@@ -266,6 +266,198 @@ public class ImageTextureSourceUploadTests
         Assert.That(resource.GetTexture(context.Object), Is.SameAs(created[1]), "The next draw must retry the upload.");
     }
 
+    [Test]
+    public void GetTexture_RasterizesSvgAtSurfaceDensity()
+    {
+        const string halfRedSvg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="10">
+              <rect width="10" height="10" fill="#ff0000"/>
+            </svg>
+            """;
+        var (definition, context, created) = CreateSvgSource(nameof(GetTexture_RasterizesSvgAtSurfaceDensity), halfRedSvg);
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+        ITexture2D? texture = resource.GetTexture(context.Object, 4f, TextureContentKind.Color);
+
+        Assert.That(texture, Is.SameAs(created.Single()));
+        FakeTexture uploaded = created.Single();
+        ReadOnlySpan<Half> pixels = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(uploaded.UploadedData);
+        int rowOffset = 20 * uploaded.Width * 4;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(uploaded.Width, Is.EqualTo(80));
+            Assert.That(uploaded.Height, Is.EqualTo(40));
+            Assert.That(uploaded.Format, Is.EqualTo(TextureFormat.RGBA16Float));
+            Assert.That((float)pixels[rowOffset + 38 * 4], Is.EqualTo(1f).Within(0.002f));
+            Assert.That((float)pixels[rowOffset + 39 * 4], Is.EqualTo(1f).Within(0.002f));
+            Assert.That((float)pixels[rowOffset + 40 * 4], Is.EqualTo(0f).Within(0.002f));
+            Assert.That((float)pixels[rowOffset + 41 * 4], Is.EqualTo(0f).Within(0.002f));
+        }
+    }
+
+    [Test]
+    public void GetTexture_RasterizesSvgDataMapAtSurfaceDensity()
+    {
+        const string halfRedSvg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="10">
+              <rect width="10" height="10" fill="#ff0000"/>
+            </svg>
+            """;
+        var (definition, context, created) = CreateSvgSource(nameof(GetTexture_RasterizesSvgDataMapAtSurfaceDensity), halfRedSvg);
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+        ITexture2D? texture = resource.GetTexture(context.Object, 4f, TextureContentKind.Data);
+
+        Assert.That(texture, Is.SameAs(created.Single()));
+        FakeTexture uploaded = created.Single();
+        byte[] data = uploaded.UploadedData!;
+        int leftOffset = (20 * uploaded.Width + 39) * 4;
+        int rightOffset = (20 * uploaded.Width + 40) * 4;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(uploaded.Width, Is.EqualTo(80));
+            Assert.That(uploaded.Height, Is.EqualTo(40));
+            Assert.That(uploaded.Format, Is.EqualTo(TextureFormat.BGRA8Unorm));
+            // BGRA8: B=0, G=0, R=255, A=255 on the left half; transparent on the right half.
+            Assert.That(data[leftOffset + 2], Is.EqualTo(255));
+            Assert.That(data[leftOffset + 3], Is.EqualTo(255));
+            Assert.That(data[rightOffset + 3], Is.Zero);
+        }
+    }
+
+    [Test]
+    public void GetTexture_ReuploadsSvgWhenSurfaceDensityChangesAndReusesWhenUnchanged()
+    {
+        const string halfRedSvg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="10">
+              <rect width="10" height="10" fill="#ff0000"/>
+            </svg>
+            """;
+        var (definition, context, created) = CreateSvgSource(
+            nameof(GetTexture_ReuploadsSvgWhenSurfaceDensityChangesAndReusesWhenUnchanged), halfRedSvg);
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+        ITexture2D? first = resource.GetTexture(context.Object, 1f);
+        ITexture2D? reused = resource.GetTexture(context.Object, 1f);
+        ITexture2D? denser = resource.GetTexture(context.Object, 3f);
+        ITexture2D? denserReused = resource.GetTexture(context.Object, 3f);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(reused, Is.SameAs(first));
+            Assert.That(created, Has.Count.EqualTo(2));
+            Assert.That(created[0].Width, Is.EqualTo(20));
+            Assert.That(created[0].Height, Is.EqualTo(10));
+            Assert.That(created[0].Disposed, Is.True, "The lower-density upload must be released.");
+            Assert.That(denser, Is.SameAs(created[1]));
+            Assert.That(denserReused, Is.SameAs(denser));
+            Assert.That(created[1].Width, Is.EqualTo(60));
+            Assert.That(created[1].Height, Is.EqualTo(30));
+        }
+    }
+
+    [Test]
+    public void GetTexture_UploadsOversizedSvgClampedToDeviceAndPixelBudgets()
+    {
+        const string oversizedSvg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="16384" height="16384">
+              <rect width="8192" height="16384" fill="#ff0000"/>
+            </svg>
+            """;
+        var (definition, context, created) = CreateSvgSource(
+            nameof(GetTexture_UploadsOversizedSvgClampedToDeviceAndPixelBudgets), oversizedSvg, maxAttachmentDimension: 256);
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+        Assert.That(resource.Source!.Bitmap, Is.Null, "A 16384x16384 SVG has no default declared-size bitmap.");
+
+        ITexture2D? clamped = resource.GetTexture(context.Object, 1f);
+        ITexture2D? lowDensity = resource.GetTexture(context.Object, 0.01f);
+
+        FakeTexture first = created[0];
+        ReadOnlySpan<Half> pixels = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(first.UploadedData);
+        int rowOffset = 128 * first.Width * 4;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(clamped, Is.SameAs(first));
+            Assert.That(first.Width, Is.EqualTo(256));
+            Assert.That(first.Height, Is.EqualTo(256));
+            Assert.That((float)pixels[rowOffset + 64 * 4], Is.EqualTo(1f).Within(0.002f));
+            Assert.That((float)pixels[rowOffset + 192 * 4], Is.EqualTo(0f).Within(0.002f));
+            Assert.That(lowDensity, Is.SameAs(created[1]));
+            Assert.That(created[1].Width, Is.EqualTo(164));
+            Assert.That(created[1].Height, Is.EqualTo(164));
+            Assert.That(resource.Source.ResolveSvgRasterSize(1f, 16384), Is.EqualTo(new PixelSize(8192, 8192)));
+        }
+    }
+
+    [Test]
+    public void GetStraightColorTexture_ReturnsNullForOversizedSvgWithoutDroppingCachedColorTexture()
+    {
+        const string oversizedSvg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="16384" height="16384">
+              <rect width="8192" height="16384" fill="#ff0000"/>
+            </svg>
+            """;
+        var (definition, context, created) = CreateSvgSource(
+            nameof(GetStraightColorTexture_ReturnsNullForOversizedSvgWithoutDroppingCachedColorTexture),
+            oversizedSvg,
+            maxAttachmentDimension: 128);
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+        ITexture2D? color = resource.GetTexture(context.Object, 1f);
+        ITexture2D? straight = resource.GetStraightColorTexture(context.Object);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(straight, Is.Null);
+            Assert.That(created.Single().Disposed, Is.False);
+            Assert.That(resource.GetTexture(context.Object, 1f), Is.SameAs(color));
+        }
+    }
+
+    [Test]
+    public void TryGetAlpha_SamplesOversizedSvgWithoutBitmap()
+    {
+        const string oversizedSvg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="16384" height="16384">
+              <rect width="8192" height="16384" fill="#ff0000"/>
+            </svg>
+            """;
+        var (definition, _, _) = CreateSvgSource(nameof(TryGetAlpha_SamplesOversizedSvgWithoutBitmap), oversizedSvg);
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+        Assert.That(resource.Source!.Bitmap, Is.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(resource.TryGetAlpha(new System.Numerics.Vector2(0.25f, 0.5f), out float leftAlpha), Is.True);
+            Assert.That(leftAlpha, Is.EqualTo(1f).Within(0.01f));
+            Assert.That(resource.TryGetAlpha(new System.Numerics.Vector2(0.75f, 0.5f), out float rightAlpha), Is.True);
+            Assert.That(rightAlpha, Is.EqualTo(0f).Within(0.01f));
+        }
+    }
+
+    private static (ImageTextureSource, Mock<IGraphicsContext>, List<FakeTexture>) CreateSvgSource(
+        string name, string svgContent, int maxAttachmentDimension = 0)
+    {
+        var created = new List<FakeTexture>();
+        var context = new Mock<IGraphicsContext>();
+        if (maxAttachmentDimension > 0)
+            context.SetupGet(c => c.MaxAttachmentDimension).Returns(maxAttachmentDimension);
+        context.Setup(c => c.CreateTexture2D(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<TextureFormat>()))
+            .Returns((int width, int height, TextureFormat format) =>
+            {
+                var texture = new FakeTexture(width, height, format, () => false);
+                created.Add(texture);
+                return texture;
+            });
+
+        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{nameof(ImageTextureSourceUploadTests)}-{name}.svg");
+        File.WriteAllText(path, svgContent);
+        var image = new ImageSource();
+        image.ReadFrom(new Uri(path));
+        var definition = new ImageTextureSource { Source = { Value = image } };
+        return (definition, context, created);
+    }
+
     private static (ImageTextureSource, Mock<IGraphicsContext>, List<FakeTexture>) CreateSource(
         string name, Func<bool>? failUploads = null)
     {
@@ -323,6 +515,8 @@ public class ImageTextureSourceUploadTests
     {
         public bool Disposed { get; private set; }
 
+        public byte[]? UploadedData { get; private set; }
+
         public int Width => width;
 
         public int Height => height;
@@ -339,6 +533,7 @@ public class ImageTextureSourceUploadTests
         {
             if (failUploads())
                 throw new InvalidOperationException("Upload failed.");
+            UploadedData = data.ToArray();
         }
 
         public byte[] DownloadPixels() => throw new NotSupportedException();
