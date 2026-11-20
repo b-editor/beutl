@@ -1,13 +1,16 @@
 <UserControl x:Class="Beutl.Views.TabSwitcherView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels"
              x:CompileBindings="True"
              x:DataType="vm:TabSwitcherViewModel"
-             IsVisible="{Binding IsOpen.Value}">
+             IsVisible="False"
+             controls:OverlayMotion.IsOpen="{Binding IsOpen.Value}"
+             controls:OverlayMotion.Surface="{Binding #SwitcherContainer}">
     <UserControl.Resources>
         <DataTemplate x:Key="TabItemTemplate" x:DataType="vm:TabSwitcherItem">
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" ToolTip.Tip="{Binding Description}">

@@ -31,8 +31,9 @@ public class CommandPaletteViewLayoutTests
     {
         // Inflate the real view so we can lift its ListBox.ItemTemplate out, then materialize it for a
         // single item. A null DataContext leaves the FilteredCommands binding unset (no items), but the
-        // ItemTemplate object is still present on the ListBox.
-        var view = new CommandPaletteView();
+        // ItemTemplate object is still present on the ListBox. The palette shows only while open, so it is shown
+        // here by hand.
+        var view = new CommandPaletteView { IsVisible = true };
         var window = new Window { Content = view, Width = 480, Height = 480 };
         Window? host = null;
         try

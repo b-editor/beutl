@@ -1,6 +1,6 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls.Primitives;
+using Beutl.Controls;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -9,25 +9,39 @@ public static class ExpandTransitionHelper
     public static readonly TimeSpan DefaultDuration = TimeSpan.FromMilliseconds(250);
     public static readonly TimeSpan ListItemDuration = TimeSpan.FromMilliseconds(167);
 
+    // Opening fades the content in as it moves down into place; closing fades it out quickly before it goes.
     public static IDisposable Attach(ToggleButton toggle, Visual content, TimeSpan? duration = null)
     {
-        var transition = new CrossFade(duration ?? DefaultDuration);
-        CancellationTokenSource? cts = null;
+        TimeSpan revealDuration = duration ?? DefaultDuration;
+
+        // Content whose visibility is also bound can be shown by its data context after the first state was applied,
+        // so collapsed content is hidden again once it is in a window.
+        content.AttachedToVisualTree += (_, _) =>
+        {
+            if (toggle.IsChecked != true && content.IsVisible)
+            {
+                UiMotion.Cancel(content);
+                content.IsVisible = false;
+                content.Opacity = 1;
+            }
+        };
 
         return toggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
+            .Subscribe(v =>
             {
-                cts?.Cancel();
-                cts = new CancellationTokenSource();
-                CancellationToken token = cts.Token;
-
                 if (v == true)
                 {
-                    await transition.Start(null, content, token);
+                    content.IsVisible = true;
+                    UiMotion.Reveal(content, revealDuration);
                 }
-                else
+                else if (content.IsVisible)
                 {
-                    await transition.Start(content, null, token);
+                    double from = content.Opacity;
+                    UiMotion.Run(content, UiMotion.Fast, progress => content.Opacity = from * (1 - progress), () =>
+                    {
+                        content.IsVisible = false;
+                        content.Opacity = 1;
+                    });
                 }
             });
     }
