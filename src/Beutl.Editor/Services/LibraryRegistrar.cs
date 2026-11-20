@@ -179,6 +179,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<Bloom>(GraphicsStrings.Bloom)
                 .AddFilterEffect<LightRays>(GraphicsStrings.LightRays)
                 .AddFilterEffect<WaveRefraction>(GraphicsStrings.WaveRefraction)
+                .AddFilterEffect<PolarCoordinates>(GraphicsStrings.PolarCoordinates)
                 .AddFilterEffect<DropShadow>(GraphicsStrings.DropShadow)
                 .AddFilterEffect<InnerShadow>(GraphicsStrings.InnerShadow)
                 .AddFilterEffect<FlatShadow>(GraphicsStrings.FlatShadow)

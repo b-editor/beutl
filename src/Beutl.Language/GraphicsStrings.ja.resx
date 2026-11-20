@@ -1840,6 +1840,21 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>アルファを保持</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>極座標</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>方向</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>量</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>直交座標から極座標へ</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>極座標から直交座標へ</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>波紋屈折</value>
   </data>

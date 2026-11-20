@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
-/// <summary>Records filter effects, runs them on solid targets and binds what their shader stages declare.</summary>
+/// <summary>Records filter effects, runs them on CPU targets and binds what their shader stages declare.</summary>
 internal static class FilterEffectTestHarness
 {
     /// <summary>Records <paramref name="effect"/> over <paramref name="bounds"/>, expecting one shader stage.</summary>
@@ -35,9 +35,17 @@ internal static class FilterEffectTestHarness
     /// </summary>
     public static (float[] Before, float[] After) RunOnSolidTarget(FilterEffect effect, SKColor color, PixelSize size)
     {
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        return RunOnTarget(resource, size, canvas => canvas.Clear(color));
+    }
+
+    /// <summary>Draws a CPU target, runs the effect resource, and reads every channel before and after.</summary>
+    public static (float[] Before, float[] After) RunOnTarget(
+        FilterEffect.Resource resource, PixelSize size, Action<SKCanvas> draw)
+    {
         var bounds = new Rect(0, 0, size.Width, size.Height);
         using RenderTarget backing = CpuRenderTargets.Create(size.Width, size.Height);
-        backing.Value.Canvas.Clear(color);
+        draw(backing.Value.Canvas);
         backing.Value.Canvas.Flush();
         using Bitmap beforeBitmap = backing.Snapshot();
         float[] before = ReadChannels(beforeBitmap);
@@ -49,7 +57,6 @@ internal static class FilterEffectTestHarness
                 EffectiveScale.At(1),
                 new PixelRect(0, 0, size.Width, size.Height)),
         };
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
         context.ApplyTransactional(resource);
         using var builder = new SKImageFilterBuilder();

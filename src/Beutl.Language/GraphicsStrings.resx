@@ -1845,6 +1845,21 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>Preserve alpha</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>Polar Coordinates</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>Amount</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>Rectangular to polar</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>Polar to rectangular</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>Wave refraction</value>
   </data>

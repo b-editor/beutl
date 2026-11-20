@@ -204,6 +204,7 @@ public sealed partial class SchemaGenerator
             [typeof(ColorShift)] = Metadata(["glitch", "chromatic", "stylize"], []),
             [typeof(ShakeEffect)] = Metadata(["motion", "glitch", "shake"], ["Time-dependent effect; useful for animated jitter without explicit keyframes."]),
             [typeof(DisplacementMapEffect)] = Metadata(["distort", "map", "motion"], ["Pair with a map source or generated texture for visible displacement."]),
+            [typeof(PolarCoordinates)] = Metadata(["distort", "polar", "ring", "warp"], ["Amount is a percentage; 0 is identity."]),
             [typeof(PathFollowEffect)] = Metadata(["motion", "path", "distort"], []),
             [typeof(LayerEffect)] = Metadata(["composite", "layer"], []),
             [typeof(DelayAnimationEffect)] = Metadata(["motion", "trail", "delay"], []),
