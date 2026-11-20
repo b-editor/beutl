@@ -9,6 +9,7 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -83,6 +84,15 @@ internal static partial class NativeBrowserFrameTestHost
                 window.Show();
                 using var cookieTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 exitCode = await CheckLinuxCookieClearAsync(window, cookieTimeout.Token) ? 0 : SkippedExitCode;
+                return;
+            }
+            if (scenario == "--native-browser-linux-focus")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var focusTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await CheckLinuxFocusAsync(window, focusTimeout.Token);
+                exitCode = 0;
                 return;
             }
             if (scenario == "--native-browser-adblock-reference")
@@ -230,6 +240,60 @@ internal static partial class NativeBrowserFrameTestHost
             Assert.That(await after.Task.WaitAsync(token), Is.Null);
         });
         return true;
+    }
+
+    private static async Task CheckLinuxFocusAsync(Window window, CancellationToken token)
+    {
+        if (!OperatingSystem.IsLinux()) return;
+
+        var page = new Uri("https://page.example/");
+        var browser = new NativeWebView();
+        var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        browser.NavigationCompleted += (_, e) =>
+        {
+            if (e.IsSuccess) loaded.TrySetResult();
+        };
+
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), page);
+        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        int leakedToWindow = 0;
+        window.AddHandler(InputElement.KeyDownEvent, (_, _) => leakedToWindow++, RoutingStrategies.Bubble);
+        window.Content = view;
+
+        browser.NavigateToString("<html><body><input id='box' type='text'></body></html>", page);
+        await loaded.Task.WaitAsync(token);
+
+        IPlatformHandle? handle = browser.TryGetPlatformHandle();
+        if (handle is IGtkWebViewPlatformHandle && handle.HandleDescriptor == "XID" && handle.Handle != 0)
+        {
+            const nint keyPressAndReleaseMask = 0x3;
+            nint? mask = null;
+            while (mask is null || (mask.Value & keyPressAndReleaseMask) != keyPressAndReleaseMask)
+            {
+                mask = await LinuxWebKitFocus.ReadDoNotPropagateMaskAsync(handle.Handle).WaitAsync(token);
+                if (mask is not null && (mask.Value & keyPressAndReleaseMask) == keyPressAndReleaseMask) break;
+                await Task.Delay(20, token);
+            }
+
+            Assert.That(mask!.Value & keyPressAndReleaseMask, Is.EqualTo(keyPressAndReleaseMask),
+                "WebKitGTK's embedded X11 window must block core KeyPress/KeyRelease propagation to Avalonia.");
+        }
+
+        var keyDown = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Source = browser,
+            Key = Key.M,
+            KeyModifiers = KeyModifiers.None,
+            PhysicalKey = PhysicalKey.None
+        };
+        browser.RaiseEvent(keyDown);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ContextCommandInput.IsFromTextInput(keyDown), Is.True);
+            Assert.That(keyDown.Handled, Is.True);
+            Assert.That(leakedToWindow, Is.Zero);
+        });
     }
 
     private static async Task CheckSupersededNavigationAsync(Window window, CancellationToken token)
@@ -1155,6 +1219,7 @@ public class NativeBrowserFrameTests
     [TestCase("--native-browser-superseded-navigation", TestName = "ACommittedPageFinishingAfterTheNextNavigationStartsLeavesItLoading", IncludePlatform = "Win,MacOSX")]
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
     [TestCase("--native-browser-cookie-clear", TestName = "LinuxCookieClearRemovesSessionAndPersistentCookies", IncludePlatform = "Linux")]
+    [TestCase("--native-browser-linux-focus", TestName = "LinuxWebKitBlocksCoreKeyPropagationFromEmbeddedX11Window", IncludePlatform = "Linux")]
     [TestCase("--native-browser-download-referrers", TestName = "PageLinkDownloadsHonorTheDocumentReferrerPolicy", IncludePlatform = "Win,MacOSX")]
     [TestCase("--native-browser-adblock-reference", TestName = "WindowsAdBlockBackendKeepsTheAdaptersWebViewReference", IncludePlatform = "Win")]
     public async Task NativeNavigation(string scenario)

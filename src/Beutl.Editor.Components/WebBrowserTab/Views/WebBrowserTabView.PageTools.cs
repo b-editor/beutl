@@ -1,6 +1,8 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
@@ -127,5 +129,19 @@ internal partial class WebBrowserTabView
         else if (e.Key is Key.Add or Key.OemPlus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent + BrowserPageTools.ZoomStepPercent); }
         else if (e.Key is Key.Subtract or Key.OemMinus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent - BrowserPageTools.ZoomStepPercent); }
         else if (e.Key is Key.D0 or Key.NumPad0) { e.Handled = true; await SetPageZoomAsync(BrowserPageTools.DefaultZoomPercent); }
+    }
+
+    private void OnWebViewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_webView is { } webView
+            && e.Source is Visual source
+            && ReferenceEquals(source.FindAncestorOfType<NativeWebView>(includeSelf: true), webView)
+            && !(e.Key == Key.F4 && e.KeyModifiers == KeyModifiers.Alt))
+        {
+            // NativeWebView leaves KeyDown unhandled on Linux X11 (GTK3 consumes XI_KeyPress while core
+            // KeyPress can still reach Avalonia) and on offscreen Linux adapters when IME forwards a key
+            // with PhysicalKey.None. Stop it here so editor and shell shortcuts do not run behind the page.
+            e.Handled = true;
+        }
     }
 }
