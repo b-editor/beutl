@@ -36,7 +36,12 @@ public sealed partial class PolarCoordinates : FilterEffect
             float2 inset = min(float2(0.5), halfSize);
             mapped.x = clamp(mapped.x, inset.x, size.x - inset.x);
             mapped.y = max(mapped.y, inset.y);
-            return src.eval(mix(coord, origin + mapped, amount));
+            float2 sample = mix(coord, origin + mapped, amount);
+            // The source raster can extend past fractional logical bounds, so Decal alone would not clear it.
+            if (any(lessThan(sample, origin)) || any(greaterThanEqual(sample, origin + size))) {
+                return half4(0.0);
+            }
+            return src.eval(sample);
         }
         """);
 
@@ -57,7 +62,11 @@ public sealed partial class PolarCoordinates : FilterEffect
             float angle = uv.x * 6.28318530718;
             float2 halfSize = size * 0.5;
             float2 mapped = origin + halfSize + halfSize * uv.y * float2(sin(angle), -cos(angle));
-            return src.eval(mix(coord, mapped, amount));
+            float2 sample = mix(coord, mapped, amount);
+            if (any(lessThan(sample, origin)) || any(greaterThanEqual(sample, origin + size))) {
+                return half4(0.0);
+            }
+            return src.eval(sample);
         }
         """);
 
