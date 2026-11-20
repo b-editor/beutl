@@ -404,6 +404,21 @@
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>饱和度 vs 饱和度</value>
   </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>暗角</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>正值使边缘变暗，负值使边缘变亮。</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>中点</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>圆度</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>羽化</value>
+  </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>延迟动画</value>
   </data>

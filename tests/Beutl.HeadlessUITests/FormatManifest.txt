@@ -584,6 +584,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:TransformEffect
   sealed
   keys: Animations, ApplyToTarget, BitmapInterpolationMode, Expressions, Id, IsEnabled, Name, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics.Effects:Vignette
+  sealed
+  keys: Amount, Animations, Center, Expressions, Feather, Id, IsEnabled, Midpoint, Name, Roundness
 [Beutl.Engine]Beutl.Graphics.Effects:WaveRefraction
   sealed
   keys: Amount, Animations, Expressions, Id, IsEnabled, Name, Phase, Wavelength

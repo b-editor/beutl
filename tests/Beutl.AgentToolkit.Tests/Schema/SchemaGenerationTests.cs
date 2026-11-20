@@ -210,6 +210,36 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Vignette_IsListedWithItsFiveAnimatedProperties()
+    {
+        var generator = new SchemaGenerator(_library);
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(Vignette));
+        TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(Vignette).FullName);
+        PropertyDescriptor amount = descriptor.Properties.Single(property => property.Name == nameof(Vignette.Amount));
+        EffectSummary summary = generator.ListEffects().Single(effect => effect.Name == nameof(Vignette));
+        string[] properties =
+        [
+            nameof(Vignette.Amount), nameof(Vignette.Midpoint), nameof(Vignette.Roundness),
+            nameof(Vignette.Feather), nameof(Vignette.Center),
+        ];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(summary.PropertyNames, Is.EquivalentTo(properties));
+            Assert.That(summary.IntentTags, Is.SupersetOf(new[] { "vignette", "darken", "edges", "grading" }));
+            Assert.That(summary.Notes, Has.Some.Contains("Negative values lighten the edges"));
+            Assert.That(descriptor.Properties.Select(property => property.Name), Is.EquivalentTo(properties));
+            Assert.That(amount.Default, Is.EqualTo(50f));
+            Assert.That(amount.Range, Is.EqualTo(new RangeDescriptor(-100, 100)));
+            foreach (PropertyDescriptor property in descriptor.Properties)
+            {
+                Assert.That(property.Animatable, Is.True, property.Name);
+                Assert.That(property.SupportsExpression, Is.True, property.Name);
+            }
+        });
+    }
+
+    [Test]
     public void Base_fields_exclude_non_serialized_scalars_but_keep_explicit_lists()
     {
         var generator = new SchemaGenerator(_library);

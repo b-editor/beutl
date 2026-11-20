@@ -404,6 +404,21 @@
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>채도 vs 채도</value>
   </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>비네팅</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>양수 값은 가장자리를 어둡게 하고 음수 값은 밝게 합니다.</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>중간점</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>둥글기</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>페더</value>
+  </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>지연 애니메이션</value>
   </data>
