@@ -76,6 +76,9 @@ public partial class GraphEditorView : UserControl
         graphPanel.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
         verticalScale.AddHandler(PointerWheelChangedEvent, OnVerticalScalePointerWheelChanged,
             RoutingStrategies.Tunnel);
+        RulerBar.AddHandler(PointerTouchPadGestureMagnifyEvent, OnHorizontalRulerMagnify);
+        graphPanel.AddHandler(PointerTouchPadGestureMagnifyEvent, OnPlotMagnify);
+        verticalScale.AddHandler(PointerTouchPadGestureMagnifyEvent, OnVerticalRulerMagnify);
         scroll.ScrollChanged += OnScrollChanged;
 
         this.SubscribeDataContextChange<GraphEditorViewModel>(
