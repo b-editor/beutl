@@ -470,6 +470,35 @@ public partial class PropertyExpressionTests
         Assert.That(scope.Property.Expression, Is.SameAs(scope.Expression));
     }
 
+    // The wheel shows a constant result while the drag moves the value below, so moving back to the start must still undo it.
+    [AvaloniaTest]
+    public void A_grading_wheel_drag_back_to_its_start_leaves_the_value_under_a_constant_result()
+    {
+        using var scope = new ValueEditScope<GradingColor>(GradingColor.Zero, "new GradingColor(0.5f, 0.5f, 0.5f)");
+        using var pointerLock = PointerLockScope.Off(TestShell.Configuration.EditorConfig);
+        var wheel = new ColorGradingWheel();
+        var model = (GradingColorEditorViewModel)scope.Model;
+        model.IsLivePreviewEnabled.Value = true;
+        model.Accept(wheel);
+        using var host = scope.Show(wheel, height: 380);
+        var pad = wheel.GetVisualDescendants().OfType<ColorBalancePad>().Single();
+        AvaPoint start = pad.TranslatePoint(pad.DiskBounds.Center, host.Window)!.Value;
+        host.Window.MouseMove(start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.Window.MouseMove(start + new Avalonia.Vector(15, 0), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseMove(start + new Avalonia.Vector(30, 0), RawInputModifiers.LeftMouseButton);
+        Assert.That(scope.Property.Value, Is.Not.EqualTo(GradingColor.Zero), "The drag moved the value below.");
+        host.Window.MouseMove(start, RawInputModifiers.LeftMouseButton);
+        host.Window.MouseUp(start, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Property.Value, Is.EqualTo(GradingColor.Zero));
+            Assert.That(wheel.Color, Is.EqualTo(new GradingColor(0.5f, 0.5f, 0.5f)), "The wheel shows the result again.");
+        });
+    }
+
     [AvaloniaTest]
     public void A_combined_editor_maps_the_drag_once_and_commits_all_components_together()
     {
