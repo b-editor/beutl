@@ -46,12 +46,14 @@ public sealed partial class ImageTextureSource : TextureSource
 
             if (Source.Picture != null)
             {
+                float sanitizedDensity = RenderScaleUtilities.SanitizeOutputScale(surfaceDensity);
                 int maxDimension = BufferDimensionBudget.ForDevice(graphicsContext).MaxDimension;
-                PixelSize targetSize = Source.ResolveSvgRasterSize(surfaceDensity, maxDimension);
+                PixelSize targetSize = Source.ResolveSvgRasterSize(sanitizedDensity, maxDimension);
                 return GetCachedTexture(
                     graphicsContext,
                     (int)contentKind,
                     targetSize,
+                    sanitizedDensity,
                     (Source, targetSize, contentKind),
                     static state => CreateSvgUploadBitmap(state.Source, state.targetSize, state.contentKind));
             }
@@ -66,6 +68,7 @@ public sealed partial class ImageTextureSource : TextureSource
                 graphicsContext,
                 (int)contentKind,
                 Source.FrameSize,
+                1f,
                 (bitmap, contentKind),
                 static state => CreateUploadBitmap(state.bitmap, state.contentKind));
         }
@@ -92,6 +95,7 @@ public sealed partial class ImageTextureSource : TextureSource
                 graphicsContext,
                 StraightColorSlot,
                 Source.FrameSize,
+                1f,
                 (Source, sourceBitmap),
                 static state =>
                 {
@@ -107,13 +111,13 @@ public sealed partial class ImageTextureSource : TextureSource
             return texture;
         }
 
-        internal override bool TryGetAlpha(Vector2 texCoord, out float alpha)
+        internal override bool TryGetAlpha(Vector2 texCoord, out float alpha, float? surfaceDensity = null)
         {
             if (Source?.Picture is { } picture)
-                return TryGetPictureAlpha(picture, Source.FrameSize, texCoord, out alpha);
+                return TryGetPictureAlpha(picture, Source, texCoord, ResolveHitTestSvgRasterSize(Source, surfaceDensity), out alpha);
 
             if (Source?.Bitmap is not { } bitmap)
-                return base.TryGetAlpha(texCoord, out alpha);
+                return base.TryGetAlpha(texCoord, out alpha, surfaceDensity);
 
             // Filtered and clamped to the edge, as the materials sample their maps.
             float x = texCoord.X * bitmap.Width - 0.5f;
@@ -127,23 +131,65 @@ public sealed partial class ImageTextureSource : TextureSource
             return true;
         }
 
-        private static bool TryGetPictureAlpha(SKPicture picture, PixelSize frameSize, Vector2 texCoord, out float alpha)
+        private PixelSize ResolveHitTestSvgRasterSize(ImageSource.Resource source, float? surfaceDensity)
         {
-            if (frameSize.Width <= 0 || frameSize.Height <= 0)
+            ref readonly CachedTexture cachedColor = ref _gpuTextures[(int)TextureContentKind.Color];
+            if (cachedColor.Texture != null && cachedColor.Version == Version)
+            {
+                if (surfaceDensity is null
+                    || RenderScaleUtilities.SanitizeOutputScale(surfaceDensity.Value) == cachedColor.Density)
+                {
+                    return new PixelSize(cachedColor.Texture.Width, cachedColor.Texture.Height);
+                }
+            }
+
+            IGraphicsContext? context = cachedColor.Context ?? GraphicsContextFactory.SharedContext;
+            int maxDimension = BufferDimensionBudget.ForDevice(context).MaxDimension;
+            return source.ResolveSvgRasterSize(surfaceDensity ?? 1f, maxDimension);
+        }
+
+        private static bool TryGetPictureAlpha(
+            SKPicture picture,
+            ImageSource.Resource source,
+            Vector2 texCoord,
+            PixelSize rasterSize,
+            out float alpha)
+        {
+            PixelSize frameSize = source.FrameSize;
+            if (frameSize.Width <= 0 || frameSize.Height <= 0 || rasterSize.Width <= 0 || rasterSize.Height <= 0)
             {
                 alpha = 1;
                 return false;
             }
 
-            float x = Math.Clamp(texCoord.X * frameSize.Width, 0.5f, Math.Max(0.5f, frameSize.Width - 0.5f));
-            float y = Math.Clamp(texCoord.Y * frameSize.Height, 0.5f, Math.Max(0.5f, frameSize.Height - 0.5f));
-            using var surface = SKSurface.Create(new SKImageInfo(1, 1, SKColorType.Bgra8888, SKAlphaType.Premul));
+            // Rasterize only the 2x2 texel neighborhood at the rendered texture's resolution and filter linearly
+            // with clamp-to-edge, matching how the material samples the uploaded texture.
+            float x = texCoord.X * rasterSize.Width - 0.5f;
+            float y = texCoord.Y * rasterSize.Height - 0.5f;
+            int left = (int)MathF.Floor(x);
+            int top = (int)MathF.Floor(y);
+            int x0 = Math.Clamp(left, 0, rasterSize.Width - 1);
+            int x1 = Math.Clamp(left + 1, 0, rasterSize.Width - 1);
+            int y0 = Math.Clamp(top, 0, rasterSize.Height - 1);
+            int y1 = Math.Clamp(top + 1, 0, rasterSize.Height - 1);
+            int patchWidth = x1 - x0 + 1;
+            int patchHeight = y1 - y0 + 1;
+
+            using var surface = SKSurface.Create(new SKImageInfo(patchWidth, patchHeight, SKColorType.Bgra8888, SKAlphaType.Premul));
             surface.Canvas.Clear(SKColors.Transparent);
-            surface.Canvas.Translate(0.5f - x, 0.5f - y);
+            surface.Canvas.Translate(-x0, -y0);
+            surface.Canvas.Scale((float)rasterSize.Width / frameSize.Width, (float)rasterSize.Height / frameSize.Height);
             surface.Canvas.ClipRect(SKRect.Create(frameSize.Width, frameSize.Height));
             surface.Canvas.DrawPicture(picture);
             using SKPixmap pixels = surface.PeekPixels();
-            alpha = pixels.GetPixelColor(0, 0).Alpha / 255f;
+            float a00 = pixels.GetPixelColor(0, 0).Alpha / 255f;
+            float a10 = pixels.GetPixelColor(x1 - x0, 0).Alpha / 255f;
+            float a01 = pixels.GetPixelColor(0, y1 - y0).Alpha / 255f;
+            float a11 = pixels.GetPixelColor(x1 - x0, y1 - y0).Alpha / 255f;
+            alpha = float.Lerp(
+                float.Lerp(a00, a10, x - left),
+                float.Lerp(a01, a11, x - left),
+                y - top);
             return true;
         }
 
@@ -154,6 +200,7 @@ public sealed partial class ImageTextureSource : TextureSource
             IGraphicsContext graphicsContext,
             int slot,
             PixelSize targetSize,
+            float density,
             TState state,
             Func<TState, Bitmap?> createUpload)
         {
@@ -202,6 +249,7 @@ public sealed partial class ImageTextureSource : TextureSource
                 cached.Texture = texture;
                 cached.Context = graphicsContext;
                 cached.Version = Version;
+                cached.Density = density;
             }
 
             return cached.Texture;
@@ -307,6 +355,7 @@ public sealed partial class ImageTextureSource : TextureSource
             public ITexture2D? Texture;
             public IGraphicsContext? Context;
             public int Version;
+            public float Density;
         }
     }
 }

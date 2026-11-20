@@ -435,6 +435,38 @@ public class ImageTextureSourceUploadTests
         }
     }
 
+    [Test]
+    public void TryGetAlpha_MatchesDensityScaledSvgTextureAtEdge()
+    {
+        const string twoByOneSvg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="2" height="1">
+              <rect width="1" height="1" fill="#ff0000"/>
+            </svg>
+            """;
+        var (definition, context, _) = CreateSvgSource(nameof(TryGetAlpha_MatchesDensityScaledSvgTextureAtEdge), twoByOneSvg);
+        using var resource = (ImageTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+        // At density 1 (2x1 texture), u = 0.4 linearly filters between texel 0 (1.0) and texel 1 (0.0) -> 0.7.
+        Assert.That(resource.TryGetAlpha(new System.Numerics.Vector2(0.4f, 0.5f), out float alpha1x, surfaceDensity: 1f), Is.True);
+        // At density 8 (16x8 texture), u = 0.4 samples texels 5 and 6 (both fully opaque) -> 1.0.
+        Assert.That(resource.TryGetAlpha(new System.Numerics.Vector2(0.4f, 0.5f), out float alpha8x, surfaceDensity: 8f), Is.True);
+        Assert.That(resource.TryGetAlpha(new System.Numerics.Vector2(0.5f, 0.5f), out float edge8x, surfaceDensity: 8f), Is.True);
+        Assert.That(resource.TryGetAlpha(new System.Numerics.Vector2(0.6f, 0.5f), out float right8x, surfaceDensity: 8f), Is.True);
+
+        // Once uploaded at density 8, callers that omit surfaceDensity still match the uploaded texture size.
+        resource.GetTexture(context.Object, 8f);
+        Assert.That(resource.TryGetAlpha(new System.Numerics.Vector2(0.4f, 0.5f), out float cached8x), Is.True);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(alpha1x, Is.EqualTo(0.7f).Within(0.01f));
+            Assert.That(alpha8x, Is.EqualTo(1f).Within(0.01f));
+            Assert.That(edge8x, Is.EqualTo(0.5f).Within(0.01f));
+            Assert.That(right8x, Is.EqualTo(0f).Within(0.01f));
+            Assert.That(cached8x, Is.EqualTo(1f).Within(0.01f));
+        }
+    }
+
     private static (ImageTextureSource, Mock<IGraphicsContext>, List<FakeTexture>) CreateSvgSource(
         string name, string svgContent, int maxAttachmentDimension = 0)
     {
