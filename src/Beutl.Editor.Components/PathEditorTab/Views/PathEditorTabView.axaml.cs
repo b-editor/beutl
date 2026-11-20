@@ -38,6 +38,7 @@ public partial class PathEditorTabView : PathEditorViewBase
 
         PointPropertyList.AddHandler(PropertyEditor.ValueChangedEvent, OnInspectorPropertyChanged, handledEventsToo: true);
         PointPropertyList.AddHandler(PropertyEditor.ValueConfirmedEvent, OnInspectorPropertyChanged, handledEventsToo: true);
+        AddHandler(PointerTouchPadGestureMagnifyEvent, OnMagnify);
 
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
@@ -236,6 +237,16 @@ public partial class PathEditorTabView : PathEditorViewBase
                 ? new Vector(e.Delta.Y, e.Delta.X) : e.Delta;
             Matrix *= Matrix.CreateTranslation(delta * 24);
         }
+        e.Handled = true;
+    }
+
+    private void OnMagnify(object? sender, PointerDeltaEventArgs e)
+    {
+        if (!new Rect(canvas.Bounds.Size).Contains(e.GetPosition(canvas))) return;
+        // Native magnification already reports the relative scale change.
+        double factor = 1 + e.Delta.X;
+        if (!SkipUpdatePosition && double.IsFinite(factor) && factor > 0)
+            Zoom(factor, e.GetPosition(canvas));
         e.Handled = true;
     }
 
