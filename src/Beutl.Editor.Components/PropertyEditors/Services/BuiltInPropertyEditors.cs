@@ -108,6 +108,7 @@ internal static class BuiltInPropertyEditors
         Add<AudioEffect?>(registry, p => new AudioEffectEditorViewModel(p), () => new AudioEffectEditor());
         Add<Transform?>(registry, p => new TransformEditorViewModel(p), () => new TransformEditor());
         Add<CurveMap>(registry, p => new CurveMapEditorViewModel(p), () => new CurveMapEditor());
+        Add<MeshWarpGrid>(registry, p => new MeshWarpGridEditorViewModel(p), () => new MeshWarpGridEditor());
         Add<ICoreList<GradientStop>>(registry, p => new GradientStopsEditorViewModel(p), () => new GradientStopsEditor());
         Add<DisplacementMapTransform?>(registry, p => new DisplacementMapTransformEditorViewModel(p), () => new DisplacementMapTransformEditor());
         Add(registry, typeof(IList), CreateListEditor, _ => new ListEditor());

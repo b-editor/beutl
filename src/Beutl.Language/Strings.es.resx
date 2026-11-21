@@ -1158,7 +1158,8 @@
     <value>Funciones</value>
   </data>
   <data name="Expression_Variables_Description" xml:space="preserve">
-    <value>Time: tiempo actual relativo al inicio del elemento (segundos)
+    <value>Value: valor de esta propiedad sin la expresión (fotogramas clave o valor establecido)
+Time: tiempo actual relativo al inicio del elemento (segundos)
 Start: hora de inicio del elemento (segundos)
 Duration: duración del elemento (segundos)
 Progress: progreso normalizado (0.0 a 1.0)
@@ -1180,9 +1181,14 @@ Rango: Min, Max, Clamp</value>
     <value>Utilidad: Radians, Degrees, Mod, Frac
 Aleatorio: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
   </data>
+  <data name="Expression_Functions_Time" xml:space="preserve">
+    <value>Otros instantes: ValueAtTime(time), GetProperty&lt;T&gt;(path, time)</value>
+  </data>
   <data name="Expression_GetProperty_Description" xml:space="preserve">
     <value>Referencia otras propiedades:
 GetProperty&lt;T&gt;("path") o GetProperty&lt;T&gt;(guid, "propertyName")
+En otro instante (segundos desde el inicio de este elemento):
+GetProperty&lt;T&gt;("path", time) o GetProperty&lt;T&gt;(guid, "propertyName", time)
 Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="Histogram" xml:space="preserve">

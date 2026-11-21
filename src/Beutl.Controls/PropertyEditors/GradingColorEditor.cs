@@ -16,7 +16,7 @@ public class GradingColorEditor : ColorPickerEditorBase<GradingColor, GradingCol
         base.OnPropertyChanged(change);
         if (change.Property == ValueProperty)
         {
-            Flyout?.Color = Value;
+            ShowColorInFlyout(Value);
         }
     }
 

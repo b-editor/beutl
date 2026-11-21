@@ -9,9 +9,12 @@ namespace Beutl.Views;
 internal sealed partial class TransformHandlesOverlay
 {
     private static readonly IPen s_editingHandleStroke = new ImmutablePen(Brushes.White, 1.5);
+    private static readonly IPen s_editingGuideStroke = new ImmutablePen(
+        new ImmutableSolidColorBrush(Color.FromArgb(0xD0, 0x48, 0xA9, 0xFF)), 1);
 
     private IEditingHandleProvider? _editingHandleProvider;
     private IReadOnlyList<EditingHandle> _editingHandles = [];
+    private IReadOnlyList<EditingGuideLine> _editingGuides = [];
 
     // While the handles of an object inside the drawable show, such as an effect's, they are what is edited, so the
     // drawable's own handles are neither drawn nor pressed. A drawable's own editing handles show with them.
@@ -19,10 +22,13 @@ internal sealed partial class TransformHandlesOverlay
 
     public void UpdateEditingHandles(IEditingHandleProvider? provider, MediaTime time)
     {
-        EditingHandle[] handles = provider?.GetEditingHandles(time).ToArray() ?? [];
-        if (ReferenceEquals(_editingHandleProvider, provider) && _editingHandles.SequenceEqual(handles)) return;
+        EditingHandle[] handles = provider?.GetEditingHandles(time, _localBounds).ToArray() ?? [];
+        EditingGuideLine[] guides = provider?.GetEditingGuides(time, _localBounds).ToArray() ?? [];
+        if (ReferenceEquals(_editingHandleProvider, provider) && _editingHandles.SequenceEqual(handles)
+            && _editingGuides.SequenceEqual(guides)) return;
         _editingHandleProvider = provider;
         _editingHandles = handles;
+        _editingGuides = guides;
         HdrOverlay.InvalidateVisual(this);
     }
 
@@ -30,6 +36,7 @@ internal sealed partial class TransformHandlesOverlay
     {
         _editingHandleProvider = null;
         _editingHandles = [];
+        _editingGuides = [];
     }
 
     public (IEditingHandleProvider Provider, EditingHandle Handle)? HitTestEditingHandle(Point point)
@@ -47,6 +54,10 @@ internal sealed partial class TransformHandlesOverlay
 
     private void RenderEditingHandles(DrawingContext context)
     {
+        foreach (EditingGuideLine guide in _editingGuides)
+            context.DrawLine(s_editingGuideStroke, LocalToImage(guide.Start.X, guide.Start.Y),
+                LocalToImage(guide.End.X, guide.End.Y));
+
         foreach (EditingHandle handle in _editingHandles)
         {
             Point position = LocalToImage(handle.Position.X, handle.Position.Y);

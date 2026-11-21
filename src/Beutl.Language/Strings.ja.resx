@@ -1189,7 +1189,8 @@
     <value>関数</value>
   </data>
   <data name="Expression_Variables_Description" xml:space="preserve">
-    <value>Time: 要素の開始からの現在時間（秒）
+    <value>Value: 式を適用する前のプロパティの値（キーフレームの値、または設定値）
+Time: 要素の開始からの現在時間（秒）
 Start: 要素の開始時間（秒）
 Duration: 要素の長さ（秒）
 Progress: 正規化された進捗（0.0～1.0）
@@ -1211,9 +1212,14 @@ PI: 数学定数 π（3.14159...）</value>
     <value>ユーティリティ: Radians, Degrees, Mod, Frac
 乱数: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
   </data>
+  <data name="Expression_Functions_Time" xml:space="preserve">
+    <value>別の時刻: ValueAtTime(time), GetProperty&lt;T&gt;(path, time)</value>
+  </data>
   <data name="Expression_GetProperty_Description" xml:space="preserve">
     <value>他のプロパティを参照:
 GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName")
+別の時刻を指定（この要素の開始からの秒数）:
+GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propertyName", time)
 例: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="Histogram" xml:space="preserve">

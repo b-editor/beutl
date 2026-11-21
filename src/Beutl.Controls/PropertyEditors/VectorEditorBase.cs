@@ -42,6 +42,8 @@ public abstract class VectorEditorBase : PropertyEditor
     private HeaderScrubGesture _scrub;
     private Control? _editSource;
 
+    private protected bool IsRelativeEdit => _editSource is not TextBox;
+
     // With componentHeaders, each component has a header that scrubs that component alone; otherwise only the
     // editor's header scrubs, and it scrubs every component.
     private protected VectorEditorBase(

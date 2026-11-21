@@ -210,6 +210,36 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>Differences smaller than this are left alone, which keeps noise from standing out.</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>Film Grain</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>The size of each grain cell in logical pixels.</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>Softness</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>Higher values smooth the transitions between grain cells.</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>At 0%, all channels share the same grain. At 100%, each channel has its own grain.</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>Animate</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>Changes the grain pattern on each frame.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>Brightness</value>
   </data>
@@ -227,6 +257,9 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>Saturation Range</value>
+  </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>Spill suppression</value>
   </data>
   <data name="LumaKey" xml:space="preserve">
     <value>Luma key</value>
@@ -374,6 +407,21 @@
   </data>
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>Saturation vs Saturation</value>
+  </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>Vignette</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>Positive values darken the edges. Negative values lighten the edges.</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>Midpoint</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>Roundness</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>Feather</value>
   </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>Delay Animation</value>
@@ -1881,6 +1929,21 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>Preserve alpha</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>Polar Coordinates</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>Amount</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>Rectangular to polar</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>Polar to rectangular</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>Wave refraction</value>
   </data>
@@ -1976,5 +2039,32 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>Alpha Cutoff</value>
+  </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>Mesh warp</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>Interpolation</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>Smooth</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>Mesh</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>Drag the control points in the preview. The handles show the full mesh at every strength.</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>Reset mesh</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>Mesh point {0}, {1}</value>
   </data>
 </root>

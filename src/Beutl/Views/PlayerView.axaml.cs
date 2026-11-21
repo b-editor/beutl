@@ -454,7 +454,8 @@ public partial class PlayerView : UserControl
             BtlDrawable target = drawable;
             BtlSize availableSize = scene.FrameSize.Value.ToSize(1.0f);
             MediaTime ctxTime = time;
-            snap = QueryRenderThread(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime), null);
+            snap = QueryRenderThread(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime,
+                allowLayoutFallback: provider is not null), null);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
@@ -514,10 +515,10 @@ public partial class PlayerView : UserControl
     // independent Resource on RenderThread so we evaluate animations against ctxTime without piggybacking
     // on the renderer's cached render node.
     private (BtlRect localBounds, BtlMatrix userMatrix, BtlPoint pivotLocal)? ComputeOverlayGeometry(
-        SceneRenderer renderer, BtlDrawable target, BtlSize availableSize, MediaTime ctxTime)
+        SceneRenderer renderer, BtlDrawable target, BtlSize availableSize, MediaTime ctxTime, bool allowLayoutFallback)
     {
         BtlRect? bounds = renderer.GetBoundary(target);
-        if (bounds is not { Width: > 0, Height: > 0 }) return null;
+        if (!allowLayoutFallback && bounds is not { Width: > 0, Height: > 0 }) return null;
 
         var ctx = new CompositionContext(ctxTime) { Fonts = renderer.Compositor.Fonts, Decoders = renderer.Compositor.Decoders };
         if (_transformHandleResource == null || _transformHandleResourceTarget != target)
@@ -550,7 +551,10 @@ public partial class PlayerView : UserControl
         // A drawable that does not draw under a transform of its own gets its layout box instead. userMatrix
         // omits FilterEffect-induced offsets; align against rendered bounds.
         BtlMatrix userMatrix = resource.GetTransformMatrix(availableSize, localSize);
-        BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds.Value, new BtlRect(availableSize));
+        if (bounds is not { Width: > 0, Height: > 0 } renderedBounds)
+            return (new BtlRect(localSize), userMatrix, pivot);
+
+        BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds, new BtlRect(availableSize));
 
         return (new BtlRect(localSize), adjusted, pivot);
     }

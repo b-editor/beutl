@@ -209,6 +209,36 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>이보다 작은 차이는 강조하지 않아 노이즈가 두드러지지 않습니다.</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>필름 그레인</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>크기</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>각 그레인 입자의 크기를 논리 픽셀 단위로 지정합니다.</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>부드러움</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>값이 높을수록 그레인 입자 사이의 경계가 부드러워집니다.</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>색상</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>0%에서는 모든 채널에 같은 그레인을 사용하고, 100%에서는 채널마다 다른 그레인을 사용합니다.</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>시드</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>애니메이션</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>프레임마다 그레인 패턴을 바꿉니다.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>밝기</value>
   </data>
@@ -226,6 +256,9 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>채도 범위</value>
+  </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>스필 억제</value>
   </data>
   <data name="LumaKey" xml:space="preserve">
     <value>루마 키</value>
@@ -373,6 +406,21 @@
   </data>
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>채도 vs 채도</value>
+  </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>비네팅</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>양수 값은 가장자리를 어둡게 하고 음수 값은 밝게 합니다.</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>중간점</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>둥글기</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>페더</value>
   </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>지연 애니메이션</value>
@@ -1880,6 +1928,21 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>알파 유지</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>극좌표</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>방향</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>양</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>직교좌표에서 극좌표로</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>극좌표에서 직교좌표로</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>물결 굴절</value>
   </data>
@@ -1975,5 +2038,32 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>알파 임계값</value>
+  </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>메시 워프</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>행 수</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>열 수</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>보간</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>부드럽게</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>메시</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>미리 보기에서 제어점을 끌어 이동합니다. 핸들은 강도와 관계없이 메시의 전체 변형을 표시합니다.</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>메시 재설정</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>메시 제어점({0}행, {1}열)</value>
   </data>
 </root>

@@ -88,6 +88,13 @@ public class RelativeRectEditor : Vector4Editor, IValueEditorControl<Graphics.Re
     public void Connect(IValueEditorContext<Graphics.RelativeRect> context)
     {
         CompositeDisposable connection = StartConnection();
+        Graphics.RelativeRect shown = default;
+        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
+        _values.ReadIncrementValues = () =>
+        {
+            var value = context.GetIncrementValue(new Graphics.RelativeRect(new Graphics.Rect(FirstValue, SecondValue, ThirdValue, FourthValue), Unit));
+            return [value.Rect.X, value.Rect.Y, value.Rect.Width, value.Rect.Height];
+        };
         BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Rect.X), connection);
         BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Rect.Y), connection);
         BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Rect.Width), connection);
@@ -97,7 +104,7 @@ public class RelativeRectEditor : Vector4Editor, IValueEditorControl<Graphics.Re
             {
                 if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativeRect> args)
                 {
-                    Graphics.RelativeRect coerced = context.PreviewEdit(args.NewValue);
+                    Graphics.RelativeRect coerced = PreviewEdit(context, args.NewValue, IsRelativeEdit);
                     FirstValue = coerced.Rect.X;
                     SecondValue = coerced.Rect.Y;
                     ThirdValue = coerced.Rect.Width;
@@ -106,6 +113,13 @@ public class RelativeRectEditor : Vector4Editor, IValueEditorControl<Graphics.Re
                 }
             })
             .DisposeWith(connection);
-        ConfirmEdits(context, connection);
+        ConfirmEdits(context, connection, () =>
+        {
+            FirstValue = shown.Rect.X;
+            SecondValue = shown.Rect.Y;
+            ThirdValue = shown.Rect.Width;
+            FourthValue = shown.Rect.Height;
+            Unit = shown.Unit;
+        });
     }
 }

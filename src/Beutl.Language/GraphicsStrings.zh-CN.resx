@@ -209,6 +209,36 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>小于此值的差异不会被增强，可避免噪点变得明显。</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>胶片颗粒</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>以逻辑像素为单位设置每个颗粒单元的大小。</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>柔和度</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>数值越高，颗粒单元之间的过渡越平滑。</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>颜色</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>0% 时所有通道共用同一颗粒图案，100% 时各通道使用各自的颗粒图案。</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>随机种子</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>动画</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>每帧更换颗粒图案。</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>亮度</value>
   </data>
@@ -226,6 +256,9 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>饱和度范围</value>
+  </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>溢色抑制</value>
   </data>
   <data name="LumaKey" xml:space="preserve">
     <value>亮度键</value>
@@ -373,6 +406,21 @@
   </data>
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>饱和度 vs 饱和度</value>
+  </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>暗角</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>正值使边缘变暗，负值使边缘变亮。</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>中点</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>圆度</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>羽化</value>
   </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>延迟动画</value>
@@ -1880,6 +1928,21 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>保留透明度</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>极坐标</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>方向</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>数量</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>直角坐标转极坐标</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>极坐标转直角坐标</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>波纹折射</value>
   </data>
@@ -1975,5 +2038,32 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>透明度阈值</value>
+  </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>网格变形</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>插值</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>平滑</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>网格</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>在预览中拖动控制点。手柄始终显示网格的完整变形，不受强度影响。</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>重置网格</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>网格控制点（第 {0} 行，第 {1} 列）</value>
   </data>
 </root>

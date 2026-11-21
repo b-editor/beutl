@@ -113,7 +113,7 @@
                                       Text="{x:Static lang:Strings.CopyGetPropertyCode}" />
             </ui:FAMenuFlyout>
         </Button.ContextFlyout>
-        <Panel>
+        <Panel Width="20" Height="20">
             <icons:FluentIcon x:Name="symbolIcon"
                               Classes.hasAnimation="{Binding HasAnimation.Value}"
                               Classes.hasExpression="{Binding HasExpression.Value}"
@@ -129,11 +129,27 @@
                         <Setter Property="Icon" Value="Diamond" />
                         <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
                     </Style>
-                    <Style Selector="icons|FluentIcon.hasExpression">
+                    <Style Selector="icons|FluentIcon.hasExpression:not(.hasAnimation)">
                         <Setter Property="Icon" Value="MathFormula" />
                         <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
                     </Style>
                 </icons:FluentIcon.Styles>
+            </icons:FluentIcon>
+            <icons:FluentIcon x:Name="expressionBadge"
+                              Width="10"
+                              Height="10"
+                              FontSize="10"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Bottom"
+                              Foreground="{DynamicResource SystemFillColorSuccess}"
+                              Icon="MathFormula"
+                              IsHitTestVisible="False">
+                <icons:FluentIcon.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="HasAnimation.Value" />
+                        <Binding Path="HasExpression.Value" />
+                    </MultiBinding>
+                </icons:FluentIcon.IsVisible>
             </icons:FluentIcon>
             <!--  The elements the editor stands for hold different values; the button's tip lists them.  -->
             <Ellipse x:Name="valueDifferenceBadge"

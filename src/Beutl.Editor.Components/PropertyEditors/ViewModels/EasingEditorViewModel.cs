@@ -11,6 +11,8 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : PropertyEditorViewModel<T?, Easing?>(property)
     where T : Easing
 {
+    protected override bool CanEditUnderExpression => true;
+
     protected override Easing? ToEdit(T? value) => value;
 
     protected override T? FromEdit(Easing? edit) => edit as T;
@@ -21,11 +23,13 @@ public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : Pr
         return !IsDisposed && value is T newValue ? SetCurrentValueAndGetCoerced(newValue) : value;
     }
 
+    public override Easing? PreviewEdit(Easing? value, bool relative) => PreviewEdit(value);
+
     public override void ConfirmEdit(Easing? oldValue, Easing? newValue)
     {
         if (IsDisposed || newValue is not T value) return;
 
-        if (ReferenceEquals(oldValue, value))
+        if (!HasExpression.Value && ReferenceEquals(oldValue, value))
         {
             // A drag that ended where it began: write the original back without committing. The
             // drag's merged operation then changes nothing. Rolling the pending transaction back

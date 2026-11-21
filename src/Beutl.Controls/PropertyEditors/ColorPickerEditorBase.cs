@@ -30,6 +30,9 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
     private TFlyout? _flyout;
 
     private bool _flyoutActive;
+    private bool _hasColorEdit;
+    // The picker's last color: the one it opened with, then each one it reported.
+    private TColor _pickerColor = default!;
     private Button? _button;
 
     private TColor _oldValue;
@@ -77,10 +80,22 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
     // Subscribes to or unsubscribes from the picker's color changes, which call OnLiveColorChanged.
     private protected abstract void SetLivePreview(TFlyout flyout, bool enabled);
 
+    // Puts a color in the picker without it counting as the user's edit when the picker reports it back.
+    private protected void ShowColorInFlyout(TColor color)
+    {
+        if (_flyout == null) return;
+        _pickerColor = color;
+        SetFlyoutColor(_flyout, color);
+    }
+
     private protected void OnLiveColorChanged(TColor newValue, TColor oldValue)
     {
-        if (IsLivePreviewEnabled)
+        // Compared with the picker's last color, not with oldValue, which can already be the new one, nor with Value,
+        // which an expression can set back to what it shows.
+        if (IsLivePreviewEnabled && !EqualityComparer<TColor>.Default.Equals(newValue, _pickerColor))
         {
+            _pickerColor = newValue;
+            _hasColorEdit = true;
             Value = newValue;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(newValue, oldValue, ValueChangedEvent));
         }
@@ -125,7 +140,7 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
             return;
         }
 
-        SetFlyoutColor(_flyout, Value);
+        ShowColorInFlyout(Value);
 
         _flyout.Placement = PlacementMode.Bottom;
 
@@ -139,6 +154,7 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         _flyout.ShowAt(this);
 
         _flyoutActive = true;
+        _hasColorEdit = false;
 
         _oldValue = _value;
     }
@@ -154,6 +170,7 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         {
             Value = GetFlyoutColor(_flyout);
             RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(Value, _oldValue, ValueConfirmedEvent));
+            _hasColorEdit = false;
             if (!EqualityComparer<TColor>.Default.Equals(Value, _oldValue))
             {
                 OnColorApplied(Value);
@@ -166,7 +183,8 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         if (_flyout != null && IsLivePreviewEnabled)
         {
             SetLivePreview(_flyout, false);
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(Value, _oldValue, ValueConfirmedEvent));
+            if (_hasColorEdit)
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TColor>(Value, _oldValue, ValueConfirmedEvent));
             if (_flyoutActive && !EqualityComparer<TColor>.Default.Equals(Value, _oldValue))
             {
                 OnColorApplied(Value);
@@ -174,5 +192,6 @@ public abstract class ColorPickerEditorBase<TColor, TPicker, TFlyout> : Property
         }
 
         _flyoutActive = false;
+        _hasColorEdit = false;
     }
 }

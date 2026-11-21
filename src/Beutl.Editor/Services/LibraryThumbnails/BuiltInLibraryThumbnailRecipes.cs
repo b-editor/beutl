@@ -217,6 +217,16 @@ internal static class BuiltInLibraryThumbnailRecipes
                 ]);
             }));
 
+        // The grain cells need to span a thumbnail pixel to show up at the thumbnail's density.
+        LibraryThumbnailRecipes.Register<FilmGrain>((effect, context) =>
+        {
+            effect.Size.Value = context.Scale(8);
+            context.Animate(effect.Amount, p => 70 * Wave(p));
+        });
+
+        LibraryThumbnailRecipes.Register<Vignette>((effect, context) =>
+            context.Animate(effect.Amount, p => 100 * Wave(p)));
+
         LibraryThumbnailRecipes.Register<ColorShift>(LibraryThumbnailSample.Shapes, (effect, context) =>
         {
             context.Animate(effect.RedOffset, p => new PixelPoint((int)MathF.Round(context.Scale(36) * Wave(p)), 0));
@@ -277,6 +287,9 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Animate(effect.Phase, p => 360 * p);
         });
 
+        LibraryThumbnailRecipes.Register<PolarCoordinates>(LibraryThumbnailSample.Shapes, (effect, context) =>
+            context.Animate(effect.Amount, p => 100 * Wave(p)));
+
         LibraryThumbnailRecipes.Register<PixelSortEffect>((effect, context) =>
         {
             effect.ThresholdMin.Value = 10;
@@ -298,6 +311,14 @@ internal static class BuiltInLibraryThumbnailRecipes
             var translate = new DisplacementMapTranslateTransform();
             context.Animate(translate.X, p => context.Scale(160) * Wave(p));
             effect.Transform.Value = translate;
+        });
+
+        LibraryThumbnailRecipes.Register<MeshWarp>(LibraryThumbnailSample.Shapes, (effect, context) =>
+        {
+            context.Animate(effect.Mesh, p => MeshWarpGrid.Default
+                .WithPoint(0, 2, new Point(0.5f, 0.22f * Wave(p)))
+                .WithPoint(2, 2, new Point(0.5f + 0.22f * Wave(p), 0.5f))
+                .WithPoint(4, 2, new Point(0.5f, 1 - 0.22f * Wave(p))));
         });
 
         // The picture travels once around an ellipse.

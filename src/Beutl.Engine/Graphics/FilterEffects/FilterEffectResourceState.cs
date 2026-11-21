@@ -13,7 +13,10 @@ internal sealed class FilterEffectResourceState
     public FilterEffectResourceState(RenderNodeContext? renderContext)
     {
         _renderContext = renderContext;
+        IsPreviewFrame = renderContext is { Intent: RenderIntent.Preview, Purpose: RenderRequestPurpose.Frame };
     }
+
+    public bool IsPreviewFrame { get; }
 
     public int Count => _resources?.Count ?? 0;
 

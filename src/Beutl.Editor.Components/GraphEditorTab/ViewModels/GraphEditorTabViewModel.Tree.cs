@@ -407,7 +407,6 @@ public sealed partial class GraphEditorTabViewModel
             _editorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(() =>
             {
                 property.Animation = animation;
-                property.ClearExpression();
             }, CommandNames.EditKeyFrame);
         }
         Refresh();

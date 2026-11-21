@@ -1194,7 +1194,8 @@
     <value>Functions</value>
   </data>
   <data name="Expression_Variables_Description" xml:space="preserve">
-    <value>Time: Current time relative to the element start (seconds)
+    <value>Value: This property's value without the expression (keyframes or its set value)
+Time: Current time relative to the element start (seconds)
 Start: Element start time (seconds)
 Duration: Element duration (seconds)
 Progress: Normalized progress (0.0 to 1.0)
@@ -1216,9 +1217,14 @@ Range: Min, Max, Clamp</value>
     <value>Utility: Radians, Degrees, Mod, Frac
 Random: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
   </data>
+  <data name="Expression_Functions_Time" xml:space="preserve">
+    <value>Other times: ValueAtTime(time), GetProperty&lt;T&gt;(path, time)</value>
+  </data>
   <data name="Expression_GetProperty_Description" xml:space="preserve">
     <value>Reference other properties:
 GetProperty&lt;T&gt;("path") or GetProperty&lt;T&gt;(guid, "propertyName")
+At another time (seconds from this element's start):
+GetProperty&lt;T&gt;("path", time) or GetProperty&lt;T&gt;(guid, "propertyName", time)
 Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="Histogram" xml:space="preserve">

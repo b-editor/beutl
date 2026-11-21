@@ -167,6 +167,8 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
                 expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
             }
 
+            IProperty previousProperty = expressionContext.CurrentProperty;
+            expressionContext.CurrentProperty = this;
             expressionContext.BeginEvaluation(this);
             try
             {
@@ -181,6 +183,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
             finally
             {
                 expressionContext.EndEvaluation(this);
+                expressionContext.CurrentProperty = previousProperty;
             }
         }
         if (_keyFrames is { } keyFrames)

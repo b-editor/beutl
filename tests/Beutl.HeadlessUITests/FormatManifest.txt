@@ -139,6 +139,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:MeshWarpInterpolation>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -146,6 +149,9 @@ Beutl.Utilities
   sealed
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:Matrix>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:MeshWarpGrid>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:Point>
@@ -225,6 +231,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:MeshWarpInterpolation>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
@@ -232,6 +241,9 @@ Beutl.Utilities
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:Matrix>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:MeshWarpGrid>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:Point>
@@ -423,7 +435,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, Script
 [Beutl.Engine]Beutl.Graphics.Effects:ChromaKey
   unsealed
-  keys: Animations, Boundary, Color, Expressions, HueRange, Id, IsEnabled, Name, SaturationRange
+  keys: Animations, Boundary, Color, Expressions, HueRange, Id, IsEnabled, Name, SaturationRange, SpillSuppression
 [Beutl.Engine]Beutl.Graphics.Effects:Clipping
   sealed
   keys: Animations, AutoCenter, AutoClip, Bottom, Expressions, Id, IsEnabled, Left, Name, Right, Top
@@ -474,6 +486,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:FallbackFilterEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:FilmGrain
+  sealed
+  keys: Amount, Animate, Animations, Color, Expressions, Id, IsEnabled, Name, Seed, Size, Softness
 [Beutl.Engine]Beutl.Graphics.Effects:FilterEffect
   abstract
 [Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup
@@ -521,6 +536,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:LutEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Source, Strength
+[Beutl.Engine]Beutl.Graphics.Effects:MeshWarp
+  sealed
+  keys: Animations, Columns, Expressions, Id, Interpolation, IsEnabled, Mesh, Name, Rows, Strength
 [Beutl.Engine]Beutl.Graphics.Effects:MosaicEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Origin, TileSize
@@ -542,6 +560,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:PixelSortEffect
   sealed
   keys: Animations, Ascending, Direction, Expressions, Id, IsEnabled, Name, SortKey, ThresholdMax, ThresholdMin
+[Beutl.Engine]Beutl.Graphics.Effects:PolarCoordinates
+  sealed
+  keys: Amount, Animations, Direction, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics.Effects:RadialBlur
   sealed
   keys: Amount, Animations, Center, Expressions, Id, IsEnabled, Mode, Name, Samples
@@ -572,6 +593,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:TransformEffect
   sealed
   keys: Animations, ApplyToTarget, BitmapInterpolationMode, Expressions, Id, IsEnabled, Name, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics.Effects:Vignette
+  sealed
+  keys: Amount, Animations, Center, Expressions, Feather, Id, IsEnabled, Midpoint, Name, Roundness
 [Beutl.Engine]Beutl.Graphics.Effects:WaveRefraction
   sealed
   keys: Amount, Animations, Expressions, Id, IsEnabled, Name, Phase, Wavelength

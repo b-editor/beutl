@@ -136,6 +136,8 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
                 expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
             }
 
+            IProperty previousProperty = expressionContext.CurrentProperty;
+            expressionContext.CurrentProperty = this;
             expressionContext.BeginEvaluation(this);
             try
             {
@@ -150,6 +152,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             finally
             {
                 expressionContext.EndEvaluation(this);
+                expressionContext.CurrentProperty = previousProperty;
             }
         }
 

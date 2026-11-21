@@ -209,6 +209,36 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>Las diferencias menores que este valor no se realzan, lo que evita que el ruido destaque.</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>Grano de película</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>Tamaño</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>Tamaño de cada celda de grano en píxeles lógicos.</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>Suavidad</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>Los valores más altos suavizan las transiciones entre las celdas de grano.</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>Al 0 %, todos los canales comparten el mismo grano. Al 100 %, cada canal tiene su propio grano.</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>Semilla</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>Animar</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>Cambia el patrón de grano en cada fotograma.</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>Brillo</value>
   </data>
@@ -226,6 +256,9 @@
   </data>
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>Rango de saturación</value>
+  </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>Supresión de derrame</value>
   </data>
   <data name="LumaKey" xml:space="preserve">
     <value>Clave de luminancia</value>
@@ -373,6 +406,21 @@
   </data>
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>Saturación vs Saturación</value>
+  </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>Viñeta</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>Los valores positivos oscurecen los bordes. Los valores negativos los aclaran.</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>Punto medio</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>Redondez</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>Desvanecimiento</value>
   </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>Retardo de animación</value>
@@ -1880,6 +1928,21 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>Conservar alfa</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>Coordenadas polares</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>Dirección</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>Cantidad</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>De cartesianas a polares</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>De polares a cartesianas</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>Refracción de ondas</value>
   </data>
@@ -1975,5 +2038,32 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>Umbral alfa</value>
+  </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>Deformación de malla</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>Filas</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>Columnas</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>Interpolación</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>Suave</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>Malla</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>Arrastra los puntos de control en la vista previa. Los tiradores muestran la malla completa con cualquier intensidad.</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>Restablecer malla</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>Punto de malla {0}, {1}</value>
   </data>
 </root>

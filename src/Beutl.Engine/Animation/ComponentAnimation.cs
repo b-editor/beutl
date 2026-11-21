@@ -122,7 +122,7 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
     }
 
     TComponent IComponentInterpolator<TComponent>.Interpolate(KeyFrameAnimation<TComponent> animation,
-        float progress, TComponent oldValue, TComponent newValue, MediaTime previousTime, MediaTime nextTime)
+        float progress, TComponent oldValue, TComponent newValue, MediaTime previousTime, MediaTime nextTime, MediaTime time)
     {
         int index = Array.FindIndex(_components, property => ReferenceEquals(property.GetKeyFrameAnimation(), animation));
         var definition = s_set.Components[index];

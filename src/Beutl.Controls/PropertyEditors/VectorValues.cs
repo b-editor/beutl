@@ -93,6 +93,8 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     public TElement this[int index] => _values[index];
 
+    public Func<TElement[]>? ReadIncrementValues { get; set; }
+
     private string? NumberFormat => _editor.GetValue(Vector4Editor.NumberFormatProperty);
 
     private TElement LargeChange => _editor.GetValue(Vector4Editor<TElement>.LargeChangeProperty);
@@ -122,7 +124,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
     {
         for (int i = 0; i < _values.Length; i++)
         {
-            if (_values[i] != _oldValues[i])
+            if (_editor.HasUnconfirmedEdit || _values[i] != _oldValues[i])
             {
                 _editor.RaiseEvent(_createEventArgs(_values, _oldValues, PropertyEditor.ValueConfirmedEvent));
                 return;
@@ -158,17 +160,18 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
         if (!NumberEditorHelper.TryParse(text, out TElement? value) || value is null)
             return false;
 
-        TElement oldValue = index >= 0 ? _values[index] : value;
+        TElement[] input = ReadIncrementValues?.Invoke() ?? [.. _values];
+        TElement oldValue = input[Math.Max(index, 0)];
         value = NumberEditorHelper.StepByWheel(oldValue, e, LargeChange, SmallChange);
         if (value != oldValue)
-            ApplyValueChange(index, value, [.. _values]);
+            ApplyValueChange(index, value, [.. _values], input);
 
         return true;
     }
 
-    private void ApplyValueChange(int index, TElement value, TElement[] oldValues)
+    private void ApplyValueChange(int index, TElement value, TElement[] oldValues, TElement[]? input = null)
     {
-        TElement[] newValues = [.. _values];
+        TElement[] newValues = input ?? [.. _values];
         if (_editor.IsUniformValue)
         {
             SetAll(value);
@@ -188,7 +191,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
         TElement delta = scrub.NextDelta<TElement>(header, e) * SmallChange;
 
         TElement[] oldValues = [.. _values];
-        TElement[] newValues = Scrubbed(oldValues, index, delta);
+        TElement[] newValues = Scrubbed(ReadIncrementValues?.Invoke() ?? oldValues, index, delta);
         for (int i = 0; i < newValues.Length; i++)
             Set(i, newValues[i]);
 
@@ -239,6 +242,8 @@ internal sealed class RelativeVectorValues : VectorValues
 
     public RelativeUnit Unit => _unit;
 
+    public Func<float[]>? ReadIncrementValues { get; set; }
+
     public void Set(int index, float value)
     {
         if (_editor.SetComponent(_properties[index], ref _values[index], value))
@@ -269,7 +274,7 @@ internal sealed class RelativeVectorValues : VectorValues
 
     public override void RaiseConfirmedIfChanged()
     {
-        bool changed = _unit != _oldUnit;
+        bool changed = _editor.HasUnconfirmedEdit || _unit != _oldUnit;
         for (int i = 0; i < _values.Length && !changed; i++)
             changed = _values[i] != _oldValues[i];
 
@@ -312,10 +317,11 @@ internal sealed class RelativeVectorValues : VectorValues
         if (!RelativeUnitParser.TryParse(text, out float value, out _))
             return false;
 
-        float oldValue = index >= 0 ? _values[index] : value;
+        float[] input = ReadIncrementValues?.Invoke() ?? [.. _values];
+        float oldValue = input[Math.Max(index, 0)];
         value = RelativeUnitParser.StepByWheel(oldValue, _unit, e);
         if (value != oldValue)
-            ApplyValueChange(index, value, _unit, [.. _values], _unit);
+            ApplyValueChange(index, value, _unit, [.. _values], _unit, input);
 
         return true;
     }
@@ -326,7 +332,7 @@ internal sealed class RelativeVectorValues : VectorValues
         float delta = scrub.NextDelta<float>(header, e) * (_unit == RelativeUnit.Relative ? 0.01f : 1f);
 
         float[] oldValues = [.. _values];
-        float[] newValues = Scrubbed(oldValues, index, delta);
+        float[] newValues = Scrubbed(ReadIncrementValues?.Invoke() ?? oldValues, index, delta);
         for (int i = 0; i < newValues.Length; i++)
             Set(i, newValues[i]);
 
@@ -336,9 +342,9 @@ internal sealed class RelativeVectorValues : VectorValues
         PulseIfCrossed(_editor, oldValues, _values, null, e.Timestamp);
     }
 
-    private void ApplyValueChange(int index, float value, RelativeUnit unit, float[] oldValues, RelativeUnit oldUnit)
+    private void ApplyValueChange(int index, float value, RelativeUnit unit, float[] oldValues, RelativeUnit oldUnit, float[]? input = null)
     {
-        float[] newValues = [.. _values];
+        float[] newValues = input ?? [.. _values];
         SetUnit(unit);
         if (_editor.IsUniformValue)
         {

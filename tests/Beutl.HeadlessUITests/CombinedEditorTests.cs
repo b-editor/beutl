@@ -577,6 +577,24 @@ public sealed class CombinedEditorTests
         finally { window.Close(); }
     }
 
+    // Typing in one field of the row carries the other field's shown result, which must not replace its own value.
+    [AvaloniaTest]
+    public void Typing_one_field_under_an_expression_keeps_the_other_property()
+    {
+        var transform = new TranslateTransform();
+        transform.X.Value = 100;
+        transform.Y.Value = 200;
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        Assert.That(combined.SetExpression("new Point(150, 250)", out string? error), Is.True, error);
+
+        combined.SetCurrentValueAndGetCoerced((120f, 250f), relative: false);
+        combined.SetValue((150f, 250f), (120f, 250f));
+
+        Assert.That((transform.X.Value, transform.Y.Value), Is.EqualTo((120f, 200f)));
+    }
+
     [AvaloniaTest]
     public void One_expression_reaches_both_as_one_history_entry()
     {
@@ -597,7 +615,7 @@ public sealed class CombinedEditorTests
             Assert.That(history.History.UndoCount, Is.EqualTo(before + 1));
             Assert.That(IsSeparated(combined), Is.False);
             Assert.That(combined.HasExpression.Value, Is.True);
-            Assert.That(combined.CanEdit.Value, Is.False);
+            Assert.That(combined.CanEdit.Value, Is.True);
             Assert.That(combined.GetExpressionString(), Is.EqualTo("new Point(Time + 10, 20)"));
         });
 
@@ -787,7 +805,7 @@ public sealed class CombinedEditorTests
                 Assert.That(shape.Width.Evaluate(context), Is.EqualTo(30f));
                 Assert.That(shape.Height.Evaluate(context), Is.EqualTo(40f));
                 Assert.That(editor.IsEffectivelyVisible, Is.True);
-                Assert.That(editor.IsReadOnly, Is.True);
+                Assert.That(editor.IsReadOnly, Is.False);
                 Assert.That(editor.FirstValue, Is.EqualTo(30f));
                 Assert.That(editor.SecondValue, Is.EqualTo(40f));
             });
@@ -836,7 +854,7 @@ public sealed class CombinedEditorTests
             PropertyEditorMenu[] menus = [.. window.GetVisualDescendants().OfType<PropertyEditorMenu>().Where(menu => menu.IsEffectivelyVisible)];
             bool separated = menus.Length > 1;
             Assert.That(menus.Select(menu => ReferenceEquals(menu.DataContext, combined)), Is.All.EqualTo(!separated));
-            return [.. menus.Select(menu => menu.GetVisualDescendants().OfType<FluentIcon>().Single())
+            return [.. menus.Select(menu => menu.GetVisualDescendants().OfType<FluentIcon>().Single(icon => icon.Name == "symbolIcon"))
                 .Select(icon => (icon.Icon, icon.IconVariant))];
         }
     }

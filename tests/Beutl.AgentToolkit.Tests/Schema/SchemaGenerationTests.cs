@@ -186,6 +186,60 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void PolarCoordinates_ListsBothDirectionsAndAnAnimatedPercentage()
+    {
+        var generator = new SchemaGenerator(_library);
+        EffectSummary effect = generator.ListEffects(intent: "polar").Single(effect => effect.Name == nameof(PolarCoordinates));
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(PolarCoordinates));
+        TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(PolarCoordinates).FullName);
+        PropertyDescriptor direction = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Direction));
+        PropertyDescriptor amount = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Amount));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(effect.IntentTags, Does.Contain("warp"));
+            Assert.That(effect.PropertyNames, Is.EquivalentTo(new[] { nameof(PolarCoordinates.Direction), nameof(PolarCoordinates.Amount) }));
+            Assert.That(effect.Notes, Does.Contain("Amount is a percentage; 0 is identity."));
+            Assert.That(direction.EnumValues, Is.EqualTo(Enum.GetNames<PolarCoordinatesDirection>()));
+            Assert.That(direction.Default, Is.EqualTo(PolarCoordinatesDirection.RectangularToPolar));
+            Assert.That(amount.Default, Is.EqualTo(100f));
+            Assert.That(amount.Range, Is.EqualTo(new RangeDescriptor(0, 100)));
+            Assert.That(amount.Animatable, Is.True);
+            Assert.That(amount.Unit, Is.EqualTo("percent"));
+        });
+    }
+
+    [Test]
+    public void Vignette_IsListedWithItsFiveAnimatedProperties()
+    {
+        var generator = new SchemaGenerator(_library);
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(Vignette));
+        TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(Vignette).FullName);
+        PropertyDescriptor amount = descriptor.Properties.Single(property => property.Name == nameof(Vignette.Amount));
+        EffectSummary summary = generator.ListEffects().Single(effect => effect.Name == nameof(Vignette));
+        string[] properties =
+        [
+            nameof(Vignette.Amount), nameof(Vignette.Midpoint), nameof(Vignette.Roundness),
+            nameof(Vignette.Feather), nameof(Vignette.Center),
+        ];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(summary.PropertyNames, Is.EquivalentTo(properties));
+            Assert.That(summary.IntentTags, Is.SupersetOf(new[] { "vignette", "darken", "edges", "grading" }));
+            Assert.That(summary.Notes, Has.Some.Contains("Negative values lighten the edges"));
+            Assert.That(descriptor.Properties.Select(property => property.Name), Is.EquivalentTo(properties));
+            Assert.That(amount.Default, Is.EqualTo(50f));
+            Assert.That(amount.Range, Is.EqualTo(new RangeDescriptor(-100, 100)));
+            foreach (PropertyDescriptor property in descriptor.Properties)
+            {
+                Assert.That(property.Animatable, Is.True, property.Name);
+                Assert.That(property.SupportsExpression, Is.True, property.Name);
+            }
+        });
+    }
+
+    [Test]
     public void Base_fields_exclude_non_serialized_scalars_but_keep_explicit_lists()
     {
         var generator = new SchemaGenerator(_library);
@@ -575,6 +629,8 @@ public sealed class SchemaGenerationTests
         (float shadowX, float shadowY) = FindRequiredPointProperty(dropShadowEffect, nameof(DropShadow.Position));
         EffectRecipe invertRecipe = generator.GetEffectRecipe("effect-invert");
         float invertAmount = FindRequiredFloatProperty(invertRecipe.Patch, nameof(Invert.Amount));
+        EffectRecipe chromaKeyRecipe = generator.GetEffectRecipe("effect-chroma-key");
+        float spillSuppression = FindRequiredFloatProperty(chromaKeyRecipe.Patch, nameof(ChromaKey.SpillSuppression));
         EffectRecipe outlineRecipe = generator.GetEffectRecipe("graphic-outline");
         EffectRecipe filmGrainRecipe = generator.GetEffectRecipe("fine-film-grain-field");
         EffectRecipe organicRecipe = generator.GetEffectRecipe("organic-shader-field");
@@ -584,6 +640,7 @@ public sealed class SchemaGenerationTests
         {
             Assert.That(Math.Abs(shadowX) + Math.Abs(shadowY), Is.GreaterThan(0f));
             Assert.That(invertAmount, Is.EqualTo(80f));
+            Assert.That(spillSuppression, Is.EqualTo(50f));
             Assert.That(outlineRecipe.Notes.Any(note =>
                 note.Contains("stylized accent", StringComparison.OrdinalIgnoreCase)
                 && note.Contains("override", StringComparison.OrdinalIgnoreCase)), Is.True);

@@ -8,6 +8,10 @@ namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 public sealed class NumberEditorViewModel<T>(IPropertyAdapter<T> property) : ValueEditorViewModel<T>(property)
     where T : struct, INumber<T>
 {
+    protected override bool CanEditUnderExpression => true;
+
+    protected override T OffsetValue(T value, T from, T to) => Beutl.Animation.NumericOffset.Add(value, from, to);
+
     // The most small steps a slider spans. Past that, a step is far less than a pixel of its thumb's travel, so that the
     // thumb shows nothing of a drag.
     private const double MaxSliderSteps = 2000;
