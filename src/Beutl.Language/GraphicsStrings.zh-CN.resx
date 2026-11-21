@@ -242,6 +242,9 @@
   <data name="Brightness" xml:space="preserve">
     <value>亮度</value>
   </data>
+  <data name="OpacityEffect" xml:space="preserve">
+    <value>不透明度</value>
+  </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>色度键</value>
   </data>
@@ -427,6 +430,39 @@
   </data>
   <data name="DelayAnimationEffect_Effect" xml:space="preserve">
     <value>滤镜效果</value>
+  </data>
+  <data name="DelayAnimationEffect_Order" xml:space="preserve">
+    <value>顺序</value>
+  </data>
+  <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
+    <value>决定哪个部分先开始。按位置排序时，每经过一个延迟间隔就推进一个部分的尺寸，因此在该方向上位置相同的部分会同时开始。</value>
+  </data>
+  <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
+    <value>随机种子</value>
+  </data>
+  <data name="DelayAnimationOrder_Forward" xml:space="preserve">
+    <value>从前往后</value>
+  </data>
+  <data name="DelayAnimationOrder_Reverse" xml:space="preserve">
+    <value>从后往前</value>
+  </data>
+  <data name="DelayAnimationOrder_FromCenter" xml:space="preserve">
+    <value>从中心开始</value>
+  </data>
+  <data name="DelayAnimationOrder_Random" xml:space="preserve">
+    <value>随机</value>
+  </data>
+  <data name="DelayAnimationOrder_LeftToRight" xml:space="preserve">
+    <value>从左到右</value>
+  </data>
+  <data name="DelayAnimationOrder_RightToLeft" xml:space="preserve">
+    <value>从右到左</value>
+  </data>
+  <data name="DelayAnimationOrder_TopToBottom" xml:space="preserve">
+    <value>从上到下</value>
+  </data>
+  <data name="DelayAnimationOrder_BottomToTop" xml:space="preserve">
+    <value>从下到上</value>
   </data>
   <data name="Dilate" xml:space="preserve">
     <value>膨胀</value>

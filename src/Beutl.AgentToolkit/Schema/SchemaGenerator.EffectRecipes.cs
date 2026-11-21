@@ -565,6 +565,9 @@ public sealed partial class SchemaGenerator
             case Brightness brightness:
                 brightness.Amount.Value = 116;
                 break;
+            case OpacityEffect opacity:
+                opacity.Opacity.Value = 55;
+                break;
             case Gamma gamma:
                 gamma.Amount.Value = 92;
                 gamma.Strength.Value = 65;

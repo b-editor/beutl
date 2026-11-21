@@ -39,6 +39,16 @@ internal static class FilterEffectTestHarness
         return RunOnTarget(resource, size, canvas => canvas.Clear(color));
     }
 
+    /// <summary>
+    /// As <see cref="RunOnSolidTarget(FilterEffect, SKColor, PixelSize)"/>, with a float color that can lie outside
+    /// [0, 1], as the output of an HDR or exposure effect does.
+    /// </summary>
+    public static (float[] Before, float[] After) RunOnSolidTarget(FilterEffect effect, SKColorF color, PixelSize size)
+    {
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        return RunOnTarget(resource, size, canvas => canvas.Clear(color));
+    }
+
     /// <summary>Draws a CPU target, runs the effect resource, and reads every channel before and after.</summary>
     public static (float[] Before, float[] After) RunOnTarget(
         FilterEffect.Resource resource, PixelSize size, Action<SKCanvas> draw)

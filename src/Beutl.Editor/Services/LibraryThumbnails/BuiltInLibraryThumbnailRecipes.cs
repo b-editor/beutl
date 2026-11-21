@@ -167,6 +167,9 @@ internal static class BuiltInLibraryThumbnailRecipes
         LibraryThumbnailRecipes.Register<Brightness>((effect, context) =>
             context.Animate(effect.Amount, p => 100 + (120 * Wave(p))));
 
+        LibraryThumbnailRecipes.Register<OpacityEffect>((effect, context) =>
+            context.Animate(effect.Opacity, p => 100 - (80 * Wave(p))));
+
         LibraryThumbnailRecipes.Register<Gamma>((effect, context) =>
             context.Animate(effect.Amount, p => 100 + (150 * Wave(p))));
 

@@ -242,6 +242,9 @@
   <data name="Brightness" xml:space="preserve">
     <value>밝기</value>
   </data>
+  <data name="OpacityEffect" xml:space="preserve">
+    <value>불투명도</value>
+  </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>크로마 키</value>
   </data>
@@ -427,6 +430,39 @@
   </data>
   <data name="DelayAnimationEffect_Effect" xml:space="preserve">
     <value>필터 효과</value>
+  </data>
+  <data name="DelayAnimationEffect_Order" xml:space="preserve">
+    <value>순서</value>
+  </data>
+  <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
+    <value>어느 파트가 먼저 시작할지 정합니다. 위치를 기준으로 정렬하면 지연 단계마다 파트 하나의 크기만큼 진행하므로, 기준 방향에서 같은 위치에 있는 파트는 동시에 시작합니다.</value>
+  </data>
+  <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
+    <value>난수 시드</value>
+  </data>
+  <data name="DelayAnimationOrder_Forward" xml:space="preserve">
+    <value>앞에서부터</value>
+  </data>
+  <data name="DelayAnimationOrder_Reverse" xml:space="preserve">
+    <value>뒤에서부터</value>
+  </data>
+  <data name="DelayAnimationOrder_FromCenter" xml:space="preserve">
+    <value>가운데에서부터</value>
+  </data>
+  <data name="DelayAnimationOrder_Random" xml:space="preserve">
+    <value>무작위</value>
+  </data>
+  <data name="DelayAnimationOrder_LeftToRight" xml:space="preserve">
+    <value>왼쪽에서 오른쪽으로</value>
+  </data>
+  <data name="DelayAnimationOrder_RightToLeft" xml:space="preserve">
+    <value>오른쪽에서 왼쪽으로</value>
+  </data>
+  <data name="DelayAnimationOrder_TopToBottom" xml:space="preserve">
+    <value>위에서 아래로</value>
+  </data>
+  <data name="DelayAnimationOrder_BottomToTop" xml:space="preserve">
+    <value>아래에서 위로</value>
   </data>
   <data name="Dilate" xml:space="preserve">
     <value>팽창</value>

@@ -196,6 +196,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<Threshold>(GraphicsStrings.Threshold)
                 .AddFilterEffect<EdgeDetection>(GraphicsStrings.EdgeDetection)
                 .AddFilterEffect<Brightness>(GraphicsStrings.Brightness)
+                .AddFilterEffect<OpacityEffect>(GraphicsStrings.OpacityEffect)
                 .AddFilterEffect<Gamma>(GraphicsStrings.Gamma)
                 .AddFilterEffect<ColorGrading>(GraphicsStrings.ColorGrading)
                 .AddFilterEffect<Curves>(GraphicsStrings.Curves)
