@@ -1215,7 +1215,7 @@ Range: Min, Max, Clamp</value>
   </data>
   <data name="Expression_Functions_Utility" xml:space="preserve">
     <value>Utility: Radians, Degrees, Mod, Frac
-Random: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
+Random: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max), Wiggle(frequency, amplitude, octaves = 1, seed = null)</value>
   </data>
   <data name="Expression_Functions_Time" xml:space="preserve">
     <value>Other times: ValueAtTime(time), GetProperty&lt;T&gt;(path, time)</value>
