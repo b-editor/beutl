@@ -206,6 +206,7 @@ public sealed partial class SchemaGenerator
             [typeof(ShakeEffect)] = Metadata(["motion", "glitch", "shake"], ["Time-dependent effect; useful for animated jitter without explicit keyframes."]),
             [typeof(DisplacementMapEffect)] = Metadata(["distort", "map", "motion"], ["Pair with a map source or generated texture for visible displacement."]),
             [typeof(MeshWarp)] = Metadata(["distort", "warp", "mesh", "motion"], ["Rows and Columns count mesh cells. Keyframe Mesh to animate the control points together, and use Strength as a percentage of the deformation."]),
+            [typeof(PolarCoordinates)] = Metadata(["distort", "polar", "ring", "warp"], ["Amount is a percentage; 0 is identity."]),
             [typeof(PathFollowEffect)] = Metadata(["motion", "path", "distort"], []),
             [typeof(LayerEffect)] = Metadata(["composite", "layer"], []),
             [typeof(DelayAnimationEffect)] = Metadata(["motion", "trail", "delay"], []),

@@ -281,6 +281,9 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Animate(effect.Phase, p => 360 * p);
         });
 
+        LibraryThumbnailRecipes.Register<PolarCoordinates>(LibraryThumbnailSample.Shapes, (effect, context) =>
+            context.Animate(effect.Amount, p => 100 * Wave(p)));
+
         LibraryThumbnailRecipes.Register<PixelSortEffect>((effect, context) =>
         {
             effect.ThresholdMin.Value = 10;

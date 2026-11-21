@@ -1877,6 +1877,21 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>알파 유지</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>극좌표</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>방향</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>양</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>직교좌표에서 극좌표로</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>극좌표에서 직교좌표로</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>물결 굴절</value>
   </data>

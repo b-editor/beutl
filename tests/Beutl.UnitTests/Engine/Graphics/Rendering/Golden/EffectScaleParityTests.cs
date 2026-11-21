@@ -76,6 +76,11 @@ public class EffectScaleParityTests
             yield return new TestCaseData($"DiagonalClipping-Width{width}",
                 (Func<FilterEffect>)(() => MakeDiagonalClipping(width)));
         }
+        foreach (PolarCoordinatesDirection direction in Enum.GetValues<PolarCoordinatesDirection>())
+        {
+            yield return new TestCaseData($"PolarCoordinates-{direction}",
+                (Func<FilterEffect>)(() => MakePolarCoordinates(direction)));
+        }
         yield return new TestCaseData("StrokeEffect", (Func<FilterEffect>)(() =>
         {
             var pen = new Pen();
@@ -505,10 +510,51 @@ public class EffectScaleParityTests
         Width = { Value = width },
     };
 
+    [TestCase(PolarCoordinatesDirection.RectangularToPolar)]
+    [TestCase(PolarCoordinatesDirection.PolarToRectangular)]
+    public void PolarCoordinates_PartialRequestPreservesTheMapping(PolarCoordinatesDirection direction)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var region = new Rect(50, 70, 80, 70);
+            using Drawable.Resource resource = RotatedRect(() => MakePolarCoordinates(direction), MakePolarCoordinatesGradient());
+            using Bitmap full = RenderAtScale(resource, Frame, 2, clearColor: Colors.Transparent);
+            using Bitmap partial = RenderAtScale(resource, Frame, 2, requestedRegion: region, clearColor: Colors.Transparent);
+            using Bitmap expected = full.ExtractSubset(PixelRect.FromRect(region, 2));
+            using Bitmap actual = partial.ExtractSubset(PixelRect.FromRect(region, 2));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ImageMetrics.HasFiniteVisibleContent(expected), Is.True);
+                Assert.That(ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual).Maximum, Is.LessThanOrEqualTo(0.005));
+            });
+        });
+    }
+
+    private static PolarCoordinates MakePolarCoordinates(PolarCoordinatesDirection direction) => new()
+    {
+        Direction = { Value = direction },
+    };
+
+    private static LinearGradientBrush MakePolarCoordinatesGradient()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = { Value = RelativePoint.TopLeft },
+            EndPoint = { Value = RelativePoint.BottomRight },
+        };
+        brush.GradientStops.Add(new GradientStop(Colors.Blue, 0f));
+        brush.GradientStops.Add(new GradientStop(Colors.Orange, 1f));
+        return brush;
+    }
+
     private static Drawable.Resource MakeForCase(string name, Func<FilterEffect> makeEffect)
     {
         if (name.StartsWith("InnerShadow", StringComparison.Ordinal))
             return MakeInnerShadowFixture(makeEffect);
+        if (name.StartsWith("PolarCoordinates", StringComparison.Ordinal))
+            return RotatedRect(makeEffect, MakePolarCoordinatesGradient());
 
         Brush fill = name.StartsWith("PartsSplit", StringComparison.Ordinal)
             ? MakeAlphaStripes(60)

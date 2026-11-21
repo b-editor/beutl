@@ -1877,6 +1877,21 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>保留透明度</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>极坐标</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>方向</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>数量</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>直角坐标转极坐标</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>极坐标转直角坐标</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>波纹折射</value>
   </data>

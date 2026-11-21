@@ -186,6 +186,30 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void PolarCoordinates_ListsBothDirectionsAndAnAnimatedPercentage()
+    {
+        var generator = new SchemaGenerator(_library);
+        EffectSummary effect = generator.ListEffects(intent: "polar").Single(effect => effect.Name == nameof(PolarCoordinates));
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(PolarCoordinates));
+        TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(PolarCoordinates).FullName);
+        PropertyDescriptor direction = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Direction));
+        PropertyDescriptor amount = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Amount));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(effect.IntentTags, Does.Contain("warp"));
+            Assert.That(effect.PropertyNames, Is.EquivalentTo(new[] { nameof(PolarCoordinates.Direction), nameof(PolarCoordinates.Amount) }));
+            Assert.That(effect.Notes, Does.Contain("Amount is a percentage; 0 is identity."));
+            Assert.That(direction.EnumValues, Is.EqualTo(Enum.GetNames<PolarCoordinatesDirection>()));
+            Assert.That(direction.Default, Is.EqualTo(PolarCoordinatesDirection.RectangularToPolar));
+            Assert.That(amount.Default, Is.EqualTo(100f));
+            Assert.That(amount.Range, Is.EqualTo(new RangeDescriptor(0, 100)));
+            Assert.That(amount.Animatable, Is.True);
+            Assert.That(amount.Unit, Is.EqualTo("percent"));
+        });
+    }
+
+    [Test]
     public void Base_fields_exclude_non_serialized_scalars_but_keep_explicit_lists()
     {
         var generator = new SchemaGenerator(_library);

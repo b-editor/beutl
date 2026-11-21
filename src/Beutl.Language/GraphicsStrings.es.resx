@@ -1877,6 +1877,21 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>Conservar alfa</value>
   </data>
+  <data name="PolarCoordinates" xml:space="preserve">
+    <value>Coordenadas polares</value>
+  </data>
+  <data name="PolarCoordinates_Direction" xml:space="preserve">
+    <value>Dirección</value>
+  </data>
+  <data name="PolarCoordinates_Amount" xml:space="preserve">
+    <value>Cantidad</value>
+  </data>
+  <data name="PolarCoordinatesDirection_RectangularToPolar" xml:space="preserve">
+    <value>De cartesianas a polares</value>
+  </data>
+  <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
+    <value>De polares a cartesianas</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>Refracción de ondas</value>
   </data>
