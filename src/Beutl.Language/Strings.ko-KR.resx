@@ -1179,7 +1179,7 @@ PI: 수학 상수 π (3.14159...)</value>
   </data>
   <data name="Expression_Functions_Utility" xml:space="preserve">
     <value>유틸리티: Radians, Degrees, Mod, Frac
-무작위: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
+무작위: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max), Wiggle(frequency, amplitude, octaves = 1, seed = null)</value>
   </data>
   <data name="Expression_Functions_Time" xml:space="preserve">
     <value>다른 시점: ValueAtTime(time), GetProperty&lt;T&gt;(path, time)</value>
