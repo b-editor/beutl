@@ -66,6 +66,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<ColorGrading>>(GraphicsStrings.ColorGrading)
             .Add<FilterEffectNode<Curves>>(GraphicsStrings.Curves)
             .Add<FilterEffectNode<FilmGrain>>(GraphicsStrings.FilmGrain)
+            .Add<FilterEffectNode<Vignette>>(GraphicsStrings.Vignette)
             .Add<FilterEffectNode<Invert>>(GraphicsStrings.Invert)
             .Add<FilterEffectNode<LutEffect>>(GraphicsStrings.LutEffect)
             .Add<FilterEffectNode<BlendEffect>>(GraphicsStrings.BlendEffect)

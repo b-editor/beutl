@@ -200,6 +200,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<ColorGrading>(GraphicsStrings.ColorGrading)
                 .AddFilterEffect<Curves>(GraphicsStrings.Curves)
                 .AddFilterEffect<FilmGrain>(GraphicsStrings.FilmGrain)
+                .AddFilterEffect<Vignette>(GraphicsStrings.Vignette)
                 .AddFilterEffect<Invert>(GraphicsStrings.Invert)
                 .AddFilterEffect<LutEffect>(GraphicsStrings.LutEffect)
                 .AddFilterEffect<BlendEffect>(GraphicsStrings.BlendEffect)

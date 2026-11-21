@@ -221,6 +221,9 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Animate(effect.Amount, p => 70 * Wave(p));
         });
 
+        LibraryThumbnailRecipes.Register<Vignette>((effect, context) =>
+            context.Animate(effect.Amount, p => 100 * Wave(p)));
+
         LibraryThumbnailRecipes.Register<ColorShift>(LibraryThumbnailSample.Shapes, (effect, context) =>
         {
             context.Animate(effect.RedOffset, p => new PixelPoint((int)MathF.Round(context.Scale(36) * Wave(p)), 0));

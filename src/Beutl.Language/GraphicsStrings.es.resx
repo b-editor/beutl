@@ -404,6 +404,21 @@
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>Saturación vs Saturación</value>
   </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>Viñeta</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>Los valores positivos oscurecen los bordes. Los valores negativos los aclaran.</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>Punto medio</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>Redondez</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>Desvanecimiento</value>
+  </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>Retardo de animación</value>
   </data>

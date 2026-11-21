@@ -81,6 +81,8 @@ public class EffectScaleParityTests
             yield return new TestCaseData($"PolarCoordinates-{direction}",
                 (Func<FilterEffect>)(() => MakePolarCoordinates(direction)));
         }
+        yield return new TestCaseData("Vignette-Darken", (Func<FilterEffect>)(() => MakeVignette(100f, -70f)));
+        yield return new TestCaseData("Vignette-Lighten", (Func<FilterEffect>)(() => MakeVignette(-100f, 100f)));
         yield return new TestCaseData("StrokeEffect", (Func<FilterEffect>)(() =>
         {
             var pen = new Pen();
@@ -549,12 +551,50 @@ public class EffectScaleParityTests
         return brush;
     }
 
+    [TestCase(1.5f)]
+    [TestCase(2f)]
+    public void Vignette_PartialRequestPreservesThePattern(float scale)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var region = new Rect(50, 70, 80, 70);
+            PixelRect deviceRegion = PixelRect.FromRect(region, scale);
+            using Drawable.Resource resource = RotatedRect(() => MakeVignette(100f, -70f), Brushes.DarkGray);
+            using Drawable.Resource controlResource = RotatedRect(() => new FilterEffectGroup(), Brushes.DarkGray);
+            using Bitmap full = RenderAtScale(resource, Frame, scale, clearColor: Colors.Transparent);
+            using Bitmap partial = RenderAtScale(resource, Frame, scale, requestedRegion: region, clearColor: Colors.Transparent);
+            using Bitmap control = RenderAtScale(controlResource, Frame, scale, clearColor: Colors.Transparent);
+            using Bitmap expected = full.ExtractSubset(deviceRegion);
+            using Bitmap actual = partial.ExtractSubset(deviceRegion);
+            using Bitmap unfiltered = control.ExtractSubset(deviceRegion);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual).Maximum, Is.LessThanOrEqualTo(0.005));
+                Assert.That(ImageMetrics.MeanAbsoluteError(expected, unfiltered), Is.GreaterThan(0.02),
+                    "the cropped region must contain visible darkening");
+            });
+        });
+    }
+
+    private static Vignette MakeVignette(float amount, float roundness) => new()
+    {
+        Amount = { Value = amount },
+        Midpoint = { Value = 43f },
+        Roundness = { Value = roundness },
+        Feather = { Value = 65f },
+        Center = { Value = new RelativePoint(0.38f, 0.62f, RelativeUnit.Relative) },
+    };
+
     private static Drawable.Resource MakeForCase(string name, Func<FilterEffect> makeEffect)
     {
         if (name.StartsWith("InnerShadow", StringComparison.Ordinal))
             return MakeInnerShadowFixture(makeEffect);
         if (name.StartsWith("PolarCoordinates", StringComparison.Ordinal))
             return RotatedRect(makeEffect, MakePolarCoordinatesGradient());
+        if (name.StartsWith("Vignette", StringComparison.Ordinal))
+            return RotatedRect(makeEffect, Brushes.DarkGray);
 
         Brush fill = name.StartsWith("PartsSplit", StringComparison.Ordinal)
             ? MakeAlphaStripes(60)
@@ -588,7 +628,7 @@ public class EffectScaleParityTests
     public static IEnumerable<TestCaseData> RepresentativeEffectsWithScales()
     {
         float[] scales = [1.5f, 3f];
-        string[] names = ["InnerShadow", "StrokeEffect-Offset", "Mosaic-AbsoluteOrigin", "FlatShadow"];
+        string[] names = ["InnerShadow", "StrokeEffect-Offset", "Mosaic-AbsoluteOrigin", "FlatShadow", "Vignette-Darken"];
         Dictionary<string, Func<FilterEffect>> effects = Effects().ToDictionary(
             static testCase => (string)testCase.Arguments[0]!,
             static testCase => (Func<FilterEffect>)testCase.Arguments[1]!);

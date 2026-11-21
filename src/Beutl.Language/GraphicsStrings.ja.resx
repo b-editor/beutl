@@ -400,6 +400,21 @@
   <data name="Curves_SaturationVsSaturation" xml:space="preserve">
     <value>彩度 vs 彩度</value>
   </data>
+  <data name="Vignette" xml:space="preserve">
+    <value>ビネット</value>
+  </data>
+  <data name="Vignette_Amount_Description" xml:space="preserve">
+    <value>正の値で周辺が暗くなり、負の値で周辺が明るくなります。</value>
+  </data>
+  <data name="Vignette_Midpoint" xml:space="preserve">
+    <value>中間点</value>
+  </data>
+  <data name="Vignette_Roundness" xml:space="preserve">
+    <value>丸み</value>
+  </data>
+  <data name="Vignette_Feather" xml:space="preserve">
+    <value>ぼかし</value>
+  </data>
   <data name="DelayAnimationEffect" xml:space="preserve">
     <value>遅延アニメーション</value>
   </data>
