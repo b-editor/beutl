@@ -140,6 +140,8 @@ public sealed partial class FilterEffectContext : IDisposable
 
     internal Rect Bounds => _bounds;
 
+    internal bool IsPreviewFrame => _resourceState.IsPreviewFrame;
+
     public Rect OriginalBounds { get; }
 
     /// <summary>

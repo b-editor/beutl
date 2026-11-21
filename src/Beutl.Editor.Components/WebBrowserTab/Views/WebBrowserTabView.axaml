@@ -4,6 +4,7 @@
              xmlns:browser="using:Beutl.Editor.Components.WebBrowserTab"
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:ext="using:Beutl.Extensibility"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -472,6 +473,7 @@
         <Grid Grid.Row="4">
             <Grid x:Name="BrowserSurface">
                 <ContentControl x:Name="WebViewHost"
+                                ext:ContextCommandInput.IsTextInput="True"
                                 IsVisible="{Binding HasWebAddress.Value}"
                                 HorizontalContentAlignment="Stretch"
                                 VerticalContentAlignment="Stretch" />

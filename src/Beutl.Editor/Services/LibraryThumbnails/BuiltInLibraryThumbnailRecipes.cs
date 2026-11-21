@@ -300,6 +300,14 @@ internal static class BuiltInLibraryThumbnailRecipes
             effect.Transform.Value = translate;
         });
 
+        LibraryThumbnailRecipes.Register<MeshWarp>(LibraryThumbnailSample.Shapes, (effect, context) =>
+        {
+            context.Animate(effect.Mesh, p => MeshWarpGrid.Default
+                .WithPoint(0, 2, new Point(0.5f, 0.22f * Wave(p)))
+                .WithPoint(2, 2, new Point(0.5f + 0.22f * Wave(p), 0.5f))
+                .WithPoint(4, 2, new Point(0.5f, 1 - 0.22f * Wave(p))));
+        });
+
         // The picture travels once around an ellipse.
         LibraryThumbnailRecipes.Register<PathFollowEffect>(LibraryThumbnailSample.Object, (effect, context) =>
         {

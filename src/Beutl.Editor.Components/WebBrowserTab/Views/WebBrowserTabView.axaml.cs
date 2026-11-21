@@ -70,6 +70,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         InitializeComponent();
         AddressTextBox.SearchSuggestionsChanged += OnSearchSuggestionsChanged;
         AddHandler(KeyDownEvent, OnBrowserKeyDown, RoutingStrategies.Tunnel);
+        WebViewHost.AddHandler(KeyDownEvent, OnWebViewKeyDown, RoutingStrategies.Bubble);
         Loaded += OnLoaded;
     }
 
@@ -354,7 +355,14 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             {
                 if (IsCurrent()) OnNavigationResponseNotShown(uri, name);
             }, OnGeneratedDownload, OnNativeNewWindowRequested, OnWindowOpened);
-            _nativeBrowserHandler = new CompositeDisposable(pageLoad ?? Disposable.Empty, downloads ?? Disposable.Empty);
+            IDisposable? focus = LinuxWebKitFocus.TryAttach(webView, handle, (key, modifiers) =>
+            {
+                if (IsCurrent()) TryHandleBrowserShortcut(key, modifiers);
+            });
+            _nativeBrowserHandler = new CompositeDisposable(
+                pageLoad ?? Disposable.Empty,
+                downloads ?? Disposable.Empty,
+                focus ?? Disposable.Empty);
         }
         // The download handler is in place first, so a response of this navigation can become a download.
         // With ad blocking on, the session starts it once its rules are in place.

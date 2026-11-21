@@ -214,6 +214,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<ColorShift>(GraphicsStrings.ColorShift)
                 .AddFilterEffect<ShakeEffect>(GraphicsStrings.ShakeEffect)
                 .AddFilterEffect<DisplacementMapEffect>(GraphicsStrings.DisplacementMapEffect)
+                .AddFilterEffect<MeshWarp>(GraphicsStrings.MeshWarp)
                 .AddFilterEffect<PathFollowEffect>(GraphicsStrings.PathFollowEffect)
                 .AddFilterEffect<LayerEffect>(GraphicsStrings.LayerEffect)
                 .AddFilterEffect<DelayAnimationEffect>(GraphicsStrings.DelayAnimationEffect)

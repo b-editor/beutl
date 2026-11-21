@@ -224,6 +224,9 @@
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>채도 범위</value>
   </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>스필 억제</value>
+  </data>
   <data name="LumaKey" xml:space="preserve">
     <value>루마 키</value>
   </data>
@@ -1954,5 +1957,32 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>알파 임계값</value>
+  </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>메시 워프</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>행 수</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>열 수</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>보간</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>부드럽게</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>메시</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>미리 보기에서 제어점을 끌어 이동합니다. 핸들은 강도와 관계없이 메시의 전체 변형을 표시합니다.</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>메시 재설정</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>메시 제어점({0}행, {1}열)</value>
   </data>
 </root>

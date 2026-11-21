@@ -599,6 +599,8 @@ public sealed class SchemaGenerationTests
         (float shadowX, float shadowY) = FindRequiredPointProperty(dropShadowEffect, nameof(DropShadow.Position));
         EffectRecipe invertRecipe = generator.GetEffectRecipe("effect-invert");
         float invertAmount = FindRequiredFloatProperty(invertRecipe.Patch, nameof(Invert.Amount));
+        EffectRecipe chromaKeyRecipe = generator.GetEffectRecipe("effect-chroma-key");
+        float spillSuppression = FindRequiredFloatProperty(chromaKeyRecipe.Patch, nameof(ChromaKey.SpillSuppression));
         EffectRecipe outlineRecipe = generator.GetEffectRecipe("graphic-outline");
         EffectRecipe filmGrainRecipe = generator.GetEffectRecipe("fine-film-grain-field");
         EffectRecipe organicRecipe = generator.GetEffectRecipe("organic-shader-field");
@@ -608,6 +610,7 @@ public sealed class SchemaGenerationTests
         {
             Assert.That(Math.Abs(shadowX) + Math.Abs(shadowY), Is.GreaterThan(0f));
             Assert.That(invertAmount, Is.EqualTo(80f));
+            Assert.That(spillSuppression, Is.EqualTo(50f));
             Assert.That(outlineRecipe.Notes.Any(note =>
                 note.Contains("stylized accent", StringComparison.OrdinalIgnoreCase)
                 && note.Contains("override", StringComparison.OrdinalIgnoreCase)), Is.True);

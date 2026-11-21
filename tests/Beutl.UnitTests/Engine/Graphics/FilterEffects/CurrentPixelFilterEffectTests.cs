@@ -70,6 +70,7 @@ public sealed class CurrentPixelFilterEffectTests
         chromaKey.HueRange.Value = 90;
         chromaKey.SaturationRange.Value = 25;
         chromaKey.Boundary.Value = 4;
+        chromaKey.SpillSuppression.Value = 50;
         ShaderDescription chromaKeyShader = Record(chromaKey);
         AssertFloatUniform(
             chromaKeyShader,
@@ -78,6 +79,8 @@ public sealed class CurrentPixelFilterEffectTests
         AssertFloatUniform(chromaKeyShader, "hueRange", 0.25f);
         AssertFloatUniform(chromaKeyShader, "saturationRange", 0.25f);
         AssertFloatUniform(chromaKeyShader, "boundary", 0.04f);
+        AssertFloatUniform(chromaKeyShader, "spillSuppression", 0.5f);
+        AssertFloatUniform(chromaKeyShader, "spillAxis", Vector3.UnitZ);
 
         var grading = new ColorGrading();
         grading.Exposure.Value = 1.5f;
@@ -115,6 +118,34 @@ public sealed class CurrentPixelFilterEffectTests
         AssertFloatUniform(gradingShader, "gamma", 0.001f, 0.5f, 2);
         AssertFloatUniform(gradingShader, "gain", 0, 0.5f, 2);
         AssertFloatUniform(gradingShader, "offset", -0.2f, 0, 0.2f);
+    }
+
+    [TestCase(-10f, 0f)]
+    [TestCase(110f, 1f)]
+    [TestCase(float.NaN, 0f)]
+    public void ChromaKey_ClampsTheSpillSuppressionUniform(float amount, float expected)
+    {
+        // Set the evaluated value directly to exercise clamping independently of property validation.
+        using var resource = new ChromaKey.Resource { SpillSuppression = amount };
+        using var context = new FilterEffectContext(s_bounds);
+        context.ApplyTransactional(resource);
+
+        var shader = (FEItem_Shader)context.GetOrderedItems().Single();
+        AssertFloatUniform(shader.Description, "spillSuppression", expected);
+    }
+
+    [Test]
+    public void ChromaKey_PrefersGreenThenBlueWhenSpillChannelsTie()
+    {
+        var chromaKey = new ChromaKey();
+        chromaKey.Color.Value = Colors.Yellow;
+        AssertFloatUniform(Record(chromaKey), "spillAxis", Vector3.UnitY);
+        chromaKey.Color.Value = Colors.Cyan;
+        AssertFloatUniform(Record(chromaKey), "spillAxis", Vector3.UnitY);
+        chromaKey.Color.Value = Colors.Magenta;
+        AssertFloatUniform(Record(chromaKey), "spillAxis", Vector3.UnitZ);
+        chromaKey.Color.Value = Colors.Red;
+        AssertFloatUniform(Record(chromaKey), "spillAxis", Vector3.UnitX);
     }
 
     [TestCaseSource(nameof(ConstantShaderEffects))]

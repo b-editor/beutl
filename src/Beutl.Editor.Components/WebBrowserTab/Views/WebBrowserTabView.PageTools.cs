@@ -1,6 +1,8 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
@@ -119,13 +121,33 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private async void OnBrowserKeyDown(object? sender, KeyEventArgs e)
+    private void OnBrowserKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (TryHandleBrowserShortcut(e.Key, e.KeyModifiers)) e.Handled = true;
+    }
+
+    internal bool TryHandleBrowserShortcut(Key key, KeyModifiers modifiers)
     {
         KeyModifiers modifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
-        if (!e.KeyModifiers.HasFlag(modifier)) return;
-        if (e.Key == Key.F) { e.Handled = true; OnFindPageClick(this, e); }
-        else if (e.Key is Key.Add or Key.OemPlus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent + BrowserPageTools.ZoomStepPercent); }
-        else if (e.Key is Key.Subtract or Key.OemMinus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent - BrowserPageTools.ZoomStepPercent); }
-        else if (e.Key is Key.D0 or Key.NumPad0) { e.Handled = true; await SetPageZoomAsync(BrowserPageTools.DefaultZoomPercent); }
+        if (!modifiers.HasFlag(modifier)) return false;
+        if (key == Key.F) { OnFindPageClick(this, new RoutedEventArgs()); return true; }
+        if (key is Key.Add or Key.OemPlus) { _ = SetPageZoomAsync(_zoomPercent + BrowserPageTools.ZoomStepPercent); return true; }
+        if (key is Key.Subtract or Key.OemMinus) { _ = SetPageZoomAsync(_zoomPercent - BrowserPageTools.ZoomStepPercent); return true; }
+        if (key is Key.D0 or Key.NumPad0) { _ = SetPageZoomAsync(BrowserPageTools.DefaultZoomPercent); return true; }
+        return false;
+    }
+
+    private void OnWebViewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_webView is { } webView
+            && e.Source is Visual source
+            && ReferenceEquals(source.FindAncestorOfType<NativeWebView>(includeSelf: true), webView)
+            && !(e.Key == Key.F4 && e.KeyModifiers == KeyModifiers.Alt))
+        {
+            // NativeWebView leaves KeyDown unhandled on Linux X11 (GTK3 consumes XI_KeyPress while core
+            // KeyPress can still reach Avalonia) and on offscreen Linux adapters when IME forwards a key
+            // with PhysicalKey.None. Stop it here so editor and shell shortcuts do not run behind the page.
+            e.Handled = true;
+        }
     }
 }

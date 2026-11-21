@@ -225,6 +225,9 @@
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>Saturation Range</value>
   </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>Spill suppression</value>
+  </data>
   <data name="LumaKey" xml:space="preserve">
     <value>Luma key</value>
   </data>
@@ -1955,5 +1958,32 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>Alpha Cutoff</value>
+  </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>Mesh warp</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>Interpolation</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>Smooth</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>Mesh</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>Drag the control points in the preview. The handles show the full mesh at every strength.</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>Reset mesh</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>Mesh point {0}, {1}</value>
   </data>
 </root>

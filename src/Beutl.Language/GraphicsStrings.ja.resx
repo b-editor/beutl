@@ -220,6 +220,9 @@
   <data name="ChromaKey_SaturationRange" xml:space="preserve">
     <value>彩度範囲</value>
   </data>
+  <data name="ChromaKey_SpillSuppression" xml:space="preserve">
+    <value>スピル抑制</value>
+  </data>
   <data name="LumaKey" xml:space="preserve">
     <value>輝度キー</value>
   </data>
@@ -1950,5 +1953,32 @@
   </data>
   <data name="UnlitMaterial_AlphaCutoff" xml:space="preserve">
     <value>切り抜きのしきい値</value>
+  </data>
+  <data name="MeshWarp" xml:space="preserve">
+    <value>メッシュワープ</value>
+  </data>
+  <data name="MeshWarp_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="MeshWarp_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="MeshWarp_Interpolation" xml:space="preserve">
+    <value>補間</value>
+  </data>
+  <data name="MeshWarp_Smooth" xml:space="preserve">
+    <value>滑らか</value>
+  </data>
+  <data name="MeshWarp_Mesh" xml:space="preserve">
+    <value>メッシュ</value>
+  </data>
+  <data name="MeshWarp_Mesh_Description" xml:space="preserve">
+    <value>プレビューで制御点をドラッグします。強度の値にかかわらず、ハンドルにはメッシュ本来の形状が表示されます。</value>
+  </data>
+  <data name="MeshWarp_Reset" xml:space="preserve">
+    <value>メッシュをリセット</value>
+  </data>
+  <data name="MeshWarp_Point" xml:space="preserve">
+    <value>メッシュの制御点（{0} 行、{1} 列）</value>
   </data>
 </root>
