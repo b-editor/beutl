@@ -185,7 +185,7 @@ public sealed partial class SchemaGenerator
             [typeof(Threshold)] = Metadata(["color", "graphic", "poster"], []),
             [typeof(EdgeDetection)] = Metadata(["outline", "line-art", "mask"], []),
             [typeof(Brightness)] = Metadata(["color", "grade", "glow"], []),
-            [typeof(OpacityEffect)] = Metadata(["color", "opacity", "fade"], ["Multiplies alpha. Inside DelayAnimationEffect it fades parts in or out one after another."]),
+            [typeof(OpacityEffect)] = Metadata(["color", "opacity", "fade"], ["Multiplies alpha. To fade parts in or out one after another, put it inside DelayAnimationEffect and keyframe Opacity (for example 0 to 100); a constant Opacity dims every part at once."]),
             [typeof(Sharpen)] = Metadata(["detail", "clarity", "edge"], []),
             [typeof(Gamma)] = Metadata(["color", "grade"], []),
             [typeof(ColorGrading)] = Metadata(["color", "grade", "cinematic"], []),
