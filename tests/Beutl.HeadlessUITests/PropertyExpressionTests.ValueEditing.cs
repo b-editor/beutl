@@ -524,6 +524,52 @@ public partial class PropertyExpressionTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Stepping_a_focused_relative_field_keeps_the_underlying_unit_and_steps_the_underlying_value(bool animated)
+    {
+        using var scope = new ValueEditScope<RelativePoint>(
+            new(0.1f, 0.2f, RelativeUnit.Relative),
+            "new RelativePoint(80, 90, RelativeUnit.Absolute)",
+            animated);
+        using var host = scope.Show();
+        var editor = scope.Control.GetVisualDescendants().OfType<RelativePointEditor>().Single();
+        TextBox[] boxes = editor.GetVisualDescendants().OfType<TextBox>().ToArray();
+        Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(("80", "90")));
+
+        boxes[0].Focus();
+        HeadlessTestHelpers.Render();
+        Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(($"{10f:f}%", "90")));
+
+        AvaPoint point = HeadlessTestHelpers.Center(boxes[0], host.Window);
+        host.Window.MouseWheel(point, new Avalonia.Vector(0, 1));
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            RelativePoint current = scope.Model.GetEditingValue();
+            Assert.That(current.Unit, Is.EqualTo(RelativeUnit.Relative));
+            Assert.That(current.Point.X, Is.EqualTo(0.2f).Within(1e-5f));
+            Assert.That(current.Point.Y, Is.EqualTo(0.2f).Within(1e-5f));
+            Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(($"{20f:f}%", "90")));
+        });
+
+        ((Border)host.Window.Content!).Focus();
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            RelativePoint current = scope.Model.GetEditingValue();
+            Assert.That(current.Unit, Is.EqualTo(RelativeUnit.Relative));
+            Assert.That(current.Point.X, Is.EqualTo(0.2f).Within(1e-5f));
+            Assert.That(current.Point.Y, Is.EqualTo(0.2f).Within(1e-5f));
+            Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(("80", "90")));
+            Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        });
+
+        scope.History.Undo();
+        Assert.That(scope.Model.GetEditingValue(), Is.EqualTo(new RelativePoint(0.1f, 0.2f, RelativeUnit.Relative)));
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]

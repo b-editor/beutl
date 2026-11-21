@@ -478,10 +478,13 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         return true;
     }
 
-    // Setting an expression keeps any animation below it, so it only repairs a dropped value on this property.
+    // Setting an expression keeps the property's value and animation below it, so it only repairs a dropped value
+    // when neither the kept value nor the kept animation still holds a recovery blocker.
     private bool CanSetExpression([NotNullWhen(false)] out string? error)
     {
-        error = CanReplace(null) ? null : MessageStrings.OperationFailed;
+        error = CanReplace(null, new object?[] { PropertyAdapter.GetValue(), GetAnimation() })
+            ? null
+            : MessageStrings.OperationFailed;
         return error == null;
     }
 
