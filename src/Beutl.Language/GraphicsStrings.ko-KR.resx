@@ -1907,6 +1907,57 @@
   <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
     <value>극좌표에서 직교좌표로</value>
   </data>
+  <data name="PolarCoordinates_AspectMode" xml:space="preserve">
+    <value>종횡비 모드</value>
+  </data>
+  <data name="PolarCoordinatesAspectMode_Stretch" xml:space="preserve">
+    <value>늘이기</value>
+  </data>
+  <data name="PolarCoordinatesAspectMode_Contain" xml:space="preserve">
+    <value>내접 원</value>
+  </data>
+  <data name="PolarCoordinatesAspectMode_Cover" xml:space="preserve">
+    <value>외접 원</value>
+  </data>
+  <data name="PolarCoordinates_InnerRadius" xml:space="preserve">
+    <value>내부 반경</value>
+  </data>
+  <data name="PolarCoordinates_OuterRadius" xml:space="preserve">
+    <value>외부 반경</value>
+  </data>
+  <data name="PolarCoordinates_InvertRadius" xml:space="preserve">
+    <value>반경 반전</value>
+  </data>
+  <data name="PolarCoordinates_ReverseAngle" xml:space="preserve">
+    <value>각도 반전</value>
+  </data>
+  <data name="PolarCoordinates_Repeat" xml:space="preserve">
+    <value>반복</value>
+  </data>
+  <data name="PolarCoordinates_Mirror" xml:space="preserve">
+    <value>미러</value>
+  </data>
+  <data name="PolarCoordinates_SweepAngle" xml:space="preserve">
+    <value>각도 범위</value>
+  </data>
+  <data name="PolarCoordinates_EdgeMode" xml:space="preserve">
+    <value>가장자리 모드</value>
+  </data>
+  <data name="PolarCoordinates_ClipToBounds" xml:space="preserve">
+    <value>원본 크기로 자르기</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Transparent" xml:space="preserve">
+    <value>투명</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Clamp" xml:space="preserve">
+    <value>클램프</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Repeat" xml:space="preserve">
+    <value>반복</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Mirror" xml:space="preserve">
+    <value>미러</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>물결 굴절</value>
   </data>

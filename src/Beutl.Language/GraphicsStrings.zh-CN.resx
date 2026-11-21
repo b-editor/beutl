@@ -1907,6 +1907,57 @@
   <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
     <value>极坐标转直角坐标</value>
   </data>
+  <data name="PolarCoordinates_AspectMode" xml:space="preserve">
+    <value>纵横比模式</value>
+  </data>
+  <data name="PolarCoordinatesAspectMode_Stretch" xml:space="preserve">
+    <value>拉伸</value>
+  </data>
+  <data name="PolarCoordinatesAspectMode_Contain" xml:space="preserve">
+    <value>内接圆</value>
+  </data>
+  <data name="PolarCoordinatesAspectMode_Cover" xml:space="preserve">
+    <value>外接圆</value>
+  </data>
+  <data name="PolarCoordinates_InnerRadius" xml:space="preserve">
+    <value>内半径</value>
+  </data>
+  <data name="PolarCoordinates_OuterRadius" xml:space="preserve">
+    <value>外半径</value>
+  </data>
+  <data name="PolarCoordinates_InvertRadius" xml:space="preserve">
+    <value>反转半径</value>
+  </data>
+  <data name="PolarCoordinates_ReverseAngle" xml:space="preserve">
+    <value>反转角度</value>
+  </data>
+  <data name="PolarCoordinates_Repeat" xml:space="preserve">
+    <value>重复</value>
+  </data>
+  <data name="PolarCoordinates_Mirror" xml:space="preserve">
+    <value>镜像</value>
+  </data>
+  <data name="PolarCoordinates_SweepAngle" xml:space="preserve">
+    <value>扫描角度</value>
+  </data>
+  <data name="PolarCoordinates_EdgeMode" xml:space="preserve">
+    <value>边缘模式</value>
+  </data>
+  <data name="PolarCoordinates_ClipToBounds" xml:space="preserve">
+    <value>裁剪到原始大小</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Transparent" xml:space="preserve">
+    <value>透明</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Clamp" xml:space="preserve">
+    <value>钳制</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Repeat" xml:space="preserve">
+    <value>重复</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Mirror" xml:space="preserve">
+    <value>镜像</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>波纹折射</value>
   </data>

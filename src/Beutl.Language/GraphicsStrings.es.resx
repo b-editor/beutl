@@ -1907,6 +1907,57 @@
   <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
     <value>De polares a cartesianas</value>
   </data>
+  <data name="PolarCoordinates_AspectMode" xml:space="preserve">
+    <value>Modo de aspecto</value>
+  </data>
+  <data name="PolarCoordinatesAspectMode_Stretch" xml:space="preserve">
+    <value>Estirar</value>
+  </data>
+  <data name="PolarCoordinatesAspectMode_Contain" xml:space="preserve">
+    <value>Contener (círculo)</value>
+  </data>
+  <data name="PolarCoordinatesAspectMode_Cover" xml:space="preserve">
+    <value>Cubrir (círculo)</value>
+  </data>
+  <data name="PolarCoordinates_InnerRadius" xml:space="preserve">
+    <value>Radio interior</value>
+  </data>
+  <data name="PolarCoordinates_OuterRadius" xml:space="preserve">
+    <value>Radio exterior</value>
+  </data>
+  <data name="PolarCoordinates_InvertRadius" xml:space="preserve">
+    <value>Invertir radio</value>
+  </data>
+  <data name="PolarCoordinates_ReverseAngle" xml:space="preserve">
+    <value>Invertir ángulo</value>
+  </data>
+  <data name="PolarCoordinates_Repeat" xml:space="preserve">
+    <value>Repetición</value>
+  </data>
+  <data name="PolarCoordinates_Mirror" xml:space="preserve">
+    <value>Espejo</value>
+  </data>
+  <data name="PolarCoordinates_SweepAngle" xml:space="preserve">
+    <value>Ángulo de barrido</value>
+  </data>
+  <data name="PolarCoordinates_EdgeMode" xml:space="preserve">
+    <value>Modo de borde</value>
+  </data>
+  <data name="PolarCoordinates_ClipToBounds" xml:space="preserve">
+    <value>Recortar al tamaño original</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Transparent" xml:space="preserve">
+    <value>Transparente</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Clamp" xml:space="preserve">
+    <value>Fijar</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Repeat" xml:space="preserve">
+    <value>Repetir</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Mirror" xml:space="preserve">
+    <value>Espejo</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>Refracción de ondas</value>
   </data>
