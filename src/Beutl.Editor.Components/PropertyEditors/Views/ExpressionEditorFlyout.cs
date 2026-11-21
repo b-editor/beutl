@@ -79,16 +79,13 @@ public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
     {
         string expressionText = ExpressionText ?? "";
 
-        if (!string.IsNullOrWhiteSpace(expressionText))
-        {
-            var args = new ExpressionConfirmedEventArgs(expressionText);
-            Confirmed?.Invoke(this, args);
+        var args = new ExpressionConfirmedEventArgs(expressionText);
+        Confirmed?.Invoke(this, args);
 
-            if (!args.IsValid)
-            {
-                ErrorMessage = args.Error;
-                return;
-            }
+        if (!args.IsValid)
+        {
+            ErrorMessage = args.Error;
+            return;
         }
 
         ErrorMessage = null;

@@ -78,12 +78,19 @@ public class Vector2Editor<TElement> : Vector2Editor, IValueEditorControl<(TElem
             var value = context.GetIncrementValue((FirstValue, SecondValue));
             return [value.Item1, value.Item2];
         };
+        _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+            ? [focused.Item1, focused.Item2]
+            : null;
         BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
         BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
         this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
             {
                 if (e.Expect<(TElement, TElement)>(s) is { } args)
-                    (FirstValue, SecondValue) = PreviewEdit(context, args.NewValue, IsRelativeEdit);
+                {
+                    (FirstValue, SecondValue) = IsUnderlyingEdit
+                        ? PreviewFocusedEdit(context, args.NewValue)
+                        : PreviewEdit(context, args.NewValue, IsRelativeEdit);
+                }
             })
             .DisposeWith(connection);
         ConfirmEdits(context, connection, () => (FirstValue, SecondValue) = shown);

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Beutl.Animation;
 
@@ -19,6 +20,7 @@ public interface IComponentExpression : IExpression
 public sealed class ComponentExpression<TValue, TComponent> : IReplacingExpression<TComponent>, IComponentExpression
 {
     private static readonly ComponentSet<TValue, TComponent> s_set = ComponentAnimations.GetComponentSet<TValue, TComponent>();
+    private static readonly ConditionalWeakTable<IProperty, CachedBelow> s_belowCache = [];
 
     private readonly StringExpression<TValue> _source;
     private string? _expressionString;
@@ -75,7 +77,8 @@ public sealed class ComponentExpression<TValue, TComponent> : IReplacingExpressi
         if (ComponentIndex < 0)
             throw new ExpressionException($"{typeof(TValue).Name} has no component '{Component}'.");
 
-        return s_set.Components[ComponentIndex].Get(_source.Evaluate(context));
+        IExpression<TValue>? below = GetBelowExpression(context.CurrentProperty);
+        return s_set.Components[ComponentIndex].Get(_source.Evaluate(context, below));
     }
 
     public bool Validate([NotNullWhen(false)] out string? error)
@@ -90,4 +93,117 @@ public sealed class ComponentExpression<TValue, TComponent> : IReplacingExpressi
     }
 
     public override string ToString() => ExpressionString;
+
+    private static IExpression<TValue>? GetBelowExpression(IProperty currentProperty)
+    {
+        if (currentProperty.GetOwnerObject() is not { } owner)
+            return null;
+
+        if (s_belowCache.TryGetValue(currentProperty, out CachedBelow? cached) && ReferenceEquals(cached.Owner, owner))
+            return cached.Below;
+
+        IProperty<TComponent>[]? siblings = FindSiblingProperties(currentProperty, owner);
+        CombinedBelowExpression? below = siblings != null ? new CombinedBelowExpression(siblings) : null;
+        s_belowCache.AddOrUpdate(currentProperty, new CachedBelow(owner, below));
+        return below;
+    }
+
+    private static IProperty<TComponent>[]? FindSiblingProperties(IProperty currentProperty, CoreObject owner)
+    {
+        IReadOnlyList<IProperty> properties = owner.Properties;
+        for (int i = 0; i < properties.Count; i++)
+        {
+            IProperty first = properties[i];
+            if (first.GetAttributes()?.OfType<CombinedEditorAttribute>().FirstOrDefault() is not { } attribute)
+                continue;
+
+            string[] others = attribute.OtherNames;
+            if (others.Length + 1 != s_set.Components.Length)
+                continue;
+
+            bool matches = ReferenceEquals(first, currentProperty);
+            if (!matches)
+            {
+                for (int j = 0; j < others.Length; j++)
+                {
+                    if (others[j] == currentProperty.Name)
+                    {
+                        matches = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!matches || first is not IProperty<TComponent> typedFirst)
+                continue;
+
+            var siblings = new IProperty<TComponent>[s_set.Components.Length];
+            siblings[0] = typedFirst;
+            for (int j = 0; j < others.Length; j++)
+            {
+                IProperty<TComponent>? found = null;
+                for (int k = 0; k < properties.Count; k++)
+                {
+                    if (properties[k].Name == others[j] && properties[k] is IProperty<TComponent> typed)
+                    {
+                        found = typed;
+                        break;
+                    }
+                }
+
+                if (found == null)
+                    return null;
+
+                siblings[j + 1] = found;
+            }
+
+            return siblings;
+        }
+
+        return null;
+    }
+
+    private sealed class CachedBelow(CoreObject owner, CombinedBelowExpression? below)
+    {
+        public CoreObject Owner { get; } = owner;
+        public CombinedBelowExpression? Below { get; } = below;
+    }
+
+    // Composes the underlying value (keyframes if any, else stored value) of each combined sibling property so
+    // Value and ValueAtTime work in shared expressions on combined rows.
+    private sealed class CombinedBelowExpression(IProperty<TComponent>[] siblings) : IExpression<TValue>
+    {
+        public string ExpressionString => string.Empty;
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
+
+        public TValue Evaluate(ExpressionContext context)
+        {
+            TValue result = default!;
+            for (int i = 0; i < siblings.Length; i++)
+            {
+                result = s_set.Components[i].Set(result, EvaluateBelow(siblings[i], context));
+            }
+
+            return result;
+        }
+
+        private static TComponent EvaluateBelow(IProperty<TComponent> property, ExpressionContext context)
+        {
+            if (property is IExpressionProperty<TComponent> expressionProperty
+                && ExpressionChain.FindKeyFrames(expressionProperty.Expression) is IExpression<TComponent> keyFrames
+                && keyFrames is not IKeyFrameAnimation { KeyFrames.Count: 0 })
+            {
+                TComponent value = keyFrames.Evaluate(context);
+                if (value is not null)
+                    return value;
+            }
+
+            return property.Value;
+        }
+    }
 }

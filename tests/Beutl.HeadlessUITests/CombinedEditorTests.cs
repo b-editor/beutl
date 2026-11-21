@@ -675,26 +675,64 @@ public sealed class CombinedEditorTests
     }
 
     [AvaloniaTest]
-    public void An_expression_takes_the_place_of_both_animations_until_undone()
+    public void An_expression_keeps_both_animations_and_undo_removes_only_the_expression()
     {
         var transform = new TranslateTransform();
-        transform.X.SetKeyFrameAnimation(Animation(0, 1));
-        transform.Y.SetKeyFrameAnimation(Animation(0, 1));
+        var xAnimation = Animation(0, 1);
+        var yAnimation = Animation(0, 1);
+        transform.X.SetKeyFrameAnimation(xAnimation);
+        transform.Y.SetKeyFrameAnimation(yAnimation);
         using PropertyEditorTestHost.HistoryScope history = new(transform);
         using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         history.History.Commit();
 
         Assert.That(combined.SetExpression("new Point(1, 2)", out string? error), Is.True, error);
-        Assert.That(transform.X.GetKeyFrameAnimation(), Is.Null);
-        Assert.That(transform.Y.GetKeyFrameAnimation(), Is.Null);
-        Assert.That(IsSeparated(combined), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(transform.X.GetKeyFrameAnimation(), Is.SameAs(xAnimation));
+            Assert.That(transform.Y.GetKeyFrameAnimation(), Is.SameAs(yAnimation));
+            Assert.That(transform.X.HasExpression, Is.True);
+            Assert.That(transform.Y.HasExpression, Is.True);
+            Assert.That(combined.HasAnimation.Value, Is.True);
+            Assert.That(combined.HasExpression.Value, Is.True);
+            Assert.That(IsSeparated(combined), Is.False);
+        });
 
         history.History.Undo();
-        Assert.That(transform.X.GetKeyFrameAnimation(), Is.Not.Null);
-        Assert.That(transform.Y.GetKeyFrameAnimation(), Is.Not.Null);
-        Assert.That(transform.X.HasExpression, Is.False);
-        Assert.That(IsSeparated(combined), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(transform.X.GetKeyFrameAnimation(), Is.SameAs(xAnimation));
+            Assert.That(transform.Y.GetKeyFrameAnimation(), Is.SameAs(yAnimation));
+            Assert.That(transform.X.HasExpression, Is.False);
+            Assert.That(transform.Y.HasExpression, Is.False);
+            Assert.That(IsSeparated(combined), Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_combined_expression_can_use_Value_and_refreshes_mixed_siblings()
+    {
+        var shape = new RectShape { Width = { Value = 100 }, Height = { Value = 200 } };
+        using PropertyEditorTestHost.HistoryScope history = new(shape);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(shape);
+        combined.Accept(Services(history.History));
+        Assert.That(combined.SetExpression("new Size(Value.Width + Value.Height, Value.Width * 2)", out string? error), Is.True, error);
+
+        (float, float) shown = default;
+        using IDisposable subscription = combined.EditValue.Subscribe(value => shown = value);
+        Assert.That(shown, Is.EqualTo((300f, 200f)));
+
+        combined.SetCurrentValueAndGetCoerced((150f, 200f), relative: false);
+        combined.SetValue((300f, 200f), (150f, 200f));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((shape.Width.Value, shape.Height.Value), Is.EqualTo((150f, 200f)));
+            Assert.That(shown, Is.EqualTo((350f, 300f)));
+            Assert.That(shape.Width.ExpressionError, Is.Null);
+            Assert.That(shape.Height.ExpressionError, Is.Null);
+        });
     }
 
     [AvaloniaTest]

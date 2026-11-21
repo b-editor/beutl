@@ -60,6 +60,51 @@ public class GraphEditorTreeTests
     }
 
     [AvaloniaTest]
+    public async Task Property_tree_shows_expression_badge_with_and_without_animation()
+    {
+        using var scope = await TreeScope.CreateAsync();
+        scope.Shape.Width.Expression = new StringExpression<float>("Value + 50");
+        scope.Shape.Fill.Expression = new StringExpression<Brush?>("Value");
+        scope.Model.Refresh();
+        HeadlessTestHelpers.Render(3);
+
+        var widthItem = scope.Find(scope.Shape.Width);
+        var fillItem = scope.Find(scope.Shape.Fill);
+        var widthButton = scope.AnimationButton(widthItem);
+        var widthBadge = widthButton.GetVisualDescendants().OfType<FluentIcon>().Single(x => x.Name == "expressionBadge");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(widthItem.HasExpression.Value, Is.True);
+            Assert.That(widthItem.HasAnimation.Value, Is.False);
+            Assert.That(widthBadge.IsVisible, Is.True);
+            Assert.That((string)ToolTip.GetTip(widthButton)!, Does.Contain(MessageStrings.ExpressionIsSet));
+            Assert.That(fillItem.HasExpression.Value, Is.True);
+            Assert.That(fillItem.ShowStandaloneExpressionBadge.Value, Is.True);
+        });
+
+        scope.Model.EnableAnimation(widthItem);
+        HeadlessTestHelpers.Render(3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(widthItem.HasAnimation.Value, Is.True);
+            Assert.That(widthItem.HasExpression.Value, Is.True);
+            Assert.That(widthBadge.IsVisible, Is.True);
+            Assert.That((string)ToolTip.GetTip(widthButton)!, Does.Contain(MessageStrings.ExpressionIsSet));
+        });
+
+        scope.Shape.Width.Expression = null;
+        scope.Model.Refresh();
+        HeadlessTestHelpers.Render(3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(widthItem.HasExpression.Value, Is.False);
+            Assert.That(widthBadge.IsVisible, Is.False);
+            Assert.That((string)ToolTip.GetTip(widthButton)!, Does.Not.Contain(MessageStrings.ExpressionIsSet));
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(640, false)]
     [TestCase(640, true)]
     [TestCase(960, false)]
@@ -431,7 +476,7 @@ public class GraphEditorTreeTests
         using var scope = await TreeScope.CreateAsync(light: light);
         var item = scope.Find(scope.Shape.Width);
         var button = scope.AnimationButton(item);
-        var icon = button.GetVisualDescendants().OfType<FluentIcon>().Single();
+        var icon = button.GetVisualDescendants().OfType<FluentIcon>().Single(x => x.Name == "symbolIcon");
         Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.EnableAnimation));
         Assert.That(icon.Icon, Is.EqualTo(Icon.Timer));
         scope.Base.Model.Element!.Start.Value = MediaTime.FromSeconds(2);
@@ -517,7 +562,7 @@ public class GraphEditorTreeTests
         Assert.That(scope.Shape.Width.Value, Is.EqualTo(240));
         Assert.That(item.HasAnimation.Value, Is.False);
         Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.EnableAnimation));
-        Assert.That(button.GetVisualDescendants().OfType<FluentIcon>().Single().Icon, Is.EqualTo(Icon.Timer));
+        Assert.That(button.GetVisualDescendants().OfType<FluentIcon>().Single(x => x.Name == "symbolIcon").Icon, Is.EqualTo(Icon.Timer));
         Assert.That(scope.Model.SelectedAnimation.Value, Is.Null);
         Assert.That(scope.Model.SelectedTreeItem.Value, Is.SameAs(item));
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));

@@ -374,7 +374,9 @@ public partial class PropertyExpressionTests
         using var scope = new ValueEditScope<float>(100, "Value + 50");
         using var host = scope.Show();
         var box = scope.Control.GetVisualDescendants().OfType<TextBox>().Single(x => x.Name == "PART_InnerTextBox");
+        Assert.That(box.Text, Is.EqualTo("150"));
         box.Focus();
+        Assert.That(box.Text, Is.EqualTo("100"), "Focusing shows the underlying value before the expression.");
         box.SelectAll();
         host.Window.KeyTextInput("120");
         ((Border)host.Window.Content!).Focus();
@@ -389,6 +391,90 @@ public partial class PropertyExpressionTests
         });
         scope.History.Undo();
         Assert.That(scope.Property.Value, Is.EqualTo(100));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Focusing_the_number_field_shows_the_underlying_value_without_committing_on_blur(bool animated)
+    {
+        using var scope = new ValueEditScope<float>(100, "Value + 50", animated);
+        using var host = scope.Show();
+        var box = scope.Control.GetVisualDescendants().OfType<TextBox>().Single(x => x.Name == "PART_InnerTextBox");
+        Assert.That(box.Text, Is.EqualTo("150"));
+
+        box.Focus();
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(box.Text, Is.EqualTo("100"));
+            Assert.That(scope.History.UndoCount, Is.Zero);
+        });
+
+        ((Border)host.Window.Content!).Focus();
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(box.Text, Is.EqualTo("150"));
+            Assert.That(scope.Model.GetEditingValue(), Is.EqualTo(100));
+            Assert.That(scope.History.UndoCount, Is.Zero);
+        });
+
+        // Stepping by wheel while focused keeps showing the underlying value until blur.
+        box.Focus();
+        AvaPoint point = HeadlessTestHelpers.Center(box, host.Window);
+        host.Window.MouseWheel(point, new Avalonia.Vector(0, 1));
+        HeadlessTestHelpers.Render();
+        Assert.That(box.Text, Is.EqualTo("110"));
+        ((Border)host.Window.Content!).Focus();
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Model.GetEditingValue(), Is.EqualTo(110));
+            Assert.That(box.Text, Is.EqualTo("160"));
+            Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Focusing_a_vector_field_shows_the_underlying_component_and_accepts_the_shown_value(bool animated)
+    {
+        using var scope = new ValueEditScope<Point>(new(100, 200), "new Point(Value.X * 2, Value.Y * 2)", animated);
+        using var host = scope.Show();
+        var editor = scope.Control.GetVisualDescendants().OfType<Vector2Editor<float>>().Single();
+        TextBox[] boxes = editor.GetVisualDescendants().OfType<TextBox>().ToArray();
+        Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(("200", "400")));
+
+        boxes[0].Focus();
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(boxes[0].Text, Is.EqualTo("100"));
+            Assert.That(boxes[1].Text, Is.EqualTo("400"));
+            Assert.That(scope.History.UndoCount, Is.Zero);
+        });
+
+        ((Border)host.Window.Content!).Focus();
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(("200", "400")));
+            Assert.That(scope.History.UndoCount, Is.Zero);
+        });
+
+        // Replacing the underlying component with the currently displayed value in one shot (as paste does) still writes it.
+        boxes[0].Focus();
+        boxes[0].SetCurrentValue(TextBox.TextProperty, "200");
+        ((Border)host.Window.Content!).Focus();
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Model.GetEditingValue(), Is.EqualTo(new Point(200, 200)));
+            Assert.That((boxes[0].Text, boxes[1].Text), Is.EqualTo(("400", "400")));
+            Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        });
     }
 
     [AvaloniaTest]

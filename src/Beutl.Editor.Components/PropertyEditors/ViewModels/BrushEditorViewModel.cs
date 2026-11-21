@@ -171,6 +171,7 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
 
     public override void Reset()
     {
+        if (HasExpression.Value) return;
         if (GetDefaultValue() is { } defaultValue)
         {
             SetValue(GetEditingValue(), (Brush?)defaultValue);

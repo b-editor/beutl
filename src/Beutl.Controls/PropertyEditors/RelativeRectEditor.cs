@@ -95,6 +95,9 @@ public class RelativeRectEditor : Vector4Editor, IValueEditorControl<Graphics.Re
             var value = context.GetIncrementValue(new Graphics.RelativeRect(new Graphics.Rect(FirstValue, SecondValue, ThirdValue, FourthValue), Unit));
             return [value.Rect.X, value.Rect.Y, value.Rect.Width, value.Rect.Height];
         };
+        _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+            ? ([focused.Rect.X, focused.Rect.Y, focused.Rect.Width, focused.Rect.Height], focused.Unit)
+            : null;
         BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Rect.X), connection);
         BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Rect.Y), connection);
         BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Rect.Width), connection);
@@ -104,7 +107,9 @@ public class RelativeRectEditor : Vector4Editor, IValueEditorControl<Graphics.Re
             {
                 if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativeRect> args)
                 {
-                    Graphics.RelativeRect coerced = PreviewEdit(context, args.NewValue, IsRelativeEdit);
+                    Graphics.RelativeRect coerced = IsUnderlyingEdit
+                        ? PreviewFocusedEdit(context, args.NewValue)
+                        : PreviewEdit(context, args.NewValue, IsRelativeEdit);
                     FirstValue = coerced.Rect.X;
                     SecondValue = coerced.Rect.Y;
                     ThirdValue = coerced.Rect.Width;

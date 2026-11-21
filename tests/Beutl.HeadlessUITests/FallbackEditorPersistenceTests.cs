@@ -898,7 +898,6 @@ public sealed class FallbackEditorPersistenceTests
     [AvaloniaTest]
     [TestCase(AnimationDiscardKind.RemoveKeyFrame)]
     [TestCase(AnimationDiscardKind.RemoveAnimation)]
-    [TestCase(AnimationDiscardKind.SetExpression)]
     public async Task LastLossyEasingDiscard_ResumesPersistenceInReplacementTransaction(AnimationDiscardKind kind)
     {
         await TestReset.ResetShellAsync();
@@ -926,9 +925,6 @@ public sealed class FallbackEditorPersistenceTests
                 case AnimationDiscardKind.RemoveAnimation:
                     viewModel.RemoveAnimation();
                     break;
-                case AnimationDiscardKind.SetExpression:
-                    Assert.That(viewModel.SetExpression("1 + 2", out string? error), Is.True, error);
-                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind));
             }
@@ -944,6 +940,43 @@ public sealed class FallbackEditorPersistenceTests
                 Assert.That(repairedBytes, Is.Not.EqualTo(recovered.OriginalBytes));
                 Assert.That(undone, Is.True);
                 Assert.That(restoredAnimation.KeyFrames, Has.Count.EqualTo(1));
+                Assert.That(File.ReadAllBytes(recovered.ElementPath), Is.EqualTo(recovered.OriginalBytes));
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // Setting an expression keeps the animation, so it does not discard a lossy easing and is refused.
+    [AvaloniaTest]
+    public async Task SetExpression_IsRefusedWhileAnAnimationHoldsALossyEasing()
+    {
+        await TestReset.ResetShellAsync();
+
+        string root = CreateRoot();
+        try
+        {
+            Recovered recovered = StoreCorruptAndRestore(root, CreateAnimatedShape(), CorruptTheEasing);
+            Element recoveredElement = recovered.Element;
+            var shape = (RectShape)recoveredElement.Objects.Single();
+            var animation = (KeyFrameAnimation<float>)shape.Width.GetKeyFrameAnimation()!;
+            using var history = new HistoryScope(recoveredElement);
+            using var viewModel = new ValueEditorViewModel<float>(new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)shape.Width,
+                shape));
+            viewModel.Accept(Services(recoveredElement, history.History));
+
+            bool set = viewModel.SetExpression("1 + 2", out _);
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(set, Is.False);
+                Assert.That(shape.Width.HasExpression, Is.False);
+                Assert.That(shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
+                Assert.That(recoveredElement.SuppressedStorageSource, Is.Not.Null);
                 Assert.That(File.ReadAllBytes(recovered.ElementPath), Is.EqualTo(recovered.OriginalBytes));
             });
         }
@@ -1204,6 +1237,5 @@ public sealed class FallbackEditorPersistenceTests
     {
         RemoveKeyFrame,
         RemoveAnimation,
-        SetExpression,
     }
 }

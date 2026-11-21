@@ -39,7 +39,9 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
 
     IExpression<T> IReplacingExpression<T>.WithReplaced(IExpression<T>? replaced) => new StringExpression<T>(this, replaced);
 
-    public T Evaluate(ExpressionContext context)
+    public T Evaluate(ExpressionContext context) => Evaluate(context, Replaced);
+
+    internal T Evaluate(ExpressionContext context, IExpression<T>? below)
     {
         var result = _parseResult.Value;
 
@@ -50,7 +52,7 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
 
         try
         {
-            var globals = new ExpressionGlobals<T>(context, Replaced);
+            var globals = new ExpressionGlobals<T>(context, below);
             var evalResult = result.ScriptRunner(globals).GetAwaiter().GetResult();
             return ConvertResult(evalResult);
         }

@@ -87,8 +87,42 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         => ObserveEditingTime()
             .CombineLatest(EditingKeyFrame.Select(key => key?.KeyTime.GetObservable()
                 ?? Observable.ReturnThenNever(MediaTime.Zero)).Switch(), (time, _) => time)
-            .CombineLatest(Observable.FromEventPattern(h => property.Edited += h, h => property.Edited -= h)
-                .Select(_ => 0).StartWith(0), (time, _) => EvaluateShownValue(property, time));
+            .CombineLatest(ObservePropertyEdits(property), (time, _) => EvaluateShownValue(property, time));
+
+    // A shared combined expression can read Value from its sibling properties, so edits to a sibling refresh this too.
+    private static IObservable<int> ObservePropertyEdits(IExpressionProperty<TValue> property)
+    {
+        IObservable<int> edits = Observable.FromEventPattern(h => property.Edited += h, h => property.Edited -= h)
+            .Select(_ => 0);
+
+        if (property.GetOwnerObject() is { } owner)
+        {
+            foreach (IProperty first in owner.Properties)
+            {
+                if (first.GetAttributes()?.OfType<CombinedEditorAttribute>().FirstOrDefault() is not { } attribute)
+                    continue;
+
+                string[] others = attribute.OtherNames;
+                if (!ReferenceEquals(first, property) && !others.Contains(property.Name))
+                    continue;
+
+                foreach (IProperty sibling in owner.Properties)
+                {
+                    if (ReferenceEquals(sibling, property))
+                        continue;
+
+                    if (ReferenceEquals(sibling, first) || others.Contains(sibling.Name))
+                    {
+                        edits = edits.Merge(Observable.FromEventPattern(h => sibling.Edited += h, h => sibling.Edited -= h)
+                            .Select(_ => 0));
+                    }
+                }
+                break;
+            }
+        }
+
+        return edits.StartWith(0);
+    }
 
     private TValue EvaluateShownValue(IExpressionProperty<TValue> property, MediaTime time)
     {
@@ -129,10 +163,11 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     {
         // Every element takes the value as its own editor would, from what it shows itself: the value shown is one
         // element's, so the others can still differ from it even when it stays. Other elements keep their expressions.
+        TValue? mirroredNewValue = _previewingExpression ? GetEditingValue() : newValue;
         if (MirrorsValue(
                 (editor, own) => editor.SetValue(
                     own ? oldValue : editor.GetEditingValue(),
-                    own ? newValue : CopyForOtherElement(newValue),
+                    own ? newValue : CopyForOtherElement(mirroredNewValue),
                     commandName),
                 commitName: commandName))
         {
@@ -196,7 +231,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             {
                 var typed = (PropertyEditorViewModel<TValue>)editor;
                 bool own = ReferenceEquals(typed, this);
-                if (own || !typed.HasExpression.Value)
+                if (own || !typed.HasExpression.Value || typed.CanEditUnderExpression)
                     edit(typed, own);
             },
             commit,
@@ -245,45 +280,70 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     public TValue? SetCurrentValueAndGetCoerced(TValue? value)
         => SetCurrentValueAndGetCoerced(value, relative: true);
 
-    internal TValue? SetCurrentValueAndGetCoerced(TValue? value, bool relative)
+    internal TValue? SetCurrentValueAndGetCoerced(TValue? value, bool relative, bool directUnderlying = false)
     {
         if (IsDisposed) return default;
-
-        // While a value is dragged every element shows it, and the edit that sets it takes one history entry for all.
-        TValue? coerced = default;
-        if (MirrorsValue(
-                (editor, own) =>
-                {
-                    TValue? result = editor.SetCurrentValueAndGetCoerced(own ? value : CopyForOtherElement(value), relative);
-                    if (own) coerced = result;
-                },
-                commit: false))
-        {
-            return coerced;
-        }
-
         if (!IsElementEditable || (HasExpression.Value && !CanEditUnderExpression))
             return ShownValue.Value;
 
+        if (Mirror != null)
+        {
+            TValue? underlying = HasExpression.Value ? ComputeUnderlyingPreview(value, relative, directUnderlying) : value;
+            TValue? coerced = default;
+            if (MirrorsValue(
+                    (editor, own) =>
+                    {
+                        if (own)
+                        {
+                            coerced = ApplyUnderlyingPreview(underlying);
+                        }
+                        else
+                        {
+                            editor.SetCurrentValue(CopyForOtherElement(underlying));
+                        }
+                    },
+                    commit: false))
+            {
+                return coerced;
+            }
+        }
+
         if (HasExpression.Value)
         {
-            if (!_previewingExpression)
-            {
-                _historyStart = GetEditingValue();
-                StartPreviewBaseline(relative);
-                _previewingExpression = true;
-            }
-            else if (relative != _relativePreview)
-            {
-                // Typing after a wheel step (or the reverse) keeps each input's meaning; undo still goes back to the start.
-                StartPreviewBaseline(relative);
-            }
+            return ApplyUnderlyingPreview(ComputeUnderlyingPreview(value, relative, directUnderlying));
+        }
 
-            // Typed input carries the other fields as they show now, which an earlier keystroke can have changed, so it is
-            // compared with the current display and value rather than those the preview started from.
-            TValue? underlying = _relativePreview
-                ? OffsetValue(_previewStart!, _shownStart!, value!)
+        _previewingExpression = false;
+        return SetCurrentValue(value);
+    }
+
+    private TValue? ComputeUnderlyingPreview(TValue? value, bool relative, bool directUnderlying)
+    {
+        if (!_previewingExpression)
+        {
+            _historyStart = GetEditingValue();
+            StartPreviewBaseline(relative);
+            _previewingExpression = true;
+        }
+        else if (relative != _relativePreview)
+        {
+            // Typing after a wheel step (or the reverse) keeps each input's meaning; undo still goes back to the start.
+            StartPreviewBaseline(relative);
+        }
+
+        // Typed input carries the other fields as they show now, which an earlier keystroke can have changed, so it is
+        // compared with the current display and value rather than those the preview started from.
+        return _relativePreview
+            ? OffsetValue(_previewStart!, _shownStart!, value!)
+            : directUnderlying
+                ? value
                 : ReplaceUnderExpression(GetEditingValue()!, ShownValue.Value, value!);
+    }
+
+    private TValue? ApplyUnderlyingPreview(TValue? underlying)
+    {
+        if (HasExpression.Value)
+        {
             TValue? accepted = SetCurrentValue(underlying);
             // Incremental controls continue from accepted input, not from the expression's result.
             _previewInput = _relativePreview ? OffsetValue(_shownStart!, _previewStart!, accepted!) : accepted;
@@ -291,7 +351,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         }
 
         _previewingExpression = false;
-        return SetCurrentValue(value);
+        return SetCurrentValue(underlying);
     }
 
     private void StartPreviewBaseline(bool relative)
@@ -406,7 +466,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         return true;
     }
 
-    // Puts an expression that another editor has read in place of this property's animation.
+    // Sets an expression that another editor has parsed, keeping any animation below it.
     internal bool SetExpression(IExpression<TValue> expression, [NotNullWhen(false)] out string? error)
     {
         if (!CanSetExpression(out error))
@@ -418,10 +478,10 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         return true;
     }
 
-    // Setting an expression drops the animation, so it can discard an easing that could not be read.
+    // Setting an expression keeps any animation below it, so it only repairs a dropped value on this property.
     private bool CanSetExpression([NotNullWhen(false)] out string? error)
     {
-        error = CanReplace(GetAnimation()) ? null : MessageStrings.OperationFailed;
+        error = CanReplace(null) ? null : MessageStrings.OperationFailed;
         return error == null;
     }
 
@@ -430,12 +490,8 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         if (PropertyAdapter is not IExpressionPropertyAdapter<TValue> expressionProperty) return;
 
         expressionProperty.Expression = expression;
-        if (PropertyAdapter is IAnimatablePropertyAdapter<TValue> ap)
-        {
-            ap.Animation = null;
-        }
 
-        // Also for a property that cannot be animated: an expression replaces a value that loading dropped.
+        // An expression can replace a value that loading dropped.
         CompleteElementRepair();
         Commit();
     }

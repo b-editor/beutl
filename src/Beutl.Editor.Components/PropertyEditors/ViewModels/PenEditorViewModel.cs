@@ -100,6 +100,7 @@ public sealed class PenEditorViewModel : PropertyEditorViewModel, IObjectEditorC
 
     public override void Reset()
     {
+        if (HasExpression.Value) return;
         if (GetDefaultValue() is { } defaultValue)
         {
             SetValue(Value.Value, (Pen?)defaultValue);

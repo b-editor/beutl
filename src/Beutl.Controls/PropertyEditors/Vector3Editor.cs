@@ -90,13 +90,20 @@ public class Vector3Editor<TElement> : Vector3Editor, IValueEditorControl<(TElem
             var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue));
             return [value.Item1, value.Item2, value.Item3];
         };
+        _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+            ? [focused.Item1, focused.Item2, focused.Item3]
+            : null;
         BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
         BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
         BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
         this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
             {
                 if (e.Expect<(TElement, TElement, TElement)>(s) is { } args)
-                    (FirstValue, SecondValue, ThirdValue) = PreviewEdit(context, args.NewValue, IsRelativeEdit);
+                {
+                    (FirstValue, SecondValue, ThirdValue) = IsUnderlyingEdit
+                        ? PreviewFocusedEdit(context, args.NewValue)
+                        : PreviewEdit(context, args.NewValue, IsRelativeEdit);
+                }
             })
             .DisposeWith(connection);
         ConfirmEdits(context, connection, () => (FirstValue, SecondValue, ThirdValue) = shown);

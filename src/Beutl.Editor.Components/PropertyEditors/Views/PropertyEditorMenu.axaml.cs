@@ -127,7 +127,26 @@ public sealed partial class PropertyEditorMenu : UserControl
                 return;
             }
 
-            if (viewModel.HasExpression.Value && SupportsTextExpression(viewModel))
+            if (viewModel.HasAnimation.Value)
+            {
+                if (viewModel.GetService<IEditorClock>() is { } editorClock)
+                {
+                    MediaTime keyTime = editorClock.CurrentTime.Value;
+                    if (symbolIcon.IconVariant == FluentIcons.Common.IconVariant.Filled)
+                    {
+                        viewModel.RemoveKeyFrame(keyTime);
+                    }
+                    else
+                    {
+                        viewModel.InsertKeyFrame(keyTime);
+                    }
+                }
+                else if (sender is Button button)
+                {
+                    button.ContextFlyout?.ShowAt(button);
+                }
+            }
+            else if (viewModel.HasExpression.Value && SupportsTextExpression(viewModel))
             {
                 // The editor does not light-dismiss, so a second click on the button closes it and drops
                 // the unconfirmed edit, as × does.
@@ -138,18 +157,6 @@ public sealed partial class PropertyEditorMenu : UserControl
                 else
                 {
                     EditExpression_Click(sender, e);
-                }
-            }
-            else if (viewModel.HasAnimation.Value && viewModel.GetService<IEditorClock>() is { } editorClock)
-            {
-                MediaTime keyTime = editorClock.CurrentTime.Value;
-                if (symbolIcon.IconVariant == FluentIcons.Common.IconVariant.Filled)
-                {
-                    viewModel.RemoveKeyFrame(keyTime);
-                }
-                else
-                {
-                    viewModel.InsertKeyFrame(keyTime);
                 }
             }
             else if (sender is Button button)
@@ -242,6 +249,18 @@ public sealed partial class PropertyEditorMenu : UserControl
             }
             flyout.Confirmed += (_, args) =>
             {
+                if (string.IsNullOrWhiteSpace(args.ExpressionText))
+                {
+                    if (viewModel.HasExpression.Value)
+                    {
+                        viewModel.RemoveExpression();
+                    }
+
+                    args.IsValid = true;
+                    args.Error = null;
+                    return;
+                }
+
                 bool isValid = viewModel.SetExpression(args.ExpressionText, out var error);
                 args.IsValid = isValid;
                 args.Error = error;
