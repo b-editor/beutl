@@ -24,20 +24,18 @@ public sealed partial class PolarCoordinates : FilterEffect
         uniform float2 sourceRatio;
         uniform float2 sourceOffset;
 
-        float2 halfTexel() {
-            return min(0.5 / sourceRatio, size * 0.5);
-        }
-
         half4 sampleLinear(float2 p) {
-            float2 inset = halfTexel();
-            p = clamp(p, origin + inset, origin + size - inset);
-            float2 t = p * sourceRatio + sourceOffset - 0.5;
-            float2 b = floor(t);
-            half2 f = half2(t - b);
-            float2 c = (b + 0.5 - sourceOffset) / sourceRatio;
-            float2 d = 1.0 / sourceRatio;
-            half4 top = mix(src.eval(c), src.eval(c + float2(d.x, 0.0)), f.x);
-            half4 bottom = mix(src.eval(c + float2(0.0, d.y)), src.eval(c + d), f.x);
+            // In texel index space, where texel k's center is at k; only centers inside the logical bounds are tapped.
+            float2 first = ceil(origin * sourceRatio + sourceOffset - 0.5);
+            float2 last = max(first, floor((origin + size) * sourceRatio + sourceOffset - 0.5));
+            float2 t = clamp(p * sourceRatio + sourceOffset - 0.5, first, last);
+            float2 b0 = floor(t);
+            half2 f = half2(t - b0);
+            float2 b1 = min(b0 + 1.0, last);
+            float2 c0 = (b0 + 0.5 - sourceOffset) / sourceRatio;
+            float2 c1 = (b1 + 0.5 - sourceOffset) / sourceRatio;
+            half4 top = mix(src.eval(c0), src.eval(float2(c1.x, c0.y)), f.x);
+            half4 bottom = mix(src.eval(float2(c0.x, c1.y)), src.eval(c1), f.x);
             return mix(top, bottom, f.y);
         }
 
