@@ -11,14 +11,41 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.PolarCoordinates), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class PolarCoordinates : FilterEffect
 {
-    // A partial request can rasterize padding around the logical output, so both shaders clip to it.
-    private static readonly SkslSource s_rectangularToPolar = SkslSource.WholeSource(
+    // Whole-source stages sample src with nearest filtering, which leaves stair-stepped color boundaries
+    // after a warp, so the shaders filter bilinearly in the source's own texel grid (see MosaicEffect).
+    // Samples are clamped to texel centers inside the logical bounds: a partial request can rasterize
+    // padding, and the source raster can extend past fractional logical bounds.
+    private const string SharedSource =
         """
         uniform shader src;
         uniform float2 origin;
         uniform float2 size;
         uniform float amount;
+        uniform float2 sourceRatio;
+        uniform float2 sourceOffset;
 
+        float2 halfTexel() {
+            return min(0.5 / sourceRatio, size * 0.5);
+        }
+
+        half4 sampleLinear(float2 p) {
+            float2 inset = halfTexel();
+            p = clamp(p, origin + inset, origin + size - inset);
+            float2 t = p * sourceRatio + sourceOffset - 0.5;
+            float2 b = floor(t);
+            half2 f = half2(t - b);
+            float2 c = (b + 0.5 - sourceOffset) / sourceRatio;
+            float2 d = 1.0 / sourceRatio;
+            half4 top = mix(src.eval(c), src.eval(c + float2(d.x, 0.0)), f.x);
+            half4 bottom = mix(src.eval(c + float2(0.0, d.y)), src.eval(c + d), f.x);
+            return mix(top, bottom, f.y);
+        }
+
+        """;
+
+    private static readonly SkslSource s_rectangularToPolar = SkslSource.WholeSource(
+        SharedSource +
+        """
         half4 main(float2 coord) {
             float2 local = coord - origin;
             if (any(lessThan(local, float2(0.0))) || any(greaterThanEqual(local, size))) {
@@ -30,28 +57,18 @@ public sealed partial class PolarCoordinates : FilterEffect
             float radius = length(q);
             float angle = radius == 0.0 ? 0.0 : atan(q.x, -q.y);
             float u = fract(angle / 6.28318530718);
-            float2 mapped = size * float2(u, radius);
+            float2 sample = mix(coord, origin + size * float2(u, radius), amount);
 
-            // In working pixels, inset the angular seam and the collapsed top row to texel centers.
-            float2 inset = min(float2(0.5), halfSize);
-            mapped.x = clamp(mapped.x, inset.x, size.x - inset.x);
-            mapped.y = max(mapped.y, inset.y);
-            float2 sample = mix(coord, origin + mapped, amount);
-            // The source raster can extend past fractional logical bounds, so Decal alone would not clear it.
-            if (any(lessThan(sample, origin)) || any(greaterThanEqual(sample, origin + size))) {
-                return half4(0.0);
-            }
-            return src.eval(sample);
+            // Only the rim can map past the source; fade it over one source texel instead of cutting it.
+            // The clamp in sampleLinear keeps the 12 o'clock seam and the collapsed top row opaque.
+            float coverage = clamp((origin.y + size.y - sample.y) * sourceRatio.y + 0.5, 0.0, 1.0);
+            return sampleLinear(sample) * half(coverage);
         }
         """);
 
     private static readonly SkslSource s_polarToRectangular = SkslSource.WholeSource(
+        SharedSource +
         """
-        uniform shader src;
-        uniform float2 origin;
-        uniform float2 size;
-        uniform float amount;
-
         half4 main(float2 coord) {
             float2 local = coord - origin;
             if (any(lessThan(local, float2(0.0))) || any(greaterThanEqual(local, size))) {
@@ -62,11 +79,7 @@ public sealed partial class PolarCoordinates : FilterEffect
             float angle = uv.x * 6.28318530718;
             float2 halfSize = size * 0.5;
             float2 mapped = origin + halfSize + halfSize * uv.y * float2(sin(angle), -cos(angle));
-            float2 sample = mix(coord, mapped, amount);
-            if (any(lessThan(sample, origin)) || any(greaterThanEqual(sample, origin + size))) {
-                return half4(0.0);
-            }
-            return src.eval(sample);
+            return sampleLinear(mix(coord, mapped, amount));
         }
         """);
 
@@ -117,6 +130,26 @@ public sealed partial class PolarCoordinates : FilterEffect
         }
     }
 
+    // Source texels per stage pixel; without a source grid the stage's own grid is used instead.
+    private static void BindSourceRatio(ShaderUniformWriter writer, Vector2 unit, ShaderExecutionContext context)
+        => writer.Set(context.InputRasterOrigin is null
+            ? unit
+            : unit * (context.InputEffectiveScale.Value / context.OutputPlacement.Scale.Value));
+
+    // The source texel coordinate of stage pixel 0.
+    private static void BindSourceOffset(ShaderUniformWriter writer, Vector2 none, ShaderExecutionContext context)
+    {
+        if (context.InputRasterOrigin is not { } inputOrigin)
+        {
+            writer.Set(none);
+            return;
+        }
+
+        float scale = context.InputEffectiveScale.Value;
+        Point logicalOrigin = context.OutputPlacement.LogicalOrigin;
+        writer.Set(new Vector2((logicalOrigin.X - inputOrigin.X) * scale, (logicalOrigin.Y - inputOrigin.Y) * scale));
+    }
+
     public new partial class Resource
     {
         protected override void ApplyTo(FilterEffectContext context)
@@ -135,6 +168,8 @@ public sealed partial class PolarCoordinates : FilterEffect
                 bindings =>
                 {
                     bindings.Uniform("amount", amount);
+                    bindings.Uniform("sourceRatio", Vector2.One, BindSourceRatio);
+                    bindings.Uniform("sourceOffset", Vector2.Zero, BindSourceOffset);
                     // Anchor the warp to the full logical bounds at the current working density.
                     bindings.Uniform("origin", 0, static (writer, _, execution) =>
                     {
