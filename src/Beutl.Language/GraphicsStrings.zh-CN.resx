@@ -209,6 +209,36 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>小于此值的差异不会被增强，可避免噪点变得明显。</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>胶片颗粒</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>以逻辑像素为单位设置每个颗粒单元的大小。</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>柔和度</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>数值越高，颗粒单元之间的过渡越平滑。</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>颜色</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>0% 时所有通道共用同一颗粒图案，100% 时各通道使用各自的颗粒图案。</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>随机种子</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>动画</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>每帧更换颗粒图案。</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>亮度</value>
   </data>

@@ -205,6 +205,36 @@
   <data name="Sharpen_Threshold_Description" xml:space="preserve">
     <value>これより小さな差は強調しません。ノイズを目立たせたくないときに上げます。</value>
   </data>
+  <data name="FilmGrain" xml:space="preserve">
+    <value>フィルムグレイン</value>
+  </data>
+  <data name="FilmGrain_Size" xml:space="preserve">
+    <value>サイズ</value>
+  </data>
+  <data name="FilmGrain_Size_Description" xml:space="preserve">
+    <value>グレインの粒の大きさを論理ピクセル単位で指定します。</value>
+  </data>
+  <data name="FilmGrain_Softness" xml:space="preserve">
+    <value>柔らかさ</value>
+  </data>
+  <data name="FilmGrain_Softness_Description" xml:space="preserve">
+    <value>値を上げると粒の境界がなめらかになります。</value>
+  </data>
+  <data name="FilmGrain_Color" xml:space="preserve">
+    <value>カラー</value>
+  </data>
+  <data name="FilmGrain_Color_Description" xml:space="preserve">
+    <value>0% では全チャンネルで同じグレインを使い、100% ではチャンネルごとに異なるグレインを使います。</value>
+  </data>
+  <data name="FilmGrain_Seed" xml:space="preserve">
+    <value>シード</value>
+  </data>
+  <data name="FilmGrain_Animate" xml:space="preserve">
+    <value>アニメーション</value>
+  </data>
+  <data name="FilmGrain_Animate_Description" xml:space="preserve">
+    <value>フレームごとにグレインのパターンを変えます。</value>
+  </data>
   <data name="Brightness" xml:space="preserve">
     <value>輝度</value>
   </data>

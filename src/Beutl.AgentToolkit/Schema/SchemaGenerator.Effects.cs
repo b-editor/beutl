@@ -189,6 +189,7 @@ public sealed partial class SchemaGenerator
             [typeof(Gamma)] = Metadata(["color", "grade"], []),
             [typeof(ColorGrading)] = Metadata(["color", "grade", "cinematic"], []),
             [typeof(Curves)] = Metadata(["color", "grade", "cinematic"], []),
+            [typeof(FilmGrain)] = Metadata(["grain", "noise", "film", "texture"], []),
             [typeof(Invert)] = Metadata(["color", "graphic", "negative"], []),
             [typeof(LutEffect)] = Metadata(["color", "grade", "lut"], ["Requires a LUT source to have visible effect."]),
             [typeof(BlendEffect)] = Metadata(["composite", "blend", "layer"], []),
