@@ -35,11 +35,13 @@ public class WebBrowserDownloadTests
     private static WebBrowserTabView CreateView(
         WebBrowserTabViewModel vm,
         bool? includesSubframes = null,
-        Func<NativeWebView, Task<string?>>? getPageTitle = null)
+        Func<NativeWebView, Task<string?>>? getPageTitle = null,
+        bool? reportsNavigationCommits = null)
         => new(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             getPageTitle: getPageTitle,
             navigationStartedIncludesSubframes: includesSubframes,
-            handlesMediaResponsesNatively: includesSubframes == true ? true : null)
+            handlesMediaResponsesNatively: includesSubframes == true ? true : null,
+            reportsNavigationCommits: reportsNavigationCommits)
         {
             DataContext = vm,
             OpensPageDownloadOptionsDirectly = false,
@@ -1905,6 +1907,80 @@ public class WebBrowserDownloadTests
         await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://files.example/")));
         Assert.That(handler.CookieHeader, Is.EqualTo("session=private"));
+    }
+
+    [AvaloniaTest]
+    [TestCase("stopped")]
+    [TestCase("failed-before-commit")]
+    [TestCase("failed-after-commit")]
+    [TestCase("uncommitted-stopped")]
+    public async Task DownloadsAfterAbortedNavigationKeepCommittedPageMetadataWhenCommitsAreReported(string scenario)
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        bool hasCommittedInitial = scenario != "uncommitted-stopped";
+        var initial = hasCommittedInitial ? new Uri("https://original.example/page") : WebBrowserTabViewModel.BlankPage;
+        var next = scenario == "failed-after-commit"
+            ? new Uri("https://partial.example/page")
+            : new Uri("https://hang.example/");
+        Uri media = scenario == "failed-after-commit"
+            ? new Uri("https://partial.example/media.mp3")
+            : new Uri("https://original.example/media.mp3");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), initial, profile);
+        using var view = CreateView(vm, includesSubframes: true, reportsNavigationCommits: true);
+        if (hasCommittedInitial) view.OnNativeNavigationCommitted(initial);
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        view.DownloadCookiesProvider = (_, _) => Task.FromResult<IReadOnlyList<Cookie>>(
+        [
+            new("session", "private", "/", "original.example") { Secure = true },
+            new("session", "private", "/", "partial.example") { Secure = true }
+        ]);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+
+        vm.Address.Value = next.AbsoluteUri;
+        view.NavigateFromAddress();
+        if (scenario == "failed-after-commit")
+        {
+            view.OnNativeNavigationCommitted(next);
+        }
+        if (scenario is "stopped" or "uncommitted-stopped")
+        {
+            view.OnNavigationStopped();
+        }
+        else
+        {
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        }
+
+        Assert.That(vm.IsLoading.Value, Is.False);
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
+
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = $$"""{"kind":"beutl-download","url":"{{media.AbsoluteUri}}","referrerPolicy":"origin"}""" });
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.True);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Uri? expectedDocument = scenario switch
+        {
+            "uncommitted-stopped" => null,
+            "failed-after-commit" => next,
+            _ => initial
+        };
+        Uri? expectedReferrer = expectedDocument == null ? null : new Uri(expectedDocument.GetLeftPart(UriPartial.Authority) + "/");
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Referrer, Is.EqualTo(expectedReferrer));
+            Assert.That(handler.CookieHeader, Is.EqualTo(expectedDocument == null ? null : "session=private"));
+            Assert.That(profile.Downloads.Single().Referrer, Is.EqualTo(expectedReferrer));
+        });
     }
 
     [AvaloniaTest]
