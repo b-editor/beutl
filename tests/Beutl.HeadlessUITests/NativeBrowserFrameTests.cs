@@ -1353,8 +1353,10 @@ internal static partial class NativeBrowserFrameTestHost
         async Task Load(Uri page)
         {
             var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var completions = new List<string>();
             void Loaded(object? sender, WebViewNavigationCompletedEventArgs e)
             {
+                completions.Add($"{e.Request} ({(e.IsSuccess ? "loaded" : "failed")})");
                 if (e.IsSuccess && e.Request == page) loaded.TrySetResult();
             }
             browser.NavigationCompleted += Loaded;
@@ -1363,6 +1365,10 @@ internal static partial class NativeBrowserFrameTestHost
                 vm.Address.Value = page.AbsoluteUri;
                 view.NavigateFromAddress();
                 await loaded.Task.WaitAsync(token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new TimeoutException($"{page} did not load. Completed navigations: [{string.Join(", ", completions)}]");
             }
             finally { browser.NavigationCompleted -= Loaded; }
         }
@@ -1426,8 +1432,9 @@ public class NativeBrowserFrameTests
             start.Environment["XDG_DATA_HOME"] = Path.Combine(webKitHome.Path, "data");
         }
         // Chromium omits Sec-Fetch-* for http hosts other than localhost, so this scenario also loads pages from one.
+        // A proxy would resolve that host itself, so the rule only works on direct connections.
         if (OperatingSystem.IsWindows() && scenario == "--native-browser-download-methods")
-            start.Environment["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = $"--host-resolver-rules=\"MAP {NativeBrowserFrameTestHost.InsecureHost} 127.0.0.1\"";
+            start.Environment["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = $"--no-proxy-server --host-resolver-rules=\"MAP {NativeBrowserFrameTestHost.InsecureHost} 127.0.0.1\"";
         start.ArgumentList.Add(typeof(NativeBrowserFrameTestHost).Assembly.Location);
         start.ArgumentList.Add(scenario);
         using Process process = Process.Start(start)!;
