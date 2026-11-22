@@ -1401,6 +1401,8 @@ internal static partial class NativeBrowserFrameTestHost
                 await Load(new Uri($"http://{host}:{port}/policy"));
                 var handler = (WindowsBrowserDownloadHandler)typeof(WebBrowserTabView)
                     .GetField("_nativeBrowserHandler", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view)!;
+                // The response can arrive after ContentLoading, so the policy may follow the completed navigation.
+                while (handler.DocumentReferrerPolicy is null) await Task.Delay(20, token);
                 Assert.That(handler.DocumentReferrerPolicy, Is.EqualTo(BrowserReferrerPolicy.NoReferrer), $"policy on {host}");
             }
         });
