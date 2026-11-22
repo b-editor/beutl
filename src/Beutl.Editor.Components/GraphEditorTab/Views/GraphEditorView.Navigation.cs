@@ -91,10 +91,7 @@ public partial class GraphEditorView
         if (DataContext is not GraphEditorViewModel model) return;
         e.Handled = true;
         if (_interactionPointer != null || ControlPointMoveState != null) return;
-
-        // Native magnification already reports the relative scale change.
-        double factor = 1 + e.Delta.X;
-        if (!double.IsFinite(factor) || factor <= 0) return;
+        if (!NativeScrollInput.TryGetMagnifyFactor(e, out double factor)) return;
 
         ZoomAtPointer(model, target, e.KeyModifiers, factor, e.GetPosition(scroll));
         UpdateSelectionAdorner();

@@ -229,9 +229,7 @@ public partial class PlayerView
 
     private void OnFrameMagnify(object? sender, PointerDeltaEventArgs e)
     {
-        // Native magnification is a relative scale change, not a mouse-wheel delta.
-        double factor = 1 + e.Delta.X;
-        if (DataContext is PlayerViewModel viewModel && double.IsFinite(factor) && factor > 0)
+        if (DataContext is PlayerViewModel viewModel && NativeScrollInput.TryGetMagnifyFactor(e, out double factor))
         {
             ZoomFrameAt(viewModel, (float)factor, e.GetPosition(framePanel));
             e.Handled = true;
