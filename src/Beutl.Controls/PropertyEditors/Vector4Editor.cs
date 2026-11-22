@@ -116,6 +116,9 @@ public class Vector4Editor<TElement> : Vector4Editor, IValueEditorControl<(TElem
             var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue, FourthValue));
             return [value.Item1, value.Item2, value.Item3, value.Item4];
         };
+        _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+            ? [focused.Item1, focused.Item2, focused.Item3, focused.Item4]
+            : null;
         BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
         BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
         BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
@@ -123,7 +126,11 @@ public class Vector4Editor<TElement> : Vector4Editor, IValueEditorControl<(TElem
         this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
             {
                 if (e.Expect<(TElement, TElement, TElement, TElement)>(s) is { } args)
-                    (FirstValue, SecondValue, ThirdValue, FourthValue) = PreviewEdit(context, args.NewValue, IsRelativeEdit);
+                {
+                    (FirstValue, SecondValue, ThirdValue, FourthValue) = IsUnderlyingEdit
+                        ? PreviewFocusedEdit(context, args.NewValue)
+                        : PreviewEdit(context, args.NewValue, IsRelativeEdit);
+                }
             })
             .DisposeWith(connection);
         ConfirmEdits(context, connection, () => (FirstValue, SecondValue, ThirdValue, FourthValue) = shown);

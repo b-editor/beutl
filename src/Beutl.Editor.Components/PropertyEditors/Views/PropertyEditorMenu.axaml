@@ -29,7 +29,7 @@
                                    Text="{x:Static lang:Strings.Reset}">
                     <ui:FAMenuFlyoutItem.IsEnabled>
                         <MultiBinding Converter="{x:Static BoolConverters.And}">
-                            <Binding Path="CanEditProperty.Value" />
+                            <Binding Path="CanEdit.Value" />
                             <Binding Path="CanReset" />
                         </MultiBinding>
                     </ui:FAMenuFlyoutItem.IsEnabled>

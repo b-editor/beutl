@@ -339,6 +339,25 @@ public class ComponentAnimationTests
     }
 
     [AvaloniaTest]
+    public void Unseparating_with_an_aggregate_expression_does_not_double_apply_it()
+    {
+        var owner = new ComponentTestObject<Vector3> { Value = { Value = new Vector3(10, 20, 30) } };
+        owner.Value.Expression = Expression.Create<Vector3>("new System.Numerics.Vector3(Value.X + 50, Value.Y + 50, Value.Z)");
+        ComponentAnimations.Separate(owner.Value);
+        Assert.That(owner.Value.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(new Vector3(60, 70, 30)));
+
+        ComponentAnimations.Unseparate(owner.Value, MediaTime.Zero);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Value.GetPropertyAnimation(), Is.Null);
+            Assert.That(owner.Value.HasExpression, Is.True);
+            Assert.That(owner.Value.Value, Is.EqualTo(new Vector3(10, 20, 30)));
+            Assert.That(owner.Value.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(new Vector3(60, 70, 30)));
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public void Combined_color_evaluates_component_expressions_and_keeps_editable_key_endpoints(bool roundTrip)

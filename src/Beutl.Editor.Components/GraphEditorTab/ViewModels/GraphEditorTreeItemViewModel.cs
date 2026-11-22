@@ -19,10 +19,17 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim();
         ShowAnimationButton = CanAnimate.CombineLatest(CanRemoveAnimation, (canAnimate, canRemove) => canAnimate || canRemove)
             .ToReadOnlyReactivePropertySlim();
-        AnimationToolTip = HasAnimation.CombineLatest(HasKeyFrame, CanAnimate, (animated, hasKeyFrame, canAnimate) => !canAnimate
-                ? Strings.RemoveAnimation
-                : !animated ? Strings.EnableAnimation
-                    : $"{(hasKeyFrame ? CommandNames.RemoveKeyFrame : CommandNames.InsertKeyFrame)}\n{MessageStrings.RightClickToShowMenu}")
+        ShowStandaloneExpressionBadge = HasExpression.CombineLatest(ShowAnimationButton, (hasExpression, showButton) => hasExpression && !showButton)
+            .ToReadOnlyReactivePropertySlim();
+        AnimationToolTip = HasAnimation.CombineLatest(HasKeyFrame, CanAnimate, HasExpression,
+            (animated, hasKeyFrame, canAnimate, hasExpression) =>
+            {
+                string tip = !canAnimate
+                    ? Strings.RemoveAnimation
+                    : !animated ? Strings.EnableAnimation
+                        : $"{(hasKeyFrame ? CommandNames.RemoveKeyFrame : CommandNames.InsertKeyFrame)}\n{MessageStrings.RightClickToShowMenu}";
+                return hasExpression ? $"{tip}\n{MessageStrings.ExpressionIsSet}" : tip;
+            })
             .ToReadOnlyReactivePropertySlim(Strings.EnableAnimation);
         SeparationToolTip = HasSeparatedComponents.Select(separated => separated
                 ? $"{Strings.UnseparateComponents}\n{(Adapter is PropertyPair ? Strings.UnseparateComponents_SameTiming : Strings.UnseparateComponents_Description)}"
@@ -43,7 +50,9 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
     public ReactivePropertySlim<bool> CanAnimate { get; } = new();
     public ReactivePropertySlim<bool> CanRemoveAnimation { get; } = new();
     public ReadOnlyReactivePropertySlim<bool> ShowAnimationButton { get; }
+    public ReadOnlyReactivePropertySlim<bool> ShowStandaloneExpressionBadge { get; }
     public ReactivePropertySlim<bool> HasAnimation { get; } = new();
+    public ReactivePropertySlim<bool> HasExpression { get; } = new();
     public ReactivePropertySlim<bool> HasKeyFrame { get; } = new();
     public ReadOnlyReactivePropertySlim<IconVariant> SymbolIconVariant { get; }
     public ReadOnlyReactivePropertySlim<string> AnimationToolTip { get; }
@@ -71,7 +80,9 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
         CanAnimate.Dispose();
         CanRemoveAnimation.Dispose();
         ShowAnimationButton.Dispose();
+        ShowStandaloneExpressionBadge.Dispose();
         HasAnimation.Dispose();
+        HasExpression.Dispose();
         HasKeyFrame.Dispose();
         SymbolIconVariant.Dispose();
         AnimationToolTip.Dispose();

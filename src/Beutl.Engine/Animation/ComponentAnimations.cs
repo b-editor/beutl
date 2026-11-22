@@ -124,9 +124,12 @@ public static class ComponentAnimations
         });
         s_operations[typeof(T)] = (property => ComponentAnimation<T, TComponent>.Create((IProperty<T>)property), (property, time) =>
         {
-            // Capture the rendered value, including component expressions and interpolation, before detaching the tracks.
+            // Capture the component tracks' value, including component expressions and interpolation, without baking any
+            // aggregate expression that stays on the property.
             var typed = (IExpressionProperty<T>)property;
-            T value = typed.Evaluate(new EvaluationContext(time));
+            T value = typed.GetPropertyAnimation() is IComponentAnimation<T> components
+                ? components.EvaluateAt(time)
+                : typed.Evaluate(new EvaluationContext(time));
             typed.SetPropertyAnimation(null);
             typed.Value = value;
         }

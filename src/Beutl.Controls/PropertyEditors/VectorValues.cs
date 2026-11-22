@@ -16,6 +16,8 @@ internal abstract class VectorValues
 
     public abstract void FormatTexts();
 
+    public abstract void FormatText(int index, bool focused);
+
     public abstract void Snapshot();
 
     public abstract void RaiseConfirmedIfChanged();
@@ -95,6 +97,8 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     public Func<TElement[]>? ReadIncrementValues { get; set; }
 
+    public Func<TElement[]?>? ReadFocusedValues { get; set; }
+
     private string? NumberFormat => _editor.GetValue(Vector4Editor.NumberFormatProperty);
 
     private TElement LargeChange => _editor.GetValue(Vector4Editor<TElement>.LargeChangeProperty);
@@ -105,14 +109,24 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
     {
         if (_editor.SetComponent(_properties[index], ref _values[index], value))
         {
-            _editor.SetText(index, NumberEditorHelper.Format(value, NumberFormat));
+            FormatText(index, _editor.IsTextBoxFocused(index));
         }
     }
 
     public override void FormatTexts()
     {
+        TElement[]? focused = ReadFocusedValues?.Invoke();
         for (int i = 0; i < _values.Length; i++)
-            _editor.SetText(i, NumberEditorHelper.Format(_values[i], NumberFormat));
+        {
+            TElement display = focused != null && _editor.IsTextBoxFocused(i) ? focused[i] : _values[i];
+            _editor.SetText(i, NumberEditorHelper.Format(display, NumberFormat));
+        }
+    }
+
+    public override void FormatText(int index, bool focused)
+    {
+        TElement display = focused && ReadFocusedValues?.Invoke() is { } values ? values[index] : _values[index];
+        _editor.SetText(index, NumberEditorHelper.Format(display, NumberFormat));
     }
 
     public override void Snapshot()
@@ -152,6 +166,12 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
             oldValues[index] = oldValue;
         }
 
+        if (ReadFocusedValues?.Invoke() is { } focused)
+        {
+            ApplyFocusedValueChange(index, newValue, focused, oldValues);
+            return;
+        }
+
         ApplyValueChange(index, newValue, oldValues);
     }
 
@@ -160,6 +180,16 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
         if (!NumberEditorHelper.TryParse(text, out TElement? value) || value is null)
             return false;
 
+        if (ReadFocusedValues?.Invoke() is { } focused)
+        {
+            TElement oldFocusedValue = focused[Math.Max(index, 0)];
+            value = NumberEditorHelper.StepByWheel(oldFocusedValue, e, LargeChange, SmallChange);
+            if (value != oldFocusedValue)
+                ApplyFocusedValueChange(index, value, focused, [.. _values]);
+
+            return true;
+        }
+
         TElement[] input = ReadIncrementValues?.Invoke() ?? [.. _values];
         TElement oldValue = input[Math.Max(index, 0)];
         value = NumberEditorHelper.StepByWheel(oldValue, e, LargeChange, SmallChange);
@@ -167,6 +197,21 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
             ApplyValueChange(index, value, [.. _values], input);
 
         return true;
+    }
+
+    private void ApplyFocusedValueChange(int index, TElement value, TElement[] focusedValues, TElement[] oldValues)
+    {
+        TElement[] newValues = [.. focusedValues];
+        if (_editor.IsUniformValue)
+        {
+            Array.Fill(newValues, value);
+        }
+        else if (index >= 0)
+        {
+            newValues[index] = value;
+        }
+
+        _editor.RaiseUnderlyingValueChanged(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
     }
 
     private void ApplyValueChange(int index, TElement value, TElement[] oldValues, TElement[]? input = null)
@@ -244,6 +289,8 @@ internal sealed class RelativeVectorValues : VectorValues
 
     public Func<float[]>? ReadIncrementValues { get; set; }
 
+    public Func<(float[] Values, RelativeUnit Unit)?>? ReadFocusedValues { get; set; }
+
     public void Set(int index, float value)
     {
         if (_editor.SetComponent(_properties[index], ref _values[index], value))
@@ -260,10 +307,31 @@ internal sealed class RelativeVectorValues : VectorValues
         }
     }
 
+    private static string FormatRelative(float value, RelativeUnit unit)
+        => unit == RelativeUnit.Relative ? $"{value * 100:f}%" : $"{value}";
+
     public override void FormatTexts()
     {
+        (float[] Values, RelativeUnit Unit)? focused = ReadFocusedValues?.Invoke();
         for (int i = 0; i < _values.Length; i++)
-            _editor.SetText(i, _unit == RelativeUnit.Relative ? $"{_values[i] * 100:f}%" : $"{_values[i]}");
+        {
+            bool useFocused = focused != null && _editor.IsTextBoxFocused(i);
+            float value = useFocused ? focused!.Value.Values[i] : _values[i];
+            RelativeUnit unit = useFocused ? focused!.Value.Unit : _unit;
+            _editor.SetText(i, FormatRelative(value, unit));
+        }
+    }
+
+    public override void FormatText(int index, bool focused)
+    {
+        if (focused && ReadFocusedValues?.Invoke() is { } underlying)
+        {
+            _editor.SetText(index, FormatRelative(underlying.Values[index], underlying.Unit));
+        }
+        else
+        {
+            _editor.SetText(index, FormatRelative(_values[index], _unit));
+        }
     }
 
     public override void Snapshot()
@@ -309,6 +377,12 @@ internal sealed class RelativeVectorValues : VectorValues
             oldValues[index] = oldValue;
         }
 
+        if (ReadFocusedValues?.Invoke() is { } focused)
+        {
+            ApplyFocusedValueChange(index, newValue, newUnit, focused.Values, oldValues, oldUnit);
+            return;
+        }
+
         ApplyValueChange(index, newValue, newUnit, oldValues, oldUnit);
     }
 
@@ -317,6 +391,16 @@ internal sealed class RelativeVectorValues : VectorValues
         if (!RelativeUnitParser.TryParse(text, out float value, out _))
             return false;
 
+        if (ReadFocusedValues?.Invoke() is { } focused)
+        {
+            float oldFocusedValue = focused.Values[Math.Max(index, 0)];
+            value = RelativeUnitParser.StepByWheel(oldFocusedValue, focused.Unit, e);
+            if (value != oldFocusedValue)
+                ApplyFocusedValueChange(index, value, focused.Unit, focused.Values, [.. _values], _unit);
+
+            return true;
+        }
+
         float[] input = ReadIncrementValues?.Invoke() ?? [.. _values];
         float oldValue = input[Math.Max(index, 0)];
         value = RelativeUnitParser.StepByWheel(oldValue, _unit, e);
@@ -324,6 +408,21 @@ internal sealed class RelativeVectorValues : VectorValues
             ApplyValueChange(index, value, _unit, [.. _values], _unit, input);
 
         return true;
+    }
+
+    private void ApplyFocusedValueChange(int index, float value, RelativeUnit unit, float[] focusedValues, float[] oldValues, RelativeUnit oldUnit)
+    {
+        float[] newValues = [.. focusedValues];
+        if (_editor.IsUniformValue)
+        {
+            Array.Fill(newValues, value);
+        }
+        else if (index >= 0)
+        {
+            newValues[index] = value;
+        }
+
+        _editor.RaiseUnderlyingValueChanged(_createEventArgs(newValues, unit, oldValues, oldUnit, PropertyEditor.ValueChangedEvent));
     }
 
     // A pixel is a percent of a relative value and a whole unit of an absolute one, the small step of the wheel.

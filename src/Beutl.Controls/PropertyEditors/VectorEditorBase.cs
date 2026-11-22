@@ -41,8 +41,11 @@ public abstract class VectorEditorBase : PropertyEditor
     // The scrub of a header.
     private HeaderScrubGesture _scrub;
     private Control? _editSource;
+    private bool _isUnderlyingEdit;
 
     private protected bool IsRelativeEdit => _editSource is not TextBox;
+
+    private protected bool IsUnderlyingEdit => _isUnderlyingEdit;
 
     // With componentHeaders, each component has a header that scrubs that component alone; otherwise only the
     // editor's header scrubs, and it scrubs every component.
@@ -81,7 +84,33 @@ public abstract class VectorEditorBase : PropertyEditor
     internal void SetText(int index, string value)
     {
         if (_editSource == null || _editSource != _textBoxes[index])
-            SetAndRaise(_textProperties[index], ref _texts[index], value);
+        {
+            if (_editSource == null)
+            {
+                using var edit = new PropertyEditorEditScope(ref _editSource, this);
+                SetAndRaise(_textProperties[index], ref _texts[index], value);
+            }
+            else
+            {
+                SetAndRaise(_textProperties[index], ref _texts[index], value);
+            }
+        }
+    }
+
+    internal bool IsTextBoxFocused(int index)
+        => index >= 0 && index < _textBoxes.Length && _textBoxes[index]?.IsFocused == true;
+
+    internal void RaiseUnderlyingValueChanged(RoutedEventArgs args)
+    {
+        _isUnderlyingEdit = true;
+        try
+        {
+            RaiseEvent(args);
+        }
+        finally
+        {
+            _isUnderlyingEdit = false;
+        }
     }
 
     internal bool SetComponent<T>(DirectPropertyBase<T> property, ref T field, T value)
@@ -197,6 +226,12 @@ public abstract class VectorEditorBase : PropertyEditor
         if (!DataValidationErrors.GetHasErrors(this))
         {
             Values!.Snapshot();
+            int index = Array.IndexOf(_textBoxes, sender as TextBox);
+            if (index >= 0)
+            {
+                using var edit = new PropertyEditorEditScope(ref _editSource, this);
+                Values.FormatText(index, focused: true);
+            }
         }
     }
 
@@ -204,8 +239,17 @@ public abstract class VectorEditorBase : PropertyEditor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
-            Values!.FormatTexts();
+            int index = Array.IndexOf(_textBoxes, sender as TextBox);
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
             Values!.RaiseConfirmedIfChanged();
+            if (index >= 0)
+            {
+                Values.FormatText(index, focused: false);
+            }
+            else
+            {
+                Values.FormatTexts();
+            }
         }
     }
 

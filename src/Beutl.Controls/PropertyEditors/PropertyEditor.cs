@@ -227,6 +227,12 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         return context.PreviewEdit(value, relative);
     }
 
+    private protected TEdit PreviewFocusedEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value)
+    {
+        HasUnconfirmedEdit = true;
+        return context.PreviewFocusedEdit(value);
+    }
+
     // Hands the edits this editor confirms to the context, then runs afterConfirm.
     private protected void ConfirmEdits<TEdit>(
         IValueEditorContext<TEdit> context, CompositeDisposable connection, Action? afterConfirm = null)

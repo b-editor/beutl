@@ -3,6 +3,8 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
+using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -228,6 +230,86 @@ public class ExpressionValueTests
         {
             Assert.That(value, Is.EqualTo(hasKeyFrames ? 50f : 7f).Within(1e-4f));
             Assert.That(property.ExpressionError, Does.Contain("Value is not available in this expression"));
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ComponentExpression_OnCombinedProperties_EvaluatesValueAndValueAtTime(bool hasKeyFrames)
+    {
+        var shape = new RectShape { Width = { Value = 100 }, Height = { Value = 200 } };
+        if (hasKeyFrames)
+        {
+            shape.Width.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1)));
+            shape.Height.SetKeyFrameAnimation(TestAnimations.Linear(200f, 400f, MediaTime.FromSeconds(1)));
+        }
+
+        Assert.That(ComponentExpression<Size, float>.TryParse(
+            "new Size(Value.Width + 10, ValueAtTime(Time - 0.5).Height * 2)",
+            out var expressions, out var error), Is.True, error);
+        shape.Width.Expression = expressions![0];
+        shape.Height.Expression = expressions[1];
+
+        var context = new CompositionContext(MediaTime.FromSeconds(0.5));
+        float width = shape.Width.Evaluate(context);
+        float height = shape.Height.Evaluate(context);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(width, Is.EqualTo(hasKeyFrames ? 60f : 110f).Within(1e-4f));
+            Assert.That(height, Is.EqualTo(400f).Within(1e-4f));
+            Assert.That(shape.Width.ExpressionError, Is.Null);
+            Assert.That(shape.Height.ExpressionError, Is.Null);
+        }
+    }
+
+    [Test]
+    public void ComponentExpression_OnCombinedPoint_CanMixSiblingValues()
+    {
+        var transform = new TranslateTransform { X = { Value = 10 }, Y = { Value = 20 } };
+        Assert.That(ComponentExpression<Point, float>.TryParse(
+            "new Point(Value.X + Value.Y, Value.X * 3)",
+            out var expressions, out var error), Is.True, error);
+        transform.X.Expression = expressions![0];
+        transform.Y.Expression = expressions[1];
+
+        var context = new CompositionContext(MediaTime.Zero);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(transform.X.Evaluate(context), Is.EqualTo(30f).Within(1e-4f));
+            Assert.That(transform.Y.Evaluate(context), Is.EqualTo(30f).Within(1e-4f));
+            Assert.That(transform.X.ExpressionError, Is.Null);
+            Assert.That(transform.Y.ExpressionError, Is.Null);
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void CombinedValueExpression_EvaluatesCombinedValueAndRoundTripsThroughJson(bool hasKeyFrames)
+    {
+        var transform = new TranslateTransform { X = { Value = 10 }, Y = { Value = 20 } };
+        if (hasKeyFrames)
+        {
+            transform.X.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1)));
+            transform.Y.SetKeyFrameAnimation(TestAnimations.Linear(20f, 60f, MediaTime.FromSeconds(1)));
+        }
+
+        Assert.That(CombinedValueExpression<Point, float>.TryParse(
+            "(new Point(Value.X * 2 + ValueAtTime(Time - 0.5).Y, Value.Y)).X",
+            out var expression, out var error), Is.True, error);
+        Assert.That(CombinedValueExpression<Point, float>.TryParse("new Point(Value.X, Value.Y)", out _, out var typeError), Is.False);
+        Assert.That(typeError, Does.Contain("float"));
+
+        IExpression<float>? copy = Expression.CreateFromNode<float>(Expression.ToNode(expression!));
+        Assert.That(copy, Is.TypeOf<CombinedValueExpression<Point, float>>());
+        transform.X.Expression = copy;
+
+        float result = transform.X.Evaluate(new CompositionContext(MediaTime.FromSeconds(0.5)));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo(hasKeyFrames ? 120f : 40f).Within(1e-4f));
+            Assert.That(transform.X.ExpressionError, Is.Null);
+            Assert.That(transform.X.GetKeyFrameAnimation() != null, Is.EqualTo(hasKeyFrames));
         }
     }
 
