@@ -456,19 +456,13 @@ public readonly struct BrushConstructor(
     private float ResolveSvgTileDensity(TileBrush.Resource tileBrush, Size intermediateSize, float baseScale)
     {
         float desired = _svgCanvasDensity;
-        if (tileBrush.Transform is not null)
+        if (tileBrush.Transform is not null && float.IsFinite(desired) && desired > 0f)
         {
-            Matrix transform = CreateBrushTransform(tileBrush.TransformOrigin, tileBrush.Transform);
-            if (!DeviceGridAlignment.IsPerspective(transform))
-            {
-                float brushScale = DeviceGridAlignment.ResolveAffineDensity(transform, 1f);
-                float combined = desired * brushScale;
-                if (float.IsFinite(combined) && combined > 0f)
-                    desired = combined;
-            }
+            desired = TransformRenderNode.RescaleDemand(
+                EffectiveScale.At(desired), CreateBrushTransform(tileBrush.TransformOrigin, tileBrush.Transform)).Value;
         }
 
-        if (!float.IsFinite(desired) || desired <= baseScale)
+        if (!float.IsFinite(desired))
             return baseScale;
 
         desired = MathF.Min(desired, MaxWorkingScale);

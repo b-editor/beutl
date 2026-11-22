@@ -235,7 +235,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     private float ResolveCanvasSvgDensity(Brush.Resource? brush, float fallbackScale)
     {
-        if (!IsSvgImageBrush(brush))
+        // Only an SVG image brush, given directly or behind presenters, reads this density.
+        if (brush is not (ImageBrush.Resource { Source.Picture: not null } or BrushPresenter.Resource))
             return fallbackScale;
 
         Matrix totalTransform = Canvas.TotalMatrix.ToMatrix();
@@ -243,21 +244,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             return fallbackScale;
 
         return DeviceGridAlignment.ResolveAffineDensity(totalTransform, fallbackScale);
-    }
-
-    private static bool IsSvgImageBrush(Brush.Resource? brush)
-    {
-        HashSet<Brush.Resource>? visited = null;
-        while (brush is BrushPresenter.Resource presenter)
-        {
-            visited ??= new HashSet<Brush.Resource>(ReferenceEqualityComparer.Instance);
-            if (!visited.Add(brush))
-                return false;
-
-            brush = presenter.Target;
-        }
-
-        return brush is ImageBrush.Resource { Source.Picture: not null };
     }
 
     public Matrix Transform
