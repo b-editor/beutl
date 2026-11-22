@@ -105,6 +105,14 @@ internal static partial class LinuxWebKit
         return 0;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct GError
+    {
+        public uint Domain;
+        public int Code;
+        public nint Message;
+    }
+
     [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_object_ref")] internal static partial nint ObjectRef(nint value);
     [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_object_unref")] internal static partial void ObjectUnref(nint value);
     [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_signal_connect_data", StringMarshalling = StringMarshalling.Utf8)]

@@ -300,13 +300,5 @@ internal static partial class LinuxWebKitCookies
         }
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct GError
-    {
-        public uint Domain;
-        public int Code;
-        public nint Message;
-    }
-
     [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_list_free")] private static partial void ListFree(nint list);
 }

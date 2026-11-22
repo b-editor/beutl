@@ -143,19 +143,19 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         if (request != null) _downloadResponse = null;
     }
 
-    private unsafe void RecordDownloadResponse(nint args)
+    private void RecordDownloadResponse(nint args)
     {
         nint request = 0, requestHeaders = 0, response = 0;
         try
         {
             request = GetObject(args, 3);
-            if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || !BrowserMediaDownload.IsHttpUri(page)) return;
+            // Most responses are subresources, so the destination is checked before the URL is copied and parsed.
             requestHeaders = GetObject(request, 9);
             string? destination = GetHeader(requestHeaders, "Sec-Fetch-Dest");
             if (destination is not ("document" or "iframe" or "frame")) return;
+            if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || !BrowserMediaDownload.IsHttpUri(page)) return;
             response = GetObject(args, 4);
-            int status;
-            Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(response, 4))(response, &status));
+            int status = GetValue<int>(response, 4);
             string? method = status == 200 ? GetString(request, 5) : null;
             // Frame GETs must not replace a main-frame response awaiting DownloadStarting.
             if (destination == "document" || method != null && !string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
@@ -212,6 +212,14 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         nint value = GetObject(instance, slot);
         try { return Marshal.PtrToStringUni(value); }
         finally { if (value != 0) Marshal.FreeCoTaskMem(value); }
+    }
+
+    // Calls a getter that hands a number or a flag back through an out pointer, throwing on a failed HRESULT.
+    private static unsafe T GetValue<T>(nint instance, int slot) where T : unmanaged
+    {
+        T value;
+        Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, void*, int>)Method(instance, slot))(instance, &value));
+        return value;
     }
 
     [GeneratedComClass]
@@ -318,20 +326,15 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             }
         }
 
-        private unsafe void OnProgressTick(object? sender, EventArgs e)
+        private void OnProgressTick(object? sender, EventArgs e)
         {
             if (_disposed || _operation == 0) return;
             try
             {
-                long received, total;
-                int state;
-                Marshal.ThrowExceptionForHR(
-                    ((delegate* unmanaged[Stdcall]<nint, long*, int>)Method(_operation, 13))(_operation, &received));
-                Marshal.ThrowExceptionForHR(
-                    ((delegate* unmanaged[Stdcall]<nint, long*, int>)Method(_operation, 12))(_operation, &total));
+                long received = GetValue<long>(_operation, 13);
+                long total = GetValue<long>(_operation, 12);
                 _progress?.Report((Math.Max(0, received), total >= 0 ? total : null));
-                Marshal.ThrowExceptionForHR(
-                    ((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(_operation, 16))(_operation, &state));
+                int state = GetValue<int>(_operation, 16);
                 if (state == 2) _finished.TrySetResult(); // COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED
                 else if (state == 1) _finished.TrySetException(new IOException(Strings.WebDownloadIncomplete));
             }

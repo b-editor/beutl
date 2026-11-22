@@ -213,14 +213,6 @@ internal sealed partial class LinuxBrowserDownloadHandler
         }
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct GError
-    {
-        public uint Domain;
-        public int Code;
-        public nint Message;
-    }
-
     [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_filename_to_uri", StringMarshalling = StringMarshalling.Utf8)]
     private static partial nint FilenameToUri(string filename, nint hostname, nint error);
 

@@ -37,7 +37,7 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
     private readonly NativeWebView _webView;
     private readonly nint _gtkWebView;
     private readonly nint _x11Window;
-    private readonly Action<Key, KeyModifiers>? _onBrowserShortcut;
+    private readonly Action<Key, KeyModifiers> _onBrowserShortcut;
     private readonly GCHandle _selfHandle;
     private Window? _hostWindow;
     private nint _hostXid;
@@ -46,7 +46,7 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
     private bool _ewmhFocusTracking;
     private volatile bool _disposed;
 
-    private LinuxWebKitFocus(NativeWebView webView, nint gtkWebView, nint x11Window, Action<Key, KeyModifiers>? onBrowserShortcut)
+    private LinuxWebKitFocus(NativeWebView webView, nint gtkWebView, nint x11Window, Action<Key, KeyModifiers> onBrowserShortcut)
     {
         _webView = webView;
         _gtkWebView = gtkWebView;
@@ -67,7 +67,7 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
     internal static LinuxWebKitFocus? TryAttach(
         NativeWebView webView,
         IPlatformHandle? handle,
-        Action<Key, KeyModifiers>? onBrowserShortcut = null)
+        Action<Key, KeyModifiers> onBrowserShortcut)
     {
         if (handle is not IGtkWebViewPlatformHandle gtk
             || handle.HandleDescriptor != "XID"
@@ -137,19 +137,13 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
         _webView.AttachedToVisualTree -= OnWebViewAttachedToVisualTree;
         _webView.DetachedFromVisualTree -= OnWebViewDetachedFromVisualTree;
 
-        if (_hostWindow != null)
-        {
-            _hostWindow.Activated -= OnHostWindowActivated;
-            _hostWindow = null;
-        }
-
-        nint previousHostXid = Interlocked.Exchange(ref _hostXid, 0);
+        nint previousHostXid = DetachHostWindow();
         _ = OnGlibAsync(() => DisposeOnGlib(previousHostXid));
     }
 
     private void AttachHostWindow()
     {
-        DetachHostWindow(restoreFocus: false);
+        DetachHostWindow();
         TopLevel? topLevel = TopLevel.GetTopLevel(_webView);
         IPlatformHandle? hostHandle = topLevel?.TryGetPlatformHandle();
         nint hostXid = hostHandle is { HandleDescriptor: "XID", Handle: not 0 } ? hostHandle.Handle : 0;
@@ -161,7 +155,8 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
         }
     }
 
-    private void DetachHostWindow(bool restoreFocus)
+    // Returns the host window's XID, for a caller that hands X11 focus back to it.
+    private nint DetachHostWindow()
     {
         if (_hostWindow != null)
         {
@@ -169,11 +164,7 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
             _hostWindow = null;
         }
 
-        nint previousHostXid = Interlocked.Exchange(ref _hostXid, 0);
-        if (restoreFocus && previousHostXid != 0)
-        {
-            _ = OnGlibAsync(() => RestoreHostFocusOnGlib(previousHostXid));
-        }
+        return Interlocked.Exchange(ref _hostXid, 0);
     }
 
     private void OnWebViewAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
@@ -185,7 +176,8 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
     private void OnWebViewDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
         if (_disposed) return;
-        DetachHostWindow(restoreFocus: true);
+        nint previousHostXid = DetachHostWindow();
+        if (previousHostXid != 0) _ = OnGlibAsync(() => RestoreHostFocusOnGlib(previousHostXid));
     }
 
     private void OnWebViewGotFocus(object? sender, FocusChangedEventArgs e)
@@ -230,18 +222,15 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
             _ewmhFocusTracking = SupportsEwmhFocusTracking(xDisplay);
         });
 
-        if (_onBrowserShortcut != null)
-        {
-            // Blocking core X11 propagation keeps editor/shell shortcuts from seeing page keys, so
-            // forward the browser tab's own find/zoom shortcuts directly from GTK key-press-event.
-            _keyPressSignal = SignalConnect(
-                _gtkWebView,
-                "key-press-event",
-                (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, int>)&OnKeyPress,
-                GCHandle.ToIntPtr(_selfHandle),
-                0,
-                0);
-        }
+        // Blocking core X11 propagation keeps editor/shell shortcuts from seeing page keys, so
+        // forward the browser tab's own find/zoom shortcuts directly from GTK key-press-event.
+        _keyPressSignal = SignalConnect(
+            _gtkWebView,
+            "key-press-event",
+            (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, int>)&OnKeyPress,
+            GCHandle.ToIntPtr(_selfHandle),
+            0,
+            0);
 
         if (_ewmhFocusTracking)
         {
@@ -274,10 +263,7 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
             _buttonPressSignal = 0;
         }
 
-        if (previousHostXid != 0)
-        {
-            RestoreHostFocusOnGlib(previousHostXid);
-        }
+        RestoreHostFocusOnGlib(previousHostXid);
 
         _selfHandle.Free();
         ObjectUnref(_gtkWebView);
@@ -288,14 +274,14 @@ internal sealed partial class LinuxWebKitFocus : IDisposable
     {
         try
         {
-            if (GCHandle.FromIntPtr(data).Target is LinuxWebKitFocus { _disposed: false, _onBrowserShortcut: { } onShortcut } self
+            if (GCHandle.FromIntPtr(data).Target is LinuxWebKitFocus { _disposed: false } self
                 && GdkEventGetKeyval(ev, out uint keyval) != 0
                 && GdkEventGetState(ev, out uint state) != 0
                 && TryMapBrowserShortcut(keyval, state, out Key key, out KeyModifiers modifiers))
             {
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (!self._disposed) onShortcut(key, modifiers);
+                    if (!self._disposed) self._onBrowserShortcut(key, modifiers);
                 });
                 return 1; // TRUE: handled by the browser tab.
             }
