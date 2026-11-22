@@ -132,8 +132,7 @@ public class FileSystemItemViewModel : IDisposable
     private async Task LoadMediaInfoAsync()
     {
         int load = Interlocked.Increment(ref _mediaInfoLoad);
-        var service = _thumbnails;
-        if (service.IsObjectTemplateFile(FullPath, _thumbnails.Templates))
+        if (_thumbnails.IsObjectTemplateFile(FullPath))
         {
             if (await LoadTemplateInfoAsync(load) || _disposed || load != _mediaInfoLoad)
                 return;
@@ -143,7 +142,7 @@ public class FileSystemItemViewModel : IDisposable
             return;
         }
 
-        if (!service.CanGetMediaInfo(FullPath))
+        if (!_thumbnails.CanGetMediaInfo(FullPath))
         {
             SetFileDescription();
             return;
@@ -154,7 +153,7 @@ public class FileSystemItemViewModel : IDisposable
             // A reload reads the file as it is now, so an earlier load still running must not
             // replace what the reload shows.
             CancellationToken token = _metadataCts.Token;
-            var info = await service.GetMediaInfoAsync(FullPath, token);
+            var info = await _thumbnails.GetMediaInfoAsync(FullPath, token);
             if (!token.IsCancellationRequested && info != null && load == Volatile.Read(ref _mediaInfoLoad))
             {
                 MediaInfoText.Value = info.ToDisplayString();
@@ -180,8 +179,7 @@ public class FileSystemItemViewModel : IDisposable
 
     private async Task LoadThumbnailAsync()
     {
-        var service = _thumbnails;
-        if (!service.CanGenerateThumbnail(FullPath, _thumbnails.Templates))
+        if (!_thumbnails.CanGenerateThumbnail(FullPath))
             return;
 
         try
@@ -190,7 +188,7 @@ public class FileSystemItemViewModel : IDisposable
             _thumbnailCts?.Dispose();
             _thumbnailCts = new CancellationTokenSource();
             CancellationToken token = _thumbnailCts.Token;
-            var bitmap = await service.GetThumbnailAsync(FullPath, _thumbnails.Templates, token);
+            var bitmap = await _thumbnails.GetThumbnailAsync(FullPath, token);
             if (!token.IsCancellationRequested)
             {
                 Thumbnail.Value = bitmap;

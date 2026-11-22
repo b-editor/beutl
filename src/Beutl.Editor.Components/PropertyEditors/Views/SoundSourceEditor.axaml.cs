@@ -1,12 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Platform.Storage;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
-using Beutl.Media.Decoding;
 using Beutl.Media.Source;
-using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -27,20 +24,8 @@ public partial class SoundSourceEditor : UserControl
     }
 
     private void UpdateFileTypes()
-    {
-        var decoders = ExtensionGuard.FindService<DecoderRegistry>(DataContext) ?? ControlDecoders.GetDecoders(this);
-        string[] fileExtensions = decoders?.FileExtensions.GetFilePatterns(x => x.AudioExtensions().Concat(x.VideoExtensions())) ?? [];
-        message.IsVisible = fileExtensions.Length == 0;
-        message.Text = MessageStrings.NoSupportedExtensionsFound;
-
-        FileEditor.OpenOptions = new FilePickerOpenOptions
-        {
-            FileTypeFilter =
-            [
-                new FilePickerFileType("Audio File") { Patterns = fileExtensions }
-            ]
-        };
-    }
+        => MediaSourceEditorHelper.UpdateFileTypes(
+            this, FileEditor, message, "Audio File", x => x.AudioExtensions().Concat(x.VideoExtensions()));
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {

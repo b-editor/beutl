@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Engine;
 using Beutl.Media.Decoding;
 using Beutl.Services;
@@ -11,15 +12,21 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 internal static class CoreObjectPickerHelper
 {
-    // The type picker of an editor, with its fonts, else the control's, and its library.
     internal static SelectLibraryItemDialogViewModel CreateTypePicker(
         Control control, object? editor, string format, Type baseType, bool captureThumbnails = false)
+        => CreateTypePicker(control, editor, format, baseType,
+            captureThumbnails ? LibraryThumbnailCapture.ForObject(editor as IServiceProvider) : null);
+
+    // The type picker of an editor, with its fonts, else the control's, and its library.
+    internal static SelectLibraryItemDialogViewModel CreateTypePicker(
+        Control control, object? editor, string format, Type baseType,
+        Func<CancellationToken, Task<LibraryThumbnailSubject?>>? thumbnailContent)
     {
         return new SelectLibraryItemDialogViewModel(
             (editor as IServiceProvider)?.GetService<Beutl.Media.FontManager>()
                 ?? Beutl.Controls.ControlFonts.GetOrCreate(control),
             ((IServiceProvider)editor!).GetRequiredService<LibraryService>(),
-            format, baseType, captureThumbnails ? LibraryThumbnailCapture.ForObject(editor as IServiceProvider) : null, decoders: ExtensionGuard.FindService<DecoderRegistry>(editor) ?? Beutl.Controls.ControlDecoders.GetDecoders(control));
+            format, baseType, thumbnailContent, decoders: ExtensionGuard.FindService<DecoderRegistry>(editor) ?? Beutl.Controls.ControlDecoders.GetDecoders(control));
     }
 
     public static async Task<object?> ShowTypeOrReferenceAsync(
