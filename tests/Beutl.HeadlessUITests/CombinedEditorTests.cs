@@ -805,6 +805,55 @@ public sealed class CombinedEditorTests
         Assert.That(transform.X.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(30f));
     }
 
+    // Separating a combined expression that uses Value/ValueAtTime keeps the combined Value context when confirmed or
+    // edited on an individual component row, while still allowing a switch to a plain scalar Value expression.
+    [AvaloniaTest]
+    public void A_row_of_its_own_preserves_the_combined_Value_context_when_confirming_or_editing()
+    {
+        var transform = new TranslateTransform(10, 20);
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        Assert.That(combined.SetExpression("new Point(Value.X * 2, Value.Y * 2)", out string? error), Is.True, error);
+        var window = new Window { Width = 480, Height = 300, Content = CreateControl(combined) };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            combined.SeparateComponents();
+            HeadlessTestHelpers.Render(3);
+
+            var row = (PropertyEditorViewModel)window.GetVisualDescendants().OfType<NumberEditor<float>>().First().DataContext!;
+            Assert.That(row.GetExpressionString(), Is.EqualTo("(new Point(Value.X * 2, Value.Y * 2)).X"));
+            Assert.That(row.SetExpression(row.GetExpressionString()!, out error), Is.True, error);
+            HeadlessTestHelpers.Render(3);
+
+            var context = new EvaluationContext(MediaTime.Zero);
+            Assert.Multiple(() =>
+            {
+                Assert.That(transform.X.Evaluate(context), Is.EqualTo(20f));
+                Assert.That(transform.X.ExpressionError, Is.Null);
+                Assert.That(combined.CanUnseparateComponents.Value, Is.False);
+            });
+
+            // Editing again on the separated row still resolves Value as Point (including sibling Y).
+            Assert.That(row.SetExpression("Value.X * 3 + Value.Y", out error), Is.True, error);
+            Assert.That(transform.X.Evaluate(context), Is.EqualTo(50f));
+            transform.Y.Value = 40;
+            Assert.That(transform.X.Evaluate(context), Is.EqualTo(70f));
+
+            var copy = (TranslateTransform)CoreSerializer.DeserializeFromJsonObject(
+                CoreSerializer.SerializeToJsonObject(transform), typeof(TranslateTransform));
+            Assert.That(copy.X.Evaluate(context), Is.EqualTo(70f));
+
+            // Replacing with a scalar expression using X's own float Value falls back cleanly to StringExpression<float>.
+            Assert.That(row.SetExpression("Value + 5", out error), Is.True, error);
+            Assert.That(transform.X.Expression, Is.TypeOf<StringExpression<float>>());
+            Assert.That(transform.X.Evaluate(context), Is.EqualTo(15f));
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTest]
     public void The_expression_editor_says_what_to_return_and_writes_both()
     {

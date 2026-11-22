@@ -452,9 +452,9 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         {
             return false;
         }
-        if (PropertyAdapter is IExpressionPropertyAdapter<TValue>)
+        if (PropertyAdapter is IExpressionPropertyAdapter<TValue> expressionProperty)
         {
-            if (!Expression.TryParse<TValue>(expressionString, out var newExpression, out error))
+            if (!TryParseExpression(expressionProperty.Expression, expressionString, out IExpression<TValue>? newExpression, out error))
             {
                 return false;
             }
@@ -464,6 +464,30 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
         error = null;
         return true;
+    }
+
+    private static bool TryParseExpression(
+        IExpression<TValue>? current,
+        string expressionString,
+        [NotNullWhen(true)] out IExpression<TValue>? expression,
+        [NotNullWhen(false)] out string? error)
+    {
+        for (IExpression? expr = current; expr != null; expr = expr.Replaced)
+        {
+            if (expr is ICombinedValueExpression<TValue> combined)
+            {
+                return combined.TryParseSameContext(expressionString, out expression, out error);
+            }
+        }
+
+        if (Expression.TryParse<TValue>(expressionString, out StringExpression<TValue>? plain, out error))
+        {
+            expression = plain;
+            return true;
+        }
+
+        expression = null;
+        return false;
     }
 
     // Sets an expression that another editor has parsed, keeping any animation below it.

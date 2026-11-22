@@ -17,7 +17,17 @@ public interface IComponentExpression : IExpression
     int ComponentIndex { get; }
 }
 
-public sealed class ComponentExpression<TValue, TComponent> : IReplacingExpression<TComponent>, IComponentExpression
+// An expression whose Value and ValueAtTime globals come from a combined value (such as Point for X/Y).
+internal interface ICombinedValueExpression<TComponent> : IExpression<TComponent>
+{
+    bool TryParseSameContext(
+        string expressionString,
+        [NotNullWhen(true)] out IExpression<TComponent>? expression,
+        [NotNullWhen(false)] out string? error);
+}
+
+public sealed class ComponentExpression<TValue, TComponent>
+    : IReplacingExpression<TComponent>, IComponentExpression, ICombinedValueExpression<TComponent>
 {
     private static readonly ComponentSet<TValue, TComponent> s_set = ComponentAnimations.GetComponentSet<TValue, TComponent>();
     private static readonly ConditionalWeakTable<IProperty, CachedBelow> s_belowCache = [];
@@ -72,6 +82,12 @@ public sealed class ComponentExpression<TValue, TComponent> : IReplacingExpressi
     IExpression<TComponent> IReplacingExpression<TComponent>.WithReplaced(IExpression<TComponent>? replaced)
         => new ComponentExpression<TValue, TComponent>(_source, Component, replaced);
 
+    bool ICombinedValueExpression<TComponent>.TryParseSameContext(
+        string expressionString,
+        [NotNullWhen(true)] out IExpression<TComponent>? expression,
+        [NotNullWhen(false)] out string? error)
+        => CombinedValueExpression<TValue, TComponent>.TryParseInCombinedContext(expressionString, out expression, out error);
+
     public TComponent Evaluate(ExpressionContext context)
     {
         if (ComponentIndex < 0)
@@ -94,7 +110,7 @@ public sealed class ComponentExpression<TValue, TComponent> : IReplacingExpressi
 
     public override string ToString() => ExpressionString;
 
-    private static IExpression<TValue>? GetBelowExpression(IProperty currentProperty)
+    internal static IExpression<TValue>? GetBelowExpression(IProperty currentProperty)
     {
         if (currentProperty.GetOwnerObject() is not { } owner)
             return null;
@@ -206,4 +222,100 @@ public sealed class ComponentExpression<TValue, TComponent> : IReplacingExpressi
             return property.Value;
         }
     }
+}
+
+// A single-component expression whose Value and ValueAtTime globals come from the combined value (such as Point for
+// Translate X/Y), preserving the aggregate evaluation context when a separated component expression is edited.
+public sealed class CombinedValueExpression<TValue, TComponent>
+    : IReplacingExpression<TComponent>, ICombinedValueExpression<TComponent>
+{
+    private readonly CompiledStringExpression<TComponent, TValue> _script;
+
+    [JsonConstructor]
+    public CombinedValueExpression(string expressionString)
+        : this(new CompiledStringExpression<TComponent, TValue>(expressionString), null)
+    {
+    }
+
+    private CombinedValueExpression(CompiledStringExpression<TComponent, TValue> script, IExpression<TComponent>? replaced)
+    {
+        _script = script;
+        Replaced = replaced;
+    }
+
+    public string ExpressionString => _script.ExpressionString;
+
+    [JsonIgnore]
+    public IExpression<TComponent>? Replaced { get; }
+
+    public static bool TryParse(
+        string expressionString,
+        [NotNullWhen(true)] out CombinedValueExpression<TValue, TComponent>? expression,
+        [NotNullWhen(false)] out string? error)
+    {
+        var candidate = new CombinedValueExpression<TValue, TComponent>(expressionString);
+        if (candidate.Validate(out error))
+        {
+            expression = candidate;
+            return true;
+        }
+
+        expression = null;
+        return false;
+    }
+
+    IExpression<TComponent> IReplacingExpression<TComponent>.WithReplaced(IExpression<TComponent>? replaced)
+        => new CombinedValueExpression<TValue, TComponent>(_script, replaced);
+
+    bool ICombinedValueExpression<TComponent>.TryParseSameContext(
+        string expressionString,
+        [NotNullWhen(true)] out IExpression<TComponent>? expression,
+        [NotNullWhen(false)] out string? error)
+        => TryParseInCombinedContext(expressionString, out expression, out error);
+
+    internal static bool TryParseInCombinedContext(
+        string expressionString,
+        [NotNullWhen(true)] out IExpression<TComponent>? expression,
+        [NotNullWhen(false)] out string? error)
+    {
+        if (!StringExpressionParser.ReferencesValue(expressionString))
+        {
+            if (Expression.TryParse<TComponent>(expressionString, out StringExpression<TComponent>? plain, out error))
+            {
+                expression = plain;
+                return true;
+            }
+
+            expression = null;
+            return false;
+        }
+
+        if (TryParse(expressionString, out CombinedValueExpression<TValue, TComponent>? contextual, out string? contextError))
+        {
+            expression = contextual;
+            error = null;
+            return true;
+        }
+
+        if (Expression.TryParse<TComponent>(expressionString, out StringExpression<TComponent>? scalar, out _))
+        {
+            expression = scalar;
+            error = null;
+            return true;
+        }
+
+        expression = null;
+        error = contextError;
+        return false;
+    }
+
+    public TComponent Evaluate(ExpressionContext context)
+    {
+        IExpression<TValue>? below = ComponentExpression<TValue, TComponent>.GetBelowExpression(context.CurrentProperty);
+        return _script.Evaluate(context, below);
+    }
+
+    public bool Validate([NotNullWhen(false)] out string? error) => _script.Validate(out error);
+
+    public override string ToString() => ExpressionString;
 }

@@ -283,6 +283,36 @@ public class ExpressionValueTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void CombinedValueExpression_EvaluatesCombinedValueAndRoundTripsThroughJson(bool hasKeyFrames)
+    {
+        var transform = new TranslateTransform { X = { Value = 10 }, Y = { Value = 20 } };
+        if (hasKeyFrames)
+        {
+            transform.X.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1)));
+            transform.Y.SetKeyFrameAnimation(TestAnimations.Linear(20f, 60f, MediaTime.FromSeconds(1)));
+        }
+
+        Assert.That(CombinedValueExpression<Point, float>.TryParse(
+            "(new Point(Value.X * 2 + ValueAtTime(Time - 0.5).Y, Value.Y)).X",
+            out var expression, out var error), Is.True, error);
+        Assert.That(CombinedValueExpression<Point, float>.TryParse("new Point(Value.X, Value.Y)", out _, out var typeError), Is.False);
+        Assert.That(typeError, Does.Contain("float"));
+
+        IExpression<float>? copy = Expression.CreateFromNode<float>(Expression.ToNode(expression!));
+        Assert.That(copy, Is.TypeOf<CombinedValueExpression<Point, float>>());
+        transform.X.Expression = copy;
+
+        float result = transform.X.Evaluate(new CompositionContext(MediaTime.FromSeconds(0.5)));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo(hasKeyFrames ? 120f : 40f).Within(1e-4f));
+            Assert.That(transform.X.ExpressionError, Is.Null);
+            Assert.That(transform.X.GetKeyFrameAnimation() != null, Is.EqualTo(hasKeyFrames));
+        }
+    }
+
     [Test]
     public void Value_NullFromBelow_UsesStoredValue()
     {
