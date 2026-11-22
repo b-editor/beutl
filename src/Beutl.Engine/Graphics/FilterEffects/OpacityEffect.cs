@@ -21,7 +21,7 @@ public sealed partial class OpacityEffect : FilterEffect
     {
         protected override void ApplyTo(FilterEffectContext context)
         {
-            if (!float.IsFinite(Opacity) || Opacity >= 100)
+            if (!float.IsFinite(Opacity))
                 return;
 
             context.Opacity(Math.Max(Opacity, 0) / 100f);
