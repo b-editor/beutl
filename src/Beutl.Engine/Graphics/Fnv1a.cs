@@ -38,7 +38,10 @@ internal static class Fnv1a
     }
 
     /// <summary>Hashes the UTF-8 encoding of <paramref name="text"/>.</summary>
-    public static ulong HashUtf8(string text)
+    public static ulong HashUtf8(string text) => AppendUtf8(Offset64, text);
+
+    // Folds the UTF-8 encoding of text in, byte by byte.
+    public static ulong AppendUtf8(ulong hash, string text)
     {
         const int stackBufferSize = 512;
         int byteCount = Encoding.UTF8.GetByteCount(text);
@@ -46,7 +49,6 @@ internal static class Fnv1a
         Span<byte> bytes = byteCount <= stackBufferSize
             ? stackalloc byte[byteCount]
             : (rented = ArrayPool<byte>.Shared.Rent(byteCount));
-        ulong hash = Offset64;
         try
         {
             int written = Encoding.UTF8.GetBytes(text, bytes);

@@ -1,4 +1,4 @@
-﻿using System.Text;
+﻿using Beutl.Graphics;
 
 namespace Beutl.Engine.Expressions;
 
@@ -9,20 +9,14 @@ internal static class WiggleNoise
 
     public static ulong CreateSeed(Guid ownerId, string propertyName)
     {
-        const int guidSize = 16;
-        int size = guidSize + Encoding.UTF8.GetByteCount(propertyName);
-        Span<byte> identity = size <= 128 ? stackalloc byte[size] : new byte[size];
-        ownerId.TryWriteBytes(identity, bigEndian: true, out _);
-        Encoding.UTF8.GetBytes(propertyName, identity[guidSize..]);
+        // 64-bit FNV-1a over the big-endian GUID, then the UTF-8 name.
+        Span<byte> id = stackalloc byte[16];
+        ownerId.TryWriteBytes(id, bigEndian: true, out _);
+        ulong hash = Fnv1a.Offset64;
+        foreach (byte value in id)
+            hash = Fnv1a.Append(hash, value);
 
-        // 64-bit FNV-1a over the GUID and UTF-8 name.
-        ulong hash = 14695981039346656037UL;
-        foreach (byte value in identity)
-        {
-            hash = unchecked((hash ^ value) * 1099511628211UL);
-        }
-
-        return hash;
+        return Fnv1a.AppendUtf8(hash, propertyName);
     }
 
     public static double Sample(double x, int octaves, ulong seed)
