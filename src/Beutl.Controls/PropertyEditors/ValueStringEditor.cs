@@ -40,15 +40,9 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
             if (SetAndRaise(ValuePropertyCore, ref _value, value)
                 && (_editSource == null || _editSource != InnerTextBox))
             {
-                if (_editSource == null)
-                {
-                    using var edit = new PropertyEditorEditScope(ref _editSource, this);
-                    Text = FormatDisplayValue(value);
-                }
-                else
-                {
-                    Text = FormatDisplayValue(value);
-                }
+                // The text is the editor's own unless an edit already holds the source.
+                using var edit = new PropertyEditorEditScope(ref _editSource, _editSource ?? this);
+                Text = FormatDisplayValue(value);
             }
         }
     }

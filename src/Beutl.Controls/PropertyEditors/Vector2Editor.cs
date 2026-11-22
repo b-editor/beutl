@@ -1,14 +1,11 @@
 ﻿using System.Numerics;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
-using Avalonia.Interactivity;
 
 using Beutl.Extensibility;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -70,30 +67,22 @@ public class Vector2Editor<TElement> : Vector2Editor, IValueEditorControl<(TElem
 
     public void Connect(IValueEditorContext<(TElement, TElement)> context)
     {
-        CompositeDisposable connection = StartConnection();
-        (TElement, TElement) shown = (TElement.Zero, TElement.Zero);
-        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
-        _values.ReadIncrementValues = () =>
-        {
-            var value = context.GetIncrementValue((FirstValue, SecondValue));
-            return [value.Item1, value.Item2];
-        };
-        _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
-            ? [focused.Item1, focused.Item2]
-            : null;
-        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
-        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
-        this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
+        ConnectComponents(
+            context,
+            connection =>
             {
-                if (e.Expect<(TElement, TElement)>(s) is { } args)
+                _values.ReadIncrementValues = () =>
                 {
-                    (FirstValue, SecondValue) = IsUnderlyingEdit
-                        ? PreviewFocusedEdit(context, args.NewValue)
-                        : PreviewEdit(context, args.NewValue, IsRelativeEdit);
-                }
-            })
-            .DisposeWith(connection);
-        ConfirmEdits(context, connection, () => (FirstValue, SecondValue) = shown);
+                    var value = context.GetIncrementValue((FirstValue, SecondValue));
+                    return [value.Item1, value.Item2];
+                };
+                _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+                    ? [focused.Item1, focused.Item2]
+                    : null;
+                BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
+                BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
+            },
+            value => (FirstValue, SecondValue) = value);
     }
 }
 

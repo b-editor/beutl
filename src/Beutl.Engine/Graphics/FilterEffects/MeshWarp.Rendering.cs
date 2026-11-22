@@ -17,6 +17,8 @@ public sealed partial class MeshWarp
     private static Point MapPoint(Rect bounds, Point normalized)
         => new(bounds.X + (double)normalized.X * bounds.Width, bounds.Y + (double)normalized.Y * bounds.Height);
 
+    private static float Normalize(float value, float start, float length) => (float)(((double)value - start) / length);
+
     private static Rect TransformBounds((Tessellation Mesh, BoundsCapture? Capture) data, Rect bounds)
     {
         if (bounds.IsInvalid) return bounds;
@@ -56,10 +58,10 @@ public sealed partial class MeshWarp
             Rect warpBounds = target.Bounds;
             if (sharedSpace)
             {
-                float subLeft = (float)(((double)target.Bounds.X - sharedBounds.X) / sharedBounds.Width);
-                float subTop = (float)(((double)target.Bounds.Y - sharedBounds.Y) / sharedBounds.Height);
-                float subRight = (float)(((double)target.Bounds.Right - sharedBounds.X) / sharedBounds.Width);
-                float subBottom = (float)(((double)target.Bounds.Bottom - sharedBounds.Y) / sharedBounds.Height);
+                float subLeft = Normalize(target.Bounds.X, sharedBounds.X, sharedBounds.Width);
+                float subTop = Normalize(target.Bounds.Y, sharedBounds.Y, sharedBounds.Height);
+                float subRight = Normalize(target.Bounds.Right, sharedBounds.X, sharedBounds.Width);
+                float subBottom = Normalize(target.Bounds.Bottom, sharedBounds.Y, sharedBounds.Height);
                 var subRect = new Rect(subLeft, subTop, subRight - subLeft, subBottom - subTop);
                 tileMesh = sharedGrid is { } samples
                     ? data.Mesh.CreateSubMesh(subRect, samples.Xs, samples.Ys)
@@ -172,23 +174,15 @@ public sealed partial class MeshWarp
         rasterBounds = src.RasterBounds;
         if (image is null) return null;
 
-        float srcScale = src.Scale.Value;
         var imageBounds = new PixelRect(new PixelSize(image.Width, image.Height));
-        (PixelRect semanticDeviceBounds, Rect semanticRasterBounds) = RasterShaderMapping.ResolveSemanticSource(
-            sourceBounds, srcScale, src.DeviceBounds, src.RasterBounds);
-        var semanticSubset = new PixelRect(
-            semanticDeviceBounds.X - src.DeviceBounds.X,
-            semanticDeviceBounds.Y - src.DeviceBounds.Y,
-            semanticDeviceBounds.Width,
-            semanticDeviceBounds.Height);
+        (_, PixelRect semanticSubset, Rect semanticRasterBounds) = RasterShaderMapping.ResolveSemanticSubset(
+            sourceBounds, src.Scale.Value, src.DeviceBounds, src.RasterBounds);
 
         if (semanticSubset != imageBounds
             && semanticSubset.Width > 0 && semanticSubset.Height > 0
             && imageBounds.Contains(semanticSubset))
         {
-            using SKImage? subset = recordingContext is null
-                ? image.Subset(semanticSubset.ToSKRectI())
-                : image.Subset(recordingContext, semanticSubset.ToSKRectI());
+            using SKImage? subset = RasterShaderMapping.SubsetImage(image, recordingContext, semanticSubset);
             if (subset is not null)
             {
                 rasterBounds = semanticRasterBounds;
@@ -223,27 +217,22 @@ public sealed partial class MeshWarp
                 EffectTarget target = targets[i];
                 if (!target.IsMaterialized) continue;
 
-                boundaryXs.Add((float)(((double)target.Bounds.X - sharedBounds.X) / sharedBounds.Width));
-                boundaryXs.Add((float)(((double)target.Bounds.Right - sharedBounds.X) / sharedBounds.Width));
-                boundaryYs.Add((float)(((double)target.Bounds.Y - sharedBounds.Y) / sharedBounds.Height));
-                boundaryYs.Add((float)(((double)target.Bounds.Bottom - sharedBounds.Y) / sharedBounds.Height));
+                boundaryXs.Add(Normalize(target.Bounds.X, sharedBounds.X, sharedBounds.Width));
+                boundaryXs.Add(Normalize(target.Bounds.Right, sharedBounds.X, sharedBounds.Width));
+                boundaryYs.Add(Normalize(target.Bounds.Y, sharedBounds.Y, sharedBounds.Height));
+                boundaryYs.Add(Normalize(target.Bounds.Bottom, sharedBounds.Y, sharedBounds.Height));
             }
 
             float[] uniqueBoundaryXs = SortAndDeduplicate(boundaryXs);
             float[] uniqueBoundaryYs = SortAndDeduplicate(boundaryYs);
 
-            int subdivisions = 8;
-            while (subdivisions > 1
-                && (long)(grid.Rows * subdivisions + uniqueBoundaryYs.Length + 1)
-                    * (grid.Columns * subdivisions + uniqueBoundaryXs.Length + 1) > ushort.MaxValue)
-            {
-                subdivisions--;
-            }
+            int extraRows = uniqueBoundaryYs.Length + 1;
+            int extraColumns = uniqueBoundaryXs.Length + 1;
+            int subdivisions = FitSubdivisions(grid, extraRows, extraColumns);
 
             // If even the coarsest shared lattice exceeds the ushort vertex limit (e.g. many PartsSplitEffect contours),
             // let each tile tessellate against the global grid lines plus its own bounds instead of dropping targets.
-            if ((long)(grid.Rows * subdivisions + uniqueBoundaryYs.Length + 1)
-                * (grid.Columns * subdivisions + uniqueBoundaryXs.Length + 1) > ushort.MaxValue)
+            if (!FitsIndices(grid, subdivisions, extraRows, extraColumns))
             {
                 return null;
             }
@@ -269,13 +258,7 @@ public sealed partial class MeshWarp
         {
             if (!HasArea(normalizedSubRect)) return null;
 
-            int subdivisions = 8;
-            while (subdivisions > 1
-                && (long)(grid.Rows * subdivisions + 3) * (grid.Columns * subdivisions + 3) > ushort.MaxValue)
-            {
-                subdivisions--;
-            }
-
+            int subdivisions = FitSubdivisions(grid, 3, 3);
             float[] tileXs = SliceRange(
                 MergeWithGlobal(SortAndDeduplicate([normalizedSubRect.X, normalizedSubRect.Right]), grid.Columns * subdivisions),
                 normalizedSubRect.X, normalizedSubRect.Right);
@@ -290,10 +273,7 @@ public sealed partial class MeshWarp
             float strength,
             MeshWarpInterpolation interpolation)
         {
-            int subdivisions = 8;
-            while ((grid.Rows * subdivisions + 1) * (grid.Columns * subdivisions + 1) > ushort.MaxValue)
-                subdivisions--;
-
+            int subdivisions = FitSubdivisions(grid, 1, 1);
             int rows = grid.Rows * subdivisions;
             int columns = grid.Columns * subdivisions;
             var xs = new float[columns + 1];
@@ -329,7 +309,7 @@ public sealed partial class MeshWarp
             {
                 float sharedY = ys[row];
                 float tileRestY = normalizedSubRect is { } subForY
-                    ? row == 0 ? 0f : row == rows ? 1f : Math.Clamp((float)(((double)sharedY - subForY.Y) / subForY.Height), 0f, 1f)
+                    ? row == 0 ? 0f : row == rows ? 1f : Math.Clamp(Normalize(sharedY, subForY.Y, subForY.Height), 0f, 1f)
                     : sharedY;
 
                 for (int column = 0; column <= columns; column++)
@@ -337,7 +317,7 @@ public sealed partial class MeshWarp
                     int vertex = row * stride + column;
                     float sharedX = xs[column];
                     float tileRestX = normalizedSubRect is { } subForX
-                        ? column == 0 ? 0f : column == columns ? 1f : Math.Clamp((float)(((double)sharedX - subForX.X) / subForX.Width), 0f, 1f)
+                        ? column == 0 ? 0f : column == columns ? 1f : Math.Clamp(Normalize(sharedX, subForX.X, subForX.Width), 0f, 1f)
                         : sharedX;
 
                     var sharedRest = new Point(sharedX, sharedY);
@@ -367,6 +347,19 @@ public sealed partial class MeshWarp
             result.Maximum = new Point(right, bottom);
             return result;
         }
+
+        // The finest subdivision per cell, at most 8, whose lattice plus the extra sample lines fits ushort indices.
+        private static int FitSubdivisions(MeshWarpGrid grid, int extraRows, int extraColumns)
+        {
+            int subdivisions = 8;
+            while (subdivisions > 1 && !FitsIndices(grid, subdivisions, extraRows, extraColumns))
+                subdivisions--;
+
+            return subdivisions;
+        }
+
+        private static bool FitsIndices(MeshWarpGrid grid, int subdivisions, int extraRows, int extraColumns)
+            => (long)(grid.Rows * subdivisions + extraRows) * (grid.Columns * subdivisions + extraColumns) <= ushort.MaxValue;
 
         private static float[] SortAndDeduplicate(List<float> values)
         {

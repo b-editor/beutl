@@ -75,11 +75,6 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsBusy = Activities
-            .Select(activities => activities != TitleBarActivities.None)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
         // The update's animation names the update, so its percentage shows even while other tasks take turns beside it.
         UpdateProgress = AppUpdate
             .Select(update => update.IsBusy ? update.Progress : null)
@@ -121,8 +116,6 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(StatusStrings.NotSignedIn)
             .DisposeWith(_disposables);
     }
-
-    public ReadOnlyReactivePropertySlim<bool> IsBusy { get; }
 
     public ReadOnlyReactivePropertySlim<AppUpdateStatus> AppUpdate { get; }
 

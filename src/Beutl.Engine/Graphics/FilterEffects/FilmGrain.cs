@@ -130,11 +130,7 @@ public sealed partial class FilmGrain : FilterEffect
     }
 
     private static void BindOrigin(ShaderUniformWriter writer, Vector2 _, ShaderExecutionContext execution)
-    {
-        RenderPlacement placement = execution.OutputPlacement;
-        var origin = execution.OutputBounds.Position - placement.LogicalOrigin;
-        writer.Set(new Vector2(origin.X, origin.Y) * placement.Scale.Value);
-    }
+        => writer.Set(RasterShaderMapping.ToStagePixels(execution, execution.OutputBounds.Position));
 
     public new partial class Resource
     {

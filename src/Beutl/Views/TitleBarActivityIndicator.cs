@@ -273,12 +273,11 @@ public sealed class TitleBarActivityIndicator : Control
         if (running == TitleBarActivities.None)
             return TitleBarActivities.None;
 
+        // The idle icon is not in the order, so its -1 starts the loop below at the first kind.
         int current = Array.IndexOf(s_turnOrder, _shown);
-        if (current < 0)
-            return s_turnOrder.First(kind => running.HasFlag(kind));
 
         // A task that ends hands over at once, to the one after it, so the others keep their turns.
-        if (running.HasFlag(_shown) && time - _shownSince < TurnSeconds)
+        if (current >= 0 && running.HasFlag(_shown) && time - _shownSince < TurnSeconds)
             return _shown;
 
         for (int step = 1; step <= s_turnOrder.Length; step++)

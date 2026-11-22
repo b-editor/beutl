@@ -82,9 +82,7 @@ public partial class NodeGraphView : UserControl
 
     private void OnGraphMagnify(object? sender, PointerDeltaEventArgs e)
     {
-        // Native magnification is a relative scale change, not a mouse-wheel delta.
-        double factor = 1 + e.Delta.X;
-        if (double.IsFinite(factor) && factor > 0)
+        if (NativeScrollInput.TryGetMagnifyFactor(e, out double factor))
         {
             Point point = e.GetPosition(canvas);
             zoomBorder.ZoomTo(factor, point.X, point.Y, true);

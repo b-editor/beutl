@@ -40,9 +40,6 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
 
     public bool Validate([NotNullWhen(false)] out string? error) => _script.Validate(out error);
 
-    // The script with a member taken from what it returns, which can come after statements.
-    internal string WithMemberOfResult(string member) => StringExpressionParser.WithMemberOfResult(ExpressionString, member);
-
     public override string ToString() => ExpressionString;
 }
 
@@ -50,6 +47,7 @@ internal static class StringExpressionParser
 {
     internal static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest, kind: SourceCodeKind.Script);
 
+    // The script with a member taken from what it returns, which can come after statements.
     internal static string WithMemberOfResult(string expressionString, string member)
     {
         var root = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(expressionString, ParseOptions).GetRoot();

@@ -74,7 +74,6 @@ public sealed class TitleBarStatusViewModelTests
 
         update.Value = new AppUpdateStatus("Downloading", IsBusy: true);
         Dispatcher.UIThread.RunJobs();
-        Assert.That(status.IsBusy.Value, Is.True);
         Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Update));
         Assert.That(status.AppUpdate.Value.Text, Is.EqualTo("Downloading"));
         Assert.That(status.UpdateProgress.Value, Is.Null);
@@ -92,7 +91,6 @@ public sealed class TitleBarStatusViewModelTests
 
         update.Value = new AppUpdateStatus("Ready", IsBusy: false, Progress: 1);
         Dispatcher.UIThread.RunJobs();
-        Assert.That(status.IsBusy.Value, Is.False);
         Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
         Assert.That(status.UpdateProgress.Value, Is.Null);
         Assert.That(status.IsUpdateInstalling.Value, Is.False);
@@ -121,7 +119,7 @@ public sealed class TitleBarStatusViewModelTests
         Dispatcher.UIThread.RunJobs();
         Assert.Multiple(() =>
         {
-            Assert.That(status.IsBusy.Value, Is.False);
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
             Assert.That(status.ToolTip.Value, Is.EqualTo(StatusStrings.Title));
             Assert.That(status.AccountText.Value, Is.EqualTo(StatusStrings.NotSignedIn));
         });
@@ -130,7 +128,6 @@ public sealed class TitleBarStatusViewModelTests
         Dispatcher.UIThread.RunJobs();
         Assert.Multiple(() =>
         {
-            Assert.That(status.IsBusy.Value, Is.True);
             Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Startup));
             Assert.That(status.StartupText.Value, Is.EqualTo(StatusStrings.Running));
             Assert.That(status.ToolTip.Value, Does.Contain(Strings.RunningStartupTasks));
@@ -143,7 +140,6 @@ public sealed class TitleBarStatusViewModelTests
             Dispatcher.UIThread.RunJobs();
             Assert.Multiple(() =>
             {
-                Assert.That(status.IsBusy.Value, Is.True);
                 Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.Output));
                 Assert.That(status.StartupText.Value, Is.EqualTo(StatusStrings.Done));
                 Assert.That(status.RunningOutputs.Value, Is.EqualTo(new[] { "intro.scene - Default" }));
@@ -153,7 +149,7 @@ public sealed class TitleBarStatusViewModelTests
         Dispatcher.UIThread.RunJobs();
         Assert.Multiple(() =>
         {
-            Assert.That(status.IsBusy.Value, Is.False);
+            Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.None));
             Assert.That(status.HasRunningOutputs.Value, Is.False);
         });
 
@@ -163,7 +159,6 @@ public sealed class TitleBarStatusViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(status.RunningAiJobCount.Value, Is.EqualTo(1));
-            Assert.That(status.IsBusy.Value, Is.True);
             Assert.That(status.Activities.Value, Is.EqualTo(TitleBarActivities.AiJob));
             Assert.That(status.AiJobsText.Value, Is.EqualTo(string.Format(StatusStrings.RunningCount, 1)));
         });

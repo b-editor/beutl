@@ -308,13 +308,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             }
         }
 
-        if (HasExpression.Value)
-        {
-            return ApplyUnderlyingPreview(ComputeUnderlyingPreview(value, relative, directUnderlying));
-        }
-
-        _previewingExpression = false;
-        return SetCurrentValue(value);
+        return ApplyUnderlyingPreview(HasExpression.Value ? ComputeUnderlyingPreview(value, relative, directUnderlying) : value);
     }
 
     private TValue? ComputeUnderlyingPreview(TValue? value, bool relative, bool directUnderlying)

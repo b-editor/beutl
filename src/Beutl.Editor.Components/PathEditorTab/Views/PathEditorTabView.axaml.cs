@@ -10,6 +10,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
@@ -243,9 +244,7 @@ public partial class PathEditorTabView : PathEditorViewBase
     private void OnMagnify(object? sender, PointerDeltaEventArgs e)
     {
         if (!new Rect(canvas.Bounds.Size).Contains(e.GetPosition(canvas))) return;
-        // Native magnification already reports the relative scale change.
-        double factor = 1 + e.Delta.X;
-        if (!SkipUpdatePosition && double.IsFinite(factor) && factor > 0)
+        if (!SkipUpdatePosition && NativeScrollInput.TryGetMagnifyFactor(e, out double factor))
             Zoom(factor, e.GetPosition(canvas));
         e.Handled = true;
     }

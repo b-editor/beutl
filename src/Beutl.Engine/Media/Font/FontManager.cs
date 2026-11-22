@@ -185,20 +185,7 @@ public sealed class FontManager
         }
     }
 
-    public int FontFamilyCount
-    {
-        get
-        {
-            if (_parent is not null)
-                return FontFamilies.Count();
-
-            lock (_gate)
-            {
-                return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys)
-                    .Concat(_lazyFaces.Keys).Concat(_lazyProjectFaces.Keys).Distinct().Count();
-            }
-        }
-    }
+    public int FontFamilyCount => FontFamilies.Count();
 
     public Typeface DefaultTypeface { get; }
 

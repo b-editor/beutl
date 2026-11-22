@@ -33,54 +33,48 @@ public sealed partial class TimelineTabView
         viewModel.Options.Value = viewModel.Options.Value with { Offset = offset };
     }
 
-    private void UpdateZoom(PointerEventArgs e, double factor, ref float scale, ref Vector2 offset)
+    private void UpdateZoom(TimelineTabViewModel viewModel, double factor, double pointerX)
     {
-        float oldScale = scale;
-        Point pointerPos = e.GetCurrentPoint(TimelinePanel).Position;
+        Avalonia.Vector aOffset = ContentScroll.Offset;
+        float oldScale = viewModel.Options.Value.Scale;
+        var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
 
-        scale = (float)Math.Clamp(
-            factor * scale,
+        float scale = (float)Math.Clamp(
+            factor * oldScale,
             Beutl.ProjectSystem.TimelineOptions.MinScale,
             Beutl.ProjectSystem.TimelineOptions.MaxScale);
 
-        offset.X = TimelineHelper.ZoomOffsetX(pointerPos.X, offset.X, oldScale, scale);
+        offset.X = TimelineHelper.ZoomOffsetX(pointerX, offset.X, oldScale, scale);
+        viewModel.Options.Value = viewModel.Options.Value with { Scale = scale, Offset = offset };
     }
 
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (ViewModel == null) return;
         TimelineTabViewModel viewModel = ViewModel;
-        Avalonia.Vector aOffset = ContentScroll.Offset;
-        float scale = viewModel.Options.Value.Scale;
-        var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
 
         if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
         {
-            UpdateZoom(e, MathF.Pow(1.2f, (float)e.Delta.Y), ref scale, ref offset);
+            UpdateZoom(viewModel, MathF.Pow(1.2f, (float)e.Delta.Y), e.GetCurrentPoint(TimelinePanel).Position.X);
         }
         else
         {
+            Avalonia.Vector aOffset = ContentScroll.Offset;
+            var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
             Avalonia.Vector delta = TimelineHelper.GetScrollOffsetDelta(e, _usesGestureAxes(e), viewModel.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig);
             offset.X += (float)delta.X;
             offset.Y += (float)delta.Y;
+            viewModel.Options.Value = viewModel.Options.Value with { Offset = offset };
         }
-
-        viewModel.Options.Value = viewModel.Options.Value with { Scale = scale, Offset = offset };
 
         e.Handled = true;
     }
 
     private void OnTimelineMagnify(object? sender, PointerDeltaEventArgs e)
     {
-        // Native magnification already reports the relative scale change.
-        double factor = 1 + e.Delta.X;
-        if (ViewModel is { } viewModel && double.IsFinite(factor) && factor > 0)
+        if (ViewModel is { } viewModel && NativeScrollInput.TryGetMagnifyFactor(e, out double factor))
         {
-            Avalonia.Vector aOffset = ContentScroll.Offset;
-            float scale = viewModel.Options.Value.Scale;
-            var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
-            UpdateZoom(e, factor, ref scale, ref offset);
-            viewModel.Options.Value = viewModel.Options.Value with { Scale = scale, Offset = offset };
+            UpdateZoom(viewModel, factor, e.GetCurrentPoint(TimelinePanel).Position.X);
         }
 
         e.Handled = true;

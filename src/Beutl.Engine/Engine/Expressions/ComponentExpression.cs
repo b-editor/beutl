@@ -61,7 +61,7 @@ public sealed class ComponentExpression<TValue, TComponent>
 
     // An expression of the component's own type, which the property's own editor can show and edit.
     [JsonIgnore]
-    public string ExpressionString => _expressionString ??= _source.WithMemberOfResult(Component);
+    public string ExpressionString => _expressionString ??= StringExpressionParser.WithMemberOfResult(Source, Component);
 
     // One expression for each component of the value, which share the source and so compile it once.
     public static bool TryParse(string source, [NotNullWhen(true)] out IExpression<TComponent>[]? expressions,
@@ -278,34 +278,24 @@ public sealed class CombinedValueExpression<TValue, TComponent>
         [NotNullWhen(true)] out IExpression<TComponent>? expression,
         [NotNullWhen(false)] out string? error)
     {
-        if (!StringExpressionParser.ReferencesValue(expressionString))
-        {
-            if (Expression.TryParse<TComponent>(expressionString, out StringExpression<TComponent>? plain, out error))
-            {
-                expression = plain;
-                return true;
-            }
-
-            expression = null;
-            return false;
-        }
-
-        if (TryParse(expressionString, out CombinedValueExpression<TValue, TComponent>? contextual, out string? contextError))
+        string? contextError = null;
+        if (StringExpressionParser.ReferencesValue(expressionString)
+            && TryParse(expressionString, out CombinedValueExpression<TValue, TComponent>? contextual, out contextError))
         {
             expression = contextual;
             error = null;
             return true;
         }
 
-        if (Expression.TryParse<TComponent>(expressionString, out StringExpression<TComponent>? scalar, out _))
+        if (Expression.TryParse<TComponent>(expressionString, out StringExpression<TComponent>? plain, out error))
         {
-            expression = scalar;
-            error = null;
+            expression = plain;
             return true;
         }
 
         expression = null;
-        error = contextError;
+        // A script that reads Value reports why it failed in the combined context.
+        error = contextError ?? error;
         return false;
     }
 

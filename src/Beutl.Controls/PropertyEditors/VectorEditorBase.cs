@@ -8,6 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using Beutl.Extensibility;
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -43,9 +44,7 @@ public abstract class VectorEditorBase : PropertyEditor
     private Control? _editSource;
     private bool _isUnderlyingEdit;
 
-    private protected bool IsRelativeEdit => _editSource is not TextBox;
-
-    private protected bool IsUnderlyingEdit => _isUnderlyingEdit;
+    private bool IsRelativeEdit => _editSource is not TextBox;
 
     // With componentHeaders, each component has a header that scrubs that component alone; otherwise only the
     // editor's header scrubs, and it scrubs every component.
@@ -85,15 +84,9 @@ public abstract class VectorEditorBase : PropertyEditor
     {
         if (_editSource == null || _editSource != _textBoxes[index])
         {
-            if (_editSource == null)
-            {
-                using var edit = new PropertyEditorEditScope(ref _editSource, this);
-                SetAndRaise(_textProperties[index], ref _texts[index], value);
-            }
-            else
-            {
-                SetAndRaise(_textProperties[index], ref _texts[index], value);
-            }
+            // The text is the editor's own unless an edit already holds the source.
+            using var edit = new PropertyEditorEditScope(ref _editSource, _editSource ?? this);
+            SetAndRaise(_textProperties[index], ref _texts[index], value);
         }
     }
 
@@ -176,6 +169,28 @@ public abstract class VectorEditorBase : PropertyEditor
             box.Classes.Add(ScrubBox);
             TextBoxAttachment.SetEnterDownBehavior(box, TextBoxAttachment.EnterBehaviorMode.LostFocus);
         }
+    }
+
+    // bind binds the boxes; show puts a preview's result in them and, after a confirmation, the value the context kept.
+    private protected void ConnectComponents<TEdit>(
+        IValueEditorContext<TEdit> context, Action<CompositeDisposable> bind, Action<TEdit> show,
+        bool reportsMismatch = true)
+    {
+        CompositeDisposable connection = StartConnection();
+        TEdit shown = default!;
+        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
+        bind(connection);
+        this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
+            {
+                if ((reportsMismatch ? e.Expect<TEdit>(s) : e as PropertyEditorValueChangedEventArgs<TEdit>) is { } args)
+                {
+                    show(_isUnderlyingEdit
+                        ? PreviewFocusedEdit(context, args.NewValue)
+                        : PreviewEdit(context, args.NewValue, IsRelativeEdit));
+                }
+            })
+            .DisposeWith(connection);
+        ConfirmEdits(context, connection, () => show(shown));
     }
 
     // Shows one component of the context's value in property.
