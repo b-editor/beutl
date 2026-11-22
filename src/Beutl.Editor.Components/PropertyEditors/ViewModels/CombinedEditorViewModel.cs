@@ -21,8 +21,6 @@ public sealed class CombinedEditorViewModel<T, TTuple> : VectorEditorViewModel<T
     where T : struct, INumber<T>
     where TTuple : struct
 {
-    protected override bool CanEditUnderExpression => true;
-
     protected override TTuple OffsetValue(TTuple value, TTuple from, TTuple to) => _adapter.OffsetValue(value, from, to);
 
     protected override TTuple ReplaceUnderExpression(TTuple underlying, TTuple shown, TTuple input)

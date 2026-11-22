@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Avalonia;
@@ -7,10 +6,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
-using Avalonia.Interactivity;
 
 using Beutl.Extensibility;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -108,32 +105,24 @@ public class Vector4Editor<TElement> : Vector4Editor, IValueEditorControl<(TElem
 
     public void Connect(IValueEditorContext<(TElement, TElement, TElement, TElement)> context)
     {
-        CompositeDisposable connection = StartConnection();
-        (TElement, TElement, TElement, TElement) shown = (TElement.Zero, TElement.Zero, TElement.Zero, TElement.Zero);
-        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
-        _values.ReadIncrementValues = () =>
-        {
-            var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue, FourthValue));
-            return [value.Item1, value.Item2, value.Item3, value.Item4];
-        };
-        _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
-            ? [focused.Item1, focused.Item2, focused.Item3, focused.Item4]
-            : null;
-        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
-        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
-        BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
-        BindComponent(FourthValueProperty, context.EditValue.Select(v => v.Item4), connection);
-        this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
+        ConnectComponents(
+            context,
+            connection =>
             {
-                if (e.Expect<(TElement, TElement, TElement, TElement)>(s) is { } args)
+                _values.ReadIncrementValues = () =>
                 {
-                    (FirstValue, SecondValue, ThirdValue, FourthValue) = IsUnderlyingEdit
-                        ? PreviewFocusedEdit(context, args.NewValue)
-                        : PreviewEdit(context, args.NewValue, IsRelativeEdit);
-                }
-            })
-            .DisposeWith(connection);
-        ConfirmEdits(context, connection, () => (FirstValue, SecondValue, ThirdValue, FourthValue) = shown);
+                    var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue, FourthValue));
+                    return [value.Item1, value.Item2, value.Item3, value.Item4];
+                };
+                _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+                    ? [focused.Item1, focused.Item2, focused.Item3, focused.Item4]
+                    : null;
+                BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
+                BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
+                BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
+                BindComponent(FourthValueProperty, context.EditValue.Select(v => v.Item4), connection);
+            },
+            value => (FirstValue, SecondValue, ThirdValue, FourthValue) = value);
     }
 }
 

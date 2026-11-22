@@ -49,6 +49,22 @@ internal abstract class VectorValues
         return result;
     }
 
+    // The values with value at index, or in every component while they are one value.
+    protected static T[] Edited<T>(T[] values, int index, T value, bool uniform)
+    {
+        T[] result = [.. values];
+        if (uniform)
+        {
+            Array.Fill(result, value);
+        }
+        else if (index >= 0)
+        {
+            result[index] = value;
+        }
+
+        return result;
+    }
+
     // One pulse when a value the handlers kept crossed its reference: the component of references, or zero.
     protected static void PulseIfCrossed<T>(
         VectorEditorBase editor, T[] oldValues, T[] values, ITuple? references, ulong timestamp)
@@ -115,12 +131,8 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     public override void FormatTexts()
     {
-        TElement[]? focused = ReadFocusedValues?.Invoke();
         for (int i = 0; i < _values.Length; i++)
-        {
-            TElement display = focused != null && _editor.IsTextBoxFocused(i) ? focused[i] : _values[i];
-            _editor.SetText(i, NumberEditorHelper.Format(display, NumberFormat));
-        }
+            FormatText(i, _editor.IsTextBoxFocused(i));
     }
 
     public override void FormatText(int index, bool focused)
@@ -156,16 +168,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
         if (!NumberEditorHelper.TryParseEdit(newText, oldText, out TElement? newValue, out TElement? oldValue))
             return;
 
-        TElement[] oldValues = [.. _values];
-        if (_editor.IsUniformValue)
-        {
-            Array.Fill(oldValues, oldValue);
-        }
-        else if (index >= 0)
-        {
-            oldValues[index] = oldValue;
-        }
-
+        TElement[] oldValues = Edited(_values, index, oldValue, _editor.IsUniformValue);
         if (ReadFocusedValues?.Invoke() is { } focused)
         {
             ApplyFocusedValueChange(index, newValue, focused, oldValues);
@@ -201,16 +204,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     private void ApplyFocusedValueChange(int index, TElement value, TElement[] focusedValues, TElement[] oldValues)
     {
-        TElement[] newValues = [.. focusedValues];
-        if (_editor.IsUniformValue)
-        {
-            Array.Fill(newValues, value);
-        }
-        else if (index >= 0)
-        {
-            newValues[index] = value;
-        }
-
+        TElement[] newValues = Edited(focusedValues, index, value, _editor.IsUniformValue);
         _editor.RaiseUnderlyingValueChanged(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
     }
 
@@ -312,14 +306,8 @@ internal sealed class RelativeVectorValues : VectorValues
 
     public override void FormatTexts()
     {
-        (float[] Values, RelativeUnit Unit)? focused = ReadFocusedValues?.Invoke();
         for (int i = 0; i < _values.Length; i++)
-        {
-            bool useFocused = focused != null && _editor.IsTextBoxFocused(i);
-            float value = useFocused ? focused!.Value.Values[i] : _values[i];
-            RelativeUnit unit = useFocused ? focused!.Value.Unit : _unit;
-            _editor.SetText(i, FormatRelative(value, unit));
-        }
+            FormatText(i, _editor.IsTextBoxFocused(i));
     }
 
     public override void FormatText(int index, bool focused)
@@ -367,16 +355,7 @@ internal sealed class RelativeVectorValues : VectorValues
             return;
         }
 
-        float[] oldValues = [.. _values];
-        if (_editor.IsUniformValue)
-        {
-            Array.Fill(oldValues, oldValue);
-        }
-        else if (index >= 0)
-        {
-            oldValues[index] = oldValue;
-        }
-
+        float[] oldValues = Edited(_values, index, oldValue, _editor.IsUniformValue);
         if (ReadFocusedValues?.Invoke() is { } focused)
         {
             ApplyFocusedValueChange(index, newValue, newUnit, focused.Values, oldValues, oldUnit);
@@ -412,16 +391,7 @@ internal sealed class RelativeVectorValues : VectorValues
 
     private void ApplyFocusedValueChange(int index, float value, RelativeUnit unit, float[] focusedValues, float[] oldValues, RelativeUnit oldUnit)
     {
-        float[] newValues = [.. focusedValues];
-        if (_editor.IsUniformValue)
-        {
-            Array.Fill(newValues, value);
-        }
-        else if (index >= 0)
-        {
-            newValues[index] = value;
-        }
-
+        float[] newValues = Edited(focusedValues, index, value, _editor.IsUniformValue);
         _editor.RaiseUnderlyingValueChanged(_createEventArgs(newValues, unit, oldValues, oldUnit, PropertyEditor.ValueChangedEvent));
     }
 
