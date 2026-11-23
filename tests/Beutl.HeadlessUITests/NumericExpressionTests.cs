@@ -46,11 +46,18 @@ public sealed class NumericExpressionTests
     [TestCase("1.5e-1 * 10", 1.5d)]
     [TestCase("1E+2 / 4", 25d)]
     [TestCase("1e50 / 1e48", 100d)]
+    [TestCase("0.1 ^ -30", 1e30d)]
+    [TestCase("0.1 ^ 30", 1e-30d)]
+    [TestCase("100 ^ -20", 1e-40d)]
+    [TestCase("1e-20 * 1e-20", 1e-40d)]
+    [TestCase("1e-20 / 1e20", 1e-40d)]
+    [TestCase("1e-30 * 1e28", 0.01d)]
+    [TestCase("0e-30 + 1", 1d)]
     [SetCulture("en-US")]
     public void Evaluates_arithmetic_expressions_for_double(string text, double expected)
     {
         Assert.That(NumberEditorHelper.TryParse(text, out double actual), Is.True);
-        Assert.That(actual, Is.EqualTo(expected));
+        Assert.That(actual, Is.EqualTo(expected).Within(Math.Abs(expected) * 1e-12 + 1e-300));
     }
 
     [Test]
@@ -138,6 +145,28 @@ public sealed class NumericExpressionTests
     {
         Assert.That(NumberEditorHelper.TryParse(text, out float actual), Is.True);
         Assert.That(actual, Is.EqualTo(expected));
+    }
+
+    [TestCase("fr-FR")]
+    [TestCase("de-CH")]
+    public void Expressions_respect_culture_specific_group_separators(string cultureName)
+    {
+        CultureInfo previous = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo culture = CultureInfo.GetCultureInfo(cultureName);
+            CultureInfo.CurrentCulture = culture;
+            string group = culture.NumberFormat.NumberGroupSeparator;
+            string dec = culture.NumberFormat.NumberDecimalSeparator;
+
+            string text = $"1{group}000{dec}5 + 0{dec}5";
+            Assert.That(NumberEditorHelper.TryParse(text, out float actual), Is.True);
+            Assert.That(actual, Is.EqualTo(1001f));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
     }
 
     [TestCase("")]

@@ -66,6 +66,10 @@ internal static class NumericExpressionEvaluator
 
     private static bool TryScanNumber(ReadOnlySpan<char> text, ref int pos, out ReadOnlySpan<char> token)
     {
+        NumberFormatInfo format = CultureInfo.CurrentCulture.NumberFormat;
+        string decimalSeparator = format.NumberDecimalSeparator;
+        string groupSeparator = format.NumberGroupSeparator;
+
         int start = pos;
         bool hasDigit = false;
 
@@ -80,6 +84,21 @@ internal static class NumericExpressionEvaluator
             else if (c is '.' or ',')
             {
                 pos++;
+            }
+            else if (decimalSeparator.Length > 0
+                && decimalSeparator is not ("." or ",")
+                && text[pos..].StartsWith(decimalSeparator, StringComparison.Ordinal))
+            {
+                pos += decimalSeparator.Length;
+            }
+            else if (hasDigit
+                && groupSeparator.Length > 0
+                && groupSeparator is not ("." or ",")
+                && text[pos..].StartsWith(groupSeparator, StringComparison.Ordinal)
+                && pos + groupSeparator.Length < text.Length
+                && char.IsAsciiDigit(text[pos + groupSeparator.Length]))
+            {
+                pos += groupSeparator.Length;
             }
             else if (c is 'e' or 'E')
             {
@@ -366,12 +385,18 @@ internal static class NumericExpressionEvaluator
 
                 try
                 {
+                    decimal left = value;
                     value = op switch
                     {
-                        '*' => value * right,
-                        '/' => value / right,
-                        _ => value % right,
+                        '*' => left * right,
+                        '/' => left / right,
+                        _ => left % right,
                     };
+                    if ((op == '*' && left != 0m && right != 0m && value == 0m)
+                        || (op == '/' && left != 0m && value == 0m))
+                    {
+                        return EvalStatus.NeedsDoubleFallback;
+                    }
                 }
                 catch (OverflowException)
                 {
@@ -490,6 +515,11 @@ internal static class NumericExpressionEvaluator
 
             if (TryParseDecimalLiteral(token, out value))
             {
+                if (value == 0m && TryParseDoubleLiteral(token, out double doubleValue) && doubleValue != 0d)
+                {
+                    return EvalStatus.NeedsDoubleFallback;
+                }
+
                 return EvalStatus.Success;
             }
 
@@ -555,16 +585,38 @@ internal static class NumericExpressionEvaluator
                     if ((remaining & 1) != 0)
                     {
                         acc *= factor;
+                        if (acc == 0m)
+                        {
+                            result = 0m;
+                            return EvalStatus.NeedsDoubleFallback;
+                        }
                     }
 
                     remaining >>= 1;
                     if (remaining > 0)
                     {
                         factor *= factor;
+                        if (factor == 0m)
+                        {
+                            result = 0m;
+                            return EvalStatus.NeedsDoubleFallback;
+                        }
                     }
                 }
 
-                result = negative ? 1m / acc : acc;
+                if (negative)
+                {
+                    result = 1m / acc;
+                    if (result == 0m)
+                    {
+                        return EvalStatus.NeedsDoubleFallback;
+                    }
+                }
+                else
+                {
+                    result = acc;
+                }
+
                 return EvalStatus.Success;
             }
             catch (OverflowException)
