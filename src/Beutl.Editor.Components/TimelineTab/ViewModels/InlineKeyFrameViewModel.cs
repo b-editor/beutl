@@ -7,6 +7,7 @@ using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -56,6 +57,10 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     public TimelineTabViewModel Timeline { get; }
 
     public ReactiveProperty<double> Left { get; }
+
+    // The scene time the key times count from, and the row draws them from: the start of the object the animation
+    // belongs to, or 0 on the global clock.
+    internal MediaTime TimeOrigin => AnimationOperations.GetTimeOrigin(Animation);
 
     public AsyncReactiveCommand CopyCommand { get; }
 
@@ -165,6 +170,28 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         history.Commit(CommandNames.MoveKeyFrame);
 
         Left.Value = time.TimeToPixel(scale);
+    }
+
+    // Where the key stops when dragged to a scene time: the targets of the timeline's other drags, element edges and the
+    // keys of the other open rows, else a line of the BPM grid. Its own row's keys are no target, as a key dragged to a
+    // frame beside its neighbour would land on it.
+    internal SnapResult SnapTime(MediaTime time, bool disabled)
+    {
+        if (disabled || !Timeline.IsSnapEnabled.Value)
+        {
+            return new SnapResult(time, false);
+        }
+
+        Scene scene = Timeline.Scene;
+        IEnumerable<MediaTime> keys = Timeline.Inlines
+            .Where(row => !ReferenceEquals(row, Parent))
+            .SelectMany(row => row.Items)
+            .Select(item => item.Animation.ToScene(item.Model.KeyTime.Value));
+        IEnumerable<MediaTime> candidates = SnapHelper.CollectElementCandidates(scene.Children, null)
+            .Concat(SnapHelper.CollectSceneCandidates(scene, Timeline.CurrentTime.Value))
+            .Concat(keys);
+        TimelineOptions options = Timeline.Options.Value;
+        return SnapHelper.Snap(time, candidates, options.BpmGrid, SceneTimeRangeService.GetFrameRate(scene), options.Scale);
     }
 
     // For a cancelled drag: restores only the view and leaves the model as it is.

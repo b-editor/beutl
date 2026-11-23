@@ -128,12 +128,14 @@ public sealed class BpmGridOverlay : Control
         double beatIntervalSeconds = 60.0 / _bpmOptions.Bpm;
         double beatIntervalPixels = beatIntervalSeconds * secondWidth * _scale;
 
-        if (beatIntervalPixels < 1)
+        if (beatIntervalPixels < BpmGridLines.MinBeatSpacing)
             return;
 
         int subdivisions = Math.Max(1, _bpmOptions.Subdivisions);
         double subdivisionIntervalPixels = beatIntervalPixels / subdivisions;
-        bool drawSubdivisions = subdivisions > 1 && subdivisionIntervalPixels >= 3 && _subdivisionPen != null;
+        bool drawSubdivisions = subdivisions > 1
+            && subdivisionIntervalPixels >= BpmGridLines.MinSubdivisionSpacing
+            && _subdivisionPen != null;
 
         double offsetSeconds = _bpmOptions.Offset.ToSeconds();
         double offsetPixels = offsetSeconds * secondWidth * _scale;
