@@ -3,7 +3,8 @@ using Beutl.Engine.Expressions;
 
 namespace Beutl.Animation;
 
-// An animation that extends each of its keyframe tracks past a boundary for LoopMode.Continue.
+// An animation that extends each of its keyframe tracks past a boundary for LoopMode.Continue. At the boundary
+// itself, it gives the value each track holds just outside it.
 internal interface ILoopContinuation<T>
 {
     T Continue(ExpressionContext boundary, MediaTime time, bool loopOut);
@@ -33,17 +34,17 @@ internal static class KeyFrameContinuation
         int last = FindLast(keys, local);
         // Keys sharing the boundary time: the outermost one gives the value, and the innermost one ends the segment.
         (int outer, int inner, int neighbor) = loopOut ? (last, first, first - 1) : (first, last, last + 1);
-        if (first < 0 || neighbor < 0 || neighbor >= keys.Count
-            || keys[outer] is not KeyFrame<T> outerKey || keys[inner] is not KeyFrame<T> edge
-            || keys[neighbor] is not KeyFrame<T> other)
-        {
+        if (first < 0 || keys[outer] is not KeyFrame<T> outerKey)
             return held;
-        }
 
         // The key's own value, as the animator's sample of it may be rounded (PixelPoint interpolates in float).
         T value = outerKey.Value.Value ?? held;
-        if (!EqualityComparer<T>.Default.Equals(value, edge.Value.Value!))
+        if (neighbor < 0 || neighbor >= keys.Count
+            || keys[inner] is not KeyFrame<T> edge || keys[neighbor] is not KeyFrame<T> other
+            || !EqualityComparer<T>.Default.Equals(value, edge.Value.Value!))
+        {
             return value;
+        }
 
         // The segment's easing belongs to its later key.
         double slope = BoundarySlope((loopOut ? edge : other).Easing.Value, loopOut);

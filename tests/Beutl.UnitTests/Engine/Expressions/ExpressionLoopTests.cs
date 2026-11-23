@@ -332,6 +332,19 @@ public class ExpressionLoopTests
         Assert.That(Evaluate(property, Seconds(2)).X, Is.EqualTo(start + 6));
     }
 
+    [TestCase("LoopOut(LoopMode.Offset)", 1.5)]
+    [TestCase("LoopIn(LoopMode.Offset)", -0.5)]
+    public void OffsetDoesNotEvaluateComponentsOutsideTheRange(string script, double time)
+    {
+        var property = MakeProperty(default(Point), script,
+            TestAnimations.Linear(new Point(0, 0), new Point(10, 0), Seconds(1)));
+        var components = (IComponentAnimation)ComponentAnimations.Separate(property);
+        ((IExpressionProperty<float>)components.Components[1]).Expression =
+            Expression.Create<float>("Time > 1 || Time < 0 ? 100f : 0f");
+
+        Assert.That(Evaluate(property, Seconds(time)).Y, Is.Zero);
+    }
+
     [TestCase("LoopOut(LoopMode.Offset)", 1.5, 55)]
     [TestCase("LoopIn(LoopMode.Offset)", -0.5, -45)]
     public void OffsetCarriesAJumpAtTheOuterBoundary(string script, double time, double expected)
