@@ -260,10 +260,21 @@
                                 <icons:FluentIconSource Icon="MusicNote1" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
-                        <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.TimelineZoom}">
+                        <ui:FAMenuFlyoutSubItem x:Name="ZoomMenu" Text="{x:Static lang:Strings.TimelineZoom}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
                                 <icons:FluentIconSource Icon="ZoomIn" />
                             </ui:FAMenuFlyoutSubItem.IconSource>
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.FitAll"
+                                                 Command="{CompiledBinding FitAll}"
+                                                 InputGesture="{h:GetCommandGesture timeline.fitAll,
+                                                                                  ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                 Text="{x:Static lang:Strings.GraphFitAll}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.FitSelection"
+                                                 Command="{CompiledBinding FitSelection}"
+                                                 InputGesture="{h:GetCommandGesture timeline.fitSelection,
+                                                                                  ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                 Text="{x:Static lang:Strings.GraphFitSelection}" />
+                            <ui:FAMenuFlyoutSeparator />
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Zoom"
                                                  Click="ZoomClick"
                                                  CommandParameter="2.0"

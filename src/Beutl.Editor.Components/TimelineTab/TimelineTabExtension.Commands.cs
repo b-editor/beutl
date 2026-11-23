@@ -88,6 +88,10 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
             timeline => timeline.ZoomAroundPlayhead(1 / TimelineTabViewModel.ZoomStep)),
         Command("timeline.resetZoom", Strings.ResetZoom, "",
             [new("Ctrl+D0"), new("Cmd+D0", OSPlatform.OSX)], timeline => timeline.ResetZoom()),
+        // The graph editor's names and keys, which it takes in its own tab.
+        Shortcut("timeline.fitAll", Strings.GraphFitAll, [new("F")], timeline => timeline.FitAll.Execute()),
+        Shortcut("timeline.fitSelection", Strings.GraphFitSelection, [new("Shift+F")],
+            timeline => timeline.FitSelection.Execute(), HasSelection),
         Shortcut("timeline.setStartTime", Strings.SetStartTime, [new("OemOpenBrackets")],
             timeline => timeline.SetStartTimeToCurrentTime.Execute()),
         Shortcut("timeline.setEndTime", Strings.SetEndTime, [new("OemCloseBrackets")],

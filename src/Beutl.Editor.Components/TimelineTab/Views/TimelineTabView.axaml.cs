@@ -174,6 +174,8 @@ public sealed partial class TimelineTabView : UserControl
 
         ViewModel.ScrollTo.Subscribe(v => _scrollTask = ScrollTimelinePosition(v.Range, v.ZIndex))
             .DisposeWith(_disposables);
+        ViewModel.ZoomTo.Subscribe(v => _scrollTask = ZoomTimelineTo(v.Range, v.ZIndex))
+            .DisposeWith(_disposables);
 
         // Scrolling realizes distant clips. Wait for it before looking up the target's control.
         ViewModel.HighlightElement
