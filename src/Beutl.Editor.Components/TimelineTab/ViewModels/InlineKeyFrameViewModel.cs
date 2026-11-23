@@ -191,7 +191,14 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             .Concat(SnapHelper.CollectSceneCandidates(scene, Timeline.CurrentTime.Value))
             .Concat(keys);
         TimelineOptions options = Timeline.Options.Value;
-        return SnapHelper.Snap(time, candidates, options.BpmGrid, SceneTimeRangeService.GetFrameRate(scene), options.Scale);
+        Rational rate = SceneTimeRangeService.GetFrameRate(scene);
+        SnapResult snap = SnapHelper.Snap(time, candidates, options.BpmGrid, rate, options.Scale);
+        if (!snap.DidSnap) return snap;
+
+        // Key times stay on the frames of their own clock, so with an origin between the scene's frames a key lands on
+        // the frame nearest its target. It is shown there during the drag too, rather than moving on release.
+        MediaTime origin = TimeOrigin;
+        return snap with { Time = origin + (snap.Time - origin).RoundToFrame(rate, MidpointRounding.AwayFromZero) };
     }
 
     // For a cancelled drag: restores only the view and leaves the model as it is.

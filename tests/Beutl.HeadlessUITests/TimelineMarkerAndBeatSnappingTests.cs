@@ -32,7 +32,10 @@ public class TimelineMarkerAndBeatSnappingTests
 
     public enum ClipTarget { Marker, Beat, HiddenBeat }
 
-    public enum KeyTarget { Marker, Playhead, Beat, OtherRowKey, ElementEnd, TimeAnchor, Shift, OwnRowKey, Alt, ShiftAlt, SnapOff }
+    public enum KeyTarget
+    {
+        Marker, Playhead, Beat, OtherRowKey, ElementEnd, TimeAnchor, OffFrameAnchor, Shift, OwnRowKey, Alt, ShiftAlt, SnapOff
+    }
 
     [AvaloniaTest]
     [TestCase(ClipGesture.Move, ClipTarget.Marker)]
@@ -118,6 +121,7 @@ public class TimelineMarkerAndBeatSnappingTests
     [TestCase(KeyTarget.OtherRowKey)]
     [TestCase(KeyTarget.ElementEnd)]
     [TestCase(KeyTarget.TimeAnchor)]
+    [TestCase(KeyTarget.OffFrameAnchor)]
     [TestCase(KeyTarget.Shift)]
     [TestCase(KeyTarget.OwnRowKey)]
     [TestCase(KeyTarget.Alt)]
@@ -162,10 +166,12 @@ public class TimelineMarkerAndBeatSnappingTests
             case KeyTarget.OwnRowKey:
                 graph.Second.KeyTime.Value = MediaTime.FromSeconds(1);
                 break;
-            case KeyTarget.TimeAnchor:
-                // The keys count from the shape's own start, 0.8 s, not from the clip's.
+            case KeyTarget.TimeAnchor or KeyTarget.OffFrameAnchor:
+                // The keys count from the shape's own start, not from the clip's. At 0.81 s it falls between frames,
+                // and a key can only be on a frame of its own clock, the one nearest the marker.
                 shape.IsTimeAnchor.Value = true;
-                shape.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(0.8), MediaTime.FromSeconds(10));
+                shape.TimeRange.Value = new TimeRange(
+                    MediaTime.FromSeconds(target == KeyTarget.TimeAnchor ? 0.8 : 0.81), MediaTime.FromSeconds(10));
                 editor.Scene.Markers.Add(new SceneMarker(stop));
                 break;
             default:
@@ -200,23 +206,30 @@ public class TimelineMarkerAndBeatSnappingTests
                 _ => RawInputModifiers.None
             };
 
+            bool snaps = target is not (KeyTarget.OwnRowKey or KeyTarget.Alt or KeyTarget.ShiftAlt or KeyTarget.SnapOff);
+            Rational rate = SceneTimeRangeService.GetFrameRate(editor.Scene);
+            MediaTime first = (snaps ? stop - origin : reached - origin).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+
             graph.Window.MouseMove(press, modifiers);
             graph.Window.MouseDown(press, MouseButton.Left, modifiers);
             graph.Window.MouseMove(release, modifiers | RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Render(3);
-            bool snaps = target is not (KeyTarget.OwnRowKey or KeyTarget.Alt or KeyTarget.ShiftAlt or KeyTarget.SnapOff);
             Assert.Multiple(() =>
             {
                 Assert.That(timeline.SnapBarPosition.Value,
-                    snaps ? Is.EqualTo(stop.TimeToPixel(1)).Within(0.001) : Is.Null);
+                    snaps ? Is.EqualTo((origin + first).TimeToPixel(1)).Within(0.001) : Is.Null);
                 Assert.That(feedback.Pulses, Has.Count.EqualTo(snaps ? 1 : 0));
+                // A snapped key already shows where the release leaves it.
+                if (snaps)
+                {
+                    Assert.That(((InlineKeyFrameViewModel)key.DataContext!).Left.Value,
+                        Is.EqualTo(first.TimeToPixel(1)).Within(0.001));
+                }
             });
             HeadlessCapture.SaveIfRequested(graph.Window, nameof(TimelineMarkerAndBeatSnappingTests), $"Key-{target}");
 
             graph.Window.MouseUp(release, MouseButton.Left, modifiers);
             HeadlessTestHelpers.Settle(4);
-            Rational rate = SceneTimeRangeService.GetFrameRate(editor.Scene);
-            MediaTime first = snaps ? stop - origin : (reached - origin).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             // A Shift drag moves the rest of the row as far as the key it holds; both keys start on frames.
             MediaTime second = target is KeyTarget.Shift or KeyTarget.ShiftAlt
                 ? MediaTime.FromSeconds(1.5) + first - MediaTime.FromSeconds(0.5)
