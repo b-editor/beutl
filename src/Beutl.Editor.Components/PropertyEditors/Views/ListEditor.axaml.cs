@@ -36,7 +36,7 @@ public sealed class ListEditorDragBehavior : GenericDragBehavior
 
 public partial class ListEditor : UserControl
 {
-    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
+    private INotificationService Notifications => Beutl.Controls.ControlNotifications.FromDataContextOrDefault(this);
 
     public ListEditor()
     {

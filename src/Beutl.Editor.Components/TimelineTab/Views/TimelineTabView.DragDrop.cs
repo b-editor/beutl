@@ -18,8 +18,7 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => Beutl.Controls.ControlNotifications.FromDataContextOrDefault(this);
 
     private CaptionTemplateId? _captionTemplateId;
 

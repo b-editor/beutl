@@ -6,14 +6,12 @@ using Avalonia.Interactivity;
 using Beutl.Controls;
 using Beutl.Services;
 using FluentIcons.Avalonia.Fluent;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
 internal partial class WebBrowserTabView
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => Beutl.Controls.ControlNotifications.FromDataContextOrDefault(this);
 
     private Action? _closePanelAction;
 

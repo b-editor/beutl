@@ -13,7 +13,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class GeometryEditor : UserControl
 {
-    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
+    private INotificationService Notifications => Beutl.Controls.ControlNotifications.FromDataContextOrDefault(this);
 
     private readonly ILogger _logger = Log.CreateLogger<GeometryEditor>();
 

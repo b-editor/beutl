@@ -5,14 +5,12 @@ using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TransitionTab.ViewModels;
 using Beutl.Graphics.Transitions;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TransitionTab.Views;
 
 public partial class TransitionTabView : UserControl
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => Beutl.Controls.ControlNotifications.FromDataContextOrDefault(this);
 
     public TransitionTabView()
     {

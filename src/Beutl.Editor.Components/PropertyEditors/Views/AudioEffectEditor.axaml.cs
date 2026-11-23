@@ -14,7 +14,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class AudioEffectEditor : UserControl
 {
-    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
+    private INotificationService Notifications => Beutl.Controls.ControlNotifications.FromDataContextOrDefault(this);
 
     public AudioEffectEditor()
     {

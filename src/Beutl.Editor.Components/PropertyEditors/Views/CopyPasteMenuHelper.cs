@@ -2,19 +2,14 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Controls;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public static class CopyPasteMenuHelper
 {
-    // The notifications of the editor that control shows, else those of its window.
-    internal static INotificationService NotificationsOf(Control control)
-        => (control.DataContext as IServiceProvider)?.GetService<INotificationService>()
-           ?? Beutl.Controls.ControlNotifications.GetOrDefault(control);
-
     public static void AddMenus(FAMenuFlyout menuFlyout, Control control)
     {
         var dataContext = control.GetObservable(StyledElement.DataContextProperty)
@@ -32,7 +27,7 @@ public static class CopyPasteMenuHelper
             }
             catch (Exception ex)
             {
-                NotificationsOf(control).ShowError(Strings.Error, ex.Message);
+                ControlNotifications.FromDataContextOrDefault(control).ShowError(Strings.Error, ex.Message);
             }
         };
         var pasteMenu = new FAMenuFlyoutItem { Text = Strings.Paste };
@@ -46,12 +41,12 @@ public static class CopyPasteMenuHelper
             {
                 if (!await vm.PasteAsync())
                 {
-                    NotificationsOf(control).ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
+                    ControlNotifications.FromDataContextOrDefault(control).ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
                 }
             }
             catch (Exception ex)
             {
-                NotificationsOf(control).ShowError(Strings.Error, ex.Message);
+                ControlNotifications.FromDataContextOrDefault(control).ShowError(Strings.Error, ex.Message);
             }
         };
 

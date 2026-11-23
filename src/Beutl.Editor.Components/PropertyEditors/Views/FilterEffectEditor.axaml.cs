@@ -16,7 +16,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class FilterEffectEditor : UserControl
 {
-    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
+    private INotificationService Notifications => Beutl.Controls.ControlNotifications.FromDataContextOrDefault(this);
 
     public FilterEffectEditor()
     {

@@ -6,15 +6,13 @@ using Avalonia.Interactivity;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.Views;
 
 public partial class FallbackObjectView : UserControl
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => Beutl.Controls.ControlNotifications.FromDataContextOrDefault(this);
 
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
