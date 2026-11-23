@@ -583,9 +583,13 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     }
 
     // The layer that shows property on element's track. Each caller makes its own adapter of a property, so a layer
-    // of the same engine property counts as well.
+    // of the same engine property counts as well, and a property of two that stand as one is in their one layer, as
+    // AttachInline shows it.
     internal InlineAnimationLayerViewModel? FindInline(Element element, IAnimatablePropertyAdapter property)
     {
+        if (PropertyPair.Find(property) is { IsSeparated.Value: false } pair)
+            property = pair;
+
         IProperty? engineProperty = property.GetEngineProperty();
         return Inlines.FirstOrDefault(x => x.Element.Model == element
             && (ReferenceEquals(x.Property, property)

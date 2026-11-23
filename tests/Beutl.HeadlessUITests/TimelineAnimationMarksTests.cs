@@ -300,6 +300,10 @@ public class TimelineAnimationMarksTests
                 Assert.That(host.Model.Inlines, Has.Count.EqualTo(3));
                 Assert.That(host.Model.Inlines.Any(layer => ReferenceEquals(layer.Property, pair)), Is.True,
                     "the position's two properties stand as one layer");
+                // An adapter of one of the two, such as a node's port has, finds that layer, as AttachInline opens it.
+                var xAdapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)translate.X, translate);
+                Assert.That(host.Model.FindInline(element, xAdapter),
+                    Is.SameAs(host.Model.Inlines.Single(layer => ReferenceEquals(layer.Property, pair))));
             });
 
             (showAll, toggles) = Open();
