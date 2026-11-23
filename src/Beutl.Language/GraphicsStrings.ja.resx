@@ -1930,6 +1930,12 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>アルファを保持</value>
   </data>
+  <data name="PosterizeTime" xml:space="preserve">
+    <value>時間のポスタリゼーション</value>
+  </data>
+  <data name="PosterizeTime_FrameRate" xml:space="preserve">
+    <value>フレームレート</value>
+  </data>
   <data name="PolarCoordinates" xml:space="preserve">
     <value>極座標</value>
   </data>

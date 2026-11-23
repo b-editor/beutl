@@ -1934,6 +1934,12 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>保留透明度</value>
   </data>
+  <data name="PosterizeTime" xml:space="preserve">
+    <value>时间色调分离</value>
+  </data>
+  <data name="PosterizeTime_FrameRate" xml:space="preserve">
+    <value>帧率</value>
+  </data>
   <data name="PolarCoordinates" xml:space="preserve">
     <value>极坐标</value>
   </data>

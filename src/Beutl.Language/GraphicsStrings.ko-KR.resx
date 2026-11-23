@@ -1934,6 +1934,12 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>알파 유지</value>
   </data>
+  <data name="PosterizeTime" xml:space="preserve">
+    <value>시간 포스터화</value>
+  </data>
+  <data name="PosterizeTime_FrameRate" xml:space="preserve">
+    <value>프레임 레이트</value>
+  </data>
   <data name="PolarCoordinates" xml:space="preserve">
     <value>극좌표</value>
   </data>

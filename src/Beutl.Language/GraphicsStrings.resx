@@ -1935,6 +1935,12 @@
   <data name="Bloom_PreserveAlpha" xml:space="preserve">
     <value>Preserve alpha</value>
   </data>
+  <data name="PosterizeTime" xml:space="preserve">
+    <value>Posterize Time</value>
+  </data>
+  <data name="PosterizeTime_FrameRate" xml:space="preserve">
+    <value>Frame Rate</value>
+  </data>
   <data name="PolarCoordinates" xml:space="preserve">
     <value>Polar Coordinates</value>
   </data>
