@@ -87,6 +87,10 @@ public partial class PlayerView : UserControl
         Player.CurrentTimeSubmitted += OnPlayerCurrentTimeSubmitted;
         Player.TemplateApplied += OnPlayerTemplateApplied;
         ShowShortcutInToolTip(guidesToggle, "editor.togglePreviewGuides");
+        ShowShortcutInToolTip(MoveToolButton, "editor.previewMoveTool");
+        ShowShortcutInToolTip(HandToolButton, "editor.previewHandTool");
+        ShowShortcutInToolTip(CropToolButton, "editor.previewCropTool");
+        ShowShortcutInToolTip(CameraToolButton, "editor.previewCameraTool");
         ShowShortcutInToolTip(onionSkinToggle, "editor.toggleOnionSkin");
         ShowShortcutInToolTip(checkerboardToggle, "editor.togglePreviewCheckerboard");
     }

@@ -690,6 +690,29 @@ public sealed class PlayerViewControlsTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Preview_tool_commands_select_one_tool_and_update_the_toolbar()
+    {
+        EditViewModel editor = await OpenEditor();
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+        try
+        {
+            await Prepare(view, window);
+            string[] modes = ["Hand", "Crop", "Camera", "Move"];
+            foreach (string mode in modes)
+            {
+                var execution = new ContextCommandExecution($"editor.preview{mode}Tool");
+                await SceneEditorExtension.Instance.RunAsync(editor, execution);
+                HeadlessTestHelpers.Render();
+                Assert.That(modes.Where(name => view.FindControl<RadioButton>(name + "ToolButton")!.IsChecked == true),
+                    Is.EqualTo(new[] { mode }));
+            }
+            HeadlessCapture.SaveIfRequested(window, nameof(PlayerViewControlsTests), "preview-tools");
+        }
+        finally { window.Close(); }
+    }
+
     // The list keeps its items between openings, and a shortcut can change in the key map meanwhile.
     [AvaloniaTest]
     public async Task The_zoom_list_shows_the_current_shortcut_each_time_it_opens()

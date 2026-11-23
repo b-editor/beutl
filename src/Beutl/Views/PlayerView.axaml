@@ -44,16 +44,20 @@
                         <Setter Property="Padding" Value="7,6,5,6" />
                     </Style>
                 </StackPanel.Styles>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Move}" IsChecked="{Binding IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
+                <RadioButton x:Name="MoveToolButton"
+                             AutomationProperties.Name="{x:Static lang:Strings.Move}" IsChecked="{Binding IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
                     <icons:FluentIcon Icon="Cursor" />
                 </RadioButton>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Hand}" IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
+                <RadioButton x:Name="HandToolButton"
+                             AutomationProperties.Name="{x:Static lang:Strings.Hand}" IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
                     <icons:FluentIcon Icon="HandLeft" />
                 </RadioButton>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.CropSelection}" IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
+                <RadioButton x:Name="CropToolButton"
+                             AutomationProperties.Name="{x:Static lang:Strings.CropSelection}" IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
                     <icons:FluentIcon Icon="Crop" />
                 </RadioButton>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Camera3DControl}" IsChecked="{Binding IsCameraMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Camera3DControl}">
+                <RadioButton x:Name="CameraToolButton"
+                             AutomationProperties.Name="{x:Static lang:Strings.Camera3DControl}" IsChecked="{Binding IsCameraMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Camera3DControl}">
                     <icons:FluentIcon Icon="Video" />
                 </RadioButton>
                 <!--  Gizmo Mode Selection  -->

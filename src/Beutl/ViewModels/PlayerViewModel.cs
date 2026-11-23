@@ -473,6 +473,14 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     public ReactivePropertySlim<bool> IsCameraMode { get; } = new(false);
 
+    internal void SelectTool(ReactivePropertySlim<bool> selected)
+    {
+        IsMoveMode.Value = selected == IsMoveMode;
+        IsHandMode.Value = selected == IsHandMode;
+        IsCropMode.Value = selected == IsCropMode;
+        IsCameraMode.Value = selected == IsCameraMode;
+    }
+
     public ReactivePropertySlim<GizmoMode> SelectedGizmoMode { get; } = new(GizmoMode.Translate);
 
     public ReactivePropertySlim<Matrix> FrameMatrix { get; } = new(Matrix.Identity);

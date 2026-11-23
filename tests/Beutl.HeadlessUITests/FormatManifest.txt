@@ -1720,6 +1720,10 @@ editor.next
 editor.nextKeyFrame
 editor.nextMarker
 editor.playPause
+editor.previewCameraTool
+editor.previewCropTool
+editor.previewHandTool
+editor.previewMoveTool
 editor.previewZoomFit
 editor.previewZoomIn
 editor.previewZoomOut
