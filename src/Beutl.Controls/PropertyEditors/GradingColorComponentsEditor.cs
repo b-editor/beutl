@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Reactive.Disposables;
+using Avalonia;
 using Beutl.Media;
 using FluentAvalonia.UI.Media;
 using UnboundedHsv = (float H, float S, float V);
@@ -59,6 +60,20 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
                 UpdateProperties();
             }
         }
+    }
+
+    internal IDisposable ConnectUnderlyingComponents(Func<GradingColor?> read, Action<int, float, bool> edit)
+    {
+        var values = (NumberVectorValues<float>)Values!;
+        values.ReadFocusedValues = () => Rgb && !IsUniform && read() is { } color
+            ? [color.R * 100f, color.G * 100f, color.B * 100f]
+            : null;
+        values.EditUnderlyingComponent = (index, percent, scrub) => edit(index, percent / 100f, scrub);
+        return Disposable.Create(() =>
+        {
+            values.ReadFocusedValues = null;
+            values.EditUnderlyingComponent = null;
+        });
     }
 
     private void UpdateHeaders()

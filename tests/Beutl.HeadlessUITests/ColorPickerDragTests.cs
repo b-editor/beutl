@@ -63,6 +63,32 @@ public sealed class ColorPickerDragTests
         Assert.That(confirmed, Is.EqualTo(new[] { (initial, preview) }));
     }
 
+    [AvaloniaTest]
+    [TestCase(GradingColorPickerInputType.Rgb)]
+    [TestCase(GradingColorPickerInputType.Hsv)]
+    public void The_grading_picker_still_previews_and_confirms_values_entered_in_its_boxes(GradingColorPickerInputType inputType)
+    {
+        var initial = new GradingColor(0.8f, 0, 0);
+        var expected = new GradingColor(1.1f, 0, 0);
+        var picker = new GradingColorPicker { Color = initial, InputType = inputType, ShowDetails = true };
+        var focusTarget = new Border { Focusable = true, Child = picker };
+        using var host = new ControlHost(focusTarget, 360, 650);
+        List<(GradingColor, GradingColor)> confirmed = [];
+        picker.ColorConfirmed += (_, e) => confirmed.Add(e);
+        var components = picker.GetVisualDescendants().OfType<GradingColorComponentsEditor>().Single();
+        TextBox box = components.GetVisualDescendants().OfType<TextBox>().ElementAt(inputType == GradingColorPickerInputType.Rgb ? 0 : 2);
+
+        box.Focus();
+        box.SelectAll();
+        host.Window.KeyTextInput("110");
+        HeadlessTestHelpers.Render();
+        Assert.That(picker.Color, Is.EqualTo(expected));
+        Assert.That(confirmed, Is.Empty);
+
+        focusTarget.Focus();
+        Assert.That(confirmed, Is.EqualTo(new[] { (initial, expected) }));
+    }
+
     // Avalonia's spectrum maps points to colors only once it has built its color map in the background.
     private static Task WaitForColorMapAsync(ColorSpectrum spectrum)
     {
