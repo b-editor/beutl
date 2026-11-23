@@ -213,10 +213,10 @@ public class ExpressionLoopTests
     }
 
     [Test]
-    public void ContinueHoldsAtAFlatEaseOut()
+    public void ContinueHoldsAtAFlatEaseOut([Values] bool quadratic)
     {
         var animation = TestAnimations.Linear(0.0, 100.0, Seconds(1));
-        animation.KeyFrames[^1].Easing.Value = new CubicEaseOut();
+        animation.KeyFrames[^1].Easing.Value = quadratic ? new QuadraticEaseOut() : new CubicEaseOut();
         var property = MakeProperty(0.0, "LoopOut(LoopMode.Continue)", animation);
 
         Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(100));

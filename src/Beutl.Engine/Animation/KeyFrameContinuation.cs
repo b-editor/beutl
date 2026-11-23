@@ -63,13 +63,16 @@ internal static class KeyFrameContinuation
         }
 
         double near = Slope(EasingStep);
-        if (Math.Abs(near) < FlatSlope)
+        double far = Slope(2 * EasingStep);
+        // Combining both steps cancels the secant's first-order error, so an ease-out whose slope vanishes at the
+        // boundary (quadratic and steeper) reads as flat rather than slowly drifting.
+        double slope = 2 * near - far;
+        if (Math.Abs(slope) < FlatSlope)
             return 0;
 
-        // A jump at the boundary (HoldEasing, a step-like spline) doubles the slope as the step halves. It is not
+        // A jump at the boundary (HoldEasing, a step-like spline) doubles the secant as the step halves. It is not
         // a velocity to carry on, so the track holds.
-        double far = Slope(2 * EasingStep);
-        return Math.Abs(near - far) > 0.25 * Math.Abs(near) ? 0 : near;
+        return Math.Abs(near - far) > 0.25 * Math.Abs(near) ? 0 : slope;
     }
 
     private static int FindLast(IListProperty<IKeyFrame> keys, MediaTime time)
