@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using Avalonia.Media;
 using SkiaSharp;
+using BundledFontCatalog = Beutl.Media.BundledFontCatalog;
 
 namespace Beutl.Controls.Styling;
 
@@ -11,17 +12,6 @@ public static class UiFonts
 #endif
 {
     public const string UiCultureArgument = "--ui-culture";
-
-    // Noto Sans 2.015; Noto Sans CJK f8d157532fbfaeda587e826d4cd5b21a49186f7c.
-    // SC/KR SemiBold faces are static instances of the subset variable TTFs at wght=600.
-    // The engine's text fallback (Beutl.Media.BundledFonts) keeps the same order.
-    private static readonly string[] s_familyNames =
-    [
-        "Noto Sans",
-        "Noto Sans JP",
-        "Noto Sans SC",
-        "Noto Sans KR",
-    ];
 
     public static FontFamily DefaultFontFamily => GetFontFamily(CultureInfo.CurrentUICulture);
 
@@ -84,26 +74,8 @@ public static class UiFonts
     }
 
     private static FontFamily[] GetOrderedFamilies(CultureInfo culture)
-    {
-        string primaryFamily = culture.TwoLetterISOLanguageName switch
-        {
-            "ja" => "Noto Sans JP",
-            "zh" => "Noto Sans SC",
-            "ko" => "Noto Sans KR",
-            _ => "Noto Sans",
-        };
-
-        return s_familyNames.Prepend(primaryFamily)
-            .Distinct()
-            .Select(GetEmbeddedFontFamily)
-            .ToArray();
-    }
-
-    // The fonts are manifest resources of Beutl.BundledFonts, which the app, its helper processes and the
-    // rendering engine (Beutl.Media.BundledFonts) share, so the installation carries one copy. The trailing
-    // slash keeps "Fonts/NotoSans/" from also matching the CJK folders.
-    internal const string BundledFontsAssemblyName = "Beutl.BundledFonts";
+        => [.. BundledFontCatalog.GetFamilyNames(culture).Select(GetEmbeddedFontFamily)];
 
     internal static FontFamily GetEmbeddedFontFamily(string name) =>
-        new($"resm:Fonts/{name.Replace(" ", "")}/?assembly={BundledFontsAssemblyName}#{name}");
+        new($"resm:{BundledFontCatalog.GetResourceDirectory(name)}?assembly={BundledFontCatalog.AssemblyName}#{name}");
 }

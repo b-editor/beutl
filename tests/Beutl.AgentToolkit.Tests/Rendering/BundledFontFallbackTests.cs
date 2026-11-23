@@ -76,7 +76,7 @@ public sealed class BundledFontFallbackTests
     public void Standalone_server_falls_back_to_the_UI_families_in_language_order_then_emoji()
     {
         (FontFamily[] families, FontFamily? emoji) = TestFonts.Manager.GetFallbackFamilies();
-        string[] expected = BundledFonts.GetUiFamilyNames(CultureInfo.CurrentUICulture);
+        string[] expected = BundledFontCatalog.GetFamilyNames(CultureInfo.CurrentUICulture);
 
         Assert.Multiple(() =>
         {
@@ -95,7 +95,7 @@ public sealed class BundledFontFallbackTests
     [TestCase(FontWeight.Bold)]
     public void Project_font_keeps_its_glyphs_and_the_rest_falls_back_at_the_requested_weight(FontWeight weight)
     {
-        var uiFont = new FontFamily(BundledFonts.GetUiFamilyNames(CultureInfo.CurrentUICulture)[0]);
+        var uiFont = new FontFamily(BundledFontCatalog.GetFamilyNames(CultureInfo.CurrentUICulture)[0]);
         Assert.That(_projectFonts.IsRegistered(s_projectFont), Is.True);
 
         using FormattedText latin = CreateText(Latin, s_projectFont, weight);
