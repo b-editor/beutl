@@ -64,6 +64,11 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
         _directoryWatcher.Changed += OnWatchedDirectoryChanged;
         _directoryWatcher.EntriesChanged += RefreshChangedEntries;
+        IsLoadingMediaFiles.Subscribe(loading =>
+        {
+            if (!loading)
+                RemoveDisposedSelections();
+        }).AddTo(_disposables);
 
         _projectDirectory = EditorContextDirectories.GetProjectOrSceneDirectory(_editorContext);
 
@@ -85,6 +90,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         if (IsHomeView.Value)
         {
             _favoritesManager.RefreshFavoriteItems();
+            RemoveDisposedSelections();
         }
     }
 
@@ -94,7 +100,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         if (_disposed)
             return;
 
-        Refresh();
+        ReconcileCurrentView();
     }
 
     private void OnRootPathChanged(string path)
@@ -140,15 +146,25 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             return;
 
         // Catch up with startup changes while retaining items that still exist and their selection.
+        ReconcileCurrentView();
+    }
+
+    private void ReconcileCurrentView()
+    {
+        if (IsHomeView.Value)
+        {
+            RefreshHomeView(preserveExisting: true);
+            return;
+        }
+
+        string root = RootPath.Value;
+        if (string.IsNullOrEmpty(root))
+            return;
+
         try
         {
-            if (IsHomeView.Value)
-                RefreshHomeView(preserveExisting: true);
-            else
-            {
-                bool tree = ViewMode.Value == FileBrowserViewMode.Tree;
-                FileSystemEnumerator.RefreshCollection(_thumbnails, tree ? TreeRootItems : Items, path, includeChildren: tree);
-            }
+            bool tree = ViewMode.Value == FileBrowserViewMode.Tree;
+            FileSystemEnumerator.RefreshCollection(_thumbnails, tree ? TreeRootItems : Items, root, includeChildren: tree);
         }
         catch (DirectoryNotFoundException)
         {
@@ -156,8 +172,9 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "Failed to check file browser entries after watcher startup");
+            _logger.LogWarning(ex, "Failed to reconcile file browser entries");
         }
+        RemoveDisposedSelections();
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;
@@ -242,9 +259,9 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
         // A deleted directory can no longer be distinguished from a temporary file by its
         // attributes. Refresh home results if a previously displayed favorite/media path is affected.
-        if (IsHomeView.Value && ShouldRebuildHomeView(paths))
+        if (IsHomeView.Value && ShouldReconcileHomeView(paths))
         {
-            RefreshHomeView();
+            ReconcileCurrentView();
             return;
         }
 
@@ -253,11 +270,17 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
     private void RefreshDirectoryEntries(IEnumerable<string> directories)
     {
+        bool home = IsHomeView.Value;
+        string? root = home ? _projectDirectory : RootPath.Value;
+        var items = home ? ProjectDirectoryItems : ViewMode.Value == FileBrowserViewMode.Tree ? TreeRootItems : Items;
+        if (!string.IsNullOrEmpty(root) && !Directory.Exists(root))
+        {
+            ReconcileCurrentView();
+            return;
+        }
+
         try
         {
-            string? root = IsHomeView.Value ? _projectDirectory : RootPath.Value;
-            var items = IsHomeView.Value ? ProjectDirectoryItems
-                : ViewMode.Value == FileBrowserViewMode.Tree ? TreeRootItems : Items;
             // A recursive deletion reports children too. Remove vanished parent entries before
             // inspecting their children so one missing directory cannot abort the batch.
             foreach (string directory in directories.Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
@@ -267,7 +290,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                     && string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)), directory, StringComparison.Ordinal)
                     && FileSystemEnumerator.HasEntriesChanged(items, root))
                 {
-                    Refresh();
+                    ReconcileCurrentView();
                     return;
                 }
 
@@ -275,24 +298,39 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                 // Unchanged autosaves keep the existing items, selection and thumbnail work.
                 foreach (var item in items)
                     item.RefreshEntriesForDirectory(directory);
-                if (IsHomeView.Value)
+                if (home)
                     foreach (var item in FavoriteItems)
                         item.RefreshEntriesForDirectory(directory);
             }
+        }
+        catch (DirectoryNotFoundException) when (!string.IsNullOrEmpty(root) && !Directory.Exists(root))
+        {
+            ReconcileCurrentView();
+            return;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger.LogWarning(ex, "Failed to check file browser entries");
         }
+        RemoveDisposedSelections();
     }
 
-    private bool ShouldRebuildHomeView(IReadOnlyCollection<string> paths)
+    private bool ShouldReconcileHomeView(IReadOnlyCollection<string> paths)
     {
         return paths.Any(path =>
             FavoriteItems.Any(item => string.Equals(item.FullPath, path, StringComparison.Ordinal)
                 && !(item.IsDirectory ? Directory.Exists(path) : File.Exists(path)))
             || MediaFileItems.Any(item => item.FullPath.StartsWith(
                 path + Path.DirectorySeparatorChar, StringComparison.Ordinal)));
+    }
+
+    private void RemoveDisposedSelections()
+    {
+        for (int i = SelectedItems.Count - 1; i >= 0; i--)
+        {
+            if (SelectedItems[i].IsDisposed)
+                SelectedItems.RemoveAt(i);
+        }
     }
 
     private void RefreshItems()
@@ -396,8 +434,6 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
         _favoritesManager.RefreshFavoriteItems(preserveExisting);
 
-        if (!preserveExisting || string.IsNullOrEmpty(_projectDirectory) || !Directory.Exists(_projectDirectory))
-            FileSystemEnumerator.DisposeAndClear(ProjectDirectoryItems);
         if (!string.IsNullOrEmpty(_projectDirectory) && Directory.Exists(_projectDirectory))
         {
             try
@@ -407,14 +443,23 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                 else
                     FileSystemEnumerator.PopulateCollection(_thumbnails, ProjectDirectoryItems, _projectDirectory);
             }
+            catch (DirectoryNotFoundException)
+            {
+                FileSystemEnumerator.DisposeAndClear(ProjectDirectoryItems);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to enumerate project directory {Path}", _projectDirectory);
                 _editorContext.GetRequiredService<INotificationService>().ShowWarning(Strings.FileBrowser, ex.Message);
             }
         }
+        else
+        {
+            FileSystemEnumerator.DisposeAndClear(ProjectDirectoryItems);
+        }
 
         _mediaSearcher.SearchAsync(_projectDirectory, preserveExisting);
+        RemoveDisposedSelections();
     }
 
     public void ToggleFavorite(string path)

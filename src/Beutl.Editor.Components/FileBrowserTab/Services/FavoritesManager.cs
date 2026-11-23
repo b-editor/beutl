@@ -47,37 +47,30 @@ internal sealed class FavoritesManager : IDisposable
         if (_disposed)
             return;
 
-        if (preserveExisting)
+        if (!preserveExisting)
+            FileSystemEnumerator.DisposeAndClear(FavoriteItems);
+
+        var fixedFolders = new[]
         {
-            IEnumerable<string> paths = new[]
-            {
-                _thumbnails.Templates.DirectoryPath, BeutlEnvironment.GetMaterialsDirectoryPath()
-            }.Concat(Favorites).Where(path => Directory.Exists(path) || File.Exists(path));
-            if (FavoriteItems.Select(item => item.FullPath).SequenceEqual(paths, StringComparer.Ordinal)
-                && FavoriteItems.All(item => item.IsDirectory == Directory.Exists(item.FullPath)))
-            {
-                foreach (var item in FavoriteItems)
-                    item.RefreshLoadedEntries();
-                return;
-            }
-        }
+            (Path: _thumbnails.Templates.DirectoryPath, Name: Strings.Templates),
+            (Path: BeutlEnvironment.GetMaterialsDirectoryPath(), Name: Strings.Materials)
+        }.Where(folder => EnsureFixedFolder(folder.Path)).ToArray();
 
-        FileSystemEnumerator.DisposeAndClear(FavoriteItems);
+        FileSystemEnumerator.RefreshCollection(_thumbnails, FavoriteItems,
+            fixedFolders.Select(folder => (folder.Path, true)).Concat(EnumerateFavorites()));
 
-        AddFixedFolder(_thumbnails.Templates.DirectoryPath, Strings.Templates);
+        for (int i = 0; i < fixedFolders.Length; i++)
+            FavoriteItems[i].Name.Value = fixedFolders[i].Name;
+    }
 
-        AddFixedFolder(BeutlEnvironment.GetMaterialsDirectoryPath(), Strings.Materials);
-
+    private IEnumerable<(string Path, bool IsDirectory)> EnumerateFavorites()
+    {
         foreach (string path in Favorites)
         {
             if (Directory.Exists(path))
-            {
-                FavoriteItems.Add(new FileSystemItemViewModel(_thumbnails, path, true));
-            }
+                yield return (path, true);
             else if (File.Exists(path))
-            {
-                FavoriteItems.Add(new FileSystemItemViewModel(_thumbnails, path, false));
-            }
+                yield return (path, false);
         }
     }
 
@@ -85,21 +78,21 @@ internal sealed class FavoritesManager : IDisposable
     public event Action? Changed;
 
     // Isolate tab refresh failures so one tab cannot block the others.
-    private void AddFixedFolder(string directory, string localizedName)
+    private bool EnsureFixedFolder(string directory)
     {
+        if (Directory.Exists(directory))
+            return true;
+
         try
         {
             Directory.CreateDirectory(directory);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to create the favorites folder {Directory}", directory);
-            return;
+            return false;
         }
-
-        var item = new FileSystemItemViewModel(_thumbnails, directory, true);
-        item.Name.Value = localizedName;
-        FavoriteItems.Add(item);
     }
 
     public void Dispose()
