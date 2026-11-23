@@ -21,9 +21,6 @@ public static class NumericOffset
 
     internal static T AddScaled<T>(T value, T from, T to, double scale) where T : INumber<T>
     {
-        if (scale == 1)
-            return Add(value, from, to);
-
         // Keep integral cycle offsets exact even when the values exceed double's integer precision.
         if (double.IsInteger(scale) && T.IsInteger(value) && T.IsInteger(from) && T.IsInteger(to))
         {

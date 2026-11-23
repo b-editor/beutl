@@ -348,6 +348,7 @@ public class ExpressionLoopTests
     public void ScaledOffsetWidensFloatIntermediates()
     {
         Assert.That(NumericOffset.AddScaled(1e38f, -3e38f, 1e38f, 0.25), Is.EqualTo(2e38f).Within(1e32f));
+        Assert.That(NumericOffset.AddScaled(-3e38f, -3e38f, 1e38f, 1), Is.EqualTo(1e38f).Within(1e32f));
     }
 
     [Test]
