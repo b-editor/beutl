@@ -105,6 +105,13 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
                 })
             .AddTo(_disposables);
 
+        FitAll = new ReactiveCommandSlim().WithSubscribe(FitScene).DisposeWith(_disposables);
+        // Like the graph editor's, it waits for a selection. A selection change raises CanExecuteChanged.
+        FitSelection = CanExecuteChanged.Select(_ => SelectedElements.Count > 0)
+            .ToReactiveCommandSlim(SelectedElements.Count > 0)
+            .WithSubscribe(FitSelectedElements)
+            .DisposeWith(_disposables);
+
         Options.Select(x => x.MaxLayerCount)
             .DistinctUntilChanged()
             .Subscribe(TryApplyLayerCount)
@@ -331,6 +338,14 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public ReactiveCommand Duplicate { get; } = new();
 
     public ReactiveCommand<(TimeRange Range, int ZIndex)> ScrollTo { get; } = new();
+
+    // A range to zoom to until it fills the view's width, and a layer to bring into view when there is one. It waits
+    // until a view with a size takes it, which clears it.
+    public ReactivePropertySlim<(TimeRange Range, int? ZIndex)?> PendingFit { get; } = new();
+
+    public ReactiveCommandSlim FitAll { get; }
+
+    public ReactiveCommandSlim FitSelection { get; }
 
     // Asks the view to flash an element so an edit made outside the timeline is easy to spot.
     public ReactiveCommand<Element> HighlightElement { get; } = new();
@@ -635,6 +650,35 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     internal void ZoomAroundPlayhead(float factor) => SetScaleAroundPlayhead(Options.Value.Scale * factor);
 
     internal void ResetZoom() => SetScaleAroundPlayhead(1);
+
+    private void FitScene() => RequestFit(new TimeRange(Scene.Start.Value, Scene.Duration.Value), null);
+
+    // From the first selected element's start to the last one's end, and the topmost one's layer.
+    private void FitSelectedElements()
+    {
+        if (SelectedElements.Count == 0) return;
+
+        MediaTime start = MediaTime.MaxValue;
+        MediaTime end = MediaTime.MinValue;
+        int top = int.MaxValue;
+        foreach (ElementViewModel item in SelectedElements)
+        {
+            TimeRange range = item.Model.Range;
+            if (range.Start < start) start = range.Start;
+            if (range.End > end) end = range.End;
+            top = Math.Min(top, item.Model.ZIndex.Value);
+        }
+
+        RequestFit(TimeRange.FromRange(start, end), top);
+    }
+
+    // A shown view takes the fit at once. A fit still pending means another tab hides the timeline, as when the
+    // palette runs one, so the timeline comes to the front, where its new view takes the fit.
+    private void RequestFit(TimeRange range, int? zindex)
+    {
+        PendingFit.Value = (range, zindex);
+        if (PendingFit.Value is not null) EditorContext.OpenToolTab(this);
+    }
 
     private void SetScaleAroundPlayhead(float scale)
     {
