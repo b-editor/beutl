@@ -326,6 +326,35 @@ public class ExpressionLoopTests
     }
 
     [Test]
+    public void ContinueSaturatesDecimals()
+    {
+        var property = MakeProperty(0m, "LoopOut(LoopMode.Continue)", TestAnimations.Linear(0m, 5e28m, Seconds(1)));
+
+        Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(decimal.MaxValue));
+    }
+
+    [Test]
+    public void ContinueSaturatesOnceAfterAJump()
+    {
+        var number = MakeProperty(0, "LoopOut(LoopMode.Continue)", MakeAnimation((0, 0), (1, 2_000_000_000), (1, 1_000_000_000)));
+        var point = MakeProperty(default(PixelPoint), "LoopOut(LoopMode.Continue)", MakeAnimation(
+            (0, new PixelPoint(0, 0)), (1, new PixelPoint(2_000_000_000, 0)), (1, new PixelPoint(1_000_000_000, 0))));
+
+        Assert.That(Evaluate(number, Seconds(2)), Is.EqualTo(int.MaxValue));
+        Assert.That(Evaluate(point, Seconds(2)).X, Is.EqualTo(int.MaxValue));
+    }
+
+    [Test]
+    public void ContinueKeepsASteepContinuousSplineMoving()
+    {
+        var animation = TestAnimations.Linear(0.0, 100.0, Seconds(1));
+        animation.KeyFrames[^1].Easing.Value = new SplineEasing(0, 0, 0.999f, 0);
+        var property = MakeProperty(0.0, "LoopOut(LoopMode.Continue)", animation);
+
+        Assert.That(Evaluate(property, Seconds(2)), Is.GreaterThan(100));
+    }
+
+    [Test]
     public void ContinueHoldsTheValueAfterAJumpAtAFlatBoundary()
     {
         var animation = MakeAnimation((0, 0.0), (1, 10.0), (1, 50.0));

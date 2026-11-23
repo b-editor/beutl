@@ -16,6 +16,9 @@ internal static class KeyFrameContinuation
     // Easing takes a float progress, so slopes this small are rounding noise; treat them as a flat ending.
     private const double FlatSlope = 1e-3;
 
+    // How much the secant must grow as its step halves to read as a jump; a jump doubles it.
+    private const double JumpRatio = 1.8;
+
     // Extends the track along its boundary segment, at the easing's slope at the boundary. A scalar number track
     // extends with exact, saturating arithmetic on the keys' values. Other tracks hand the segment's animator a
     // progress past the segment, so its own semantics apply (Color blends in linear light, a unit change steps,
@@ -50,10 +53,15 @@ internal static class KeyFrameContinuation
         if (animation.HierarchicalParent is not IComponentInterpolator<T> && ComponentAnimations.IsScalarNumber<T>())
             return ComponentAnimations.AddScaledDelta(outerValue, other.Value.Value!, edge.Value.Value!, elapsed);
 
-        (KeyFrame<T> from, KeyFrame<T> to) = loopOut ? (other, edge) : (edge, other);
-        T value = animation.InterpolateValues((float)(loopOut ? 1 + elapsed : -elapsed),
-            from.Value.Value!, to.Value.Value!, from.KeyTime.Value, to.KeyTime.Value, local);
-        return outer == inner ? value : ComponentAnimations.AddScaledDelta(value, edge.Value.Value!, outerValue, 1);
+        // A jump at the boundary shifts the segment to end at the outer value, so the animator saturates only once.
+        T neighborValue = outer == inner
+            ? other.Value.Value!
+            : ComponentAnimations.AddScaledDelta(other.Value.Value!, edge.Value.Value!, outerValue, 1);
+        (T from, T to) = loopOut ? (neighborValue, outerValue) : (outerValue, neighborValue);
+        (MediaTime fromTime, MediaTime toTime) = loopOut
+            ? (other.KeyTime.Value, edge.KeyTime.Value)
+            : (edge.KeyTime.Value, other.KeyTime.Value);
+        return animation.InterpolateValues((float)(loopOut ? 1 + elapsed : -elapsed), from, to, fromTime, toTime, local);
     }
 
     // The easing's slope at the end (or start) of its segment, or zero when it is flat or jumps there.
@@ -76,8 +84,8 @@ internal static class KeyFrameContinuation
             return 0;
 
         // A jump at the boundary (HoldEasing, a step-like spline) doubles the secant as the step halves. It is not
-        // a velocity to carry on, so the track holds.
-        return Math.Abs(near - far) > 0.25 * Math.Abs(near) ? 0 : slope;
+        // a velocity to carry on, so the track holds. A steep but continuous curve grows less than that.
+        return Math.Abs(near) > JumpRatio * Math.Abs(far) ? 0 : slope;
     }
 
     private static int FindLast(IListProperty<IKeyFrame> keys, MediaTime time)
