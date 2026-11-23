@@ -660,6 +660,12 @@
   <data name="RippleEdit" xml:space="preserve">
     <value>リップル編集</value>
   </data>
+  <data name="RippleEdit_Description" xml:space="preserve">
+    <value>リップル編集を切り替えます。オンの間は、要素を削除・カットすると同じレイヤーの後ろの要素が動き、端をトリムするとその端の側の要素が動きます。</value>
+  </data>
+  <data name="TimelineSnap_Description" xml:space="preserve">
+    <value>スナップを切り替えます。ドラッグ中に Alt／Option を押している間はスナップしません。</value>
+  </data>
   <data name="UseGlobalClock" xml:space="preserve">
     <value>グローバル時計を使う</value>
   </data>
