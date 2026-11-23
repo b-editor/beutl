@@ -11,6 +11,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -25,6 +26,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Moq;
 
+using Pointer = Avalonia.Input.Pointer;
 using static Beutl.Controls.ObjCRuntime;
 
 namespace Beutl.HeadlessUITests;
@@ -723,11 +725,17 @@ internal static partial class NativeBrowserFrameTestHost
         await using var server = WebApplication.CreateSlimBuilder().Build();
         server.Urls.Add("http://127.0.0.1:0");
         var requests = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        var probes = System.Threading.Channels.Channel.CreateUnbounded<string>();
         int sourceRequests = 0;
         server.MapGet("/media.mp3", (HttpContext context) =>
         {
             requests.Writer.TryWrite(context.Request.Headers.Referer.ToString());
             return Results.Bytes("ID3sample"u8.ToArray(), "audio/mpeg");
+        });
+        server.MapGet("/referrer-probe", (HttpContext context) =>
+        {
+            probes.Writer.TryWrite(context.Request.Headers.Referer.ToString());
+            return Results.NoContent();
         });
         server.MapGet("/source", (HttpContext context) =>
         {
@@ -737,25 +745,46 @@ internal static partial class NativeBrowserFrameTestHost
             string meta = query.TryGetValue("meta", out var policy) ? $"<meta name='referrer' content='{policy}'>" : "";
             string linkPolicy = query.TryGetValue("link", out policy) ? $" referrerpolicy='{policy}'" : "";
             string destination = query.ContainsKey("cross") ? $"http://localhost:{context.Connection.LocalPort}/media.mp3" : "/media.mp3";
-            return Results.Content($"{meta}<a href='{destination}'{linkPolicy}>download</a>", "text/html");
+            string mutation = query.ContainsKey("prepend") ? "document.head.prepend(meta); probe();" : """
+                document.head.append(meta);
+                const remove = () => { meta.remove(); probe(); };
+                """;
+            if (!query.ContainsKey("prepend"))
+                mutation += query.ContainsKey("later") ? "setTimeout(remove, 0);" : "remove();";
+            string script = query.TryGetValue("apply", out var applied) ? $$"""
+                <script>
+                    (() => {
+                        const meta = document.createElement('meta');
+                        meta.name = 'referrer';
+                        meta.content = {{JsonSerializer.Serialize(applied.ToString())}};
+                        const probe = () => { void fetch('/referrer-probe', { cache: 'no-store' }); };
+                        {{mutation}}
+                    })();
+                </script>
+                """ : "";
+            return Results.Content($"{meta}{script}<a href='{destination}'{linkPolicy}>download</a>", "text/html");
         });
         server.MapGet("/plain", () => Results.Content("<title>Plain</title>", "text/html"));
         await server.StartAsync(token);
         var origin = new Uri(server.Urls.Single());
+        Uri initialPage = new(origin, "/source?header=origin&apply=no-referrer");
         var browser = new NativeWebView();
         var editor = TestShell.CreateEditorContextMock();
         editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
         editor.Setup(x => x.GetService(typeof(Beutl.Media.FontManager))).Returns(TestShell.FontManager);
         editor.Setup(x => x.GetService(typeof(Beutl.Media.Decoding.DecoderRegistry))).Returns(TestShell.Decoders);
         editor.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(TestShell.Notifications);
-        using var vm = new WebBrowserTabViewModel(editor.Object, WebBrowserTabViewModel.BlankPage);
+        using var vm = new WebBrowserTabViewModel(editor.Object, initialPage);
         using var downloads = new TemporaryDirectory();
-        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        using var view = new WebBrowserTabView(uri =>
+        {
+            browser.Source = uri;
+            return browser;
+        }, () => (true, null, false)) { DataContext = vm };
         view.DownloadOptionsSelector = (_, _) =>
             Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(downloads.Path, false));
-        window.Content = view;
 
-        async Task Load(Uri page)
+        async Task Load(Uri page, Action? navigate = null)
         {
             var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             void Loaded(object? sender, WebViewNavigationCompletedEventArgs e)
@@ -765,8 +794,12 @@ internal static partial class NativeBrowserFrameTestHost
             browser.NavigationCompleted += Loaded;
             try
             {
-                vm.Address.Value = page.AbsoluteUri;
-                view.NavigateFromAddress();
+                if (navigate != null) navigate();
+                else
+                {
+                    vm.Address.Value = page.AbsoluteUri;
+                    view.NavigateFromAddress();
+                }
                 await loaded.Task.WaitAsync(token);
             }
             finally { browser.NavigationCompleted -= Loaded; }
@@ -774,8 +807,10 @@ internal static partial class NativeBrowserFrameTestHost
                 await Task.Delay(20, token);
         }
 
-        async Task CheckDownload(Uri page, string expected, string description)
+        async Task CheckDownload(Uri page, string expected, string description, bool probe = false)
         {
+            if (probe)
+                Assert.That(await probes.Reader.ReadAsync(token), Is.EqualTo(expected), $"Native fetch on {description}");
             int before = vm.Profile.Downloads.Count;
             await ClickDownloadLinkAsync(browser, token);
             string referrer = await requests.Reader.ReadAsync(token);
@@ -786,34 +821,28 @@ internal static partial class NativeBrowserFrameTestHost
             Assert.That(vm.CurrentUri, Is.EqualTo(page), description);
         }
 
-        async Task Check(string query, string expected, bool removeMeta = false)
+        async Task Check(string query, string expected, bool probe = false)
         {
             Uri page = new(origin, "/source?" + query);
             await Load(page);
-            if (removeMeta)
-            {
-                await browser.InvokeScript("""
-                    const meta = document.createElement('meta');
-                    meta.name = 'referrer';
-                    meta.content = 'origin';
-                    document.head.append(meta);
-                    """);
-                // Deliver the insertion before removing the element whose policy Chromium keeps.
-                await browser.InvokeScript("document.querySelector('meta[name=referrer]').remove()");
-            }
-            await CheckDownload(page, expected, query + (removeMeta ? "; removed meta origin" : ""));
+            await CheckDownload(page, expected, query, probe);
         }
 
-        await Check("header=no-referrer", "");
-        await Check("header=same-origin&cross", "");
-        await Check("header=same-origin", origin.AbsoluteUri);
+        await Load(initialPage, () => window.Content = view);
+        await CheckDownload(initialPage, "", initialPage.Query, probe: true);
+        await Check("header=no-referrer&apply=origin", origin.AbsoluteUri, probe: true);
+        await Check("header=no-referrer&apply=origin&later", origin.AbsoluteUri, probe: true);
+        await Check("header=origin&apply=no-referrer&later", "", probe: true);
+        await Check("meta=origin&apply=no-referrer&prepend", "", probe: true);
+        if (!OperatingSystem.IsLinux())
+        {
+            // The Windows and macOS handlers also supply the document's response header.
+            await Check("header=no-referrer", "");
+            await Check("header=same-origin&cross", "");
+            await Check("header=same-origin", origin.AbsoluteUri);
+        }
         await Check("header=no-referrer&link=origin", origin.AbsoluteUri);
         await Check("header=origin&meta=no-referrer", "");
-        if (OperatingSystem.IsWindows())
-        {
-            // The macOS link script reads metas present at the click; tracking removed metas is a follow-up.
-            await Check("header=no-referrer", origin.AbsoluteUri, removeMeta: true);
-        }
         await Check("", origin.AbsoluteUri);
 
         if (OperatingSystem.IsMacOS())
@@ -848,10 +877,10 @@ internal static partial class NativeBrowserFrameTestHost
             while (await browser.InvokeScript("window.downloadLinkReady === true") != "true")
                 await Task.Delay(20, token);
         }
-        using JsonDocument point = JsonDocument.Parse((await browser.InvokeScript("""
+        using JsonDocument point = JsonDocument.Parse(WebBrowserTabView.NormalizePageTitle(await browser.InvokeScript("""
             (() => {
                 const rect = document.querySelector('a').getBoundingClientRect();
-                return {x: rect.x + rect.width / 2, y: rect.y + rect.height / 2};
+                return JSON.stringify({x: rect.x + rect.width / 2, y: rect.y + rect.height / 2});
             })()
             """))!);
         double x = point.RootElement.GetProperty("x").GetDouble();
@@ -886,6 +915,25 @@ internal static partial class NativeBrowserFrameTestHost
             finally { SendVoid(wkWebView, Selector("release")); }
             return;
         }
+        if (OperatingSystem.IsLinux())
+        {
+            if (browser.TryGetPlatformHandle() is IGtkWebViewPlatformHandle gtk)
+            {
+                await ClickGtkDownloadLinkAsync(gtk.WebKitWebView, x, y).WaitAsync(token);
+            }
+            else
+            {
+                Assert.That(browser.TryGetPlatformHandle(), Is.InstanceOf<ILinuxWpePlatformHandle>());
+                using var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+                var root = TopLevel.GetTopLevel(browser)!;
+                Point position = browser.TranslatePoint(new Point(x, y), root)!.Value;
+                browser.RaiseEvent(new PointerPressedEventArgs(browser, pointer, root, position, 0,
+                    new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
+                browser.RaiseEvent(new PointerReleasedEventArgs(browser, pointer, root, position, 0,
+                    new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased), KeyModifiers.None, MouseButton.Left));
+            }
+            return;
+        }
         var handle = (IWindowsWebView2PlatformHandle)browser.TryGetPlatformHandle()!;
         nint webView = handle.CoreWebView2;
         Assert.That(webView, Is.Not.EqualTo(nint.Zero));
@@ -897,6 +945,56 @@ internal static partial class NativeBrowserFrameTestHost
         }
         finally { Marshal.Release(webView); }
     }
+
+    private static unsafe Task ClickGtkDownloadLinkAsync(nint webView, double x, double y) =>
+        LinuxWebKit.OnGlibAsync(webView, () =>
+        {
+            nint window = GtkWidgetGetWindow(webView);
+            nint pointer = GdkSeatGetPointer(GdkDisplayGetDefaultSeat(GdkDisplayGetDefault()));
+            SendButton(4 /* GDK_BUTTON_PRESS */, 0);
+            SendButton(7 /* GDK_BUTTON_RELEASE */, 1 << 8 /* GDK_BUTTON1_MASK */);
+
+            void SendButton(int type, uint state)
+            {
+                nint ev = GdkEventNew(type);
+                try
+                {
+                    var button = (GdkEventButton*)ev;
+                    button->Window = LinuxWebKit.ObjectRef(window);
+                    button->SendEvent = 1;
+                    button->X = x;
+                    button->Y = y;
+                    button->State = state;
+                    button->Button = 1;
+                    GdkEventSetDevice(ev, pointer);
+                    GtkWidgetEvent(webView, ev);
+                }
+                finally { GdkEventFree(ev); }
+            }
+        });
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GdkEventButton
+    {
+        public int Type;
+        public nint Window;
+        public sbyte SendEvent;
+        public uint Time;
+        public double X;
+        public double Y;
+        public nint Axes;
+        public uint State;
+        public uint Button;
+    }
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_display_get_default_seat")]
+    private static partial nint GdkDisplayGetDefaultSeat(nint display);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_seat_get_pointer")]
+    private static partial nint GdkSeatGetPointer(nint seat);
+
+    [LibraryImport("libgdk-3.so.0", EntryPoint = "gdk_event_set_device")]
+    private static partial void GdkEventSetDevice(nint ev, nint device);
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct CGPoint(double X, double Y);
@@ -1425,7 +1523,7 @@ public class NativeBrowserFrameTests
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
     [TestCase("--native-browser-cookie-clear", TestName = "LinuxCookieClearRemovesSessionAndPersistentCookies", IncludePlatform = "Linux")]
     [TestCase("--native-browser-linux-focus", TestName = "LinuxWebKitBlocksCoreKeyPropagationFromEmbeddedX11Window", IncludePlatform = "Linux")]
-    [TestCase("--native-browser-download-referrers", TestName = "PageLinkDownloadsHonorTheDocumentReferrerPolicy", IncludePlatform = "Win,MacOSX")]
+    [TestCase("--native-browser-download-referrers", TestName = "PageLinkDownloadsHonorTheDocumentReferrerPolicy", IncludePlatform = "Win,MacOSX,Linux")]
     [TestCase("--native-browser-adblock-reference", TestName = "WindowsAdBlockBackendKeepsTheAdaptersWebViewReference", IncludePlatform = "Win")]
     public async Task NativeNavigation(string scenario)
     {

@@ -180,7 +180,8 @@ internal partial class WebBrowserTabView
         if (isSuccess && uri != WebBrowserTabViewModel.BlankPage) _openerNavigation = null;
         _pageRevision++;
         _findRequest?.Cancel();
-        _viewModel.CompleteNavigation(uri, isSuccess, _webView.CanGoBack, _webView.CanGoForward);
+        var (canGoBack, canGoForward) = ReadHistoryState(_webView, _viewModel);
+        _viewModel.CompleteNavigation(uri, isSuccess, canGoBack, canGoForward);
         UpdateBlankPageState();
         SettleLoadingPageClaims(uri, isSuccess);
         OfferNextDeferredNativeDownload();
@@ -316,7 +317,7 @@ internal partial class WebBrowserTabView
     private void ResumeNavigation(NativeWebView webView, Uri uri)
     {
         // The adapter will resume the latest address entered while it was starting.
-        if (_pendingWindowsAddress != null) return;
+        if (_pendingAdapterAddress != null) return;
         if (_openerNavigation?.Uri == uri)
         {
             _openerNavigationIssued = false;
@@ -449,7 +450,7 @@ internal partial class WebBrowserTabView
             }
             InvalidatePageDownloadRequests(navigationStarted: true);
             _viewModel.BeginNavigation(uri);
-            if (!HoldWindowsAddress(uri)) _webView.Navigate(uri);
+            if (!HoldAdapterAddress(uri)) _webView.Navigate(uri);
         }
     }
 
@@ -460,6 +461,27 @@ internal partial class WebBrowserTabView
             return;
         }
 
-        _viewModel.UpdateHistoryState(_webView.CanGoBack, _webView.CanGoForward);
+        var (canGoBack, canGoForward) = ReadHistoryState(_webView, _viewModel);
+        _viewModel.UpdateHistoryState(canGoBack, canGoForward);
+    }
+
+    private (bool CanGoBack, bool CanGoForward) ReadHistoryState(NativeWebView webView, WebBrowserTabViewModel viewModel)
+    {
+        if (webView.TryGetPlatformHandle() is not IGtkWebViewPlatformHandle)
+            return (webView.CanGoBack, webView.CanGoForward);
+
+        // The next navigation can already be in a GTK policy decision waiting on the UI thread.
+        // Keep the current button state until a history read on GLib can complete.
+        _ = UpdateGtkHistoryStateAsync(webView, viewModel);
+        return (viewModel.CanGoBack.Value, viewModel.CanGoForward.Value);
+    }
+
+    private async Task UpdateGtkHistoryStateAsync(NativeWebView webView, WebBrowserTabViewModel viewModel)
+    {
+        int version = _nativeDownloadHandlerVersion, revision = _pageRevision;
+        bool canGoBack = false, canGoForward = false;
+        await LinuxWebKit.OnGlibAsync(() => (canGoBack, canGoForward) = (webView.CanGoBack, webView.CanGoForward));
+        if (version == _nativeDownloadHandlerVersion && revision == _pageRevision && ReferenceEquals(viewModel, _viewModel))
+            viewModel.UpdateHistoryState(canGoBack, canGoForward);
     }
 }
