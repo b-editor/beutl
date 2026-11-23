@@ -59,6 +59,12 @@ public sealed partial class TimelineTabView : UserControl
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
         RulerBar.AddHandler(PointerTouchPadGestureMagnifyEvent, OnTimelineMagnify);
         ContentScroll.AddHandler(PointerTouchPadGestureMagnifyEvent, OnTimelineMagnify);
+        RulerBar.GestureRecognizers.Add(new TimelineTouchGestureRecognizer());
+        ContentScroll.TemplateApplied += OnContentScrollTemplateApplied;
+        RulerBar.AddHandler(PinchEvent, OnTimelineTouchPinch);
+        ContentScroll.AddHandler(PinchEvent, OnTimelineTouchPinch);
+        RulerBar.AddHandler(PinchEndedEvent, OnTimelineTouchPinchEnded);
+        ContentScroll.AddHandler(PinchEndedEvent, OnTimelineTouchPinchEnded);
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
         TimelinePanel.AddHandler(PointerReleasedEvent, (_, _) => InvalidateElementViewport(), RoutingStrategies.Tunnel, true);
         TimelinePanel.AddHandler(PointerCaptureLostEvent, (_, _) => InvalidateElementViewport(), RoutingStrategies.Bubble, true);
@@ -123,6 +129,7 @@ public sealed partial class TimelineTabView : UserControl
         int contentStart = TimelinePanel.Children.IndexOf(overlay) + 1;
         TimelinePanel.Children.RemoveRange(contentStart, TimelinePanel.Children.Count - contentStart);
 
+        _touchScale = 1;
         _disposables.Clear();
     }
 

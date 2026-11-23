@@ -139,6 +139,40 @@ public class TimelineScrollTests
     }
 
     [AvaloniaTest]
+    [TestCase(true, false)]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    public async Task Touchscreen_pinch_keeps_the_initial_center_after_scroll(bool ruler, bool startWithPan)
+    {
+        using TimelineSession session = await TimelineSession.CreateAsync(null, false);
+        Point first = session.TouchPoint(100, ruler);
+        Point second = session.TouchPoint(200, ruler);
+        var left = session.Window.TouchBegin(first);
+        if (startWithPan)
+        {
+            first -= new Vector(20, 0);
+            session.Window.TouchMove(left, first);
+            HeadlessTestHelpers.Render();
+            Assert.That(session.Content.Offset.X, Is.GreaterThan(300));
+        }
+
+        double center = startWithPan ? 140 : 150;
+        double initialDistance = ((Vector)(second - first)).Length;
+        double anchor = session.Content.Offset.X + center;
+        var right = session.Window.TouchBegin(second);
+        Point end = second + new Vector(25, 0);
+        session.Window.TouchMove(right, second + new Vector(10, 0));
+        HeadlessTestHelpers.Render();
+        session.Window.TouchMove(right, end);
+        HeadlessTestHelpers.Render();
+
+        Assert.That(session.Model.Options.Value.Scale, Is.EqualTo(1 + 25 / initialDistance).Within(0.001));
+        Assert.That((session.Content.Offset.X + center) / session.Model.Options.Value.Scale, Is.EqualTo(anchor).Within(1));
+        session.Window.TouchEnd(right, end);
+        session.Window.TouchEnd(left, first);
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task Windows_touchpad_zoom_zooms_like_a_pinch(bool ruler)
@@ -203,6 +237,7 @@ public class TimelineScrollTests
         public TimelineTabViewModel Model => _host.Model;
         public ScrollViewer Content => _host.Content;
         public ScrollViewer Pane { get; }
+        public Window Window => _host.Window;
 
         public static async Task<TimelineSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector, bool swap)
         {
@@ -216,6 +251,12 @@ public class TimelineScrollTests
             Model.Options.Value = Model.Options.Value with { Scale = 1, Offset = new Vector2(300, 200) };
             HeadlessTestHelpers.Render();
             Assert.That(Content.Offset, Is.EqualTo(new Vector(300, 200)));
+        }
+
+        public Point TouchPoint(double x, bool ruler)
+        {
+            Control target = ruler ? _host.RulerBar : Content;
+            return target.TranslatePoint(new Point(x, ruler ? 4 : 80), Window)!.Value;
         }
 
         public void Scroll(Vector delta, bool ruler, RawInputModifiers modifiers = RawInputModifiers.None)

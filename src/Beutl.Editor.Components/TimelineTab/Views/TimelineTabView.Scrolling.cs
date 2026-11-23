@@ -2,7 +2,10 @@
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.GestureRecognizers;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Beutl.Configuration;
@@ -16,6 +19,39 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
+    private double _touchScale = 1;
+
+    private void OnContentScrollTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    {
+        if (e.NameScope.Find<ScrollContentPresenter>("PART_ContentPresenter") is not { } presenter) return;
+        var existing = presenter.GestureRecognizers.OfType<ScrollGestureRecognizer>().FirstOrDefault();
+        if (existing is TimelineTouchGestureRecognizer) return;
+        if (existing != null) presenter.GestureRecognizers.Remove(existing);
+
+        var gesture = new TimelineTouchGestureRecognizer();
+        gesture.Bind(ScrollGestureRecognizer.CanHorizontallyScrollProperty, presenter.GetObservable(ScrollContentPresenter.CanHorizontallyScrollProperty));
+        gesture.Bind(ScrollGestureRecognizer.CanVerticallyScrollProperty, presenter.GetObservable(ScrollContentPresenter.CanVerticallyScrollProperty));
+        gesture.Bind(ScrollGestureRecognizer.OffsetProperty, presenter.GetObservable(ScrollContentPresenter.OffsetProperty).Select(offset => (Avalonia.Vector?)offset));
+        gesture.Bind(ScrollGestureRecognizer.ViewportProperty, presenter.GetObservable(ScrollContentPresenter.ViewportProperty).Select(viewport => (Size?)viewport));
+        gesture.Bind(ScrollGestureRecognizer.ExtentProperty, presenter.GetObservable(ScrollContentPresenter.ExtentProperty).Select(extent => (Size?)extent));
+        gesture.Bind(ScrollGestureRecognizer.IsScrollInertiaEnabledProperty, presenter.GetObservable(ScrollViewer.IsScrollInertiaEnabledProperty));
+        presenter.GestureRecognizers.Add(gesture);
+    }
+
+    private void OnTimelineTouchPinch(object? sender, PinchEventArgs e)
+    {
+        if (ViewModel is { } viewModel && e.Source is Visual source && double.IsFinite(e.Scale) && e.Scale > 0
+            && source.TranslatePoint(e.ScaleOrigin, TimelinePanel) is { } origin)
+        {
+            _mouseFlag = TimelineHelper.MouseFlags.Free;
+            UpdateZoom(viewModel, e.Scale / _touchScale, origin.X);
+            _touchScale = e.Scale;
+        }
+        e.Handled = true;
+    }
+
+    private void OnTimelineTouchPinchEnded(object? sender, PinchEndedEventArgs e) => _touchScale = 1;
+
     private void PaneScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         ContentScroll.Offset = ContentScroll.Offset.WithY(PaneScroll.Offset.Y);
