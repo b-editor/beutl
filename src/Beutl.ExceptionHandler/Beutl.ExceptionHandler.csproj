@@ -27,6 +27,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Beutl.Controls\Styling\UiFonts.cs" Link="Styling\UiFonts.cs" />
+    <Compile Include="..\Beutl.Engine\Media\Font\BundledFontCatalog.cs" Link="Styling\BundledFontCatalog.cs" />
     <Compile Include="..\Beutl.Controls\Styling\UiFontFamilyExtension.cs" Link="Styling\UiFontFamilyExtension.cs" />
     <AvaloniaResource Include="..\Beutl.Controls\Styling\Fonts.axaml" Link="Styling\Fonts.axaml" />
   </ItemGroup>
