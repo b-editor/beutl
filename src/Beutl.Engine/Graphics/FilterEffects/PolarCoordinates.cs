@@ -80,6 +80,76 @@ public sealed partial class PolarCoordinates : FilterEffect
     private static readonly SkslSource s_rectangularToPolar = SkslSource.WholeSource(
         SharedSource +
         """
+        half4 evalPolarTap(
+            float2 coord,
+            float baseRawTurns,
+            float jitter,
+            float vMapped,
+            float innerR,
+            bool isFullCircle,
+            bool degenerateRadius,
+            bool invertRadius,
+            float sweepTurns,
+            float repeatCount,
+            bool mirrorMode,
+            float edgeMode) {
+            float t = fract(baseRawTurns + jitter);
+
+            float uArc;
+            if (isFullCircle) {
+                uArc = t;
+            } else if (sweepTurns < 1e-6) {
+                uArc = edgeMode < 0.5 ? 2.0 : 0.0;
+            } else {
+                float mid = sweepTurns * 0.5;
+                float tRel = fract(t - mid + 0.5) - 0.5 + mid;
+                uArc = tRel / sweepTurns;
+            }
+
+            float uMapped;
+            if (edgeMode < 0.5) {
+                uMapped = applyRepeat(clamp(uArc, 0.0, 1.0), repeatCount, mirrorMode);
+            } else {
+                float uBounded = isFullCircle ? uArc : applyEdge(uArc, edgeMode);
+                uMapped = applyRepeat(uBounded, repeatCount, mirrorMode);
+            }
+
+            float2 sample = mix(coord, inputOrigin + inputSize * float2(uMapped, vMapped), amount);
+
+            float coverage = 1.0;
+            if (edgeMode < 0.5) {
+                float covX = 1.0;
+                if (!isFullCircle) {
+                    float arcSampleX = mix(coord.x, inputOrigin.x + inputSize.x * uArc, amount);
+                    float covMinX = clamp((arcSampleX - inputOrigin.x) * sourceRatio.x + 0.5, 0.0, 1.0);
+                    float covMaxX = clamp((inputOrigin.x + inputSize.x - arcSampleX) * sourceRatio.x + 0.5, 0.0, 1.0);
+                    covX = min(covX, min(covMinX, covMaxX));
+                }
+                if (amount < 1.0) {
+                    // When outputBounds extends past inputBounds and amount < 1, sample.x can leave inputBounds.
+                    // Offset by +1.0 so seams at sample.x == inputOrigin.x / inputOrigin.x + inputSize.x stay opaque.
+                    float covMinX = clamp((sample.x - inputOrigin.x) * sourceRatio.x + 1.0, 0.0, 1.0);
+                    float covMaxX = clamp((inputOrigin.x + inputSize.x - sample.x) * sourceRatio.x + 1.0, 0.0, 1.0);
+                    covX = min(covX, min(covMinX, covMaxX));
+                }
+                coverage *= covX;
+
+                // Keep the collapsed pole opaque when innerR == 0 maps onto a source edge,
+                // while still fading samples that fall outside the source when amount < 1.
+                bool minAtOrigin = !degenerateRadius && invertRadius && innerR <= 0.0;
+                bool maxAtOrigin = !degenerateRadius && !invertRadius && innerR <= 0.0;
+                float minYOffset = minAtOrigin ? 1.0 : 0.5;
+                float maxYOffset = maxAtOrigin ? 1.0 : 0.5;
+                coverage *= clamp((sample.y - inputOrigin.y) * sourceRatio.y + minYOffset, 0.0, 1.0);
+                coverage *= clamp((inputOrigin.y + inputSize.y - sample.y) * sourceRatio.y + maxYOffset, 0.0, 1.0);
+            } else if (amount < 1.0) {
+                float2 norm = (sample - inputOrigin) / inputSize;
+                sample = inputOrigin + inputSize * float2(applyEdge(norm.x, edgeMode), applyEdge(norm.y, edgeMode));
+            }
+
+            return sampleLinear(sample) * half(coverage);
+        }
+
         half4 main(float2 coord) {
             float2 outLocal = coord - outputOrigin;
             if (any(lessThan(outLocal, float2(0.0))) || any(greaterThanEqual(outLocal, outputSize))) {
@@ -126,74 +196,46 @@ public sealed partial class PolarCoordinates : FilterEffect
 
             // Estimate how many source texels span one output pixel along the arc so compressed
             // inner regions and thin text stay smooth instead of aliasing.
+            // Smoothly fade in angular multisampling over the upper Amount range so animating
+            // Amount through 100% converges continuously without snapping at the endpoint.
             float texelCircumference = 6.28318530718 * max(radius, 1.0);
             float effectiveSweep = max(sweepTurns, 1e-4);
             float footprintTurns = 1.0 / texelCircumference;
             float footprintTexels = footprintTurns * (inputSize.x * sourceRatio.x) * (repeatCount / effectiveSweep);
-            int tapCount = (amount >= 1.0 - 1e-6 && footprintTexels > 1.25 && !degenerateRadius)
+            float filterWeight = smoothstep(0.75, 1.0, amount);
+            int tapCount = (filterWeight > 0.0 && footprintTexels > 1.25 && !degenerateRadius)
                 ? int(clamp(ceil(footprintTexels), 2.0, 5.0))
                 : 1;
+
+            if (tapCount == 1) {
+                return evalPolarTap(
+                    coord, baseRawTurns, 0.0, vMapped, innerR,
+                    isFullCircle, degenerateRadius, invertRadius,
+                    sweepTurns, repeatCount, mirrorMode, edgeMode);
+            }
 
             half4 accum = half4(0.0);
             for (int i = 0; i < 5; i++) {
                 if (i >= tapCount) {
                     break;
                 }
-                float jitter = tapCount > 1 ? (((float(i) + 0.5) / float(tapCount)) - 0.5) * footprintTurns : 0.0;
-                float t = fract(baseRawTurns + jitter);
-
-                float uArc;
-                if (isFullCircle) {
-                    uArc = t;
-                } else if (sweepTurns < 1e-6) {
-                    uArc = edgeMode < 0.5 ? 2.0 : 0.0;
-                } else {
-                    float mid = sweepTurns * 0.5;
-                    float tRel = fract(t - mid + 0.5) - 0.5 + mid;
-                    uArc = tRel / sweepTurns;
-                }
-
-                float uMapped;
-                if (edgeMode < 0.5) {
-                    uMapped = applyRepeat(clamp(uArc, 0.0, 1.0), repeatCount, mirrorMode);
-                } else {
-                    float uBounded = isFullCircle ? uArc : applyEdge(uArc, edgeMode);
-                    uMapped = applyRepeat(uBounded, repeatCount, mirrorMode);
-                }
-
-                float2 sample = mix(coord, inputOrigin + inputSize * float2(uMapped, vMapped), amount);
-
-                float coverage = 1.0;
-                if (edgeMode < 0.5) {
-                    if (!isFullCircle) {
-                        float arcSampleX = mix(coord.x, inputOrigin.x + inputSize.x * uArc, amount);
-                        float covMinX = clamp((arcSampleX - inputOrigin.x) * sourceRatio.x + 0.5, 0.0, 1.0);
-                        float covMaxX = clamp((inputOrigin.x + inputSize.x - arcSampleX) * sourceRatio.x + 0.5, 0.0, 1.0);
-                        coverage *= min(covMinX, covMaxX);
-                    } else if (amount < 1.0) {
-                        // When outputBounds extends past inputBounds and amount < 1, sample.x can leave inputBounds.
-                        // Offset by +1.0 so the 12 o'clock seam at sample.x == inputOrigin.x stays opaque.
-                        float covMinX = clamp((sample.x - inputOrigin.x) * sourceRatio.x + 1.0, 0.0, 1.0);
-                        float covMaxX = clamp((inputOrigin.x + inputSize.x - sample.x) * sourceRatio.x + 1.0, 0.0, 1.0);
-                        coverage *= min(covMinX, covMaxX);
-                    }
-                    // Keep the collapsed pole opaque when innerR == 0 maps onto a source edge,
-                    // while still fading samples that fall outside the source when amount < 1.
-                    bool minAtOrigin = !degenerateRadius && invertRadius && innerR <= 0.0;
-                    bool maxAtOrigin = !degenerateRadius && !invertRadius && innerR <= 0.0;
-                    float minYOffset = minAtOrigin ? 1.0 : 0.5;
-                    float maxYOffset = maxAtOrigin ? 1.0 : 0.5;
-                    coverage *= clamp((sample.y - inputOrigin.y) * sourceRatio.y + minYOffset, 0.0, 1.0);
-                    coverage *= clamp((inputOrigin.y + inputSize.y - sample.y) * sourceRatio.y + maxYOffset, 0.0, 1.0);
-                } else if (amount < 1.0) {
-                    float2 norm = (sample - inputOrigin) / inputSize;
-                    sample = inputOrigin + inputSize * float2(applyEdge(norm.x, edgeMode), applyEdge(norm.y, edgeMode));
-                }
-
-                accum += sampleLinear(sample) * half(coverage);
+                float jitter = (((float(i) + 0.5) / float(tapCount)) - 0.5) * footprintTurns;
+                accum += evalPolarTap(
+                    coord, baseRawTurns, jitter, vMapped, innerR,
+                    isFullCircle, degenerateRadius, invertRadius,
+                    sweepTurns, repeatCount, mirrorMode, edgeMode);
             }
 
-            return accum / half(tapCount);
+            half4 filtered = accum / half(tapCount);
+            if (filterWeight >= 1.0) {
+                return filtered;
+            }
+
+            half4 single = evalPolarTap(
+                coord, baseRawTurns, 0.0, vMapped, innerR,
+                isFullCircle, degenerateRadius, invertRadius,
+                sweepTurns, repeatCount, mirrorMode, edgeMode);
+            return mix(single, filtered, half(filterWeight));
         }
         """);
 
@@ -553,7 +595,7 @@ public sealed partial class PolarCoordinates : FilterEffect
 
                 if (EdgeMode == PolarCoordinatesEdgeMode.Transparent)
                 {
-                    if (isFullCircle && Amount < 1f && (sample.X < 0f || sample.X > inSize.X))
+                    if (Amount < 1f && (sample.X < 0f || sample.X > inSize.X))
                         return false;
                     bool maxAtOrigin = !degenerateRadius && !InvertRadius && innerR <= 0f;
                     if (sample.Y < 0f)

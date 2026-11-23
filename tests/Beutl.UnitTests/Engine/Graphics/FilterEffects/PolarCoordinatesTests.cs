@@ -815,6 +815,67 @@ public sealed class PolarCoordinatesTests
         Assert.That(hit.Evaluate(output, [input], [], probe), Is.True);
     }
 
+    [Test]
+    public void RectangularToPolarConvergesContinuouslyAsAmountReachesHundred()
+    {
+        var nearFull = new PolarCoordinates { Amount = { Value = 99.99f }, ClipToBounds = { Value = true } };
+        var full = new PolarCoordinates { Amount = { Value = 100f }, ClipToBounds = { Value = true } };
+        using PolarCoordinates.Resource nearFullResource = nearFull.ToResource(CompositionContext.Default);
+        using PolarCoordinates.Resource fullResource = full.ToResource(CompositionContext.Default);
+
+        static void DrawHorizontalGradient(SKCanvas canvas)
+        {
+            using var shader = SKShader.CreateLinearGradient(
+                new SKPoint(0, 0), new SKPoint(Width, 0), [SKColors.Black, SKColors.White], [0f, 1f], SKShaderTileMode.Clamp);
+            using var paint = new SKPaint { Shader = shader };
+            canvas.DrawRect(new SKRect(0, 0, Width, Height), paint);
+        }
+
+        (_, float[] nearFullPixels) = FilterEffectTestHarness.RunOnTarget(nearFullResource, s_size, DrawHorizontalGradient);
+        (_, float[] fullPixels) = FilterEffectTestHarness.RunOnTarget(fullResource, s_size, DrawHorizontalGradient);
+
+        // Compressed seam pixel (64.5, 35.5) must converge smoothly instead of snapping when multisampling activates.
+        float nearFullSeam = Channel(nearFullPixels, 64, 35, 0);
+        float fullSeam = Channel(fullPixels, 64, 35, 0);
+        float maxDiff = 0f;
+        for (int i = 0; i < nearFullPixels.Length; i++)
+            maxDiff = MathF.Max(maxDiff, MathF.Abs(nearFullPixels[i] - fullPixels[i]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nearFullSeam, Is.EqualTo(fullSeam).Within(0.01f), "compressed seam converges at 100%");
+            Assert.That(maxDiff, Is.LessThan(0.02f), "entire image converges continuously at 100%");
+        });
+    }
+
+    [Test]
+    public void RectangularToPolarPartialSweepFadesOutOfBoundsSamplesAtIntermediateAmount()
+    {
+        var size = new PixelSize(100, 100);
+        var bounds = new Rect(0, 0, size.Width, size.Height);
+        var effect = new PolarCoordinates
+        {
+            SweepAngle = { Value = 180f },
+            Amount = { Value = 5f },
+        };
+        (float[] pixels, Rect outBounds, PixelSize outSize) = RunSolidWithBounds(effect, SKColors.White, size);
+        (ShaderDescription desc, Rect recordedBounds) = FilterEffectTestHarness.RecordShader(effect, bounds);
+        RenderHitTestContract hit = desc.HitTest!.Value;
+        var input = new RenderHitTestInput(bounds, bounds.ContainsExclusive);
+
+        // Logical point (-6.5, 70.5) has arcSampleX inside [0, 100] because uArc > 1,
+        // while the actual sample.x (~-1.175) falls outside the source and must stay transparent.
+        int px = (int)MathF.Floor(-6.5f) - (int)MathF.Floor(outBounds.X);
+        int py = (int)MathF.Floor(70.5f) - (int)MathF.Floor(outBounds.Y);
+        Assert.Multiple(() =>
+        {
+            Assert.That(px, Is.InRange(0, outSize.Width - 1));
+            Assert.That(py, Is.InRange(0, outSize.Height - 1));
+            Assert.That(Channel(pixels, outSize.Width, px, py, 3), Is.LessThan(0.001f), "out-of-bounds sample stays transparent");
+            Assert.That(hit.Evaluate(recordedBounds, [input], [], new Point(-6.5f, 70.5f)), Is.False, "hit test rejects out-of-bounds sample");
+        });
+    }
+
     private static (float[] Pixels, Rect OutputBounds, PixelSize OutputSize) RunSolidWithBounds(
         FilterEffect effect, SKColor color, PixelSize size)
     {
