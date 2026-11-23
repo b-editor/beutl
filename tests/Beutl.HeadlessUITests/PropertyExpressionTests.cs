@@ -127,14 +127,12 @@ public partial class PropertyExpressionTests
             Button button = menu.GetVisualDescendants().OfType<Button>().First();
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             HeadlessTestHelpers.Render();
-            if (!runtimeFailure)
-            {
-                var contextMenu = (FAMenuFlyout)button.ContextFlyout!;
-                contextMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "editExpressionItem")
-                    .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
-                contextMenu.Hide();
-                HeadlessTestHelpers.Render();
-            }
+            Assert.That(ExpressionEditors(window), Is.Empty);
+            var contextMenu = (FAMenuFlyout)button.ContextFlyout!;
+            contextMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "editExpressionItem")
+                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            contextMenu.Hide();
+            HeadlessTestHelpers.Render();
 
             var popup = window.OpenedPopups.Single(popup => popup.Child is ExpressionEditorFlyoutPresenter);
             var presenter = (ExpressionEditorFlyoutPresenter)popup.Child!;
@@ -247,6 +245,113 @@ public partial class PropertyExpressionTests
             foreach (var popup in window.OpenedPopups.ToArray())
                 popup.Close();
             window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Confirming_an_empty_expression_removes_the_existing_expression_and_keeps_animation()
+    {
+        var shape = new RectShape();
+        var property = (AnimatableProperty<float>)shape.Opacity;
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 50 } });
+        property.SetKeyFrameAnimation(animation);
+        property.Expression = new StringExpression<float>("Value + 10");
+        using var history = new PropertyEditorTestHost.HistoryScope(shape);
+        using var model = new NumberEditorViewModel<float>(new AnimatablePropertyAdapter<float>(property, shape));
+        model.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
+        history.History.Commit();
+        int before = history.History.UndoCount;
+
+        var menu = new PropertyEditorMenu { DataContext = model, VerticalAlignment = VerticalAlignment.Top };
+        var window = new Window { Content = menu, Width = 640, Height = 480 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Button button = menu.GetVisualDescendants().OfType<Button>().First();
+            var contextMenu = (FAMenuFlyout)button.ContextFlyout!;
+            contextMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "editExpressionItem")
+                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            HeadlessTestHelpers.Render();
+
+            var popup = ExpressionEditors(window).Single();
+            var presenter = (ExpressionEditorFlyoutPresenter)popup.Child!;
+            presenter.GetVisualDescendants().OfType<TextBox>().Single(text => text.Name == "ExpressionTextBox").Text = "   ";
+            presenter.GetVisualDescendants().OfType<Button>().Single(accept => accept.Name == "AcceptButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(popup.IsOpen, Is.False);
+                Assert.That(property.HasExpression, Is.False);
+                Assert.That(property.GetKeyFrameAnimation(), Is.SameAs(animation));
+                Assert.That(history.History.UndoCount, Is.EqualTo(before + 1));
+            });
+
+            history.History.Undo();
+            Assert.That(property.HasExpression, Is.True);
+            Assert.That(property.Expression!.ExpressionString, Is.EqualTo("Value + 10"));
+        }
+        finally
+        {
+            foreach (var popup in window.OpenedPopups.ToArray())
+                popup.Close();
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Reset_menu_item_follows_CanEdit_under_an_expression()
+    {
+        var shape = new RectShape();
+        shape.Opacity.Expression = new StringExpression<float>("Value + 10");
+        shape.Fill.Value = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red);
+        shape.Fill.Expression = new StringExpression<Beutl.Media.Brush?>("Value");
+        using var history = new PropertyEditorTestHost.HistoryScope(shape);
+        (PropertyEditorViewModel numberModel, _) = PropertyEditorTestHost.CreateControl(
+            PropertyAdapterFactory.CreateAdapter(shape.Opacity, shape));
+        (PropertyEditorViewModel brushModel, _) = PropertyEditorTestHost.CreateControl(
+            PropertyAdapterFactory.CreateAdapter(shape.Fill, shape));
+        using (numberModel)
+        using (brushModel)
+        {
+            numberModel.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
+            brushModel.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
+            var numberMenu = new PropertyEditorMenu { DataContext = numberModel };
+            var brushMenu = new PropertyEditorMenu { DataContext = brushModel };
+            var window = new Window { Content = new StackPanel { Children = { numberMenu, brushMenu } }, Width = 320, Height = 240 };
+            try
+            {
+                window.Show();
+                HeadlessTestHelpers.Render();
+                Button numberButton = numberMenu.GetVisualDescendants().OfType<Button>().First();
+                Button brushButton = brushMenu.GetVisualDescendants().OfType<Button>().First();
+                numberButton.ContextFlyout!.ShowAt(numberButton);
+                HeadlessTestHelpers.Render();
+                var numberReset = ((FAMenuFlyout)numberButton.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>()
+                    .Single(item => item.Name == "resetItem");
+                bool numberResetEnabled = numberReset.IsEnabled;
+                numberButton.ContextFlyout.Hide();
+
+                brushButton.ContextFlyout!.ShowAt(brushButton);
+                HeadlessTestHelpers.Render();
+                var brushReset = ((FAMenuFlyout)brushButton.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>()
+                    .Single(item => item.Name == "resetItem");
+                bool brushResetEnabled = brushReset.IsEnabled;
+                brushButton.ContextFlyout.Hide();
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(numberResetEnabled, Is.True);
+                    Assert.That(brushResetEnabled, Is.False);
+                });
+            }
+            finally
+            {
+                window.Close();
+            }
         }
     }
 

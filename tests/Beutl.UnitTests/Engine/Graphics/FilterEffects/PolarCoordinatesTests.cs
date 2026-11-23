@@ -650,11 +650,17 @@ public sealed class PolarCoordinatesTests
         (float[] mirroredPixels, Rect mirroredBounds, _) = RunSolidWithBounds(mirrored, SKColors.White, s_size);
 
         float expectedDiameter = ((Width + Height) / MathF.PI) * 2f;
+        var wideBounds = new Rect(0, 0, 291, 28);
+        (_, Rect wideUnionBounds) = FilterEffectTestHarness.RecordShader(transparent, wideBounds);
+        float expectedWideDiameter = ((291f + 28f) / MathF.PI) * 2f;
+
         Assert.Multiple(() =>
         {
             Assert.That(transparentBounds.Width, Is.EqualTo(expectedDiameter).Within(0.05f));
             Assert.That(transparentBounds.Height, Is.EqualTo(expectedDiameter).Within(0.05f));
             Assert.That(mirroredBounds, Is.EqualTo(transparentBounds));
+            Assert.That(wideUnionBounds.Width, Is.EqualTo(291f).Within(0.05f), "union preserves wide input width");
+            Assert.That(wideUnionBounds.Height, Is.EqualTo(expectedWideDiameter).Within(0.05f), "union expands to polar diameter");
             // At the top inside row of the expanded frame (y=1 -> logical y~-25.5, mapped.y~0), Amount=50% places sample.y~-12.75 outside input [0, 81].
             Assert.That(Channel(transparentPixels, outSize.Width, outSize.Width / 2, 1, 3), Is.LessThan(0.001f), "transparent fades out-of-input samples");
             Assert.That(Channel(mirroredPixels, outSize.Width, outSize.Width / 2, 1, 3), Is.GreaterThan(0.99f), "mirror fills out-of-input samples");
@@ -786,6 +792,27 @@ public sealed class PolarCoordinatesTests
             Assert.That(r2pHit.Evaluate(r2pOutput, [new RenderHitTestInput(s_bounds, _ => true)], [], new Point(s_bounds.X - 20f, s_bounds.Center.Y)), Is.True);
             Assert.That(r2pHit.Evaluate(r2pOutput, [new RenderHitTestInput(s_bounds, _ => true)], [], new Point(s_bounds.X + 95f, s_bounds.Center.Y)), Is.False);
         });
+    }
+
+    [Test]
+    public void HitTestClampsTranslatedPointInsideNonZeroOriginInputBounds()
+    {
+        var offsetBounds = new Rect(100f, 0f, 100f, 100f);
+        var effect = new PolarCoordinates
+        {
+            Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
+            Center = { Value = new RelativePoint(1f, 0.5f, RelativeUnit.Relative) },
+            EdgeMode = { Value = PolarCoordinatesEdgeMode.Clamp },
+            ClipToBounds = { Value = true },
+        };
+        (ShaderDescription desc, Rect output) = FilterEffectTestHarness.RecordShader(effect, offsetBounds);
+        RenderHitTestContract hit = desc.HitTest!.Value;
+        var input = new RenderHitTestInput(offsetBounds, offsetBounds.ContainsExclusive);
+
+        // At u=0.25 (3 o'clock) and v=0.5, sample extends past the right edge (x=200) and clamps to it.
+        // The clamped absolute hit point must remain strictly less than offsetBounds.Right (200).
+        var probe = new Point(offsetBounds.X + 25f, offsetBounds.Center.Y);
+        Assert.That(hit.Evaluate(output, [input], [], probe), Is.True);
     }
 
     private static (float[] Pixels, Rect OutputBounds, PixelSize OutputSize) RunSolidWithBounds(

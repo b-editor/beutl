@@ -127,7 +127,19 @@ public sealed partial class PropertyEditorMenu : UserControl
                 return;
             }
 
-            if (viewModel.HasExpression.Value && SupportsTextExpression(viewModel))
+            if (viewModel.HasAnimation.Value && viewModel.GetService<IEditorClock>() is { } editorClock)
+            {
+                MediaTime keyTime = editorClock.CurrentTime.Value;
+                if (symbolIcon.IconVariant == FluentIcons.Common.IconVariant.Filled)
+                {
+                    viewModel.RemoveKeyFrame(keyTime);
+                }
+                else
+                {
+                    viewModel.InsertKeyFrame(keyTime);
+                }
+            }
+            else if (!viewModel.HasAnimation.Value && viewModel.HasExpression.Value && SupportsTextExpression(viewModel))
             {
                 // The editor does not light-dismiss, so a second click on the button closes it and drops
                 // the unconfirmed edit, as × does.
@@ -138,18 +150,6 @@ public sealed partial class PropertyEditorMenu : UserControl
                 else
                 {
                     EditExpression_Click(sender, e);
-                }
-            }
-            else if (viewModel.HasAnimation.Value && viewModel.GetService<IEditorClock>() is { } editorClock)
-            {
-                MediaTime keyTime = editorClock.CurrentTime.Value;
-                if (symbolIcon.IconVariant == FluentIcons.Common.IconVariant.Filled)
-                {
-                    viewModel.RemoveKeyFrame(keyTime);
-                }
-                else
-                {
-                    viewModel.InsertKeyFrame(keyTime);
                 }
             }
             else if (sender is Button button)
@@ -242,8 +242,17 @@ public sealed partial class PropertyEditorMenu : UserControl
             }
             flyout.Confirmed += (_, args) =>
             {
-                bool isValid = viewModel.SetExpression(args.ExpressionText, out var error);
-                args.IsValid = isValid;
+                if (string.IsNullOrWhiteSpace(args.ExpressionText))
+                {
+                    if (viewModel.HasExpression.Value)
+                    {
+                        viewModel.RemoveExpression();
+                    }
+
+                    return;
+                }
+
+                args.IsValid = viewModel.SetExpression(args.ExpressionText, out var error);
                 args.Error = error;
             };
 

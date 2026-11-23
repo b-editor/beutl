@@ -55,7 +55,7 @@ public class StorageFileEditor : StringEditorBase, IValueEditorControl<FileInfo?
 
     protected override Type StyleKeyOverride => typeof(StorageFileEditor);
 
-    public void Connect(IValueEditorContext<FileInfo?> context) => ConnectRefreshedValue(context, ValueProperty);
+    public void Connect(IValueEditorContext<FileInfo?> context) => ConnectConfirmedValue(context, ValueProperty);
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

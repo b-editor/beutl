@@ -196,8 +196,8 @@ public partial class SilenceSplitTabView : UserControl
     private void OnPreviewMagnify(object? sender, PointerDeltaEventArgs e)
     {
         if (_analysis == null || Waveform.Bounds.Width <= 0) return;
-        // Native magnification already reports the relative scale change; ZoomPreview ignores invalid factors.
-        _analysis.ZoomPreview(1 + e.Delta.X, e.GetPosition(Waveform).X / Waveform.Bounds.Width);
+        if (NativeScrollInput.TryGetMagnifyFactor(e, out double factor))
+            _analysis.ZoomPreview(factor, e.GetPosition(Waveform).X / Waveform.Bounds.Width);
         e.Handled = true;
     }
 

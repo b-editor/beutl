@@ -1,14 +1,11 @@
 ﻿using System.Numerics;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
-using Avalonia.Interactivity;
 
 using Beutl.Extensibility;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -82,24 +79,23 @@ public class Vector3Editor<TElement> : Vector3Editor, IValueEditorControl<(TElem
 
     public void Connect(IValueEditorContext<(TElement, TElement, TElement)> context)
     {
-        CompositeDisposable connection = StartConnection();
-        (TElement, TElement, TElement) shown = (TElement.Zero, TElement.Zero, TElement.Zero);
-        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
-        _values.ReadIncrementValues = () =>
-        {
-            var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue));
-            return [value.Item1, value.Item2, value.Item3];
-        };
-        BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
-        BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
-        BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
-        this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
+        ConnectComponents(
+            context,
+            connection =>
             {
-                if (e.Expect<(TElement, TElement, TElement)>(s) is { } args)
-                    (FirstValue, SecondValue, ThirdValue) = PreviewEdit(context, args.NewValue, IsRelativeEdit);
-            })
-            .DisposeWith(connection);
-        ConfirmEdits(context, connection, () => (FirstValue, SecondValue, ThirdValue) = shown);
+                _values.ReadIncrementValues = () =>
+                {
+                    var value = context.GetIncrementValue((FirstValue, SecondValue, ThirdValue));
+                    return [value.Item1, value.Item2, value.Item3];
+                };
+                _values.ReadFocusedValues = () => context.TryGetFocusedEditValue(out var focused)
+                    ? [focused.Item1, focused.Item2, focused.Item3]
+                    : null;
+                BindComponent(FirstValueProperty, context.EditValue.Select(v => v.Item1), connection);
+                BindComponent(SecondValueProperty, context.EditValue.Select(v => v.Item2), connection);
+                BindComponent(ThirdValueProperty, context.EditValue.Select(v => v.Item3), connection);
+            },
+            value => (FirstValue, SecondValue, ThirdValue) = value);
     }
 }
 

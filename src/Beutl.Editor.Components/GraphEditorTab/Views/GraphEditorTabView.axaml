@@ -119,19 +119,46 @@
                                                              Text="{x:Static lang:Strings.RemoveAnimation}" />
                                     </ui:FAMenuFlyout>
                                 </Button.ContextFlyout>
-                                <icons:FluentIcon FontSize="14" Classes.hasAnimation="{Binding HasAnimation.Value}"
-                                                  IconVariant="{Binding SymbolIconVariant.Value}">
-                                    <icons:FluentIcon.Styles>
-                                        <Style Selector="icons|FluentIcon">
-                                            <Setter Property="Icon" Value="Timer" />
-                                        </Style>
-                                        <Style Selector="icons|FluentIcon.hasAnimation">
-                                            <Setter Property="Icon" Value="Diamond" />
-                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
-                                        </Style>
-                                    </icons:FluentIcon.Styles>
-                                </icons:FluentIcon>
+                                <Panel Width="18" Height="18">
+                                    <icons:FluentIcon x:Name="symbolIcon"
+                                                      FontSize="14"
+                                                      Classes.hasAnimation="{Binding HasAnimation.Value}"
+                                                      IconVariant="{Binding SymbolIconVariant.Value}">
+                                        <icons:FluentIcon.Styles>
+                                            <Style Selector="icons|FluentIcon">
+                                                <Setter Property="Icon" Value="Timer" />
+                                            </Style>
+                                            <Style Selector="icons|FluentIcon.hasAnimation">
+                                                <Setter Property="Icon" Value="Diamond" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
+                                            </Style>
+                                        </icons:FluentIcon.Styles>
+                                    </icons:FluentIcon>
+                                    <icons:FluentIcon x:Name="expressionBadge"
+                                                      Width="9"
+                                                      Height="9"
+                                                      FontSize="9"
+                                                      HorizontalAlignment="Right"
+                                                      VerticalAlignment="Bottom"
+                                                      Foreground="{DynamicResource SystemFillColorSuccess}"
+                                                      Icon="MathFormula"
+                                                      IsHitTestVisible="False"
+                                                      IsVisible="{Binding HasExpression.Value}" />
+                                </Panel>
                             </Button>
+                            <Border x:Name="expressionIndicator"
+                                    Grid.Column="3"
+                                    Width="22"
+                                    Height="{DynamicResource LayerHeight}"
+                                    Background="Transparent"
+                                    IsVisible="{Binding ShowStandaloneExpressionBadge.Value}"
+                                    ToolTip.Tip="{x:Static lang:MessageStrings.ExpressionIsSet}">
+                                <icons:FluentIcon FontSize="14"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource SystemFillColorSuccess}"
+                                                  Icon="MathFormula" />
+                            </Border>
                         </Grid>
                     </TreeDataTemplate>
                 </TreeView.ItemTemplate>

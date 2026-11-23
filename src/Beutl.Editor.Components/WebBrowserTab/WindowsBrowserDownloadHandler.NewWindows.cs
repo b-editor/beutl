@@ -77,20 +77,27 @@ internal sealed partial class WindowsBrowserDownloadHandler
         {
             if (!Uri.TryCreate(GetString(args, 3), UriKind.Absolute, out Uri? uri)) return;
             (Uri Source, BrowserReferrerPolicy Policy)? referrer = null;
+            nint named = 0;
             try
             {
-                string? name = ReadWindowName(args);
-                string? decision = name;
-                // Frames must not consume the main document's decisions, even for the same name and URL.
-                if (IsPageWindowName(name) && !owner.IsWindowTarget(name) && IsMainFrame(args))
+                // Args3 inherits Args2::get_Name (11) and adds get_OriginalSourceFrameInfo (12).
+                var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
+                if (Marshal.QueryInterface(args, in iid, out named) >= 0)
                 {
-                    // Deferring can block the message too. Use only decisions already delivered.
-                    if (!TakeWindowDecision(owner._windowDecisions, name!, uri, out decision))
-                        RememberWindowDecision(owner._unmatchedWindows, name!, uri, null);
+                    string? name = GetString(named, 11);
+                    string? decision = name;
+                    // Frames must not consume the main document's decisions, even for the same name and URL.
+                    if (IsPageWindowName(name) && !owner.IsWindowTarget(name) && IsMainFrame(named))
+                    {
+                        // Deferring can block the message too. Use only decisions already delivered.
+                        if (!TakeWindowDecision(owner._windowDecisions, name!, uri, out decision))
+                            RememberWindowDecision(owner._unmatchedWindows, name!, uri, null);
+                    }
+                    referrer = owner.ReadWindowReferrer(named, decision);
                 }
-                referrer = owner.ReadWindowReferrer(args, decision);
             }
             catch (Exception ex) { ReportWindowReferrerError(ex); }
+            finally { if (named != 0) Marshal.Release(named); }
             if (open(uri, referrer?.Source, referrer?.Policy ?? BrowserReferrerPolicy.NoReferrer))
                 _ = ((delegate* unmanaged[Stdcall]<nint, int, int>)Method(args, 6))(args, 1); // put_Handled
         }
@@ -153,63 +160,42 @@ internal sealed partial class WindowsBrowserDownloadHandler
 
     private static bool IsPageWindowName(string? name) => !string.IsNullOrEmpty(name) && !name.StartsWith('_');
 
-    private static string? ReadWindowName(nint args)
-    {
-        // Args3 inherits Args2::get_Name (11) and adds get_OriginalSourceFrameInfo (12).
-        var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
-        if (Marshal.QueryInterface(args, in iid, out nint named) < 0) return null;
-        try { return GetString(named, 11); }
-        finally { Marshal.Release(named); }
-    }
-
     private bool IsWindowTarget(string? name) =>
         name == _windowTarget || name == _windowTarget + "-document" || name == _windowTarget + "-same-origin";
 
-    private (Uri Source, BrowserReferrerPolicy Policy)? ReadWindowReferrer(nint args, string? decision)
+    private (Uri Source, BrowserReferrerPolicy Policy)? ReadWindowReferrer(nint named, string? decision)
     {
         if (!IsWindowTarget(decision)) return null;
         bool inherit = decision == _windowTarget + "-document";
         bool sameOrigin = decision == _windowTarget + "-same-origin";
-        var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
-        if (Marshal.QueryInterface(args, in iid, out nint named) < 0) return null;
+        nint frame = GetObject(named, 12);
+        if (frame == 0) return null;
         try
         {
-            nint frame = GetObject(named, 12);
-            if (frame == 0) return null;
-            try
-            {
-                if (!Uri.TryCreate(GetString(frame, 4), UriKind.Absolute, out Uri? source)) return null;
-                if (!inherit) return (source, sameOrigin ? BrowserReferrerPolicy.SameOrigin : BrowserReferrerPolicy.Origin);
-                // History changes the displayed URL, but the committed document keeps its HTTP response policy.
-                if (_committedDocument is not { Policy: { } policy } document || source != GetDocument()
-                    || !BrowserMediaDownload.IsSameOrigin(document.Address, source)) return null;
-                return (source, policy);
-            }
-            finally { Marshal.Release(frame); }
+            if (!Uri.TryCreate(GetString(frame, 4), UriKind.Absolute, out Uri? source)) return null;
+            if (!inherit) return (source, sameOrigin ? BrowserReferrerPolicy.SameOrigin : BrowserReferrerPolicy.Origin);
+            // History changes the displayed URL, but the committed document keeps its HTTP response policy.
+            if (source != GetDocument() || DocumentReferrerPolicy is not { } policy) return null;
+            return (source, policy);
         }
-        finally { Marshal.Release(named); }
+        finally { Marshal.Release(frame); }
     }
 
-    private static unsafe bool IsMainFrame(nint args)
+    private static bool IsMainFrame(nint named)
     {
-        var iid = new Guid("842BED3C-6AD6-4DD9-B938-28C96667AD66");
-        if (Marshal.QueryInterface(args, in iid, out nint named) < 0) return false;
         nint frame = 0, info = 0;
         try
         {
             frame = GetObject(named, 12);
             if (frame == 0) return false;
-            iid = new Guid("56F85CFA-72C4-11EE-B962-0242AC120002"); // ICoreWebView2FrameInfo2
+            var iid = new Guid("56F85CFA-72C4-11EE-B962-0242AC120002"); // ICoreWebView2FrameInfo2
             if (Marshal.QueryInterface(frame, in iid, out info) < 0) return false;
-            int kind;
-            Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(info, 7))(info, &kind));
-            return kind == 1; // COREWEBVIEW2_FRAME_KIND_MAIN_FRAME
+            return GetValue<int>(info, 7) == 1; // COREWEBVIEW2_FRAME_KIND_MAIN_FRAME
         }
         finally
         {
             if (info != 0) Marshal.Release(info);
             if (frame != 0) Marshal.Release(frame);
-            Marshal.Release(named);
         }
     }
 
@@ -245,7 +231,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || page != pending.Address) return;
                 // Subresources and inline frames can have different policies, even at the same URL.
                 requestHeaders = GetObject(request, 9);
-                if (GetHeader(requestHeaders, "Sec-Fetch-Dest") != "document") return;
+                if (GetDestination(requestHeaders) is not { } destination || owner.ResolveDestination(destination, page) != "document") return;
                 response = GetObject(args, 4);
                 responseHeaders = GetObject(response, 3);
                 pending.Policy = ReadDocumentPolicy(responseHeaders);

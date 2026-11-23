@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 using System.Text.Json;
@@ -55,7 +56,7 @@ internal static partial class NativeBrowserFrameTestHost
             {
                 window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
                 window.Show();
-                using var downloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                using var downloadTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(75));
                 await CheckDownloadMethodsAsync(window, downloadTimeout.Token);
                 exitCode = 0;
                 return;
@@ -182,6 +183,7 @@ internal static partial class NativeBrowserFrameTestHost
 
     // Tells NativeNavigation that the scenario cannot run on this system, as Assert.Ignore would in-process.
     internal const int SkippedExitCode = 77;
+    internal const string InsecureHost = "insecure.test";
 
     private static async Task<bool> CheckLinuxCookieClearAsync(Window window, CancellationToken token)
     {
@@ -1329,8 +1331,13 @@ internal static partial class NativeBrowserFrameTestHost
         server.MapPost("/after-307", () => Results.Bytes("307"u8.ToArray(), "application/octet-stream", "307.txt"));
         server.MapGet("/get", () => Results.Bytes("get"u8.ToArray(), "application/octet-stream", "get.txt"));
         server.MapPost("/frame-post", () => Results.Bytes("frame post"u8.ToArray(), "application/octet-stream", "frame-post.txt"));
+        server.MapGet("/policy", (HttpContext context) =>
+        {
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            return Results.Content("<title>Policy</title>", "text/html");
+        });
         await server.StartAsync(token);
-        var page = new Uri(server.Urls.Single() + "/source");
+        int port = new Uri(server.Urls.Single()).Port;
         var browser = new NativeWebView();
         var editor = TestShell.CreateEditorContextMock();
         editor.Setup(x => x.GetService(typeof(Beutl.Configuration.GlobalConfiguration))).Returns(TestShell.Configuration);
@@ -1343,38 +1350,67 @@ internal static partial class NativeBrowserFrameTestHost
             Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(downloads.Path, false));
         window.Content = view;
 
-        async Task Check(string id, string path, string? method)
+        // Returns false when the page's navigation fails, rather than waiting for a retry.
+        async Task<bool> TryLoad(Uri page)
         {
-            // Reload so each scripted download is allowed without a multiple-download permission prompt.
-            var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var loaded = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             void Loaded(object? sender, WebViewNavigationCompletedEventArgs e)
             {
-                if (e.IsSuccess && e.Request == page) loaded.TrySetResult();
+                if (e.Request == page) loaded.TrySetResult(e.IsSuccess);
             }
             browser.NavigationCompleted += Loaded;
             try
             {
                 vm.Address.Value = page.AbsoluteUri;
                 view.NavigateFromAddress();
-                await loaded.Task.WaitAsync(token);
+                return await loaded.Task.WaitAsync(token);
             }
             finally { browser.NavigationCompleted -= Loaded; }
+        }
+
+        async Task Load(Uri page)
+        {
+            if (!await TryLoad(page)) throw new InvalidOperationException($"{page} failed to load.");
+        }
+
+        async Task Check(string host, string id, string path, string? method)
+        {
+            string label = $"{id} on {host}";
+            // Reload so each scripted download is allowed without a multiple-download permission prompt.
+            await Load(new Uri($"http://{host}:{port}/source"));
             int before = vm.Profile.Downloads.Count;
             await browser.InvokeScript($"document.getElementById('{id}').click()");
             while (vm.Profile.Downloads.Count == before) await Task.Delay(20, token);
             var record = vm.Profile.Downloads[0];
-            Assert.That(new Uri(record.Url).AbsolutePath, Is.EqualTo(path), id);
-            Assert.That(record.Method, Is.EqualTo(method), id);
-            Assert.That(record.CanRequestAgain, Is.EqualTo(method == null), id);
+            Assert.That(new Uri(record.Url).AbsolutePath, Is.EqualTo(path), label);
+            Assert.That(record.Method, Is.EqualTo(method), label);
+            Assert.That(record.CanRequestAgain, Is.EqualTo(method == null), label);
         }
 
         await Assert.MultipleAsync(async () =>
         {
-            await Check("post", "/post", "POST");
-            await Check("redirect-303", "/after-303", null);
-            await Check("redirect-307", "/after-307", "POST");
-            await Check("get", "/get", null);
-            await Check("frame-post", "/frame-post", "POST");
+            foreach (string host in new[] { "127.0.0.1", InsecureHost })
+            {
+                // GitHub's Windows runners ignore the host mapping that the test runner passes to WebView2.
+                if (host == InsecureHost && !await TryLoad(new Uri($"http://{host}:{port}/source")))
+                {
+                    Console.WriteLine($"Skipped the {host} cases: WebView2 did not map the host to the test server.");
+                    continue;
+                }
+                await Check(host, "post", "/post", "POST");
+                await Check(host, "redirect-303", "/after-303", null);
+                await Check(host, "redirect-307", "/after-307", "POST");
+                await Check(host, "get", "/get", null);
+                await Check(host, "frame-post", "/frame-post", "POST");
+
+                // The same document check gates the Referrer-Policy header that page link downloads follow.
+                await Load(new Uri($"http://{host}:{port}/policy"));
+                var handler = (WindowsBrowserDownloadHandler)typeof(WebBrowserTabView)
+                    .GetField("_nativeBrowserHandler", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view)!;
+                // The response can arrive after ContentLoading, so the policy may follow the completed navigation.
+                for (int i = 0; i < 100 && handler.DocumentReferrerPolicy is null; i++) await Task.Delay(20, token);
+                Assert.That(handler.DocumentReferrerPolicy, Is.EqualTo(BrowserReferrerPolicy.NoReferrer), $"policy on {host}");
+            }
         });
     }
 }
@@ -1403,12 +1439,20 @@ public class NativeBrowserFrameTests
             start.Environment["XDG_CACHE_HOME"] = Path.Combine(webKitHome.Path, "cache");
             start.Environment["XDG_DATA_HOME"] = Path.Combine(webKitHome.Path, "data");
         }
+        // Chromium omits Sec-Fetch-* for http hosts other than localhost, so this scenario also loads pages from one.
+        // Either rule alone can miss: a proxy resolves names itself, and a runner may resolve before the resolver rule applies.
+        if (OperatingSystem.IsWindows() && scenario == "--native-browser-download-methods")
+        {
+            string map = $"MAP {NativeBrowserFrameTestHost.InsecureHost} 127.0.0.1";
+            start.Environment["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] =
+                $"--no-proxy-server --host-rules=\"{map}\" --host-resolver-rules=\"{map}\"";
+        }
         start.ArgumentList.Add(typeof(NativeBrowserFrameTestHost).Assembly.Location);
         start.ArgumentList.Add(scenario);
         using Process process = Process.Start(start)!;
         Task<string> output = process.StandardOutput.ReadToEndAsync();
         Task<string> error = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario is "--native-browser-referrers" or "--native-browser-download-referrers" ? 90 : 60));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(scenario is "--native-browser-referrers" or "--native-browser-download-referrers" or "--native-browser-download-methods" ? 90 : 60));
         try { await process.WaitForExitAsync(timeout.Token); }
         catch
         {

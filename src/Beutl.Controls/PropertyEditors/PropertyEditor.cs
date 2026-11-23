@@ -159,7 +159,8 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     {
     }
 
-    // Shows the context's value in valueProperty and confirms the edits this editor raises; an earlier connection ends.
+    // Shows the context's value in valueProperty, confirms the edits this editor raises and shows the context's value
+    // again after each, as one it turned down changes nothing; an earlier connection ends.
     private protected CompositeDisposable ConnectConfirmedValue<TEdit>(
         IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty)
     {
@@ -180,18 +181,6 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
                 ValueChangedEvent,
                 (_, _) => SetValue(valueProperty, PreviewEdit(context, AvaloniaObjectExtensions.GetValue(this, valueProperty), relative?.Invoke() ?? false)))
             .DisposeWith(connection);
-        return connection;
-    }
-
-    // Like ConnectConfirmedValue, and shows the context's value again after each edit, as one it turned down changes nothing.
-    private protected CompositeDisposable ConnectRefreshedValue<TEdit>(
-        IValueEditorContext<TEdit> context, AvaloniaProperty<TEdit> valueProperty)
-    {
-        CompositeDisposable connection = StartConnection();
-        TEdit shown = default!;
-        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
-        Bind(valueProperty, context.EditValue.ToBinding()).DisposeWith(connection);
-        ConfirmEdits(context, connection, () => SetValue(valueProperty, shown));
         return connection;
     }
 
@@ -225,6 +214,12 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     {
         HasUnconfirmedEdit = true;
         return context.PreviewEdit(value, relative);
+    }
+
+    private protected TEdit PreviewFocusedEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value)
+    {
+        HasUnconfirmedEdit = true;
+        return context.PreviewFocusedEdit(value);
     }
 
     // Hands the edits this editor confirms to the context, then runs afterConfirm.

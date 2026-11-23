@@ -14,32 +14,119 @@ namespace Beutl.Engine.Expressions;
 /// </summary>
 public sealed class StringExpression<T> : IReplacingExpression<T>
 {
-    private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
-    private static readonly CSharpParseOptions s_parseOptions = new(LanguageVersion.Latest, kind: SourceCodeKind.Script);
-
-    private readonly Lazy<ParseResult> _parseResult;
+    private readonly CompiledStringExpression<T, T> _script;
 
     public StringExpression(string expression)
     {
-        ExpressionString = expression ?? throw new ArgumentNullException(nameof(expression));
-        _parseResult = new Lazy<ParseResult>(Parse, LazyThreadSafetyMode.ExecutionAndPublication);
+        _script = new CompiledStringExpression<T, T>(expression);
     }
 
     // A copy over another expression shares the compiled script.
     private StringExpression(StringExpression<T> source, IExpression<T>? replaced)
     {
-        ExpressionString = source.ExpressionString;
-        _parseResult = source._parseResult;
+        _script = source._script;
         Replaced = replaced;
     }
 
-    public string ExpressionString { get; }
+    public string ExpressionString => _script.ExpressionString;
 
     public IExpression<T>? Replaced { get; }
 
     IExpression<T> IReplacingExpression<T>.WithReplaced(IExpression<T>? replaced) => new StringExpression<T>(this, replaced);
 
-    public T Evaluate(ExpressionContext context)
+    public T Evaluate(ExpressionContext context) => _script.Evaluate(context, Replaced);
+
+    internal T Evaluate(ExpressionContext context, IExpression<T>? below) => _script.Evaluate(context, below);
+
+    public bool Validate([NotNullWhen(false)] out string? error) => _script.Validate(out error);
+
+    public override string ToString() => ExpressionString;
+}
+
+internal static class StringExpressionParser
+{
+    internal static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest, kind: SourceCodeKind.Script);
+
+    // The script with a member taken from what it returns, which can come after statements.
+    internal static string WithMemberOfResult(string expressionString, string member)
+    {
+        var root = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(expressionString, ParseOptions).GetRoot();
+        var script = new StringBuilder(expressionString);
+        foreach (ExpressionSyntax result in GetResults(root).OrderByDescending(result => result.SpanStart))
+        {
+            script.Insert(result.Span.End, $").{member}");
+            script.Insert(result.SpanStart, '(');
+        }
+
+        return script.ToString();
+    }
+
+    internal static bool ReferencesValue(string expressionString)
+    {
+        var root = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(expressionString, ParseOptions).GetRoot();
+        foreach (IdentifierNameSyntax identifier in root.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            if (identifier.Identifier.ValueText is not ("Value" or "ValueAtTime"))
+                continue;
+
+            if (identifier.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Name == identifier)
+                continue;
+
+            if (identifier.Parent is MemberBindingExpressionSyntax memberBinding && memberBinding.Name == identifier)
+                continue;
+
+            if (identifier.Parent is NameColonSyntax nameColon && nameColon.Name == identifier)
+                continue;
+
+            if (identifier.Parent is AssignmentExpressionSyntax { Parent: InitializerExpressionSyntax } assignment
+                && assignment.Left == identifier)
+            {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    internal static IEnumerable<ExpressionSyntax> GetResults(CompilationUnitSyntax root)
+    {
+        foreach (GlobalStatementSyntax global in root.Members.OfType<GlobalStatementSyntax>())
+        {
+            // Returns inside lambdas or local functions do not return from the script.
+            var results = global.Statement.DescendantNodesAndSelf(node =>
+                    node is not AnonymousFunctionExpressionSyntax and not LocalFunctionStatementSyntax)
+                .OfType<ReturnStatementSyntax>()
+                .Select(statement => statement.Expression)
+                .OfType<ExpressionSyntax>();
+            foreach (ExpressionSyntax result in results)
+                yield return result;
+
+            if (global == root.Members.LastOrDefault()
+                && global.Statement is ExpressionStatementSyntax { SemicolonToken.IsMissing: true } final)
+            {
+                yield return final.Expression;
+            }
+        }
+    }
+}
+
+internal sealed class CompiledStringExpression<TResult, TValue>
+{
+    private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
+
+    private readonly Lazy<ParseResult> _parseResult;
+
+    public CompiledStringExpression(string expression)
+    {
+        ExpressionString = expression ?? throw new ArgumentNullException(nameof(expression));
+        _parseResult = new Lazy<ParseResult>(Parse, LazyThreadSafetyMode.ExecutionAndPublication);
+    }
+
+    public string ExpressionString { get; }
+
+    public TResult Evaluate(ExpressionContext context, IExpression<TValue>? below)
     {
         var result = _parseResult.Value;
 
@@ -50,7 +137,7 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
 
         try
         {
-            var globals = new ExpressionGlobals<T>(context, Replaced);
+            var globals = new ExpressionGlobals<TValue>(context, below);
             var evalResult = result.ScriptRunner(globals).GetAwaiter().GetResult();
             return ConvertResult(evalResult);
         }
@@ -67,20 +154,6 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
         return result.ParseError == null;
     }
 
-    // The script with a member taken from what it returns, which can come after statements.
-    internal string WithMemberOfResult(string member)
-    {
-        var root = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(ExpressionString, s_parseOptions).GetRoot();
-        var script = new StringBuilder(ExpressionString);
-        foreach (ExpressionSyntax result in GetResults(root).OrderByDescending(result => result.SpanStart))
-        {
-            script.Insert(result.Span.End, $").{member}");
-            script.Insert(result.SpanStart, '(');
-        }
-
-        return script.ToString();
-    }
-
     private ParseResult Parse()
     {
         try
@@ -88,7 +161,7 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
             var script = CSharpScript.Create<object>(
                 ExpressionString,
                 s_scriptOptions,
-                typeof(ExpressionGlobals<T>));
+                typeof(ExpressionGlobals<TValue>));
 
             var errors = SynchronousScriptCompiler.GetErrors(script);
 
@@ -111,15 +184,15 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
 
     private static string? ValidateResultTypes(CSharpCompilation compilation)
     {
-        ITypeSymbol? targetType = GetTypeSymbol(compilation, typeof(T));
+        ITypeSymbol? targetType = GetTypeSymbol(compilation, typeof(TResult));
         if (targetType == null) return null;
 
         foreach (SyntaxTree tree in compilation.SyntaxTrees)
         {
             SemanticModel model = compilation.GetSemanticModel(tree);
-            foreach (ExpressionSyntax result in GetResults((CompilationUnitSyntax)tree.GetRoot()))
+            foreach (ExpressionSyntax result in StringExpressionParser.GetResults((CompilationUnitSyntax)tree.GetRoot()))
             {
-                // ConvertResult accepts null as default(T), regardless of its declared type.
+                // ConvertResult accepts null as default(TResult), regardless of its declared type.
                 if (model.GetConstantValue(result) is { HasValue: true, Value: null }) continue;
 
                 ITypeSymbol? sourceType = model.GetTypeInfo(result).Type;
@@ -133,31 +206,10 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
         return null;
     }
 
-    private static IEnumerable<ExpressionSyntax> GetResults(CompilationUnitSyntax root)
-    {
-        foreach (GlobalStatementSyntax global in root.Members.OfType<GlobalStatementSyntax>())
-        {
-            // Returns inside lambdas or local functions do not return from the script.
-            var results = global.Statement.DescendantNodesAndSelf(node =>
-                    node is not AnonymousFunctionExpressionSyntax and not LocalFunctionStatementSyntax)
-                .OfType<ReturnStatementSyntax>()
-                .Select(statement => statement.Expression)
-                .OfType<ExpressionSyntax>();
-            foreach (ExpressionSyntax result in results)
-                yield return result;
-
-            if (global == root.Members.LastOrDefault()
-                && global.Statement is ExpressionStatementSyntax { SemicolonToken.IsMissing: true } final)
-            {
-                yield return final.Expression;
-            }
-        }
-    }
-
     private static bool CanConvertResultType(CSharpCompilation compilation, ITypeSymbol source, ITypeSymbol target)
     {
         // Object/dynamic results need the runtime check. A null result (including void scripts)
-        // continues to mean default(T), as it does in ConvertResult.
+        // continues to mean default(TResult), as it does in ConvertResult.
         if (source.SpecialType is SpecialType.System_Object or SpecialType.System_Void
             || source.TypeKind == TypeKind.Dynamic)
             return true;
@@ -215,13 +267,13 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
 
     private static ScriptOptions CreateScriptOptions()
     {
-        return ScriptOptions.Default
+        ScriptOptions options = ScriptOptions.Default
             .AddReferences(
                 typeof(object).Assembly,
                 typeof(Math).Assembly,
                 typeof(Console).Assembly,
                 typeof(Enumerable).Assembly,
-                typeof(T).Assembly,
+                typeof(TResult).Assembly,
                 typeof(BeutlApplication).Assembly,
                 typeof(ExpressionGlobals).Assembly)
             .AddImports(
@@ -230,37 +282,44 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
                 "Beutl.Media",
                 "Beutl.Graphics",
                 "Beutl.Engine");
+
+        if (typeof(TValue).Assembly != typeof(TResult).Assembly)
+        {
+            options = options.AddReferences(typeof(TValue).Assembly);
+        }
+
+        return options;
     }
 
-    private static T ConvertResult(object? value)
+    private static TResult ConvertResult(object? value)
     {
         if (value == null)
         {
             return default!;
         }
 
-        if (value is T typedValue)
+        if (value is TResult typedValue)
         {
             return typedValue;
         }
 
-        if (value is TimeSpan span && typeof(T) == typeof(MediaTime))
+        if (value is TimeSpan span && typeof(TResult) == typeof(MediaTime))
         {
-            return (T)(object)MediaTime.FromTimeSpan(span);
+            return (TResult)(object)MediaTime.FromTimeSpan(span);
         }
 
-        var targetType = typeof(T);
+        var targetType = typeof(TResult);
         var sourceType = value.GetType();
 
         if (IsNumericType(targetType) && IsNumericType(sourceType))
         {
-            return (T)Convert.ChangeType(value, targetType);
+            return (TResult)Convert.ChangeType(value, targetType);
         }
 
         if (targetType == typeof(bool) && IsNumericType(sourceType))
         {
             double numValue = Convert.ToDouble(value);
-            return (T)(object)(numValue != 0);
+            return (TResult)(object)(numValue != 0);
         }
 
         throw new ExpressionException($"Cannot convert expression result from {sourceType.Name} to {targetType.Name}");
@@ -275,8 +334,6 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
                type == typeof(float) || type == typeof(double) ||
                type == typeof(decimal);
     }
-
-    public override string ToString() => ExpressionString;
 
     private sealed record ParseResult(ScriptRunner<object>? ScriptRunner, string? ParseError);
 }

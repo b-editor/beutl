@@ -489,7 +489,6 @@ public sealed partial class PolarCoordinates : FilterEffect
                 {
                     Vector2 norm = sample / inSize;
                     sample = inSize * new Vector2(ApplyEdge(norm.X, EdgeMode), ApplyEdge(norm.Y, EdgeMode));
-                    sample = ClampInsideExclusive(sample, inSize);
                 }
             }
             else
@@ -561,46 +560,23 @@ public sealed partial class PolarCoordinates : FilterEffect
                         return false;
                     if (maxAtOrigin ? sample.Y > inSize.Y : sample.Y >= inSize.Y)
                         return false;
-                    sample = ClampInsideExclusive(sample, inSize);
                 }
-                else
+                else if (Amount < 1f)
                 {
-                    if (Amount < 1f)
-                    {
-                        Vector2 norm = sample / inSize;
-                        sample = inSize * new Vector2(ApplyEdge(norm.X, EdgeMode), ApplyEdge(norm.Y, EdgeMode));
-                    }
-                    sample = ClampInsideExclusive(sample, inSize);
+                    Vector2 norm = sample / inSize;
+                    sample = inSize * new Vector2(ApplyEdge(norm.X, EdgeMode), ApplyEdge(norm.Y, EdgeMode));
                 }
             }
 
-            return RenderHitTestContract.AnyInputAccepts(
-                context.Inputs, inputBounds.Position + new Vector(sample.X, sample.Y));
+            Point hitPoint = ClampInsideExclusive(
+                inputBounds.Position + new Vector(sample.X, sample.Y),
+                inputBounds);
+            return RenderHitTestContract.AnyInputAccepts(context.Inputs, hitPoint);
         }
 
-        private static Vector2 ClampInsideExclusive(Vector2 sample, Vector2 size) => new(
-            Math.Clamp(sample.X, 0f, MathF.BitDecrement(size.X)),
-            Math.Clamp(sample.Y, 0f, MathF.BitDecrement(size.Y)));
-    }
-
-    // Source texels per stage pixel; without a source grid the stage's own grid is used instead.
-    private static void BindSourceRatio(ShaderUniformWriter writer, Vector2 unit, ShaderExecutionContext context)
-        => writer.Set(context.InputRasterOrigin is null
-            ? unit
-            : unit * (context.InputEffectiveScale.Value / context.OutputPlacement.Scale.Value));
-
-    // The source texel coordinate of stage pixel 0.
-    private static void BindSourceOffset(ShaderUniformWriter writer, Vector2 none, ShaderExecutionContext context)
-    {
-        if (context.InputRasterOrigin is not { } inputOrigin)
-        {
-            writer.Set(none);
-            return;
-        }
-
-        float scale = context.InputEffectiveScale.Value;
-        Point logicalOrigin = context.OutputPlacement.LogicalOrigin;
-        writer.Set(new Vector2((logicalOrigin.X - inputOrigin.X) * scale, (logicalOrigin.Y - inputOrigin.Y) * scale));
+        private static Point ClampInsideExclusive(Point point, Rect bounds) => new(
+            Math.Clamp(point.X, bounds.X, MathF.BitDecrement(bounds.Right)),
+            Math.Clamp(point.Y, bounds.Y, MathF.BitDecrement(bounds.Bottom)));
     }
 
     public new partial class Resource
@@ -656,24 +632,18 @@ public sealed partial class PolarCoordinates : FilterEffect
                     bindings.Uniform("angular", angularUniform);
                     bindings.Uniform("options", optionsUniform);
                     bindings.Uniform("amount", amount);
-                    bindings.Uniform("sourceRatio", Vector2.One, BindSourceRatio);
-                    bindings.Uniform("sourceOffset", Vector2.Zero, BindSourceOffset);
+                    bindings.Uniform("sourceRatio", Vector2.One, RasterShaderMapping.BindSourceRatio);
+                    bindings.Uniform("sourceOffset", Vector2.Zero, RasterShaderMapping.BindSourceOffset);
                     // Anchor the warp to the logical input and output bounds at the current working density.
                     bindings.Uniform("inputOrigin", 0, static (writer, _, execution) =>
-                    {
-                        Vector origin = execution.InputBounds.Position - execution.OutputPlacement.LogicalOrigin;
-                        writer.Set(new Vector2(origin.X, origin.Y) * execution.OutputPlacement.Scale.Value);
-                    });
+                        writer.Set(RasterShaderMapping.ToStagePixels(execution, execution.InputBounds.Position)));
                     bindings.Uniform("inputSize", 0, static (writer, _, execution) =>
                     {
                         Size size = execution.InputBounds.Size;
                         writer.Set(new Vector2(size.Width, size.Height) * execution.OutputPlacement.Scale.Value);
                     });
                     bindings.Uniform("outputOrigin", 0, static (writer, _, execution) =>
-                    {
-                        Vector origin = execution.OutputBounds.Position - execution.OutputPlacement.LogicalOrigin;
-                        writer.Set(new Vector2(origin.X, origin.Y) * execution.OutputPlacement.Scale.Value);
-                    });
+                        writer.Set(RasterShaderMapping.ToStagePixels(execution, execution.OutputBounds.Position)));
                     bindings.Uniform("outputSize", 0, static (writer, _, execution) =>
                     {
                         Size size = execution.OutputBounds.Size;
@@ -682,9 +652,10 @@ public sealed partial class PolarCoordinates : FilterEffect
                     bindings.Uniform("center", Center, static (writer, center, execution) =>
                     {
                         Rect bounds = execution.InputBounds;
-                        Vector origin = bounds.Position - execution.OutputPlacement.LogicalOrigin;
                         Vector2 localCenter = ResolveLocalCenter(center, bounds.Size);
-                        writer.Set((new Vector2(origin.X, origin.Y) + localCenter) * execution.OutputPlacement.Scale.Value);
+                        writer.Set(RasterShaderMapping.ToStagePixels(
+                            execution,
+                            new Point(bounds.X + localCenter.X, bounds.Y + localCenter.Y)));
                     });
                     bindings.Uniform("radii", (Direction, innerRadius, scale), static (writer, state, execution) =>
                     {

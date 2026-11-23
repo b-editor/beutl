@@ -42,8 +42,7 @@ public sealed class FileThumbnailService : IDisposable
 
     public int ThumbnailSize { get; } = 64;
 
-    public async Task<Bitmap?> GetThumbnailAsync(
-        string filePath, ObjectTemplateService templates, CancellationToken cancellationToken = default)
+    public async Task<Bitmap?> GetThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
         DateTime lastWriteUtc = GetLastWriteTimeOrDefault(filePath);
 
@@ -66,8 +65,8 @@ public sealed class FileThumbnailService : IDisposable
             {
                 MediaFileKind.Image => await GenerateImageThumbnailAsync(filePath, cancellationToken),
                 MediaFileKind.Video => await GenerateVideoThumbnailAsync(filePath, cancellationToken),
-                _ when IsObjectTemplateFile(filePath, templates) =>
-                    await GenerateTemplateThumbnailAsync(filePath, templates, cancellationToken),
+                _ when IsObjectTemplateFile(filePath) =>
+                    await GenerateTemplateThumbnailAsync(filePath, cancellationToken),
                 _ => null
             };
 
@@ -239,8 +238,8 @@ public sealed class FileThumbnailService : IDisposable
     /// Scoped to the templates directory so browsing an unrelated folder of JSON does not parse
     /// every file looking for a template.
     /// </remarks>
-    public bool IsObjectTemplateFile(string filePath, ObjectTemplateService templates)
-        => IsObjectTemplateFile(filePath, templates.DirectoryPath);
+    public bool IsObjectTemplateFile(string filePath)
+        => IsObjectTemplateFile(filePath, Templates.DirectoryPath);
 
     internal bool IsObjectTemplateFile(string filePath, string templatesDirectoryPath)
     {
@@ -350,7 +349,7 @@ public sealed class FileThumbnailService : IDisposable
         }, cancellationToken);
     }
 
-    private async Task<Bitmap?> GenerateTemplateThumbnailAsync(string filePath, ObjectTemplateService templates, CancellationToken cancellationToken)
+    private async Task<Bitmap?> GenerateTemplateThumbnailAsync(string filePath, CancellationToken cancellationToken)
     {
         return await Task.Run(() =>
         {
@@ -358,7 +357,7 @@ public sealed class FileThumbnailService : IDisposable
 
             try
             {
-                if (templates.TryLoadFromFile(filePath)?.Preview is not { Length: > 0 } preview)
+                if (Templates.TryLoadFromFile(filePath)?.Preview is not { Length: > 0 } preview)
                     return null;
 
                 using var decoded = SKBitmap.Decode(preview);
@@ -460,9 +459,9 @@ public sealed class FileThumbnailService : IDisposable
         }
     }
 
-    public bool CanGenerateThumbnail(string filePath, ObjectTemplateService templates)
+    public bool CanGenerateThumbnail(string filePath)
         => Decoders.FileExtensions.Classify(filePath) is MediaFileKind.Image or MediaFileKind.Video
-           || IsObjectTemplateFile(filePath, templates);
+           || IsObjectTemplateFile(filePath);
 
     public void ClearCache()
     {

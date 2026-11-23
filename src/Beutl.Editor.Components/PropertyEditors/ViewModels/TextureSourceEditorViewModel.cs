@@ -71,6 +71,7 @@ public sealed class TextureSourceEditorViewModel : PropertyEditorViewModel
 
     public override void Reset()
     {
+        if (HasExpression.Value) return;
         if (GetDefaultValue() is { } defaultValue)
         {
             SetValue(Value.Value, (TextureSource?)defaultValue);

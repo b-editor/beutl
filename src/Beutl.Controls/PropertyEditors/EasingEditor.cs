@@ -66,7 +66,7 @@ public class EasingEditor : PropertyEditor, IValueEditorControl<Easing?>
 
     public void Connect(IValueEditorContext<Easing?> context)
     {
-        CompositeDisposable connection = ConnectRefreshedValue(context, ValueProperty);
+        CompositeDisposable connection = ConnectConfirmedValue(context, ValueProperty);
         this.AddDisposableHandler(ValueChangedEvent, (_, e) =>
             {
                 if (e is PropertyEditorValueChangedEventArgs<Easing?> args)

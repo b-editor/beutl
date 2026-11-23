@@ -1,4 +1,5 @@
 ﻿using System.Reactive;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -316,6 +317,29 @@ public sealed partial class FilterEffectContext
         Graphics.ColorMatrix.CreateBrightness(amount, array);
 
         ShaderColorMatrix(array);
+    }
+
+    // Scaling every premultiplied channel scales the alpha and keeps the straight color. A color-matrix stage would
+    // clamp the straight color to [0, 1] and lose what an HDR source or an exposure effect leaves past 1.
+    private static readonly SkslSource s_opacitySource = new(
+        """
+        uniform float opacity;
+
+        half4 apply(half4 color) {
+            return half4(float4(color) * opacity);
+        }
+        """,
+        ShaderDescriptionKind.CurrentPixel);
+
+    /// <summary>Multiplies the alpha of every pixel by <paramref name="opacity"/>, from 0 (transparent) to 1 (unchanged).</summary>
+    /// <remarks>The straight color is kept as it is, including values outside [0, 1].</remarks>
+    public void Opacity(float opacity)
+    {
+        if (float.IsNaN(opacity) || opacity >= 1)
+            return;
+
+        float value = Math.Max(opacity, 0);
+        Shader(ShaderDescription.CurrentPixel(s_opacitySource, bindings => bindings.Uniform("opacity", value)));
     }
 
     public void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)

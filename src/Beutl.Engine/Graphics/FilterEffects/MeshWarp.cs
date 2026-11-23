@@ -101,6 +101,7 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
         if (!HasArea(bounds)) return [];
 
         MeshWarpGrid grid = GetEditingGrid(new EvaluationContext(evaluationTime));
+        string labelFormat = GraphicsStrings.MeshWarp_Point;
         var handles = new List<EditingHandle>(grid.Points.Length);
         for (int row = 0; row <= grid.Rows; row++)
         {
@@ -112,7 +113,7 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
 
                 bool isCorner = (row == 0 || row == grid.Rows) && (column == 0 || column == grid.Columns);
                 handles.Add(new EditingHandle(index.ToString(CultureInfo.InvariantCulture), position,
-                    string.Format(GraphicsStrings.MeshWarp_Point, row + 1, column + 1))
+                    string.Format(labelFormat, row + 1, column + 1))
                 {
                     Color = isCorner ? s_cornerColor : null,
                 });
@@ -132,7 +133,10 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
 
         MeshWarpGrid grid = GetEditingGrid(new EvaluationContext(evaluationTime));
         int stride = grid.Columns + 1;
-        var points = grid.Points.Select(p => MapPoint(bounds, p)).ToArray();
+        var points = new Point[grid.Points.Length];
+        for (int i = 0; i < points.Length; i++)
+            points[i] = MapPoint(bounds, grid.Points[i]);
+
         var guides = new List<EditingGuideLine>(grid.Rows * stride + grid.Columns * (grid.Rows + 1));
         for (int row = 0; row <= grid.Rows; row++)
         {

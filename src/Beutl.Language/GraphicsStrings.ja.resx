@@ -238,6 +238,9 @@
   <data name="Brightness" xml:space="preserve">
     <value>輝度</value>
   </data>
+  <data name="OpacityEffect" xml:space="preserve">
+    <value>不透明度</value>
+  </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>クロマキー</value>
   </data>
@@ -370,6 +373,12 @@
   <data name="ColorShift_RedOffset" xml:space="preserve">
     <value>赤オフセット</value>
   </data>
+  <data name="LensChromaticAberration" xml:space="preserve">
+    <value>色収差 (レンズ)</value>
+  </data>
+  <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
+    <value>中心を基準に、赤チャンネルを (1 + 量/100) 倍、青チャンネルを (1 - 量/100) 倍に拡大・縮小します。緑チャンネルの位置は変わりません。負の値を指定すると、色のにじみの赤と青が入れ替わります。</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>カーブ</value>
   </data>
@@ -423,6 +432,39 @@
   </data>
   <data name="DelayAnimationEffect_Effect" xml:space="preserve">
     <value>フィルタエフェクト</value>
+  </data>
+  <data name="DelayAnimationEffect_Order" xml:space="preserve">
+    <value>順序</value>
+  </data>
+  <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
+    <value>どのパーツから動き始めるか。位置による順はパーツの大きさ1つ分を1ステップとして端から動かすので、同じ高さや同じ位置にあるパーツは同時に動き始めます。</value>
+  </data>
+  <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
+    <value>乱数シード</value>
+  </data>
+  <data name="DelayAnimationOrder_Forward" xml:space="preserve">
+    <value>前から</value>
+  </data>
+  <data name="DelayAnimationOrder_Reverse" xml:space="preserve">
+    <value>後ろから</value>
+  </data>
+  <data name="DelayAnimationOrder_FromCenter" xml:space="preserve">
+    <value>中央から</value>
+  </data>
+  <data name="DelayAnimationOrder_Random" xml:space="preserve">
+    <value>ランダム</value>
+  </data>
+  <data name="DelayAnimationOrder_LeftToRight" xml:space="preserve">
+    <value>左から右</value>
+  </data>
+  <data name="DelayAnimationOrder_RightToLeft" xml:space="preserve">
+    <value>右から左</value>
+  </data>
+  <data name="DelayAnimationOrder_TopToBottom" xml:space="preserve">
+    <value>上から下</value>
+  </data>
+  <data name="DelayAnimationOrder_BottomToTop" xml:space="preserve">
+    <value>下から上</value>
   </data>
   <data name="Dilate" xml:space="preserve">
     <value>膨張</value>

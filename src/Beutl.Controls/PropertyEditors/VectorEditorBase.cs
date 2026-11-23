@@ -8,6 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using Beutl.Extensibility;
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -41,8 +42,9 @@ public abstract class VectorEditorBase : PropertyEditor
     // The scrub of a header.
     private HeaderScrubGesture _scrub;
     private Control? _editSource;
+    private bool _isUnderlyingEdit;
 
-    private protected bool IsRelativeEdit => _editSource is not TextBox;
+    private bool IsRelativeEdit => _editSource is not TextBox;
 
     // With componentHeaders, each component has a header that scrubs that component alone; otherwise only the
     // editor's header scrubs, and it scrubs every component.
@@ -81,7 +83,27 @@ public abstract class VectorEditorBase : PropertyEditor
     internal void SetText(int index, string value)
     {
         if (_editSource == null || _editSource != _textBoxes[index])
+        {
+            // The text is the editor's own unless an edit already holds the source.
+            using var edit = new PropertyEditorEditScope(ref _editSource, _editSource ?? this);
             SetAndRaise(_textProperties[index], ref _texts[index], value);
+        }
+    }
+
+    internal bool IsTextBoxFocused(int index)
+        => index >= 0 && index < _textBoxes.Length && _textBoxes[index]?.IsFocused == true;
+
+    internal void RaiseUnderlyingValueChanged(RoutedEventArgs args)
+    {
+        _isUnderlyingEdit = true;
+        try
+        {
+            RaiseEvent(args);
+        }
+        finally
+        {
+            _isUnderlyingEdit = false;
+        }
     }
 
     internal bool SetComponent<T>(DirectPropertyBase<T> property, ref T field, T value)
@@ -149,6 +171,28 @@ public abstract class VectorEditorBase : PropertyEditor
         }
     }
 
+    // bind binds the boxes; show puts a preview's result in them and, after a confirmation, the value the context kept.
+    private protected void ConnectComponents<TEdit>(
+        IValueEditorContext<TEdit> context, Action<CompositeDisposable> bind, Action<TEdit> show,
+        bool reportsMismatch = true)
+    {
+        CompositeDisposable connection = StartConnection();
+        TEdit shown = default!;
+        context.EditValue.Subscribe(value => shown = value).DisposeWith(connection);
+        bind(connection);
+        this.AddDisposableHandler(ValueChangedEvent, (s, e) =>
+            {
+                if ((reportsMismatch ? e.Expect<TEdit>(s) : e as PropertyEditorValueChangedEventArgs<TEdit>) is { } args)
+                {
+                    show(_isUnderlyingEdit
+                        ? PreviewFocusedEdit(context, args.NewValue)
+                        : PreviewEdit(context, args.NewValue, IsRelativeEdit));
+                }
+            })
+            .DisposeWith(connection);
+        ConfirmEdits(context, connection, () => show(shown));
+    }
+
     // Shows one component of the context's value in property.
     private protected void BindComponent<T>(AvaloniaProperty<T> property, IObservable<T> values, CompositeDisposable connection)
     {
@@ -197,6 +241,12 @@ public abstract class VectorEditorBase : PropertyEditor
         if (!DataValidationErrors.GetHasErrors(this))
         {
             Values!.Snapshot();
+            int index = Array.IndexOf(_textBoxes, sender as TextBox);
+            if (index >= 0)
+            {
+                using var edit = new PropertyEditorEditScope(ref _editSource, this);
+                Values.FormatText(index, focused: true);
+            }
         }
     }
 
@@ -204,8 +254,17 @@ public abstract class VectorEditorBase : PropertyEditor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
-            Values!.FormatTexts();
+            int index = Array.IndexOf(_textBoxes, sender as TextBox);
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
             Values!.RaiseConfirmedIfChanged();
+            if (index >= 0)
+            {
+                Values.FormatText(index, focused: false);
+            }
+            else
+            {
+                Values.FormatTexts();
+            }
         }
     }
 

@@ -23,8 +23,8 @@ public sealed partial class SceneCompositor
         public Dictionary<int, TrackMatteContent> Sources { get; } = [];
         public HashSet<int> ResolvingSources { get; } = [];
         public HashSet<Element> Evaluating { get; init; } = [];
-        // Every element collected for the frame, at whatever time, so a held side never evaluates one again.
-        public HashSet<Element> Evaluated { get; } = [];
+        // Every element collected for a frame with FrameBeneath, at whatever time, so a held side never evaluates one again.
+        public HashSet<Element>? Evaluated { get; set; }
     }
 
     private void ApplyTrackMatte(

@@ -260,6 +260,7 @@ public sealed partial class SceneCompositor : ICompositor
         // frame's own evaluation, not a query for one layer, records what each element added.
         FrameBeneath? beneath = layer is null && Scene.HasTransitions ? new FrameBeneath(allResources, flow) : null;
         ctx.FrameBeneath = beneath;
+        if (beneath is not null) ctx.GraphicsState!.Evaluated = [];
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
@@ -543,10 +544,8 @@ public sealed partial class SceneCompositor : ICompositor
         {
             int z = element.ZIndex.Value;
             if (z >= layer || element.CoversGraphicsTime(frameTime)) continue;
-            if (participants.Contains(element)
-                && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
-                && running.Region.Contains(sideTime)) continue;
-            if (context.GraphicsState?.Evaluated.Contains(element) == true) continue;
+            if (RunsTransitionInto(element, sideTime, frameTime, participants)) continue;
+            if (context.GraphicsState?.Evaluated?.Contains(element) == true) continue;
             if (portalled.Exists(span => z >= span.Start && z <= span.End)) continue;
 
             held.Add(element);
@@ -676,9 +675,7 @@ public sealed partial class SceneCompositor : ICompositor
             {
                 // A transition the frame runs into this time reaches the side through its frame element above.
                 if (!element.CoversGraphicsTime(frameTime)
-                    && !(participants.Contains(element)
-                         && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
-                         && running.Region.Contains(sideTime)))
+                    && !RunsTransitionInto(element, sideTime, frameTime, participants))
                 {
                     sideInputs.Add(element);
                 }
@@ -709,16 +706,7 @@ public sealed partial class SceneCompositor : ICompositor
         var remaining = new HashSet<Element>(sideInputs, ReferenceEqualityComparer.Instance);
         foreach (Element element in offered)
         {
-            if (remaining.Contains(element)) continue;
-
-            for (int i = 0; i < elements.Count; i++)
-            {
-                if (ReferenceEquals(elements[i], element))
-                {
-                    elements.RemoveAt(i);
-                    break;
-                }
-            }
+            if (!remaining.Contains(element)) elements.Remove(element);
         }
     }
 
@@ -762,10 +750,15 @@ public sealed partial class SceneCompositor : ICompositor
     // time: sideTime covers it too, or a transition it runs at the frame's time reaches sideTime.
     private static bool IsShared(Element input, MediaTime sideTime, MediaTime frameTime, HashSet<Element> participants)
     {
-        return input.CoversGraphicsTime(sideTime)
-               || (participants.Contains(input)
-                   && ElementTransitions.TryGetActive(input, frameTime, out TransitionBoundary running)
-                   && running.Region.Contains(sideTime));
+        return input.CoversGraphicsTime(sideTime) || RunsTransitionInto(input, sideTime, frameTime, participants);
+    }
+
+    // Whether a transition that element runs at frameTime reaches sideTime.
+    private static bool RunsTransitionInto(Element element, MediaTime sideTime, MediaTime frameTime, HashSet<Element> participants)
+    {
+        return participants.Contains(element)
+               && ElementTransitions.TryGetActive(element, frameTime, out TransitionBoundary running)
+               && running.Region.Contains(sideTime);
     }
 
     // Whether element draws through a flow operator in the graphics pass, selected as Element.CollectObjects
@@ -803,7 +796,7 @@ public sealed partial class SceneCompositor : ICompositor
             && !element.IsVisibleInOutput.Value) return;
         // Cyclic matte references have no source contribution at the repeated element.
         if (context.GraphicsState is { } state && !state.Evaluating.Add(element)) return;
-        context.GraphicsState?.Evaluated.Add(element);
+        context.GraphicsState?.Evaluated?.Add(element);
         using var flow = new PooledList<EngineObject.Resource>();
         var oldFlow = context.Flow;
         context.Flow = flow;

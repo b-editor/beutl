@@ -40,7 +40,9 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
             if (SetAndRaise(ValuePropertyCore, ref _value, value)
                 && (_editSource == null || _editSource != InnerTextBox))
             {
-                Text = Format(value);
+                // The text is the editor's own unless an edit already holds the source.
+                using var edit = new PropertyEditorEditScope(ref _editSource, _editSource ?? this);
+                Text = FormatDisplayValue(value);
             }
         }
     }
@@ -54,6 +56,13 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
     }
 
     private TValue IncrementValue => _valueContext is { } context ? context.GetIncrementValue(Value) : Value;
+
+    private string FormatDisplayValue(TValue value)
+        => InnerTextBox?.IsKeyboardFocusWithin == true
+           && _valueContext is { } context
+           && context.TryGetFocusedEditValue(out TValue? focusedValue)
+            ? Format(focusedValue)
+            : Format(value);
 
     private protected abstract string Format(TValue value);
 
@@ -198,6 +207,11 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
+            if (_valueContext is { } context && context.TryGetFocusedEditValue(out TValue? focusedValue))
+            {
+                using var edit = new PropertyEditorEditScope(ref _editSource, this);
+                Text = Format(focusedValue);
+            }
         }
     }
 
@@ -206,8 +220,9 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
-            Text = Format(Value);
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
             ConfirmValue(_oldValue);
+            Text = Format(Value);
         }
     }
 
@@ -262,7 +277,7 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         {
             using var edit = new PropertyEditorEditScope(ref _editSource, this);
             ApplyValue(StepByWheel(IncrementValue, e));
-            Text = Format(Value);
+            Text = FormatDisplayValue(Value);
             e.Handled = true;
         }
     }

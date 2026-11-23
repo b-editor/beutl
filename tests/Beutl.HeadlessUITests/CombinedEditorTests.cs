@@ -675,26 +675,64 @@ public sealed class CombinedEditorTests
     }
 
     [AvaloniaTest]
-    public void An_expression_takes_the_place_of_both_animations_until_undone()
+    public void An_expression_keeps_both_animations_and_undo_removes_only_the_expression()
     {
         var transform = new TranslateTransform();
-        transform.X.SetKeyFrameAnimation(Animation(0, 1));
-        transform.Y.SetKeyFrameAnimation(Animation(0, 1));
+        var xAnimation = Animation(0, 1);
+        var yAnimation = Animation(0, 1);
+        transform.X.SetKeyFrameAnimation(xAnimation);
+        transform.Y.SetKeyFrameAnimation(yAnimation);
         using PropertyEditorTestHost.HistoryScope history = new(transform);
         using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
         combined.Accept(Services(history.History));
         history.History.Commit();
 
         Assert.That(combined.SetExpression("new Point(1, 2)", out string? error), Is.True, error);
-        Assert.That(transform.X.GetKeyFrameAnimation(), Is.Null);
-        Assert.That(transform.Y.GetKeyFrameAnimation(), Is.Null);
-        Assert.That(IsSeparated(combined), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(transform.X.GetKeyFrameAnimation(), Is.SameAs(xAnimation));
+            Assert.That(transform.Y.GetKeyFrameAnimation(), Is.SameAs(yAnimation));
+            Assert.That(transform.X.HasExpression, Is.True);
+            Assert.That(transform.Y.HasExpression, Is.True);
+            Assert.That(combined.HasAnimation.Value, Is.True);
+            Assert.That(combined.HasExpression.Value, Is.True);
+            Assert.That(IsSeparated(combined), Is.False);
+        });
 
         history.History.Undo();
-        Assert.That(transform.X.GetKeyFrameAnimation(), Is.Not.Null);
-        Assert.That(transform.Y.GetKeyFrameAnimation(), Is.Not.Null);
-        Assert.That(transform.X.HasExpression, Is.False);
-        Assert.That(IsSeparated(combined), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(transform.X.GetKeyFrameAnimation(), Is.SameAs(xAnimation));
+            Assert.That(transform.Y.GetKeyFrameAnimation(), Is.SameAs(yAnimation));
+            Assert.That(transform.X.HasExpression, Is.False);
+            Assert.That(transform.Y.HasExpression, Is.False);
+            Assert.That(IsSeparated(combined), Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_combined_expression_can_use_Value_and_refreshes_mixed_siblings()
+    {
+        var shape = new RectShape { Width = { Value = 100 }, Height = { Value = 200 } };
+        using PropertyEditorTestHost.HistoryScope history = new(shape);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(shape);
+        combined.Accept(Services(history.History));
+        Assert.That(combined.SetExpression("new Size(Value.Width + Value.Height, Value.Width * 2)", out string? error), Is.True, error);
+
+        (float, float) shown = default;
+        using IDisposable subscription = combined.EditValue.Subscribe(value => shown = value);
+        Assert.That(shown, Is.EqualTo((300f, 200f)));
+
+        combined.SetCurrentValueAndGetCoerced((150f, 200f), relative: false);
+        combined.SetValue((300f, 200f), (150f, 200f));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((shape.Width.Value, shape.Height.Value), Is.EqualTo((150f, 200f)));
+            Assert.That(shown, Is.EqualTo((350f, 300f)));
+            Assert.That(shape.Width.ExpressionError, Is.Null);
+            Assert.That(shape.Height.ExpressionError, Is.Null);
+        });
     }
 
     [AvaloniaTest]
@@ -765,6 +803,55 @@ public sealed class CombinedEditorTests
         Assert.That(combined.Components[0].SetExpression(combined.Components[0].GetExpressionString()!, out error), Is.True, error);
 
         Assert.That(transform.X.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(30f));
+    }
+
+    // Separating a combined expression that uses Value/ValueAtTime keeps the combined Value context when confirmed or
+    // edited on an individual component row, while still allowing a switch to a plain scalar Value expression.
+    [AvaloniaTest]
+    public void A_row_of_its_own_preserves_the_combined_Value_context_when_confirming_or_editing()
+    {
+        var transform = new TranslateTransform(10, 20);
+        using PropertyEditorTestHost.HistoryScope history = new(transform);
+        using CombinedEditorViewModel<float, (float, float)> combined = CreateCombined(transform);
+        combined.Accept(Services(history.History));
+        Assert.That(combined.SetExpression("new Point(Value.X * 2, Value.Y * 2)", out string? error), Is.True, error);
+        var window = new Window { Width = 480, Height = 300, Content = CreateControl(combined) };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            combined.SeparateComponents();
+            HeadlessTestHelpers.Render(3);
+
+            var row = (PropertyEditorViewModel)window.GetVisualDescendants().OfType<NumberEditor<float>>().First().DataContext!;
+            Assert.That(row.GetExpressionString(), Is.EqualTo("(new Point(Value.X * 2, Value.Y * 2)).X"));
+            Assert.That(row.SetExpression(row.GetExpressionString()!, out error), Is.True, error);
+            HeadlessTestHelpers.Render(3);
+
+            var context = new EvaluationContext(MediaTime.Zero);
+            Assert.Multiple(() =>
+            {
+                Assert.That(transform.X.Evaluate(context), Is.EqualTo(20f));
+                Assert.That(transform.X.ExpressionError, Is.Null);
+                Assert.That(combined.CanUnseparateComponents.Value, Is.False);
+            });
+
+            // Editing again on the separated row still resolves Value as Point (including sibling Y).
+            Assert.That(row.SetExpression("Value.X * 3 + Value.Y", out error), Is.True, error);
+            Assert.That(transform.X.Evaluate(context), Is.EqualTo(50f));
+            transform.Y.Value = 40;
+            Assert.That(transform.X.Evaluate(context), Is.EqualTo(70f));
+
+            var copy = (TranslateTransform)CoreSerializer.DeserializeFromJsonObject(
+                CoreSerializer.SerializeToJsonObject(transform), typeof(TranslateTransform));
+            Assert.That(copy.X.Evaluate(context), Is.EqualTo(70f));
+
+            // Replacing with a scalar expression using X's own float Value falls back cleanly to StringExpression<float>.
+            Assert.That(row.SetExpression("Value + 5", out error), Is.True, error);
+            Assert.That(transform.X.Expression, Is.TypeOf<StringExpression<float>>());
+            Assert.That(transform.X.Evaluate(context), Is.EqualTo(15f));
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]

@@ -860,28 +860,51 @@ public class MultiElementPropertyTests
         });
     }
 
-    // An element whose value an expression gives takes no value from the tab, as its own editor lets none be entered.
+    // Value editors can edit the underlying value below an expression across all selected elements while keeping each
+    // element's expression intact; object editors that cannot edit under an expression still leave those elements alone.
     [AvaloniaTest]
-    public async Task AnElementWhoseValueAnExpressionGivesKeepsItsOwn()
+    public async Task ValueEditsUnderAnExpressionMirrorAcrossElementsAndDetectUnderlyingDifferences()
     {
         (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
         RectShape[] shapes = Shapes<RectShape>(elements);
-        shapes[1].Opacity.Value = 50;
-        shapes[1].Opacity.Expression = Beutl.Engine.Expressions.Expression.Create<float>("1 + 3");
+        shapes[0].Opacity.Value = 40;
+        shapes[1].Opacity.Value = 20;
+        shapes[0].Opacity.Expression = Beutl.Engine.Expressions.Expression.Create<float>("Value + 20");
+        shapes[1].Opacity.Expression = Beutl.Engine.Expressions.Expression.Create<float>("Value + 20");
         editor.HistoryManager.Commit("test setup");
         using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
         var opacity = (NumberEditorViewModel<float>)Editor(tab, Copy<RectShape>(tab).Opacity);
-        int steps = editor.HistoryManager.UndoCount;
 
-        opacity.MatchOtherElements();
         Assert.Multiple(() =>
         {
-            Assert.That(shapes[1].Opacity.Value, Is.EqualTo(50f));
-            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(steps), "nothing changed");
+            Assert.That(opacity.ValueDifference.Value, Does.StartWith(MessageStrings.MultipleElements_ValuesDiffer)
+                .And.Contain("40").And.Contain("20"));
         });
 
-        ((IValueEditorContext<float>)opacity).ConfirmEdit(100, 70);
-        Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.EqualTo(new[] { 70f, 50f }));
+        opacity.MatchOtherElements();
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.All.EqualTo(40f));
+            Assert.That(shapes.Select(shape => shape.Opacity.Expression?.ExpressionString), Is.All.EqualTo("Value + 20"));
+            Assert.That(Editor(tab, Copy<RectShape>(tab).Opacity).ValueDifference.Value, Is.Null);
+        });
+
+        // Drag preview and confirm apply the mapped underlying value to every element in one undo step.
+        opacity = (NumberEditorViewModel<float>)Editor(tab, Copy<RectShape>(tab).Opacity);
+        int beforeDrag = editor.HistoryManager.UndoCount;
+        Assert.That(opacity.SetCurrentValueAndGetCoerced(70f), Is.EqualTo(70f));
+        Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.All.EqualTo(50f));
+        ((IValueEditorContext<float>)opacity).ConfirmEdit(60f, 70f);
+        Assert.Multiple(() =>
+        {
+            Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.All.EqualTo(50f));
+            Assert.That(shapes.Select(shape => shape.Opacity.Expression?.ExpressionString), Is.All.EqualTo("Value + 20"));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(beforeDrag + 1));
+        });
+
+        editor.HistoryManager.Undo();
+        Assert.That(shapes.Select(shape => shape.Opacity.Value), Is.All.EqualTo(40f));
     }
 
     // A value goes where each element's own editor would put it: to its keyframe at the playhead, or else its next one.

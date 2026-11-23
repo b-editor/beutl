@@ -2,8 +2,6 @@
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 
-using static Beutl.Editor.Components.WebBrowserTab.WebView2Vtable;
-
 namespace Beutl.Editor.Components.WebBrowserTab;
 
 internal sealed partial class WindowsBrowserDownloadHandler
@@ -43,13 +41,11 @@ internal sealed partial class WindowsBrowserDownloadHandler
         _awaitingHistoryLoad = false;
     }
 
-    private unsafe void OnNavigationStarting(nint args)
+    private void OnNavigationStarting(nint args)
     {
         _awaitingHistoryLoad = false;
-        ulong id;
-        int canceled;
-        Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, ulong*, int>)Method(args, 9))(args, &id));
-        Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(args, 7))(args, &canceled));
+        ulong id = GetValue<ulong>(args, 9);
+        int canceled = GetValue<int>(args, 7);
         // Avalonia runs first, so this includes cancellation by the tab's NavigationStarted handler.
         if (canceled != 0)
         {
@@ -62,17 +58,15 @@ internal sealed partial class WindowsBrowserDownloadHandler
         _activeNavigation = (id, uri);
     }
 
-    private unsafe void OnNavigationCompleted(nint args, Action<Uri, bool> completed)
+    private void OnNavigationCompleted(nint args, Action<Uri, bool> completed)
     {
-        ulong id;
-        Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, ulong*, int>)Method(args, 5))(args, &id));
+        ulong id = GetValue<ulong>(args, 5);
         var active = _activeNavigation;
         if (active?.Id == id) _activeNavigation = null;
         // A committed document can complete successfully after the next navigation has started.
         if (_canceledNavigationIds.Remove(id) || active is { } navigation && navigation.Id != id) return;
 
-        int success;
-        Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, int*, int>)Method(args, 3))(args, &success));
+        int success = GetValue<int>(args, 3);
         // Avalonia also reports Source, including on failures and downloads. A start may predate attachment.
         if ((GetDocument() ?? active?.Uri) is { } request) completed(request, success != 0);
     }

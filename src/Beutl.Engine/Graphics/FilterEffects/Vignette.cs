@@ -105,15 +105,10 @@ public sealed partial class Vignette : FilterEffect
                     {
                         // Anchor to the complete logical source even when the output only requests part of it.
                         Rect bounds = execution.OutputBounds;
-                        Point origin = execution.OutputPlacement.LogicalOrigin;
-                        float scale = execution.OutputPlacement.Scale.Value;
-                        Vector offset = bounds.Position + center.ToPixels(bounds.Size) - origin;
-                        var position = new Vector2(offset.X, offset.Y) * scale;
+                        Vector2 position = RasterShaderMapping.ToStagePixels(
+                            execution, bounds.Position + center.ToPixels(bounds.Size));
                         if (!float.IsFinite(position.X) || !float.IsFinite(position.Y))
-                        {
-                            offset = bounds.Center - origin;
-                            position = new Vector2(offset.X, offset.Y) * scale;
-                        }
+                            position = RasterShaderMapping.ToStagePixels(execution, bounds.Center);
                         writer.Set(position);
                     });
                     bindings.Uniform("inverseRadii", (Circularity: circularity, Exponent: exponent), static (writer, shape, execution) =>

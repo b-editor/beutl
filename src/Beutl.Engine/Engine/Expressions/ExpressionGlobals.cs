@@ -131,4 +131,38 @@ public class ExpressionGlobals
     public double FrameRandom() => Random((int)(Time * 1000));
 
     public double FrameRandom(double min, double max) => Random((int)(Time * 1000), min, max);
+
+    /// <summary>Returns a smooth, deterministic offset sampled at the owner's local time.</summary>
+    /// <param name="frequency">The number of wiggles per second.</param>
+    /// <param name="amplitude">The scale of the offset. Its absolute value bounds the result.</param>
+    /// <param name="octaves">The number of noise layers, up to 16.</param>
+    /// <param name="seed">An optional seed. The property's identity supplies the default.</param>
+    public double Wiggle(double frequency, double amplitude, int octaves = 1, int? seed = null)
+    {
+        if (!double.IsFinite(frequency) || !double.IsFinite(amplitude))
+            return double.NaN;
+        if (amplitude == 0 || octaves <= 0)
+            return 0;
+
+        ulong noiseSeed = seed is int explicitSeed ? unchecked((ulong)explicitSeed) : GetWiggleSeed();
+        return WiggleNoise.Sample(Time * frequency, octaves, noiseSeed) * amplitude;
+    }
+
+    private ulong GetWiggleSeed()
+    {
+        IProperty property = Context.CurrentProperty;
+        Guid ownerId = property.GetOwnerObject()?.Id.Value ?? Guid.Empty;
+        string name;
+        try
+        {
+            name = property.Name;
+        }
+        catch (InvalidOperationException)
+        {
+            // Properties created outside an object may not have been assigned a name yet.
+            name = string.Empty;
+        }
+
+        return WiggleNoise.CreateSeed(ownerId, name);
+    }
 }
