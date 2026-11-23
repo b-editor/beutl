@@ -17,8 +17,8 @@ public sealed class GraphSnapshot : IDisposable
     private GraphCompositionContext[] _contexts = [];
     private ConnectionSnapshot[] _connections = [];
     // The statuses of _connections that evaluation found, and those last posted to the document thread.
-    private ConnectionStatus[] _statuses = [];
-    private ConnectionStatus[] _postedStatuses = [];
+    private EvaluatedConnectionStatus[] _statuses = [];
+    private EvaluatedConnectionStatus[] _postedStatuses = [];
     private readonly Dictionary<(int, int), List<int>> _outputConnectionMap = new();
     private readonly Dictionary<(int, int), List<int>> _inputConnectionMap = new();
     private readonly HashSet<(int, int)> _connectedInputs = [];
@@ -237,7 +237,7 @@ public sealed class GraphSnapshot : IDisposable
         Dictionary<GraphNode, int> nodeToResourceIndex)
     {
         var connectionList = new List<ConnectionSnapshot>();
-        List<(Connection, ConnectionStatus)>? rejected = null;
+        List<(Connection, EvaluatedConnectionStatus)>? rejected = null;
 
         foreach (Connection connection in allConnections)
         {
@@ -252,13 +252,13 @@ public sealed class GraphSnapshot : IDisposable
                                    || !nodeToResourceIndex.TryGetValue(outputNode, out int outputResourceIdx)
                                    || !nodeToResourceIndex.TryGetValue(inputNode, out int inputResourceIdx))
             {
-                (rejected ??= []).Add((connection, ConnectionStatus.Error));
+                (rejected ??= []).Add((connection, new(ConnectionStatus.Error)));
                 continue;
             }
 
             if (inputSock is IInputPort input && !inputNode.CanConnectInput(input))
             {
-                (rejected ??= []).Add((connection, ConnectionStatus.Error));
+                (rejected ??= []).Add((connection, new(ConnectionStatus.Error)));
                 continue;
             }
 
@@ -292,8 +292,8 @@ public sealed class GraphSnapshot : IDisposable
         }
 
         _connections = connectionList.ToArray();
-        _statuses = new ConnectionStatus[_connections.Length];
-        _postedStatuses = new ConnectionStatus[_connections.Length];
+        _statuses = new EvaluatedConnectionStatus[_connections.Length];
+        _postedStatuses = new EvaluatedConnectionStatus[_connections.Length];
         if (rejected != null)
             PostStatuses(rejected);
         return connectionList;
@@ -432,7 +432,7 @@ public sealed class GraphSnapshot : IDisposable
                 if (outputValue is IReadOnlyItemValue<T> typed)
                 {
                     result.Add(typed.GetValue());
-                    _statuses[connIdx] = ConnectionStatus.Success;
+                    _statuses[connIdx] = new(ConnectionStatus.Success);
                 }
                 else if (typeof(T).IsAssignableFrom(typeof(RenderNode))
                          && GetOutputPicture(conn.OutputSlotIndex, conn.OutputItemIndex) is { } picture)
@@ -443,11 +443,11 @@ public sealed class GraphSnapshot : IDisposable
                 else if (outputValue.GetBoxed() is T unboxed)
                 {
                     result.Add(unboxed);
-                    _statuses[connIdx] = ConnectionStatus.Convert;
+                    _statuses[connIdx] = new(ConnectionStatus.Convert);
                 }
                 else
                 {
-                    _statuses[connIdx] = ConnectionStatus.Error;
+                    _statuses[connIdx] = new(ConnectionStatus.Error);
                 }
             }
         }
@@ -506,12 +506,12 @@ public sealed class GraphSnapshot : IDisposable
                 else
                 {
                     var propagateResult = inputValue.PropagateFrom(outputValue);
-                    _statuses[ci] = propagateResult switch
+                    _statuses[ci] = new(propagateResult switch
                     {
                         PropagateResult.Success => ConnectionStatus.Success,
                         PropagateResult.Converted => ConnectionStatus.Convert,
                         _ => ConnectionStatus.Error
-                    };
+                    });
                 }
 
                 if (conn is { OriginalConnection.Input.Value.Value: IEnginePropertyBackedInputPort inputNodePort })
@@ -563,17 +563,21 @@ public sealed class GraphSnapshot : IDisposable
         public object? Wire;
         public readonly ItemValue<RenderNode?> Value = new();
 
-        public ConnectionStatus Status => Form?.HasFailed == true ? ConnectionStatus.Error : ConnectionStatus.Convert;
+        public EvaluatedConnectionStatus Status => Form?.HasFailed == true
+            ? new(ConnectionStatus.Error, HasFailedPicture: true)
+            : new(ConnectionStatus.Convert);
     }
+
+    private readonly record struct EvaluatedConnectionStatus(ConnectionStatus Status, bool HasFailedPicture = false);
 
     private void PostChangedStatuses()
     {
-        List<(Connection, ConnectionStatus)>? changed = null;
+        List<(Connection, EvaluatedConnectionStatus)>? changed = null;
         for (int i = 0; i < _statuses.Length; i++)
         {
-            ConnectionStatus status = _statuses[i];
+            EvaluatedConnectionStatus status = _statuses[i];
             // Zero is a connection that no evaluation has reached yet.
-            if (status == 0 || status == _postedStatuses[i]) continue;
+            if (status.Status == 0 || status == _postedStatuses[i]) continue;
 
             _postedStatuses[i] = status;
             (changed ??= []).Add((_connections[i].OriginalConnection, status));
@@ -583,15 +587,18 @@ public sealed class GraphSnapshot : IDisposable
             PostStatuses(changed);
     }
 
-    private static void PostStatuses(List<(Connection Connection, ConnectionStatus Status)> statuses)
+    private static void PostStatuses(List<(Connection Connection, EvaluatedConnectionStatus Status)> statuses)
     {
         void Write()
         {
-            foreach ((Connection connection, ConnectionStatus status) in statuses)
+            foreach ((Connection connection, EvaluatedConnectionStatus status) in statuses)
             {
                 // A connection removed meanwhile keeps the Disconnected that its removal set.
                 if (connection.HierarchicalParent != null)
-                    connection.Status.Value = status;
+                {
+                    connection.HasFailedPicture = status.HasFailedPicture;
+                    connection.Status.Value = status.Status;
+                }
             }
         }
 

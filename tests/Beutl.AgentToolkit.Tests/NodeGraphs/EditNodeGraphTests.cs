@@ -105,6 +105,62 @@ public sealed class EditNodeGraphTests
     }
 
     [Test]
+    public void An_upstream_shader_error_is_attributed_once_in_edits_and_reads()
+    {
+        using var scene = new NodeGraphTestScene();
+        ToolResult<EditNodeGraphResponse> create = scene.Edit(
+            Add("input", nameof(FilterEffectInputNode)),
+            Add("first", nameof(ShaderFullscreenPassNode)),
+            Add("middle", nameof(ShaderFullscreenPassNode)),
+            Add("last", nameof(ShaderFullscreenPassNode)),
+            Add("output", nameof(OutputNode)),
+            Connect("input.Output", "first.In.source"),
+            Connect("first.Out.color", "middle.In.source"),
+            Connect("middle.Out.color", "last.In.source"),
+            Connect("last.Out.color", "output.Output"));
+        Assert.That(create.Value?.Applied, Is.True, create.Error?.Message ?? create.Value?.Hint);
+        string firstId = create.Value!.Created.Single(node => node.Ref == "first").Id;
+        string outputId = create.Value.Created.Single(node => node.Ref == "output").Id;
+        var first = (ShaderFullscreenPassNode)scene.Node(firstId);
+        string originalCode = first.Code.Value;
+        var editCode = new NodeGraphOperation { Op = "update", Node = firstId, Values = new JsonObject { ["Code"] = BrokenCode } };
+
+        ToolResult<EditNodeGraphResponse> edit = scene.Edit(editCode);
+        Assert.That(edit.IsSuccess, Is.True, edit.Error?.Message);
+        Assert.That(edit.Value!.Applied, Is.False);
+        Assert.That(first.Code.Value, Is.EqualTo(originalCode));
+        AssertUpstreamFailure(edit.Value.Diagnostics, firstId, outputId);
+
+        first.Code.Value = BrokenCode;
+        ToolResult<ReadNodeGraphResponse> read = scene.Tools.ReadNodeGraph(scene.GraphId);
+        Assert.That(read.IsSuccess, Is.True, read.Error?.Message);
+        AssertUpstreamFailure(read.Value!.Diagnostics!, firstId, outputId);
+        Assert.That(read.Value.Connections!.Single(wire => wire.To == $"{outputId}.Output").Status, Is.EqualTo("error"));
+        Assert.That(read.Value.Nodes!.Where(node => node.Type == nameof(ShaderFullscreenPassNode) && node.Id != firstId)
+            .Select(node => node.Members.Single(member => member.Name == "Error").Value), Is.All.Null);
+
+        ToolResult<EditNodeGraphResponse> repair = scene.Edit(editCode with { Values = new JsonObject { ["Code"] = originalCode } });
+        Assert.That(repair.Value?.Applied, Is.True, repair.Error?.Message ?? repair.Value?.Hint);
+        Assert.That(repair.Value!.Diagnostics.Where(diagnostic => diagnostic.Severity == "error"), Is.Empty);
+    }
+
+    private static void AssertUpstreamFailure(IReadOnlyList<NodeGraphDiagnostic> diagnostics, string firstId, string outputId)
+    {
+        NodeGraphDiagnostic[] errors = [.. diagnostics.Where(diagnostic => diagnostic.Severity == "error")];
+        Assert.That(errors.Select(error => error.Node), Is.EquivalentTo(new[] { firstId, outputId }));
+        NodeGraphDiagnostic pass = errors.Single(error => error.Node == firstId);
+        NodeGraphDiagnostic output = errors.Single(error => error.Node == outputId);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(pass.Lines, Has.Some.Matches<ShaderCompilerMessage>(line =>
+                line is { Stage: "frag", Line: 4 } && line.Message.Contains("undeclaredThing", StringComparison.Ordinal)));
+            Assert.That(output.Connection, Is.Not.Null);
+            Assert.That(output.Lines, Is.Null);
+            Assert.That(output.Message, Does.Contain("shader graph could not produce a picture"));
+        }
+    }
+
+    [Test]
     public void A_buffer_left_unconnected_is_refused()
     {
         using var scene = new NodeGraphTestScene();

@@ -679,7 +679,7 @@ public partial class ShaderNodeRenderingTests
     }
 
     [Test]
-    public void AFailedGraphDrawsNothingAndOthersKeepRendering()
+    public void AChainWithAFailedPassDrawsNothingAndRecovers()
     {
         VulkanTestEnvironment.EnsureAvailable();
         using var files = new SceneHistoryHarness("shader-failed", duration: MediaTime.FromSeconds(1));
@@ -687,9 +687,13 @@ public partial class ShaderNodeRenderingTests
         GraphModel graph = effect.Model.Value!;
         var input = graph.Add(new FilterEffectInputNode());
         var pass = graph.Add(new ShaderFullscreenPassNode());
+        var middle = graph.Add(new ShaderFullscreenPassNode());
+        var last = graph.Add(new ShaderFullscreenPassNode());
         graph.Connect(pass.In("source"), input.Output);
+        graph.Connect(middle.In("source"), pass.Out("color"));
+        graph.Connect(last.In("source"), middle.Out("color"));
         var output = graph.Add(new OutputNode());
-        graph.Connect(output.InputPort, pass.Out("color"));
+        graph.Connect(output.InputPort, last.Out("color"));
         Populate(files, effect);
         using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
         ushort[] working = RenderScene(renderer, MediaTime.Zero, 1);
@@ -697,8 +701,13 @@ public partial class ShaderNodeRenderingTests
 
         pass.Code.Value = "broken";
         ushort[] failed = RenderScene(renderer, MediaTime.Zero, 1);
-        Assert.That(pass.Error.Value, Is.Not.Null.And.Not.Empty);
-        Assert.That(failed, Is.All.EqualTo((ushort)0), "A failure must not pass for a working result.");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(pass.Error.Value, Is.Not.Null.And.Not.Empty);
+            Assert.That(middle.Error.Value, Is.Null);
+            Assert.That(last.Error.Value, Is.Null);
+            Assert.That(failed, Is.All.EqualTo((ushort)0));
+        }
 
         pass.Code.Value = ShaderFullscreenPassNode.DefaultCode;
         Assert.That(RenderScene(renderer, MediaTime.Zero, 1), Is.EqualTo(working));
