@@ -87,11 +87,19 @@ public static class NumberEditorHelper
         return (bits[3] >> 16) & 0xFF;
     }
 
-    // Reads a number typed into an editor in the current culture or with a period as the decimal point. Where the
-    // decimal separator is a comma, the culture's own parse took the period for a group separator and read "1.5" as
-    // 15, so group separators are allowed only for text neither decimal point reads, such as "1.000,5".
-    // An integer takes no decimal point, so "1.000" stays rejected rather than becoming 1.
+    // Reads a number or simple arithmetic expression typed into an editor in the current culture or with a period as
+    // the decimal point. Where the decimal separator is a comma, the culture's own parse took the period for a group
+    // separator and read "1.5" as 15, so group separators are allowed only for text neither decimal point reads, such
+    // as "1.000,5". An integer takes no decimal point on a plain number, so "1.000" stays rejected rather than
+    // becoming 1, while arithmetic expressions such as "1920 / 2" or "100 * 1.5" evaluate and round to the integer type.
     internal static bool TryParse<TValue>(ReadOnlySpan<char> text, [MaybeNullWhen(false)] out TValue value)
+        where TValue : INumberBase<TValue>
+    {
+        return TryParseNumber(text, out value)
+            || NumericExpressionEvaluator.TryEvaluate(text, out value);
+    }
+
+    internal static bool TryParseNumber<TValue>(ReadOnlySpan<char> text, [MaybeNullWhen(false)] out TValue value)
         where TValue : INumberBase<TValue>
     {
         NumberStyles style = DecimalStyle<TValue>.Value;
@@ -99,6 +107,10 @@ public static class NumberEditorHelper
             || TValue.TryParse(text, style, CultureInfo.InvariantCulture, out value)
             || TValue.TryParse(text, CultureInfo.CurrentCulture, out value);
     }
+
+    internal static bool IsFloatingPoint<TValue>()
+        where TValue : INumberBase<TValue>
+        => DecimalStyle<TValue>.Value == NumberStyles.Float;
 
     private static class DecimalStyle<TValue>
         where TValue : INumberBase<TValue>

@@ -1,4 +1,6 @@
-﻿using Avalonia.Input;
+﻿using System.Text;
+
+using Avalonia.Input;
 
 using Beutl.Graphics;
 
@@ -8,37 +10,98 @@ internal static class RelativeUnitParser
 {
     public static bool TryParse(string? s, out float result, out RelativeUnit unit)
     {
-        if (s == null)
+        if (!TryStripPercentUnits(s, out string expression, out bool hasPercentUnit))
         {
             result = default;
             unit = default;
             return false;
         }
 
-        result = 1f;
-        float scale = 1f;
-        ReadOnlySpan<char> span = s;
+        unit = hasPercentUnit ? RelativeUnit.Relative : RelativeUnit.Absolute;
+        float scale = hasPercentUnit ? 0.01f : 1f;
 
-        if (s.EndsWith('%'))
-        {
-            scale = 0.01f;
-            span = s.AsSpan()[0..^1];
-            unit = RelativeUnit.Relative;
-        }
-        else
-        {
-            unit = RelativeUnit.Absolute;
-        }
-
-        if (NumberEditorHelper.TryParse(span, out float value))
+        if (NumberEditorHelper.TryParse(expression, out float value))
         {
             result = value * scale;
             return true;
         }
         else
         {
+            result = 1f;
             return false;
         }
+    }
+
+    // Removes '%' unit suffixes (e.g. "50%", "50+25%", "50.00%/2", "50% + 25%") while keeping binary modulo
+    // operators (e.g. "100 % 3"). Rejects standalone or repeated percent signs such as "%" or "50%%".
+    internal static bool TryStripPercentUnits(string? s, out string stripped, out bool hasPercentUnit)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+        {
+            stripped = string.Empty;
+            hasPercentUnit = false;
+            return false;
+        }
+
+        if (!s.Contains('%'))
+        {
+            stripped = s;
+            hasPercentUnit = false;
+            return true;
+        }
+
+        var builder = new StringBuilder(s.Length);
+        hasPercentUnit = false;
+        char lastNonWhitespace = '\0';
+
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = s[i];
+            if (c == '%')
+            {
+                if (lastNonWhitespace is '\0' or '%')
+                {
+                    stripped = string.Empty;
+                    hasPercentUnit = false;
+                    return false;
+                }
+
+                char nextNonWhitespace = '\0';
+                for (int j = i + 1; j < s.Length; j++)
+                {
+                    if (!char.IsWhiteSpace(s[j]))
+                    {
+                        nextNonWhitespace = s[j];
+                        break;
+                    }
+                }
+
+                if (nextNonWhitespace == '%')
+                {
+                    stripped = string.Empty;
+                    hasPercentUnit = false;
+                    return false;
+                }
+
+                bool precedesUnitEnd = nextNonWhitespace is '\0' or '+' or '-' or '*' or '/' or '^' or ')';
+                bool followsOperand = char.IsAsciiDigit(lastNonWhitespace) || lastNonWhitespace is '.' or ',' or ')';
+                if (followsOperand && precedesUnitEnd)
+                {
+                    hasPercentUnit = true;
+                    lastNonWhitespace = '%';
+                    continue;
+                }
+            }
+
+            builder.Append(c);
+            if (!char.IsWhiteSpace(c))
+            {
+                lastNonWhitespace = c;
+            }
+        }
+
+        stripped = builder.ToString();
+        return true;
     }
 
     // An edit applies when the new text parses and the old text was invalid or the value or unit changed.
