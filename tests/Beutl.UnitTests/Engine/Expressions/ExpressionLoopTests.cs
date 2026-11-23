@@ -130,6 +130,9 @@ public class ExpressionLoopTests
 
     [TestCase("LoopOut()", 7, 30, 40)]
     [TestCase("LoopIn()", 0, 30, 60)]
+    // Each sibling continues along its own boundary segment; one without a key at the boundary holds.
+    [TestCase("LoopOut(LoopMode.Continue)", 7, 30, 120)]
+    [TestCase("LoopIn(LoopMode.Continue)", 0, 0, 40)]
     public void SharedAndEditedComponentExpressionsUseCombinedRange(string script, double time, float x, float y)
     {
         var transform = new TranslateTransform();
