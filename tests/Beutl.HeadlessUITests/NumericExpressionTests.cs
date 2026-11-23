@@ -52,6 +52,9 @@ public sealed class NumericExpressionTests
     [TestCase("1e-20 * 1e-20", 1e-40d)]
     [TestCase("1e-20 / 1e20", 1e-40d)]
     [TestCase("1e-30 * 1e28", 0.01d)]
+    [TestCase("1e-28 * 1.5 * 1e28", 1.5d)]
+    [TestCase("1e-10 * 1e-18 * 1.5 * 1e28", 1.5d)]
+    [TestCase("0.1 ^ 28 * 1.5 * 10 ^ 28", 1.5d)]
     [TestCase("0e-30 + 1", 1d)]
     [SetCulture("en-US")]
     public void Evaluates_arithmetic_expressions_for_double(string text, double expected)

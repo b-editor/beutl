@@ -12,6 +12,12 @@ internal static class NumericExpressionEvaluator
 {
     private const int MaxDepth = 64;
 
+    // Below 1e-12, decimal's fixed 28-decimal-place scale leaves fewer than ~16 significant digits (worse than IEEE 754 double).
+    private const decimal MinAccurateDecimalMagnitude = 1e-12m;
+
+    private static bool IsBelowAccurateDecimalMagnitude(decimal value)
+        => value != 0m && Math.Abs(value) < MinAccurateDecimalMagnitude;
+
     private enum EvalStatus
     {
         Success,
@@ -392,8 +398,8 @@ internal static class NumericExpressionEvaluator
                         '/' => left / right,
                         _ => left % right,
                     };
-                    if ((op == '*' && left != 0m && right != 0m && value == 0m)
-                        || (op == '/' && left != 0m && value == 0m))
+                    if ((op == '*' && left != 0m && right != 0m && (value == 0m || IsBelowAccurateDecimalMagnitude(value)))
+                        || (op == '/' && left != 0m && (value == 0m || IsBelowAccurateDecimalMagnitude(value))))
                     {
                         return EvalStatus.NeedsDoubleFallback;
                     }
@@ -515,7 +521,8 @@ internal static class NumericExpressionEvaluator
 
             if (TryParseDecimalLiteral(token, out value))
             {
-                if (value == 0m && TryParseDoubleLiteral(token, out double doubleValue) && doubleValue != 0d)
+                if (IsBelowAccurateDecimalMagnitude(value)
+                    || (value == 0m && TryParseDoubleLiteral(token, out double doubleValue) && doubleValue != 0d))
                 {
                     return EvalStatus.NeedsDoubleFallback;
                 }
@@ -585,7 +592,7 @@ internal static class NumericExpressionEvaluator
                     if ((remaining & 1) != 0)
                     {
                         acc *= factor;
-                        if (acc == 0m)
+                        if (acc == 0m || IsBelowAccurateDecimalMagnitude(acc))
                         {
                             result = 0m;
                             return EvalStatus.NeedsDoubleFallback;
@@ -596,7 +603,7 @@ internal static class NumericExpressionEvaluator
                     if (remaining > 0)
                     {
                         factor *= factor;
-                        if (factor == 0m)
+                        if (factor == 0m || IsBelowAccurateDecimalMagnitude(factor))
                         {
                             result = 0m;
                             return EvalStatus.NeedsDoubleFallback;
@@ -607,7 +614,7 @@ internal static class NumericExpressionEvaluator
                 if (negative)
                 {
                     result = 1m / acc;
-                    if (result == 0m)
+                    if (result == 0m || IsBelowAccurateDecimalMagnitude(result))
                     {
                         return EvalStatus.NeedsDoubleFallback;
                     }
