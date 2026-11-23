@@ -38,6 +38,10 @@ public abstract class PropertyEditorViewModel<TValue, TEdit> : PropertyEditorVie
         => relative || !HasExpression.Value ? PreviewEdit(value)
             : ToEdit(SetCurrentValueAndGetCoerced(FromEdit(value), relative: false)!);
 
+    public virtual TEdit PreviewEdit(TEdit value, bool relative, int editedComponents)
+        => relative || !HasExpression.Value ? PreviewEdit(value, relative)
+            : ToEdit(SetCurrentValueAndGetCoerced(FromEdit(value), relative: false, editedComponents: editedComponents)!);
+
     public TEdit PreviewFocusedEdit(TEdit value)
         => !HasExpression.Value ? PreviewEdit(value)
             : ToEdit(SetCurrentValueAndGetCoerced(FromEdit(value), relative: false, directUnderlying: true)!);

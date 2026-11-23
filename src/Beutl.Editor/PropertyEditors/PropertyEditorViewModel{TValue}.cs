@@ -271,6 +271,9 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     // a field per component overrides it to keep the components the user did not change.
     protected virtual TValue ReplaceUnderExpression(TValue underlying, TValue shown, TValue input) => input;
 
+    protected virtual TValue ReplaceUnderExpression(TValue underlying, TValue shown, TValue input, int editedComponents)
+        => ReplaceUnderExpression(underlying, shown, input);
+
     protected TValue? GetIncrementValue(TValue? shown)
         => _previewingExpression && _relativePreview ? _previewInput : shown;
 
@@ -280,15 +283,15 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     public TValue? SetCurrentValueAndGetCoerced(TValue? value)
         => SetCurrentValueAndGetCoerced(value, relative: true);
 
-    internal TValue? SetCurrentValueAndGetCoerced(TValue? value, bool relative, bool directUnderlying = false)
+    internal TValue? SetCurrentValueAndGetCoerced(TValue? value, bool relative, bool directUnderlying = false, int? editedComponents = null)
     {
         if (IsDisposed) return default;
         if (!IsElementEditable || (HasExpression.Value && !CanEditUnderExpression))
             return ShownValue.Value;
 
+        TValue? underlying = HasExpression.Value ? ComputeUnderlyingPreview(value, relative, directUnderlying, editedComponents) : value;
         if (Mirror != null)
         {
-            TValue? underlying = HasExpression.Value ? ComputeUnderlyingPreview(value, relative, directUnderlying) : value;
             TValue? coerced = default;
             if (MirrorsValue(
                     (editor, own) =>
@@ -308,10 +311,10 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             }
         }
 
-        return ApplyUnderlyingPreview(HasExpression.Value ? ComputeUnderlyingPreview(value, relative, directUnderlying) : value);
+        return ApplyUnderlyingPreview(underlying);
     }
 
-    private TValue? ComputeUnderlyingPreview(TValue? value, bool relative, bool directUnderlying)
+    private TValue? ComputeUnderlyingPreview(TValue? value, bool relative, bool directUnderlying, int? editedComponents)
     {
         if (!_previewingExpression)
         {
@@ -325,13 +328,16 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             StartPreviewBaseline(relative);
         }
 
-        // Typed input carries the other fields as they show now, which an earlier keystroke can have changed, so it is
-        // compared with the current display and value rather than those the preview started from.
-        return _relativePreview
-            ? OffsetValue(_previewStart!, _shownStart!, value!)
-            : directUnderlying
-                ? value
-                : ReplaceUnderExpression(GetEditingValue()!, ShownValue.Value, value!);
+        if (_relativePreview)
+            return OffsetValue(_previewStart!, _shownStart!, value!);
+        if (directUnderlying)
+            return value;
+
+        // Earlier keystrokes can change the displayed and underlying values used to apply this input.
+        TValue underlying = GetEditingValue()!;
+        return editedComponents is { } mask
+            ? ReplaceUnderExpression(underlying, ShownValue.Value, value!, mask)
+            : ReplaceUnderExpression(underlying, ShownValue.Value, value!);
     }
 
     private TValue? ApplyUnderlyingPreview(TValue? underlying)

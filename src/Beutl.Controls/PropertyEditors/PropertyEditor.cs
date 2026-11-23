@@ -216,6 +216,12 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         return context.PreviewEdit(value, relative);
     }
 
+    private protected TEdit PreviewEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value, bool relative, int editedComponents)
+    {
+        HasUnconfirmedEdit = true;
+        return context.PreviewEdit(value, relative, editedComponents);
+    }
+
     private protected TEdit PreviewFocusedEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value)
     {
         HasUnconfirmedEdit = true;

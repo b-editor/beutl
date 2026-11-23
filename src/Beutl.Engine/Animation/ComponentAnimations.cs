@@ -11,6 +11,7 @@ public static class ComponentAnimations
     private static readonly Dictionary<Type, object> s_definitions = [];
     private static readonly Dictionary<Type, object> s_offsets = [];
     private static readonly Dictionary<Type, object> s_replacements = [];
+    private static readonly Dictionary<Type, object> s_maskedReplacements = [];
 
     static ComponentAnimations()
     {
@@ -81,9 +82,11 @@ public static class ComponentAnimations
             new("G", v => v.G, (v, n) => new(v.R, n, v.B)),
             new("B", v => v.B, (v, n) => new(v.R, v.G, n)));
         RegisterWithUnit<Graphics.RelativePoint, float>((a, b) => a.Unit != b.Unit,
+            (v, input) => new(v.Point, input.Unit),
             new("X", v => v.Point.X, (v, n) => new(n, v.Point.Y, v.Unit)),
             new("Y", v => v.Point.Y, (v, n) => new(v.Point.X, n, v.Unit)));
         RegisterWithUnit<Graphics.RelativeRect, float>((a, b) => a.Unit != b.Unit,
+            (v, input) => new(v.Rect, input.Unit),
             new("X", v => v.Rect.X, (v, n) => new(new Graphics.Rect(n, v.Rect.Y, v.Rect.Width, v.Rect.Height), v.Unit)),
             new("Y", v => v.Rect.Y, (v, n) => new(new Graphics.Rect(v.Rect.X, n, v.Rect.Width, v.Rect.Height), v.Unit)),
             new("Width", v => v.Rect.Width, (v, n) => new(new Graphics.Rect(v.Rect.X, v.Rect.Y, n, v.Rect.Height), v.Unit)),
@@ -92,11 +95,11 @@ public static class ComponentAnimations
 
     private static void Register<T, TComponent>(params ComponentDefinition<T, TComponent>[] components)
         where TComponent : INumber<TComponent>
-        => RegisterWithUnit<T, TComponent>(null, components);
+        => RegisterWithUnit<T, TComponent>(null, null, components);
 
     // unitChanged compares a unit that applies to the whole value. Separating such a type keeps the original
     // animation's unit schedule, which an edit that changes the unit replaces.
-    private static void RegisterWithUnit<T, TComponent>(Func<T, T, bool>? unitChanged,
+    private static void RegisterWithUnit<T, TComponent>(Func<T, T, bool>? unitChanged, Func<T, T, T>? copyUnit,
         params ComponentDefinition<T, TComponent>[] components)
         where TComponent : INumber<TComponent>
     {
@@ -120,6 +123,18 @@ public static class ComponentAnimations
                 TComponent edited = component.Get(input);
                 if (edited != component.Get(shown))
                     value = component.Set(value, edited);
+            }
+            return value;
+        });
+        s_maskedReplacements[typeof(T)] = (Func<T, T, int, T>)((value, input, editedComponents) =>
+        {
+            if (unitChanged?.Invoke(value, input) == true)
+                value = copyUnit!(value, input);
+
+            for (int i = 0; i < components.Length; i++)
+            {
+                if ((editedComponents & (1 << i)) != 0)
+                    value = components[i].Set(value, components[i].Get(input));
             }
             return value;
         });
@@ -198,6 +213,12 @@ public static class ComponentAnimations
     // Takes the components of input that differ from shown, and keeps value's other components.
     public static T ReplaceEditedComponents<T>(T value, T shown, T input)
         => s_replacements.TryGetValue(typeof(T), out object? replace) ? ((Func<T, T, T, T>)replace)(value, shown, input) : input;
+
+    // Takes the marked components and shared unit of input, and keeps value's other components.
+    public static T ReplaceEditedComponents<T>(T value, T input, int editedComponents)
+        => s_maskedReplacements.TryGetValue(typeof(T), out object? replace)
+            ? ((Func<T, T, int, T>)replace)(value, input, editedComponents)
+            : editedComponents == 0 ? value : input;
 
     public static IComponentAnimation Separate(IProperty property)
     {
