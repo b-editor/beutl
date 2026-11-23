@@ -5,11 +5,42 @@ using Beutl.Controls;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Services;
 using Beutl.Views;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
 
 public sealed class ControlNotificationsTests
 {
+    [AvaloniaTest]
+    public void LookupFollowsCurrentDataContextAndInheritedNotifications()
+    {
+        using var editor = new NotificationCapture();
+        using var inherited = new NotificationCapture();
+        using var provider = new ServiceCollection()
+            .AddSingleton<INotificationService>(editor)
+            .BuildServiceProvider();
+        using var emptyProvider = new ServiceCollection().BuildServiceProvider();
+        var control = new Border { DataContext = provider };
+        var window = new Window { Content = control };
+        ControlNotifications.SetNotifications(window, inherited);
+
+        Assert.That(ControlNotifications.FromDataContextOrDefault(control), Is.SameAs(editor));
+
+        control.DataContext = null;
+        Assert.That(ControlNotifications.FromDataContextOrDefault(control), Is.SameAs(inherited));
+
+        control.DataContext = new object();
+        Assert.That(ControlNotifications.FromDataContextOrDefault(control), Is.SameAs(inherited));
+
+        control.DataContext = emptyProvider;
+        Assert.That(ControlNotifications.FromDataContextOrDefault(control), Is.SameAs(inherited));
+
+        window.Content = null;
+        int failed = 0;
+        ControlNotifications.FromDataContextOrDefault(control).ShowError("Title", "Message", onShowFailed: () => failed++);
+        Assert.That(failed, Is.EqualTo(1));
+    }
+
     [AvaloniaTest]
     public void DetachedControlReportsFailureAndFollowsItsCurrentOwner()
     {
