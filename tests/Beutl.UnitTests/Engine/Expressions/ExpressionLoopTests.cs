@@ -318,13 +318,27 @@ public class ExpressionLoopTests
     }
 
     [Test]
-    public void ContinueKeepsLargeIntegerComponentsExact()
+    public void ContinueKeepsLargeIntegerComponentsExact([Values] bool separated)
     {
         const int start = 1 << 25;
         var property = MakeProperty(default(PixelPoint), "LoopOut(LoopMode.Continue)", MakeAnimation(
             (0, new PixelPoint(start, 0)), (1, new PixelPoint(start + 3, 0))));
+        if (separated)
+            ComponentAnimations.Separate(property);
 
         Assert.That(Evaluate(property, Seconds(2)).X, Is.EqualTo(start + 6));
+    }
+
+    [TestCase("LoopOut(LoopMode.Offset)", 1.5, 55)]
+    [TestCase("LoopIn(LoopMode.Offset)", -0.5, -45)]
+    public void OffsetCarriesAJumpAtTheOuterBoundary(string script, double time, double expected)
+    {
+        var animation = script.StartsWith("LoopOut")
+            ? MakeAnimation((0, 0.0), (1, 10.0), (1, 50.0))
+            : MakeAnimation((0, -40.0), (0, 0.0), (1, 10.0));
+        var property = MakeProperty(0.0, script, animation);
+
+        Assert.That(Evaluate(property, Seconds(time)), Is.EqualTo(expected));
     }
 
     [Test]

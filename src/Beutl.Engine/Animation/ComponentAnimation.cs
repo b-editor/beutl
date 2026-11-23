@@ -139,6 +139,10 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         }
     }
 
+    // Without a unit schedule, a linear value type interpolates each component linearly on its own.
+    bool IComponentInterpolator<TComponent>.InterpolatesLinearly
+        => s_set.UnitChanged is null && ComponentAnimations.InterpolatesLinearly<T>();
+
     TComponent IComponentInterpolator<TComponent>.Interpolate(KeyFrameAnimation<TComponent> animation,
         float progress, TComponent oldValue, TComponent newValue, MediaTime previousTime, MediaTime nextTime, MediaTime time)
     {

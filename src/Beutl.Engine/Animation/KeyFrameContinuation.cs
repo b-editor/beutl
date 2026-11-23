@@ -52,7 +52,8 @@ internal static class KeyFrameContinuation
 
         long segment = Math.Abs((edge.KeyTime.Value - other.KeyTime.Value).Flicks);
         double elapsed = slope * Math.Abs((time - boundary).Flicks) / segment;
-        if (animation.HierarchicalParent is not IComponentInterpolator<T> && ComponentAnimations.InterpolatesLinearly<T>())
+        if (animation.HierarchicalParent is not IComponentInterpolator<T> { InterpolatesLinearly: false }
+            && ComponentAnimations.InterpolatesLinearly<T>())
             return ComponentAnimations.AddScaledDelta(value, other.Value.Value!, value, elapsed);
 
         (KeyFrame<T> from, KeyFrame<T> to) = loopOut ? (other, edge) : (edge, other);

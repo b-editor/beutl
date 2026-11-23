@@ -62,7 +62,11 @@ public class ExpressionGlobals<T>(ExpressionContext context, IExpression<T>? bel
         {
             LoopMode.Cycle => ValueAt(wrapped),
             LoopMode.PingPong => ValueAt(Int128.IsOddInteger(cycles) ? new MediaTime((long)(end.Flicks - phase)) : wrapped),
-            LoopMode.Offset => ComponentAnimations.AddScaledDelta(ValueAt(wrapped), ValueAt(start), ValueAt(end), (double)cycles),
+            // Each cycle carries the range's full displacement, including a jump between keys sharing its outer
+            // boundary time: the value held just outside the range is the one a cycle continues from.
+            LoopMode.Offset => loopOut
+                ? ComponentAnimations.AddScaledDelta(ValueAt(wrapped), ValueAt(start), ValueAt(new MediaTime(end.Flicks + 1)), (double)cycles)
+                : ComponentAnimations.AddScaledDelta(ValueAt(wrapped), ValueAt(new MediaTime(start.Flicks - 1)), ValueAt(end), (double)cycles),
             _ => throw new ExpressionException($"Unknown loop mode: {mode}.")
         };
     }
