@@ -550,6 +550,27 @@ public sealed class ColorGradingTabTests
     }
 
     [AvaloniaTest]
+    [TestCase(600, 280, 1)]
+    [TestCase(480, 240, 0)]
+    public async Task The_bottom_wheel_or_tonal_range_can_scroll_into_view(int width, int height, int mode)
+    {
+        using TabHost host = await TabHost.OpenAsync($"grading-scroll-{mode}", width, height, mode);
+        var scroller = host.View.FindControl<ScrollViewer>("WheelScroller")!;
+        Assert.That(scroller.Extent.Height, Is.GreaterThan(scroller.Viewport.Height));
+        HeadlessCapture.SaveIfRequested(host.Window, nameof(ColorGradingTabTests), $"wheel-scroll-{mode}-top");
+
+        scroller.Offset = new Vector(0, scroller.Extent.Height - scroller.Viewport.Height);
+        HeadlessTestHelpers.Render();
+        Control lastRow = mode == 0
+            ? host.View.FindControl<Grid>("TonalRangeRow")!
+            : host.Wheels.Children.OfType<ColorGradingWheel>().Last();
+        var box = lastRow.GetVisualDescendants().OfType<TextBox>().Last();
+        AvaPoint position = HeadlessTestHelpers.Center(box, host.Window);
+        TimelineTestHost.WaitForHitTest(host.Window, box, position);
+        HeadlessCapture.SaveIfRequested(host.Window, nameof(ColorGradingTabTests), $"wheel-scroll-{mode}-bottom");
+    }
+
+    [AvaloniaTest]
     [TestCase(420, 560)]
     [TestCase(550, 674)]
     public async Task The_wrapped_tonal_range_leaves_room_for_the_pads_after_redocking(int width, int height)

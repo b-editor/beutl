@@ -52,6 +52,17 @@ public sealed class ColorWheelsPanel : Panel
 
     internal double PadSize => _arrangement.Pad;
 
+    internal double? ViewportHeight
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            InvalidateMeasure();
+        }
+    }
+
     // The sliders can scroll above the wheels. Reserve the shortest arrangement that fits the requested pads.
     internal double MeasureHeightForPad(double width, double pad)
     {
@@ -89,7 +100,7 @@ public sealed class ColorWheelsPanel : Panel
             : (wheels.Length * (MaxPadSize + spacing)) - spacing;
 
         MeasureChrome(wheels[0]);
-        _arrangement = Choose(wheels.Length, width, availableSize.Height);
+        _arrangement = Choose(wheels.Length, width, ViewportHeight ?? availableSize.Height);
 
         Size wheelSize = WheelSize(_arrangement);
         foreach (ColorGradingWheel wheel in wheels)

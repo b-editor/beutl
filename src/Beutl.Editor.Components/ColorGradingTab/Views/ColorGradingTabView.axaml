@@ -111,64 +111,70 @@
                 </local:GradingAdjustmentsPanel>
             </ScrollViewer>
 
-            <pe:ColorWheelsPanel x:Name="LiftWheels" IsVisible="{Binding IsLiftGammaGainMode.Value}">
-                <pe:ColorGradingWheel x:Name="LiftPicker" />
-                <pe:ColorGradingWheel x:Name="GammaPicker" />
-                <pe:ColorGradingWheel x:Name="GainPicker" />
-                <pe:ColorGradingWheel x:Name="OffsetPicker" />
-            </pe:ColorWheelsPanel>
+            <ScrollViewer x:Name="WheelScroller"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <local:GradingWheelsContentPanel>
+                    <pe:ColorWheelsPanel x:Name="LiftWheels" IsVisible="{Binding IsLiftGammaGainMode.Value}">
+                        <pe:ColorGradingWheel x:Name="LiftPicker" />
+                        <pe:ColorGradingWheel x:Name="GammaPicker" />
+                        <pe:ColorGradingWheel x:Name="GainPicker" />
+                        <pe:ColorGradingWheel x:Name="OffsetPicker" />
+                    </pe:ColorWheelsPanel>
 
-            <pe:ColorWheelsPanel x:Name="LogWheels" IsVisible="{Binding IsLogMode.Value}">
-                <pe:ColorGradingWheel x:Name="ShadowsPicker" />
-                <pe:ColorGradingWheel x:Name="MidtonesPicker" />
-                <pe:ColorGradingWheel x:Name="HighlightsPicker" />
-            </pe:ColorWheelsPanel>
+                    <pe:ColorWheelsPanel x:Name="LogWheels" IsVisible="{Binding IsLogMode.Value}">
+                        <pe:ColorGradingWheel x:Name="ShadowsPicker" />
+                        <pe:ColorGradingWheel x:Name="MidtonesPicker" />
+                        <pe:ColorGradingWheel x:Name="HighlightsPicker" />
+                    </pe:ColorWheelsPanel>
 
-            <!--  Narrow, the range's boxes go under the slider so that it keeps its length, and wrap if they must.  -->
-            <Grid x:Name="TonalRangeRow"
-                  IsVisible="{Binding IsLogMode.Value}"
-                  Container.Name="TonalRangeRow"
-                  Container.Sizing="Width"
-                  RowDefinitions="Auto,Auto">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <Grid.Styles>
-                    <Style Selector="WrapPanel#TonalRangeEditors">
-                        <Setter Property="Grid.Column" Value="2" />
-                        <Setter Property="Margin" Value="16,0,0,0" />
-                    </Style>
-                    <ContainerQuery Name="TonalRangeRow" Query="max-width:600">
-                        <Style Selector="WrapPanel#TonalRangeEditors">
-                            <Setter Property="Grid.Row" Value="1" />
-                            <Setter Property="Grid.Column" Value="0" />
-                            <Setter Property="Grid.ColumnSpan" Value="3" />
-                            <Setter Property="Margin" Value="0,6,0,0" />
-                            <Setter Property="HorizontalAlignment" Value="Right" />
-                        </Style>
-                    </ContainerQuery>
-                </Grid.Styles>
+                    <!--  Narrow, the range's boxes go under the slider so that it keeps its length, and wrap if they must.  -->
+                    <Grid x:Name="TonalRangeRow"
+                          IsVisible="{Binding IsLogMode.Value}"
+                          Container.Name="TonalRangeRow"
+                          Container.Sizing="Width"
+                          RowDefinitions="Auto,Auto">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.Styles>
+                            <Style Selector="WrapPanel#TonalRangeEditors">
+                                <Setter Property="Grid.Column" Value="2" />
+                                <Setter Property="Margin" Value="16,0,0,0" />
+                            </Style>
+                            <ContainerQuery Name="TonalRangeRow" Query="max-width:600">
+                                <Style Selector="WrapPanel#TonalRangeEditors">
+                                    <Setter Property="Grid.Row" Value="1" />
+                                    <Setter Property="Grid.Column" Value="0" />
+                                    <Setter Property="Grid.ColumnSpan" Value="3" />
+                                    <Setter Property="Margin" Value="0,6,0,0" />
+                                    <Setter Property="HorizontalAlignment" Value="Right" />
+                                </Style>
+                            </ContainerQuery>
+                        </Grid.Styles>
 
-                <TextBlock Margin="0,0,16,0"
-                           VerticalAlignment="Center"
-                           Text="{x:Static lang:Strings.ColorGrading_TonalRange}"
-                           Theme="{StaticResource GradingGroupLabelTheme}" />
-                <pe:TonalRangeSlider x:Name="TonalRangeSlider"
-                                     Grid.Column="1"
-                                     VerticalAlignment="Center" />
-                <WrapPanel x:Name="TonalRangeEditors"
-                           ItemSpacing="16"
-                           LineSpacing="4">
-                    <pe:NumberEditor x:Name="LowRangeEditor"
-                                     x:TypeArguments="x:Single"
-                                     Theme="{StaticResource GradingCompactNumberEditor}" />
-                    <pe:NumberEditor x:Name="HighRangeEditor"
-                                     x:TypeArguments="x:Single"
-                                     Theme="{StaticResource GradingCompactNumberEditor}" />
-                </WrapPanel>
-            </Grid>
+                        <TextBlock Margin="0,0,16,0"
+                                   VerticalAlignment="Center"
+                                   Text="{x:Static lang:Strings.ColorGrading_TonalRange}"
+                                   Theme="{StaticResource GradingGroupLabelTheme}" />
+                        <pe:TonalRangeSlider x:Name="TonalRangeSlider"
+                                             Grid.Column="1"
+                                             VerticalAlignment="Center" />
+                        <WrapPanel x:Name="TonalRangeEditors"
+                                   ItemSpacing="16"
+                                   LineSpacing="4">
+                            <pe:NumberEditor x:Name="LowRangeEditor"
+                                             x:TypeArguments="x:Single"
+                                             Theme="{StaticResource GradingCompactNumberEditor}" />
+                            <pe:NumberEditor x:Name="HighRangeEditor"
+                                             x:TypeArguments="x:Single"
+                                             Theme="{StaticResource GradingCompactNumberEditor}" />
+                        </WrapPanel>
+                    </Grid>
+                </local:GradingWheelsContentPanel>
+            </ScrollViewer>
         </local:GradingContentPanel>
 
         <controls:EmptyState Grid.Row="1"
