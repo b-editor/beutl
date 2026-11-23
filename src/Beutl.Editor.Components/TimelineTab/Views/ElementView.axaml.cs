@@ -9,7 +9,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
@@ -43,7 +42,7 @@ public sealed partial class ElementView : UserControl
     private ElementEdge? _draggingTransitionEdge;
     private double _transitionDragStartX;
     private MediaTime _transitionDragStartDuration;
-    private MediaTime? _lastSnapTarget;
+    private readonly TimelineSnapFeedback _snapFeedback = new();
     private IPointer? _interactionPointer;
     private int _keepRealized;
 
@@ -508,27 +507,16 @@ public sealed partial class ElementView : UserControl
             .CollectElementCandidates(others, model)
             .Concat(SnapHelper.CollectSceneCandidates(timeline.Scene, clock.CurrentTime.Value));
 
-        return SnapHelper.Snap(time, candidates, scale);
+        return SnapHelper.Snap(
+            time, candidates, timeline.Options.Value.BpmGrid, SceneTimeRangeService.GetFrameRate(timeline.Scene), scale);
     }
 
     // Publish only the final preview, after any trim constraints have been applied.
     // Intermediate calculations and commit/undo must not produce feedback.
     private void UpdateSnapFeedback(MediaTime? target, float scale, ulong timestamp)
-    {
-        ViewModel.Timeline.SnapBarPosition.Value = target?.TimeToPixel(scale);
-        MediaTime? previous = _lastSnapTarget;
-        _lastSnapTarget = target;
-        if (target.HasValue && target != previous)
-        {
-            NativeHapticFeedback.PerformAlignment(this, timestamp);
-        }
-    }
+        => _snapFeedback.Update(ViewModel.Timeline, this, target, scale, timestamp);
 
-    private void ClearSnapFeedback()
-    {
-        _lastSnapTarget = null;
-        ViewModel.Timeline.SnapBarPosition.Value = null;
-    }
+    private void ClearSnapFeedback() => _snapFeedback.Clear(ViewModel.Timeline);
 
     // The pressed clip's group or selection and the clip itself. Locked members stay: the Roll/Slide check needs
     // them, and the slip service drops them itself.
