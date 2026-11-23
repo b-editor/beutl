@@ -90,7 +90,11 @@ public sealed partial class StillRenderer(FontManager fonts, DecoderRegistry? de
             {
                 IReadOnlyList<RenderedTextBounds> textBounds =
                     CreateRenderedTextBounds(renderedScene, renderer, renderedTime);
-                return new RenderedFrameAnalysis(renderedTime, renderer.Snapshot(), textBounds);
+                var bitmap = renderer.Snapshot();
+                return new RenderedFrameAnalysis(renderedTime, bitmap, textBounds)
+                {
+                    GraphFailures = NodeGraphDiagnostics.CollectRenderFailures(renderedScene),
+                };
             },
             snapshotFonts,
             cancellationToken);

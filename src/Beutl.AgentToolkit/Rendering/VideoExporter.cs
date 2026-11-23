@@ -1,5 +1,7 @@
-﻿using System.Globalization;
+﻿using System.Collections.Concurrent;
+using System.Globalization;
 using System.Reactive.Disposables;
+using Beutl.AgentToolkit.NodeGraphs;
 using Beutl.Collections;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Encoding;
@@ -77,6 +79,7 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
 
             await ThrowIfExportSourcesMissingAsync(scene, frameRate, videoEnabled, audioEnabled, cancellationToken).ConfigureAwait(false);
 
+            var graphFailures = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
             using var providers = ExportMediaProviders.Create(
                 scene, renderFonts,
                 videoEnabled,
@@ -84,7 +87,12 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
                 normalizedScale,
                 frameRate,
                 normalizedSampleRate,
-                controller.AudioSettings.GetChannelLayout(), decoders: decoders);
+                controller.AudioSettings.GetChannelLayout(), decoders,
+                onFrameRendered: () =>
+                {
+                    foreach (string failure in NodeGraphDiagnostics.CollectRenderFailures(scene))
+                        graphFailures.TryAdd(failure, 0);
+                });
             IFrameProvider frameProvider = providers.FrameProvider;
             ISampleProvider sampleProvider = providers.SampleProvider;
             using IDisposable frameProgressSubscription = onFrameProgress is null
@@ -112,6 +120,7 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
                 warnings.Add(bitrateWarning);
             }
 
+            warnings.AddRange(graphFailures.Keys.Order(StringComparer.Ordinal));
             output.Commit(controller.OutputFiles, cancellationToken);
             onFrameProgress?.Invoke(frameProvider.FrameCount, frameProvider.FrameCount);
             return new ExportVideoResponse(

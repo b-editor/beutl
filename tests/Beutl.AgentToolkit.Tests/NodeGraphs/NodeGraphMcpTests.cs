@@ -100,15 +100,7 @@ public sealed class NodeGraphMcpTests
     public async Task Render_still_reports_what_a_graph_failed_on(string code)
     {
         using var scene = new NodeGraphTestScene();
-        GraphModel graph = scene.Graph;
-        var input = new FilterEffectInputNode();
-        var pass = new ShaderFullscreenPassNode { Code = { Value = code } };
-        var output = new OutputNode();
-        graph.Nodes.Add(input);
-        graph.Nodes.Add(pass);
-        graph.Nodes.Add(output);
-        graph.Connect((IInputPort)pass.Items.Single(item => item.Name.Value == "In.source"), input.Output);
-        graph.Connect(output.InputPort, (IOutputPort)pass.Items.Single(item => item.Name.Value == "Out.color"));
+        Guid passId = AddFailedGraph(scene.Graph, code);
 
         RenderStillResponse response = await new StillRenderer(TestFonts.Manager).RenderAsync(
             RenderTools.CreateSceneSnapshot(scene.Session),
@@ -117,7 +109,46 @@ public sealed class NodeGraphMcpTests
             1,
             CancellationToken.None);
 
-        Assert.That(response.Warnings, Has.Some.Contain($"node {pass.Id.Value}"));
+        Assert.That(response.Warnings, Has.Some.Contain($"node {passId}"));
+    }
+
+    [TestCase(NodeGraphTestScene.NeedsBufferCode)]
+    [TestCase(NodeGraphTestScene.IntegerOutputCode)]
+    public async Task Storyboard_and_video_report_a_graph_failure_once(string code)
+    {
+        using var scene = new NodeGraphTestScene();
+        Guid passId = AddFailedGraph(scene.Graph, code);
+        string output = TestWorkspace.CreateDirectory();
+        var tools = TestRenderTools.Create(scene.Session.CreateManager());
+        ToolResult<RenderStoryboardResult> storyboard = ToolResultReader.Read<RenderStoryboardResult>(
+            await tools.RenderStoryboard(output, timeSeconds: [0, 0.5]));
+        Assert.That(storyboard.IsSuccess, Is.True, storyboard.Error?.Message);
+        Assert.That(storyboard.Value!.Result!.Warnings.Count(warning => warning.Contains($"node {passId}")), Is.EqualTo(1));
+
+        var encoder = new DelegateEncoder(".mp4", async (controller, frames, _, _) =>
+        {
+            while (await frames.ReadNextFrame().ConfigureAwait(false) is { } bitmap)
+                bitmap.Dispose();
+            File.WriteAllText(controller.OutputFile, "test encoding");
+        });
+        var exporter = new VideoExporter(new EncoderRegistration(encoder), TestFonts.Manager);
+        ExportVideoResponse video = await exporter.ExportAsync(
+            RenderTools.CreateSceneSnapshot(scene.Session), Path.Combine(output, "test.mp4"),
+            new Rational(2, 1), 44100, 1, CancellationToken.None);
+        Assert.That(video.Warnings.Count(warning => warning.Contains($"node {passId}")), Is.EqualTo(1));
+    }
+
+    private static Guid AddFailedGraph(GraphModel graph, string code)
+    {
+        var input = new FilterEffectInputNode();
+        var pass = new ShaderFullscreenPassNode { Code = { Value = code } };
+        var output = new OutputNode();
+        graph.Nodes.Add(input);
+        graph.Nodes.Add(pass);
+        graph.Nodes.Add(output);
+        graph.Connect((IInputPort)pass.Items.Single(item => item.Name.Value == "In.source"), input.Output);
+        graph.Connect(output.InputPort, (IOutputPort)pass.Items.Single(item => item.Name.Value == "Out.color"));
+        return pass.Id.Value;
     }
 
     // A project with one element holding a white rectangle whose effect is an empty node graph; returns the effect's Id.

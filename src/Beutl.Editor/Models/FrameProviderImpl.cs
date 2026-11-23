@@ -24,6 +24,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Channel<Bitmap> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
+    private readonly Action? _onFrameRendered;
     private readonly RetainedRenderTargetCheckpoint _retentionCheckpoint;
     private long _nextFrame;
     private bool _disposed;
@@ -38,12 +39,14 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         Rational rate,
         SceneRenderer renderer,
         Subject<MediaTime> progress,
-        int retainedRenderTargetReleaseInterval)
+        int retainedRenderTargetReleaseInterval = RetainedRenderTargetCheckpoint.DefaultReleaseInterval,
+        Action? onFrameRendered = null)
     {
         _scene = scene;
         _rate = rate;
         _renderer = renderer;
         _progress = progress;
+        _onFrameRendered = onFrameRendered;
         // Fixed at the start, so a duration edited during the export cannot end the frames early.
         _frameCount = ToFrameCount(scene.Duration.Value, rate);
         _retentionCheckpoint = new RetainedRenderTargetCheckpoint(retainedRenderTargetReleaseInterval);
@@ -72,6 +75,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     {
         var frame = _renderer.Compositor.EvaluateGraphics(_scene.FromWindowTime(time), _rate, cancellationToken);
         _renderer.Render(frame);
+        _onFrameRendered?.Invoke();
         Bitmap snapshot = _renderer.Snapshot();
 
         // Downscale supersampled render to FrameSize before encode (no-op when OutputScale == 1).

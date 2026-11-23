@@ -17,6 +17,8 @@ public sealed class RenderedFrameAnalysis : IDisposable
 
     public IReadOnlyList<RenderedTextBounds> TextBounds { get; }
 
+    internal IReadOnlyList<string> GraphFailures { get; init; } = [];
+
     public void Dispose()
     {
         Bitmap.Dispose();
