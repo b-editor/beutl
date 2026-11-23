@@ -2111,4 +2111,22 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>메시 제어점({0}행, {1}열)</value>
   </data>
+  <data name="SourceBackdrop_LibraryDescription" xml:space="preserve">
+    <value>아래 레이어에 효과를 적용합니다(조정 레이어, adjustment layer).</value>
+  </data>
+  <data name="Group_LibraryDescription" xml:space="preserve">
+    <value>하위 항목을 함께 이동, 크기 조절, 회전합니다(부모, 널 오브젝트, parent, null object).</value>
+  </data>
+  <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
+    <value>입력에 공통 그리기 속성을 적용합니다(레이어 장식, layer decorator, adjustment).</value>
+  </data>
+  <data name="GeometryShape_LibraryDescription" xml:space="preserve">
+    <value>트랙 매트로 사용할 수 있는 벡터 경로를 그립니다(레이어 마스크, track matte, layer mask).</value>
+  </data>
+  <data name="ChromaKey_LibraryDescription" xml:space="preserve">
+    <value>지정한 배경색을 제거합니다(그린 스크린, green screen, chroma key).</value>
+  </data>
+  <data name="MosaicEffect_LibraryDescription" xml:space="preserve">
+    <value>이미지를 색 블록으로 바꿉니다(픽셀화, 모자이크, pixelate, mosaic).</value>
+  </data>
 </root>

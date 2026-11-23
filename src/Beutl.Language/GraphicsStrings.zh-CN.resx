@@ -2111,4 +2111,22 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>网格控制点（第 {0} 行，第 {1} 列）</value>
   </data>
+  <data name="SourceBackdrop_LibraryDescription" xml:space="preserve">
+    <value>将效果应用到下方图层（调整图层，adjustment layer）。</value>
+  </data>
+  <data name="Group_LibraryDescription" xml:space="preserve">
+    <value>一起移动、缩放和旋转子项（父级、空对象，parent、null object）。</value>
+  </data>
+  <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
+    <value>向输入应用共有的绘制属性（图层装饰，layer decorator、adjustment）。</value>
+  </data>
+  <data name="GeometryShape_LibraryDescription" xml:space="preserve">
+    <value>绘制可用作轨道遮罩的自定义矢量路径（图层蒙版，track matte、layer mask）。</value>
+  </data>
+  <data name="ChromaKey_LibraryDescription" xml:space="preserve">
+    <value>移除指定的背景色（绿幕，green screen、chroma key）。</value>
+  </data>
+  <data name="MosaicEffect_LibraryDescription" xml:space="preserve">
+    <value>将画面转换为色块（像素化、马赛克，pixelate、mosaic）。</value>
+  </data>
 </root>

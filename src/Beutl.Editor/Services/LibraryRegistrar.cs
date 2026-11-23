@@ -43,7 +43,7 @@ internal static class LibraryRegistrar
             );
 
         library
-            .AddMultiple(GraphicsStrings.GeometryShape, m => m
+            .AddMultiple(GraphicsStrings.GeometryShape, GraphicsStrings.GeometryShape_LibraryDescription, m => m
                 .BindDrawable<Graphics.Shapes.GeometryShape>()
             );
 
@@ -63,7 +63,7 @@ internal static class LibraryRegistrar
             );
 
         library
-            .AddMultiple(GraphicsStrings.SourceBackdrop, m => m
+            .AddMultiple(GraphicsStrings.SourceBackdrop, GraphicsStrings.SourceBackdrop_LibraryDescription, m => m
                 .BindDrawable<SourceBackdrop>()
             );
 
@@ -129,12 +129,12 @@ internal static class LibraryRegistrar
             );
 
         library
-            .AddMultiple(GraphicsStrings.DrawableDecorator, m => m
+            .AddMultiple(GraphicsStrings.DrawableDecorator, GraphicsStrings.DrawableDecorator_LibraryDescription, m => m
                 .BindDrawable<DrawableDecorator>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.Group, m => m
+            .AddMultiple(GraphicsStrings.Group, GraphicsStrings.Group_LibraryDescription, m => m
                 .BindDrawable<DrawableGroup>()
             );
 
@@ -206,14 +206,14 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<LutEffect>(GraphicsStrings.LutEffect)
                 .AddFilterEffect<BlendEffect>(GraphicsStrings.BlendEffect)
                 .AddFilterEffect<Negaposi>(GraphicsStrings.Negaposi)
-                .AddFilterEffect<ChromaKey>(GraphicsStrings.ChromaKey)
+                .AddFilterEffect<ChromaKey>(GraphicsStrings.ChromaKey, GraphicsStrings.ChromaKey_LibraryDescription)
                 .AddFilterEffect<ColorKey>(GraphicsStrings.ColorKey)
                 .AddFilterEffect<LumaKey>(GraphicsStrings.LumaKey)
                 .AddFilterEffect<SplitEffect>(GraphicsStrings.SplitEffect)
                 .AddFilterEffect<PartsSplitEffect>(GraphicsStrings.PartsSplitEffect)
                 .AddFilterEffect<RepeatEffect>(GraphicsStrings.RepeatEffect)
                 .AddFilterEffect<TransformEffect>(GraphicsStrings.Transform)
-                .AddFilterEffect<MosaicEffect>(GraphicsStrings.MosaicEffect)
+                .AddFilterEffect<MosaicEffect>(GraphicsStrings.MosaicEffect, GraphicsStrings.MosaicEffect_LibraryDescription)
                 .AddFilterEffect<ColorShift>(GraphicsStrings.ColorShift)
                 .AddFilterEffect<LensChromaticAberration>(GraphicsStrings.LensChromaticAberration)
                 .AddFilterEffect<ShakeEffect>(GraphicsStrings.ShakeEffect)

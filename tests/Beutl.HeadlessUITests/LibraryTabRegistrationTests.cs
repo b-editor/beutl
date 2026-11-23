@@ -1,6 +1,9 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Text.RegularExpressions;
+using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
+using Beutl.Editor.Services;
+using Beutl.Graphics;
 using Beutl.NodeGraph;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -25,6 +28,22 @@ public sealed class LibraryTabRegistrationTests
     private const string LateName = "Xyzzy";
 
     private const string LateGroupName = "Xyzzy group";
+
+    [AvaloniaTest]
+    public void Built_in_items_match_terms_from_other_editors()
+    {
+        LibraryRegistrar.RegisterAll(_library);
+        using var tab = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
+        AssertMatch("adjustment", typeof(SourceBackdrop));
+        AssertMatch("parent", typeof(DrawableGroup));
+        AssertMatch("null", typeof(DrawableGroup));
+
+        void AssertMatch(string query, Type type)
+        {
+            LibraryItemViewModel item = tab.AllItems.Single(item => item.Data is MultipleTypeLibraryItem lib && lib.Types.Values.Contains(type));
+            Assert.That(item.Match([new Regex(query, RegexOptions.IgnoreCase)]), Is.GreaterThan(0), query);
+        }
+    }
 
     [AvaloniaTest]
     public void An_item_registered_after_the_tab_opens_is_listed_until_its_type_unloads()

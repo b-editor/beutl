@@ -2111,4 +2111,22 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>Punto de malla {0}, {1}</value>
   </data>
+  <data name="SourceBackdrop_LibraryDescription" xml:space="preserve">
+    <value>Aplica efectos a las capas inferiores (capa de ajuste, adjustment layer).</value>
+  </data>
+  <data name="Group_LibraryDescription" xml:space="preserve">
+    <value>Mueve, escala y gira sus elementos juntos (elemento padre, objeto nulo, parent, null object).</value>
+  </data>
+  <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
+    <value>Aplica propiedades de dibujo comunes a las entradas (decorador de capas, layer decorator, adjustment).</value>
+  </data>
+  <data name="GeometryShape_LibraryDescription" xml:space="preserve">
+    <value>Dibuja un trazado vectorial que puede servir como mate de pista (máscara de capa, track matte, layer mask).</value>
+  </data>
+  <data name="ChromaKey_LibraryDescription" xml:space="preserve">
+    <value>Elimina un color de fondo elegido (pantalla verde, green screen, chroma key).</value>
+  </data>
+  <data name="MosaicEffect_LibraryDescription" xml:space="preserve">
+    <value>Convierte la imagen en bloques de color (pixelar, mosaico, pixelate, mosaic).</value>
+  </data>
 </root>

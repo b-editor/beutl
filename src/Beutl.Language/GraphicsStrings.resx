@@ -2112,4 +2112,22 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>Mesh point {0}, {1}</value>
   </data>
+  <data name="SourceBackdrop_LibraryDescription" xml:space="preserve">
+    <value>Applies effects to the layers underneath it (adjustment layer).</value>
+  </data>
+  <data name="Group_LibraryDescription" xml:space="preserve">
+    <value>Moves, scales, and rotates its children together (parent, null object).</value>
+  </data>
+  <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
+    <value>Applies shared drawing properties to its inputs (layer decorator, adjustment).</value>
+  </data>
+  <data name="GeometryShape_LibraryDescription" xml:space="preserve">
+    <value>Draws a custom vector path that can be used as a track matte (layer mask).</value>
+  </data>
+  <data name="ChromaKey_LibraryDescription" xml:space="preserve">
+    <value>Removes a chosen background color (green screen, chroma key).</value>
+  </data>
+  <data name="MosaicEffect_LibraryDescription" xml:space="preserve">
+    <value>Turns the picture into blocks of color (pixelate, mosaic).</value>
+  </data>
 </root>

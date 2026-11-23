@@ -2107,4 +2107,22 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>メッシュの制御点（{0} 行、{1} 列）</value>
   </data>
+  <data name="SourceBackdrop_LibraryDescription" xml:space="preserve">
+    <value>下にあるレイヤーにまとめてエフェクトを適用します（調整レイヤー、adjustment layer）。</value>
+  </data>
+  <data name="Group_LibraryDescription" xml:space="preserve">
+    <value>子要素をまとめて移動・拡大縮小・回転します（親、ヌルオブジェクト、parent、null object）。</value>
+  </data>
+  <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
+    <value>入力に共通の描画プロパティを適用します（レイヤー装飾、layer decorator、adjustment）。</value>
+  </data>
+  <data name="GeometryShape_LibraryDescription" xml:space="preserve">
+    <value>任意のベクターパスを描画し、トラックマットとしても使えます（レイヤーマスク、track matte、layer mask）。</value>
+  </data>
+  <data name="ChromaKey_LibraryDescription" xml:space="preserve">
+    <value>指定した背景色を取り除きます（グリーンバック、green screen、chroma key）。</value>
+  </data>
+  <data name="MosaicEffect_LibraryDescription" xml:space="preserve">
+    <value>画像を色のブロックで表現します（ピクセル化、pixelate、mosaic）。</value>
+  </data>
 </root>
