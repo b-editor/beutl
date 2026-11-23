@@ -521,7 +521,9 @@ internal static class NumericExpressionEvaluator
 
             if (TryParseDecimalLiteral(token, out value))
             {
-                if (value == 0m && TryParseDoubleLiteral(token, out double doubleValue) && doubleValue != 0d)
+                if ((value == 0m || IsBelowAccurateDecimalMagnitude(value))
+                    && TryParseDoubleLiteral(token, out double doubleValue)
+                    && (double)value != doubleValue)
                 {
                     return EvalStatus.NeedsDoubleFallback;
                 }

@@ -53,6 +53,8 @@ public sealed class NumericExpressionTests
     [TestCase("1e-20 / 1e20", 1e-40d)]
     [TestCase("1e-30 * 1e28", 0.01d)]
     [TestCase("1e-28 * 1.5 * 1e28", 1.5d)]
+    [TestCase("1.5e-28 * 1e28", 1.5d)]
+    [TestCase("1e-28 / 1.4e-28", 1d / 1.4d)]
     [TestCase("1e-10 * 1e-18 * 1.5 * 1e28", 1.5d)]
     [TestCase("0.1 ^ 28 * 1.5 * 10 ^ 28", 1.5d)]
     [TestCase("(1 + 1e-16 - 1) * 1e16", 1d)]
