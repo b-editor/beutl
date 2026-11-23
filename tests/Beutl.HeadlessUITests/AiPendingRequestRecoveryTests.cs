@@ -216,6 +216,54 @@ public sealed class AiPendingRequestRecoveryTests
     }
 
     [AvaloniaTest]
+    [TestCase("account-b")]
+    [TestCase(null)]
+    public async Task IdentityChangeBetweenVideoPollsKeepsTheSubmittedKey(string? nextAccount)
+    {
+        string? key = null;
+        int polls = 0;
+        using var handler = new StubHandler(request =>
+        {
+            string path = request.RequestUri?.AbsolutePath ?? string.Empty;
+            if (RecoveryCatalog(path) is { } catalog)
+                return catalog;
+            if (path == "/api/v3/ai/videos")
+            {
+                key = IdempotencyKeyOf(request);
+                return JsonResponse(HttpStatusCode.OK, """{"jobId":"video","status":"queued"}""");
+            }
+            if (path == "/api/v3/ai/videos/video")
+            {
+                polls++;
+                return JsonResponse(HttpStatusCode.OK, """{"jobId":"video","status":"queued"}""");
+            }
+            return NotFoundResponse();
+        });
+        await using BeutlApiApplication app = CreateApp(handler);
+        var store = new FileAiRequestKeyMap(_root);
+        using var recovery = TrackAccount(app, store);
+        await using var dialog = CreateVideoGenerationDialog(app, context: recovery);
+        dialog.PollDelayAsync = (_, _) =>
+        {
+            SetAuthenticatedUser(app, nextAccount);
+            return Task.CompletedTask;
+        };
+        await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value && dialog.ModelPicker.IsLoaded.Value);
+        dialog.Prompt.Value = "a lighthouse";
+        await WaitUntilAsync(() => dialog.CanGenerate.Value);
+
+        await dialog.Generate.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(polls, Is.EqualTo(1));
+            Assert.That(key, Is.Not.Null);
+            Assert.That(store.PendingFor("test-user", "video.generate").Single().Key, Is.EqualTo(key));
+            Assert.That(dialog.ResultVideoPath.Value, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
     public async Task AccountSwitchRejectsLateNonCooperativeImageResult()
     {
         string root = Path.Combine(

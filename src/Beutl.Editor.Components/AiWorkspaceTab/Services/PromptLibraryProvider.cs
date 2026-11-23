@@ -26,10 +26,9 @@ internal static class PromptLibraryProvider
         => new AccountPromptLibrary(context);
 
     private static (string AccountKey, string StoragePath)? ResolveAccountStorage(
-        AiRequestRecoveryContext context)
+        string? account)
     {
-        string account = context.TryGetIdentity()?.AccountId ?? string.Empty;
-        if (account.Length == 0)
+        if (string.IsNullOrEmpty(account))
             return null;
 
         string accountKey = Convert.ToHexString(
@@ -41,30 +40,33 @@ internal static class PromptLibraryProvider
     private sealed class AccountPromptLibrary(AiRequestRecoveryContext context)
         : IPromptLibrary, IPromptLibraryChangeSource
     {
-        private PersistentPromptLibrary? Library
-        {
-            get
-            {
-                if (ResolveAccountStorage(context) is not { } account)
-                    return null;
-                Directory.CreateDirectory(s_root);
-                string accountKey = account.AccountKey;
-                string path = account.StoragePath;
-                lock (s_gate)
-                {
-                    if (s_libraries.TryGetValue(accountKey, out PersistentPromptLibrary? cached))
-                        return cached;
+        private PersistentPromptLibrary? Library => GetLibrary(context.TryGetIdentity()?.AccountId);
 
-                    var library = new PersistentPromptLibrary(path);
-                    s_libraries[accountKey] = library;
-                    return library;
-                }
+        private static PersistentPromptLibrary? GetLibrary(string? accountId)
+        {
+            if (ResolveAccountStorage(accountId) is not { } account)
+                return null;
+            Directory.CreateDirectory(s_root);
+            lock (s_gate)
+            {
+                if (s_libraries.TryGetValue(account.AccountKey, out PersistentPromptLibrary? cached))
+                    return cached;
+
+                var library = new PersistentPromptLibrary(account.StoragePath);
+                s_libraries[account.AccountKey] = library;
+                return library;
             }
         }
 
         public IReadOnlyList<PromptHistoryEntry> History => Library?.History ?? Array.Empty<PromptHistoryEntry>();
         public IReadOnlyList<PromptTemplate> Templates => Library?.Templates ?? Array.Empty<PromptTemplate>();
-        public PromptHistoryEntry Record(PromptTaskKind k, string p) => Require().Record(k, p);
+        public PromptHistoryEntry Record(PromptTaskKind k, string p)
+        {
+            PersistentPromptLibrary? library = AiAuthenticatedRequestScope.Identity.HasValue
+                ? GetLibrary(context.GetRequiredIdentity().AccountId)
+                : Library;
+            return (library ?? throw new AuthenticationRequiredException()).Record(k, p);
+        }
         public PromptTemplate SaveTemplate(string n, PromptTaskKind k, string p) => Require().SaveTemplate(n, k, p);
         public bool SetHistoryPinned(Guid id, bool value) => Library?.SetHistoryPinned(id, value) ?? false;
         public bool SetTemplatePinned(Guid id, bool value) => Library?.SetTemplatePinned(id, value) ?? false;
@@ -76,7 +78,7 @@ internal static class PromptLibraryProvider
             ArgumentNullException.ThrowIfNull(callback);
             return PromptLibraryChangeHub.Subscribe(path =>
             {
-                if (ResolveAccountStorage(context) is { } current
+                if (ResolveAccountStorage(context.TryGetIdentity()?.AccountId) is { } current
                     && StringComparer.Ordinal.Equals(current.StoragePath, path))
                 {
                     callback();

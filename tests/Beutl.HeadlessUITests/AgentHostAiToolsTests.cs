@@ -22,6 +22,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using Reactive.Bindings;
 using SkiaSharp;
 using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
@@ -516,6 +517,67 @@ public sealed class AgentHostAiToolsTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task IdentityChangeDuringPreparationDoesNotQueueAnAiJob(bool transcription)
+    {
+        await TestShell.OpenNewSceneAsync("agent-ai-account");
+        using var identity = new ReactivePropertySlim<AiAuthenticatedRequestIdentity?>(new("account-a", User: null));
+        using var recovery = new AiRequestRecoveryContext(
+            new FileAiRequestKeyMap(_directory), () => identity.Value, identity);
+        var backend = new FakeBackend { RecoveryContext = recovery };
+        void ChangeAccount()
+        {
+            Assert.That(AiAuthenticatedRequestScope.Identity?.AccountId, Is.EqualTo("account-a"));
+            identity.Value = new("account-b", User: null);
+        }
+        if (transcription)
+            backend.OnGetModels = ChangeAccount;
+        else
+            backend.OnValidate = ChangeAccount;
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        ToolResult<AgentAiJobSnapshot> result = transcription
+            ? await tools.TranscribeAudio(WriteFile("voice.wav"), waitSeconds: 0)
+            : await tools.GenerateImage("a cat", waitSeconds: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
+            Assert.That(jobs.List(), Is.Empty);
+            Assert.That(backend.Requests, Is.Empty);
+            Assert.That(backend.TranscribedPaths, Is.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task AccountChangesStillFailTheJobAfterTheStartingToolReturns()
+    {
+        await TestShell.OpenNewSceneAsync("agent-ai-account-background");
+        using var identity = new ReactivePropertySlim<AiAuthenticatedRequestIdentity?>(new("account-a", User: null));
+        using var recovery = new AiRequestRecoveryContext(
+            new FileAiRequestKeyMap(_directory), () => identity.Value, identity);
+        var backend = new FakeBackend
+        {
+            RecoveryContext = recovery,
+            Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+        AgentAiJobSnapshot queued = (await tools.GenerateImage("a cat", waitSeconds: 0)).Value!;
+
+        identity.Value = null;
+
+        AgentAiJobSnapshot? finished = await jobs.WaitAsync(queued.JobId, TimeSpan.FromSeconds(5), CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(finished?.Status, Is.EqualTo(AgentAiJobStatus.Failed));
+            Assert.That(finished?.ErrorCode, Is.EqualTo(ErrorCode.AiUnavailable));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task AnAccountOutOfCreditsIsUnavailableNotAFailedGeneration()
     {
         await TestShell.OpenNewSceneAsync("agent-ai-credits");
@@ -541,7 +603,8 @@ public sealed class AgentHostAiToolsTests
     [Test]
     public async Task AFileThatCannotBeDecodedIsUnsupportedMediaNotAFailedGeneration()
     {
-        var backend = new AgentHostAiBackend(() => null, null!, null!, null!, () => null!, _ => null!, null!, new DecoderRegistry(new()));
+        using var recovery = AiRetryTestContext.CreateForm();
+        var backend = new AgentHostAiBackend(recovery, null!, null!, null!, () => null!, _ => null!, null!, new DecoderRegistry(new()));
         string path = WriteFile("noise.wav");
 
         AgentAiException? error = await Assert.ThrowsAsync<AgentAiException>(
@@ -774,6 +837,8 @@ public sealed class AgentHostAiToolsTests
 
     private sealed class FakeBackend : IAgentAiBackend, IGenerativeNodeExecutor
     {
+        public AiRequestRecoveryContext? RecoveryContext { get; set; }
+
         public string Result { get; set; } = string.Empty;
 
         public TaskCompletionSource? Gate { get; set; }
@@ -796,13 +861,20 @@ public sealed class AgentHostAiToolsTests
 
         public GenerativeRefusal? Refusal { get; set; }
 
+        public Action? OnGetModels { get; set; }
+
+        public Action? OnValidate { get; set; }
+
         // The real executor's checks, against this backend's models. The stub clip lasts six seconds.
         public Task<GenerativeRefusal?> ValidateAsync(GenerativeRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(Refusal ?? AiGenerativeNodeExecutor.Validate(
+        {
+            OnValidate?.Invoke();
+            return Task.FromResult(Refusal ?? AiGenerativeNodeExecutor.Validate(
                 request,
                 Catalog ?? AiModelCatalog.Empty,
                 Models.GetValueOrDefault(request.CatalogOperationId) ?? [],
                 _ => 6));
+        }
 
         public Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken)
             => Task.FromResult(AiRequestRules.RequiresPrompt(Catalog, imageEditTask));
@@ -810,7 +882,10 @@ public sealed class AgentHostAiToolsTests
         public Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
 
         public Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken)
-            => Task.FromResult(Models.GetValueOrDefault(operationId) ?? []);
+        {
+            OnGetModels?.Invoke();
+            return Task.FromResult(Models.GetValueOrDefault(operationId) ?? []);
+        }
 
         // When set, an executor keeps its result where this puts it for the scene it was made for.
         public Func<Scene, string>? ResultForScene { get; set; }

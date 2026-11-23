@@ -259,6 +259,30 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
+    public void PersistedSeedsKeepTheirExistingWireKeyAndRecoverIndependently()
+    {
+        var store = new FileAiRequestKeyMap(_directory);
+        using var context = RecoveryContext(store, () => "account");
+        using var legacy = new AiRequestKey(seed: "first", operation: "image.generate");
+        using var first = new AiRequestKey(seed: "first", recoveryContext: context, operation: "image.generate");
+        using var second = new AiRequestKey(seed: "second", recoveryContext: context, operation: "image.generate");
+        using var resumed = new AiRequestKey(seed: "first", recoveryContext: context, operation: "image.generate");
+
+        AiRequestName firstName = first.NameFor("same prompt");
+        AiRequestName secondName = second.NameFor("same prompt");
+        AiRequestName resumedName = resumed.NameFor("same prompt");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstName.Key, Is.EqualTo(legacy.NameFor("same prompt").Key));
+            Assert.That(firstName.Key, Is.Not.EqualTo(secondName.Key));
+            Assert.That(secondName.IsRepeat, Is.False);
+            Assert.That(resumedName, Is.EqualTo(firstName with { IsRepeat = true }));
+            Assert.That(store.PendingFor("account", "image.generate"), Has.Count.EqualTo(2));
+        });
+    }
+
+    [Test]
     public void RetireRemovesTheIssuingAccountAfterAnAccountSwitch()
     {
         string? account = "account-a";

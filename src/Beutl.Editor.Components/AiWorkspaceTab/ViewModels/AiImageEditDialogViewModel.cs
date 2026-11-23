@@ -561,20 +561,24 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             return;
         }
 
-        if (!operation.TryPublish(() =>
-            {
-                Error.Value = null;
-                IsEditing.Value = true;
-            }))
-        {
-            return;
-        }
-
-        _runningRequest = operation;
         string? preparedFilePath = null;
         AiRequestName issued = default;
+        AiAccountJobScope? account = null;
         try
         {
+            account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = account.Link(operation.CancellationToken);
+            CancellationToken requestToken = cancellation.Token;
+            if (!operation.TryPublish(() =>
+                {
+                    Error.Value = null;
+                    IsEditing.Value = true;
+                }))
+            {
+                return;
+            }
+            _runningRequest = operation;
+
             string task = SelectedTask.Value.Value;
             string? prompt = RequiresPrompt.Value ? Prompt.Value.Trim() : null;
             int? outpaintExpansionPercent = task == OutpaintTask
@@ -604,7 +608,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             byte[] uploadBytes = await AiUploadBytes.ReadWithinAsync(
                 uploadPath,
                 AiRequestLimits.MaxImageUploadBytes,
-                operation.CancellationToken);
+                requestToken);
             AiOperationId editOperation = AiOperations.ImageEdit(new AiImageEditTaskId(task));
             string?[] requestParts =
             [
@@ -617,14 +621,15 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             // something the screen does not show.
             AiModelId? model = ModelPicker.Operation == editOperation ? ModelPicker.SelectedModel : null;
             requestParts[ModelPartIndex] = model?.Value;
-            AiRequestName name = _requestKey.NameFor(requestParts);
+            AiRequestName name;
+            using (account.Enter(requestToken))
+                name = _requestKey.NameFor(requestParts);
             issued = name;
             _outstanding.Remember(name, requestParts);
             _outstandingRevision.Value++;
-            using IDisposable authenticatedScope = _requestKey.EnterAuthenticatedScope(name);
 
             AiImageResult response = await AiMeteredDispatch.SendAsync(
-                _requestKey,
+                account,
                 name,
                 token => _availability.CheckAsync(
                     new AiOperationAvailabilityRequest.Fixed(editOperation, model),
@@ -638,40 +643,47 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
                         name.Key),
                     token),
                 WithdrawRequestName,
-                operation.CancellationToken);
+                requestToken);
 
             // Past here the picture has been paid for. Whatever goes wrong
             // while it is fetched, the name stays: it is the way back to it.
-            Ref<Bitmap> resultImage = await AiImageResultDownload.DownloadBitmapAsync(
-                _content,
-                response.ContentUri,
-                operation.CancellationToken);
-            RetireRequestName(name);
-            if (!operation.TryPublish(() =>
-                {
-                    ResultImage.Value?.Dispose();
-                    ResultImage.Value = resultImage;
-                    SelectedComparisonMode.Value = ComparisonModes[0];
-                    if (prompt is not null)
-                    {
-                        PromptLibrary.Record(Prompt.Value.Trim());
-                    }
-                }))
+            Ref<Bitmap> resultImage = await account.SendAsync(
+                token => AiImageResultDownload.DownloadBitmapAsync(_content, response.ContentUri, token),
+                requestToken);
+            bool published = false;
+            try
             {
-                resultImage.Dispose();
+                using (account.Enter(requestToken))
+                {
+                    published = operation.TryPublish(() =>
+                    {
+                        if (prompt is not null)
+                            PromptLibrary.Record(Prompt.Value.Trim());
+                        ResultImage.Value?.Dispose();
+                        ResultImage.Value = resultImage;
+                        SelectedComparisonMode.Value = ComparisonModes[0];
+                    });
+                }
+                if (published && !account.AccountChanged)
+                    RetireRequestName(name);
+            }
+            finally
+            {
+                if (!published)
+                    resultImage.Dispose();
             }
         }
         // Every refusal that reserves nothing withdrew its name where it was
         // raised, next to the request that never left.
         catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
         {
-            if (failure.RetiresName)
+            if (failure.RetiresName && account is { AccountChanged: false })
                 RetireRequestName(issued);
             if (failure.IsResultDownloadFailure)
                 _logger.LogError(ex, "Failed to download the AI result.");
             operation.TryPublish(() => Error.Value = failure.Message);
         }
-        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested || account?.AccountChanged == true)
         {
         }
         catch (Exception ex)
@@ -681,6 +693,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
         }
         finally
         {
+            account?.Dispose();
             if (ReferenceEquals(_runningRequest, operation))
                 _runningRequest = null;
             operation.TryPublish(() =>

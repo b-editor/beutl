@@ -47,8 +47,13 @@ internal sealed partial class AiImageEditDialogViewModel
         _runningRequest = operation;
         try
         {
-            (AiPendingJobState state, AiJob? job) = await AiPendingJobLookup.FindAsync(
-                _jobs, _jobKinds, _requestRecoveryContext, attempt, operation.CancellationToken);
+            using var account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = account.Link(operation.CancellationToken);
+            CancellationToken requestToken = cancellation.Token;
+            (AiPendingJobState state, AiJob? job) = await account.SendAsync(
+                token => AiPendingJobLookup.FindAsync(_jobs, _jobKinds, _requestRecoveryContext, attempt, token),
+                requestToken);
+            account.ThrowIfInvalid(requestToken);
             switch (state)
             {
                 case AiPendingJobState.Succeeded:
@@ -58,10 +63,10 @@ internal sealed partial class AiImageEditDialogViewModel
                         break;
                     }
 
-                    Ref<Bitmap> image = await AiImageResultDownload.DownloadBitmapAsync(
-                        _content, contentUri, operation.CancellationToken);
-                    _recovery.TrySettle(attempt);
-                    if (!operation.TryPublish(() =>
+                    Ref<Bitmap> image = await account.SendAsync(
+                        token => AiImageResultDownload.DownloadBitmapAsync(_content, contentUri, token),
+                        requestToken);
+                    if (account.AccountChanged || !operation.TryPublish(() =>
                         {
                             ResultImage.Value?.Dispose();
                             ResultImage.Value = image;
@@ -69,6 +74,10 @@ internal sealed partial class AiImageEditDialogViewModel
                         }))
                     {
                         image.Dispose();
+                    }
+                    else if (!account.AccountChanged)
+                    {
+                        _recovery.TrySettle(attempt);
                     }
                     break;
                 case AiPendingJobState.Running:

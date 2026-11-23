@@ -66,6 +66,7 @@ internal sealed class AiRequestKey : IDisposable
     private readonly ReactivePropertySlim<bool> _hasOutstandingName = new(false);
     private readonly AiRequestRecoveryContext? _recoveryContext;
     private readonly string? _operation;
+    private readonly bool _hasPersistedSeed;
     private string _seed;
     private bool _resumedAttemptPending;
     private bool _disposed;
@@ -75,6 +76,7 @@ internal sealed class AiRequestKey : IDisposable
     {
         _recoveryContext = recoveryContext;
         _operation = operation;
+        _hasPersistedSeed = !string.IsNullOrEmpty(seed);
         _seed = string.IsNullOrEmpty(seed) ? NewSeed() : seed;
         // A restored execution knows its name but not which request was sent, so treat only the
         // first name handed out again as a repeat.
@@ -271,7 +273,12 @@ internal sealed class AiRequestKey : IDisposable
         AiRequestName name;
         lock (_gate)
         {
-            string identity = GenerationIdentity(account, operation, request);
+            // Runs with their own persisted seed (AI nodes) have independent requests, even
+            // when their inputs match. Keep sending the same key older versions sent for them.
+            string fingerprint = _recoveryContext is not null && _hasPersistedSeed
+                ? $"{_seed}-{request}"
+                : request;
+            string identity = GenerationIdentity(account, operation, fingerprint);
             if (_recoveryContext is not null)
             {
                 if (operation.Length == 0)
@@ -283,7 +290,7 @@ internal sealed class AiRequestKey : IDisposable
                              .ToArray())
                 {
                     if (!_recoveryContext.Store.PendingFor(account!, operation)
-                            .Any(row => row.Fingerprint == request && row.Key == spent))
+                            .Any(row => row.Fingerprint == fingerprint && row.Key == spent))
                     {
                         Forget(spent, advance: true);
                     }
@@ -292,13 +299,13 @@ internal sealed class AiRequestKey : IDisposable
                 (AiPendingAttempt row, bool existed) = _recoveryContext.Store.GetOrAdd(
                     account!,
                     operation,
-                    request,
+                    fingerprint,
                     model,
                     () => ComposeKey(request, account, operation, _generations.GetValueOrDefault(identity)));
                 bool resumed = _resumedAttemptPending;
                 _resumedAttemptPending = false;
                 name = new AiRequestName(row.Key, existed || resumed || _outstanding.ContainsKey(row.Key));
-                _outstanding[row.Key] = new Issued(request, account, operation);
+                _outstanding[row.Key] = new Issued(fingerprint, account, operation);
             }
             else
             {
@@ -319,7 +326,7 @@ internal sealed class AiRequestKey : IDisposable
     // Generation 0 has no suffix. The format has shipped, so it must not change.
     private string ComposeKey(string request, string? account, string operation, int generation)
     {
-        string keyBase = _recoveryContext is null
+        string keyBase = _recoveryContext is null || _hasPersistedSeed
             ? $"{_seed}-{request}"
             : $"{_seed}-{request}-{ScopeFingerprint(account!, operation)}";
         return generation == 0

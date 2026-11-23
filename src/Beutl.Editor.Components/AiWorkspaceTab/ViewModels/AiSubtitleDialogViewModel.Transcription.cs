@@ -53,14 +53,16 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private async Task TranscribeSelectedSourceAsync(
         AudioSourceItem source,
-        AsyncOperationLifetime.Operation operationLifetime)
+        AsyncOperationLifetime.Operation operationLifetime,
+        AiAccountJobScope account,
+        CancellationToken requestToken)
     {
         long captionRevision = Interlocked.Read(ref _captionDocumentRevision);
         long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
         string? language = SelectedSourceLanguage.Value.Code;
         if (source.IsSceneMix)
         {
-            await TranscribeSceneMixAsync(source, language, draftScopeRevision, operationLifetime);
+            await TranscribeSceneMixAsync(source, language, draftScopeRevision, operationLifetime, account, requestToken);
             return;
         }
 
@@ -73,12 +75,14 @@ public sealed partial class AiSubtitleDialogViewModel
             language,
             captionRevision,
             draftScopeRevision,
-            operationLifetime);
+            operationLifetime,
+            account,
+            requestToken);
     }
 
     // Audio alone: an FFmpeg reader that also decodes video starts its audio after the first frame.
     // A file that opens only as video gets the no-audio message.
-    private async Task<MediaReader> OpenSourceAudioAsync(string filePath)
+    private async Task<MediaReader> OpenSourceAudioAsync(string filePath, CancellationToken requestToken)
     {
         try
         {
@@ -86,7 +90,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 () => MediaReader.Open(
                     filePath,
                     new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }, _decoders),
-                RequestToken);
+                requestToken);
         }
         catch (UnsupportedMediaException)
         {
@@ -95,7 +99,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 using MediaReader? video = _decoders.OpenMediaFile(
                     filePath, new MediaOptions(MediaMode.Video) { IsBackground = true });
                 return video != null;
-            }, RequestToken);
+            }, requestToken);
             if (opensAsVideo)
                 throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
             throw;
@@ -108,13 +112,16 @@ public sealed partial class AiSubtitleDialogViewModel
         string? language,
         long captionRevision,
         long draftScopeRevision,
-        AsyncOperationLifetime.Operation operationLifetime)
+        AsyncOperationLifetime.Operation operationLifetime,
+        AiAccountJobScope account,
+        CancellationToken requestToken)
     {
         SourceAudioFingerprint fingerprint = GetSourceAudioFingerprint(filePath);
         // Opening and decoding are the editor's own work, not the server's, and
         // both run for as long as the audio is: off the UI thread, or the window
         // stops answering for the length of the file.
-        using MediaReader reader = await OpenSourceAudioAsync(filePath);
+        using MediaReader reader = await OpenSourceAudioAsync(filePath, requestToken);
+        account.ThrowIfInvalid(requestToken);
         if (!reader.HasAudio)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
@@ -139,7 +146,7 @@ public sealed partial class AiSubtitleDialogViewModel
             chunkIndex < operation.ChunkCount;
             chunkIndex++)
         {
-            RequestToken.ThrowIfCancellationRequested();
+            account.ThrowIfInvalid(requestToken);
             if (!ReferenceEquals(SelectedAudioSource.Value, source))
                 return;
             long chunkOffset = checked((long)chunkIndex * operation.ChunkSamples);
@@ -161,8 +168,8 @@ public sealed partial class AiSubtitleDialogViewModel
                             checked((int)(operation.SourceStartSamples + chunkOffset)),
                             requestedSamples,
                             stream,
-                            RequestToken),
-                        RequestToken);
+                            requestToken),
+                        requestToken);
                 }
                 if (chunk.SourceSampleCount <= 0)
                     throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
@@ -183,7 +190,7 @@ public sealed partial class AiSubtitleDialogViewModel
                             chunk.UploadedDuration.TotalSeconds,
                             runModel),
                         PublishSourceTranscriptionPartial,
-                        WithdrawSourceTranscriptionName))
+                        WithdrawSourceTranscriptionName, account, requestToken))
                 {
                     return;
                 }
@@ -191,8 +198,9 @@ public sealed partial class AiSubtitleDialogViewModel
                 (bool settled, AiTranscriptionResponse response) = await SendRunPieceAsync(
                     operation,
                     name,
-                    async () => NormalizeTranscriptionResponse(
-                        await _transcription.TranscribeAsync(
+                    async token =>
+                    {
+                        AiTranscriptionResponse result = await _transcription.TranscribeAsync(
                             new AiTranscriptionRequest(
                                 AiUploadSource.FromFile(
                                     path,
@@ -200,11 +208,12 @@ public sealed partial class AiSubtitleDialogViewModel
                                 language,
                                 runModel,
                                 name.Key),
-                            RequestToken),
-                        chunk.UploadedDuration.TotalSeconds,
-                        operation.ExpectedDraftScopeRevision),
+                            token);
+                        account.ThrowIfInvalid(token);
+                        return NormalizeTranscriptionResponse(result, chunk.UploadedDuration.TotalSeconds, operation.ExpectedDraftScopeRevision);
+                    },
                     PublishSourceTranscriptionPartial,
-                    WithdrawSourceTranscriptionName);
+                    WithdrawSourceTranscriptionName, account, requestToken);
                 if (!settled)
                     return;
                 operation.DetectedLanguage ??= response.Language;
@@ -378,7 +387,9 @@ public sealed partial class AiSubtitleDialogViewModel
         AudioSourceItem source,
         string? language,
         long draftScopeRevision,
-        AsyncOperationLifetime.Operation operationLifetime)
+        AsyncOperationLifetime.Operation operationLifetime,
+        AiAccountJobScope account,
+        CancellationToken requestToken)
     {
         if (_disposed
             || _editor is null
@@ -406,7 +417,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
         for (int index = operation.CompletedChunkCount; index < chunkCount; index++)
         {
-            RequestToken.ThrowIfCancellationRequested();
+            account.ThrowIfInvalid(requestToken);
             if (operation.ExpectedSceneAudioRevision != Interlocked.Read(ref _sceneAudioRevision)
                 || !ReferenceEquals(SelectedAudioSource.Value, source)
                 || !TryGetSceneRange(out TimeSpan liveStart, out TimeSpan liveDuration)
@@ -430,7 +441,7 @@ public sealed partial class AiSubtitleDialogViewModel
                         chunkDuration.TotalSeconds,
                         runModel),
                     PublishSceneTranscriptionPartial,
-                    WithdrawSceneTranscriptionName))
+                    WithdrawSceneTranscriptionName, account, requestToken))
             {
                 return;
             }
@@ -450,10 +461,10 @@ public sealed partial class AiSubtitleDialogViewModel
                             stream,
                             rangeStart + chunkOffset,
                             chunkDuration,
-                            RequestToken);
+                            requestToken);
                     }
                 }
-                catch
+                catch when (!account.AccountChanged)
                 {
                     WithdrawSceneTranscriptionName(operation, name);
                     throw;
@@ -461,8 +472,9 @@ public sealed partial class AiSubtitleDialogViewModel
                 (bool settled, AiTranscriptionResponse response) = await SendRunPieceAsync(
                     operation,
                     name,
-                    async () => NormalizeTranscriptionResponse(
-                        await _transcription.TranscribeAsync(
+                    async token =>
+                    {
+                        AiTranscriptionResponse result = await _transcription.TranscribeAsync(
                             new AiTranscriptionRequest(
                                 AiUploadSource.FromFile(
                                     path,
@@ -470,11 +482,12 @@ public sealed partial class AiSubtitleDialogViewModel
                                 language,
                                 runModel,
                                 name.Key),
-                            RequestToken),
-                        uploadedDuration.TotalSeconds,
-                        operation.ExpectedDraftScopeRevision),
+                            token);
+                        account.ThrowIfInvalid(token);
+                        return NormalizeTranscriptionResponse(result, uploadedDuration.TotalSeconds, operation.ExpectedDraftScopeRevision);
+                    },
                     PublishSceneTranscriptionPartial,
-                    WithdrawSceneTranscriptionName);
+                    WithdrawSceneTranscriptionName, account, requestToken);
                 if (!settled)
                     return;
                 operation.DetectedLanguage ??= response.Language;

@@ -129,7 +129,8 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
         if (!TryGetAuthenticationContext(
                 out AuthenticatedUser? expectedOwner,
                 out long expectedVersion,
-                out CancellationToken authenticationToken))
+                out CancellationToken authenticationToken,
+                requireExpectedUser: !preserveLoadedTail))
         {
             SetAuthenticationRequiredSnapshot();
             return;
@@ -138,6 +139,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             authenticationToken);
+        using IDisposable scope = AiAuthenticatedRequestScope.Enter(expectedOwner!);
         CancellationToken token = linkedCts.Token;
         bool gateEntered = false;
         try
@@ -303,6 +305,9 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             catch (OperationCanceledException) when (authenticationToken.IsCancellationRequested)
             {
             }
+            catch (AuthenticationRequiredException) when (!IsCurrentAuthentication(owner, authenticationVersion))
+            {
+            }
             finally
             {
                 if (!releasedSchedule)
@@ -464,11 +469,14 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
     private bool TryGetAuthenticationContext(
         out AuthenticatedUser? owner,
         out long authenticationVersion,
-        out CancellationToken authenticationToken)
+        out CancellationToken authenticationToken,
+        bool requireExpectedUser)
     {
         lock (_stateGate)
         {
             owner = _application.AuthenticatedUser.Value;
+            if (requireExpectedUser)
+                AiAuthenticatedRequestScope.RequireExpectedUser(owner);
             authenticationVersion = _authenticationVersion;
             if (_disposed || owner is null || _authenticationCts is null)
             {

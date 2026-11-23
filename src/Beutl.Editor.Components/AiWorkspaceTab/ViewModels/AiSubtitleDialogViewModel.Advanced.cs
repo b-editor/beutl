@@ -429,12 +429,6 @@ public sealed partial class AiSubtitleDialogViewModel
     private static AiModelId? ModelIdOrNull(string? model)
         => string.IsNullOrEmpty(model) ? null : new AiModelId(model);
 
-    private async Task EnsureAvailableAsync(AiOperationAvailabilityRequest request)
-    {
-        if (!await _availability.CheckAsync(request, RequestToken))
-            throw new AiUsageLimitExceededException();
-    }
-
     // The refusals both runs report to the person as they are.
     private static string? KnownRunFailureMessage(Exception exception)
         => exception switch

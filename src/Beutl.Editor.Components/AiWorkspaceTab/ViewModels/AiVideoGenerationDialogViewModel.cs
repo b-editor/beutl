@@ -664,21 +664,26 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
-        if (!operation.TryPublish(() =>
-            {
-                Error.Value = null;
-                IsGenerating.Value = true;
-                StatusText.Value = Strings.AiVideoSubmitting;
-            }))
-        {
-            return;
-        }
 
-        _runningRequest = operation;
         bool persistedServerJob = false;
         AiRequestName issued = default;
+        AiAccountJobScope? account = null;
         try
         {
+            account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = account.Link(operation.CancellationToken);
+            CancellationToken requestToken = cancellation.Token;
+            if (!operation.TryPublish(() =>
+                {
+                    Error.Value = null;
+                    IsGenerating.Value = true;
+                    StatusText.Value = Strings.AiVideoSubmitting;
+                }))
+            {
+                return;
+            }
+            _runningRequest = operation;
+
             string prompt = ComposePrompt();
             RefreshVideoInputs();
             if (InputError.Value is { } inputError) throw new VideoInputException(inputError);
@@ -692,11 +697,11 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             double? sourceSeconds = SourceDuration.Value;
             string orientation = Orientation.Value.Value;
             string quality = Quality.Value.Value;
-            InputSnapshot[] inputs = await ReadVideoInputsAsync(operation.CancellationToken, firstFramePath is null);
+            InputSnapshot[] inputs = await ReadVideoInputsAsync(requestToken, firstFramePath is null);
             if (IsSourceVideo)
             {
                 sourceSeconds = await ReadSourceSnapshotDurationAsync(
-                    inputs.Single(input => input.Role == SourceVideoRole), operation.CancellationToken);
+                    inputs.Single(input => input.Role == SourceVideoRole), requestToken);
                 if (!operation.TryPublish(() => SourceDuration.Value = sourceSeconds))
                     return;
                 if (SourceMode == AiSourceVideoMode.Edit)
@@ -716,10 +721,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             // describes something else.
             (AiUploadSource? firstFrame, string firstFrameStamp) = await ReadFrameAsync(
                 firstFramePath,
-                operation.CancellationToken);
+                requestToken);
             (AiUploadSource? lastFrame, string lastFrameStamp) = await ReadFrameAsync(
                 lastFramePath,
-                operation.CancellationToken);
+                requestToken);
             string?[] requestParts =
             [
                 prompt,
@@ -739,9 +744,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                     .Concat(inputs.Select(input => input.Role + ":" + input.Upload.MediaType + ":" + AiRequestKey.ContentStamp(input.Bytes)))).ToArray();
             AiModelId? model = ModelPicker.SelectedModel;
             requestParts[ModelPartIndex] = model?.Value;
-            AiRequestName name = _requestKey.NameFor(requestParts);
+            AiRequestName name;
+            using (account.Enter(requestToken))
+                name = _requestKey.NameFor(requestParts);
             issued = name;
-            using IDisposable authenticatedScope = _requestKey.EnterAuthenticatedScope(name);
             // Held for as long as the name is, not just for as long as the
             // request is in the air. A frame captured from the scene lives in a
             // temporary file, and the request is named partly by that file as it
@@ -750,7 +756,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             HoldFramesFor(name, firstFramePath, lastFramePath);
 
             AiVideoGenerationResult response = await AiMeteredDispatch.SendAsync(
-                _requestKey,
+                account,
                 name,
                 token => _availability.CheckAsync(
                     new AiOperationAvailabilityRequest.Video(
@@ -780,26 +786,30 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                         inputReferences: inputs.Select(input => input.Upload).ToArray()),
                     token),
                 WithdrawRequestName,
-                operation.CancellationToken);
+                requestToken);
 
             // Past here the clip has been reserved and paid for. Whatever goes
             // wrong while it is waited on, the name stays: it is the way back.
             persistedServerJob = true;
 
             double resultDurationSeconds = ResultDurationSeconds(sourceSeconds, durationSeconds);
-            if (!operation.TryPublish(() =>
+            using (account.Enter(requestToken))
+            {
+                if (!operation.TryPublish(() =>
                 {
                     if (IsGeneration) PromptLibrary.Record(prompt);
                 }))
-            {
-                return;
+                {
+                    return;
+                }
             }
 
             // Retired only once the server has settled the job. A clip whose
             // result never reached the client is still recoverable under the key
             // that created it, and asking again under a new one would pay twice.
-            if (await PollJobAsync(response.JobId, operation, resultDurationSeconds))
+            if (await PollJobAsync(response.JobId, operation, resultDurationSeconds, account, requestToken))
             {
+                account.ThrowIfInvalid(requestToken);
                 RetireRequestName(name);
             }
         }
@@ -807,7 +817,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         // raised, next to the request that never left.
         catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
         {
-            if (failure.RetiresName)
+            if (failure.RetiresName && account is { AccountChanged: false })
                 RetireRequestName(issued);
             if (failure.IsResultDownloadFailure)
                 _logger.LogError(ex, "Failed to download the AI result.");
@@ -817,10 +827,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         {
             operation.TryPublish(() => Error.Value = ex.Message);
         }
-        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested || account?.AccountChanged == true)
         {
-            if (persistedServerJob)
-                await RefreshJobHistoryAfterLocalStopAsync();
+            if (persistedServerJob && account is { AccountChanged: false })
+                await RefreshJobHistoryAfterLocalStopAsync(account);
         }
         catch (Exception ex)
         {
@@ -829,6 +839,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         }
         finally
         {
+            account?.Dispose();
             if (ReferenceEquals(_runningRequest, operation))
                 _runningRequest = null;
             operation.TryPublish(() =>

@@ -24,14 +24,16 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     private async Task<bool> PollJobAsync(
         AiJobId jobId,
         IdentityOperationLifetime.Operation operation,
-        double? resultDurationSeconds)
+        double? resultDurationSeconds,
+        AiAccountJobScope account,
+        CancellationToken cancellationToken)
     {
         CancellationTokenSource pollingCts;
         lock (_lifetimeGate)
         {
             _pollingCts?.Cancel();
             _pollingCts?.Dispose();
-            pollingCts = CancellationTokenSource.CreateLinkedTokenSource(operation.CancellationToken);
+            pollingCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _pollingCts = pollingCts;
         }
         CancellationToken token = pollingCts.Token;
@@ -41,7 +43,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             (AiVideoJob job, AiJobStatusSemantics status) = await AiVideoJobWaiter.WaitAsync(
                 _videos, _jobKinds, jobId,
                 () => operation.TryPublish(() => StatusText.Value = Strings.AiVideoProcessing),
-                PollInterval, MaximumTransientPollDelay, PollDelayAsync, token);
+                PollInterval, MaximumTransientPollDelay, PollDelayAsync, account, token);
             if (status.Outcome == AiJobOutcomes.Succeeded)
             {
                 if (job.ContentUri is not { } contentUri)
@@ -53,23 +55,36 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                     contentUri,
                     job.ContentMetadata,
                     operation,
+                    account,
                     token);
                 if (localPath is null)
                     return false;
-                double seconds = resultDurationSeconds ?? await ReadVideoDurationAsync(localPath, token);
-
-                operation.TryPublish(() =>
+                try
                 {
-                    string? previousPath = ResultVideoPath.Value;
-                    StatusText.Value = Strings.AiVideoCompleted;
-                    ResultVideoPath.Value = localPath;
-                    _resultDurationSeconds = seconds;
-                    if (!string.Equals(previousPath, localPath, StringComparison.Ordinal))
+                    double seconds = resultDurationSeconds ?? await ReadVideoDurationAsync(localPath, token);
+                    account.ThrowIfInvalid(token);
+                    if (operation.TryPublish(() =>
                     {
-                        RequestTemporaryFileDeletion(previousPath);
+                        string? previousPath = ResultVideoPath.Value;
+                        StatusText.Value = Strings.AiVideoCompleted;
+                        ResultVideoPath.Value = localPath;
+                        _resultDurationSeconds = seconds;
+                        if (!string.Equals(previousPath, localPath, StringComparison.Ordinal))
+                        {
+                            RequestTemporaryFileDeletion(previousPath);
+                        }
+                    }))
+                    {
+                        return true;
                     }
-                });
-                return true;
+                }
+                catch
+                {
+                    RequestTemporaryFileDeletion(localPath);
+                    throw;
+                }
+                RequestTemporaryFileDeletion(localPath);
+                return false;
             }
             if (status.IsTerminal)
             {
@@ -98,9 +113,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         }
         catch (OperationCanceledException) when (
             pollingCts.IsCancellationRequested
-            && !operation.CancellationToken.IsCancellationRequested)
+            && !cancellationToken.IsCancellationRequested
+            && !account.AccountChanged)
         {
-            await RefreshJobHistoryAfterLocalStopAsync();
+            await RefreshJobHistoryAfterLocalStopAsync(account);
             operation.TryPublish(() => StatusText.Value = Strings.AiVideoWaitStopped);
         }
         finally
@@ -123,14 +139,17 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         Uri contentUri,
         AiContentMetadata? declaredMetadata,
         IdentityOperationLifetime.Operation operation,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
         string? filePath = null;
         try
         {
-            filePath = await AiVideoResultDownload.DownloadAsync(
-                _content, contentUri, declaredMetadata, cancellationToken);
+            filePath = await account.SendAsync(
+                token => AiVideoResultDownload.DownloadAsync(_content, contentUri, declaredMetadata, token),
+                cancellationToken);
 
+            account.ThrowIfInvalid(cancellationToken);
             if (!operation.TryPublish(() =>
                 {
                     lock (_lifetimeGate)
@@ -145,7 +164,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 
             return filePath;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is AuthenticationRequiredException
+            || ex is OperationCanceledException && cancellationToken.IsCancellationRequested)
         {
             if (filePath is not null)
             {
@@ -198,12 +218,14 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         _runningRequest?.Cancel();
     }
 
-    private async Task RefreshJobHistoryAfterLocalStopAsync()
+    private async Task RefreshJobHistoryAfterLocalStopAsync(AiAccountJobScope account)
     {
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await _jobMonitor.RefreshAsync(timeout.Token);
+            using CancellationTokenSource cancellation = account.Link(timeout.Token);
+            using IDisposable scope = account.Enter(cancellation.Token);
+            await _jobMonitor.RefreshAsync(cancellation.Token);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
