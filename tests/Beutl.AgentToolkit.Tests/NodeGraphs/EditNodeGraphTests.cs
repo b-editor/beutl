@@ -5,9 +5,12 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Extensibility;
+using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Shaders;
+using Beutl.NodeGraph.Nodes.Utilities;
 using static Beutl.AgentToolkit.Tests.NodeGraphs.NodeGraphTestScene;
 
 namespace Beutl.AgentToolkit.Tests.NodeGraphs;
@@ -242,6 +245,41 @@ public sealed class EditNodeGraphTests
         {
             Assert.That(result.Value!.Applied, Is.True);
             Assert.That(scene.Graph.AllConnections, Has.Count.EqualTo(3));
+        });
+    }
+
+    [Test]
+    public void Replace_checks_input_availability_and_cycles_after_disconnecting()
+    {
+        var graph = new GraphModel();
+        var original = new TimeNode();
+        var replacement = new SwitchNode();
+        var target = new GeometryShapeNode();
+        var brush = new SolidColorBrush();
+        var fill = (NodePropertyAdapter<Brush?>)target.Fill.Property!;
+        fill.SetValue(brush);
+        graph.Nodes.AddRange([original, replacement, target]);
+        INestedInputPort input = target.NestedInputPorts.Single(port => ReferenceEquals(port.Property!.GetEngineProperty(), brush.Opacity));
+        graph.Connect(input, original.Progress);
+        Connection returnWire = graph.Connect(replacement.True, target.Output);
+        fill.Animation = new KeyFrameAnimation<Brush?>();
+        Assert.That(target.CanConnectInput(input), Is.False);
+
+        // Disconnecting can change both the port's availability and the graph's topology synchronously.
+        input.Connection.ValueChanged += (_, _) =>
+        {
+            if (!input.Connection.Value.IsNull) return;
+            fill.Animation = null;
+            graph.Disconnect(returnWire);
+        };
+
+        var editor = new NodeGraphEditor(graph, frameRate: null);
+        editor.Apply([Connect($"{replacement.Id.Value}.Output", $"{target.Id.Value}.Fill.Opacity", replace: true)], [Guid.Empty]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(input.Connection.Value.Value?.Output.Value.Value, Is.SameAs(replacement.Output));
+            Assert.That(graph.AllConnections, Is.EqualTo(new[] { input.Connection.Value.Value }));
         });
     }
 
