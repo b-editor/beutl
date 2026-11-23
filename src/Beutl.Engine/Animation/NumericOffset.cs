@@ -47,15 +47,21 @@ public static class NumericOffset
             return T.CreateSaturating(sum);
         }
 
-        // Other types scale in their own arithmetic, keeping a decimal's digits, and saturate on overflow.
-        try
+        // A decimal scales in its own arithmetic to keep its digits, and saturates on overflow.
+        if (typeof(T) == typeof(decimal))
         {
-            return checked(value + checked(to - from) * T.CreateChecked(scale));
+            try
+            {
+                return checked(value + checked(to - from) * T.CreateChecked(scale));
+            }
+            catch (OverflowException)
+            {
+                // Saturated below.
+            }
         }
-        catch (OverflowException)
-        {
-            return T.CreateSaturating(double.CreateChecked(value)
-                + (double.CreateChecked(to) - double.CreateChecked(from)) * scale);
-        }
+
+        // Binary floating point widens to double, so an intermediate difference does not overflow to infinity.
+        return T.CreateSaturating(double.CreateChecked(value)
+            + (double.CreateChecked(to) - double.CreateChecked(from)) * scale);
     }
 }
