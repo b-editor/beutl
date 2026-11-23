@@ -97,8 +97,9 @@ public sealed partial class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        ViewportWidth = new ReactivePropertySlim<double>().DisposeWith(_disposables);
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
-            Scene, _editorClock, timelineOptions.Scale, _disposables);
+            Scene, _editorClock, timelineOptions.Scale, ViewportWidth, _disposables);
 
         TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, _disposables);
 
@@ -157,6 +158,8 @@ public sealed partial class GraphEditorViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Thickness> Margin { get; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
+
+    internal ReactivePropertySlim<double> ViewportWidth { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }
 

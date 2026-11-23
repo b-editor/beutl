@@ -1,5 +1,4 @@
-﻿using System.Numerics;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -137,6 +136,9 @@ public sealed partial class TimelineTabView : UserControl
     private void OnDataContextAttached(TimelineTabViewModel vm)
     {
         ViewModel = vm;
+        ContentScroll.GetObservable(ScrollViewer.ViewportProperty)
+            .Subscribe(viewport => vm.ViewportWidth.Value = viewport.Width)
+            .DisposeWith(_disposables);
         PopulateAddElementSubMenu();
 
         TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e }));
@@ -228,13 +230,12 @@ public sealed partial class TimelineTabView : UserControl
             return;
         }
 
-        ViewModel.Options.Subscribe(options =>
+        TimelineTabViewModel viewModel = ViewModel;
+        viewModel.Options.Subscribe(options =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    Vector2 offset = options.Offset;
-                    ContentScroll.Offset = new(offset.X, offset.Y);
-                    PaneScroll.Offset = new(0, offset.Y);
+                    if (ViewModel == viewModel) ApplyScrollOffset(options.Offset);
                 }, DispatcherPriority.MaxValue);
             })
             .DisposeWith(_disposables);
