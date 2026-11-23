@@ -5,6 +5,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Collections;
 
 namespace Beutl.AgentToolkit.Documents;
 
@@ -83,6 +84,22 @@ internal static class KeyFrameShorthand
         }
 
         return expanded;
+    }
+
+    // Interpolation expects frames in time order. OrderBy preserves the order of frames with the same KeyTime.
+    public static void SortKeyFramesByKeyTime(ICoreList<IKeyFrame> list)
+    {
+        List<IKeyFrame> sorted = list.OrderBy(frame => frame.KeyTime.Value).ToList();
+        for (int target = 0; target < sorted.Count; target++)
+        {
+            // A frame already in place, as nearly all are, needs no search.
+            if (ReferenceEquals(list[target], sorted[target]))
+            {
+                continue;
+            }
+
+            list.Move(list.IndexOf(sorted[target]), target);
+        }
     }
 
     private static (double Seconds, JsonNode? Value, string? Easing) ReadEntry(JsonNode? entry, int index)
