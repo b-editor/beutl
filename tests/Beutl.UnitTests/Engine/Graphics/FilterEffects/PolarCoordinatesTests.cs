@@ -662,6 +662,48 @@ public sealed class PolarCoordinatesTests
     }
 
     [Test]
+    public void PolarToRectangularConvergesContinuouslyAsAmountReachesHundred()
+    {
+        var square = new PixelSize(100, 100);
+        var squareBounds = new Rect(0, 0, 100, 100);
+        var nearFull = new PolarCoordinates
+        {
+            Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
+            Amount = { Value = 99.99f },
+        };
+        var full = new PolarCoordinates
+        {
+            Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
+            Amount = { Value = 100f },
+        };
+
+        (ShaderDescription nearDesc, Rect nearBounds) = FilterEffectTestHarness.RecordShader(nearFull, squareBounds);
+        (ShaderDescription fullDesc, Rect fullBounds) = FilterEffectTestHarness.RecordShader(full, squareBounds);
+
+        using PolarCoordinates.Resource nearResource = nearFull.ToResource(CompositionContext.Default);
+        using PolarCoordinates.Resource fullResource = full.ToResource(CompositionContext.Default);
+        (float[] nearPixels, _, PixelSize nearSize) = RunWithBounds(nearResource, square, DrawGradient);
+        (float[] fullPixels, _, PixelSize fullSize) = RunWithBounds(fullResource, square, DrawGradient);
+
+        // Verify bounds, rendered interior pixels, and hit-test mapping all converge smoothly with no snap at 100%.
+        var probe = new Point(fullBounds.X + fullBounds.Width * 0.25f, fullBounds.Y + fullBounds.Height * 0.6f);
+        var accepted = new Rect(50f + 20f - 2f, 50f - 2f, 4f, 4f);
+        var input = new RenderHitTestInput(squareBounds, accepted.ContainsExclusive);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nearBounds.X, Is.EqualTo(fullBounds.X).Within(0.02f));
+            Assert.That(nearBounds.Y, Is.EqualTo(fullBounds.Y).Within(0.02f));
+            Assert.That(nearBounds.Width, Is.EqualTo(fullBounds.Width).Within(0.02f));
+            Assert.That(nearBounds.Height, Is.EqualTo(fullBounds.Height).Within(0.02f));
+            Assert.That(Channel(nearPixels, nearSize.Width, nearSize.Width / 4, nearSize.Height / 2, 0),
+                Is.EqualTo(Channel(fullPixels, fullSize.Width, fullSize.Width / 4, fullSize.Height / 2, 0)).Within(0.01f));
+            Assert.That(fullDesc.HitTest!.Value.Evaluate(fullBounds, [input], [], probe), Is.True);
+            Assert.That(nearDesc.HitTest!.Value.Evaluate(nearBounds, [input], [], probe), Is.True);
+        });
+    }
+
+    [Test]
     public void ClipToBoundsKeepsOriginalInputBounds()
     {
         var effect = new PolarCoordinates

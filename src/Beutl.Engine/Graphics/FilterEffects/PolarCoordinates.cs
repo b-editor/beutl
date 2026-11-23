@@ -408,13 +408,19 @@ public sealed partial class PolarCoordinates : FilterEffect
                 }
 
                 Point inputCenter = inputBounds.Center;
-                float x = inputCenter.X - outWidth * 0.5f;
-                float y = inputCenter.Y - outHeight * 0.5f;
-                if (!float.IsFinite(x) || !float.IsFinite(y))
+                float rectX = inputCenter.X - outWidth * 0.5f;
+                float rectY = inputCenter.Y - outHeight * 0.5f;
+                if (!float.IsFinite(rectX) || !float.IsFinite(rectY))
                     return inputBounds;
 
-                var rectBounds = new Rect(x, y, outWidth, outHeight);
-                return Amount >= 1f - 1e-6f ? rectBounds : inputBounds.Union(rectBounds);
+                if (Amount >= 1f - 1e-6f)
+                    return new Rect(rectX, rectY, outWidth, outHeight);
+
+                float x = float.Lerp(inputBounds.X, rectX, Amount);
+                float y = float.Lerp(inputBounds.Y, rectY, Amount);
+                float width = float.Lerp(inputBounds.Width, outWidth, Amount);
+                float height = float.Lerp(inputBounds.Height, outHeight, Amount);
+                return new Rect(x, y, width, height);
             }
 
             float maxRadius = MathF.Max(innerR, outerR);
