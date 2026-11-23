@@ -347,6 +347,22 @@ public sealed partial class FilterEffectContext : IDisposable
         _bounds = Rect.Invalid;
     }
 
+    /// <summary>Appends a custom effect that preserves the content's sub-pixel position.</summary>
+    /// <remarks>
+    /// Targets arrive on whole device pixels and cover every pixel touched by the content. The callback may copy,
+    /// crop or extend the targets in whole device pixels, or paint into them. Use <see cref="EffectTarget.ContentBounds"/>
+    /// for positions relative to the content and preserve those bounds in replacement targets.
+    /// </remarks>
+    public void CustomEffectKeepingPlacement<T>(T data, Action<T, CustomFilterEffectContext> action,
+        Func<T, Rect, Rect> transformBounds)
+        where T : IEquatable<T>
+        => CustomEffect(data, action, transformBounds, CustomFilterEffectOptions.KeepsPlacement);
+
+    /// <summary>Appends a placement-preserving custom effect whose output bounds are determined at execution.</summary>
+    /// <remarks>Targets follow the same device-grid contract as the overload with a bounds transform.</remarks>
+    public void CustomEffectKeepingPlacement<T>(T data, Action<T, CustomFilterEffectContext> action)
+        => CustomEffect(data, action, CustomFilterEffectOptions.KeepsPlacement);
+
     /// <summary>
     /// Appends an opaque custom effect, as <see cref="CustomEffect{T}(T, Action{T, CustomFilterEffectContext})"/>
     /// does, that declares the part of its input it reads for each part of its output.

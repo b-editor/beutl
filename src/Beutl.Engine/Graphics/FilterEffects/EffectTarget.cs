@@ -132,7 +132,7 @@ public sealed class EffectTarget : IDisposable
     /// Such a callback maps what it lays over the content, such as a brush, onto these bounds, and sets them on each
     /// target it makes from this one. The target goes on with them after the callback.
     /// </remarks>
-    internal Rect? ContentBounds { get; set; }
+    public Rect? ContentBounds { get; set; }
 
     // Where Draw puts the raster: at Placement.RasterBounds, or at Bounds for a target that keeps an imperative placement.
     internal Rect DrawnBounds
