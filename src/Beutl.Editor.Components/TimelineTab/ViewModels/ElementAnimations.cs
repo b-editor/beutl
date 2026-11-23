@@ -55,153 +55,171 @@ internal static class ElementAnimations
     internal static List<AnimationMenuItem> ReadMenu(Element element)
     {
         var roots = new List<AnimationMenuItem>();
-        var ancestors = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        var builder = new MenuBuilder();
         foreach (EngineObject obj in element.Objects)
         {
-            AppendValue(obj, roots, ancestors);
+            builder.AppendValue(obj, roots);
         }
 
         return roots;
     }
 
-    private static void AppendValue(object? value, List<AnimationMenuItem> result, HashSet<object> ancestors)
+    private sealed class MenuBuilder
     {
-        value = ChildObjects.Unwrap(value);
-        if (value is null or string or IKeyFrameAnimation || !ancestors.Add(value)) return;
+        private readonly HashSet<object> _ancestors = new(ReferenceEqualityComparer.Instance);
+        // A property can be reached on two paths, such as a node's nested port and the object its parent port holds;
+        // it has a toggle on the first only.
+        private readonly HashSet<object> _listed = new(ReferenceEqualityComparer.Instance);
 
-        try
+        public void AppendValue(object? value, List<AnimationMenuItem> result)
         {
-            switch (value)
+            value = ChildObjects.Unwrap(value);
+            if (value is null or string or IKeyFrameAnimation || !_ancestors.Add(value)) return;
+
+            try
             {
-                case INodeMember { Property: { } adapter }:
-                    if (adapter is IAnimatablePropertyAdapter { Animation: not null } animated)
-                        result.Add(new AnimationMenuItem(adapter.DisplayName, animated));
-                    break;
-                case EngineObject obj:
-                    var item = new AnimationMenuItem(string.IsNullOrWhiteSpace(obj.Name.Value)
-                        ? TypeDisplayHelpers.GetLocalizedName(obj.GetType())
-                        : obj.Name.Value);
-                    AppendObjectChildren(obj, item.Children, ancestors);
-                    AddIfAnimated(result, item);
-                    break;
-                case CoreObject core:
-                    AppendCoreChildren(core, result, ancestors);
-                    break;
-                case IEnumerable list:
-                    foreach (object? child in list)
-                    {
-                        AppendValue(child, result, ancestors);
-                    }
-
-                    break;
-            }
-        }
-        finally
-        {
-            ancestors.Remove(value);
-        }
-    }
-
-    private static void AppendObjectChildren(EngineObject obj, List<AnimationMenuItem> result, HashSet<object> ancestors)
-    {
-        foreach (IProperty property in obj.GetDisplayProperties())
-        {
-            // The items of a group stand in its place.
-            if (property is IListProperty { Name: "Children" } list && typeof(EngineObject).IsAssignableFrom(list.ElementType))
-            {
-                AppendValue(list, result, ancestors);
-                continue;
-            }
-
-            if (PropertyPair.Find(property) is { } pair)
-            {
-                // The row of the first property stands for both.
-                if (ReferenceEquals(property, pair.Properties[0]))
-                    AddIfAnimated(result, PairItem(pair));
-                continue;
-            }
-
-            AddIfAnimated(result, PropertyItem(obj, property, ancestors));
-        }
-
-        AppendCoreChildren(obj, result, ancestors);
-    }
-
-    private static void AppendCoreChildren(CoreObject obj, List<AnimationMenuItem> result, HashSet<object> ancestors)
-    {
-        foreach (IProperty field in obj.Properties.Where(obj.IsBaseField))
-        {
-            if (field.ValueType.IsValueType || field.ValueType == typeof(string)) continue;
-            AppendValue(field.Value, result, ancestors);
-        }
-    }
-
-    private static AnimationMenuItem PropertyItem(EngineObject owner, IProperty property, HashSet<object> ancestors)
-    {
-        var item = new AnimationMenuItem(Property.GetLocalizedName(property),
-            property.GetKeyFrameAnimation() != null
-                ? PropertyAdapterFactory.CreateAdapter(property, owner) as IAnimatablePropertyAdapter
-                : null);
-
-        // Each separated component has keyframes of its own.
-        if (property.GetPropertyAnimation() is IComponentAnimation components and CoreObject holder)
-        {
-            foreach (IProperty component in components.Components)
-            {
-                if (component.GetKeyFrameAnimation() != null
-                    && PropertyAdapterFactory.CreateAdapter(component, holder) is IAnimatablePropertyAdapter adapter)
+                switch (value)
                 {
-                    item.Children.Add(new AnimationMenuItem(adapter.DisplayName, adapter));
+                    // A node's port is a property's row too, over the value its adapter holds.
+                    case INodeMember { Property: { } adapter }:
+                        AddIfAnimated(result, ValueItem(adapter.DisplayName,
+                            adapter is IAnimatablePropertyAdapter { Animation: not null } animated ? animated : null,
+                            adapter.GetEngineProperty(), adapter.GetValue()));
+                        break;
+                    case EngineObject obj:
+                        var item = new AnimationMenuItem(string.IsNullOrWhiteSpace(obj.Name.Value)
+                            ? TypeDisplayHelpers.GetLocalizedName(obj.GetType())
+                            : obj.Name.Value);
+                        AppendObjectChildren(obj, item.Children);
+                        AddIfAnimated(result, item);
+                        break;
+                    case CoreObject core:
+                        AppendCoreChildren(core, result);
+                        break;
+                    case IEnumerable list:
+                        foreach (object? child in list)
+                        {
+                            AppendValue(child, result);
+                        }
+
+                        break;
                 }
+            }
+            finally
+            {
+                _ancestors.Remove(value);
+            }
+        }
+
+        private void AppendObjectChildren(EngineObject obj, List<AnimationMenuItem> result)
+        {
+            foreach (IProperty property in obj.GetDisplayProperties())
+            {
+                // The items of a group stand in its place.
+                if (property is IListProperty { Name: "Children" } list && typeof(EngineObject).IsAssignableFrom(list.ElementType))
+                {
+                    AppendValue(list, result);
+                    continue;
+                }
+
+                if (PropertyPair.Find(property) is { } pair)
+                {
+                    // The row of the first property stands for both.
+                    if (ReferenceEquals(property, pair.Properties[0]))
+                        AddIfAnimated(result, PairItem(pair));
+                    continue;
+                }
+
+                AddIfAnimated(result, ValueItem(Property.GetLocalizedName(property),
+                    property.GetKeyFrameAnimation() != null
+                        ? PropertyAdapterFactory.CreateAdapter(property, obj) as IAnimatablePropertyAdapter
+                        : null,
+                    property, property.Value));
+            }
+
+            AppendCoreChildren(obj, result);
+        }
+
+        private void AppendCoreChildren(CoreObject obj, List<AnimationMenuItem> result)
+        {
+            foreach (IProperty field in obj.Properties.Where(obj.IsBaseField))
+            {
+                if (field.ValueType.IsValueType || field.ValueType == typeof(string)) continue;
+                AppendValue(field.Value, result);
+            }
+        }
+
+        // The row of a property or a node's port: its toggle while it has keyframes, the toggles of its separated
+        // components, and the rows of the object it holds.
+        private AnimationMenuItem ValueItem(string label, IAnimatablePropertyAdapter? toggle, IProperty? property, object? value)
+        {
+            var item = new AnimationMenuItem(label, Listed(toggle));
+
+            // Each separated component has keyframes of its own.
+            if (property?.GetPropertyAnimation() is IComponentAnimation components and CoreObject holder)
+            {
+                foreach (IProperty component in components.Components)
+                {
+                    if (component.GetKeyFrameAnimation() != null
+                        && Listed(PropertyAdapterFactory.CreateAdapter(component, holder) as IAnimatablePropertyAdapter)
+                            is { } adapter)
+                    {
+                        item.Children.Add(new AnimationMenuItem(adapter.DisplayName, adapter));
+                    }
+                }
+
+                return item;
+            }
+
+            // A reference holds another object, whose keyframes are not this element's.
+            if (property is IExpressionProperty { IsReference: true }) return item;
+
+            value = ChildObjects.Unwrap(value);
+            if (value is EngineObject nested and not INodeMember && _ancestors.Add(nested))
+            {
+                try
+                {
+                    // A property that holds an object (a fill, a transform) is that object's row.
+                    AppendObjectChildren(nested, item.Children);
+                }
+                finally
+                {
+                    _ancestors.Remove(nested);
+                }
+            }
+            else
+            {
+                AppendValue(value, item.Children);
             }
 
             return item;
         }
 
-        // A reference holds another object, whose keyframes are not this element's.
-        if (property is IExpressionProperty { IsReference: true }) return item;
-
-        object? value = ChildObjects.Unwrap(property.Value);
-        if (value is EngineObject nested and not INodeMember && ancestors.Add(nested))
+        // One row while the properties stand as one, and a row for each with keyframes below the pair's row otherwise.
+        private AnimationMenuItem PairItem(PropertyPair pair)
         {
-            try
+            if (!pair.IsSeparated.Value)
+                return new AnimationMenuItem(pair.DisplayName, pair.Animation != null ? Listed(pair) : null);
+
+            var item = new AnimationMenuItem(pair.DisplayName);
+            foreach (IAnimatablePropertyAdapter adapter in pair.Adapters)
             {
-                // A property that holds an object (a fill, a transform) is that object's row.
-                AppendObjectChildren(nested, item.Children, ancestors);
+                if (adapter.Animation != null && Listed(adapter) is { } member)
+                    item.Children.Add(new AnimationMenuItem(member.DisplayName, member));
             }
-            finally
-            {
-                ancestors.Remove(nested);
-            }
+
+            return item;
         }
-        else
+
+        // The property's toggle, or null when another row already has one for it.
+        private IAnimatablePropertyAdapter? Listed(IAnimatablePropertyAdapter? adapter)
+            => adapter != null && _listed.Add(adapter.GetEngineProperty() ?? (object)adapter) ? adapter : null;
+
+        private static void AddIfAnimated(List<AnimationMenuItem> result, AnimationMenuItem item)
         {
-            AppendValue(value, item.Children, ancestors);
+            if (item.Adapter != null || item.Children.Count > 0)
+                result.Add(item);
         }
-
-        return item;
-    }
-
-    // One row while the properties stand as one, and a row for each with keyframes below the pair's row otherwise.
-    private static AnimationMenuItem PairItem(PropertyPair pair)
-    {
-        if (!pair.IsSeparated.Value)
-            return new AnimationMenuItem(pair.DisplayName, pair.Animation != null ? pair : null);
-
-        var item = new AnimationMenuItem(pair.DisplayName);
-        foreach (IAnimatablePropertyAdapter adapter in pair.Adapters)
-        {
-            if (adapter.Animation != null)
-                item.Children.Add(new AnimationMenuItem(adapter.DisplayName, adapter));
-        }
-
-        return item;
-    }
-
-    private static void AddIfAnimated(List<AnimationMenuItem> result, AnimationMenuItem item)
-    {
-        if (item.Adapter != null || item.Children.Count > 0)
-            result.Add(item);
     }
 
     // An expression the user wrote, which the value follows over time. A reference to another object and a node's

@@ -26,6 +26,9 @@ public sealed class InlineEasingGraphControl : Control
     // A segment between two keys takes a sample every two pixels, up to this many.
     private const int MaxSamplesPerSegment = 64;
 
+    // The progress of a sample at a key's own position that reads the value the segment had up to it.
+    private const float JustBeforeKey = 1f - 1e-6f;
+
     private static readonly Dictionary<Color, IBrush> s_channelBrushes = [];
 
     private readonly Pen _pen = new()
@@ -344,6 +347,14 @@ public sealed class InlineEasingGraphControl : Control
                 for (int j = 1; j <= count; j++)
                 {
                     float progress = j / (float)count;
+                    if (j == count)
+                    {
+                        // The value just before the key, so a value that holds until the key jumps there rather than
+                        // ramping over the last sample.
+                        x.Add(to);
+                        values.Add(sampler.ValueAt(animation, previous, next, JustBeforeKey));
+                    }
+
                     x.Add(from + width * progress);
                     values.Add(sampler.ValueAt(animation, previous, next, progress));
                 }

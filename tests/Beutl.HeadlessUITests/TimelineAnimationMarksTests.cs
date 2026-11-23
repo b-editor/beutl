@@ -20,6 +20,8 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
@@ -142,7 +144,8 @@ public class TimelineAnimationMarksTests
         // An added key raises no Edited, only the list of keys changes.
         history.ExecuteInTransaction(() => width.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = { Value = MediaTime.FromSeconds(3) }, Value = { Value = 10 }
+            KeyTime = { Value = MediaTime.FromSeconds(3) },
+            Value = { Value = 10 }
         }), "add");
         HeadlessTestHelpers.Settle();
         Assert.That(model.AnimationMarks.Value.Times, Is.EqualTo(Seconds(0.5, 1, 1.5, 1.75, 3)));
@@ -425,13 +428,75 @@ public class TimelineAnimationMarksTests
     }
 
     [Test]
+    public void A_held_value_jumps_at_the_next_key_rather_than_ramping_to_it()
+    {
+        KeyFrameAnimation<float> animation = Animation((0.0, 0f), (1.0, 100f));
+        animation.KeyFrames[1].Easing.Value = new HoldEasing();
+        var factory = GraphEditorViewViewModelFactory.GetFactory(animation)!;
+        InlineEasingGraphControl.ValueLine line = InlineEasingGraphControl.ValueLine.Sample(
+            animation, [(0d, animation.KeyFrames[0]), (1000d, animation.KeyFrames[1])], 0, 1000,
+            factory.ChannelReaders!).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(line.Values.Where((_, i) => line.X[i] < 1000), Is.All.Zero, "the value holds up to the key");
+            Assert.That(line.X[^2..], Is.EqualTo(new[] { 1000d, 1000d }));
+            Assert.That(line.Values[^2..], Is.EqualTo(new[] { 0d, 100d }), "and goes straight up at it");
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task The_animation_menu_lists_the_separated_channels_of_a_brush_that_a_node_port_holds()
+    {
+        SolidColorBrush? brush = null;
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync(
+            "animation-marks-node-port", MediaTime.FromSeconds(10),
+            [
+                Clip(() =>
+                {
+                    brush = new SolidColorBrush(Colors.Orange);
+                    brush.Color.SetKeyFrameAnimation(Animation((0.0, Colors.Orange), (1.0, Colors.DeepSkyBlue)));
+                    ComponentAnimations.Separate(brush.Color);
+                    var node = new GeometryShapeNode();
+                    node.Fill.Property!.SetValue(brush);
+                    var graph = new GraphModel();
+                    graph.Nodes.Add(node);
+                    var drawable = new NodeGraphDrawable();
+                    drawable.Model.Value = graph;
+                    return drawable;
+                })
+            ]);
+        HeadlessTestHelpers.Render(5);
+        ElementViewModel model = host.Model.FindViewModelFor(host.Scene.Children.Single())!;
+        var channels = (IComponentAnimation)brush!.Color.GetPropertyAnimation()!;
+        IAnimatablePropertyAdapter[] toggles = [.. model.GetAnimationMenu().SelectMany(row => row.Adapters)];
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.AnimationMarks.Value.HasKeyFrames, Is.True);
+                Assert.That(toggles.Select(adapter => adapter.GetEngineProperty()), Is.EquivalentTo(channels.Components),
+                    "a toggle for each channel of the color, below the node's fill port");
+            });
+            model.ShowAllInlines(toggles);
+            Assert.That(host.Model.Inlines, Has.Count.EqualTo(channels.Components.Count));
+        }
+        finally
+        {
+            foreach (InlineAnimationLayerViewModel layer in host.Model.Inlines.ToArray())
+                host.Model.DetachInline(layer);
+        }
+    }
+
+    [Test]
     public void A_value_with_channels_has_a_line_for_each_and_a_value_without_any_has_none()
     {
         var points = new KeyFrameAnimation<GraphicsPoint>();
         points.KeyFrames.Add(new KeyFrame<GraphicsPoint> { Value = { Value = new GraphicsPoint(0, 10) } });
         points.KeyFrames.Add(new KeyFrame<GraphicsPoint>
         {
-            KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = new GraphicsPoint(100, 10) }
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = new GraphicsPoint(100, 10) }
         });
         var factory = GraphEditorViewViewModelFactory.GetFactory(points)!;
         InlineEasingGraphControl.ValueLine[] lines = InlineEasingGraphControl.ValueLine.Sample(
@@ -469,7 +534,8 @@ public class TimelineAnimationMarksTests
                     color.KeyFrames.Add(new KeyFrame<Color> { Value = { Value = Colors.Orange } });
                     color.KeyFrames.Add(new KeyFrame<Color>
                     {
-                        KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = Colors.DeepSkyBlue },
+                        KeyTime = { Value = MediaTime.FromSeconds(2) },
+                        Value = { Value = Colors.DeepSkyBlue },
                         Easing = { Value = new BackEaseOut() }
                     });
                     ((SolidColorBrush)shape.Fill.Value!).Color.SetKeyFrameAnimation(color);
