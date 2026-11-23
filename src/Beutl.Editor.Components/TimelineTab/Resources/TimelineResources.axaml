@@ -1,7 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
-                    xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
                     xmlns:pe="using:Beutl.Controls.PropertyEditors">
     <!--
         Elements are only LayerHeight tall and sit edge to edge, so the shell's ControlCornerRadius
@@ -131,31 +130,45 @@
         <Setter Property="ZIndex" Value="100" />
     </ControlTheme>
 
-    <ControlTheme x:Key="{x:Type local:TimelineToolModeBadge}" TargetType="local:TimelineToolModeBadge">
-        <Setter Property="Margin" Value="8,4" />
-        <Setter Property="Padding" Value="8,2" />
-        <Setter Property="HorizontalAlignment" Value="Left" />
+    <!-- The graph editor's snap magnet, drawn with a stroke: FluentIcons has no magnet. -->
+    <StreamGeometry x:Key="TimelineSnapGeometry">M3,2 L3,9 C3,15 13,15 13,9 L13,2 M3,5 L6,5 M10,5 L13,5</StreamGeometry>
+
+    <!--
+        A toggle in the bar above the layer headers. It takes no keyboard focus: a focused button handles Space and
+        Enter itself, so they would not reach the playback and timeline commands.
+    -->
+    <ControlTheme x:Key="TimelineToolBarToggleButtonTheme"
+                  TargetType="ToggleButton"
+                  BasedOn="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}">
+        <Setter Property="Padding" Value="{DynamicResource ToolTabBarIconButtonPadding}" />
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-        <Setter Property="IsHitTestVisible" Value="False" />
-        <Setter Property="ZIndex" Value="100" />
-        <Setter Property="Template">
-            <ControlTemplate>
-                <Border Padding="{TemplateBinding Padding}"
-                        Background="{TemplateBinding Background}"
-                        CornerRadius="{TemplateBinding CornerRadius}">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <icons:FluentIcon FontSize="14"
-                                          Foreground="White"
-                                          Icon="{TemplateBinding Icon}" />
-                        <TextBlock VerticalAlignment="Center"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   Foreground="White"
-                                   Text="{TemplateBinding Text}" />
-                    </StackPanel>
-                </Border>
-            </ControlTemplate>
-        </Setter>
+        <Setter Property="Focusable" Value="False" />
+    </ControlTheme>
+
+    <!-- A tool mode's toggle. On, it fills with the color of the frame that the mode draws around the timeline. -->
+    <ControlTheme x:Key="TimelineToolModeToggleButtonTheme"
+                  TargetType="ToggleButton"
+                  BasedOn="{StaticResource TimelineToolBarToggleButtonTheme}">
+        <Style Selector="^:checked /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorInverseBrush}" />
+        </Style>
+        <Style Selector="^.razor:checked /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
+        <Style Selector="^.slip:checked /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+        </Style>
+        <Style Selector="^.roll:checked /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </Style>
+        <Style Selector="^.slide:checked /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorAttentionBrush}" />
+        </Style>
+        <Style Selector="^:checked:pointerover /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Opacity" Value="0.9" />
+        </Style>
+        <Style Selector="^:checked:pressed /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Opacity" Value="0.8" />
+        </Style>
     </ControlTheme>
 </ResourceDictionary>

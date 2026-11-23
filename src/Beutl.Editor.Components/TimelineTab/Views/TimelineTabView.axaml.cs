@@ -5,12 +5,14 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -52,6 +54,12 @@ public sealed partial class TimelineTabView : UserControl
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = MouseFlags.Free);
         InitializeComponent();
         TimelineEditingModeMenu.Populate(EditingModeMenu, "");
+        ShowToolTip(RazorModeButton, Strings.RazorTool, Strings.RazorTool_Description, "timeline.toggleRazorMode");
+        ShowToolTip(SlipModeButton, Strings.SlipTool, Strings.SlipTool_Description, "timeline.toggleSlipMode");
+        ShowToolTip(RollModeButton, Strings.RollTool, Strings.RollTool_Description, "timeline.toggleRollMode");
+        ShowToolTip(SlideModeButton, Strings.SlideTool, Strings.SlideTool_Description, "timeline.toggleSlideMode");
+        ShowToolTip(RippleButton, Strings.RippleEdit, Strings.RippleEdit_Description, "timeline.toggleRippleMode");
+        ShowToolTip(SnapButton, Strings.TimelineSnap, Strings.TimelineSnap_Description, commandId: null);
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
 
@@ -245,6 +253,35 @@ public sealed partial class TimelineTabView : UserControl
             def.MaxWidth = double.PositiveInfinity;
             def.MinWidth = 200;
         }
+    }
+
+    // The name with its key, written as the tip opens because the key map can change while the view lives, and what
+    // the button does under it.
+    private static void ShowToolTip(Control control, string name, string description, string? commandId)
+    {
+        ToolTip.SetTip(control, CreateToolTip(name, description, commandId));
+        ToolTip.AddToolTipOpeningHandler(control,
+            (_, _) => ToolTip.SetTip(control, CreateToolTip(name, description, commandId)));
+    }
+
+    private static StackPanel CreateToolTip(string name, string description, string? commandId)
+    {
+        KeyGesture? gesture = commandId is null
+            ? null
+            : GetCommandGestureExtension.GetKeyGesture(typeof(TimelineTabExtension), commandId);
+        var descriptionBlock = new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap };
+        descriptionBlock.Bind(TextBlock.ForegroundProperty,
+            descriptionBlock.GetResourceObservable("TextFillColorSecondaryBrush"));
+        return new StackPanel
+        {
+            MaxWidth = 300,
+            Spacing = 2,
+            Children =
+            {
+                new TextBlock { Text = gesture is null ? name : $"{name} ({gesture.ToString("p", null)})" },
+                descriptionBlock
+            }
+        };
     }
 
     private void OnAddedInline(InlineAnimationLayerViewModel viewModel)

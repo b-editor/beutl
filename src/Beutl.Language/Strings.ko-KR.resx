@@ -638,6 +638,12 @@
   <data name="RippleEdit" xml:space="preserve">
     <value>리플 편집</value>
   </data>
+  <data name="RippleEdit_Description" xml:space="preserve">
+    <value>리플 편집을 전환합니다. 켜져 있는 동안 클립을 삭제, 잘라내기 또는 트리밍하면 같은 레이어에서 그 뒤에 있는 클립도 함께 이동합니다.</value>
+  </data>
+  <data name="TimelineSnap_Description" xml:space="preserve">
+    <value>스냅을 전환합니다. 드래그하는 동안 Alt / Option 키를 누르고 있으면 스냅하지 않습니다.</value>
+  </data>
   <data name="UseGlobalClock" xml:space="preserve">
     <value>전역 클록 사용</value>
   </data>
