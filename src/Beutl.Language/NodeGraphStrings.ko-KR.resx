@@ -942,4 +942,7 @@
   <data name="Template_LoadFailed" xml:space="preserve">
     <value>템플릿을 불러올 수 없습니다</value>
   </data>
+  <data name="ShaderError_UpstreamPassFailed" xml:space="preserve">
+    <value>셰이더 패스 “{0}”의 입력을 기록할 수 없습니다. 해당 패스에서 오류를 확인하세요.</value>
+  </data>
 </root>

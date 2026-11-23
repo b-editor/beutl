@@ -942,4 +942,7 @@
   <data name="Template_LoadFailed" xml:space="preserve">
     <value>No se pudo cargar la plantilla</value>
   </data>
+  <data name="ShaderError_UpstreamPassFailed" xml:space="preserve">
+    <value>No se pudo registrar una entrada de la pasada de sombreado «{0}». Consulta el error en esa pasada.</value>
+  </data>
 </root>

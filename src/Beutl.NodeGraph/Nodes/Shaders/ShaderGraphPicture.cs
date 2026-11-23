@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
+using Beutl.Language;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes.Group;
 
@@ -91,7 +92,10 @@ internal sealed class ShaderGraphPicture : IWirePicture
             description = null;
             source = null;
             externals = [];
-            _recordingError = ex.Message;
+            _recordingError = ex is ShaderPassRecordingException failed && !ReferenceEquals(failed.Owner, explainer)
+                ? string.Format(NodeGraphStrings.ShaderError_UpstreamPassFailed,
+                    string.IsNullOrWhiteSpace(failed.Owner.Name.Value) ? failed.Owner.GetType().Name : failed.Owner.Name.Value)
+                : ex.Message;
         }
 
         // What a render refused stands until a graph runs, which takes the renderer to find out.

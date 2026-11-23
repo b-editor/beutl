@@ -942,4 +942,7 @@
   <data name="Template_LoadFailed" xml:space="preserve">
     <value>无法加载模板</value>
   </data>
+  <data name="ShaderError_UpstreamPassFailed" xml:space="preserve">
+    <value>无法记录来自着色器通道“{0}”的输入。请在该通道中查看错误。</value>
+  </data>
 </root>

@@ -10,6 +10,13 @@ using Beutl.Serialization;
 namespace Beutl.NodeGraph.Nodes.Shaders;
 
 /// <summary>Everything one pass read from its wires and settings in one evaluation.</summary>
+// The pass already put this failure on its own monitor before returning it to readers of the wire.
+internal sealed class ShaderPassRecordingException(ShaderPassNode owner, string message, Exception? inner = null)
+    : InvalidOperationException(message, inner)
+{
+    public ShaderPassNode Owner { get; } = owner;
+}
+
 internal sealed record ShaderPassCapture(
     string Label,
     ShaderProgram Program,
@@ -221,7 +228,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
             {
                 string error = failure!;
                 if (ReadsCurrentCode(node)) node.ReportError(error);
-                Result = new(_ => throw new InvalidOperationException(error));
+                Result = new(_ => throw new ShaderPassRecordingException(node, error));
             }
             else
             {
@@ -233,10 +240,15 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
                         if (ReadsCurrentCode(node)) node.ReportError(null);
                         return result;
                     }
+                    catch (ShaderPassRecordingException)
+                    {
+                        if (ReadsCurrentCode(node)) node.ReportError(null);
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         if (ReadsCurrentCode(node)) node.ReportError(ex.Message);
-                        throw;
+                        throw new ShaderPassRecordingException(node, ex.Message, ex);
                     }
                 });
             }

@@ -102,6 +102,39 @@ public sealed class EditNodeGraphTests
     }
 
     [Test]
+    public void Only_the_pass_that_failed_reports_a_compiler_line()
+    {
+        using var scene = new NodeGraphTestScene();
+        ToolResult<EditNodeGraphResponse> setup = scene.Edit(
+            Add("input", "FilterEffectInputNode"),
+            Add("first", "ShaderFullscreenPassNode"),
+            Add("middle", "ShaderFullscreenPassNode"),
+            Add("last", "ShaderFullscreenPassNode"),
+            Add("output", "OutputNode"),
+            Connect("input.Output", "first.In.source"),
+            Connect("first.Out.color", "middle.In.source"),
+            Connect("middle.Out.color", "last.In.source"),
+            Connect("last.Out.color", "output.Output"));
+        Assert.That(setup.Value?.Applied, Is.True, setup.Error?.Message);
+        GraphNode first = scene.Node(setup.Value!.Created.Single(node => node.Ref == "first").Id);
+        first.Name.Value = "Broken pass";
+        scene.Node(setup.Value.Created.Single(node => node.Ref == "last").Id).Name.Value = "Last pass";
+        ToolResult<EditNodeGraphResponse> result = scene.Edit(new NodeGraphOperation
+        {
+            Op = "update",
+            Node = first.Id.Value.ToString(),
+            Values = new JsonObject { ["Code"] = BrokenCode },
+        });
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(result.Value!.Applied, Is.False);
+        Assert.That(result.Value.Diagnostics.Where(d => d.Lines is not null).Select(d => d.NodeLabel),
+            Is.EqualTo(new[] { "Broken pass" }));
+        Assert.That(result.Value.Diagnostics.Where(d => d.NodeLabel == "Last pass").Select(d => d.Message),
+            Has.Some.Contain("Broken pass"));
+    }
+
+    [Test]
     public void A_buffer_left_unconnected_is_refused()
     {
         using var scene = new NodeGraphTestScene();

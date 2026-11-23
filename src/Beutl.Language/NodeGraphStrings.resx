@@ -942,4 +942,7 @@
   <data name="Template_LoadFailed" xml:space="preserve">
     <value>The template could not be loaded</value>
   </data>
+  <data name="ShaderError_UpstreamPassFailed" xml:space="preserve">
+    <value>An input from shader pass “{0}” could not be recorded. See that pass for the error.</value>
+  </data>
 </root>

@@ -942,4 +942,7 @@
   <data name="Template_LoadFailed" xml:space="preserve">
     <value>テンプレートを読み込めませんでした</value>
   </data>
+  <data name="ShaderError_UpstreamPassFailed" xml:space="preserve">
+    <value>シェーダーパス「{0}」からの入力を記録できませんでした。エラーはそのパスで確認できます。</value>
+  </data>
 </root>
