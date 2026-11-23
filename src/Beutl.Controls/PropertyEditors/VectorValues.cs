@@ -91,6 +91,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
     private readonly Func<TElement[], TElement[], RoutedEvent, RoutedEventArgs> _createEventArgs;
     private readonly TElement[] _values;
     private readonly TElement[] _oldValues;
+    private bool _hasUnderlyingComponentEdit;
 
     // createEventArgs builds the event's tuple from the new and the old values.
     public NumberVectorValues(
@@ -114,6 +115,9 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
     public Func<TElement[]>? ReadIncrementValues { get; set; }
 
     public Func<TElement[]?>? ReadFocusedValues { get; set; }
+
+    // A host can write the addressed component in its own units, keeping the rest of the value intact.
+    public Action<int, TElement, bool>? EditUnderlyingComponent { get; set; }
 
     private string? NumberFormat => _editor.GetValue(Vector4Editor.NumberFormatProperty);
 
@@ -148,9 +152,11 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     public override void RaiseConfirmedIfChanged()
     {
+        bool editedUnderlyingComponent = _hasUnderlyingComponentEdit;
+        _hasUnderlyingComponentEdit = false;
         for (int i = 0; i < _values.Length; i++)
         {
-            if (_editor.HasUnconfirmedEdit || _values[i] != _oldValues[i])
+            if (editedUnderlyingComponent || _editor.HasUnconfirmedEdit || _values[i] != _oldValues[i])
             {
                 _editor.RaiseEvent(_createEventArgs(_values, _oldValues, PropertyEditor.ValueConfirmedEvent));
                 return;
@@ -204,6 +210,13 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     private void ApplyFocusedValueChange(int index, TElement value, TElement[] focusedValues, TElement[] oldValues)
     {
+        if (index >= 0 && !_editor.IsUniformValue && EditUnderlyingComponent is { } edit)
+        {
+            _hasUnderlyingComponentEdit = true;
+            edit(index, value, false);
+            return;
+        }
+
         TElement[] newValues = Edited(focusedValues, index, value, _editor.IsUniformValue);
         _editor.RaiseUnderlyingValueChanged(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
     }
@@ -230,11 +243,23 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
         TElement delta = scrub.NextDelta<TElement>(header, e) * SmallChange;
 
         TElement[] oldValues = [.. _values];
-        TElement[] newValues = Scrubbed(ReadIncrementValues?.Invoke() ?? oldValues, index, delta);
-        for (int i = 0; i < newValues.Length; i++)
-            Set(i, newValues[i]);
+        if (index >= 0 && EditUnderlyingComponent is { } edit && ReadFocusedValues?.Invoke() is { } underlying)
+        {
+            TElement value = NumberEditorHelper.AddPreservingScale(underlying[index], delta);
+            if (value != underlying[index])
+            {
+                _hasUnderlyingComponentEdit = true;
+                edit(index, value, true);
+            }
+        }
+        else
+        {
+            TElement[] newValues = Scrubbed(ReadIncrementValues?.Invoke() ?? oldValues, index, delta);
+            for (int i = 0; i < newValues.Length; i++)
+                Set(i, newValues[i]);
 
-        _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
+            _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
+        }
 
         // The handlers have written the accepted values back, including shared-axis constraints.
         PulseIfCrossed(_editor, oldValues, _values, _editor.HapticReferenceValues, e.Timestamp);
