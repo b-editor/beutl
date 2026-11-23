@@ -549,16 +549,16 @@ public class EffectScaleParityTests
     private static PolarCoordinates MakePolarCoordinatesAbsoluteCenter(PolarCoordinatesDirection direction) => new()
     {
         Direction = { Value = direction },
-        Center = { Value = new RelativePoint(62f, 44f, RelativeUnit.Absolute) },
+        InnerRadius = { Value = 18f },
+        Scale = { Value = 90f },
         Angle = { Value = 55f },
-        AspectMode = { Value = PolarCoordinatesAspectMode.Contain },
-        InnerRadius = { Value = 20f },
-        OuterRadius = { Value = 110f },
+        Swirl = { Value = 120f },
+        SweepAngle = { Value = 270f },
+        Center = { Value = new RelativePoint(62f, 44f, RelativeUnit.Absolute) },
         InvertRadius = { Value = true },
         ReverseAngle = { Value = true },
         Repeat = { Value = 2f },
         Mirror = { Value = true },
-        SweepAngle = { Value = 270f },
         EdgeMode = { Value = PolarCoordinatesEdgeMode.Mirror },
     };
 

@@ -1,4 +1,4 @@
-﻿using Beutl.Composition;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -37,38 +37,41 @@ public sealed class PolarCoordinatesTests
     }
 
     [Test]
-    public void RectangularToPolarWrapsRowsIntoAnInscribedEllipse()
+    public void RectangularToPolarMapsTopOutsideBottomInsideAndResizesToSquare()
     {
         using PolarCoordinates.Resource resource = new PolarCoordinates().ToResource(CompositionContext.Default);
-        (_, float[] pixels) = FilterEffectTestHarness.RunOnTarget(resource, s_size, canvas =>
-        {
-            canvas.Clear(SKColors.Lime);
-            using var paint = new SKPaint { Color = SKColors.Red };
-            canvas.DrawRect(new SKRect(0, 0, Width, 6), paint);
-            paint.Color = SKColors.Blue;
-            canvas.DrawRect(new SKRect(0, Height - 6, Width, Height), paint);
-        });
+        (float[] pixels, Rect bounds, PixelSize outSize) = RunWithBounds(resource, s_size, DrawTopBottomBands);
 
+        // outerR = (Width + Height) / pi = 210 / pi (~66.85), diameter ~ 133.69, centered at (64.5, 40.5).
+        // Default orientation places the bottom row (blue) at the center and the top row (red) on the outer rim.
+        float expectedDiameter = ((Width + Height) / MathF.PI) * 2f;
+        int cx = outSize.Width / 2;
+        int cy = outSize.Height / 2;
         Assert.Multiple(() =>
         {
-            Assert.That(Channel(pixels, Width / 2, Height / 2, 0), Is.GreaterThan(0.99f), "top row at the center");
-            foreach ((int x, int y) in new[] { (Width / 2, 0), (0, Height / 2), (Width - 1, Height / 2), (Width / 2, Height - 1) })
-                Assert.That(Channel(pixels, x, y, 2), Is.GreaterThan(0.99f), $"bottom row at the rim ({x}, {y})");
-            foreach ((int x, int y) in new[] { (0, 0), (Width - 1, 0), (0, Height - 1), (Width - 1, Height - 1) })
-                Assert.That(Channel(pixels, x, y, 3), Is.LessThan(0.001f), $"transparent corner ({x}, {y})");
+            Assert.That(bounds.Width, Is.EqualTo(expectedDiameter).Within(0.05f));
+            Assert.That(bounds.Height, Is.EqualTo(expectedDiameter).Within(0.05f));
+            Assert.That(bounds.Center.X, Is.EqualTo(Width * 0.5f).Within(0.01f));
+            Assert.That(bounds.Center.Y, Is.EqualTo(Height * 0.5f).Within(0.01f));
+            Assert.That(Channel(pixels, outSize.Width, cx, cy, 2), Is.GreaterThan(0.99f), "bottom row (blue) at the center");
+            Assert.That(Channel(pixels, outSize.Width, cx, cy, 3), Is.GreaterThan(0.99f), "center is opaque");
+            foreach ((int x, int y) in new[] { (cx, 2), (2, cy), (outSize.Width - 3, cy), (cx, outSize.Height - 3) })
+                Assert.That(Channel(pixels, outSize.Width, x, y, 0), Is.GreaterThan(0.95f), $"top row (red) at outer rim ({x}, {y})");
+            foreach ((int x, int y) in new[] { (0, 0), (outSize.Width - 1, 0), (0, outSize.Height - 1), (outSize.Width - 1, outSize.Height - 1) })
+                Assert.That(Channel(pixels, outSize.Width, x, y, 3), Is.LessThan(0.001f), $"transparent corner ({x}, {y})");
         });
     }
 
     [Test]
     public void AmountBlendsTheSamplingCoordinates()
     {
-        var effect = new PolarCoordinates { Amount = { Value = 50f } };
+        var effect = new PolarCoordinates { Amount = { Value = 50f }, ClipToBounds = { Value = true } };
         using PolarCoordinates.Resource resource = effect.ToResource(CompositionContext.Default);
         (float[] before, float[] after) = FilterEffectTestHarness.RunOnTarget(resource, s_size, DrawGradient);
 
-        // The center's mapped sample is the first texel, so 50% samples halfway to it.
-        float expected = Channel(before, Width / 4, Height / 4, 0);
-        Assert.That(Channel(after, Width / 2, Height / 2, 0), Is.EqualTo(expected).Within(0.005f));
+        // At the center (v=1 -> bottom-left (0, Height)), 50% blends halfway between (Width/2, Height/2) and (0, Height): (Width/4, 3*Height/4).
+        float expected = Channel(before, Width / 4, (Height * 3) / 4, 0);
+        Assert.That(Channel(after, Width / 2, Height / 2, 0), Is.EqualTo(expected).Within(0.01f));
     }
 
     [Test]
@@ -83,68 +86,123 @@ public sealed class PolarCoordinatesTests
             },
         };
         using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
-        (float[] before, float[] after) = FilterEffectTestHarness.RunOnTarget(resource, s_size, DrawGradient);
+        (float[] before, Rect _, PixelSize _) = RunWithBounds(new FilterEffectGroup().ToResource(CompositionContext.Default), s_size, DrawGradient);
+        (float[] after, Rect outBounds, PixelSize outSize) = RunWithBounds(resource, s_size, DrawGradient);
 
-        // Near the collapsed center and the seam, multiple source pixels can share an output texel.
+        // Stage 1 produces rOuter = (Width + Height) / pi. Stage 2 unwraps r=[0, rOuter] into height=rOuter, width=pi*rOuter = Width + Height.
+        // Compare normalized (u, v) points across the interior against the original source gradient.
+        float expectedOuterR = (Width + Height) / MathF.PI;
         float maximumError = 0f;
-        for (int y = Height / 4; y < Height - 10; y++)
+        for (int y = 10; y < outSize.Height - 14; y++)
         {
-            for (int x = 12; x < Width - 12; x++)
+            int srcY = Math.Clamp((int)MathF.Round((y + 0.5f) / outSize.Height * Height - 0.5f), 0, Height - 1);
+            for (int x = 16; x < outSize.Width - 16; x++)
             {
+                int srcX = Math.Clamp((int)MathF.Round((x + 0.5f) / outSize.Width * Width - 0.5f), 0, Width - 1);
                 for (int channel = 0; channel < 4; channel++)
-                    maximumError = MathF.Max(maximumError, MathF.Abs(Channel(after, x, y, channel) - Channel(before, x, y, channel)));
+                {
+                    maximumError = MathF.Max(
+                        maximumError,
+                        MathF.Abs(Channel(after, outSize.Width, x, y, channel) - Channel(before, Width, srcX, srcY, channel)));
+                }
             }
         }
 
-        Assert.That(maximumError, Is.LessThan(0.04f));
-    }
-
-    [TestCase(PolarCoordinatesDirection.RectangularToPolar)]
-    [TestCase(PolarCoordinatesDirection.PolarToRectangular)]
-    public void KeepsInputBoundsAndRequiresTheFullSource(PolarCoordinatesDirection direction)
-    {
-        var effect = new PolarCoordinates { Direction = { Value = direction } };
-        (ShaderDescription description, Rect output) = FilterEffectTestHarness.RecordShader(effect, s_bounds);
-
         Assert.Multiple(() =>
         {
-            Assert.That(output, Is.EqualTo(s_bounds));
-            Assert.That(description.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
-            Assert.That(description.Bounds.RequiresFullInput, Is.True);
-            Assert.That(description.SourceTileMode, Is.EqualTo(SKShaderTileMode.Decal));
+            Assert.That(outBounds.Height, Is.EqualTo(expectedOuterR).Within(0.05f));
+            Assert.That(outBounds.Width, Is.EqualTo(Width + Height).Within(0.1f));
+            Assert.That(maximumError, Is.LessThan(0.04f));
+        });
+    }
+
+    [Test]
+    public void ResizesOutputBoundsAndRequiresTheFullSource()
+    {
+        var r2p = new PolarCoordinates();
+        var p2r = new PolarCoordinates { Direction = { Value = PolarCoordinatesDirection.PolarToRectangular } };
+        var r2pClipped = new PolarCoordinates { ClipToBounds = { Value = true } };
+        var p2rClipped = new PolarCoordinates
+        {
+            Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
+            ClipToBounds = { Value = true },
+        };
+
+        (ShaderDescription r2pDesc, Rect r2pOut) = FilterEffectTestHarness.RecordShader(r2p, s_bounds);
+        (ShaderDescription p2rDesc, Rect p2rOut) = FilterEffectTestHarness.RecordShader(p2r, s_bounds);
+        (_, Rect r2pClippedOut) = FilterEffectTestHarness.RecordShader(r2pClipped, s_bounds);
+        (_, Rect p2rClippedOut) = FilterEffectTestHarness.RecordShader(p2rClipped, s_bounds);
+
+        // s_bounds = (10.25, -20.5, 100, 60), center = (60.25, 9.5).
+        // RectangularToPolar: rOuter = (100 + 60) / pi -> diameter = 320 / pi centered at (60.25, 9.5).
+        // PolarToRectangular: baseOuter = min(100, 60)/2 = 30 -> height=30, width=2*pi*15 centered at (60.25, 9.5).
+        float expectedR2pDiameter = ((s_bounds.Width + s_bounds.Height) / MathF.PI) * 2f;
+        Assert.Multiple(() =>
+        {
+            Assert.That(r2pOut.Width, Is.EqualTo(expectedR2pDiameter).Within(0.05f));
+            Assert.That(r2pOut.Height, Is.EqualTo(expectedR2pDiameter).Within(0.05f));
+            Assert.That(r2pOut.Center.X, Is.EqualTo(s_bounds.Center.X).Within(0.01f));
+            Assert.That(r2pOut.Center.Y, Is.EqualTo(s_bounds.Center.Y).Within(0.01f));
+            Assert.That(p2rOut.Height, Is.EqualTo(30f).Within(0.01f));
+            Assert.That(p2rOut.Width, Is.EqualTo(MathF.Tau * 15f).Within(0.05f));
+            Assert.That(p2rOut.Center.X, Is.EqualTo(s_bounds.Center.X).Within(0.01f));
+            Assert.That(p2rOut.Center.Y, Is.EqualTo(s_bounds.Center.Y).Within(0.01f));
+            Assert.That(r2pClippedOut, Is.EqualTo(s_bounds));
+            Assert.That(p2rClippedOut, Is.EqualTo(s_bounds));
+            Assert.That(r2pDesc.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
+            Assert.That(p2rDesc.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
+            Assert.That(r2pDesc.Bounds.RequiresFullInput, Is.True);
+            Assert.That(p2rDesc.Bounds.RequiresFullInput, Is.True);
+            Assert.That(r2pDesc.SourceTileMode, Is.EqualTo(SKShaderTileMode.Decal));
+            Assert.That(p2rDesc.SourceTileMode, Is.EqualTo(SKShaderTileMode.Decal));
         });
     }
 
     [Test]
     public void TwelveOClockSeamIsOpaque()
     {
-        (_, float[] pixels) = FilterEffectTestHarness.RunOnSolidTarget(new PolarCoordinates(), SKColors.White, s_size);
+        (float[] pixels, _, PixelSize outSize) = RunSolidWithBounds(new PolarCoordinates(), SKColors.White, s_size);
 
-        for (int y = 4; y < Height / 2 - 4; y++)
+        int cx = outSize.Width / 2;
+        for (int y = 4; y < outSize.Height / 2 - 4; y++)
         {
-            for (int x = Width / 2 - 1; x <= Width / 2 + 1; x++)
-                Assert.That(Channel(pixels, x, y, 3), Is.GreaterThan(0.99f), $"seam pixel ({x}, {y})");
+            for (int x = cx - 1; x <= cx + 1; x++)
+                Assert.That(Channel(pixels, outSize.Width, x, y, 3), Is.GreaterThan(0.99f), $"seam pixel ({x}, {y})");
         }
     }
 
-    [TestCase(PolarCoordinatesDirection.RectangularToPolar, 100f, 75f, 25f)]
-    [TestCase(PolarCoordinatesDirection.RectangularToPolar, 50f, 75f, 50f)]
-    [TestCase(PolarCoordinatesDirection.PolarToRectangular, 100f, 25f, 75f)]
-    [TestCase(PolarCoordinatesDirection.PolarToRectangular, 50f, 25f, 50f)]
-    public void HitTestUsesTheMappedSourcePoint(PolarCoordinatesDirection direction, float amount, float outputX, float sourceX)
+    [Test]
+    public void HitTestUsesTheMappedSourcePoint()
     {
-        var effect = new PolarCoordinates { Direction = { Value = direction }, Amount = { Value = amount } };
-        (ShaderDescription description, Rect output) = FilterEffectTestHarness.RecordShader(effect, s_bounds);
-        RenderHitTestContract hitTest = description.HitTest!.Value;
-        var accepted = new Rect(s_bounds.X + sourceX - 1, s_bounds.Center.Y - 1, 2, 2);
-        var input = new RenderHitTestInput(s_bounds, accepted.ContainsExclusive);
-        var point = new Point(s_bounds.X + outputX, s_bounds.Center.Y);
+        var r2p = new PolarCoordinates();
+        (ShaderDescription r2pDesc, Rect r2pOut) = FilterEffectTestHarness.RecordShader(r2p, s_bounds);
+        RenderHitTestContract r2pHit = r2pDesc.HitTest!.Value;
+        // s_bounds=(10.25, -20.5, 100, 60), center=(60.25, 9.5), rOuter = 160 / pi.
+        // Point at 3 o'clock halfway out: (center.X + rOuter/2, center.Y) -> u=0.25, v=0.5 -> source local (25, 30).
+        float expectedOuterR = (s_bounds.Width + s_bounds.Height) / MathF.PI;
+        var r2pAccepted = new Rect(s_bounds.X + 24f, s_bounds.Center.Y - 1f, 2f, 2f);
+        var r2pInput = new RenderHitTestInput(s_bounds, r2pAccepted.ContainsExclusive);
+        var r2pPoint = new Point(s_bounds.Center.X + expectedOuterR * 0.5f, s_bounds.Center.Y);
+
+        var p2r = new PolarCoordinates
+        {
+            Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
+            ClipToBounds = { Value = true },
+        };
+        (ShaderDescription p2rDesc, Rect p2rOut) = FilterEffectTestHarness.RecordShader(p2r, s_bounds);
+        RenderHitTestContract p2rHit = p2rDesc.HitTest!.Value;
+        // With ClipToBounds=true, u=0.25 (3 o'clock), v=0.5 -> r=15 -> source (center.X + 15, center.Y).
+        var p2rAccepted = new Rect(s_bounds.Center.X + 14f, s_bounds.Center.Y - 1f, 2f, 2f);
+        var p2rInput = new RenderHitTestInput(s_bounds, p2rAccepted.ContainsExclusive);
+        var p2rPoint = new Point(s_bounds.X + 25f, s_bounds.Center.Y);
 
         Assert.Multiple(() =>
         {
-            Assert.That(hitTest.Evaluate(output, [input], [], point), Is.True);
-            Assert.That(hitTest.Evaluate(output, [input], [], point + new Vector(0, 10)), Is.False);
-            Assert.That(hitTest.Evaluate(output, [new RenderHitTestInput(s_bounds, _ => true)], [], s_bounds.BottomRight), Is.False);
+            Assert.That(r2pHit.Evaluate(r2pOut, [r2pInput], [], r2pPoint), Is.True);
+            Assert.That(r2pHit.Evaluate(r2pOut, [r2pInput], [], r2pPoint + new Vector(0, 10)), Is.False);
+            Assert.That(r2pHit.Evaluate(r2pOut, [new RenderHitTestInput(s_bounds, _ => true)], [], r2pOut.BottomRight), Is.False);
+            Assert.That(p2rHit.Evaluate(p2rOut, [p2rInput], [], p2rPoint), Is.True);
+            Assert.That(p2rHit.Evaluate(p2rOut, [p2rInput], [], p2rPoint + new Vector(0, 10)), Is.False);
         });
     }
 
@@ -155,30 +213,104 @@ public sealed class PolarCoordinatesTests
     {
         var effect = new PolarCoordinates { Angle = { Value = angle } };
         using PolarCoordinates.Resource resource = effect.ToResource(CompositionContext.Default);
-        (_, float[] pixels) = FilterEffectTestHarness.RunOnTarget(resource, s_size, DrawQuadrantStripes);
+        (float[] pixels, _, PixelSize outSize) = RunWithBounds(resource, s_size, DrawQuadrantStripes);
 
-        // With a +90 degree rotation, the four source columns (R, G, B, W) shift clockwise by one quadrant:
-        // R: 3..6 o'clock, G: 6..9 o'clock, B: 9..12 o'clock, W: 12..3 o'clock.
-        int rx = Width / 2 + Width / 6;
-        int ry = Height / 2 + Height / 6;
-        int gx = Width / 2 - Width / 6;
-        int gy = Height / 2 + Height / 6;
-        int bx = Width / 2 - Width / 6;
-        int by = Height / 2 - Height / 6;
-        int wx = Width / 2 + Width / 6;
-        int wy = Height / 2 - Height / 6;
-
+        int cx = outSize.Width / 2;
+        int cy = outSize.Height / 2;
+        int d = outSize.Width / 4;
         Assert.Multiple(() =>
         {
-            Assert.That(Channel(pixels, rx, ry, 0), Is.GreaterThan(0.95f), "3..6 o'clock red");
-            Assert.That(Channel(pixels, rx, ry, 1), Is.LessThan(0.05f));
-            Assert.That(Channel(pixels, gx, gy, 1), Is.GreaterThan(0.95f), "6..9 o'clock green");
-            Assert.That(Channel(pixels, gx, gy, 0), Is.LessThan(0.05f));
-            Assert.That(Channel(pixels, bx, by, 2), Is.GreaterThan(0.95f), "9..12 o'clock blue");
-            Assert.That(Channel(pixels, bx, by, 1), Is.LessThan(0.05f));
-            Assert.That(Channel(pixels, wx, wy, 0), Is.GreaterThan(0.95f), "12..3 o'clock white");
-            Assert.That(Channel(pixels, wx, wy, 1), Is.GreaterThan(0.95f));
-            Assert.That(Channel(pixels, wx, wy, 2), Is.GreaterThan(0.95f));
+            Assert.That(Channel(pixels, outSize.Width, cx + d, cy + d, 0), Is.GreaterThan(0.95f), "3..6 o'clock red");
+            Assert.That(Channel(pixels, outSize.Width, cx + d, cy + d, 1), Is.LessThan(0.05f));
+            Assert.That(Channel(pixels, outSize.Width, cx - d, cy + d, 1), Is.GreaterThan(0.95f), "6..9 o'clock green");
+            Assert.That(Channel(pixels, outSize.Width, cx - d, cy + d, 0), Is.LessThan(0.05f));
+            Assert.That(Channel(pixels, outSize.Width, cx - d, cy - d, 2), Is.GreaterThan(0.95f), "9..12 o'clock blue");
+            Assert.That(Channel(pixels, outSize.Width, cx - d, cy - d, 1), Is.LessThan(0.05f));
+            Assert.That(Channel(pixels, outSize.Width, cx + d, cy - d, 0), Is.GreaterThan(0.95f), "12..3 o'clock white");
+            Assert.That(Channel(pixels, outSize.Width, cx + d, cy - d, 1), Is.GreaterThan(0.95f));
+            Assert.That(Channel(pixels, outSize.Width, cx + d, cy - d, 2), Is.GreaterThan(0.95f));
+        });
+    }
+
+    [Test]
+    public void SwirlTwistsAngleClockwiseFromInnerToOuter()
+    {
+        var effect = new PolarCoordinates { Swirl = { Value = 90f } };
+        using PolarCoordinates.Resource resource = effect.ToResource(CompositionContext.Default);
+        (float[] pixels, _, PixelSize outSize) = RunWithBounds(resource, s_size, DrawQuadrantStripes);
+
+        int cx = outSize.Width / 2;
+        int cy = outSize.Height / 2;
+        // Swirl anchors the outer rim (vLinear=1 -> 0 deg) and twists inward by -90 deg at the center:
+        // Near outer (diagonal offset 40 -> r ~ 56.6 ~ 0.85 of 66.85): 1:30 stays red.
+        // Near inner (diagonal offset 8 -> r ~ 11.3 ~ 0.17 of 66.85): 10:30 twists into red and 1:30 twists into green.
+        int rInnerSample = 8;
+        int rOuterSample = 40;
+        Assert.Multiple(() =>
+        {
+            Assert.That(Channel(pixels, outSize.Width, cx + rOuterSample, cy - rOuterSample, 0), Is.GreaterThan(0.95f), "outer 1:30 stays red");
+            Assert.That(Channel(pixels, outSize.Width, cx + rOuterSample, cy - rOuterSample, 1), Is.LessThan(0.05f));
+            Assert.That(Channel(pixels, outSize.Width, cx - rInnerSample, cy - rInnerSample, 0), Is.GreaterThan(0.95f), "inner 10:30 twists into red");
+            Assert.That(Channel(pixels, outSize.Width, cx - rInnerSample, cy - rInnerSample, 1), Is.LessThan(0.05f));
+            Assert.That(Channel(pixels, outSize.Width, cx + rInnerSample, cy - rInnerSample, 1), Is.GreaterThan(0.95f), "inner 1:30 twists into green");
+            Assert.That(Channel(pixels, outSize.Width, cx + rInnerSample, cy - rInnerSample, 0), Is.LessThan(0.05f));
+        });
+    }
+
+    [Test]
+    public void InnerRadiusExpandsRingWithAviUtlProportions()
+    {
+        const float inner = 40f;
+        var effect = new PolarCoordinates { InnerRadius = { Value = inner } };
+        using PolarCoordinates.Resource resource = effect.ToResource(CompositionContext.Default);
+        (float[] pixels, Rect bounds, PixelSize outSize) = RunWithBounds(resource, s_size, DrawTopBottomBands);
+
+        // rOuter = (129 + 81 + 40) / pi (~79.58), rInner = rOuter * 40 / (81 + 40) (~26.31).
+        float expectedOuterR = (Width + Height + inner) / MathF.PI;
+        float expectedInnerR = expectedOuterR * (inner / (Height + inner));
+        int cx = outSize.Width / 2;
+        int cy = outSize.Height / 2;
+        int innerSampleX = cx + (int)MathF.Ceiling(expectedInnerR) + 2;
+        int midSampleX = cx + (int)MathF.Round((expectedInnerR + expectedOuterR) * 0.5f);
+        int outerSampleX = cx + (int)MathF.Floor(expectedOuterR) - 2;
+        Assert.Multiple(() =>
+        {
+            Assert.That(bounds.Width, Is.EqualTo(expectedOuterR * 2f).Within(0.05f));
+            Assert.That(bounds.Height, Is.EqualTo(expectedOuterR * 2f).Within(0.05f));
+            Assert.That(Channel(pixels, outSize.Width, cx, cy, 3), Is.LessThan(0.001f), "center hole is transparent");
+            Assert.That(Channel(pixels, outSize.Width, innerSampleX, cy, 2), Is.GreaterThan(0.95f), "inner rim samples bottom blue band");
+            Assert.That(Channel(pixels, outSize.Width, midSampleX, cy, 1), Is.GreaterThan(0.95f), "mid-ring samples middle green band");
+            Assert.That(Channel(pixels, outSize.Width, outerSampleX, cy, 0), Is.GreaterThan(0.95f), "outer rim samples top red band");
+            Assert.That(Channel(pixels, outSize.Width, 0, 0, 3), Is.LessThan(0.001f), "outside outer rim is transparent");
+        });
+    }
+
+    [Test]
+    public void ScaleScalesInnerAndOuterRadiiUniformly()
+    {
+        const float inner = 40f;
+        var larger = new PolarCoordinates { InnerRadius = { Value = inner }, Scale = { Value = 150f } };
+        var smaller = new PolarCoordinates { InnerRadius = { Value = inner }, Scale = { Value = 50f } };
+        var zero = new PolarCoordinates { InnerRadius = { Value = inner }, Scale = { Value = 0f } };
+
+        (float[] largerPixels, Rect largerBounds, PixelSize largerSize) = RunSolidWithBounds(larger, SKColors.White, s_size);
+        (_, Rect smallerBounds, _) = RunSolidWithBounds(smaller, SKColors.White, s_size);
+        (float[] zeroPixels, Rect zeroBounds, _) = RunSolidWithBounds(zero, SKColors.White, s_size);
+
+        float baseDiameter = ((Width + Height + inner) / MathF.PI) * 2f;
+        int cx = largerSize.Width / 2;
+        int cy = largerSize.Height / 2;
+        int ringOffset = (int)(baseDiameter * 1.5f * 0.35f);
+        Assert.Multiple(() =>
+        {
+            Assert.That(largerBounds.Width, Is.EqualTo(baseDiameter * 1.5f).Within(0.05f));
+            Assert.That(largerBounds.Height, Is.EqualTo(baseDiameter * 1.5f).Within(0.05f));
+            Assert.That(smallerBounds.Width, Is.EqualTo(baseDiameter * 0.5f).Within(0.05f));
+            Assert.That(smallerBounds.Height, Is.EqualTo(baseDiameter * 0.5f).Within(0.05f));
+            Assert.That(Channel(largerPixels, largerSize.Width, cx, cy, 3), Is.LessThan(0.001f), "scaled inner hole stays transparent");
+            Assert.That(Channel(largerPixels, largerSize.Width, cx + ringOffset, cy, 3), Is.GreaterThan(0.99f), "scaled ring is opaque");
+            Assert.That(zeroBounds, Is.EqualTo(new Rect(0, 0, Width, Height)));
+            Assert.That(zeroPixels.All(float.IsFinite), Is.True);
         });
     }
 
@@ -207,15 +339,13 @@ public sealed class PolarCoordinatesTests
         int cy = Height / 4;
         Assert.Multiple(() =>
         {
-            Assert.That(relativeBounds.X, Is.EqualTo(-Width * 0.25f).Within(0.01f), "bounds follow shifted center X");
-            Assert.That(relativeBounds.Y, Is.EqualTo(-Height * 0.25f).Within(0.01f), "bounds follow shifted center Y");
-            Assert.That(relativeBounds.Size, Is.EqualTo(new Size(Width, Height)));
+            Assert.That(relativeBounds.Center.X, Is.EqualTo(Width * 0.25f).Within(0.01f), "bounds center follows shifted pole X");
+            Assert.That(relativeBounds.Center.Y, Is.EqualTo(Height * 0.25f).Within(0.01f), "bounds center follows shifted pole Y");
             Assert.That(absoluteBounds, Is.EqualTo(relativeBounds));
-            Assert.That(Channel(relativePixels, relativeSize.Width, relativeSize.Width / 2, relativeSize.Height / 2, 0), Is.GreaterThan(0.95f), "top row maps to shifted center inside resized bounds");
-            Assert.That(Channel(relativePixels, relativeSize.Width, relativeSize.Width / 2, 2, 2), Is.GreaterThan(0.95f), "top rim is preserved without clipping");
+            Assert.That(Channel(relativePixels, relativeSize.Width, relativeSize.Width / 2, relativeSize.Height / 2, 2), Is.GreaterThan(0.95f), "bottom row (blue) maps to shifted pole");
+            Assert.That(Channel(relativePixels, relativeSize.Width, relativeSize.Width / 2, 2, 0), Is.GreaterThan(0.95f), "top row (red) at unclipped top rim");
             Assert.That(absolutePixels, Is.EqualTo(relativePixels).Within(0.001f));
-            Assert.That(Channel(clippedPixels, cx, cy, 0), Is.GreaterThan(0.95f), "clipped mode keeps pole at shifted local point");
-            Assert.That(Channel(clippedPixels, Width - 2, Height - 2, 3), Is.LessThan(0.001f), "clipped far corner past rim is transparent");
+            Assert.That(Channel(clippedPixels, cx, cy, 2), Is.GreaterThan(0.95f), "clipped mode keeps pole at shifted local point");
         });
     }
 
@@ -226,6 +356,7 @@ public sealed class PolarCoordinatesTests
         {
             Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
             Center = { Value = new RelativePoint(1f, 0.5f, RelativeUnit.Relative) },
+            ClipToBounds = { Value = true },
         };
         (_, float[] pixels) = FilterEffectTestHarness.RunOnSolidTarget(effect, SKColors.White, s_size);
 
@@ -238,50 +369,9 @@ public sealed class PolarCoordinatesTests
         });
     }
 
-    [Test]
-    public void NonDefaultCenterAndAngleRoundTripOnTheInterior()
-    {
-        var center = new RelativePoint(0.42f, 0.58f, RelativeUnit.Relative);
-        const float angle = 135f;
-        var group = new FilterEffectGroup
-        {
-            Children =
-            {
-                new PolarCoordinates
-                {
-                    Center = { Value = center },
-                    Angle = { Value = angle },
-                    ClipToBounds = { Value = true },
-                },
-                new PolarCoordinates
-                {
-                    Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
-                    Center = { Value = center },
-                    Angle = { Value = angle },
-                    ClipToBounds = { Value = true },
-                },
-            },
-        };
-        using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
-        (float[] before, float[] after) = FilterEffectTestHarness.RunOnTarget(resource, s_size, DrawGradient);
-
-        // Stay inside the radius whose entire circle fits inside the bounds around the shifted center.
-        float maximumError = 0f;
-        for (int y = Height / 4; y < (Height * 3) / 4; y++)
-        {
-            for (int x = 12; x < Width - 12; x++)
-            {
-                for (int channel = 0; channel < 4; channel++)
-                    maximumError = MathF.Max(maximumError, MathF.Abs(Channel(after, x, y, channel) - Channel(before, x, y, channel)));
-            }
-        }
-
-        Assert.That(maximumError, Is.LessThan(0.04f));
-    }
-
     [TestCase(PolarCoordinatesDirection.RectangularToPolar)]
     [TestCase(PolarCoordinatesDirection.PolarToRectangular)]
-    public void NonFiniteCenterAndAngleFallBackToDefaults(PolarCoordinatesDirection direction)
+    public void NonFiniteAndInvalidValuesFallBackToDefaults(PolarCoordinatesDirection direction)
     {
         using PolarCoordinates.Resource expectedResource = new PolarCoordinates
         {
@@ -291,159 +381,25 @@ public sealed class PolarCoordinatesTests
         {
             Direction = direction,
             Amount = 100f,
-            Center = new RelativePoint(float.NaN, float.PositiveInfinity, RelativeUnit.Relative),
-            Angle = float.NaN,
-            AspectMode = (PolarCoordinatesAspectMode)999,
             InnerRadius = float.NaN,
-            OuterRadius = float.PositiveInfinity,
-            Repeat = float.NaN,
+            Scale = float.PositiveInfinity,
+            Angle = float.NaN,
+            Swirl = float.NegativeInfinity,
             SweepAngle = float.NegativeInfinity,
+            Center = new RelativePoint(float.NaN, float.PositiveInfinity, RelativeUnit.Relative),
+            Repeat = float.NaN,
             EdgeMode = (PolarCoordinatesEdgeMode)999,
         };
 
-        (_, float[] expected) = FilterEffectTestHarness.RunOnTarget(expectedResource, s_size, DrawGradient);
-        (_, float[] actual) = FilterEffectTestHarness.RunOnTarget(invalidResource, s_size, DrawGradient);
+        (float[] expected, Rect expectedBounds, _) = RunWithBounds(expectedResource, s_size, DrawGradient);
+        (float[] actual, Rect actualBounds, _) = RunWithBounds(invalidResource, s_size, DrawGradient);
 
         Assert.Multiple(() =>
         {
+            Assert.That(actualBounds, Is.EqualTo(expectedBounds));
             Assert.That(actual.All(float.IsFinite), Is.True);
             Assert.That(actual, Is.EqualTo(expected));
         });
-    }
-
-    [Test]
-    public void AspectModeContainAndCoverUseCircularRadii()
-    {
-        var contain = new PolarCoordinates { AspectMode = { Value = PolarCoordinatesAspectMode.Contain } };
-        var cover = new PolarCoordinates { AspectMode = { Value = PolarCoordinatesAspectMode.Cover } };
-        var containClipped = new PolarCoordinates
-        {
-            AspectMode = { Value = PolarCoordinatesAspectMode.Contain },
-            ClipToBounds = { Value = true },
-        };
-        var coverClipped = new PolarCoordinates
-        {
-            AspectMode = { Value = PolarCoordinatesAspectMode.Cover },
-            ClipToBounds = { Value = true },
-        };
-
-        (float[] containPixels, Rect containBounds, PixelSize containSize) = RunSolidWithBounds(contain, SKColors.White, s_size);
-        (float[] coverPixels, Rect coverBounds, PixelSize coverSize) = RunSolidWithBounds(cover, SKColors.White, s_size);
-        (_, float[] containClippedPixels) = FilterEffectTestHarness.RunOnSolidTarget(containClipped, SKColors.White, s_size);
-        (_, float[] coverClippedPixels) = FilterEffectTestHarness.RunOnSolidTarget(coverClipped, SKColors.White, s_size);
-
-        // Width=129 (half=64.5), Height=81 (half=40.5).
-        // With ClipToBounds=false (default), Contain shrinks bounds to 81x81 and Cover expands bounds to 129x129.
-        // With ClipToBounds=true, both keep the original 129x81 bounds.
-        Assert.Multiple(() =>
-        {
-            Assert.That(containBounds, Is.EqualTo(new Rect(24, 0, Height, Height)));
-            Assert.That(coverBounds, Is.EqualTo(new Rect(0, -24, Width, Width)));
-            Assert.That(Channel(containPixels, containSize.Width, containSize.Width / 2, 1, 3), Is.GreaterThan(0.95f), "contain reaches top rim");
-            Assert.That(Channel(containPixels, containSize.Width, containSize.Width - 2, containSize.Height / 2, 3), Is.GreaterThan(0.95f), "contain reaches right rim with no excess margins");
-            Assert.That(Channel(coverPixels, coverSize.Width, coverSize.Width / 2, 1, 3), Is.GreaterThan(0.95f), "cover expands vertically without clipping top");
-            Assert.That(Channel(coverPixels, coverSize.Width, coverSize.Width / 2, coverSize.Height - 2, 3), Is.GreaterThan(0.95f), "cover expands vertically without clipping bottom");
-            Assert.That(Channel(coverPixels, coverSize.Width, 0, 0, 3), Is.LessThan(0.001f), "cover corner stays transparent");
-            Assert.That(Channel(containClippedPixels, Width - 2, Height / 2, 3), Is.LessThan(0.001f), "clipped contain leaves horizontal margins transparent");
-            Assert.That(Channel(coverClippedPixels, Width / 2 + 45, Height / 2 + 35, 3), Is.GreaterThan(0.95f), "clipped cover fills beyond inscribed ellipse");
-        });
-    }
-
-    [Test]
-    public void InnerAndOuterRadiusFormADonutRing()
-    {
-        var effect = new PolarCoordinates
-        {
-            InnerRadius = { Value = 40f },
-            OuterRadius = { Value = 85f },
-        };
-        using PolarCoordinates.Resource resource = effect.ToResource(CompositionContext.Default);
-        (float[] pixels, Rect bounds, PixelSize outSize) = RunWithBounds(resource, s_size, DrawTopBottomBands);
-
-        // Output bounds fit the 85% outer radius around the center.
-        int holeX = outSize.Width / 2;
-        int cy = outSize.Height / 2;
-        // Mid-ring lies halfway between 40% and 85% (radius 0.625 / 0.85 of half-width).
-        int ringX = holeX + (int)(outSize.Width * 0.5f * (0.625f / 0.85f));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(bounds.Width, Is.EqualTo(Width * 0.85f).Within(0.01f));
-            Assert.That(bounds.Height, Is.EqualTo(Height * 0.85f).Within(0.01f));
-            Assert.That(Channel(pixels, outSize.Width, holeX, cy, 3), Is.LessThan(0.001f), "inner hole is transparent");
-            Assert.That(Channel(pixels, outSize.Width, ringX, cy, 1), Is.GreaterThan(0.95f), "middle of ring samples middle green band");
-            Assert.That(Channel(pixels, outSize.Width, ringX, cy, 3), Is.GreaterThan(0.99f), "middle of ring is opaque");
-            Assert.That(Channel(pixels, outSize.Width, 0, 0, 3), Is.LessThan(0.001f), "corner past outer radius is transparent");
-        });
-    }
-
-    [Test]
-    public void OuterRadiusAboveHundredExpandsOutputBoundsWithoutClipping()
-    {
-        var effect = new PolarCoordinates
-        {
-            OuterRadius = { Value = 150f },
-        };
-        using PolarCoordinates.Resource resource = effect.ToResource(CompositionContext.Default);
-        (float[] pixels, Rect bounds, PixelSize outSize) = RunWithBounds(resource, s_size, DrawTopBottomBands);
-
-        // Near the expanded outer rim (past the original 100% bounds), bottom row (blue) must render unclipped.
-        int expandedRimX = outSize.Width - 3;
-        int cy = outSize.Height / 2;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(bounds.Width, Is.EqualTo(Width * 1.5f).Within(0.01f));
-            Assert.That(bounds.Height, Is.EqualTo(Height * 1.5f).Within(0.01f));
-            Assert.That(bounds.Center.X, Is.EqualTo(Width * 0.5f).Within(0.01f));
-            Assert.That(bounds.Center.Y, Is.EqualTo(Height * 0.5f).Within(0.01f));
-            Assert.That(Channel(pixels, outSize.Width, expandedRimX, cy, 2), Is.GreaterThan(0.95f), "expanded rim samples bottom blue band");
-            Assert.That(Channel(pixels, outSize.Width, expandedRimX, cy, 3), Is.GreaterThan(0.95f), "expanded rim is opaque");
-        });
-    }
-
-    [Test]
-    public void AmountBelowHundredUnionsInputAndPolarBounds()
-    {
-        var transparent = new PolarCoordinates
-        {
-            AspectMode = { Value = PolarCoordinatesAspectMode.Cover },
-            Amount = { Value = 50f },
-            EdgeMode = { Value = PolarCoordinatesEdgeMode.Transparent },
-        };
-        var mirrored = new PolarCoordinates
-        {
-            AspectMode = { Value = PolarCoordinatesAspectMode.Cover },
-            Amount = { Value = 50f },
-            EdgeMode = { Value = PolarCoordinatesEdgeMode.Mirror },
-        };
-
-        (float[] transparentPixels, Rect transparentBounds, PixelSize outSize) = RunSolidWithBounds(transparent, SKColors.White, s_size);
-        (float[] mirroredPixels, Rect mirroredBounds, _) = RunSolidWithBounds(mirrored, SKColors.White, s_size);
-
-        var expectedBounds = new Rect(0, -24, Width, Width);
-        Assert.Multiple(() =>
-        {
-            Assert.That(transparentBounds, Is.EqualTo(expectedBounds));
-            Assert.That(mirroredBounds, Is.EqualTo(expectedBounds));
-            // At the bottom of the expanded frame (logical y~104.5, mapped.y~80.4), Amount=50% places sample.y~92.4 past input height (81).
-            Assert.That(Channel(transparentPixels, outSize.Width, outSize.Width / 2, outSize.Height - 1, 3), Is.LessThan(0.001f), "transparent fades out-of-input samples");
-            Assert.That(Channel(mirroredPixels, outSize.Width, outSize.Width / 2, outSize.Height - 1, 3), Is.GreaterThan(0.99f), "mirror fills out-of-input samples");
-        });
-    }
-
-    [Test]
-    public void ClipToBoundsKeepsOriginalInputBounds()
-    {
-        var effect = new PolarCoordinates
-        {
-            AspectMode = { Value = PolarCoordinatesAspectMode.Cover },
-            OuterRadius = { Value = 150f },
-            Center = { Value = new RelativePoint(0.2f, 0.2f, RelativeUnit.Relative) },
-            ClipToBounds = { Value = true },
-        };
-        (_, Rect output) = FilterEffectTestHarness.RecordShader(effect, s_bounds);
-        Assert.That(output, Is.EqualTo(s_bounds));
     }
 
     [Test]
@@ -451,14 +407,16 @@ public sealed class PolarCoordinatesTests
     {
         var effect = new PolarCoordinates { InvertRadius = { Value = true } };
         using PolarCoordinates.Resource resource = effect.ToResource(CompositionContext.Default);
-        (_, float[] pixels) = FilterEffectTestHarness.RunOnTarget(resource, s_size, DrawTopBottomBands);
+        (float[] pixels, _, PixelSize outSize) = RunWithBounds(resource, s_size, DrawTopBottomBands);
 
+        int cx = outSize.Width / 2;
+        int cy = outSize.Height / 2;
         Assert.Multiple(() =>
         {
-            Assert.That(Channel(pixels, Width / 2, Height / 2, 2), Is.GreaterThan(0.99f), "bottom row (blue) maps to center");
-            Assert.That(Channel(pixels, Width / 2, Height / 2, 3), Is.GreaterThan(0.99f), "center remains opaque");
-            Assert.That(Channel(pixels, Width / 2, 1, 0), Is.GreaterThan(0.95f), "top row (red) maps to outer rim");
-            Assert.That(Channel(pixels, 0, 0, 3), Is.LessThan(0.001f), "corner past rim stays transparent");
+            Assert.That(Channel(pixels, outSize.Width, cx, cy, 0), Is.GreaterThan(0.99f), "top row (red) maps to center");
+            Assert.That(Channel(pixels, outSize.Width, cx, cy, 3), Is.GreaterThan(0.99f), "center remains opaque");
+            Assert.That(Channel(pixels, outSize.Width, cx, 1, 2), Is.GreaterThan(0.95f), "bottom row (blue) maps to outer rim");
+            Assert.That(Channel(pixels, outSize.Width, 0, 0, 3), Is.LessThan(0.001f), "corner past rim stays transparent");
         });
     }
 
@@ -467,25 +425,19 @@ public sealed class PolarCoordinatesTests
     {
         var effect = new PolarCoordinates { ReverseAngle = { Value = true } };
         using PolarCoordinates.Resource resource = effect.ToResource(CompositionContext.Default);
-        (_, float[] pixels) = FilterEffectTestHarness.RunOnTarget(resource, s_size, DrawQuadrantStripes);
+        (float[] pixels, _, PixelSize outSize) = RunWithBounds(resource, s_size, DrawQuadrantStripes);
 
-        // Counter-clockwise from 12 o'clock:
-        // R: 12..9 (top-left), G: 9..6 (bottom-left), B: 6..3 (bottom-right), W: 3..12 (top-right).
-        int tlX = Width / 2 - Width / 6;
-        int tlY = Height / 2 - Height / 6;
-        int blX = Width / 2 - Width / 6;
-        int blY = Height / 2 + Height / 6;
-        int brX = Width / 2 + Width / 6;
-        int brY = Height / 2 + Height / 6;
-
+        int cx = outSize.Width / 2;
+        int cy = outSize.Height / 2;
+        int d = outSize.Width / 4;
         Assert.Multiple(() =>
         {
-            Assert.That(Channel(pixels, tlX, tlY, 0), Is.GreaterThan(0.95f), "top-left red");
-            Assert.That(Channel(pixels, tlX, tlY, 1), Is.LessThan(0.05f));
-            Assert.That(Channel(pixels, blX, blY, 1), Is.GreaterThan(0.95f), "bottom-left green");
-            Assert.That(Channel(pixels, blX, blY, 0), Is.LessThan(0.05f));
-            Assert.That(Channel(pixels, brX, brY, 2), Is.GreaterThan(0.95f), "bottom-right blue");
-            Assert.That(Channel(pixels, brX, brY, 1), Is.LessThan(0.05f));
+            Assert.That(Channel(pixels, outSize.Width, cx - d, cy - d, 0), Is.GreaterThan(0.95f), "top-left red");
+            Assert.That(Channel(pixels, outSize.Width, cx - d, cy - d, 1), Is.LessThan(0.05f));
+            Assert.That(Channel(pixels, outSize.Width, cx - d, cy + d, 1), Is.GreaterThan(0.95f), "bottom-left green");
+            Assert.That(Channel(pixels, outSize.Width, cx - d, cy + d, 0), Is.LessThan(0.05f));
+            Assert.That(Channel(pixels, outSize.Width, cx + d, cy + d, 2), Is.GreaterThan(0.95f), "bottom-right blue");
+            Assert.That(Channel(pixels, outSize.Width, cx + d, cy + d, 1), Is.LessThan(0.05f));
         });
     }
 
@@ -497,33 +449,30 @@ public sealed class PolarCoordinatesTests
         using PolarCoordinates.Resource repeatResource = repeatOnly.ToResource(CompositionContext.Default);
         using PolarCoordinates.Resource mirrorResource = repeatMirrored.ToResource(CompositionContext.Default);
 
-        (_, float[] repeatPixels) = FilterEffectTestHarness.RunOnTarget(repeatResource, s_size, DrawQuadrantStripes);
-        (_, float[] mirrorPixels) = FilterEffectTestHarness.RunOnTarget(mirrorResource, s_size, DrawQuadrantStripes);
+        (float[] repeatPixels, _, PixelSize outSize) = RunWithBounds(repeatResource, s_size, DrawQuadrantStripes);
+        (float[] mirrorPixels, _, _) = RunWithBounds(mirrorResource, s_size, DrawQuadrantStripes);
 
-        // With Repeat=2, 12..6 o'clock covers u=[0, 1] and 6..12 o'clock covers a second cycle.
-        // Without Mirror: 1:30 (top-right) and 7:30 (bottom-left) both hit the first half (R/G),
-        // specifically 12:45 (u~0.125 -> R) matches 6:45 (u~0.125 -> R).
-        // With Mirror: the second cycle runs backwards, so 12:45 (R) mirrors to 11:15 (R) across the vertical axis.
+        int cx = outSize.Width / 2;
+        int cy = outSize.Height / 2;
         int dxSmall = 8;
-        int dyNearTop = -Height / 3;
-        int dyNearBottom = Height / 3;
+        int dy = outSize.Height / 3;
 
         var p2rMirror = new PolarCoordinates
         {
             Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
             Repeat = { Value = 2f },
             Mirror = { Value = true },
+            ClipToBounds = { Value = true },
         };
         using PolarCoordinates.Resource p2rResource = p2rMirror.ToResource(CompositionContext.Default);
         (_, float[] p2rPixels) = FilterEffectTestHarness.RunOnTarget(p2rResource, s_size, DrawGradient);
 
         Assert.Multiple(() =>
         {
-            Assert.That(Channel(repeatPixels, Width / 2 + dxSmall, Height / 2 + dyNearTop, 0), Is.GreaterThan(0.95f));
-            Assert.That(Channel(repeatPixels, Width / 2 - dxSmall, Height / 2 + dyNearBottom, 0), Is.GreaterThan(0.95f), "non-mirrored 2nd cycle repeats from start");
-            Assert.That(Channel(mirrorPixels, Width / 2 + dxSmall, Height / 2 + dyNearTop, 0), Is.GreaterThan(0.95f));
-            Assert.That(Channel(mirrorPixels, Width / 2 - dxSmall, Height / 2 + dyNearTop, 0), Is.GreaterThan(0.95f), "mirrored 2nd cycle reflects across 12 o'clock");
-            // In PolarToRectangular with Repeat=2 & Mirror=true, x=Width/4 and x=3*Width/4 sample the same mirrored angle.
+            Assert.That(Channel(repeatPixels, outSize.Width, cx + dxSmall, cy - dy, 0), Is.GreaterThan(0.95f));
+            Assert.That(Channel(repeatPixels, outSize.Width, cx - dxSmall, cy + dy, 0), Is.GreaterThan(0.95f), "non-mirrored 2nd cycle repeats from start");
+            Assert.That(Channel(mirrorPixels, outSize.Width, cx + dxSmall, cy - dy, 0), Is.GreaterThan(0.95f));
+            Assert.That(Channel(mirrorPixels, outSize.Width, cx - dxSmall, cy - dy, 0), Is.GreaterThan(0.95f), "mirrored 2nd cycle reflects across 12 o'clock");
             Assert.That(Channel(p2rPixels, Width / 4, Height / 2, 0), Is.EqualTo(Channel(p2rPixels, (Width * 3) / 4, Height / 2, 0)).Within(0.02f));
         });
     }
@@ -536,13 +485,15 @@ public sealed class PolarCoordinatesTests
             SweepAngle = { Value = 180f },
             Repeat = { Value = 2f },
         };
-        (_, float[] pixels) = FilterEffectTestHarness.RunOnSolidTarget(halfArc, SKColors.White, s_size);
+        (float[] pixels, _, PixelSize outSize) = RunSolidWithBounds(halfArc, SKColors.White, s_size);
 
-        // Right half (3 o'clock is the interior repeat seam at uArc = 0.5) must stay opaque; left half must be transparent.
+        int cx = outSize.Width / 2;
+        int cy = outSize.Height / 2;
+        int offset = outSize.Width / 4;
         Assert.Multiple(() =>
         {
-            Assert.That(Channel(pixels, Width / 2 + Width / 4, Height / 2, 3), Is.GreaterThan(0.99f), "interior repeat seam inside arc stays opaque");
-            Assert.That(Channel(pixels, Width / 2 - Width / 4, Height / 2, 3), Is.LessThan(0.001f), "outside arc is transparent");
+            Assert.That(Channel(pixels, outSize.Width, cx + offset, cy, 3), Is.GreaterThan(0.99f), "interior repeat seam inside arc stays opaque");
+            Assert.That(Channel(pixels, outSize.Width, cx - offset, cy, 3), Is.LessThan(0.001f), "outside arc is transparent");
         });
     }
 
@@ -553,8 +504,7 @@ public sealed class PolarCoordinatesTests
     {
         var r2p = new PolarCoordinates
         {
-            InnerRadius = { Value = 35f },
-            OuterRadius = { Value = 75f },
+            InnerRadius = { Value = 30f },
             SweepAngle = { Value = 180f },
             EdgeMode = { Value = edgeMode },
         };
@@ -563,16 +513,19 @@ public sealed class PolarCoordinatesTests
             Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
             Center = { Value = new RelativePoint(1f, 0.5f, RelativeUnit.Relative) },
             EdgeMode = { Value = edgeMode },
+            ClipToBounds = { Value = true },
         };
 
-        (_, float[] r2pPixels) = FilterEffectTestHarness.RunOnSolidTarget(r2p, SKColors.White, s_size);
+        (float[] r2pPixels, _, PixelSize r2pSize) = RunSolidWithBounds(r2p, SKColors.White, s_size);
         (_, float[] p2rPixels) = FilterEffectTestHarness.RunOnSolidTarget(p2r, SKColors.White, s_size);
 
+        int cx = r2pSize.Width / 2;
+        int cy = r2pSize.Height / 2;
         Assert.Multiple(() =>
         {
-            Assert.That(Channel(r2pPixels, Width / 2, Height / 2, 3), Is.GreaterThan(0.99f), $"inner hole filled ({edgeMode})");
-            Assert.That(Channel(r2pPixels, 0, 0, 3), Is.GreaterThan(0.99f), $"outer corner filled ({edgeMode})");
-            Assert.That(Channel(r2pPixels, Width / 2 - Width / 4, Height / 2, 3), Is.GreaterThan(0.99f), $"outside arc filled ({edgeMode})");
+            Assert.That(Channel(r2pPixels, r2pSize.Width, cx, cy, 3), Is.GreaterThan(0.99f), $"inner hole filled ({edgeMode})");
+            Assert.That(Channel(r2pPixels, r2pSize.Width, 0, 0, 3), Is.GreaterThan(0.99f), $"outer corner filled ({edgeMode})");
+            Assert.That(Channel(r2pPixels, r2pSize.Width, cx - r2pSize.Width / 4, cy, 3), Is.GreaterThan(0.99f), $"outside arc filled ({edgeMode})");
             Assert.That(Channel(p2rPixels, Width / 4, Height / 2, 3), Is.GreaterThan(0.99f), $"polar-to-rect outside bounds filled ({edgeMode})");
         });
     }
@@ -586,27 +539,27 @@ public sealed class PolarCoordinatesTests
             EdgeMode = { Value = PolarCoordinatesEdgeMode.Clamp },
         };
         using PolarCoordinates.Resource resource = effect.ToResource(CompositionContext.Default);
-        (_, float[] pixels) = FilterEffectTestHarness.RunOnTarget(resource, s_size, DrawQuadrantStripes);
+        (float[] pixels, _, PixelSize outSize) = RunWithBounds(resource, s_size, DrawQuadrantStripes);
 
-        // Just past the 6 o'clock end of the 180-degree arc (around 7:30, bottom-left), Clamp must sample u=1 (White), not wrap to u=0 (Red).
-        int x = Width / 2 - Width / 6;
-        int y = Height / 2 + Height / 4;
+        int cx = outSize.Width / 2;
+        int cy = outSize.Height / 2;
+        int x = cx - outSize.Width / 6;
+        int y = cy + outSize.Height / 4;
         Assert.Multiple(() =>
         {
-            Assert.That(Channel(pixels, x, y, 0), Is.GreaterThan(0.95f));
-            Assert.That(Channel(pixels, x, y, 1), Is.GreaterThan(0.95f));
-            Assert.That(Channel(pixels, x, y, 2), Is.GreaterThan(0.95f));
+            Assert.That(Channel(pixels, outSize.Width, x, y, 0), Is.GreaterThan(0.95f));
+            Assert.That(Channel(pixels, outSize.Width, x, y, 1), Is.GreaterThan(0.95f));
+            Assert.That(Channel(pixels, outSize.Width, x, y, 2), Is.GreaterThan(0.95f));
         });
     }
 
     [TestCase(PolarCoordinatesEdgeMode.Transparent)]
     [TestCase(PolarCoordinatesEdgeMode.Clamp)]
-    public void DegenerateRadiusAndSweepStayFinite(PolarCoordinatesEdgeMode edgeMode)
+    public void DegenerateScaleAndSweepStayFinite(PolarCoordinatesEdgeMode edgeMode)
     {
         var effect = new PolarCoordinates
         {
-            InnerRadius = { Value = 50f },
-            OuterRadius = { Value = 50f },
+            Scale = { Value = 0f },
             SweepAngle = { Value = 0f },
             EdgeMode = { Value = edgeMode },
         };
@@ -621,63 +574,114 @@ public sealed class PolarCoordinatesTests
     }
 
     [Test]
-    public void ExtendedParametersRoundTripBetweenDirections()
+    public void ExtendedParametersRoundTripBetweenDirectionsWithoutClipping()
     {
-        var center = new RelativePoint(0.46f, 0.52f, RelativeUnit.Relative);
+        const float stage1Inner = 30f;
+        float stage1OuterR = (Width + Height + stage1Inner) / MathF.PI;
+        float stage1InnerR = stage1OuterR * (stage1Inner / (Height + stage1Inner));
+
         var group = new FilterEffectGroup
         {
             Children =
             {
                 new PolarCoordinates
                 {
-                    Center = { Value = center },
+                    InnerRadius = { Value = stage1Inner },
                     Angle = { Value = 40f },
-                    AspectMode = { Value = PolarCoordinatesAspectMode.Contain },
-                    InnerRadius = { Value = 20f },
-                    OuterRadius = { Value = 90f },
+                    Swirl = { Value = 120f },
+                    SweepAngle = { Value = 240f },
                     InvertRadius = { Value = true },
                     ReverseAngle = { Value = true },
-                    SweepAngle = { Value = 240f },
-                    ClipToBounds = { Value = true },
                 },
                 new PolarCoordinates
                 {
                     Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
-                    Center = { Value = center },
+                    InnerRadius = { Value = stage1InnerR },
                     Angle = { Value = 40f },
-                    AspectMode = { Value = PolarCoordinatesAspectMode.Contain },
-                    InnerRadius = { Value = 20f },
-                    OuterRadius = { Value = 90f },
+                    Swirl = { Value = 120f },
+                    SweepAngle = { Value = 240f },
                     InvertRadius = { Value = true },
                     ReverseAngle = { Value = true },
-                    SweepAngle = { Value = 240f },
-                    ClipToBounds = { Value = true },
                 },
             },
         };
         using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
-        (float[] before, float[] after) = FilterEffectTestHarness.RunOnTarget(resource, s_size, DrawGradient);
+        (float[] before, _, _) = RunWithBounds(new FilterEffectGroup().ToResource(CompositionContext.Default), s_size, DrawGradient);
+        (float[] after, Rect outBounds, PixelSize outSize) = RunWithBounds(resource, s_size, DrawGradient);
 
         float maximumError = 0f;
-        for (int y = Height / 4; y < (Height * 3) / 4; y++)
+        for (int y = 10; y < outSize.Height - 10; y++)
         {
-            for (int x = 16; x < Width - 16; x++)
+            int srcY = Math.Clamp((int)MathF.Round((y + 0.5f) / outSize.Height * Height - 0.5f), 0, Height - 1);
+            for (int x = 16; x < outSize.Width - 16; x++)
             {
+                int srcX = Math.Clamp((int)MathF.Round((x + 0.5f) / outSize.Width * Width - 0.5f), 0, Width - 1);
                 for (int channel = 0; channel < 4; channel++)
-                    maximumError = MathF.Max(maximumError, MathF.Abs(Channel(after, x, y, channel) - Channel(before, x, y, channel)));
+                {
+                    maximumError = MathF.Max(
+                        maximumError,
+                        MathF.Abs(Channel(after, outSize.Width, x, y, channel) - Channel(before, Width, srcX, srcY, channel)));
+                }
             }
         }
 
-        Assert.That(maximumError, Is.LessThan(0.04f));
+        Assert.Multiple(() =>
+        {
+            Assert.That(outBounds.Height, Is.EqualTo(stage1OuterR - stage1InnerR).Within(0.05f), "round-trip matches radial band thickness");
+            Assert.That(maximumError, Is.LessThan(0.04f));
+        });
+    }
+
+    [Test]
+    public void AmountBelowHundredUnionsInputAndPolarBounds()
+    {
+        var transparent = new PolarCoordinates
+        {
+            Amount = { Value = 50f },
+            EdgeMode = { Value = PolarCoordinatesEdgeMode.Transparent },
+        };
+        var mirrored = new PolarCoordinates
+        {
+            Amount = { Value = 50f },
+            EdgeMode = { Value = PolarCoordinatesEdgeMode.Mirror },
+        };
+
+        (float[] transparentPixels, Rect transparentBounds, PixelSize outSize) = RunSolidWithBounds(transparent, SKColors.White, s_size);
+        (float[] mirroredPixels, Rect mirroredBounds, _) = RunSolidWithBounds(mirrored, SKColors.White, s_size);
+
+        float expectedDiameter = ((Width + Height) / MathF.PI) * 2f;
+        Assert.Multiple(() =>
+        {
+            Assert.That(transparentBounds.Width, Is.EqualTo(expectedDiameter).Within(0.05f));
+            Assert.That(transparentBounds.Height, Is.EqualTo(expectedDiameter).Within(0.05f));
+            Assert.That(mirroredBounds, Is.EqualTo(transparentBounds));
+            // At the top inside row of the expanded frame (y=1 -> logical y~-25.5, mapped.y~0), Amount=50% places sample.y~-12.75 outside input [0, 81].
+            Assert.That(Channel(transparentPixels, outSize.Width, outSize.Width / 2, 1, 3), Is.LessThan(0.001f), "transparent fades out-of-input samples");
+            Assert.That(Channel(mirroredPixels, outSize.Width, outSize.Width / 2, 1, 3), Is.GreaterThan(0.99f), "mirror fills out-of-input samples");
+        });
+    }
+
+    [Test]
+    public void ClipToBoundsKeepsOriginalInputBounds()
+    {
+        var effect = new PolarCoordinates
+        {
+            InnerRadius = { Value = 50f },
+            Scale = { Value = 150f },
+            Center = { Value = new RelativePoint(0.2f, 0.2f, RelativeUnit.Relative) },
+            ClipToBounds = { Value = true },
+        };
+        (_, Rect output) = FilterEffectTestHarness.RecordShader(effect, s_bounds);
+        Assert.That(output, Is.EqualTo(s_bounds));
     }
 
     [Test]
     public void HitTestRespectsDonutHoleArcAndEdgeMode()
     {
+        const float inner = 30f;
         var transparentDonut = new PolarCoordinates
         {
-            InnerRadius = { Value = 40f },
-            OuterRadius = { Value = 80f },
+            InnerRadius = { Value = inner },
             SweepAngle = { Value = 180f },
             EdgeMode = { Value = PolarCoordinatesEdgeMode.Transparent },
         };
@@ -687,17 +691,18 @@ public sealed class PolarCoordinatesTests
 
         var clampedDonut = new PolarCoordinates
         {
-            InnerRadius = { Value = 40f },
-            OuterRadius = { Value = 80f },
+            InnerRadius = { Value = inner },
             SweepAngle = { Value = 180f },
             EdgeMode = { Value = PolarCoordinatesEdgeMode.Clamp },
         };
         (ShaderDescription cDesc, Rect cOutput) = FilterEffectTestHarness.RecordShader(clampedDonut, s_bounds);
         RenderHitTestContract cHit = cDesc.HitTest!.Value;
 
+        // s_bounds=(100x60), inner=30 -> rOuter=(100+60+30)/pi (~60.48), rInner=rOuter*30/90 (~20.16).
+        float midR = (((s_bounds.Width + s_bounds.Height + inner) / MathF.PI) * (1f + inner / (s_bounds.Height + inner))) * 0.5f;
         var centerPoint = s_bounds.Center;
-        var insideRingRight = new Point(s_bounds.Center.X + s_bounds.Width * 0.3f, s_bounds.Center.Y);
-        var outsideArcLeft = new Point(s_bounds.Center.X - s_bounds.Width * 0.3f, s_bounds.Center.Y);
+        var insideRingRight = new Point(s_bounds.Center.X + midR, s_bounds.Center.Y);
+        var outsideArcLeft = new Point(s_bounds.Center.X - midR, s_bounds.Center.Y);
 
         Assert.Multiple(() =>
         {
@@ -710,7 +715,7 @@ public sealed class PolarCoordinatesTests
     }
 
     [Test]
-    public void HitTestRespectsCenterAngleAndOutOfBoundsSamples()
+    public void HitTestRespectsCenterAngleSwirlAndExpandedOutputBounds()
     {
         var center = new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative);
         var rectToPolar = new PolarCoordinates
@@ -718,39 +723,26 @@ public sealed class PolarCoordinatesTests
             Direction = { Value = PolarCoordinatesDirection.RectangularToPolar },
             Center = { Value = center },
             Angle = { Value = 90f },
+            Swirl = { Value = 180f },
         };
         (ShaderDescription r2pDesc, Rect r2pOutput) = FilterEffectTestHarness.RecordShader(rectToPolar, s_bounds);
         RenderHitTestContract r2pHit = r2pDesc.HitTest!.Value;
-        // Center is at x=25, y=30 in local space. Point (50, 30) is 3 o'clock at radius 0.5.
-        // With Angle=90, 3 o'clock maps to u=0, v=0.5 -> source local (0, 30).
-        var r2pAccepted = new Rect(s_bounds.X - 1, s_bounds.Center.Y - 1, 2, 2);
+        // Center is at local (25, 30), rOuter = (100 + 60) / pi (~50.93).
+        // At 12 o'clock halfway out (vLinear = 0.5 -> v = 0.5):
+        // angle = 0 deg, total offset = Angle(90) + Swirl(180 * (0.5 - 1)) = 0 deg -> u = 0 -> source local (0, 30).
+        float expectedOuterR = (s_bounds.Width + s_bounds.Height) / MathF.PI;
+        var r2pAccepted = new Rect(s_bounds.X - 1f, s_bounds.Center.Y - 1f, 2f, 2f);
         var r2pInput = new RenderHitTestInput(s_bounds, r2pAccepted.ContainsExclusive);
-        var r2pPoint = new Point(s_bounds.X + 50, s_bounds.Center.Y);
-
-        var polarToRect = new PolarCoordinates
-        {
-            Direction = { Value = PolarCoordinatesDirection.PolarToRectangular },
-            Center = { Value = new RelativePoint(1f, 0.5f, RelativeUnit.Relative) },
-            Angle = { Value = 90f },
-        };
-        (ShaderDescription p2rDesc, Rect p2rOutput) = FilterEffectTestHarness.RecordShader(polarToRect, s_bounds);
-        RenderHitTestContract p2rHit = p2rDesc.HitTest!.Value;
-        // At u=0.5, Angle=90 -> total angle=270 deg (9 o'clock), v=0.5 -> local (100 - 25, 30) = (75, 30).
-        var p2rAccepted = new Rect(s_bounds.X + 74, s_bounds.Center.Y - 1, 2, 2);
-        var p2rInput = new RenderHitTestInput(s_bounds, p2rAccepted.ContainsExclusive);
-        var p2rInsidePoint = new Point(s_bounds.X + 50, s_bounds.Center.Y);
-        // At u=0, Angle=90 -> total angle=90 deg (3 o'clock), v=0.5 -> local (125, 30), outside bounds.
-        var p2rOutsidePoint = new Point(s_bounds.X + 0.5f, s_bounds.Center.Y);
+        var r2pPoint = new Point(s_bounds.X + 25f, s_bounds.Center.Y - expectedOuterR * 0.5f);
 
         Assert.Multiple(() =>
         {
-            Assert.That(r2pOutput, Is.EqualTo(new Rect(s_bounds.X - 25f, s_bounds.Y, s_bounds.Width, s_bounds.Height)));
+            Assert.That(r2pOutput.Width, Is.EqualTo(expectedOuterR * 2f).Within(0.05f));
+            Assert.That(r2pOutput.Height, Is.EqualTo(expectedOuterR * 2f).Within(0.05f));
             Assert.That(r2pHit.Evaluate(r2pOutput, [r2pInput], [], r2pPoint), Is.True);
-            // Point outside original s_bounds on the left, yet inside the expanded output bounds around the shifted center.
+            // Point past original left edge yet inside the expanded circle around the shifted center.
             Assert.That(r2pHit.Evaluate(r2pOutput, [new RenderHitTestInput(s_bounds, _ => true)], [], new Point(s_bounds.X - 20f, s_bounds.Center.Y)), Is.True);
-            Assert.That(r2pHit.Evaluate(r2pOutput, [new RenderHitTestInput(s_bounds, _ => true)], [], new Point(s_bounds.X + 95, s_bounds.Center.Y)), Is.False);
-            Assert.That(p2rHit.Evaluate(p2rOutput, [p2rInput], [], p2rInsidePoint), Is.True);
-            Assert.That(p2rHit.Evaluate(p2rOutput, [new RenderHitTestInput(s_bounds, _ => true)], [], p2rOutsidePoint), Is.False);
+            Assert.That(r2pHit.Evaluate(r2pOutput, [new RenderHitTestInput(s_bounds, _ => true)], [], new Point(s_bounds.X + 95f, s_bounds.Center.Y)), Is.False);
         });
     }
 

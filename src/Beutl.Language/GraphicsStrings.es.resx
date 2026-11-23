@@ -1907,23 +1907,11 @@
   <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
     <value>De polares a cartesianas</value>
   </data>
-  <data name="PolarCoordinates_AspectMode" xml:space="preserve">
-    <value>Modo de aspecto</value>
-  </data>
-  <data name="PolarCoordinatesAspectMode_Stretch" xml:space="preserve">
-    <value>Estirar</value>
-  </data>
-  <data name="PolarCoordinatesAspectMode_Contain" xml:space="preserve">
-    <value>Contener (círculo)</value>
-  </data>
-  <data name="PolarCoordinatesAspectMode_Cover" xml:space="preserve">
-    <value>Cubrir (círculo)</value>
-  </data>
   <data name="PolarCoordinates_InnerRadius" xml:space="preserve">
     <value>Radio interior</value>
   </data>
-  <data name="PolarCoordinates_OuterRadius" xml:space="preserve">
-    <value>Radio exterior</value>
+  <data name="PolarCoordinates_Swirl" xml:space="preserve">
+    <value>Remolino</value>
   </data>
   <data name="PolarCoordinates_InvertRadius" xml:space="preserve">
     <value>Invertir radio</value>

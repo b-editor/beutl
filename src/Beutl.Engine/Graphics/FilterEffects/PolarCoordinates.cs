@@ -24,9 +24,9 @@ public sealed partial class PolarCoordinates : FilterEffect
         uniform float2 outputSize;
         uniform float2 center;
         uniform float2 radii;
-        uniform float4 radial;
         uniform float4 angular;
-        uniform float2 options;
+        uniform float4 options;
+        uniform float amount;
         uniform float2 sourceRatio;
         uniform float2 sourceOffset;
 
@@ -86,91 +86,114 @@ public sealed partial class PolarCoordinates : FilterEffect
                 return half4(0.0);
             }
 
-            float innerR = radial.x;
-            float outerR = radial.y;
-            bool invertRadius = radial.z > 0.5;
-            float edgeMode = radial.w;
+            float innerR = radii.x;
+            float outerR = radii.y;
             float angleTurns = angular.x;
-            float sweepTurns = angular.y;
-            float repeatCount = angular.z;
-            bool reverseAngle = angular.w > 0.5;
-            bool mirrorMode = options.x > 0.5;
-            float amount = options.y;
+            float swirlTurns = angular.y;
+            float sweepTurns = angular.z;
+            float repeatCount = angular.w;
+            bool invertRadius = options.x > 0.5;
+            bool reverseAngle = options.y > 0.5;
+            bool mirrorMode = options.z > 0.5;
+            float edgeMode = options.w;
 
-            float2 q = (coord - center) / radii;
+            float2 q = coord - center;
             float radius = length(q);
             float angle = radius == 0.0 ? 0.0 : atan(q.x, -q.y);
-            float rawTurns = angle / 6.28318530718 - angleTurns;
-            if (reverseAngle) {
-                rawTurns = -rawTurns;
+
+            float band = outerR - innerR;
+            bool degenerateRadius = abs(band) < 1e-6;
+            float vLinear;
+            if (degenerateRadius) {
+                vLinear = edgeMode < 0.5 ? 2.0 : (radius < innerR ? 0.0 : 1.0);
+            } else {
+                vLinear = (radius - innerR) / band;
             }
-            float t = fract(rawTurns);
+
+            // Default (invertRadius == false) places the top edge (v = 0) on the outside and bottom (v = 1) on the inside.
+            float v = (degenerateRadius && edgeMode < 0.5)
+                ? 2.0
+                : (invertRadius ? vLinear : 1.0 - vLinear);
+
+            float swirlOffset = degenerateRadius ? 0.0 : swirlTurns * (vLinear - 1.0);
+            float baseRawTurns = angle / 6.28318530718 - angleTurns - swirlOffset;
+            if (reverseAngle) {
+                baseRawTurns = -baseRawTurns;
+            }
 
             bool isFullCircle = sweepTurns >= 1.0 - 1e-6;
-            float uArc;
-            if (isFullCircle) {
-                uArc = t;
-            } else if (sweepTurns < 1e-6) {
-                uArc = edgeMode < 0.5 ? 2.0 : 0.0;
-            } else {
-                float mid = sweepTurns * 0.5;
-                float tRel = fract(t - mid + 0.5) - 0.5 + mid;
-                uArc = tRel / sweepTurns;
-            }
+            float vMapped = edgeMode < 0.5 ? v : applyEdge(v, edgeMode);
 
-            float span = outerR - innerR;
-            bool degenerateRadius = abs(span) < 1e-6;
-            float v;
-            if (degenerateRadius) {
-                v = edgeMode < 0.5 ? 2.0 : (radius < innerR ? 0.0 : 1.0);
-            } else {
-                v = (radius - innerR) / span;
-            }
-            if (invertRadius && !(degenerateRadius && edgeMode < 0.5)) {
-                v = 1.0 - v;
-            }
+            // Estimate how many source texels span one output pixel along the arc so compressed
+            // inner regions and thin text stay smooth instead of aliasing.
+            float texelCircumference = 6.28318530718 * max(radius, 1.0);
+            float effectiveSweep = max(sweepTurns, 1e-4);
+            float footprintTurns = 1.0 / texelCircumference;
+            float footprintTexels = footprintTurns * (inputSize.x * sourceRatio.x) * (repeatCount / effectiveSweep);
+            int tapCount = (amount >= 1.0 - 1e-6 && footprintTexels > 1.25 && !degenerateRadius)
+                ? int(clamp(ceil(footprintTexels), 2.0, 5.0))
+                : 1;
 
-            float uMapped;
-            float vMapped;
-            if (edgeMode < 0.5) {
-                uMapped = applyRepeat(clamp(uArc, 0.0, 1.0), repeatCount, mirrorMode);
-                vMapped = v;
-            } else {
-                float uBounded = isFullCircle ? uArc : applyEdge(uArc, edgeMode);
-                uMapped = applyRepeat(uBounded, repeatCount, mirrorMode);
-                vMapped = applyEdge(v, edgeMode);
-            }
-
-            float2 sample = mix(coord, inputOrigin + inputSize * float2(uMapped, vMapped), amount);
-
-            float coverage = 1.0;
-            if (edgeMode < 0.5) {
-                if (!isFullCircle) {
-                    float arcSampleX = mix(coord.x, inputOrigin.x + inputSize.x * uArc, amount);
-                    float covMinX = clamp((arcSampleX - inputOrigin.x) * sourceRatio.x + 0.5, 0.0, 1.0);
-                    float covMaxX = clamp((inputOrigin.x + inputSize.x - arcSampleX) * sourceRatio.x + 0.5, 0.0, 1.0);
-                    coverage *= min(covMinX, covMaxX);
-                } else if (amount < 1.0) {
-                    // When outputBounds extends past inputBounds and amount < 1, sample.x can leave inputBounds.
-                    // Offset by +1.0 so the 12 o'clock seam at sample.x == inputOrigin.x stays opaque.
-                    float covMinX = clamp((sample.x - inputOrigin.x) * sourceRatio.x + 1.0, 0.0, 1.0);
-                    float covMaxX = clamp((inputOrigin.x + inputSize.x - sample.x) * sourceRatio.x + 1.0, 0.0, 1.0);
-                    coverage *= min(covMinX, covMaxX);
+            half4 accum = half4(0.0);
+            for (int i = 0; i < 5; i++) {
+                if (i >= tapCount) {
+                    break;
                 }
-                // Keep the collapsed pole opaque when it maps onto an edge of the source,
-                // while still fading samples that fall outside the source when amount < 1.
-                bool minAtOrigin = !degenerateRadius && ((!invertRadius && innerR == 0.0) || (invertRadius && outerR == 0.0));
-                bool maxAtOrigin = !degenerateRadius && ((invertRadius && innerR == 0.0) || (!invertRadius && outerR == 0.0));
-                float minYOffset = minAtOrigin ? 1.0 : 0.5;
-                float maxYOffset = maxAtOrigin ? 1.0 : 0.5;
-                coverage *= clamp((sample.y - inputOrigin.y) * sourceRatio.y + minYOffset, 0.0, 1.0);
-                coverage *= clamp((inputOrigin.y + inputSize.y - sample.y) * sourceRatio.y + maxYOffset, 0.0, 1.0);
-            } else if (amount < 1.0) {
-                float2 norm = (sample - inputOrigin) / inputSize;
-                sample = inputOrigin + inputSize * float2(applyEdge(norm.x, edgeMode), applyEdge(norm.y, edgeMode));
+                float jitter = tapCount > 1 ? (((float(i) + 0.5) / float(tapCount)) - 0.5) * footprintTurns : 0.0;
+                float t = fract(baseRawTurns + jitter);
+
+                float uArc;
+                if (isFullCircle) {
+                    uArc = t;
+                } else if (sweepTurns < 1e-6) {
+                    uArc = edgeMode < 0.5 ? 2.0 : 0.0;
+                } else {
+                    float mid = sweepTurns * 0.5;
+                    float tRel = fract(t - mid + 0.5) - 0.5 + mid;
+                    uArc = tRel / sweepTurns;
+                }
+
+                float uMapped;
+                if (edgeMode < 0.5) {
+                    uMapped = applyRepeat(clamp(uArc, 0.0, 1.0), repeatCount, mirrorMode);
+                } else {
+                    float uBounded = isFullCircle ? uArc : applyEdge(uArc, edgeMode);
+                    uMapped = applyRepeat(uBounded, repeatCount, mirrorMode);
+                }
+
+                float2 sample = mix(coord, inputOrigin + inputSize * float2(uMapped, vMapped), amount);
+
+                float coverage = 1.0;
+                if (edgeMode < 0.5) {
+                    if (!isFullCircle) {
+                        float arcSampleX = mix(coord.x, inputOrigin.x + inputSize.x * uArc, amount);
+                        float covMinX = clamp((arcSampleX - inputOrigin.x) * sourceRatio.x + 0.5, 0.0, 1.0);
+                        float covMaxX = clamp((inputOrigin.x + inputSize.x - arcSampleX) * sourceRatio.x + 0.5, 0.0, 1.0);
+                        coverage *= min(covMinX, covMaxX);
+                    } else if (amount < 1.0) {
+                        // When outputBounds extends past inputBounds and amount < 1, sample.x can leave inputBounds.
+                        // Offset by +1.0 so the 12 o'clock seam at sample.x == inputOrigin.x stays opaque.
+                        float covMinX = clamp((sample.x - inputOrigin.x) * sourceRatio.x + 1.0, 0.0, 1.0);
+                        float covMaxX = clamp((inputOrigin.x + inputSize.x - sample.x) * sourceRatio.x + 1.0, 0.0, 1.0);
+                        coverage *= min(covMinX, covMaxX);
+                    }
+                    // Keep the collapsed pole opaque when innerR == 0 maps onto a source edge,
+                    // while still fading samples that fall outside the source when amount < 1.
+                    bool minAtOrigin = !degenerateRadius && invertRadius && innerR <= 0.0;
+                    bool maxAtOrigin = !degenerateRadius && !invertRadius && innerR <= 0.0;
+                    float minYOffset = minAtOrigin ? 1.0 : 0.5;
+                    float maxYOffset = maxAtOrigin ? 1.0 : 0.5;
+                    coverage *= clamp((sample.y - inputOrigin.y) * sourceRatio.y + minYOffset, 0.0, 1.0);
+                    coverage *= clamp((inputOrigin.y + inputSize.y - sample.y) * sourceRatio.y + maxYOffset, 0.0, 1.0);
+                } else if (amount < 1.0) {
+                    float2 norm = (sample - inputOrigin) / inputSize;
+                    sample = inputOrigin + inputSize * float2(applyEdge(norm.x, edgeMode), applyEdge(norm.y, edgeMode));
+                }
+
+                accum += sampleLinear(sample) * half(coverage);
             }
 
-            return sampleLinear(sample) * half(coverage);
+            return accum / half(tapCount);
         }
         """);
 
@@ -183,24 +206,24 @@ public sealed partial class PolarCoordinates : FilterEffect
                 return half4(0.0);
             }
 
-            float innerR = radial.x;
-            float outerR = radial.y;
-            bool invertRadius = radial.z > 0.5;
-            float edgeMode = radial.w;
+            float innerR = radii.x;
+            float outerR = radii.y;
             float angleTurns = angular.x;
-            float sweepTurns = angular.y;
-            float repeatCount = angular.z;
-            bool reverseAngle = angular.w > 0.5;
-            bool mirrorMode = options.x > 0.5;
-            float amount = options.y;
+            float swirlTurns = angular.y;
+            float sweepTurns = angular.z;
+            float repeatCount = angular.w;
+            bool invertRadius = options.x > 0.5;
+            bool reverseAngle = options.y > 0.5;
+            bool mirrorMode = options.z > 0.5;
+            float edgeMode = options.w;
 
             float2 uv = outLocal / outputSize;
             float u = applyRepeat(uv.x, repeatCount, mirrorMode);
+            float vLinear = invertRadius ? uv.y : 1.0 - uv.y;
+            float r = mix(innerR, outerR, vLinear);
             float arcTurns = u * sweepTurns;
-            float angle = (angleTurns + (reverseAngle ? -arcTurns : arcTurns)) * 6.28318530718;
-            float v = invertRadius ? 1.0 - uv.y : uv.y;
-            float r = mix(innerR, outerR, v);
-            float2 mapped = center + radii * r * float2(sin(angle), -cos(angle));
+            float angle = (angleTurns + swirlTurns * (vLinear - 1.0) + (reverseAngle ? -arcTurns : arcTurns)) * 6.28318530718;
+            float2 mapped = center + r * float2(sin(angle), -cos(angle));
             float2 sample = mix(coord, mapped, amount);
 
             if (edgeMode < 0.5) {
@@ -228,26 +251,30 @@ public sealed partial class PolarCoordinates : FilterEffect
     [Unit(PropertyUnit.Percent)]
     public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(GraphicsStrings.Center), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    [Display(Name = nameof(GraphicsStrings.PolarCoordinates_InnerRadius), ResourceType = typeof(GraphicsStrings))]
+    [Range(0, float.MaxValue)]
+    public IExpressionProperty<float> InnerRadius { get; } = Property.CreateAnimatable(0f);
+
+    [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
+    [Range(0, float.MaxValue)]
+    [Unit(PropertyUnit.Percent)]
+    public IExpressionProperty<float> Scale { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
     [Unit(PropertyUnit.Degrees)]
     public IExpressionProperty<float> Angle { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.PolarCoordinates_AspectMode), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<PolarCoordinatesAspectMode> AspectMode { get; } =
-        Property.CreateExpression(PolarCoordinatesAspectMode.Stretch);
+    [Display(Name = nameof(GraphicsStrings.PolarCoordinates_Swirl), ResourceType = typeof(GraphicsStrings))]
+    [Unit(PropertyUnit.Degrees)]
+    public IExpressionProperty<float> Swirl { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.PolarCoordinates_InnerRadius), ResourceType = typeof(GraphicsStrings))]
-    [Range(0, float.MaxValue)]
-    [Unit(PropertyUnit.Percent)]
-    public IExpressionProperty<float> InnerRadius { get; } = Property.CreateAnimatable(0f);
+    [Display(Name = nameof(GraphicsStrings.PolarCoordinates_SweepAngle), ResourceType = typeof(GraphicsStrings))]
+    [Range(0, 360)]
+    [Unit(PropertyUnit.Degrees)]
+    public IExpressionProperty<float> SweepAngle { get; } = Property.CreateAnimatable(360f);
 
-    [Display(Name = nameof(GraphicsStrings.PolarCoordinates_OuterRadius), ResourceType = typeof(GraphicsStrings))]
-    [Range(0, float.MaxValue)]
-    [Unit(PropertyUnit.Percent)]
-    public IExpressionProperty<float> OuterRadius { get; } = Property.CreateAnimatable(100f);
+    [Display(Name = nameof(GraphicsStrings.Center), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     [Display(Name = nameof(GraphicsStrings.PolarCoordinates_InvertRadius), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> InvertRadius { get; } = Property.CreateAnimatable(false);
@@ -261,11 +288,6 @@ public sealed partial class PolarCoordinates : FilterEffect
 
     [Display(Name = nameof(GraphicsStrings.PolarCoordinates_Mirror), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> Mirror { get; } = Property.CreateAnimatable(false);
-
-    [Display(Name = nameof(GraphicsStrings.PolarCoordinates_SweepAngle), ResourceType = typeof(GraphicsStrings))]
-    [Range(0, 360)]
-    [Unit(PropertyUnit.Degrees)]
-    public IExpressionProperty<float> SweepAngle { get; } = Property.CreateAnimatable(360f);
 
     [Display(Name = nameof(GraphicsStrings.PolarCoordinates_EdgeMode), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<PolarCoordinatesEdgeMode> EdgeMode { get; } =
@@ -283,15 +305,21 @@ public sealed partial class PolarCoordinates : FilterEffect
         return new Vector2(resolved.X, resolved.Y);
     }
 
-    private static Vector2 ResolveRadii(PolarCoordinatesAspectMode aspectMode, Vector2 size)
+    private static Vector2 ResolveRadii(
+        PolarCoordinatesDirection direction, Size inputSize, float innerRadiusPx, float scale)
     {
-        Vector2 halfSize = Vector2.Max(size * 0.5f, new Vector2(1e-6f));
-        return aspectMode switch
+        if (direction == PolarCoordinatesDirection.PolarToRectangular)
         {
-            PolarCoordinatesAspectMode.Contain => new Vector2(MathF.Min(halfSize.X, halfSize.Y)),
-            PolarCoordinatesAspectMode.Cover => new Vector2(MathF.Max(halfSize.X, halfSize.Y)),
-            _ => halfSize,
-        };
+            float baseOuter = MathF.Min(inputSize.Width, inputSize.Height) * 0.5f;
+            return new Vector2(innerRadiusPx * scale, baseOuter * scale);
+        }
+
+        // Match AviUtl's polar transform sizing so both wide text and square inputs produce a natural circle:
+        // outerR = (W + H + InnerRadius) / pi * scale, innerR = outerR * InnerRadius / (H + InnerRadius).
+        float totalRadial = inputSize.Height + innerRadiusPx;
+        float outerR = ((inputSize.Width + totalRadial) / MathF.PI) * scale;
+        float innerR = totalRadial > 1e-6f ? outerR * (innerRadiusPx / totalRadial) : 0f;
+        return new Vector2(innerR, outerR);
     }
 
     private static float NormalizeTurns(float degrees)
@@ -340,23 +368,22 @@ public sealed partial class PolarCoordinates : FilterEffect
     private readonly record struct WarpParameters(
         PolarCoordinatesDirection Direction,
         float Amount,
-        RelativePoint Center,
-        float AngleTurns,
-        PolarCoordinatesAspectMode AspectMode,
         float InnerRadius,
-        float OuterRadius,
+        float Scale,
+        float AngleTurns,
+        float SwirlTurns,
+        float SweepTurns,
+        RelativePoint Center,
         bool InvertRadius,
         bool ReverseAngle,
         float Repeat,
         bool Mirror,
-        float SweepTurns,
         PolarCoordinatesEdgeMode EdgeMode,
         bool ClipToBounds)
     {
         public Rect TransformBounds(Rect inputBounds)
         {
             if (ClipToBounds
-                || Direction != PolarCoordinatesDirection.RectangularToPolar
                 || inputBounds.IsInvalid
                 || inputBounds.Width <= 0f
                 || inputBounds.Height <= 0f)
@@ -364,38 +391,46 @@ public sealed partial class PolarCoordinates : FilterEffect
                 return inputBounds;
             }
 
-            float maxRadius = MathF.Max(InnerRadius, OuterRadius);
-            if (!float.IsFinite(maxRadius) || maxRadius <= 1e-4f)
-                return inputBounds;
+            Vector2 radii = ResolveRadii(Direction, inputBounds.Size, InnerRadius, Scale);
+            float innerR = radii.X;
+            float outerR = radii.Y;
 
-            if (Center == RelativePoint.Center
-                && AspectMode == PolarCoordinatesAspectMode.Stretch
-                && maxRadius == 1f)
+            if (Direction == PolarCoordinatesDirection.PolarToRectangular)
             {
-                return inputBounds;
+                float band = MathF.Abs(outerR - innerR);
+                float midRadius = (innerR + outerR) * 0.5f;
+                float outWidth = MathF.Tau * midRadius * SweepTurns;
+                float outHeight = band;
+                if (!float.IsFinite(outWidth) || !float.IsFinite(outHeight)
+                    || outWidth <= 1e-4f || outHeight <= 1e-4f)
+                {
+                    return inputBounds;
+                }
+
+                Point inputCenter = inputBounds.Center;
+                float x = inputCenter.X - outWidth * 0.5f;
+                float y = inputCenter.Y - outHeight * 0.5f;
+                if (!float.IsFinite(x) || !float.IsFinite(y))
+                    return inputBounds;
+
+                var rectBounds = new Rect(x, y, outWidth, outHeight);
+                return Amount >= 1f - 1e-6f ? rectBounds : inputBounds.Union(rectBounds);
             }
 
-            var inputSize = new Vector2(inputBounds.Width, inputBounds.Height);
-            Vector2 radii = ResolveRadii(AspectMode, inputSize);
-            float rx = radii.X * maxRadius;
-            float ry = radii.Y * maxRadius;
-            if (!float.IsFinite(rx) || !float.IsFinite(ry) || rx <= 0f || ry <= 0f)
+            float maxRadius = MathF.Max(innerR, outerR);
+            if (!float.IsFinite(maxRadius) || maxRadius <= 1e-4f)
                 return inputBounds;
 
             Vector2 localCenter = ResolveLocalCenter(Center, inputBounds.Size);
             float cx = inputBounds.X + localCenter.X;
             float cy = inputBounds.Y + localCenter.Y;
-            float x = cx - rx;
-            float y = cy - ry;
-            float width = rx * 2f;
-            float height = ry * 2f;
-            if (!float.IsFinite(x) || !float.IsFinite(y) || !float.IsFinite(width) || !float.IsFinite(height)
-                || width <= 0f || height <= 0f)
-            {
+            float px = cx - maxRadius;
+            float py = cy - maxRadius;
+            float diameter = maxRadius * 2f;
+            if (!float.IsFinite(px) || !float.IsFinite(py) || !float.IsFinite(diameter) || diameter <= 0f)
                 return inputBounds;
-            }
 
-            var polarBounds = new Rect(x, y, width, height);
+            var polarBounds = new Rect(px, py, diameter, diameter);
             if (EdgeMode == PolarCoordinatesEdgeMode.Transparent && Amount >= 1f - 1e-6f)
                 return polarBounds;
 
@@ -417,7 +452,9 @@ public sealed partial class PolarCoordinates : FilterEffect
 
             var inLocal = new Vector2(point.X - inputBounds.X, point.Y - inputBounds.Y);
             var inSize = new Vector2(inputBounds.Width, inputBounds.Height);
-            Vector2 radii = ResolveRadii(AspectMode, inSize);
+            Vector2 radii = ResolveRadii(Direction, inputBounds.Size, InnerRadius, Scale);
+            float innerR = radii.X;
+            float outerR = radii.Y;
             Vector2 center = ResolveLocalCenter(Center, inputBounds.Size);
 
             // The shaders use the same normalized mapping and lerp. The half-pixel inset
@@ -429,12 +466,12 @@ public sealed partial class PolarCoordinates : FilterEffect
                 var outSize = new Vector2(outputBounds.Width, outputBounds.Height);
                 Vector2 uv = outLocal / outSize;
                 float u = ApplyRepeat(uv.X, Repeat, Mirror);
+                float vLinear = InvertRadius ? uv.Y : 1f - uv.Y;
+                float r = float.Lerp(innerR, outerR, vLinear);
                 float arcTurns = u * SweepTurns;
-                float angle = (AngleTurns + (ReverseAngle ? -arcTurns : arcTurns)) * MathF.Tau;
-                float v = InvertRadius ? 1f - uv.Y : uv.Y;
-                float r = float.Lerp(InnerRadius, OuterRadius, v);
+                float angle = (AngleTurns + SwirlTurns * (vLinear - 1f) + (ReverseAngle ? -arcTurns : arcTurns)) * MathF.Tau;
                 (float sin, float cos) = MathF.SinCos(angle);
-                Vector2 mapped = center + radii * r * new Vector2(sin, -cos);
+                Vector2 mapped = center + r * new Vector2(sin, -cos);
                 sample = Vector2.Lerp(inLocal, mapped, Amount);
 
                 if (EdgeMode == PolarCoordinatesEdgeMode.Transparent)
@@ -451,10 +488,21 @@ public sealed partial class PolarCoordinates : FilterEffect
             }
             else
             {
-                Vector2 q = (inLocal - center) / radii;
+                Vector2 q = inLocal - center;
                 float radius = q.Length();
                 float angle = radius == 0f ? 0f : MathF.Atan2(q.X, -q.Y);
-                float rawTurns = angle / MathF.Tau - AngleTurns;
+
+                float band = outerR - innerR;
+                bool degenerateRadius = MathF.Abs(band) < 1e-6f;
+                float vLinear = degenerateRadius
+                    ? (EdgeMode == PolarCoordinatesEdgeMode.Transparent ? 2f : (radius < innerR ? 0f : 1f))
+                    : (radius - innerR) / band;
+                float v = (degenerateRadius && EdgeMode == PolarCoordinatesEdgeMode.Transparent)
+                    ? 2f
+                    : (InvertRadius ? vLinear : 1f - vLinear);
+
+                float swirlOffset = degenerateRadius ? 0f : SwirlTurns * (vLinear - 1f);
+                float rawTurns = angle / MathF.Tau - AngleTurns - swirlOffset;
                 if (ReverseAngle)
                     rawTurns = -rawTurns;
                 float t = Fract(rawTurns);
@@ -475,14 +523,6 @@ public sealed partial class PolarCoordinates : FilterEffect
                     float tRel = Fract(t - mid + 0.5f) - 0.5f + mid;
                     uArc = tRel / SweepTurns;
                 }
-
-                float span = OuterRadius - InnerRadius;
-                bool degenerateRadius = MathF.Abs(span) < 1e-6f;
-                float v = degenerateRadius
-                    ? (EdgeMode == PolarCoordinatesEdgeMode.Transparent ? 2f : (radius < InnerRadius ? 0f : 1f))
-                    : (radius - InnerRadius) / span;
-                if (InvertRadius && !(degenerateRadius && EdgeMode == PolarCoordinatesEdgeMode.Transparent))
-                    v = 1f - v;
 
                 float uMapped;
                 float vMapped;
@@ -510,8 +550,7 @@ public sealed partial class PolarCoordinates : FilterEffect
                 {
                     if (isFullCircle && Amount < 1f && (sample.X < 0f || sample.X > inSize.X))
                         return false;
-                    bool minAtOrigin = !degenerateRadius && ((!InvertRadius && InnerRadius == 0f) || (InvertRadius && OuterRadius == 0f));
-                    bool maxAtOrigin = !degenerateRadius && ((InvertRadius && InnerRadius == 0f) || (!InvertRadius && OuterRadius == 0f));
+                    bool maxAtOrigin = !degenerateRadius && !InvertRadius && innerR <= 0f;
                     if (sample.Y < 0f)
                         return false;
                     if (maxAtOrigin ? sample.Y > inSize.Y : sample.Y >= inSize.Y)
@@ -566,36 +605,37 @@ public sealed partial class PolarCoordinates : FilterEffect
             if (amount == 0f)
                 return;
 
+            float innerRadius = float.IsFinite(InnerRadius) ? MathF.Max(0f, InnerRadius) : 0f;
+            float scale = float.IsFinite(Scale) ? MathF.Max(0f, Scale) / 100f : 1f;
             float angleTurns = NormalizeTurns(Angle);
-            PolarCoordinatesAspectMode aspectMode = Enum.IsDefined(AspectMode)
-                ? AspectMode
-                : PolarCoordinatesAspectMode.Stretch;
+            float swirlTurns = float.IsFinite(Swirl) ? Swirl / 360f : 0f;
+            float sweepTurns = float.IsFinite(SweepAngle) ? Math.Clamp(SweepAngle, 0f, 360f) / 360f : 1f;
+            float repeat = float.IsFinite(Repeat) ? MathF.Max(0.01f, Repeat) : 1f;
             PolarCoordinatesEdgeMode edgeMode = Enum.IsDefined(EdgeMode)
                 ? EdgeMode
                 : PolarCoordinatesEdgeMode.Transparent;
-            float innerRadius = float.IsFinite(InnerRadius) ? MathF.Max(0f, InnerRadius) / 100f : 0f;
-            float outerRadius = float.IsFinite(OuterRadius) ? MathF.Max(0f, OuterRadius) / 100f : 1f;
-            float repeat = float.IsFinite(Repeat) ? MathF.Max(0.01f, Repeat) : 1f;
-            float sweepTurns = float.IsFinite(SweepAngle) ? Math.Clamp(SweepAngle, 0f, 360f) / 360f : 1f;
 
             var parameters = new WarpParameters(
                 Direction,
                 amount,
-                Center,
-                angleTurns,
-                aspectMode,
                 innerRadius,
-                outerRadius,
+                scale,
+                angleTurns,
+                swirlTurns,
+                sweepTurns,
+                Center,
                 InvertRadius,
                 ReverseAngle,
                 repeat,
                 Mirror,
-                sweepTurns,
                 edgeMode,
                 ClipToBounds);
-            var radialUniform = new Vector4(innerRadius, outerRadius, InvertRadius ? 1f : 0f, (float)edgeMode);
-            var angularUniform = new Vector4(angleTurns, sweepTurns, repeat, ReverseAngle ? 1f : 0f);
-            var optionsUniform = new Vector2(Mirror ? 1f : 0f, amount);
+            var angularUniform = new Vector4(angleTurns, swirlTurns, sweepTurns, repeat);
+            var optionsUniform = new Vector4(
+                InvertRadius ? 1f : 0f,
+                ReverseAngle ? 1f : 0f,
+                Mirror ? 1f : 0f,
+                (float)edgeMode);
             SkslSource source = Direction == PolarCoordinatesDirection.PolarToRectangular
                 ? s_polarToRectangular
                 : s_rectangularToPolar;
@@ -607,9 +647,9 @@ public sealed partial class PolarCoordinates : FilterEffect
                 boundsContract,
                 bindings =>
                 {
-                    bindings.Uniform("radial", radialUniform);
                     bindings.Uniform("angular", angularUniform);
                     bindings.Uniform("options", optionsUniform);
+                    bindings.Uniform("amount", amount);
                     bindings.Uniform("sourceRatio", Vector2.One, BindSourceRatio);
                     bindings.Uniform("sourceOffset", Vector2.Zero, BindSourceOffset);
                     // Anchor the warp to the logical input and output bounds at the current working density.
@@ -640,11 +680,10 @@ public sealed partial class PolarCoordinates : FilterEffect
                         Vector2 localCenter = ResolveLocalCenter(center, bounds.Size);
                         writer.Set((new Vector2(origin.X, origin.Y) + localCenter) * execution.OutputPlacement.Scale.Value);
                     });
-                    bindings.Uniform("radii", aspectMode, static (writer, mode, execution) =>
+                    bindings.Uniform("radii", (Direction, innerRadius, scale), static (writer, state, execution) =>
                     {
-                        Size size = execution.InputBounds.Size;
-                        Vector2 deviceSize = new Vector2(size.Width, size.Height) * execution.OutputPlacement.Scale.Value;
-                        writer.Set(ResolveRadii(mode, deviceSize));
+                        Vector2 logicalRadii = ResolveRadii(state.Direction, execution.InputBounds.Size, state.innerRadius, state.scale);
+                        writer.Set(logicalRadii * execution.OutputPlacement.Scale.Value);
                     });
                 },
                 SKShaderTileMode.Decal,
