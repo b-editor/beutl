@@ -369,7 +369,18 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Panel Background="Transparent">
-                    <Rectangle Name="PART_DividerLine" Fill="{DynamicResource DockSplitterIdleBrush}" />
+                    <Rectangle Name="PART_DividerLine"
+                               Fill="{DynamicResource DockSplitterIdleBrush}"
+                               RenderTransform="scale(1)">
+                        <Rectangle.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Fill" Duration="00:00:00.100" />
+                                <TransformOperationsTransition Easing="0,0 0,1"
+                                                               Property="RenderTransform"
+                                                               Duration="00:00:00.120" />
+                            </Transitions>
+                        </Rectangle.Transitions>
+                    </Rectangle>
                 </Panel>
             </ControlTemplate>
         </Setter>
@@ -386,6 +397,12 @@
     </Style>
     <Style Selector="ProportionalStackPanelSplitter:pointerover /template/ Rectangle#PART_DividerLine">
         <Setter Property="Fill" Value="{DynamicResource DockSplitterHoverBrush}" />
+    </Style>
+    <Style Selector="ProportionalStackPanelSplitter:horizontal:pointerover /template/ Rectangle#PART_DividerLine">
+        <Setter Property="RenderTransform" Value="scaleX(2)" />
+    </Style>
+    <Style Selector="ProportionalStackPanelSplitter:vertical:pointerover /template/ Rectangle#PART_DividerLine">
+        <Setter Property="RenderTransform" Value="scaleY(2)" />
     </Style>
 
     <Style Selector="HostWindow">
@@ -508,6 +525,11 @@
 
         <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter, ^ /template/ ContentPresenter#PART_IconPresenter">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="00:00:00.083" />
+                </Transitions>
+            </Setter>
         </Style>
 
         <Style Selector="^:pointerover">
@@ -547,6 +569,15 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+            <Setter Property="RenderTransform" Value="scale(1)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="00:00:00.083" />
+                    <TransformOperationsTransition Easing="0,0 0,1"
+                                                   Property="RenderTransform"
+                                                   Duration="00:00:00.083" />
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="^ Button#PART_TabCloseButton:pointerover">
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonHoverBackgroundBrush}" />
@@ -554,12 +585,22 @@
         </Style>
         <Style Selector="^ Button#PART_TabCloseButton:pressed">
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonPressedBackgroundBrush}" />
+            <Setter Property="RenderTransform" Value="scale(0.9)" />
         </Style>
         <Style Selector="^ Button#PART_TabUnpinButton">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+            <Setter Property="RenderTransform" Value="scale(1)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="00:00:00.083" />
+                    <TransformOperationsTransition Easing="0,0 0,1"
+                                                   Property="RenderTransform"
+                                                   Duration="00:00:00.083" />
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="^ Button#PART_TabUnpinButton:pointerover">
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonHoverBackgroundBrush}" />
@@ -567,6 +608,7 @@
         </Style>
         <Style Selector="^ Button#PART_TabUnpinButton:pressed">
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonPressedBackgroundBrush}" />
+            <Setter Property="RenderTransform" Value="scale(0.9)" />
         </Style>
         <!--  :focus-visible keeps the keyboard tab stop from being an invisible way to close the tab.  -->
         <Style Selector="^:selected:pointerover Button#PART_TabCloseButton, ^ Button#PART_TabCloseButton:focus-visible">

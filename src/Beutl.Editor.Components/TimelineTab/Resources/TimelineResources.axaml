@@ -103,7 +103,16 @@
                     <ContentPresenter Name="PART_ContentPresenter"
                                       HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                       VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                      Content="{TemplateBinding Content}" />
+                                      Content="{TemplateBinding Content}"
+                                      RenderTransform="scale(1)">
+                        <ContentPresenter.Transitions>
+                            <Transitions>
+                                <TransformOperationsTransition Easing="0,0 0,1"
+                                                               Property="RenderTransform"
+                                                               Duration="00:00:00.083" />
+                            </Transitions>
+                        </ContentPresenter.Transitions>
+                    </ContentPresenter>
                 </Border>
             </ControlTemplate>
         </Setter>
@@ -112,6 +121,9 @@
         </Style>
         <Style Selector="^:pressed /template/ Border#PART_Root">
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+        </Style>
+        <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="RenderTransform" Value="scale(0.88)" />
         </Style>
         <Style Selector="^:checked /template/ Border#PART_Root">
             <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminate}" />

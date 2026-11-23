@@ -45,8 +45,7 @@ public static class ExpandTransitionHelper
                 }
                 else if (content.IsVisible)
                 {
-                    double from = content.Opacity;
-                    UiMotion.Run(content, UiMotion.Fast, progress => content.Opacity = from * (1 - progress), () =>
+                    UiMotion.FadeOut(content, UiMotion.Fast, () =>
                     {
                         content.IsVisible = false;
                         content.Opacity = 1;

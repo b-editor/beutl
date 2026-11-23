@@ -149,6 +149,13 @@
     <Style Selector="ListBoxItem :is(Button).row-action">
         <Setter Property="Opacity" Value="0" />
         <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Easing="0,0 0,1"
+                                  Property="Opacity"
+                                  Duration="00:00:00.120" />
+            </Transitions>
+        </Setter>
     </Style>
     <Style Selector="ListBoxItem:pointerover :is(Button).row-action">
         <Setter Property="Opacity" Value="1" />

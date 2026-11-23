@@ -3,6 +3,7 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Metadata;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -14,6 +15,7 @@ namespace Beutl.Controls.PropertyEditors;
 /// <summary>
 /// Defines the control used in a color palette to preview or select a color
 /// </summary>
+[PseudoClasses(":pressed")]
 public partial class ColorPaletteItem : Control
 {
     // The squares that show through a color that is not opaque.
@@ -96,6 +98,7 @@ public partial class ColorPaletteItem : Control
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             _isPressed = true;
+            PseudoClasses.Set(":pressed", true);
             InvalidateVisual();
             e.Handled = true;
         }
@@ -107,6 +110,7 @@ public partial class ColorPaletteItem : Control
         if (_isPressed && e.InitialPressMouseButton == MouseButton.Left)
         {
             _isPressed = false;
+            PseudoClasses.Set(":pressed", false);
             InvalidateVisual();
 
             // A press that leaves the item before it is released does not click it.
@@ -124,6 +128,7 @@ public partial class ColorPaletteItem : Control
         if (_isPressed)
         {
             _isPressed = false;
+            PseudoClasses.Set(":pressed", false);
             InvalidateVisual();
         }
     }

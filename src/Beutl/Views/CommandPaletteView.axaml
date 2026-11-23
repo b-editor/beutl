@@ -61,7 +61,9 @@
                             BorderThickness="0,0,0,1" />
                 </StackPanel>
 
-                <Panel Grid.Row="3" IsVisible="{Binding !IsPrompting.Value}">
+                <Panel Grid.Row="3"
+                       controls:RevealMotion.Mode="Slide"
+                       IsVisible="{Binding !IsPrompting.Value}">
                     <ListBox x:Name="ResultsListBox"
                              Margin="4,4,4,8"
                              Background="Transparent"
@@ -119,7 +121,9 @@
                                Text="{x:Static lang:Strings.CommandPalette_NoResults}" />
                 </Panel>
 
-                <Panel Grid.Row="3" IsVisible="{Binding IsPrompting.Value}">
+                <Panel Grid.Row="3"
+                       controls:RevealMotion.Mode="Slide"
+                       IsVisible="{Binding IsPrompting.Value}">
                     <ListBox x:Name="ChoicesListBox"
                              Margin="4,4,4,8"
                              Background="Transparent"

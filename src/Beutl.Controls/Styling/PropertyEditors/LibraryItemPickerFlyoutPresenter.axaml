@@ -19,7 +19,10 @@
                     BorderThickness="1"
                     ClipToBounds="True"
                     CornerRadius="{DynamicResource ControlCornerRadius}">
-                <controls:AnimatedThumbnail Source="{Binding Thumbnail}" />
+                <!--  One pixel tighter than ControlCornerRadius, so the thumbnail sits flush inside the 1px stroke.  -->
+                <Border ClipToBounds="True" CornerRadius="7">
+                    <controls:AnimatedThumbnail Source="{Binding Thumbnail}" />
+                </Border>
             </Border>
             <TextBlock Margin="24,0"
                        HorizontalAlignment="Center"
@@ -137,7 +140,15 @@
                                    RadiusX="2"
                                    RadiusY="2"
                                    RenderTransform="scaleY(0)"
-                                   UseLayoutRounding="False" />
+                                   UseLayoutRounding="False">
+                            <Rectangle.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Easing="0,0 0,1"
+                                                                   Property="RenderTransform"
+                                                                   Duration="00:00:00.167" />
+                                </Transitions>
+                            </Rectangle.Transitions>
+                        </Rectangle>
                     </Panel>
                 </Border>
             </ControlTemplate>

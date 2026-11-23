@@ -26,6 +26,15 @@
         <Setter Property="Height" Value="10" />
         <Setter Property="Background" Value="{DynamicResource SliderThumbBackground}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SliderThumbBorderBrush}" />
+        <Setter Property="RenderTransform" Value="scale(1)" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="00:00:00.083" />
+                <TransformOperationsTransition Easing="0,0 0,1"
+                                               Property="RenderTransform"
+                                               Duration="00:00:00.120" />
+            </Transitions>
+        </Setter>
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Background="{TemplateBinding Background}"
@@ -37,9 +46,11 @@
 
         <Style Selector="^:pointerover">
             <Setter Property="Background" Value="{DynamicResource SliderThumbBackgroundPointerOver}" />
+            <Setter Property="RenderTransform" Value="scale(1.25)" />
         </Style>
         <Style Selector="^:pressed">
             <Setter Property="Background" Value="{DynamicResource SliderThumbBackgroundPressed}" />
+            <Setter Property="RenderTransform" Value="scale(0.95)" />
         </Style>
     </ControlTheme>
 
@@ -70,6 +81,10 @@
                 </Track>
             </ControlTemplate>
         </Setter>
+
+        <Style Selector="^:pointerover /template/ Thumb#thumb:not(:pointerover):not(:pressed)">
+            <Setter Property="RenderTransform" Value="scale(1.15)" />
+        </Style>
     </ControlTheme>
 
     <ControlTheme x:Key="{x:Type controls:Player}" TargetType="controls:Player">
@@ -135,7 +150,18 @@
                                                FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentFillColorDefaultBrush}"
                                                Text="{TemplateBinding CurrentTime}"
-                                               ToolTip.Tip="{x:Static lang:Strings.GotoTimecode}" />
+                                               ToolTip.Tip="{x:Static lang:Strings.GotoTimecode}">
+                                        <TextBlock.Transitions>
+                                            <Transitions>
+                                                <DoubleTransition Property="Opacity" Duration="00:00:00.083" />
+                                            </Transitions>
+                                        </TextBlock.Transitions>
+                                        <TextBlock.Styles>
+                                            <Style Selector="TextBlock:pointerover">
+                                                <Setter Property="Opacity" Value="0.8" />
+                                            </Style>
+                                        </TextBlock.Styles>
+                                    </TextBlock>
 
                                     <!--  No taller than the buttons beside it, or the frame would jump when the edit starts.  -->
                                     <TextBox Name="PART_CurrentTimeTextBox"
@@ -204,7 +230,8 @@
                                         VerticalAlignment="Center"
                                         Background="{DynamicResource SubtleFillColorSecondaryBrush}"
                                         CornerRadius="{DynamicResource ControlCornerRadius}"
-                                        IsVisible="False">
+                                        IsVisible="False"
+                                        controls:RevealMotion.Mode="Pop">
                                     <TextBlock Name="PART_PlaybackRateTextBlock"
                                                FontFeatures="+tnum"
                                                FontWeight="SemiBold"
@@ -219,6 +246,17 @@
                                     </Style>
                                     <Style Selector="icons|FluentIcon">
                                         <Setter Property="FontSize" Value="16" />
+                                        <Setter Property="RenderTransform" Value="scale(1)" />
+                                        <Setter Property="Transitions">
+                                            <Transitions>
+                                                <TransformOperationsTransition Easing="0,0 0,1"
+                                                                               Property="RenderTransform"
+                                                                               Duration="00:00:00.083" />
+                                            </Transitions>
+                                        </Setter>
+                                    </Style>
+                                    <Style Selector=":is(Button):pressed icons|FluentIcon">
+                                        <Setter Property="RenderTransform" Value="scale(0.88)" />
                                     </Style>
                                 </StackPanel.Styles>
 

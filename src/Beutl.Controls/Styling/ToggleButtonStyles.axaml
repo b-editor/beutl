@@ -45,7 +45,16 @@
                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                       FontSize="{TemplateBinding FontSize}"
-                                      Icon="EyeOff" />
+                                      Icon="EyeOff"
+                                      RenderTransform="scale(1)">
+                        <icons:FluentIcon.Transitions>
+                            <Transitions>
+                                <TransformOperationsTransition Easing="0,0 0,1"
+                                                               Property="RenderTransform"
+                                                               Duration="00:00:00.083" />
+                            </Transitions>
+                        </icons:FluentIcon.Transitions>
+                    </icons:FluentIcon>
                 </Border>
             </ControlTemplate>
         </Setter>
@@ -63,6 +72,7 @@
         </Style>
         <Style Selector="^:pressed /template/ icons|FluentIcon#PART_SymbolIcon">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="RenderTransform" Value="scale(0.88)" />
         </Style>
 
         <Style Selector="^:disabled /template/ Border#PART_Root">

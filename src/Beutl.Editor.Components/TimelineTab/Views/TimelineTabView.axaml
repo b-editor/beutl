@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.TimelineTab.Views.TimelineTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ecv="using:Beutl.Editor.Components.Views"
              xmlns:h="using:Beutl.Editor.Components.Helpers"
@@ -115,6 +116,7 @@
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsRazorMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
@@ -122,6 +124,7 @@
                                      Grid.Column="2"
                                      Background="{DynamicResource SystemFillColorCriticalBrush}"
                                      Icon="Cut"
+                                     controls:RevealMotion.Mode="Pop"
                                      IsVisible="{CompiledBinding IsRazorMode.Value}"
                                      Text="{x:Static lang:Strings.RazorTool}" />
 
@@ -129,6 +132,7 @@
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorSuccessBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsSlipMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
@@ -136,6 +140,7 @@
                                      Grid.Column="2"
                                      Background="{DynamicResource SystemFillColorSuccessBrush}"
                                      Icon="ArrowSwap"
+                                     controls:RevealMotion.Mode="Pop"
                                      IsVisible="{CompiledBinding IsSlipMode.Value}"
                                      Text="{x:Static lang:Strings.SlipTool}" />
 
@@ -143,6 +148,7 @@
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorCautionBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsRollMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
@@ -150,6 +156,7 @@
                                      Grid.Column="2"
                                      Background="{DynamicResource SystemFillColorCautionBrush}"
                                      Icon="ArrowAutofitWidth"
+                                     controls:RevealMotion.Mode="Pop"
                                      IsVisible="{CompiledBinding IsRollMode.Value}"
                                      Text="{x:Static lang:Strings.RollTool}" />
 
@@ -157,6 +164,7 @@
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorAttentionBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsSlideMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
@@ -164,6 +172,7 @@
                                      Grid.Column="2"
                                      Background="{DynamicResource SystemFillColorAttentionBrush}"
                                      Icon="ArrowMove"
+                                     controls:RevealMotion.Mode="Pop"
                                      IsVisible="{CompiledBinding IsSlideMode.Value}"
                                      Text="{x:Static lang:Strings.SlideTool}" />
 
