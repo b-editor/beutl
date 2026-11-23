@@ -32,6 +32,8 @@ public sealed partial class ElementViewModel
         {
             ClearVisibleThumbnails();
         }
+
+        OnAnimationMarksViewAttached(attached);
     }
 
     private bool ShowThumbnailsByDefault

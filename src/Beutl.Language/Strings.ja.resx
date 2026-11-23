@@ -453,6 +453,12 @@
   <data name="BringToTop" xml:space="preserve">
     <value>一番上に持ってくる</value>
   </data>
+  <data name="ShowAllAnimations" xml:space="preserve">
+    <value>すべて表示</value>
+  </data>
+  <data name="NoAnimations" xml:space="preserve">
+    <value>アニメーションはありません</value>
+  </data>
   <data name="RecentProjectsEmpty" xml:space="preserve">
     <value>開いたプロジェクトがここに表示されます。</value>
   </data>

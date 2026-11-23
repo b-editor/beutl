@@ -145,6 +145,7 @@ public sealed partial class ElementView : UserControl
                                 && viewModel.LayerHeader.Value?.IsLocked.Value != true;
         PopulateTrackMatteMenu(viewModel);
         PopulateTransitionMenu(viewModel, editable);
+        PopulateAnimationMenu(viewModel, editable);
     }
 
     private void AutoSplitBySilence_Click(object? sender, RoutedEventArgs e)

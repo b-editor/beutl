@@ -458,6 +458,12 @@
   <data name="BringToTop" xml:space="preserve">
     <value>Bring to the top</value>
   </data>
+  <data name="ShowAllAnimations" xml:space="preserve">
+    <value>Show all</value>
+  </data>
+  <data name="NoAnimations" xml:space="preserve">
+    <value>No animations</value>
+  </data>
   <data name="RecentProjectsEmpty" xml:space="preserve">
     <value>Projects you open appear here.</value>
   </data>

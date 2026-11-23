@@ -189,7 +189,8 @@
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />
-                <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
+                <!--  The properties with keyframes go before these items each time the menu opens; see PopulateAnimationMenu.  -->
+                <ui:FAMenuFlyoutSubItem x:Name="animationMenu" Text="{x:Static lang:Strings.Animation}">
                     <ui:FAMenuFlyoutItem x:Name="finishEditingAnimation"
                                          usage:UsageTracking.Feature="Timeline.FinishEditingAnimation"
                                          Command="{Binding FinishEditingAnimation}"
@@ -258,9 +259,17 @@
                         Background="Transparent"
                         Cursor="SizeWestEast" />
             </Panel>
+            <!--  The keyframe times of the element's objects, along its bottom edge above the inline layers.  -->
+            <v:ElementKeyFrameMarks x:Name="keyFrameMarks"
+                                    Height="9"
+                                    VerticalAlignment="Bottom"
+                                    Fill="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                    Scale="{Binding Timeline.Scale^}"
+                                    Stroke="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                    Times="{Binding AnimationMarks.Value.Times}" />
             <!-- The lock and recovery (part of the clip could not be loaded) glyphs own columns; the label clears them.
                  None of them takes pointer input, so a long name does not cover the transition handles. -->
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*" IsHitTestVisible="False">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*" IsHitTestVisible="False">
                 <icons:FluentIcon x:Name="lockIcon"
                                   Grid.Column="0"
                                   Margin="6,0,0,0"
@@ -284,8 +293,28 @@
                            Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
                            Text="{Binding MatteIndicator.Value}"
                            IsVisible="{Binding MatteIndicator.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <!--  A property of the element's objects has keyframes or an expression, as its menu button in the
+                      property tab shows with the same glyphs.  -->
+                <StackPanel x:Name="animationGlyphs"
+                            Grid.Column="3"
+                            Margin="6,0,0,0"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding AnimationMarks.Value.HasAny}"
+                            Orientation="Horizontal"
+                            Spacing="2">
+                    <icons:FluentIcon x:Name="keyFrameGlyph"
+                                      FontSize="12"
+                                      Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                      IsVisible="{Binding AnimationMarks.Value.HasKeyFrames}"
+                                      Icon="Diamond" />
+                    <icons:FluentIcon x:Name="expressionGlyph"
+                                      FontSize="12"
+                                      Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                      IsVisible="{Binding AnimationMarks.Value.HasExpression}"
+                                      Icon="MathFormula" />
+                </StackPanel>
                 <TextBlock x:Name="textBlock"
-                           Grid.Column="3"
+                           Grid.Column="4"
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            ClipToBounds="True"

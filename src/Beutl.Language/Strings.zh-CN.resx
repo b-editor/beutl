@@ -452,6 +452,12 @@
   <data name="BringToTop" xml:space="preserve">
     <value>置于顶部</value>
   </data>
+  <data name="ShowAllAnimations" xml:space="preserve">
+    <value>全部显示</value>
+  </data>
+  <data name="NoAnimations" xml:space="preserve">
+    <value>没有动画</value>
+  </data>
   <data name="RecentProjectsEmpty" xml:space="preserve">
     <value>打开过的项目会显示在这里。</value>
   </data>

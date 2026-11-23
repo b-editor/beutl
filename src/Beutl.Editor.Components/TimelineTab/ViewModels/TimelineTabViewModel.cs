@@ -566,7 +566,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             }
         }
 
-        if (Inlines.Any(x => x.Element.Model == element && x.Property == property))
+        if (FindInline(element, property) != null)
         {
             _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id.Value);
             return;
@@ -580,6 +580,16 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         Inlines.Add(new InlineAnimationLayerViewModel(property, this, viewModel));
         _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id.Value);
+    }
+
+    // The layer that shows property on element's track. Each caller makes its own adapter of a property, so a layer
+    // of the same engine property counts as well.
+    internal InlineAnimationLayerViewModel? FindInline(Element element, IAnimatablePropertyAdapter property)
+    {
+        IProperty? engineProperty = property.GetEngineProperty();
+        return Inlines.FirstOrDefault(x => x.Element.Model == element
+            && (ReferenceEquals(x.Property, property)
+                || (engineProperty != null && ReferenceEquals(x.Property.GetEngineProperty(), engineProperty))));
     }
 
     private void ReplaceInlines(PropertyPair pair, Element element)
