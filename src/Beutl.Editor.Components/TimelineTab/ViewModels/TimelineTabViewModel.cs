@@ -339,8 +339,9 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ReactiveCommand<(TimeRange Range, int ZIndex)> ScrollTo { get; } = new();
 
-    // Asks the view to zoom so that the range fills its width, and to bring the layer into view when there is one.
-    public ReactiveCommand<(TimeRange Range, int? ZIndex)> ZoomTo { get; } = new();
+    // A range to zoom to until it fills the view's width, and a layer to bring into view when there is one. It waits
+    // until a view with a size takes it, which clears it.
+    public ReactivePropertySlim<(TimeRange Range, int? ZIndex)?> PendingFit { get; } = new();
 
     public ReactiveCommandSlim FitAll { get; }
 
@@ -650,7 +651,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     internal void ResetZoom() => SetScaleAroundPlayhead(1);
 
-    private void FitScene() => ZoomTo.Execute((new TimeRange(Scene.Start.Value, Scene.Duration.Value), null));
+    private void FitScene() => RequestFit(new TimeRange(Scene.Start.Value, Scene.Duration.Value), null);
 
     // From the first selected element's start to the last one's end, and the topmost one's layer.
     private void FitSelectedElements()
@@ -668,7 +669,15 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             top = Math.Min(top, item.Model.ZIndex.Value);
         }
 
-        ZoomTo.Execute((TimeRange.FromRange(start, end), top));
+        RequestFit(TimeRange.FromRange(start, end), top);
+    }
+
+    // A shown view takes the fit at once. A fit still pending means another tab hides the timeline, as when the
+    // palette runs one, so the timeline comes to the front, where its new view takes the fit.
+    private void RequestFit(TimeRange range, int? zindex)
+    {
+        PendingFit.Value = (range, zindex);
+        if (PendingFit.Value is not null) EditorContext.OpenToolTab(this);
     }
 
     private void SetScaleAroundPlayhead(float scale)

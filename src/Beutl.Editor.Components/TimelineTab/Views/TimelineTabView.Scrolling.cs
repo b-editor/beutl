@@ -26,6 +26,9 @@ public sealed partial class TimelineTabView
 
     private TimelineHelper.ZoomMotion? _zoomMotion;
 
+    // The scale a fit last showed.
+    private float _fitScale;
+
     private void PaneScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         ContentScroll.Offset = ContentScroll.Offset.WithY(PaneScroll.Offset.Y);
@@ -167,10 +170,16 @@ public sealed partial class TimelineTabView
     }
 
     // Zooms and scrolls together until the range fills the width, on the curve and for the time a scroll takes.
-    private async Task ZoomTimelineTo(TimeRange range, int? zindex)
+    private async Task ZoomTimelineTo(TimelineTabViewModel viewModel, TimeRange range, int? zindex)
     {
-        if (DataContext is not TimelineTabViewModel viewModel || ContentScroll.Viewport.Width <= 0) return;
+        // A view that the fit brought to the front has no size until its first layout.
+        if (ContentScroll.Viewport.Width <= 0)
+        {
+            await ContentScroll.GetObservable(ScrollViewer.ViewportProperty).FirstAsync(viewport => viewport.Width > 0);
+            if (ViewModel != viewModel) return;
+        }
 
+        viewModel.PendingFit.Value = null;
         (float scale, double offsetX) = TimelineHelper.FitRange(range, ContentScroll.Viewport.Width, FitMargin);
         var target = new Avalonia.Vector(offsetX, zindex is { } layer ? OffsetYShowing(viewModel, layer) : ContentScroll.Offset.Y);
 
@@ -179,6 +188,13 @@ public sealed partial class TimelineTabView
         _scrollCts = cancellation;
         var motion = new TimelineHelper.ZoomMotion(viewModel.Options.Value.Scale, ContentScroll.Offset, scale, target);
         _zoomMotion = motion;
+        _fitScale = viewModel.Options.Value.Scale;
+        // A scale the fit did not set comes from another zoom, a key or the menu's levels, which takes over as the
+        // wheel does.
+        using IDisposable takeover = viewModel.Scale.Subscribe(value =>
+        {
+            if (value != _fitScale) StopZooming();
+        });
         var anm = TimelineSettleAnimation.Create(
             TimeSpan.FromSeconds(0.5),
             FillMode.None,
@@ -214,16 +230,18 @@ public sealed partial class TimelineTabView
     // which would lay the frame out at the new scale and the old offset. So the offsets are set here as well.
     private void ShowView(TimelineTabViewModel viewModel, float scale, Avalonia.Vector offset)
     {
+        // As the options will hold it.
+        _fitScale = Math.Clamp(scale, Beutl.ProjectSystem.TimelineOptions.MinScale, Beutl.ProjectSystem.TimelineOptions.MaxScale);
         viewModel.Options.Value = viewModel.Options.Value with
         {
-            Scale = scale,
+            Scale = _fitScale,
             Offset = new Vector2((float)offset.X, (float)offset.Y)
         };
         ContentScroll.Offset = offset;
         PaneScroll.Offset = new Avalonia.Vector(0, offset.Y);
     }
 
-    // The wheel and a pinch take over from a zoom in progress.
+    // Another zoom takes over from a fit in progress.
     private void StopZooming()
     {
         if (_zoomMotion is null) return;

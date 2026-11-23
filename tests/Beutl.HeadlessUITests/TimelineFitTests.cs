@@ -225,14 +225,20 @@ public class TimelineFitTests
     }
 
     [AvaloniaTest]
-    public async Task The_wheel_takes_over_from_a_fit_in_progress()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Another_zoom_takes_over_from_a_fit_in_progress(bool key)
     {
-        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-fit-wheel", MediaTime.FromSeconds(30));
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-fit-takeover", MediaTime.FromSeconds(30));
         Point point = host.Content.TranslatePoint(new Point(100, 80), host.Window)!.Value;
         TimelineTestHost.WaitForHitTest(host.Window, host.Content, point);
 
         await TimelineTabExtension.Instance.RunAsync(host.Model, new ContextCommandExecution("timeline.fitAll"));
-        host.Window.MouseWheel(point, new Vector(0, 1), TimelineTestHost.CommandModifier);
+        if (key)
+            await TimelineTabExtension.Instance.RunAsync(host.Model, new ContextCommandExecution("timeline.zoomIn"));
+        else
+            host.Window.MouseWheel(point, new Vector(0, 1), TimelineTestHost.CommandModifier);
+
         // Longer than the zoom, which would have reached its scale by then.
         var elapsed = Stopwatch.StartNew();
         while (elapsed.Elapsed < TimeSpan.FromSeconds(0.8))
@@ -242,6 +248,30 @@ public class TimelineFitTests
         }
 
         Assert.That(host.Model.Options.Value.Scale, Is.EqualTo(1.2f).Within(0.001));
+    }
+
+    // As when the palette fits a timeline that another tab hides: the view that shows it next takes the fit.
+    [AvaloniaTest]
+    public async Task A_fit_waits_for_a_view_to_show_it()
+    {
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-fit-hidden", MediaTime.FromSeconds(30));
+        host.View.DataContext = null;
+
+        await TimelineTabExtension.Instance.RunAsync(host.Model, new ContextCommandExecution("timeline.fitAll"));
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Model.PendingFit.Value, Is.Not.Null);
+            Assert.That(host.Model.Options.Value.Scale, Is.EqualTo(1));
+        });
+
+        host.View.DataContext = host.Model;
+        await RenderUntilFittedAsync(host, Range(0, 30));
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Model.PendingFit.Value, Is.Null);
+            Assert.That(InView(host, 30), Is.EqualTo(host.Content.Viewport.Width - Margin).Within(0.5));
+        });
     }
 
     // The zoom runs on the animation clock, which keeps real time. It ends on the fitted scale exactly.
