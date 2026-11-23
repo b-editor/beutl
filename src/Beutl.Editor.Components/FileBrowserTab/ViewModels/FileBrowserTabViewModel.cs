@@ -94,7 +94,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         if (_disposed)
             return;
 
-        Refresh();
+        ReconcileWatchedDirectory();
     }
 
     private void OnRootPathChanged(string path)
@@ -139,12 +139,17 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             || path != (IsHomeView.Value ? _projectDirectory : RootPath.Value))
             return;
 
-        // Catch up with startup changes while retaining items that still exist and their selection.
+        ReconcileWatchedDirectory();
+    }
+
+    // Startup and watcher notifications both reconcile the listing so surviving items keep their state.
+    private void ReconcileWatchedDirectory()
+    {
         try
         {
             if (IsHomeView.Value)
                 RefreshHomeView(preserveExisting: true);
-            else
+            else if (RootPath.Value is { Length: > 0 } path)
             {
                 bool tree = ViewMode.Value == FileBrowserViewMode.Tree;
                 FileSystemEnumerator.RefreshCollection(_thumbnails, tree ? TreeRootItems : Items, path, includeChildren: tree);
@@ -156,7 +161,11 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "Failed to check file browser entries after watcher startup");
+            _logger.LogWarning(ex, "Failed to check file browser entries");
+        }
+        finally
+        {
+            PruneDisposedSelection();
         }
     }
 
@@ -242,9 +251,9 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
         // A deleted directory can no longer be distinguished from a temporary file by its
         // attributes. Refresh home results if a previously displayed favorite/media path is affected.
-        if (IsHomeView.Value && ShouldRebuildHomeView(paths))
+        if (IsHomeView.Value && ShouldRefreshHomeView(paths))
         {
-            RefreshHomeView();
+            ReconcileWatchedDirectory();
             return;
         }
 
@@ -267,7 +276,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                     && string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)), directory, StringComparison.Ordinal)
                     && FileSystemEnumerator.HasEntriesChanged(items, root))
                 {
-                    Refresh();
+                    ReconcileWatchedDirectory();
                     return;
                 }
 
@@ -284,9 +293,22 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         {
             _logger.LogWarning(ex, "Failed to check file browser entries");
         }
+        finally
+        {
+            PruneDisposedSelection();
+        }
     }
 
-    private bool ShouldRebuildHomeView(IReadOnlyCollection<string> paths)
+    private void PruneDisposedSelection()
+    {
+        for (int index = SelectedItems.Count - 1; index >= 0; index--)
+        {
+            if (SelectedItems[index].IsDisposed)
+                SelectedItems.RemoveAt(index);
+        }
+    }
+
+    private bool ShouldRefreshHomeView(IReadOnlyCollection<string> paths)
     {
         return paths.Any(path =>
             FavoriteItems.Any(item => string.Equals(item.FullPath, path, StringComparison.Ordinal)

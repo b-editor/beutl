@@ -73,6 +73,8 @@ public class FileSystemItemViewModel : IDisposable
 
     public bool IsDirectory { get; }
 
+    internal bool IsDisposed => _disposed;
+
     public string Extension { get; }
 
     public ReactiveProperty<Icon> IconSymbol { get; }
@@ -289,11 +291,16 @@ public class FileSystemItemViewModel : IDisposable
 
         if (string.Equals(FullPath, directory, StringComparison.Ordinal))
         {
-            bool changed = _childrenLoaded
-                ? FileSystemEnumerator.HasEntriesChanged(Children, FullPath)
-                : (Children.Count > 0) != new DirectoryInfo(FullPath)
-                    .EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible);
-            if (changed) Refresh();
+            if (_childrenLoaded)
+            {
+                if (FileSystemEnumerator.HasEntriesChanged(Children, FullPath))
+                    FileSystemEnumerator.RefreshCollection(_thumbnails, Children, FullPath);
+            }
+            else if ((Children.Count > 0) != new DirectoryInfo(FullPath)
+                         .EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible))
+            {
+                Refresh();
+            }
         }
         else if (_childrenLoaded)
         {
