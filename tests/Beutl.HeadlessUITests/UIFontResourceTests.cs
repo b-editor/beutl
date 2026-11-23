@@ -17,6 +17,7 @@ using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using RoyalTerminal.Avalonia.Controls;
+using BundledFonts = Beutl.Media.BundledFonts;
 
 namespace Beutl.HeadlessUITests;
 
@@ -25,6 +26,20 @@ public class UIFontResourceTests
 {
     // The helper app that links UiFonts.cs.
     private const string HelperAssembly = "Beutl.ExceptionHandler";
+
+    [TestCase("en")]
+    [TestCase("ja")]
+    [TestCase("zh")]
+    [TestCase("ko")]
+    public void UI_and_engine_use_the_same_bundled_font_order_and_assembly(string cultureName)
+    {
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+        Assert.Multiple(() =>
+        {
+            Assert.That(UiFonts.GetFontFamily(culture).FamilyNames, Is.EqualTo(BundledFonts.GetUiFamilyNames(culture)));
+            Assert.That(UiFonts.BundledFontsAssemblyName, Is.EqualTo(BundledFonts.AssemblyName));
+        });
+    }
 
     [AvaloniaTest]
     [TestCase("ja-JP", "Noto Sans JP")]
