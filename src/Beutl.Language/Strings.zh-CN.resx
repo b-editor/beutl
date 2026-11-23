@@ -1182,7 +1182,8 @@ PI：数学常数 π (3.14159...)</value>
 随机：Random(seed)、Random(seed, min, max)、FrameRandom()、FrameRandom(min, max)、Wiggle(frequency, amplitude, octaves = 1, seed = null)</value>
   </data>
   <data name="Expression_Functions_Time" xml:space="preserve">
-    <value>其他时间：ValueAtTime(time)、GetProperty&lt;T&gt;(path, time)</value>
+    <value>其他时间：ValueAtTime(time)、GetProperty&lt;T&gt;(path, time)
+循环：LoopOut(mode, keyframes)、LoopIn(mode, keyframes)</value>
   </data>
   <data name="Expression_GetProperty_Description" xml:space="preserve">
     <value>引用其他属性：

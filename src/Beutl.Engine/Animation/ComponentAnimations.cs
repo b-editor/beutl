@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
+using System.Reflection;
 using Beutl.Language;
 
 namespace Beutl.Animation;
@@ -100,13 +101,13 @@ public static class ComponentAnimations
         where TComponent : INumber<TComponent>
     {
         s_definitions[typeof(T)] = new ComponentSet<T, TComponent>(components, unitChanged);
-        s_offsets[typeof(T)] = (Func<T, T, T, T>)((value, from, to) =>
+        s_offsets[typeof(T)] = (Func<T, T, T, double, T>)((value, from, to, scale) =>
         {
             if (unitChanged?.Invoke(from, to) == true || unitChanged?.Invoke(value, from) == true)
                 return to;
 
             foreach (var component in components)
-                value = component.Set(value, NumericOffset.Add(component.Get(value), component.Get(from), component.Get(to)));
+                value = component.Set(value, NumericOffset.AddScaled(component.Get(value), component.Get(from), component.Get(to), scale));
             return value;
         });
         s_replacements[typeof(T)] = (Func<T, T, T, T>)((value, shown, input) =>
@@ -153,7 +154,46 @@ public static class ComponentAnimations
     public static bool IsSupported(Type type) => s_operations.ContainsKey(type);
 
     public static T OffsetValue<T>(T value, T from, T to)
-        => s_offsets.TryGetValue(typeof(T), out object? offset) ? ((Func<T, T, T, T>)offset)(value, from, to) : to;
+        => s_offsets.TryGetValue(typeof(T), out object? offset) ? ((Func<T, T, T, double, T>)offset)(value, from, to, 1) : to;
+
+    internal static T AddScaledDelta<T>(T value, T from, T to, double scale)
+    {
+        EnsureScaledDeltaSupported<T>();
+        return s_offsets.TryGetValue(typeof(T), out object? offset)
+            ? ((Func<T, T, T, double, T>)offset)(value, from, to, scale)
+            : ScalarOffset<T>.Add!(value, from, to, scale);
+    }
+
+    // Whether the type's animator interpolates each component linearly, so adding a scaled delta extends it exactly.
+    // Color's animator blends in linear light instead. A unit change makes the offset hold the target, as the
+    // animator's step does.
+    internal static bool InterpolatesLinearly<T>()
+        => typeof(T) != typeof(Media.Color) && (s_offsets.ContainsKey(typeof(T)) || ScalarOffset<T>.Add is not null);
+
+    internal static void EnsureScaledDeltaSupported<T>()
+    {
+        if (!s_offsets.ContainsKey(typeof(T)) && ScalarOffset<T>.Add is null)
+            throw new ExpressionException($"Loop modes Offset and Continue are not supported for {typeof(T).Name}.");
+    }
+
+    private static class ScalarOffset<T>
+    {
+        public static readonly Func<T, T, T, double, T>? Add = Bind();
+
+        private static Func<T, T, T, double, T>? Bind()
+        {
+            Type type = typeof(T);
+            if (!type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(INumber<>)
+                && i.GenericTypeArguments[0] == type))
+            {
+                return null;
+            }
+
+            return typeof(NumericOffset).GetMethod(nameof(NumericOffset.AddScaled), BindingFlags.Static | BindingFlags.NonPublic)!
+                .MakeGenericMethod(type)
+                .CreateDelegate<Func<T, T, T, double, T>>();
+        }
+    }
 
     // Takes the components of input that differ from shown, and keeps value's other components.
     public static T ReplaceEditedComponents<T>(T value, T shown, T input)
