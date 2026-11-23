@@ -35,7 +35,8 @@ public static class TimelineHelper
     internal static (ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin,
         ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin,
         ReadOnlyReactivePropertySlim<double> PanelWidth) CreateSceneBarMargins(
-            Scene scene, IEditorClock clock, IObservable<float> scale, CompositeDisposable disposables)
+            Scene scene, IEditorClock clock, IObservable<float> scale, IObservable<double> viewportWidth,
+            CompositeDisposable disposables)
     {
         ReadOnlyReactivePropertySlim<Thickness> startingBarMargin = scene.Start.GetObservable()
             .CombineLatest(scale)
@@ -60,8 +61,9 @@ public static class TimelineHelper
                 Math.Max(
                     Math.Max(i.First.Flicks, i.Second.Flicks + i.Third.Flicks),
                     i.Fourth.Flicks)))
-            .CombineLatest(scale)
-            .Select(i => i.First.TimeToPixel(i.Second) + 500)
+            .CombineLatest(scale, viewportWidth)
+            // Leave enough room to scroll the end of the content near the left edge.
+            .Select(i => i.First.TimeToPixel(i.Second) + Math.Max(500, i.Third))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 

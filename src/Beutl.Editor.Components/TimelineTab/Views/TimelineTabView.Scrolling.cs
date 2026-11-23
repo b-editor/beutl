@@ -25,6 +25,7 @@ public sealed partial class TimelineTabView
         AvaloniaProperty.Register<TimelineTabView, double>("ZoomProgress");
 
     private TimelineHelper.ZoomMotion? _zoomMotion;
+    private bool _updatingScrollExtent;
 
     // The scale a fit last showed.
     private float _fitScale;
@@ -38,12 +39,26 @@ public sealed partial class TimelineTabView
     {
         InvalidateElementViewport();
         // The first layout reports the offset the viewer starts at. OnLoaded has yet to apply the saved one.
-        if (ViewModel == null || !IsLoaded) return;
+        if (ViewModel == null || !IsLoaded || _updatingScrollExtent) return;
         TimelineTabViewModel viewModel = ViewModel;
         Avalonia.Vector aOffset = ContentScroll.Offset;
         var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
 
         viewModel.Options.Value = viewModel.Options.Value with { Offset = offset };
+    }
+
+    private void ApplyScrollOffset(Vector2 offset)
+    {
+        // A zoom can make the target reachable as soon as the wider panel is laid out.
+        if (offset.X > ContentScroll.ScrollBarMaximum.X && TimelinePanel.Width > ContentScroll.Extent.Width)
+        {
+            _updatingScrollExtent = true;
+            try { ContentScroll.UpdateLayout(); }
+            finally { _updatingScrollExtent = false; }
+        }
+
+        ContentScroll.Offset = new Avalonia.Vector(offset.X, offset.Y);
+        PaneScroll.Offset = new Avalonia.Vector(0, offset.Y);
     }
 
     private void UpdateZoom(TimelineTabViewModel viewModel, double factor, double pointerX)

@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Styling;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Components.Views;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
@@ -157,6 +158,40 @@ public class TimelineFitTests
             Assert.That(InView(host, 2), Is.EqualTo(Margin).Within(0.5));
             Assert.That(InView(host, 9), Is.EqualTo(width - Margin).Within(0.5));
             Assert.That(host.Content.Offset.Y, Is.EqualTo(host.Model.CalculateLayerTop(2)).Within(0.5));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task The_first_fit_centers_a_short_selection_at_the_end_of_a_wide_view()
+    {
+        // The layer pane and splitter add 281 px to the scroll viewport.
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-fit-wide", MediaTime.FromSeconds(20.5),
+            [Clip(20, 0.5, 0)], width: 1881, theme: ThemeVariant.Dark, show: false);
+        host.Model.SelectElement(host.Model.AllElements().Single());
+        Assert.That(host.Content.Viewport.Width, Is.Zero);
+
+        await TimelineTabExtension.Instance.RunAsync(host.Model, new ContextCommandExecution("timeline.fitSelection"));
+        Assert.That(host.Model.PendingFit.Value, Is.Not.Null);
+
+        host.Window.Show();
+        HeadlessTestHelpers.Render();
+        await RenderUntilFittedAsync(host, Range(20, 20.5));
+        HeadlessCapture.SaveIfRequested(host.View, nameof(TimelineFitTests), "fit-selection-wide");
+
+        double width = host.Content.Viewport.Width;
+        var overlay = host.View.FindControl<TimelineOverlay>("overlay")!;
+        var bpmGrid = host.View.FindControl<BpmGridOverlay>("BpmGrid")!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(width, Is.EqualTo(1600));
+            Assert.That(host.Model.Options.Value.Scale, Is.EqualTo(TimelineOptions.MaxScale));
+            Assert.That(InView(host, 20.25), Is.EqualTo(width / 2).Within(0.5));
+            Assert.That(host.Model.Options.Value.Offset.X, Is.EqualTo(host.Content.Offset.X).Within(0.5));
+            Assert.That(host.Ruler.Offset, Is.EqualTo(host.Content.Offset));
+            Assert.That(overlay.Offset, Is.EqualTo(host.Content.Offset));
+            Assert.That(overlay.Bounds.Width, Is.EqualTo(host.Timeline.Bounds.Width));
+            Assert.That(bpmGrid.Offset, Is.EqualTo(host.Content.Offset));
+            Assert.That(bpmGrid.Bounds.Width, Is.EqualTo(host.Timeline.Bounds.Width));
         });
     }
 
