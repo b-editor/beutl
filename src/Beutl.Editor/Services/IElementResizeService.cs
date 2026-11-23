@@ -38,10 +38,29 @@ public interface IElementResizeService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(element);
+        return ResizeToOriginalDurations(scene, [element], ripple);
+    }
+
+    internal bool ResizeToOriginalDurations(Scene scene, IReadOnlyList<Element> elements, bool ripple)
+    {
+        var requests = new List<ElementResizeRequest>(elements.Count);
+        foreach (Element element in elements)
+        {
+            if (GetOriginalDurationRequest(scene, element, ripple) is { } request)
+                requests.Add(request);
+        }
+
+        if (requests.Count == 0) return false;
+        Resize(scene, requests, ripple);
+        return true;
+    }
+
+    private ElementResizeRequest? GetOriginalDurationRequest(Scene scene, Element element, bool ripple)
+    {
         if (scene.IsElementLocked(element)
             || SlippableMedia.GetOriginalDuration(element, Decoders) is not { } originalDuration)
         {
-            return false;
+            return null;
         }
 
         MediaTime duration = originalDuration.RoundToFrame(SceneTimeRangeService.GetFrameRate(scene), MidpointRounding.ToNegativeInfinity);
@@ -54,9 +73,7 @@ public interface IElementResizeService
             }
         }
 
-        var request = new ElementResizeRequest(element, element.Start.Value, duration, element.ZIndex.Value) { ClampToSource = true };
-        Resize(scene, [request], ripple);
-        return true;
+        return new ElementResizeRequest(element, element.Start.Value, duration, element.ZIndex.Value) { ClampToSource = true };
     }
 
     /// <summary>

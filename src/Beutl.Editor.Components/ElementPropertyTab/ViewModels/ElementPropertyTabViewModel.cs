@@ -410,6 +410,8 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
             return DisplayedElement.Value;
         if (serviceType == typeof(IPropertyEditorMirror))
             return MultipleElements.Value?.Mirror;
+        if (serviceType == typeof(MultiElementEditSession))
+            return MultipleElements.Value;
 
         return _editorContext.GetService(serviceType);
     }

@@ -32,8 +32,6 @@ public partial class SoundSourceEditor : UserControl
         if (DataContext is not SoundSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
-        vm.SetValue(SoundSource.Open(fi.FullName));
-
-        MediaSourceEditorHelper.MatchElementToOriginalDuration(vm);
+        MediaSourceEditorHelper.MatchElementToOriginalDuration(vm, () => vm.SetValue(SoundSource.Open(fi.FullName)));
     }
 }

@@ -3,6 +3,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.PropertyEditors;
@@ -31,23 +32,38 @@ internal static class MediaSourceEditorHelper
         };
     }
 
-    public static void MatchElementToOriginalDuration(PropertyEditorViewModel vm)
+    public static void MatchElementToOriginalDuration(PropertyEditorViewModel vm, Action? replaceSource = null)
     {
-        if (vm.GetService<Element>() is not { } element) return;
+        // The tab can rebuild its property editors and dispose this one while it commits the replacement.
+        var multiple = vm.GetService<MultiElementEditSession>();
+        var element = vm.GetService<Element>();
+        var scene = vm.GetService<Scene>() ?? element?.FindHierarchicalParent<Scene>();
+        var resize = vm.GetService<IElementResizeService>();
+        var config = vm.GetService<GlobalConfiguration>()?.EditorConfig;
+        var timeline = vm.GetService<IEditorContext>()?.FindToolTab<TimelineTabViewModel>();
+        replaceSource?.Invoke();
+
+        if (multiple != null)
+        {
+            if (scene != null && resize != null && config != null)
+            {
+                Element[] elements = [.. multiple.Elements.Where(item => ElementEditability.IsEditable(item, scene))];
+                resize.ResizeToOriginalDurations(scene, elements, config.IsRippleEnabled.Value);
+            }
+
+            return;
+        }
+
+        if (element == null) return;
 
         // An open timeline also animates the clip to its new length.
-        TimelineTabViewModel? timeline = vm.GetService<IEditorContext>()?.FindToolTab<TimelineTabViewModel>();
         if (timeline?.GetViewModelFor(element) is { } elmViewModel)
         {
             elmViewModel.ChangeToOriginalDuration.Execute();
             return;
         }
 
-        if (element.FindHierarchicalParent<Scene>() is { } scene
-            && vm.GetService<IElementResizeService>() is { } resizeService)
-        {
-            resizeService.ResizeToOriginalDuration(
-                scene, element, vm.GetRequiredService<GlobalConfiguration>().EditorConfig.IsRippleEnabled.Value);
-        }
+        if (scene != null && resize != null && config != null)
+            resize.ResizeToOriginalDuration(scene, element, config.IsRippleEnabled.Value);
     }
 }

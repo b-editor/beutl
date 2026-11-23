@@ -101,7 +101,7 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
         switch (value)
         {
             case CoreObject obj when IsOwned(obj):
-                return exact ? CopyExactly(obj) : CopyWithNewIds(obj);
+                return exact ? ObjectRegeneration.CopyExactly(obj) : CopyWithNewIds(obj);
             case SplineEasing easing:
                 return new SplineEasing(easing.X1, easing.Y1, easing.X2, easing.Y2);
             case IList { IsFixedSize: false, IsReadOnly: false } list
@@ -546,16 +546,6 @@ internal sealed class MultiElementReplicator : IObserver<ChangeOperation>, IDisp
         => obj is not IHierarchical hierarchical
            || hierarchical.HierarchicalParent is null
            || ReferenceEquals(hierarchical.HierarchicalRoot, ((IHierarchical)_copy).HierarchicalRoot);
-
-    private static CoreObject CopyExactly(CoreObject obj)
-    {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
-        {
-            Mode = CoreSerializationMode.EmbedReferencedObjects,
-            EmbedsCopy = true
-        });
-        return (CoreObject)CoreSerializer.DeserializeFromJsonObject(json, obj.GetType());
-    }
 
     private static CoreObject CopyWithNewIds(CoreObject obj)
     {

@@ -31,8 +31,6 @@ public partial class VideoSourceEditor : UserControl
         if (DataContext is not VideoSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
-        vm.SetValue(VideoSource.Open(fi.FullName));
-
-        MediaSourceEditorHelper.MatchElementToOriginalDuration(vm);
+        MediaSourceEditorHelper.MatchElementToOriginalDuration(vm, () => vm.SetValue(VideoSource.Open(fi.FullName)));
     }
 }

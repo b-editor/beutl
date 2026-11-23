@@ -152,6 +152,18 @@ internal static class ObjectRegeneration
         return instance;
     }
 
+    internal static CoreObject CopyExactly(CoreObject obj)
+    {
+        JsonObject json = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
+        {
+            Mode = CoreSerializationMode.EmbedReferencedObjects,
+            EmbedsCopy = true
+        });
+        var copy = (CoreObject)CoreSerializer.DeserializeFromJsonObject(json, obj.GetType());
+        RestoreMediaSourceUri(obj, copy);
+        return copy;
+    }
+
     // A source's URI is written by its JSON converter when it is a property value. Copying it as the root
     // object uses CoreSerializer directly, so reconnect the new source to the same file here.
     private static void RestoreMediaSourceUri(ICoreSerializable original, ICoreSerializable copy)

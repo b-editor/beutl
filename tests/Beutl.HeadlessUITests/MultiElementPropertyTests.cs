@@ -4,6 +4,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Audio;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
@@ -34,6 +35,27 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class MultiElementPropertyTests
 {
+    [AvaloniaTest]
+    public async Task Replacing_the_video_source_resizes_the_selected_timeline_elements()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new SourceVideo(), () => new SourceVideo());
+        foreach (Element element in elements)
+            element.Length.Value = MediaTime.FromSeconds(0.5);
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        var model = (VideoSourceEditorViewModel)Editor(tab, Copy<SourceVideo>(tab).Source);
+        var view = new VideoSourceEditor { DataContext = model };
+        var replacement = new FileInfo(TimelineMediaDurationTests.CreateDurationVideo().Source.Value!.Uri.LocalPath);
+        view.FindControl<StorageFileEditor>("FileEditor")!
+            .RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(replacement, null, PropertyEditor.ValueConfirmedEvent));
+
+        Assert.That(Shapes<SourceVideo>(elements).Select(video => video.Source.Value is { HasUri: true } source ? source.Uri.LocalPath : null),
+            Is.All.EqualTo(replacement.FullName));
+        Assert.That(elements.Select(element => element.Length.Value), Is.All.EqualTo(MediaTime.FromSeconds(1)));
+        editor.HistoryManager.Undo();
+        Assert.That(elements.Select(element => element.Length.Value), Is.All.EqualTo(MediaTime.FromSeconds(0.5)));
+    }
+
     [AvaloniaTest]
     public async Task ValueEditsReachEveryElementInOneUndoStep()
     {

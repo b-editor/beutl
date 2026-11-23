@@ -472,7 +472,7 @@ public class TimelineMediaDurationTests
         Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
     }
 
-    private static SourceVideo CreateDurationVideo()
+    internal static SourceVideo CreateDurationVideo()
     {
         TestShell.EnsureDecoder<DurationVideoDecoder>();
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"duration-{Guid.NewGuid():N}.trim-duration-video");
