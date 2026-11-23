@@ -90,8 +90,8 @@ public sealed partial class ElementViewModel
         _watchedAnimations.Clear();
     }
 
-    // The properties with keyframes that the clip's "Animation" menu lists, read when the menu opens.
-    internal List<ElementAnimations.Entry> GetAnimationEntries() => ElementAnimations.ReadEntries(Model);
+    // The rows of the clip's "Animation" menu, read when the menu opens.
+    internal List<AnimationMenuItem> GetAnimationMenu() => ElementAnimations.ReadMenu(Model);
 
     internal bool IsInlineShown(IAnimatablePropertyAdapter property) => Timeline.FindInline(Model, property) != null;
 
@@ -106,14 +106,14 @@ public sealed partial class ElementViewModel
             Timeline.AttachInline(property, Model);
     }
 
-    internal void ShowAllInlines(IEnumerable<ElementAnimations.Entry> entries)
+    internal void ShowAllInlines(IEnumerable<IAnimatablePropertyAdapter> properties)
     {
         if (!IsEditable.Value) return;
 
-        foreach (ElementAnimations.Entry entry in entries)
+        foreach (IAnimatablePropertyAdapter property in properties)
         {
-            if (Timeline.FindInline(Model, entry.Adapter) is null)
-                Timeline.AttachInline(entry.Adapter, Model);
+            if (Timeline.FindInline(Model, property) is null)
+                Timeline.AttachInline(property, Model);
         }
     }
 }
