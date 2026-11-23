@@ -49,17 +49,19 @@ public sealed class LayerHeaderViewModel : IDisposable
         ToggleSoloCommand = new ReactiveCommand()
             .WithSubscribe(() => ToggleLayerFlag(IsSolo, (s, scene, n, v) => s.SetSolo(scene, n, v)));
 
+        Height = new ReactiveProperty<double>(timeline.LayerRowHeight.Value).AddTo(_disposables);
         Height.Skip(1).Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
+        timeline.LayerRowHeight.Skip(1).Subscribe(height => Height.Value = height * (Inlines.Count + 1)).AddTo(_disposables);
 
         Inlines.ForEachItem(
                 (idx, x) =>
                 {
-                    Height.Value += FrameNumberHelper.LayerHeight;
+                    Height.Value += Timeline.LayerRowHeight.Value;
                     x.Index.Value = idx;
                 },
                 (_, x) =>
                 {
-                    Height.Value -= FrameNumberHelper.LayerHeight;
+                    Height.Value -= Timeline.LayerRowHeight.Value;
                     x.Index.Value = -1;
                 },
                 () => { })
@@ -129,7 +131,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveProperty<bool> IsSolo { get; }
 
-    public ReactiveProperty<double> Height { get; } = new(FrameNumberHelper.LayerHeight);
+    public ReactiveProperty<double> Height { get; }
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
 
@@ -160,7 +162,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public double CalculateInlineTop(int index)
     {
-        return FrameNumberHelper.LayerHeight * index;
+        return Timeline.LayerRowHeight.Value * index;
     }
 
     public void SetColor(Color color)

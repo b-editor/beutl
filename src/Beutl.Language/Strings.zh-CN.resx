@@ -3889,4 +3889,16 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>粘贴剪辑之前请先保存项目。</value>
   </data>
+  <data name="TimelineLayerHeight" xml:space="preserve">
+    <value>图层高度</value>
+  </data>
+  <data name="TimelineLayerSizeSmall" xml:space="preserve">
+    <value>小</value>
+  </data>
+  <data name="TimelineLayerSizeMedium" xml:space="preserve">
+    <value>中</value>
+  </data>
+  <data name="TimelineLayerSizeLarge" xml:space="preserve">
+    <value>大</value>
+  </data>
 </root>

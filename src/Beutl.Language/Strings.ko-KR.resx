@@ -3889,4 +3889,16 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>클립을 붙여넣기 전에 프로젝트를 저장하세요.</value>
   </data>
+  <data name="TimelineLayerHeight" xml:space="preserve">
+    <value>레이어 높이</value>
+  </data>
+  <data name="TimelineLayerSizeSmall" xml:space="preserve">
+    <value>작게</value>
+  </data>
+  <data name="TimelineLayerSizeMedium" xml:space="preserve">
+    <value>보통</value>
+  </data>
+  <data name="TimelineLayerSizeLarge" xml:space="preserve">
+    <value>크게</value>
+  </data>
 </root>

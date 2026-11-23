@@ -185,7 +185,7 @@ public sealed partial class TimelineTabViewModel
     // header are counted from its top.
     public int ToLayerNumber(Thickness thickness)
     {
-        return FindLayerNumber(thickness.Top + (FrameNumberHelper.LayerHeight / 2), thickness.Top);
+        return FindLayerNumber(thickness.Top + (LayerRowHeight.Value / 2), thickness.Top);
     }
 
     // The rows a band of the timeline covers. Unlike ToLayerNumber, this adds none.
@@ -216,7 +216,7 @@ public sealed partial class TimelineTabViewModel
         if (low < LayerHeaders.Count && hitY >= 0) return low;
 
         double delta = overflowY - _layerTops[^1];
-        int addCount = (int)Math.Ceiling(delta / FrameNumberHelper.LayerHeight);
+        int addCount = (int)Math.Ceiling(delta / LayerRowHeight.Value);
         int zIndex = addCount + LayerHeaders.Count;
         AddLayerHeaders(zIndex + 1);
 

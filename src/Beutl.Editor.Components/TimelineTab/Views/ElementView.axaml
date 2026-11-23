@@ -12,7 +12,7 @@
              xmlns:v="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
              x:Name="root"
-             Height="{DynamicResource LayerHeight}"
+             Height="{CompiledBinding Timeline.LayerRowHeight.Value}"
              Margin="{CompiledBinding Margin.Value}"
              Padding="0,1"
              HorizontalAlignment="Stretch"

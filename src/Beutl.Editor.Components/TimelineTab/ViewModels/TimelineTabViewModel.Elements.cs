@@ -73,7 +73,7 @@ public sealed partial class TimelineTabViewModel
             element.Start.Value.TimeToPixel(scale),
             CalculateLayerTop(element.ZIndex.Value),
             Math.Max(0, element.Length.Value.TimeToPixel(scale)),
-            FrameNumberHelper.LayerHeight);
+            LayerRowHeight.Value);
     }
 
     // Looping over this tolerates a view model being created along the way.

@@ -80,6 +80,31 @@ public sealed partial class TimelineTabView
         e.Handled = true;
     }
 
+    private void InitializeLayerSizeMenu()
+    {
+        AddSize(TimelineLayerSize.Small, Strings.TimelineLayerSizeSmall);
+        AddSize(TimelineLayerSize.Medium, Strings.TimelineLayerSizeMedium);
+        AddSize(TimelineLayerSize.Large, Strings.TimelineLayerSizeLarge);
+        if (TimelinePanel.ContextFlyout is FAMenuFlyout menu)
+            menu.Opening += (_, _) =>
+            {
+                if (ViewModel is not { } viewModel) return;
+                foreach (FARadioMenuFlyoutItem item in LayerSizeMenu.Items.OfType<FARadioMenuFlyoutItem>())
+                    item.IsChecked = (double)(TimelineLayerSize)item.Tag! == viewModel.LayerRowHeight.Value;
+            };
+
+        void AddSize(TimelineLayerSize size, string label)
+        {
+            var item = new FARadioMenuFlyoutItem { Text = label, GroupName = nameof(TimelineLayerSize), Tag = size };
+            item.Click += (_, _) =>
+            {
+                if (ViewModel is { } viewModel)
+                    viewModel.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.TimelineLayerSize.Value = size;
+            };
+            LayerSizeMenu.Items.Add(item);
+        }
+    }
+
     private void ZoomClick(object? sender, RoutedEventArgs e)
     {
         if (e.Source is FAMenuFlyoutItem menuItem && ViewModel != null

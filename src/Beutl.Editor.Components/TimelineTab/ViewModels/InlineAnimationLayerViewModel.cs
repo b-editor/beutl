@@ -317,7 +317,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         if (LayerHeader.Value is { } layerHeader)
         {
             Index.Value = layerHeader.Inlines.IndexOf(this);
-            double top = layerHeader.CalculateInlineTop(Index.Value) + FrameNumberHelper.LayerHeight;
+            double top = layerHeader.CalculateInlineTop(Index.Value) + Timeline.LayerRowHeight.Value;
             Thickness newMargin = new Thickness(0, top, 0, 0) + layerMargin;
             Thickness newLeftMargin = GetLeftMargin(_timeOrigin.Value, Timeline.Options.Value.Scale, leftMargin);
 
@@ -416,7 +416,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             {
                 _prevIndex = _prevLayerHeader.Inlines.IndexOf(inline);
 
-                double value = _prevLayerHeader.CalculateInlineTop(_prevIndex) + FrameNumberHelper.LayerHeight;
+                double value = _prevLayerHeader.CalculateInlineTop(_prevIndex) + inline.Timeline.LayerRowHeight.Value;
                 if (observer == null)
                 {
                     PublishNext(value);

@@ -58,7 +58,12 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
             Scene, _editorClock, Scale, _disposables);
 
-        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, _disposables);
+        EditorConfig editorConfig = EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig;
+        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorConfig, _disposables);
+        LayerRowHeight = editorConfig.TimelineLayerSize.GetObservable()
+            .Select(size => Enum.IsDefined(size) ? (double)size : FrameNumberHelper.LayerHeight)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
 
         AddElement.WithSubscribe(AddElementCore).AddTo(_disposables);
 
@@ -119,7 +124,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         CloseAllGaps = new ReactiveCommandSlim().WithSubscribe(CloseAllSceneGaps).DisposeWith(_disposables);
         GoToNextGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: true)).DisposeWith(_disposables);
         GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false)).DisposeWith(_disposables);
-        EditorConfig editorConfig = EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig;
 
         AutoAdjustSceneDuration = editorConfig.AutoAdjustSceneDuration.GetObservable()
             .ToReactiveProperty()
@@ -314,6 +318,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public Rational FrameRate => SceneTimeRangeService.GetFrameRate(Scene);
 
     public ReadOnlyReactivePropertySlim<TimeDisplayFormat> TimeDisplayFormat { get; }
+
+    public ReadOnlyReactivePropertySlim<double> LayerRowHeight { get; }
 
     public AsyncReactiveCommand<ElementDescription> AddElement { get; } = new();
 

@@ -245,6 +245,7 @@
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
                         <ui:FAToggleMenuFlyoutItem IsChecked="{Binding IsSnapEnabled.Value, Mode=TwoWay}" Text="{x:Static lang:Strings.TimelineSnap}" />
+                        <ui:FAMenuFlyoutSubItem x:Name="LayerSizeMenu" Text="{x:Static lang:Strings.TimelineLayerHeight}" />
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.ShowSceneSettings"
                                              Click="ShowSceneSettings"
@@ -300,7 +301,7 @@
                     </ui:FAMenuFlyout>
                 </Panel.ContextFlyout>
 
-                <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{DynamicResource LayerHeight}" />
+                <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{CompiledBinding LayerRowHeight.Value}" />
 
                 <ecv:BpmGridOverlay x:Name="BpmGrid"
                                     VerticalAlignment="Stretch"

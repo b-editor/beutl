@@ -3889,4 +3889,16 @@ cuando el registro del historial está activado.</value>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>Guarda el proyecto antes de pegar clips.</value>
   </data>
+  <data name="TimelineLayerHeight" xml:space="preserve">
+    <value>Altura de capas</value>
+  </data>
+  <data name="TimelineLayerSizeSmall" xml:space="preserve">
+    <value>Pequeña</value>
+  </data>
+  <data name="TimelineLayerSizeMedium" xml:space="preserve">
+    <value>Mediana</value>
+  </data>
+  <data name="TimelineLayerSizeLarge" xml:space="preserve">
+    <value>Grande</value>
+  </data>
 </root>

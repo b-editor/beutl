@@ -39,6 +39,13 @@ public enum TimelineAutoScrollMode
     PageScroll
 }
 
+public enum TimelineLayerSize
+{
+    Small = 25,
+    Medium = 40,
+    Large = 64,
+}
+
 // The numbers are what settings files hold. Auto took 0 from None, the default before Auto existed, so a preview left at
 // that default follows its display.
 public enum UIToneMappingOperator
@@ -128,6 +135,8 @@ public sealed partial class EditorConfig : ConfigurationBase
     public IProperty<bool> IsRippleEnabled { get; } = Property.CreateValue(false);
 
     public IProperty<TimelineAutoScrollMode> TimelineAutoScrollMode { get; } = Property.CreateValue(Configuration.TimelineAutoScrollMode.PageScroll);
+
+    public IProperty<TimelineLayerSize> TimelineLayerSize { get; } = Property.CreateValue(Configuration.TimelineLayerSize.Small);
 
     // How the preview and the timeline write times. Timecode tells the frame, which an editor works in.
     public IProperty<TimeDisplayFormat> TimeDisplayFormat { get; } = Property.CreateValue(Configuration.TimeDisplayFormat.Timecode);

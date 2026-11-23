@@ -52,6 +52,7 @@ public sealed partial class TimelineTabView : UserControl
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = MouseFlags.Free);
         InitializeComponent();
         TimelineEditingModeMenu.Populate(EditingModeMenu, "");
+        InitializeLayerSizeMenu();
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
 

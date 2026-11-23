@@ -3,9 +3,13 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Extensibility;
+using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Vector2 = System.Numerics.Vector2;
@@ -15,6 +19,32 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class TimelineScrollTests
 {
+    [AvaloniaTest]
+    public async Task Layer_height_changes_the_header_clip_and_hit_test_together()
+    {
+        var setting = TestShell.Configuration.EditorConfig.TimelineLayerSize;
+        TimelineLayerSize previous = setting.Value;
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-layer-height", MediaTime.FromSeconds(10),
+            [new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 1, new ElementSource.EngineObject(() => new RectShape()))]);
+        try
+        {
+            setting.Value = TimelineLayerSize.Large;
+            HeadlessTestHelpers.Render(3);
+            var clip = host.Timeline.GetVisualDescendants().OfType<ElementView>().Single();
+            Assert.That(clip.Bounds.Height, Is.EqualTo(64));
+            Assert.That(clip.Bounds.Y, Is.EqualTo(64));
+            Assert.That(host.Model.LayerHeaders[0].Height.Value, Is.EqualTo(64));
+            Assert.That(host.Model.ToLayerNumber(95), Is.EqualTo(1));
+            HeadlessCapture.SaveIfRequested(host.Window, nameof(TimelineScrollTests), "large-layer-height");
+
+            setting.Value = TimelineLayerSize.Small;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(clip.Bounds.Height, Is.EqualTo(25));
+            Assert.That(clip.Bounds.Y, Is.EqualTo(25));
+        }
+        finally { setting.Value = previous; }
+    }
+
     [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(false, true)]
