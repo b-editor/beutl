@@ -79,6 +79,19 @@ public sealed class EditNodeGraphTests
     }
 
     [Test]
+    public void No_operations_report_no_edit()
+    {
+        using var scene = new NodeGraphTestScene();
+        ToolResult<EditNodeGraphResponse> result = scene.Edit();
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(result.Value!.Applied, Is.False);
+        Assert.That(result.Value.Valid, Is.True);
+        Assert.That(result.Value.Diagnostics, Is.Empty);
+        Assert.That(result.Value.Hint, Does.StartWith("No operations"));
+    }
+
+    [Test]
     public void Code_that_does_not_compile_is_refused_with_its_stage_and_line()
     {
         using var scene = new NodeGraphTestScene();
@@ -252,7 +265,10 @@ public sealed class EditNodeGraphTests
 
         ToolResult<EditNodeGraphResponse> animated = scene.Edit(OnePass(TintCode, new JsonObject
         {
-            ["In.params.amount"] = new JsonObject { ["$kf"] = new JsonArray(new JsonArray(0, 0), new JsonArray(1, 1, "CubicEaseOut")) }
+            ["In.params.amount"] = new JsonObject
+            {
+                ["$kf"] = new JsonArray(new JsonArray(1, 1, "CubicEaseOut"), new JsonArray(0, 0), new JsonArray(1, 0.75))
+            }
         }));
 
         Assert.That(animated.IsSuccess, Is.True, animated.Error?.Message);
@@ -260,10 +276,10 @@ public sealed class EditNodeGraphTests
         var animation = (KeyFrameAnimation<float>)((IAnimatablePropertyAdapter)Member(pass, "In.params.amount").Property!).Animation!;
         Assert.Multiple(() =>
         {
-            Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
-            Assert.That(animation.KeyFrames[1].KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(((KeyFrame<float>)animation.KeyFrames[1]).Value.Value, Is.EqualTo(1f));
-            Assert.That(animation.KeyFrames[1].Easing.Value, Is.TypeOf<Beutl.Animation.Easings.CubicEaseOut>());
+            Assert.That(animation.KeyFrames.Select(frame => frame.KeyTime.Value),
+                Is.EqualTo(new[] { MediaTime.Zero, MediaTime.FromSeconds(1), MediaTime.FromSeconds(1) }));
+            Assert.That(animation.KeyFrames.Select(frame => frame.Value), Is.EqualTo(new[] { 0f, 1f, 0.75f }));
+            Assert.That(animation.KeyFrames[1].Easing.Value, Is.TypeOf<CubicEaseOut>());
         });
 
         ToolResult<EditNodeGraphResponse> plain = scene.Edit(new NodeGraphOperation

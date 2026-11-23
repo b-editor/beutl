@@ -196,6 +196,13 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
             {
                 Scene scene = RequireSceneRoot(session);
                 NodeGraphTarget live = NodeGraphLocator.Locate(scene, graphId);
+                if (steps.Count == 0)
+                {
+                    return new EditNodeGraphResponse(
+                        SchemaVersion.Current, Applied: false, Valid: true, graphId, [], [], new Dictionary<string, IReadOnlyList<PortSummary>>(),
+                        "No operations were supplied. Nothing was applied.");
+                }
+
                 Rational? frameRate = scene.FindHierarchicalParent<Project>()?.GetFrameRate();
                 Guid[] nodeIds = NodeGraphEditor.MintNodeIds(steps);
 
@@ -217,7 +224,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
                     .Select(node => new CreatedNodeSummary(editor.RefOf(node), node.Id.Value.ToString(), NodeGraphMembers.FormatType(node.GetType())))
                     .ToArray();
 
-                if (brokeSomething || validateOnly || steps.Count == 0)
+                if (brokeSomething || validateOnly)
                 {
                     return new EditNodeGraphResponse(
                         SchemaVersion.Current,

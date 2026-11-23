@@ -349,8 +349,10 @@ internal static class NodeGraphMembers
         {
             // Times read on the project's frame grid, as apply_edit reads them.
             using IDisposable? grid = frameRate is { } rate ? MediaTimeJsonConverter.ReadOnFrameGrid(rate) : null;
-            return (IKeyFrameAnimation)CoreSerializer.DeserializeFromJsonObject(
+            var animation = (IKeyFrameAnimation)CoreSerializer.DeserializeFromJsonObject(
                 expanded, typeof(KeyFrameAnimation<>).MakeGenericType(valueType));
+            animation.KeyFrames.SortByKeyTime();
+            return animation;
         }
         catch (Exception ex)
         {

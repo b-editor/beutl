@@ -5,6 +5,19 @@ namespace Beutl.Animation;
 // The lookups by time over a key frame list, which is kept in time order.
 public static class KeyFrameListExtensions
 {
+    // Move the actual items to preserve attachment and keep equal-time frames in their original order.
+    internal static void SortByKeyTime(this ICoreList<IKeyFrame> keyFrames)
+    {
+        IKeyFrame[] sorted = keyFrames.OrderBy(frame => frame.KeyTime.Value).ToArray();
+        for (int index = 0; index < sorted.Length; index++)
+        {
+            if (!ReferenceEquals(keyFrames[index], sorted[index]))
+            {
+                keyFrames.Move(keyFrames.IndexOf(sorted[index]), index);
+            }
+        }
+    }
+
     public static void Add(this ICoreList<IKeyFrame> keyFrames, IKeyFrame item, out int index)
     {
         index = keyFrames.IndexAtOrCount(item.KeyTime.Value);
