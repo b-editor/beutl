@@ -567,6 +567,30 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>Radius Y</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>Echo</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>Interval (seconds)</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>Sample Count</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>Starting Intensity</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>Decay</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>Compositing</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>Newest on Top</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
   <data name="EdgeDetection" xml:space="preserve">
     <value>Edge Detection</value>
   </data>

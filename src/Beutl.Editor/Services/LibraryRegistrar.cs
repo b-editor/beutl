@@ -174,6 +174,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<Blur>(GraphicsStrings.Blur)
                 .AddFilterEffect<Sharpen>(GraphicsStrings.Sharpen)
                 .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur)
+                .AddFilterEffect<Echo>(GraphicsStrings.Echo)
                 .AddFilterEffect<MotionBlur>(GraphicsStrings.MotionBlur)
                 .AddFilterEffect<Bokeh>(GraphicsStrings.Bokeh)
                 .AddFilterEffect<Bloom>(GraphicsStrings.Bloom)

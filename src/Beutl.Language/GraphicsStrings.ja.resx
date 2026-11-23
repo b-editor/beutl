@@ -562,6 +562,30 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>半径Y</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>エコー</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>間隔（秒）</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>サンプル数</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>初期強度</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>減衰</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>合成方法</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>新しいフレームを手前に</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>加算</value>
+  </data>
   <data name="EdgeDetection" xml:space="preserve">
     <value>エッジ抽出</value>
   </data>

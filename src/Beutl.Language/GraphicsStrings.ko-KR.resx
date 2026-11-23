@@ -566,6 +566,30 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>반경 Y</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>에코</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>간격(초)</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>샘플 수</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>시작 강도</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>감쇠</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>합성 방식</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>최신 프레임을 위로</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>더하기</value>
+  </data>
   <data name="EdgeDetection" xml:space="preserve">
     <value>가장자리 추출</value>
   </data>

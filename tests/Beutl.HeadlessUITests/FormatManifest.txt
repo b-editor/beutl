@@ -477,6 +477,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:DropShadow
   sealed
   keys: Animations, Color, Expressions, Id, IsEnabled, Name, Position, ShadowOnly, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:Echo
+  sealed
+  keys: Animations, BlendMode, Count, Decay, Expressions, Id, Interval, IsEnabled, Name, StartingIntensity
 [Beutl.Engine]Beutl.Graphics.Effects:EdgeDetection
   sealed
   keys: Animations, Color, Expressions, Id, IsEnabled, Name, Original, Strength, Target, Thickness, Threshold

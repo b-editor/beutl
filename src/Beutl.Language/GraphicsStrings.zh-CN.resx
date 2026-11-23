@@ -566,6 +566,30 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>半径 Y</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>回声</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>间隔（秒）</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>采样数</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>初始强度</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>衰减</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>合成方式</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>最新帧置顶</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>相加</value>
+  </data>
   <data name="EdgeDetection" xml:space="preserve">
     <value>边缘提取</value>
   </data>
