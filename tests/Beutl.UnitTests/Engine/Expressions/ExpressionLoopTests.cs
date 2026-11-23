@@ -261,11 +261,23 @@ public class ExpressionLoopTests
     }
 
     [Test]
-    public void ContinueStartsAfterAJumpAtTheBoundary()
+    public void ContinueHoldsTheValueAfterAJumpAtTheBoundary()
     {
         var property = MakeProperty(0.0, "LoopOut(LoopMode.Continue)", MakeAnimation((0, 0.0), (1, 10.0), (1, 50.0)));
+        Color from = Color.FromArgb(0, 10, 20, 30);
+        var color = MakeProperty(from, "LoopOut(LoopMode.Continue)", MakeAnimation(
+            (0, from), (1, Color.FromArgb(200, 10, 20, 30)), (1, Color.FromArgb(10, 10, 20, 30))));
 
-        Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(60));
+        Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(50));
+        Assert.That(Evaluate(color, Seconds(2)).A, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void ContinueCarriesOnThroughEqualKeysAtTheBoundary()
+    {
+        var property = MakeProperty(0.0, "LoopOut(LoopMode.Continue)", MakeAnimation((0, 0.0), (1, 10.0), (1, 10.0)));
+
+        Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(20));
     }
 
     [Test]
@@ -354,16 +366,6 @@ public class ExpressionLoopTests
         Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(decimal.MaxValue));
     }
 
-    [Test]
-    public void ContinueSaturatesOnceAfterAJump()
-    {
-        var number = MakeProperty(0, "LoopOut(LoopMode.Continue)", MakeAnimation((0, 0), (1, 2_000_000_000), (1, 1_000_000_000)));
-        var point = MakeProperty(default(PixelPoint), "LoopOut(LoopMode.Continue)", MakeAnimation(
-            (0, new PixelPoint(0, 0)), (1, new PixelPoint(2_000_000_000, 0)), (1, new PixelPoint(1_000_000_000, 0))));
-
-        Assert.That(Evaluate(number, Seconds(2)), Is.EqualTo(int.MaxValue));
-        Assert.That(Evaluate(point, Seconds(2)).X, Is.EqualTo(int.MaxValue));
-    }
 
     [Test]
     public void ContinueKeepsASteepContinuousSplineMoving()

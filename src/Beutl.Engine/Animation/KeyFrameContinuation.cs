@@ -20,19 +20,18 @@ internal static class KeyFrameContinuation
     private const double JumpRatio = 1.8;
 
     // Extends the track along its boundary segment, at the easing's slope at the boundary. A track whose animator
-    // is linear extends with exact, saturating arithmetic on the keys' values. Other tracks hand the segment's animator a
-    // progress past the segment, so its own semantics apply (Color blends in linear light, a unit change steps,
-    // a separated component follows its unit schedule) and the value is rounded only once; samples close to the
-    // boundary would round integer values to the same one. A track without a key at the boundary, or without a
-    // segment beside it, holds.
+    // is linear extends with exact, saturating arithmetic on the keys' values. Other tracks hand the segment's
+    // animator a progress past the segment, so its own semantics apply (Color blends in linear light, a separated
+    // component follows its unit schedule) and the value is rounded only once; samples close to the boundary would
+    // round integer values to the same one. A track holds its boundary value without a key at the boundary, without
+    // a segment beside it, or where it jumps at the boundary, since a jump has no velocity to carry on.
     public static T Continue<T>(KeyFrameAnimation<T> animation, T held, MediaTime time, MediaTime boundary, bool loopOut)
     {
         IListProperty<IKeyFrame> keys = animation.KeyFrames;
         MediaTime local = animation.ToLocal(boundary);
         int first = FindFirst(keys, local);
         int last = FindLast(keys, local);
-        // Keys sharing the boundary time make a jump there: the outermost one gives the value, and the segment
-        // runs from the innermost one to its neighbor.
+        // Keys sharing the boundary time: the outermost one gives the value, and the innermost one ends the segment.
         (int outer, int inner, int neighbor) = loopOut ? (last, first, first - 1) : (first, last, last + 1);
         if (first < 0 || neighbor < 0 || neighbor >= keys.Count
             || keys[outer] is not KeyFrame<T> outerKey || keys[inner] is not KeyFrame<T> edge
@@ -42,27 +41,23 @@ internal static class KeyFrameContinuation
         }
 
         // The key's own value, as the animator's sample of it may be rounded (PixelPoint interpolates in float).
-        T outerValue = outerKey.Value.Value ?? held;
+        T value = outerKey.Value.Value ?? held;
+        if (!EqualityComparer<T>.Default.Equals(value, edge.Value.Value!))
+            return value;
 
         // The segment's easing belongs to its later key.
         double slope = BoundarySlope((loopOut ? edge : other).Easing.Value, loopOut);
         if (slope == 0)
-            return outerValue;
+            return value;
 
         long segment = Math.Abs((edge.KeyTime.Value - other.KeyTime.Value).Flicks);
         double elapsed = slope * Math.Abs((time - boundary).Flicks) / segment;
         if (animation.HierarchicalParent is not IComponentInterpolator<T> && ComponentAnimations.InterpolatesLinearly<T>())
-            return ComponentAnimations.AddScaledDelta(outerValue, other.Value.Value!, edge.Value.Value!, elapsed);
+            return ComponentAnimations.AddScaledDelta(value, other.Value.Value!, value, elapsed);
 
-        // A jump at the boundary shifts the segment to end at the outer value, so the animator saturates only once.
-        T neighborValue = outer == inner
-            ? other.Value.Value!
-            : ComponentAnimations.AddScaledDelta(other.Value.Value!, edge.Value.Value!, outerValue, 1);
-        (T from, T to) = loopOut ? (neighborValue, outerValue) : (outerValue, neighborValue);
-        (MediaTime fromTime, MediaTime toTime) = loopOut
-            ? (other.KeyTime.Value, edge.KeyTime.Value)
-            : (edge.KeyTime.Value, other.KeyTime.Value);
-        return animation.InterpolateValues((float)(loopOut ? 1 + elapsed : -elapsed), from, to, fromTime, toTime, local);
+        (KeyFrame<T> from, KeyFrame<T> to) = loopOut ? (other, edge) : (edge, other);
+        return animation.InterpolateValues((float)(loopOut ? 1 + elapsed : -elapsed),
+            from.Value.Value!, to.Value.Value!, from.KeyTime.Value, to.KeyTime.Value, local);
     }
 
     // The easing's slope at the end (or start) of its segment, or zero when it is flat or jumps there.
