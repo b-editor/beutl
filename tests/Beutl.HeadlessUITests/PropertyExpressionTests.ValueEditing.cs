@@ -570,6 +570,36 @@ public partial class PropertyExpressionTests
     }
 
     [AvaloniaTest]
+    [TestCase(true, "80", 0.8f)]
+    [TestCase(false, "80", 0.8f)]
+    [TestCase(true, "50", 0.5f)]
+    [TestCase(false, "50", 0.5f)]
+    public void Editing_red_in_the_grading_wheel_keeps_the_underlying_green_and_blue(bool live, string text, float red)
+    {
+        using var scope = new ValueEditScope<GradingColor>(GradingColor.Zero, "Value + new GradingColor(0.5f, 0.5f, 0.5f)");
+        var wheel = new ColorGradingWheel();
+        var model = (GradingColorEditorViewModel)scope.Model;
+        model.IsLivePreviewEnabled.Value = live;
+        model.Accept(wheel);
+        using var host = scope.Show(wheel, height: 380);
+        var components = wheel.GetVisualDescendants().OfType<GradingColorComponentsEditor>().Single();
+        var box = components.GetVisualDescendants().OfType<TextBox>().First();
+        box.Focus();
+        box.SelectAll();
+        host.Window.KeyTextInput(text[..1]);
+        host.Window.KeyTextInput(text[1..]);
+        ((Border)host.Window.Content!).Focus();
+        HeadlessTestHelpers.Render();
+
+        Assert.That(scope.Property.Value, Is.EqualTo(new GradingColor(red, 0, 0)));
+        Assert.That((components.SecondValue, components.ThirdValue), Is.EqualTo((50f, 50f)));
+        Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        scope.History.Undo();
+        Assert.That(scope.Property.Value, Is.EqualTo(GradingColor.Zero));
+        HeadlessCapture.SaveIfRequested(host.Window, nameof(PropertyExpressionTests), $"grading-rgb-{live}-{text}");
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]

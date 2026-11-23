@@ -61,7 +61,8 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
             // Only a drag on the wheel opens a session; typed values are confirmed as before.
             GradingColor coerced = default;
             _drag.Write(this, wheel.IsDragging ? wheel : null, () => StopDrag(wheel),
-                () => coerced = SetCurrentValueAndGetCoerced(wheel.Color, wheel.IsDragging));
+                () => coerced = SetCurrentValueAndGetCoerced(
+                    MergeEditedComponents(wheel.Color, e.EditedComponents), wheel.IsDragging, directUnderlying: true));
             // During a drag the wheel keeps the input rather than an expression's result, so that moving back to where the
             // drag began is still a change; it shows the result again once the drag ends.
             wheel.Color = wheel.IsDragging ? GetIncrementValue(coerced) : coerced;
@@ -95,8 +96,20 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
         }
         if (e.Expect<GradingColor>(sender) is { } args)
         {
-            SetValue(args.OldValue, args.NewValue);
+            SetValue(args.OldValue, MergeEditedComponents(args.NewValue, args.EditedComponents));
         }
+    }
+
+    private GradingColor MergeEditedComponents(GradingColor input, int editedComponents)
+    {
+        if (editedComponents == 0 || !HasExpression.Value)
+            return input;
+
+        GradingColor underlying = GetEditingValue();
+        return new GradingColor(
+            (editedComponents & 1) != 0 ? input.R : underlying.R,
+            (editedComponents & 2) != 0 ? input.G : underlying.G,
+            (editedComponents & 4) != 0 ? input.B : underlying.B);
     }
 
     private void StopDrag(ColorGradingWheel wheel)

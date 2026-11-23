@@ -14,6 +14,9 @@ public abstract class PropertyEditorValueChangedEventArgs : RoutedEventArgs
 
     public object? NewValue => GetNewValue();
 
+    // Set by vector fields, so an enclosing editor can tell which components the gesture targeted.
+    internal int EditedComponents { get; set; }
+
     public PropertyEditorValueChangedEventArgs<TValue>? Expect<TValue>(object? sender)
     {
         var args = this as PropertyEditorValueChangedEventArgs<TValue>;

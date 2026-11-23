@@ -88,15 +88,16 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 {
     private readonly VectorEditorBase _editor;
     private readonly DirectPropertyBase<TElement>[] _properties;
-    private readonly Func<TElement[], TElement[], RoutedEvent, RoutedEventArgs> _createEventArgs;
+    private readonly Func<TElement[], TElement[], RoutedEvent, PropertyEditorValueChangedEventArgs> _createEventArgs;
     private readonly TElement[] _values;
     private readonly TElement[] _oldValues;
+    private int _editedComponents;
 
     // createEventArgs builds the event's tuple from the new and the old values.
     public NumberVectorValues(
         VectorEditorBase editor,
         DirectPropertyBase<TElement>[] properties,
-        Func<TElement[], TElement[], RoutedEvent, RoutedEventArgs> createEventArgs)
+        Func<TElement[], TElement[], RoutedEvent, PropertyEditorValueChangedEventArgs> createEventArgs)
     {
         _editor = editor;
         _properties = properties;
@@ -144,15 +145,19 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
     public override void Snapshot()
     {
         _values.CopyTo(_oldValues, 0);
+        _editedComponents = 0;
     }
 
     public override void RaiseConfirmedIfChanged()
     {
         for (int i = 0; i < _values.Length; i++)
         {
-            if (_editor.HasUnconfirmedEdit || _values[i] != _oldValues[i])
+            if (_editor.HasUnconfirmedEdit || _editedComponents != 0 || _values[i] != _oldValues[i])
             {
-                _editor.RaiseEvent(_createEventArgs(_values, _oldValues, PropertyEditor.ValueConfirmedEvent));
+                var args = _createEventArgs(_values, _oldValues, PropertyEditor.ValueConfirmedEvent);
+                args.EditedComponents = _editedComponents;
+                _editedComponents = 0;
+                _editor.RaiseEvent(args);
                 return;
             }
         }
@@ -222,7 +227,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
             newValues[index] = value;
         }
 
-        _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
+        RaiseChange(newValues, oldValues, index);
     }
 
     public override void Scrub(int index, ref HeaderScrubGesture scrub, Visual header, PointerEventArgs e)
@@ -234,10 +239,18 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
         for (int i = 0; i < newValues.Length; i++)
             Set(i, newValues[i]);
 
-        _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
+        RaiseChange(newValues, oldValues, index);
 
         // The handlers have written the accepted values back, including shared-axis constraints.
         PulseIfCrossed(_editor, oldValues, _values, _editor.HapticReferenceValues, e.Timestamp);
+    }
+
+    private void RaiseChange(TElement[] newValues, TElement[] oldValues, int index)
+    {
+        var args = _createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent);
+        args.EditedComponents = _editor.IsUniformValue || index < 0 ? (1 << _values.Length) - 1 : 1 << index;
+        _editedComponents |= args.EditedComponents;
+        _editor.RaiseEvent(args);
     }
 
     // From the last component to the first, the order of FirstValue = SecondValue = value.

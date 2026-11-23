@@ -258,7 +258,7 @@ public class ColorGradingWheel : PropertyEditor
         _editingComponents = true;
         try
         {
-            SetColor(_components.ToGradingColorFromTuple(args.NewValue));
+            SetColor(_components.ToGradingColorFromTuple(args.NewValue), _components.Rgb ? args.EditedComponents : 0);
         }
         finally
         {
@@ -277,7 +277,11 @@ public class ColorGradingWheel : PropertyEditor
         bool changed = _valueChanged;
         _valueChanged = false;
         if (changed || oldValue != newValue)
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(newValue, oldValue, ValueConfirmedEvent));
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(newValue, oldValue, ValueConfirmedEvent)
+            {
+                EditedComponents = _components.Rgb ? args.EditedComponents : 0,
+            });
+        UpdateParts();
     }
 
     private void OnResetClick(object? sender, RoutedEventArgs e) => Replace(Neutral);
@@ -293,15 +297,18 @@ public class ColorGradingWheel : PropertyEditor
         Confirm(oldColor);
     }
 
-    private void SetColor(GradingColor value)
+    private void SetColor(GradingColor value, int editedComponents = 0)
     {
         GradingColor previous = Color;
-        if (previous == value)
+        if (previous == value && editedComponents == 0)
             return;
 
         Color = value;
         _valueChanged = true;
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(value, previous, ValueChangedEvent));
+        RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(value, previous, ValueChangedEvent)
+        {
+            EditedComponents = editedComponents,
+        });
     }
 
     private void Confirm(GradingColor oldColor)
