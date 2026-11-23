@@ -20,6 +20,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Rational _rate;
     private readonly SceneRenderer _renderer;
     private readonly Subject<MediaTime> _progress;
+    private readonly Action<Scene>? _onFrameRendered;
     private readonly long _frameCount;
     private readonly Channel<Bitmap> _channel;
     private readonly CancellationTokenSource _cts = new();
@@ -38,12 +39,14 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         Rational rate,
         SceneRenderer renderer,
         Subject<MediaTime> progress,
-        int retainedRenderTargetReleaseInterval)
+        int retainedRenderTargetReleaseInterval = RetainedRenderTargetCheckpoint.DefaultReleaseInterval,
+        Action<Scene>? onFrameRendered = null)
     {
         _scene = scene;
         _rate = rate;
         _renderer = renderer;
         _progress = progress;
+        _onFrameRendered = onFrameRendered;
         // Fixed at the start, so a duration edited during the export cannot end the frames early.
         _frameCount = ToFrameCount(scene.Duration.Value, rate);
         _retentionCheckpoint = new RetainedRenderTargetCheckpoint(retainedRenderTargetReleaseInterval);
@@ -73,28 +76,31 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         var frame = _renderer.Compositor.EvaluateGraphics(_scene.FromWindowTime(time), _rate, cancellationToken);
         _renderer.Render(frame);
         Bitmap snapshot = _renderer.Snapshot();
-
-        // Downscale supersampled render to FrameSize before encode (no-op when OutputScale == 1).
-        Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, _renderer.FrameSize, _renderer.OutputScale);
-        if (!ReferenceEquals(normalized, snapshot))
+        Bitmap normalized = snapshot;
+        try
         {
-            snapshot.Dispose();
-        }
+            // Read diagnostics while the renderer still owns the pictures that report them.
+            _onFrameRendered?.Invoke(_scene);
 
-        if (_retentionCheckpoint.Advance())
-        {
-            try
+            // Downscale supersampled render to FrameSize before encode (no-op when OutputScale == 1).
+            normalized = SupersampleDownscaler.ToFrameSize(snapshot, _renderer.FrameSize, _renderer.OutputScale);
+            if (!ReferenceEquals(normalized, snapshot))
+            {
+                snapshot.Dispose();
+            }
+
+            if (_retentionCheckpoint.Advance())
             {
                 _renderer.ReleaseRetainedRenderTargets();
             }
-            catch
-            {
-                normalized.Dispose();
-                throw;
-            }
-        }
 
-        return normalized;
+            return normalized;
+        }
+        catch
+        {
+            normalized.Dispose();
+            throw;
+        }
     }
 
     private MediaTime FrameToTime(long frame) => MediaTime.FromFrames(frame, _rate);
