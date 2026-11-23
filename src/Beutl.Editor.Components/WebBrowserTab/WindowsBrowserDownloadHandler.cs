@@ -151,9 +151,10 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             request = GetObject(args, 3);
             // Most responses are subresources, so the destination is checked before the URL is copied and parsed.
             requestHeaders = GetObject(request, 9);
-            string? destination = GetHeader(requestHeaders, "Sec-Fetch-Dest");
-            if (destination is not ("document" or "iframe" or "frame")) return;
+            string? destination = GetDestination(requestHeaders);
+            if (destination is not ("document" or "iframe" or "frame" or InsecureNavigation)) return;
             if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || !BrowserMediaDownload.IsHttpUri(page)) return;
+            destination = ResolveDestination(destination, page);
             response = GetObject(args, 4);
             int status = GetValue<int>(response, 4);
             string? method = status == 200 ? GetString(request, 5) : null;
@@ -172,6 +173,17 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
             if (request != 0) Marshal.Release(request);
         }
     }
+
+    private const string InsecureNavigation = "navigation";
+
+    // Chromium sends Sec-Fetch-* only to potentially trustworthy URLs. Elsewhere, only navigations ask to upgrade insecure requests.
+    private static string? GetDestination(nint requestHeaders) =>
+        GetHeader(requestHeaders, "Sec-Fetch-Dest")
+            ?? (GetHeader(requestHeaders, "Upgrade-Insecure-Requests") == "1" ? InsecureNavigation : null);
+
+    // NavigationStarting reports each main-frame request, redirects included, so only its address marks the document.
+    private string ResolveDestination(string destination, Uri page) =>
+        destination != InsecureNavigation ? destination : _activeNavigation?.Uri == page ? "document" : "frame";
 
     private void RecordDownloadResponse(Uri uri, string? method)
     {

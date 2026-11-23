@@ -231,7 +231,7 @@ internal sealed partial class WindowsBrowserDownloadHandler
                 if (!Uri.TryCreate(GetString(request, 3), UriKind.Absolute, out Uri? page) || page != pending.Address) return;
                 // Subresources and inline frames can have different policies, even at the same URL.
                 requestHeaders = GetObject(request, 9);
-                if (GetHeader(requestHeaders, "Sec-Fetch-Dest") != "document") return;
+                if (GetDestination(requestHeaders) is not { } destination || owner.ResolveDestination(destination, page) != "document") return;
                 response = GetObject(args, 4);
                 responseHeaders = GetObject(response, 3);
                 pending.Policy = ReadDocumentPolicy(responseHeaders);
