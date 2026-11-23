@@ -46,7 +46,7 @@ public class ExpressionGlobals<T>(ExpressionContext context, IExpression<T>? bel
             return Value;
 
         if (mode == LoopMode.Continue)
-            return loopOut ? ContinueLoop(time, end, times[last - 1]) : ContinueLoop(time, start, times[first + 1]);
+            return ContinueLoop(time, loopOut ? end : start, loopOut);
 
         // The distinct scene times give a positive duration. Widen differences between signed flick positions.
         Int128 duration = (Int128)end.Flicks - start.Flicks;
@@ -67,16 +67,12 @@ public class ExpressionGlobals<T>(ExpressionContext context, IExpression<T>? bel
         };
     }
 
-    private T ContinueLoop(MediaTime time, MediaTime boundary, MediaTime inside)
+    private T ContinueLoop(MediaTime time, MediaTime boundary, bool loopOut) => below switch
     {
-        // Sample over at most one millisecond within the keyframe segment touching the boundary.
-        Int128 segment = (Int128)inside.Flicks - boundary.Flicks;
-        long sample = (long)Int128.Min(Int128.Abs(segment), MediaTime.FlicksPerSecond / 1000);
-        MediaTime nearby = new(boundary.Flicks + (segment < 0 ? -sample : sample));
-        double scale = (double)Int128.Abs((Int128)time.Flicks - boundary.Flicks) / sample;
-        T value = ValueAt(boundary);
-        return ComponentAnimations.AddScaledDelta(value, ValueAt(nearby), value, scale);
-    }
+        KeyFrameAnimation<T> animation => KeyFrameContinuation.Continue(animation, ValueAt(boundary), time, boundary, loopOut),
+        ILoopContinuation<T> source => source.Continue(Context.WithTime(boundary), time, loopOut),
+        _ => ValueAt(boundary)
+    };
 
     private MediaTime[] GetLoopKeyTimes()
     {

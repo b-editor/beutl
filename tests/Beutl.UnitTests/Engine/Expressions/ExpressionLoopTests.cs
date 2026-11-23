@@ -231,6 +231,42 @@ public class ExpressionLoopTests
         Assert.That(Evaluate(property, Seconds(time)), Is.EqualTo(expected));
     }
 
+    [TestCase("LoopOut(LoopMode.Continue)", 2.0, 200)]
+    [TestCase("LoopIn(LoopMode.Continue)", -1.0, -100)]
+    public void ContinueKeepsTheVelocityOfIntegerAnimations(string script, double time, int expected)
+    {
+        var property = MakeProperty(0, script, TestAnimations.Linear(0, 100, Seconds(1)));
+
+        Assert.That(Evaluate(property, Seconds(time)), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void ContinueKeepsTheVelocityOfIntegerComponents()
+    {
+        var property = MakeProperty(default(PixelPoint), "LoopOut(LoopMode.Continue)",
+            TestAnimations.Linear(new PixelPoint(0, 10), new PixelPoint(100, 10), Seconds(1)));
+
+        Assert.That(Evaluate(property, Seconds(3)), Is.EqualTo(new PixelPoint(300, 10)));
+    }
+
+    [Test]
+    public void ContinueKeepsTheVelocityOfSeparatedIntegerComponents()
+    {
+        var property = MakeProperty(default(PixelPoint), "LoopOut(LoopMode.Continue)",
+            TestAnimations.Linear(new PixelPoint(0, 10), new PixelPoint(100, 10), Seconds(1)));
+        ComponentAnimations.Separate(property);
+
+        Assert.That(Evaluate(property, Seconds(3)), Is.EqualTo(new PixelPoint(300, 10)));
+    }
+
+    [Test]
+    public void ContinueStartsAfterAJumpAtTheBoundary()
+    {
+        var property = MakeProperty(0.0, "LoopOut(LoopMode.Continue)", MakeAnimation((0, 0.0), (1, 10.0), (1, 50.0)));
+
+        Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(60));
+    }
+
     [Test]
     public void OffsetSaturatesUnsignedValues()
     {
@@ -246,6 +282,19 @@ public class ExpressionLoopTests
         var property = MakeProperty(0L, "LoopOut(LoopMode.Offset)", TestAnimations.Linear(start, start + 1, Seconds(1)));
 
         Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(start + 2));
+    }
+
+    [Test]
+    public void ContinueKeepsLargeIntegerValuesExact()
+    {
+        const long start = 9_007_199_254_740_992;
+        var animation = new KeyFrameAnimation<long>();
+        animation.KeyFrames.Add(new KeyFrame<long> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = start }, Easing = { Value = new LinearEasing() } });
+        animation.KeyFrames.Add(new KeyFrame<long> { KeyTime = { Value = new MediaTime(4) }, Value = { Value = start + 3 }, Easing = { Value = new LinearEasing() } });
+        var property = MakeProperty(0L, "LoopOut(LoopMode.Continue)", animation);
+
+        // 3 + 3 * 0.75 = 5.25 past the start, beyond double's integer precision.
+        Assert.That(Evaluate(property, new MediaTime(7)), Is.EqualTo(start + 5));
     }
 
     [Test]

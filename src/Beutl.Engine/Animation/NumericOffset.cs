@@ -31,6 +31,15 @@ public static class NumericOffset
                 + (BigInteger.CreateChecked(to) - BigInteger.CreateChecked(from)) * new BigInteger(scale));
         }
 
+        // An integer type (one that truncates 0.5 to zero) keeps its value exact and rounds only the scaled delta.
+        if (T.IsZero(T.CreateTruncating(0.5)))
+        {
+            double offset = Math.Round(double.CreateChecked(BigInteger.CreateChecked(to) - BigInteger.CreateChecked(from)) * scale);
+            return double.IsFinite(offset)
+                ? T.CreateSaturating(BigInteger.CreateChecked(value) + new BigInteger(offset))
+                : T.CreateSaturating(offset);
+        }
+
         return T.CreateSaturating(double.CreateChecked(value)
             + (double.CreateChecked(to) - double.CreateChecked(from)) * scale);
     }

@@ -191,7 +191,8 @@ public sealed class ComponentExpression<TValue, TComponent>
     }
 
     // Composes the underlying values and exposes their keyframes to shared expressions on combined rows.
-    private sealed class CombinedBelowExpression(IProperty<TComponent>[] siblings) : IExpression<TValue>, ICombinedValueSource
+    private sealed class CombinedBelowExpression(IProperty<TComponent>[] siblings)
+        : IExpression<TValue>, ICombinedValueSource, ILoopContinuation<TValue>
     {
         public IReadOnlyList<IProperty> Components => siblings;
 
@@ -213,6 +214,25 @@ public sealed class ComponentExpression<TValue, TComponent>
 
             return result;
         }
+
+        public TValue Continue(ExpressionContext boundary, MediaTime time, bool loopOut)
+        {
+            TValue result = default!;
+            for (int i = 0; i < siblings.Length; i++)
+            {
+                TComponent value = EvaluateBelow(siblings[i], boundary);
+                if (FindKeyFrames(siblings[i]) is { KeyFrames.Count: > 1 } track)
+                    value = KeyFrameContinuation.Continue(track, value, time, boundary.Time, loopOut);
+                result = s_set.Components[i].Set(result, value);
+            }
+
+            return result;
+        }
+
+        private static KeyFrameAnimation<TComponent>? FindKeyFrames(IProperty<TComponent> property)
+            => property is IExpressionProperty<TComponent> expressionProperty
+                ? ExpressionChain.FindKeyFrames(expressionProperty.Expression) as KeyFrameAnimation<TComponent>
+                : null;
 
         private static TComponent EvaluateBelow(IProperty<TComponent> property, ExpressionContext context)
         {
