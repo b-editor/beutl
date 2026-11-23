@@ -816,6 +816,19 @@ public sealed class PolarCoordinatesTests
     }
 
     [Test]
+    public void HitTestReturnsFalseWhenInputBoundsHasNoRepresentableInterior()
+    {
+        var tinyAtLargeOrigin = new Rect(1e7f, 0f, 0.25f, 100f);
+        var effect = new PolarCoordinates { EdgeMode = { Value = PolarCoordinatesEdgeMode.Clamp } };
+        (ShaderDescription desc, Rect output) = FilterEffectTestHarness.RecordShader(effect, tinyAtLargeOrigin);
+        RenderHitTestContract hit = desc.HitTest!.Value;
+        var input = new RenderHitTestInput(tinyAtLargeOrigin, _ => true);
+
+        Assert.That(tinyAtLargeOrigin.Right, Is.EqualTo(tinyAtLargeOrigin.X));
+        Assert.That(hit.Evaluate(output, [input], [], output.Center), Is.False);
+    }
+
+    [Test]
     public void RectangularToPolarConvergesContinuouslyAsAmountReachesHundred()
     {
         var nearFull = new PolarCoordinates { Amount = { Value = 99.99f }, ClipToBounds = { Value = true } };

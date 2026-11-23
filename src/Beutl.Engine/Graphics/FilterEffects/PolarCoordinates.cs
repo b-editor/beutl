@@ -517,7 +517,8 @@ public sealed partial class PolarCoordinates : FilterEffect
             for (int i = 1; i < context.Inputs.Count; i++)
                 inputBounds = inputBounds.Union(context.Inputs[i].Bounds);
 
-            if (inputBounds.IsInvalid || inputBounds.Width <= 0f || inputBounds.Height <= 0f)
+            if (inputBounds.IsInvalid || inputBounds.Width <= 0f || inputBounds.Height <= 0f ||
+                inputBounds.Right <= inputBounds.X || inputBounds.Bottom <= inputBounds.Y)
                 return false;
 
             var inLocal = new Vector2(point.X - inputBounds.X, point.Y - inputBounds.Y);
