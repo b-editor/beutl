@@ -31,4 +31,17 @@ public abstract partial class Brush : EngineObject
 
     [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+
+    public partial class Resource
+    {
+        /// <summary>Tries to sample the brush's opacity at a point without rendering a separate scene.</summary>
+        /// <param name="bounds">The area the brush is mapped onto.</param>
+        /// <param name="point">The point to sample, in the same coordinate space as the bounds.</param>
+        /// <param name="opacity">The opacity from 0 to 1, including this brush's opacity, if available.</param>
+        public virtual bool TrySampleOpacity(Rect bounds, Point point, out float opacity)
+        {
+            opacity = 0;
+            return false;
+        }
+    }
 }
