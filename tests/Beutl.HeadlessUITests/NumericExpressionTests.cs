@@ -58,6 +58,7 @@ public sealed class NumericExpressionTests
     [TestCase("1e-10 * 1e-18 * 1.5 * 1e28", 1.5d)]
     [TestCase("0.1 ^ 28 * 1.5 * 10 ^ 28", 1.5d)]
     [TestCase("(1 + 1e-16 - 1) * 1e16", 1d)]
+    [TestCase("(1 + 1e-16 - 1) / 2", 5e-17d)]
     [TestCase("0e-30 + 1", 1d)]
     [SetCulture("en-US")]
     public void Evaluates_arithmetic_expressions_for_double(string text, double expected)
@@ -94,6 +95,9 @@ public sealed class NumericExpressionTests
     [TestCase("10 / 3", 3)]
     [TestCase("2 / 3", 1)]
     [TestCase("-5 / 2", -3)]
+    [TestCase("1 / 3 * 4.5", 2)]
+    [TestCase("-1 / 3 * 4.5", -2)]
+    [TestCase("1 / 3 * 1.5", 1)]
     [TestCase("(10 + 20) * 2", 60)]
     [TestCase("2 ^ 10", 1024)]
     [SetCulture("en-US")]
@@ -270,6 +274,25 @@ public sealed class NumericExpressionTests
             sink.Focus();
             HeadlessTestHelpers.Settle();
             Assert.That(box.Text, Is.EqualTo("75%"));
+
+            // Out-of-range intermediate prefix (50+60 = 110) must keep the expression text while focused so /2 completes.
+            box.Focus();
+            HeadlessTestHelpers.Settle();
+            box.Text = "50+60";
+            HeadlessTestHelpers.Settle();
+            Assert.That(box.Text, Is.EqualTo("50+60"));
+
+            box.Text = "50+60/2";
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(box.Text, Is.EqualTo("50+60/2"));
+                Assert.That(picker.Color.A, Is.EqualTo(0.8 * 255).Within(1));
+            });
+
+            sink.Focus();
+            HeadlessTestHelpers.Settle();
+            Assert.That(box.Text, Is.EqualTo("80%"));
         }
         finally
         {

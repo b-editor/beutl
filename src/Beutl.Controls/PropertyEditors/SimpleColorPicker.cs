@@ -465,7 +465,7 @@ public class SimpleColorPicker : TemplatedControl
             if (TryParseOpacity(_opacityBox.Text, out float f))
             {
                 DataValidationErrors.ClearErrors(_opacityBox);
-                UpdateColor(Color.WithAlphaf(f / 100f), ignoreOpacity: f >= 0 && f <= 100);
+                UpdateColor(Color.WithAlphaf(f / 100f), ignoreOpacity: _opacityBox.IsKeyboardFocusWithin || (f >= 0 && f <= 100));
             }
             else
             {

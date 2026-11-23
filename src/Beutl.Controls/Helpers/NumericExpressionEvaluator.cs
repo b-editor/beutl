@@ -15,8 +15,15 @@ internal static class NumericExpressionEvaluator
     // Below 1e-12, decimal's fixed 28-decimal-place scale leaves fewer than ~16 significant digits (worse than IEEE 754 double).
     private const decimal MinAccurateDecimalMagnitude = 1e-12m;
 
+    // 10^24: a decimal whose unscaled mantissa reaches this magnitude with a fractional scale has saturated
+    // decimal's 28-digit precision (e.g. from repeating division such as 1 / 3 * 4.5).
+    private static readonly UInt128 SaturatedDecimalMantissa = (UInt128)1_000_000_000_000UL * 1_000_000_000_000UL;
+
     private static bool IsBelowAccurateDecimalMagnitude(decimal value)
         => value != 0m && Math.Abs(value) < MinAccurateDecimalMagnitude;
+
+    private static bool LostPrecisionAgainstDouble(decimal decimalValue, double expectedDouble)
+        => double.IsFinite(expectedDouble) && (double)decimalValue != expectedDouble;
 
     private enum EvalStatus
     {
@@ -39,7 +46,7 @@ internal static class NumericExpressionEvaluator
         EvalStatus status = decimalParser.TryParse(out decimal decimalResult);
         if (status == EvalStatus.Success)
         {
-            return TryConvertFromDecimal(decimalResult, out value);
+            return TryConvertFromDecimal(decimalResult, decimalParser.HasInexactDivision, out value);
         }
 
         if (status == EvalStatus.NeedsDoubleFallback)
@@ -181,7 +188,31 @@ internal static class NumericExpressionEvaluator
         return new decimal((int)(uint)low64, (int)(uint)(low64 >> 32), (int)high32, isNegative, (byte)scale);
     }
 
-    private static bool TryConvertFromDecimal<TValue>(decimal value, [MaybeNullWhen(false)] out TValue result)
+    private static decimal RoundDecimalToInteger(decimal value, bool hasInexactDivision)
+    {
+        if (hasInexactDivision)
+        {
+            Span<int> bits = stackalloc int[4];
+            decimal.GetBits(value, bits);
+            int scale = (bits[3] >> 16) & 0x7F;
+            if (scale > 4)
+            {
+                var mantissa = new UInt128(
+                    (uint)bits[2],
+                    ((ulong)(uint)bits[1] << 32) | (uint)bits[0]);
+                if (mantissa >= SaturatedDecimalMantissa)
+                {
+                    // Trim the trailing 4 digits of 28-digit division rounding noise so exact midpoints like
+                    // 1 / 3 * 4.5 (1.4999999999999999999999999998) round away from zero to 2.
+                    value = Math.Round(value, scale - 4, MidpointRounding.AwayFromZero);
+                }
+            }
+        }
+
+        return Math.Round(value, MidpointRounding.AwayFromZero);
+    }
+
+    private static bool TryConvertFromDecimal<TValue>(decimal value, bool hasInexactDivision, [MaybeNullWhen(false)] out TValue result)
         where TValue : INumberBase<TValue>
     {
         if (typeof(TValue) == typeof(decimal))
@@ -212,7 +243,7 @@ internal static class NumericExpressionEvaluator
             return TryConvertFromDouble((double)value, out result);
         }
 
-        decimal rounded = Math.Round(value, MidpointRounding.AwayFromZero);
+        decimal rounded = RoundDecimalToInteger(value, hasInexactDivision);
         try
         {
             result = TValue.CreateChecked(rounded);
@@ -310,6 +341,9 @@ internal static class NumericExpressionEvaluator
         private int _pos = 0;
         private int _depth = 0;
         private bool _hasExpressionSyntax = false;
+        private bool _hasInexactDivision = false;
+
+        public readonly bool HasInexactDivision => _hasInexactDivision;
 
         public EvalStatus TryParse(out decimal value)
         {
@@ -398,10 +432,40 @@ internal static class NumericExpressionEvaluator
                         '/' => left / right,
                         _ => left % right,
                     };
-                    if ((op == '*' && left != 0m && right != 0m && (value == 0m || IsBelowAccurateDecimalMagnitude(value)))
-                        || (op == '/' && left != 0m && (value == 0m || IsBelowAccurateDecimalMagnitude(value))))
+                    if (op == '*')
                     {
-                        return EvalStatus.NeedsDoubleFallback;
+                        if (left != 0m && right != 0m
+                            && (value == 0m
+                                || (IsBelowAccurateDecimalMagnitude(value)
+                                    && LostPrecisionAgainstDouble(value, (double)left * (double)right))))
+                        {
+                            return EvalStatus.NeedsDoubleFallback;
+                        }
+                    }
+                    else if (op == '/')
+                    {
+                        if (left != 0m
+                            && (value == 0m
+                                || (IsBelowAccurateDecimalMagnitude(value)
+                                    && LostPrecisionAgainstDouble(value, (double)left / (double)right))))
+                        {
+                            return EvalStatus.NeedsDoubleFallback;
+                        }
+
+                        if (!_hasInexactDivision)
+                        {
+                            try
+                            {
+                                if (value * right != left)
+                                {
+                                    _hasInexactDivision = true;
+                                }
+                            }
+                            catch (OverflowException)
+                            {
+                                _hasInexactDivision = true;
+                            }
+                        }
                     }
                 }
                 catch (OverflowException)
@@ -471,7 +535,7 @@ internal static class NumericExpressionEvaluator
                     return status;
                 }
 
-                return TryPowDecimal(value, exponent, out value);
+                return TryPowDecimal(value, exponent, out value, ref _hasInexactDivision);
             }
 
             return EvalStatus.Success;
@@ -536,7 +600,7 @@ internal static class NumericExpressionEvaluator
                 : EvalStatus.SyntaxOrMathError;
         }
 
-        private static EvalStatus TryPowDecimal(decimal baseValue, decimal exponent, out decimal result)
+        private static EvalStatus TryPowDecimal(decimal baseValue, decimal exponent, out decimal result, ref bool hasInexactDivision)
         {
             if (exponent == 0m)
             {
@@ -592,8 +656,11 @@ internal static class NumericExpressionEvaluator
                 {
                     if ((remaining & 1) != 0)
                     {
+                        decimal prevAcc = acc;
                         acc *= factor;
-                        if (acc == 0m || IsBelowAccurateDecimalMagnitude(acc))
+                        if (acc == 0m
+                            || (IsBelowAccurateDecimalMagnitude(acc)
+                                && LostPrecisionAgainstDouble(acc, (double)prevAcc * (double)factor)))
                         {
                             result = 0m;
                             return EvalStatus.NeedsDoubleFallback;
@@ -603,8 +670,11 @@ internal static class NumericExpressionEvaluator
                     remaining >>= 1;
                     if (remaining > 0)
                     {
+                        decimal prevFactor = factor;
                         factor *= factor;
-                        if (factor == 0m || IsBelowAccurateDecimalMagnitude(factor))
+                        if (factor == 0m
+                            || (IsBelowAccurateDecimalMagnitude(factor)
+                                && LostPrecisionAgainstDouble(factor, (double)prevFactor * (double)prevFactor)))
                         {
                             result = 0m;
                             return EvalStatus.NeedsDoubleFallback;
@@ -615,9 +685,26 @@ internal static class NumericExpressionEvaluator
                 if (negative)
                 {
                     result = 1m / acc;
-                    if (result == 0m || IsBelowAccurateDecimalMagnitude(result))
+                    if (result == 0m
+                        || (IsBelowAccurateDecimalMagnitude(result)
+                            && LostPrecisionAgainstDouble(result, 1d / (double)acc)))
                     {
                         return EvalStatus.NeedsDoubleFallback;
+                    }
+
+                    if (!hasInexactDivision)
+                    {
+                        try
+                        {
+                            if (result * acc != 1m)
+                            {
+                                hasInexactDivision = true;
+                            }
+                        }
+                        catch (OverflowException)
+                        {
+                            hasInexactDivision = true;
+                        }
                     }
                 }
                 else
