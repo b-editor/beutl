@@ -377,6 +377,12 @@
   <data name="ColorShift_RedOffset" xml:space="preserve">
     <value>红色偏移</value>
   </data>
+  <data name="LensChromaticAberration" xml:space="preserve">
+    <value>镜头色差</value>
+  </data>
+  <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
+    <value>以中心为基准，将红色通道缩放为 (1 + 数量/100) 倍，将蓝色通道缩放为 (1 - 数量/100) 倍。绿色通道的位置保持不变。负值会交换边缘的红蓝颜色。</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>曲线</value>
   </data>

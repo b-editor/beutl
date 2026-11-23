@@ -240,6 +240,36 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void LensChromaticAberration_IsListedWithItsAnimatedProperties()
+    {
+        var generator = new SchemaGenerator(_library);
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(LensChromaticAberration));
+        TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(LensChromaticAberration).FullName);
+        PropertyDescriptor amount = descriptor.Properties.Single(property => property.Name == nameof(LensChromaticAberration.Amount));
+        PropertyDescriptor center = descriptor.Properties.Single(property => property.Name == nameof(LensChromaticAberration.Center));
+        EffectSummary summary = generator.ListEffects(intent: "lens").Single(effect => effect.Name == nameof(LensChromaticAberration));
+        string[] properties = [nameof(LensChromaticAberration.Amount), nameof(LensChromaticAberration.Center)];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(summary.PropertyNames, Is.EquivalentTo(properties));
+            Assert.That(summary.IntentTags, Is.SupersetOf(new[] { "chromatic", "aberration", "lens", "stylize" }));
+            Assert.That(summary.Notes, Has.Some.Contains("percentage change in scale"));
+            Assert.That(summary.Notes, Has.Some.Contains("relative to the input bounds"));
+            Assert.That(descriptor.Properties.Select(property => property.Name), Is.EquivalentTo(properties));
+            Assert.That(amount.Default, Is.EqualTo(1f));
+            Assert.That(amount.Range, Is.EqualTo(new RangeDescriptor(-10, 10)));
+            Assert.That(amount.Unit, Is.EqualTo("percent"));
+            Assert.That(center.Default, Is.EqualTo(RelativePoint.Center));
+            foreach (PropertyDescriptor property in descriptor.Properties)
+            {
+                Assert.That(property.Animatable, Is.True, property.Name);
+                Assert.That(property.SupportsExpression, Is.True, property.Name);
+            }
+        }
+    }
+
+    [Test]
     public void Base_fields_exclude_non_serialized_scalars_but_keep_explicit_lists()
     {
         var generator = new SchemaGenerator(_library);
@@ -695,7 +725,8 @@ public sealed class SchemaGenerationTests
         string bloomJson = generator.GetEffectRecipe("additive-bloom").Patch.ToJsonString();
         string screenJson = generator.GetEffectRecipe("screen-light-leak").Patch.ToJsonString();
         string multiplyJson = generator.GetEffectRecipe("multiply-contrast-glaze").Patch.ToJsonString();
-        string chromaticJson = generator.GetEffectRecipe("chromatic-aberration-lite").Patch.ToJsonString();
+        EffectRecipe chromatic = generator.GetEffectRecipe("chromatic-aberration-lite");
+        string chromaticJson = chromatic.Patch.ToJsonString();
 
         Assert.Multiple(() =>
         {
@@ -703,7 +734,8 @@ public sealed class SchemaGenerationTests
             Assert.That(screenJson, Does.Contain("\"Opacity\":50"));
             Assert.That(multiplyJson, Does.Contain("\"BlendMode\":24"));
             Assert.That(multiplyJson, Does.Contain("\"Opacity\":50"));
-            Assert.That(chromaticJson, Does.Contain("ColorShift"));
+            Assert.That(chromatic.EffectNames, Is.EqualTo(new[] { nameof(LensChromaticAberration) }));
+            Assert.That(ContainsDiscriminator(chromatic.Patch, IdentityHelper.WriteDiscriminator(typeof(LensChromaticAberration))), Is.True);
             Assert.That(chromaticJson, Does.Not.Contain("BlendMode"));
             Assert.That(screenJson, Is.Not.EqualTo(bloomJson));
             Assert.That(multiplyJson, Is.Not.EqualTo(bloomJson));

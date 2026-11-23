@@ -35,6 +35,7 @@ public class EffectScaleParityTests
             e.BlueOffset.Value = new PixelPoint(-18, -6);
             return e;
         }));
+        yield return new TestCaseData("LensChromaticAberration", (Func<FilterEffect>)MakeLensChromaticAberration);
         yield return new TestCaseData("SplitEffect", (Func<FilterEffect>)(() =>
         {
             var e = new SplitEffect();
@@ -587,6 +588,39 @@ public class EffectScaleParityTests
         Center = { Value = new RelativePoint(0.38f, 0.62f, RelativeUnit.Relative) },
     };
 
+    [TestCase(1.5f)]
+    [TestCase(2f)]
+    public void LensChromaticAberration_PartialRequestPreservesTheFringe(float scale)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var region = new Rect(179, 94, 10, 14);
+            PixelRect deviceRegion = PixelRect.FromRect(region, scale);
+            using Drawable.Resource resource = RotatedRect(MakeLensChromaticAberration);
+            using Drawable.Resource controlResource = RotatedRect(() => new FilterEffectGroup());
+            using Bitmap full = RenderAtScale(resource, Frame, scale, clearColor: Colors.Transparent);
+            using Bitmap partial = RenderAtScale(resource, Frame, scale, requestedRegion: region, clearColor: Colors.Transparent);
+            using Bitmap control = RenderAtScale(controlResource, Frame, scale, clearColor: Colors.Transparent);
+            using Bitmap expected = full.ExtractSubset(deviceRegion);
+            using Bitmap actual = partial.ExtractSubset(deviceRegion);
+            using Bitmap unfiltered = control.ExtractSubset(deviceRegion);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual).Maximum, Is.LessThanOrEqualTo(0.005));
+                Assert.That(ImageMetrics.MeanAbsoluteError(expected, unfiltered), Is.GreaterThan(0.02),
+                    "the requested region must contain a visible fringe");
+            }
+        });
+    }
+
+    private static LensChromaticAberration MakeLensChromaticAberration() => new()
+    {
+        Amount = { Value = 10f },
+        Center = { Value = new RelativePoint(0.38f, 0.62f, RelativeUnit.Relative) },
+    };
+
     private static Drawable.Resource MakeForCase(string name, Func<FilterEffect> makeEffect)
     {
         if (name.StartsWith("InnerShadow", StringComparison.Ordinal))
@@ -628,7 +662,7 @@ public class EffectScaleParityTests
     public static IEnumerable<TestCaseData> RepresentativeEffectsWithScales()
     {
         float[] scales = [1.5f, 3f];
-        string[] names = ["InnerShadow", "StrokeEffect-Offset", "Mosaic-AbsoluteOrigin", "FlatShadow", "Vignette-Darken"];
+        string[] names = ["InnerShadow", "StrokeEffect-Offset", "Mosaic-AbsoluteOrigin", "FlatShadow", "Vignette-Darken", "LensChromaticAberration"];
         Dictionary<string, Func<FilterEffect>> effects = Effects().ToDictionary(
             static testCase => (string)testCase.Arguments[0]!,
             static testCase => (Func<FilterEffect>)testCase.Arguments[1]!);

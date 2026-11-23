@@ -117,10 +117,10 @@ public sealed partial class SchemaGenerator
                 "This is the self-composite darkening glaze part; a true edge vignette also needs the drawable's own dark radial fill."),
             CreateEffectRecipe(
                 "chromatic-aberration-lite",
-                "Subtle chromatic aberration and lens character: a gentle red/blue split, unlike the aggressive ColorShift inside digital-glitch.",
+                "Subtle lens chromatic aberration that spreads the red and blue channels farther apart toward the edges.",
                 ["chromatic", "aberration", "lens", "subtle", "stylize"],
                 CreateFilterEffectGroup(
-                    CreateColorShift(3, 0, -3, 0))),
+                    CreateLensChromaticAberration(2f))),
             CreateEffectRecipe(
                 "soft-paper-depth",
                 "Subtle paper/editorial depth chain that avoids heavy card shadows.",
@@ -629,6 +629,9 @@ public sealed partial class SchemaGenerator
             case ColorShift colorShift:
                 colorShift.RedOffset.Value = new PixelPoint(12, 0);
                 colorShift.BlueOffset.Value = new PixelPoint(-12, 0);
+                break;
+            case LensChromaticAberration lensChromaticAberration:
+                lensChromaticAberration.Amount.Value = 8f;
                 break;
             case ShakeEffect shake:
                 shake.StrengthX.Value = 18;

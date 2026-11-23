@@ -378,6 +378,12 @@
   <data name="ColorShift_RedOffset" xml:space="preserve">
     <value>Red Offset</value>
   </data>
+  <data name="LensChromaticAberration" xml:space="preserve">
+    <value>Lens Chromatic Aberration</value>
+  </data>
+  <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
+    <value>Scales the red channel by (1 + Amount/100) and the blue channel by (1 - Amount/100) around the center. The green channel stays in place. Negative values swap the fringe colors.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>Curves</value>
   </data>

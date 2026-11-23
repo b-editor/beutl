@@ -377,6 +377,12 @@
   <data name="ColorShift_RedOffset" xml:space="preserve">
     <value>빨간색 오프셋</value>
   </data>
+  <data name="LensChromaticAberration" xml:space="preserve">
+    <value>렌즈 색수차</value>
+  </data>
+  <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
+    <value>중심을 기준으로 빨간색 채널의 배율은 (1 + 양/100), 파란색 채널의 배율은 (1 - 양/100)입니다. 녹색 채널의 위치는 그대로 유지됩니다. 음수 값을 사용하면 색 번짐의 빨간색과 파란색이 서로 바뀝니다.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>곡선</value>
   </data>

@@ -233,6 +233,9 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Animate(effect.BlueOffset, p => new PixelPoint(-(int)MathF.Round(context.Scale(36) * Wave(p)), 0));
         });
 
+        LibraryThumbnailRecipes.Register<LensChromaticAberration>(LibraryThumbnailSample.Shapes, (effect, context) =>
+            context.Animate(effect.Amount, p => 10 * Wave(p)));
+
         LibraryThumbnailRecipes.Register<BlendEffect>((effect, context) =>
         {
             var brush = new LinearGradientBrush

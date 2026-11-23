@@ -81,6 +81,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<TransformEffect>>(GraphicsStrings.Transform)
             .Add<FilterEffectNode<MosaicEffect>>(GraphicsStrings.MosaicEffect)
             .Add<FilterEffectNode<ColorShift>>(GraphicsStrings.ColorShift)
+            .Add<FilterEffectNode<LensChromaticAberration>>(GraphicsStrings.LensChromaticAberration)
             .Add<FilterEffectNode<ShakeEffect>>(GraphicsStrings.ShakeEffect)
             .Add<FilterEffectNode<DisplacementMapEffect>>(GraphicsStrings.DisplacementMapEffect)
             .Add<FilterEffectNode<MeshWarp>>(GraphicsStrings.MeshWarp)

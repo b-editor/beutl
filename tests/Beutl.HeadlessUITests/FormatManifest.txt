@@ -521,6 +521,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:LayerEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:LensChromaticAberration
+  sealed
+  keys: Amount, Animations, Center, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics.Effects:LightRays
   sealed
   keys: Animations, Center, Decay, Expressions, Id, Intensity, IsEnabled, Length, Name, SoftKnee, Threshold
