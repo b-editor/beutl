@@ -81,6 +81,8 @@ public class EffectScaleParityTests
         {
             yield return new TestCaseData($"PolarCoordinates-{direction}",
                 (Func<FilterEffect>)(() => MakePolarCoordinates(direction)));
+            yield return new TestCaseData($"PolarCoordinates-{direction}-AbsoluteCenter",
+                (Func<FilterEffect>)(() => MakePolarCoordinatesAbsoluteCenter(direction)));
         }
         yield return new TestCaseData("Vignette-Darken", (Func<FilterEffect>)(() => MakeVignette(100f, -70f)));
         yield return new TestCaseData("Vignette-Lighten", (Func<FilterEffect>)(() => MakeVignette(-100f, 100f)));
@@ -513,15 +515,20 @@ public class EffectScaleParityTests
         Width = { Value = width },
     };
 
-    [TestCase(PolarCoordinatesDirection.RectangularToPolar)]
-    [TestCase(PolarCoordinatesDirection.PolarToRectangular)]
-    public void PolarCoordinates_PartialRequestPreservesTheMapping(PolarCoordinatesDirection direction)
+    [TestCase(PolarCoordinatesDirection.RectangularToPolar, false)]
+    [TestCase(PolarCoordinatesDirection.PolarToRectangular, false)]
+    [TestCase(PolarCoordinatesDirection.RectangularToPolar, true)]
+    [TestCase(PolarCoordinatesDirection.PolarToRectangular, true)]
+    public void PolarCoordinates_PartialRequestPreservesTheMapping(PolarCoordinatesDirection direction, bool useAbsoluteCenter)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var region = new Rect(50, 70, 80, 70);
-            using Drawable.Resource resource = RotatedRect(() => MakePolarCoordinates(direction), MakePolarCoordinatesGradient());
+            Func<FilterEffect> makeEffect = useAbsoluteCenter
+                ? () => MakePolarCoordinatesAbsoluteCenter(direction)
+                : () => MakePolarCoordinates(direction);
+            using Drawable.Resource resource = RotatedRect(makeEffect, MakePolarCoordinatesGradient());
             using Bitmap full = RenderAtScale(resource, Frame, 2, clearColor: Colors.Transparent);
             using Bitmap partial = RenderAtScale(resource, Frame, 2, requestedRegion: region, clearColor: Colors.Transparent);
             using Bitmap expected = full.ExtractSubset(PixelRect.FromRect(region, 2));
@@ -538,6 +545,22 @@ public class EffectScaleParityTests
     private static PolarCoordinates MakePolarCoordinates(PolarCoordinatesDirection direction) => new()
     {
         Direction = { Value = direction },
+    };
+
+    private static PolarCoordinates MakePolarCoordinatesAbsoluteCenter(PolarCoordinatesDirection direction) => new()
+    {
+        Direction = { Value = direction },
+        InnerRadius = { Value = 18f },
+        Scale = { Value = 90f },
+        Angle = { Value = 55f },
+        Swirl = { Value = 120f },
+        SweepAngle = { Value = 270f },
+        Center = { Value = new RelativePoint(62f, 44f, RelativeUnit.Absolute) },
+        InvertRadius = { Value = true },
+        ReverseAngle = { Value = true },
+        Repeat = { Value = 2f },
+        Mirror = { Value = true },
+        EdgeMode = { Value = PolarCoordinatesEdgeMode.Mirror },
     };
 
     private static LinearGradientBrush MakePolarCoordinatesGradient()

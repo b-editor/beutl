@@ -1950,6 +1950,45 @@
   <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
     <value>Polar to rectangular</value>
   </data>
+  <data name="PolarCoordinates_InnerRadius" xml:space="preserve">
+    <value>Inner radius</value>
+  </data>
+  <data name="PolarCoordinates_Swirl" xml:space="preserve">
+    <value>Swirl</value>
+  </data>
+  <data name="PolarCoordinates_InvertRadius" xml:space="preserve">
+    <value>Invert radius</value>
+  </data>
+  <data name="PolarCoordinates_ReverseAngle" xml:space="preserve">
+    <value>Reverse angle</value>
+  </data>
+  <data name="PolarCoordinates_Repeat" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="PolarCoordinates_Mirror" xml:space="preserve">
+    <value>Mirror</value>
+  </data>
+  <data name="PolarCoordinates_SweepAngle" xml:space="preserve">
+    <value>Sweep angle</value>
+  </data>
+  <data name="PolarCoordinates_EdgeMode" xml:space="preserve">
+    <value>Edge mode</value>
+  </data>
+  <data name="PolarCoordinates_ClipToBounds" xml:space="preserve">
+    <value>Clip to original bounds</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Transparent" xml:space="preserve">
+    <value>Transparent</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Clamp" xml:space="preserve">
+    <value>Clamp</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Repeat" xml:space="preserve">
+    <value>Repeat</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Mirror" xml:space="preserve">
+    <value>Mirror</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>Wave refraction</value>
   </data>

@@ -194,11 +194,40 @@ public sealed class SchemaGenerationTests
         TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(PolarCoordinates).FullName);
         PropertyDescriptor direction = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Direction));
         PropertyDescriptor amount = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Amount));
+        PropertyDescriptor innerRadius = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.InnerRadius));
+        PropertyDescriptor scale = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Scale));
+        PropertyDescriptor angle = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Angle));
+        PropertyDescriptor swirl = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Swirl));
+        PropertyDescriptor sweepAngle = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.SweepAngle));
+        PropertyDescriptor center = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Center));
+        PropertyDescriptor invertRadius = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.InvertRadius));
+        PropertyDescriptor reverseAngle = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.ReverseAngle));
+        PropertyDescriptor repeat = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Repeat));
+        PropertyDescriptor mirror = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.Mirror));
+        PropertyDescriptor edgeMode = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.EdgeMode));
+        PropertyDescriptor clipToBounds = descriptor.Properties.Single(property => property.Name == nameof(PolarCoordinates.ClipToBounds));
 
         Assert.Multiple(() =>
         {
             Assert.That(effect.IntentTags, Does.Contain("warp"));
-            Assert.That(effect.PropertyNames, Is.EquivalentTo(new[] { nameof(PolarCoordinates.Direction), nameof(PolarCoordinates.Amount) }));
+            Assert.That(effect.IntentTags, Does.Contain("swirl"));
+            Assert.That(effect.PropertyNames, Is.EquivalentTo(new[]
+            {
+                nameof(PolarCoordinates.Direction),
+                nameof(PolarCoordinates.Amount),
+                nameof(PolarCoordinates.InnerRadius),
+                nameof(PolarCoordinates.Scale),
+                nameof(PolarCoordinates.Angle),
+                nameof(PolarCoordinates.Swirl),
+                nameof(PolarCoordinates.SweepAngle),
+                nameof(PolarCoordinates.Center),
+                nameof(PolarCoordinates.InvertRadius),
+                nameof(PolarCoordinates.ReverseAngle),
+                nameof(PolarCoordinates.Repeat),
+                nameof(PolarCoordinates.Mirror),
+                nameof(PolarCoordinates.EdgeMode),
+                nameof(PolarCoordinates.ClipToBounds),
+            }));
             Assert.That(effect.Notes, Does.Contain("Amount is a percentage; 0 is identity."));
             Assert.That(direction.EnumValues, Is.EqualTo(Enum.GetNames<PolarCoordinatesDirection>()));
             Assert.That(direction.Default, Is.EqualTo(PolarCoordinatesDirection.RectangularToPolar));
@@ -206,6 +235,38 @@ public sealed class SchemaGenerationTests
             Assert.That(amount.Range, Is.EqualTo(new RangeDescriptor(0, 100)));
             Assert.That(amount.Animatable, Is.True);
             Assert.That(amount.Unit, Is.EqualTo("percent"));
+            Assert.That(innerRadius.Default, Is.EqualTo(0f));
+            Assert.That(innerRadius.Animatable, Is.True);
+            Assert.That(innerRadius.Unit, Is.Null);
+            Assert.That(scale.Default, Is.EqualTo(100f));
+            Assert.That(scale.Animatable, Is.True);
+            Assert.That(scale.Unit, Is.EqualTo("percent"));
+            Assert.That(angle.Default, Is.EqualTo(0f));
+            Assert.That(angle.Range, Is.Null);
+            Assert.That(angle.Animatable, Is.True);
+            Assert.That(angle.Unit, Is.EqualTo("degrees"));
+            Assert.That(swirl.Default, Is.EqualTo(0f));
+            Assert.That(swirl.Range, Is.Null);
+            Assert.That(swirl.Animatable, Is.True);
+            Assert.That(swirl.Unit, Is.EqualTo("degrees"));
+            Assert.That(sweepAngle.Default, Is.EqualTo(360f));
+            Assert.That(sweepAngle.Range, Is.EqualTo(new RangeDescriptor(0, 360)));
+            Assert.That(sweepAngle.Animatable, Is.True);
+            Assert.That(sweepAngle.Unit, Is.EqualTo("degrees"));
+            Assert.That(center.Default, Is.EqualTo(RelativePoint.Center));
+            Assert.That(center.Animatable, Is.True);
+            Assert.That(invertRadius.Default, Is.EqualTo(false));
+            Assert.That(invertRadius.Animatable, Is.True);
+            Assert.That(reverseAngle.Default, Is.EqualTo(false));
+            Assert.That(reverseAngle.Animatable, Is.True);
+            Assert.That(repeat.Default, Is.EqualTo(1f));
+            Assert.That(repeat.Animatable, Is.True);
+            Assert.That(mirror.Default, Is.EqualTo(false));
+            Assert.That(mirror.Animatable, Is.True);
+            Assert.That(edgeMode.EnumValues, Is.EqualTo(Enum.GetNames<PolarCoordinatesEdgeMode>()));
+            Assert.That(edgeMode.Default, Is.EqualTo(PolarCoordinatesEdgeMode.Transparent));
+            Assert.That(clipToBounds.Default, Is.EqualTo(false));
+            Assert.That(clipToBounds.Animatable, Is.True);
         });
     }
 

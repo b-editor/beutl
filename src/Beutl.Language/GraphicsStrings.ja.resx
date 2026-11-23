@@ -1945,6 +1945,45 @@
   <data name="PolarCoordinatesDirection_PolarToRectangular" xml:space="preserve">
     <value>極座標から直交座標へ</value>
   </data>
+  <data name="PolarCoordinates_InnerRadius" xml:space="preserve">
+    <value>中心幅</value>
+  </data>
+  <data name="PolarCoordinates_Swirl" xml:space="preserve">
+    <value>渦巻</value>
+  </data>
+  <data name="PolarCoordinates_InvertRadius" xml:space="preserve">
+    <value>内外反転</value>
+  </data>
+  <data name="PolarCoordinates_ReverseAngle" xml:space="preserve">
+    <value>角度反転</value>
+  </data>
+  <data name="PolarCoordinates_Repeat" xml:space="preserve">
+    <value>繰り返し</value>
+  </data>
+  <data name="PolarCoordinates_Mirror" xml:space="preserve">
+    <value>ミラー</value>
+  </data>
+  <data name="PolarCoordinates_SweepAngle" xml:space="preserve">
+    <value>角度範囲</value>
+  </data>
+  <data name="PolarCoordinates_EdgeMode" xml:space="preserve">
+    <value>端の処理</value>
+  </data>
+  <data name="PolarCoordinates_ClipToBounds" xml:space="preserve">
+    <value>元のサイズにクリップ</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Transparent" xml:space="preserve">
+    <value>透明</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Clamp" xml:space="preserve">
+    <value>クランプ</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Repeat" xml:space="preserve">
+    <value>繰り返し</value>
+  </data>
+  <data name="PolarCoordinatesEdgeMode_Mirror" xml:space="preserve">
+    <value>ミラー</value>
+  </data>
   <data name="WaveRefraction" xml:space="preserve">
     <value>波紋屈折</value>
   </data>
