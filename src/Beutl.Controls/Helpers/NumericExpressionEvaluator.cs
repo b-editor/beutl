@@ -195,16 +195,17 @@ internal static class NumericExpressionEvaluator
             Span<int> bits = stackalloc int[4];
             decimal.GetBits(value, bits);
             int scale = (bits[3] >> 16) & 0x7F;
-            if (scale > 4)
+            if (scale >= 12)
             {
                 var mantissa = new UInt128(
                     (uint)bits[2],
                     ((ulong)(uint)bits[1] << 32) | (uint)bits[0]);
                 if (mantissa >= SaturatedDecimalMantissa)
                 {
-                    // Trim the trailing 4 digits of 28-digit division rounding noise so exact midpoints like
-                    // 1 / 3 * 4.5 (1.4999999999999999999999999998) round away from zero to 2.
-                    value = Math.Round(value, scale - 4, MidpointRounding.AwayFromZero);
+                    // Trim only the trailing 2 digits of 28-digit division rounding noise so exact midpoints like
+                    // 1 / 3 * 4.5 (1.4999999999999999999999999998) round away from zero to 2 without disturbing
+                    // intentional sub-midpoint fractions on large integers.
+                    value = Math.Round(value, scale - 2, MidpointRounding.AwayFromZero);
                 }
             }
         }

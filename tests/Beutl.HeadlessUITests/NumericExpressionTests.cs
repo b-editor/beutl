@@ -123,6 +123,8 @@ public sealed class NumericExpressionTests
             Assert.That(NumberEditorHelper.TryParse("100 + 28", out sbyte _), Is.False);
 
             Assert.That(NumberEditorHelper.TryParse("2147483647 + 1", out int _), Is.False);
+            Assert.That(NumberEditorHelper.TryParse("1000000000000000000 + 1 / 3 * 1.499999", out long largeInt), Is.True);
+            Assert.That(largeInt, Is.EqualTo(1_000_000_000_000_000_000L));
             Assert.That(NumberEditorHelper.TryParse("10 - 20", out uint _), Is.False);
             Assert.That(NumberEditorHelper.TryParse("10 - 20", out ulong _), Is.False);
             Assert.That(NumberEditorHelper.TryParse("1e38 * 10", out float _), Is.False);
