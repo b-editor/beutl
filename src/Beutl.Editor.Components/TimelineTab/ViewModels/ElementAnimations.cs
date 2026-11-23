@@ -15,7 +15,8 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 internal static class ElementAnimations
 {
     // The keyframe times from the element's start, sorted and each once, and whether any property follows an
-    // expression. watch hears of every animation that has keyframes.
+    // expression. watch hears of every animation, also one whose last key was removed, so that its first key is heard
+    // of again.
     internal static ElementAnimationMarks ReadMarks(Element element, Action<IKeyFrameAnimation>? watch = null)
     {
         MediaTime start = element.Start.Value;
@@ -23,8 +24,8 @@ internal static class ElementAnimations
         bool hasKeyFrames = false;
         var walker = new Walker(animation =>
         {
-            hasKeyFrames = true;
             watch?.Invoke(animation);
+            hasKeyFrames |= HasKeys(animation);
             MediaTime origin = AnimationOperations.GetTimeOrigin(animation);
             foreach (IKeyFrame key in animation.KeyFrames)
             {
@@ -83,7 +84,7 @@ internal static class ElementAnimations
                     // A node's port is a property's row too, over the value its adapter holds.
                     case INodeMember { Property: { } adapter }:
                         AddIfAnimated(result, ValueItem(adapter.DisplayName,
-                            adapter is IAnimatablePropertyAdapter { Animation: not null } animated ? animated : null,
+                            adapter is IAnimatablePropertyAdapter animated && HasKeys(animated.Animation) ? animated : null,
                             adapter.GetEngineProperty(), adapter.GetValue()));
                         break;
                     case EngineObject obj:
@@ -131,7 +132,7 @@ internal static class ElementAnimations
                 }
 
                 AddIfAnimated(result, ValueItem(Property.GetLocalizedName(property),
-                    property.GetKeyFrameAnimation() != null
+                    HasKeys(property.GetKeyFrameAnimation())
                         ? PropertyAdapterFactory.CreateAdapter(property, obj) as IAnimatablePropertyAdapter
                         : null,
                     property, property.Value));
@@ -160,7 +161,7 @@ internal static class ElementAnimations
             {
                 foreach (IProperty component in components.Components)
                 {
-                    if (component.GetKeyFrameAnimation() != null
+                    if (HasKeys(component.GetKeyFrameAnimation())
                         && Listed(PropertyAdapterFactory.CreateAdapter(component, holder) as IAnimatablePropertyAdapter)
                             is { } adapter)
                     {
@@ -199,12 +200,12 @@ internal static class ElementAnimations
         private AnimationMenuItem PairItem(PropertyPair pair)
         {
             if (!pair.IsSeparated.Value)
-                return new AnimationMenuItem(pair.DisplayName, pair.Animation != null ? Listed(pair) : null);
+                return new AnimationMenuItem(pair.DisplayName, HasKeys(pair.Animation) ? Listed(pair) : null);
 
             var item = new AnimationMenuItem(pair.DisplayName);
             foreach (IAnimatablePropertyAdapter adapter in pair.Adapters)
             {
-                if (adapter.Animation != null && Listed(adapter) is { } member)
+                if (HasKeys(adapter.Animation) && Listed(adapter) is { } member)
                     item.Children.Add(new AnimationMenuItem(member.DisplayName, member));
             }
 
@@ -222,6 +223,9 @@ internal static class ElementAnimations
         }
     }
 
+    // Removing the last key leaves the animation in place, which neither marks nor the menu count.
+    private static bool HasKeys(IKeyFrameAnimation? animation) => animation is { KeyFrames.Count: > 0 };
+
     // An expression the user wrote, which the value follows over time. A reference to another object and a node's
     // connection are not one.
     private static bool HasUserExpression(IExpressionProperty property)
@@ -238,8 +242,8 @@ internal static class ElementAnimations
     }
 
     // Goes below each object along ChildObjects once, through an engine object's properties in the order its panel
-    // shows them, then the rest, and calls found for each animation with keyframes once. Keyframes are not walked into,
-    // as nothing below them holds an animation.
+    // shows them, then the rest, and calls found for each animation once, with keys or without. Keyframes are not
+    // walked into, as nothing below them holds an animation.
     private sealed class Walker(Action<IKeyFrameAnimation> found)
     {
         private readonly HashSet<object> _visited = new(ReferenceEqualityComparer.Instance);

@@ -259,9 +259,11 @@
                         Background="Transparent"
                         Cursor="SizeWestEast" />
             </Panel>
-            <!--  The keyframe times of the element's objects, along its bottom edge above the inline layers.  -->
+            <!--  The keyframe times of the element's objects, along its bottom edge above the inline layers. It spans the
+                  border too, so a time maps to the same x as on the clip and a key at its end is not cut off.  -->
             <v:ElementKeyFrameMarks x:Name="keyFrameMarks"
                                     Height="9"
+                                    Margin="-1,0"
                                     VerticalAlignment="Bottom"
                                     Fill="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
                                     Scale="{Binding Timeline.Scale^}"

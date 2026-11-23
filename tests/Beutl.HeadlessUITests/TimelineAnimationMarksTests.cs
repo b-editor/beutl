@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -116,13 +117,18 @@ public class TimelineAnimationMarksTests
         ElementView view = ViewOf(host, element);
 
         ElementAnimationMarks marks = model.AnimationMarks.Value;
+        var keyFrameMarks = view.FindControl<ElementKeyFrameMarks>("keyFrameMarks")!;
+        Border clip = view.FindControl<Border>("border")!;
         Assert.Multiple(() =>
         {
             Assert.That(marks.HasKeyFrames, Is.True);
             Assert.That(marks.HasExpression, Is.False);
             // The two keys of the position are at one time, and the fill's key on the scene's clock is 1.75 s into the clip.
             Assert.That(marks.Times, Is.EqualTo(Seconds(0.5, 1, 1.5, 1.75)));
-            Assert.That(view.FindControl<ElementKeyFrameMarks>("keyFrameMarks")!.Times, Is.SameAs(marks.Times));
+            Assert.That(keyFrameMarks.Times, Is.SameAs(marks.Times));
+            // The marks span the clip's border too, so a time is at the x it has on the clip, the clip's end included.
+            Assert.That(keyFrameMarks.Bounds.Width, Is.EqualTo(clip.Bounds.Width).Within(0.01));
+            Assert.That(keyFrameMarks.TranslatePoint(default, clip)!.Value.X, Is.EqualTo(0).Within(0.01));
             Assert.That(view.FindControl<Control>("keyFrameGlyph")!.IsVisible, Is.True);
             Assert.That(view.FindControl<Control>("expressionGlyph")!.IsVisible, Is.False);
         });
@@ -173,6 +179,31 @@ public class TimelineAnimationMarksTests
             Assert.That(model.AnimationMarks.Value, Is.EqualTo(ElementAnimationMarks.None));
             Assert.That(view.FindControl<Control>("animationGlyphs")!.IsVisible, Is.False);
         });
+
+        // Removing the last key leaves the animation in place, which counts for nothing until a key comes back.
+        var empty = new KeyFrameAnimation<float>();
+        history.ExecuteInTransaction(() => shape.Width.SetKeyFrameAnimation(empty), "empty");
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.AnimationMarks.Value, Is.EqualTo(ElementAnimationMarks.None));
+            Assert.That(model.GetAnimationMenu(), Is.Empty);
+        });
+        history.ExecuteInTransaction(() => empty.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(0.5) },
+            Value = { Value = 1 }
+        }), "first key");
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.AnimationMarks.Value.HasKeyFrames, Is.True);
+            Assert.That(model.AnimationMarks.Value.Times, Is.EqualTo(Seconds(0.5)));
+            Assert.That(model.GetAnimationMenu().SelectMany(row => row.Adapters).Select(row => row.GetEngineProperty()),
+                Is.EqualTo(new[] { shape.Width }));
+        });
+        history.ExecuteInTransaction(() => shape.Width.SetKeyFrameAnimation(null), "remove it again");
+        HeadlessTestHelpers.Settle();
 
         history.ExecuteInTransaction(() => shape.Opacity.Expression = Expression.Create<float>("50"), "expression");
         HeadlessTestHelpers.Settle();
