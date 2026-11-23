@@ -73,6 +73,8 @@ public class FileSystemItemViewModel : IDisposable
 
     public bool IsDirectory { get; }
 
+    internal bool IsDisposed => _disposed;
+
     public string Extension { get; }
 
     public ReactiveProperty<Icon> IconSymbol { get; }
@@ -289,11 +291,15 @@ public class FileSystemItemViewModel : IDisposable
 
         if (string.Equals(FullPath, directory, StringComparison.Ordinal))
         {
-            bool changed = _childrenLoaded
-                ? FileSystemEnumerator.HasEntriesChanged(Children, FullPath)
-                : (Children.Count > 0) != new DirectoryInfo(FullPath)
-                    .EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible);
-            if (changed) Refresh();
+            if (_childrenLoaded)
+            {
+                FileSystemEnumerator.RefreshCollection(_thumbnails, Children, FullPath, includeChildren: false);
+            }
+            else if ((Children.Count > 0) != new DirectoryInfo(FullPath)
+                         .EnumerateFileSystemInfos().Any(FileSystemEnumerator.IsVisible))
+            {
+                Refresh();
+            }
         }
         else if (_childrenLoaded)
         {
@@ -302,7 +308,7 @@ public class FileSystemItemViewModel : IDisposable
         }
     }
 
-    // Catch up the displayed tree after asynchronous watcher startup, without walking unopened subtrees.
+    // Refresh the displayed tree without walking unopened subtrees.
     internal void RefreshLoadedEntries(bool includeChildren = true)
     {
         if (_disposed) return;
