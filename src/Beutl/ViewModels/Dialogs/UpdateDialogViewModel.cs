@@ -27,8 +27,6 @@ public enum AppUpdatePhase
 
 public class UpdateDialogViewModel
 {
-    private static readonly object s_claimGate = new();
-    private static FileStream? s_updateFolderClaim;
     private readonly UpdateConfig _configuration;
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
@@ -72,7 +70,7 @@ public class UpdateDialogViewModel
         _flatpak = flatpak;
         _httpClient = httpClient;
         _loadMetadata = loadMetadata ?? BeutlApiApplication.LoadMetadata;
-        _claimUpdateFolders = claimUpdateFolders ?? ClaimUpdateFolders;
+        _claimUpdateFolders = claimUpdateFolders ?? UpdateFolders.Claim;
         _prepareExtensions = prepareExtensions;
         _timeProvider = timeProvider ?? TimeProvider.System;
         ExtensionUpdateSummary = _preparedExtensionCount.CombineLatest(
@@ -305,7 +303,7 @@ public class UpdateDialogViewModel
             return null;
         }
 
-        var directory = ZipStagingDirectory;
+        var directory = UpdateFolders.ZipStagingDirectory;
         var target = AppContext.BaseDirectory;
         string executable = relaunch ? $" \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\"" : "";
         string command = $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl{executable}";
@@ -332,7 +330,7 @@ public class UpdateDialogViewModel
         }
 
         // The update unpacks to Beutl.app in the staging folder and replaces the bundle the application runs from.
-        var directory = Path.Combine(UpdateStagingRoot, "Beutl.app");
+        var directory = Path.Combine(UpdateFolders.StagingRoot, "Beutl.app");
         var target = Path.GetFullPath("../../", AppContext.BaseDirectory);
 
         var psi = new ProcessStartInfo("bash")
@@ -468,7 +466,7 @@ public class UpdateDialogViewModel
             return AppUpdatePhase.Failed;
         }
 
-        UpdateDownloadCache? cache = UpdateDownloadCache.Open(DownloadDirectory);
+        UpdateDownloadCache? cache = UpdateDownloadCache.Open(UpdateFolders.DownloadDirectory);
         try
         {
             _downloadFile = await DownloadFile(httpClient: _httpClient, cache: cache);
@@ -559,62 +557,19 @@ public class UpdateDialogViewModel
     internal static string DescribeFailure(string step, Exception exception)
         => exception.Message == step ? step : $"{step}\n{exception.Message}";
 
-    // Where an update is unpacked before the update script copies it over the application.
-    private static string UpdateStagingRoot
-        => Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
-
     // Only the Linux zip and the macOS app install from an unpacked update. Windows and macOS zips
     // are no longer published and have no update path.
     private static bool Unpacks(AssetMetadataJson metadata)
         => (metadata.Type == "zip" && OperatingSystem.IsLinux()) || metadata.Type == "app";
 
-    // Every running Beutl unpacks its update into the same folders, and unpacking empties them first. So only the Beutl
-    // that claims them unpacks one, or starts one unasked, and the claim lasts until the process exits. The lock file
-    // stays, since unlinking it could split ownership.
-    internal static bool ClaimUpdateFolders()
-    {
-        lock (s_claimGate)
-        {
-            s_updateFolderClaim ??= TryClaim(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.lock"));
-            return s_updateFolderClaim != null;
-        }
-    }
-
-    // The lock on path, or null while another process holds it.
-    internal static FileStream? TryClaim(string path)
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
-
-    // Downloads go to their own folder, so a server-chosen name cannot overwrite the update
-    // scripts in tmp, which this application later executes.
-    private static string DownloadDirectory
-        => Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "download");
-
-    // A zip update unpacks into a folder named like the one the application runs from.
-    private static string ZipStagingDirectory
-        => GetZipStagingDirectory(AppContext.BaseDirectory, UpdateStagingRoot);
-
-    // The update script copies the update over the application, so it stays in the home directory.
-    internal static string GetZipStagingDirectory(string appDirectory, string stagingRoot)
-        => Path.Combine(stagingRoot, new DirectoryInfo(appDirectory).Name);
-
     // Unpacks a zip or app update into an empty staging folder and offers the restart.
     private async Task<bool> StageExtractedUpdateAsync(AssetMetadataJson metadata, string file)
     {
-        var destination = metadata.Type == "zip" ? ZipStagingDirectory : UpdateStagingRoot;
+        var destination = metadata.Type == "zip" ? UpdateFolders.ZipStagingDirectory : UpdateFolders.StagingRoot;
 
         try
         {
-            PrepareStagingDirectory(destination);
+            UpdateFolders.PrepareStagingDirectory(destination);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -630,22 +585,11 @@ public class UpdateDialogViewModel
         return true;
     }
 
-    // Creates an empty staging folder in the home directory's tmp folder, which belongs to Beutl.
-    internal static void PrepareStagingDirectory(string destination)
-    {
-        if (Directory.Exists(destination))
-        {
-            Directory.Delete(destination, true);
-        }
-
-        Directory.CreateDirectory(destination);
-    }
-
     // Writes the update script resource to the home directory's tmp folder. A script that
     // cannot be loaded is reported and gives no path.
     private async Task<string?> WriteUpdateScriptAsync(string fileName, string resourceName)
     {
-        string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", fileName);
+        string scriptPath = UpdateFolders.GetScriptPath(fileName);
         await using (var fs = File.Create(scriptPath))
         {
             if (!await LoadScript(resourceName, fs))
@@ -664,7 +608,7 @@ public class UpdateDialogViewModel
     {
         var directory = destinationPath != null
             ? Path.GetDirectoryName(Path.GetFullPath(destinationPath))!
-            : downloadDirectory ?? DownloadDirectory;
+            : downloadDirectory ?? UpdateFolders.DownloadDirectory;
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);

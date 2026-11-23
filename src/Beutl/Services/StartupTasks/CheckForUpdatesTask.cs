@@ -106,7 +106,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                 {
                     // The update takes the claim when it can, so that no other Beutl starts one unasked. One that
                     // unpacks stops before downloading while another Beutl holds it, says why, and can be retried.
-                    _ = UpdateDialogViewModel.ClaimUpdateFolders();
+                    _ = UpdateFolders.Claim();
                     controller.StartInBackground(update);
                 }), releaseNotes]
                 : [releaseNotes]);

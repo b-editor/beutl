@@ -1,4 +1,5 @@
 ﻿using Beutl.Services.StartupTasks;
+using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using FluentAvalonia.UI.Controls;
 
@@ -41,14 +42,14 @@ public sealed class CheckForUpdatesTaskTests
         string path = Path.Combine(directory, "update.lock");
         try
         {
-            using (FileStream? first = UpdateDialogViewModel.TryClaim(path))
+            using (FileStream? first = UpdateFolders.TryClaim(path))
             {
                 Assert.That(first, Is.Not.Null);
-                using FileStream? second = UpdateDialogViewModel.TryClaim(path);
+                using FileStream? second = UpdateFolders.TryClaim(path);
                 Assert.That(second, Is.Null);
             }
 
-            using FileStream? afterRelease = UpdateDialogViewModel.TryClaim(path);
+            using FileStream? afterRelease = UpdateFolders.TryClaim(path);
             Assert.That(afterRelease, Is.Not.Null);
         }
         finally
