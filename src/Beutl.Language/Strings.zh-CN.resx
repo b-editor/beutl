@@ -639,7 +639,7 @@
     <value>波纹编辑</value>
   </data>
   <data name="RippleEdit_Description" xml:space="preserve">
-    <value>切换波纹编辑。开启时，删除、剪切或修剪剪辑时，同一图层上其后的剪辑也会随之移动。</value>
+    <value>切换波纹编辑。开启时，删除或剪切剪辑会移动同一图层上其后的剪辑，修剪边缘会移动该侧的剪辑。</value>
   </data>
   <data name="TimelineSnap_Description" xml:space="preserve">
     <value>切换吸附。拖动时按住 Alt / Option 键可忽略吸附。</value>
