@@ -876,6 +876,34 @@ public sealed class PolarCoordinatesTests
         });
     }
 
+    [TestCase(39f)]
+    [TestCase(50f)]
+    public void RectangularToPolarIntermediateAmountStaysBoundedWithinEndpointUnion(float amount)
+    {
+        var size = new PixelSize(100, 100);
+        var bounds = new Rect(0, 0, size.Width, size.Height);
+        var effect = new PolarCoordinates { Amount = { Value = amount } };
+        (float[] pixels, Rect outBounds, PixelSize outSize) = RunSolidWithBounds(effect, SKColors.White, size);
+        (ShaderDescription desc, _) = FilterEffectTestHarness.RecordShader(effect, bounds);
+        RenderHitTestContract hit = desc.HitTest!.Value;
+        var input = new RenderHitTestInput(bounds, bounds.ContainsExclusive);
+        var enlargedBounds = new Rect(-100f, -100f, 400f, 400f);
+
+        // Corners and off-axis perimeter pixels outside both inputBounds and the polar disc must be
+        // transparent rather than hard-clipped at the output rectangle edge.
+        Assert.Multiple(() =>
+        {
+            Assert.That(Channel(pixels, outSize.Width, outSize.Width - 1, outSize.Height - 1, 3), Is.LessThan(0.001f), "bottom-right corner is transparent");
+            Assert.That(Channel(pixels, outSize.Width, 0, outSize.Height - 1, 3), Is.LessThan(0.001f), "bottom-left corner is transparent");
+            Assert.That(Channel(pixels, outSize.Width, outSize.Width - 1, (outSize.Height * 3) / 4, 3), Is.LessThan(0.001f), "right perimeter outside circle is transparent");
+            Assert.That(Channel(pixels, outSize.Width, (outSize.Width * 3) / 4, outSize.Height - 1, 3), Is.LessThan(0.001f), "bottom perimeter outside circle is transparent");
+            Assert.That(Channel(pixels, outSize.Width, outSize.Width / 2, outSize.Height / 2, 3), Is.GreaterThan(0.99f), "interior stays opaque");
+            Assert.That(hit.Evaluate(enlargedBounds, [input], [], new Point(50f, 140f)), Is.False, "point past bottom circle rim is not hit");
+            Assert.That(hit.Evaluate(enlargedBounds, [input], [], new Point(125f, 50f)), Is.False, "point past right circle rim is not hit");
+            Assert.That(hit.Evaluate(outBounds, [input], [], new Point(50f, 50f)), Is.True, "center remains hit");
+        });
+    }
+
     private static (float[] Pixels, Rect OutputBounds, PixelSize OutputSize) RunSolidWithBounds(
         FilterEffect effect, SKColor color, PixelSize size)
     {

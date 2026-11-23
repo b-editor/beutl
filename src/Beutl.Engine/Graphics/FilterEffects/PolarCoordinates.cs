@@ -142,6 +142,28 @@ public sealed partial class PolarCoordinates : FilterEffect
                 float maxYOffset = maxAtOrigin ? 1.0 : 0.5;
                 coverage *= clamp((sample.y - inputOrigin.y) * sourceRatio.y + minYOffset, 0.0, 1.0);
                 coverage *= clamp((inputOrigin.y + inputSize.y - sample.y) * sourceRatio.y + maxYOffset, 0.0, 1.0);
+
+                if (amount < 1.0) {
+                    // Constrain intermediate blends to the union of the input rect and polar shape so
+                    // out-of-range polar radii cannot cancel with out-of-input coordinates to create
+                    // unbounded ghost regions clipped harshly by outputBounds.
+                    float covInputX = min(
+                        clamp((coord.x - inputOrigin.x) * sourceRatio.x + 0.5, 0.0, 1.0),
+                        clamp((inputOrigin.x + inputSize.x - coord.x) * sourceRatio.x + 0.5, 0.0, 1.0));
+                    float covInputY = min(
+                        clamp((coord.y - inputOrigin.y) * sourceRatio.y + 0.5, 0.0, 1.0),
+                        clamp((inputOrigin.y + inputSize.y - coord.y) * sourceRatio.y + 0.5, 0.0, 1.0));
+                    float covInput = covInputX * covInputY;
+
+                    float covPolar = clamp((vMapped * inputSize.y) * sourceRatio.y + minYOffset, 0.0, 1.0)
+                        * clamp(((1.0 - vMapped) * inputSize.y) * sourceRatio.y + maxYOffset, 0.0, 1.0);
+                    if (!isFullCircle) {
+                        float polarCovMinX = clamp((uArc * inputSize.x) * sourceRatio.x + 0.5, 0.0, 1.0);
+                        float polarCovMaxX = clamp(((1.0 - uArc) * inputSize.x) * sourceRatio.x + 0.5, 0.0, 1.0);
+                        covPolar *= min(polarCovMinX, polarCovMaxX);
+                    }
+                    coverage = min(coverage, max(covInput, covPolar));
+                }
             } else if (amount < 1.0) {
                 float2 norm = (sample - inputOrigin) / inputSize;
                 sample = inputOrigin + inputSize * float2(applyEdge(norm.x, edgeMode), applyEdge(norm.y, edgeMode));
@@ -602,6 +624,17 @@ public sealed partial class PolarCoordinates : FilterEffect
                         return false;
                     if (maxAtOrigin ? sample.Y > inSize.Y : sample.Y >= inSize.Y)
                         return false;
+                    if (Amount < 1f)
+                    {
+                        bool inInput = inLocal.X >= 0f && inLocal.X < inSize.X
+                            && inLocal.Y >= 0f && inLocal.Y < inSize.Y;
+                        bool inPolar = !degenerateRadius
+                            && (isFullCircle || (uArc >= 0f && uArc < 1f))
+                            && v >= 0f
+                            && (maxAtOrigin ? v <= 1f : v < 1f);
+                        if (!inInput && !inPolar)
+                            return false;
+                    }
                 }
                 else if (Amount < 1f)
                 {
