@@ -3884,6 +3884,24 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>要素を貼り付ける前にプロジェクトを保存してください。</value>
   </data>
+  <data name="TimelineDrag_StartLength" xml:space="preserve">
+    <value>開始 {0}　長さ {1}</value>
+  </data>
+  <data name="TimelineDrag_EndLength" xml:space="preserve">
+    <value>終了 {0}　長さ {1}</value>
+  </data>
+  <data name="TimelineDrag_StartLayer" xml:space="preserve">
+    <value>開始 {0}　レイヤー {1}</value>
+  </data>
+  <data name="TimelineDrag_RollLengths" xml:space="preserve">
+    <value>左の長さ {0}　右の長さ {1}</value>
+  </data>
+  <data name="TimelineDrag_StartEnd" xml:space="preserve">
+    <value>開始 {0}　終了 {1}</value>
+  </data>
+  <data name="TimelineDrag_MediaOffset" xml:space="preserve">
+    <value>素材オフセット {0}</value>
+  </data>
   <data name="TimelineLayerHeight" xml:space="preserve">
     <value>レイヤーの高さ</value>
   </data>

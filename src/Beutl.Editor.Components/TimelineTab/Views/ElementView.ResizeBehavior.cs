@@ -230,7 +230,7 @@ public sealed partial class ElementView
 
             if (_trimDrag.Kind is not TrimDragKind.None)
             {
-                PreviewTrimDrag(view, pointerFrame, scale, alt, rate, e.Timestamp);
+                PreviewTrimDrag(view, pointerFrame, scale, alt, rate, e);
                 e.Handled = true;
                 return;
             }
@@ -260,6 +260,20 @@ public sealed partial class ElementView
                 bool reachedSnap = snap.DidSnap && Math.Abs(edge - point.X) < 0.01;
                 view.UpdateSnapFeedback(reachedSnap ? snap.Time : null, scale, e.Timestamp);
 
+                if (_resizeContexts.Any(ctx => ctx.ViewModel == viewModel))
+                {
+                    bool leftEdge = _resizeType == AlignmentX.Left;
+                    ElementResizeRequest request = _resizeContexts.Length == 1
+                        ? viewModel.GetResizeRequest(viewModel.Timeline.IsRippleEnabled.Value, leftEdge)
+                        : GetGroupResizeRequest(_resizeContexts.First(ctx => ctx.ViewModel == viewModel),
+                            scale, rate, leftEdge, GetSharedResizeEdge(scale, rate, leftEdge));
+                    MediaTime before = leftEdge ? viewModel.Model.Start.Value : viewModel.Model.Range.End;
+                    MediaTime after = leftEdge ? request.NewStart : request.NewStart + request.NewLength;
+                    view.ShowDragReadout(e, after - before,
+                        string.Format(leftEdge ? Strings.TimelineDrag_StartLength : Strings.TimelineDrag_EndLength,
+                            view.FormatDragTime(after), view.FormatDragTime(request.NewLength)));
+                }
+
                 e.Handled = true;
             }
         }
@@ -267,7 +281,7 @@ public sealed partial class ElementView
         // Mirror the release commit exactly: snap both endpoints with the same
         // function, round to the frame rate, clamp to the bounds captured at drag
         // start. Only the pointer's final, reachable target produces alignment feedback.
-        private void PreviewTrimDrag(ElementView view, MediaTime pointerFrame, float scale, bool alt, Rational rate, ulong timestamp)
+        private void PreviewTrimDrag(ElementView view, MediaTime pointerFrame, float scale, bool alt, Rational rate, PointerEventArgs e)
         {
             MediaTime pressTime = view.SnapTime(
                 _trimDrag.InitialPointerX.PixelToTime(scale), scale, alt).Time;
@@ -275,7 +289,24 @@ public sealed partial class ElementView
             MediaTime requestedDelta = (snap.Time - pressTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             MediaTime previewDelta = _trimDrag.ClampDelta(requestedDelta);
             ApplyTrimDragPreview(previewDelta.TimeToPixel(scale));
-            view.UpdateSnapFeedback(snap.DidSnap && previewDelta == requestedDelta ? snap.Time : null, scale, timestamp);
+            view.UpdateSnapFeedback(snap.DidSnap && previewDelta == requestedDelta ? snap.Time : null, scale, e.Timestamp);
+
+            Element clip = view.ViewModel.Model;
+            string details;
+            if (_trimDrag.Kind == TrimDragKind.Roll)
+            {
+                ElementTrimPair pair = _trimDrag.RollPairs.First(pair => pair.Front == clip || pair.Back == clip);
+                details = string.Format(Strings.TimelineDrag_RollLengths,
+                    view.FormatDragTime(pair.Front.Length.Value + previewDelta),
+                    view.FormatDragTime(pair.Back.Length.Value - previewDelta));
+            }
+            else
+            {
+                details = string.Format(Strings.TimelineDrag_StartEnd,
+                    view.FormatDragTime(clip.Start.Value + previewDelta),
+                    view.FormatDragTime(clip.Range.End + previewDelta));
+            }
+            view.ShowDragReadout(e, previewDelta, details);
         }
 
         private static void PreviewRightEdge(ElementResizeContext ctx, double pointerX, float scale, double minWidth, bool ripple)
@@ -642,27 +673,10 @@ public sealed partial class ElementView
             float scale = viewModel.Timeline.Options.Value.Scale;
             Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
 
-            MediaTime RoundEdge(ElementResizeContext ctx)
-            {
-                double edge = ctx.ViewModel.BorderMargin.Value.Left + (leftEdge ? 0 : ctx.ViewModel.Width.Value);
-                return edge.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-            }
-            MediaTime? sharedEdge = _resizeContexts.Any(ctx => ctx.MediaConstraints?.HasSharedClock == true)
-                ? RoundEdge(_resizeContexts[0]) : null;
-            var requests = new ElementResizeRequest[_resizeContexts.Length];
-            for (int i = 0; i < _resizeContexts.Length; i++)
-            {
-                ElementResizeContext ctx = _resizeContexts[i];
-                // Round the moving edge once and retain the opposite edge.
-                // Rounding each start/length separately can split a shared
-                // edge when the clips have different sub-frame starts.
-                MediaTime edge = sharedEdge ?? RoundEdge(ctx);
-                (MediaTime newStart, MediaTime newLength) = leftEdge
-                    ? (edge, ctx.RecordedEndTime - edge)
-                    : (ctx.RecordedStartTime, edge - ctx.RecordedStartTime);
-                int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
-                requests[i] = new ElementResizeRequest(ctx.ViewModel.Model, newStart, newLength, zindex);
-            }
+            MediaTime? sharedEdge = GetSharedResizeEdge(scale, rate, leftEdge);
+            ElementResizeRequest[] requests = _resizeContexts
+                .Select(ctx => GetGroupResizeRequest(ctx, scale, rate, leftEdge, sharedEdge))
+                .ToArray();
 
             viewModel.Timeline.EditorContext
                 .GetRequiredService<IElementResizeService>()
@@ -671,6 +685,29 @@ public sealed partial class ElementView
             _ = AnimateToModelAsync(
                 animations,
                 ex => s_logger.LogWarning(ex, "Animation failed after a group resize; snapping visuals to model."));
+        }
+
+        private MediaTime? GetSharedResizeEdge(float scale, Rational rate, bool leftEdge)
+            => _resizeContexts.Any(ctx => ctx.MediaConstraints?.HasSharedClock == true)
+                ? RoundEdge(_resizeContexts[0], scale, rate, leftEdge)
+                : null;
+
+        private static MediaTime RoundEdge(ElementResizeContext ctx, float scale, Rational rate, bool leftEdge)
+        {
+            double edge = ctx.ViewModel.BorderMargin.Value.Left + (leftEdge ? 0 : ctx.ViewModel.Width.Value);
+            return edge.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        }
+
+        private static ElementResizeRequest GetGroupResizeRequest(ElementResizeContext ctx, float scale,
+            Rational rate, bool leftEdge, MediaTime? sharedEdge)
+        {
+            // Round the moving edge once and retain the opposite edge, including on a shared clock.
+            MediaTime edge = sharedEdge ?? RoundEdge(ctx, scale, rate, leftEdge);
+            (MediaTime start, MediaTime length) = leftEdge
+                ? (edge, ctx.RecordedEndTime - edge)
+                : (ctx.RecordedStartTime, edge - ctx.RecordedStartTime);
+            int layer = ctx.ViewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
+            return new ElementResizeRequest(ctx.ViewModel.Model, start, length, layer);
         }
 
         private static void RestoreTrimDragVisuals(TrimDragContext ctx)

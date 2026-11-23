@@ -317,6 +317,8 @@
                                      VerticalAlignment="Stretch"
                                      EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                      EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                                     ReadoutBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
+                                     ReadoutForeground="{DynamicResource TextFillColorPrimaryBrush}"
                                      SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                                      SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
                                      SnapBarBrush="{DynamicResource SystemFillColorAttentionBrush}"

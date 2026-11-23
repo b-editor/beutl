@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.Media.TextFormatting;
 
 namespace Beutl.Editor.Components.Views;
 
@@ -25,6 +26,12 @@ public sealed class TimelineOverlay : TimelineBarsControl
     public static readonly StyledProperty<IBrush?> SnapBarBrushProperty
         = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SnapBarBrush));
 
+    public static readonly StyledProperty<IBrush?> ReadoutBackgroundProperty
+        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(ReadoutBackground));
+
+    public static readonly StyledProperty<IBrush?> ReadoutForegroundProperty
+        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(ReadoutForeground));
+
     private Vector _offset;
     private double? _snapBarPosition;
     private Size _viewport;
@@ -38,7 +45,9 @@ public sealed class TimelineOverlay : TimelineBarsControl
             ViewportProperty,
             SelectionRangeProperty,
             SnapBarPositionProperty,
-            SnapBarBrushProperty);
+            SnapBarBrushProperty,
+            ReadoutBackgroundProperty,
+            ReadoutForegroundProperty);
     }
 
     public TimelineOverlay()
@@ -76,6 +85,27 @@ public sealed class TimelineOverlay : TimelineBarsControl
         set => SetValue(SnapBarBrushProperty, value);
     }
 
+    public IBrush? ReadoutBackground
+    {
+        get => GetValue(ReadoutBackgroundProperty);
+        set => SetValue(ReadoutBackgroundProperty, value);
+    }
+
+    public IBrush? ReadoutForeground
+    {
+        get => GetValue(ReadoutForegroundProperty);
+        set => SetValue(ReadoutForegroundProperty, value);
+    }
+
+    internal (Point Position, string Change, string Details)? DragReadout { get; private set; }
+
+    internal void SetDragReadout((Point Position, string Change, string Details)? value)
+    {
+        if (DragReadout == value) return;
+        DragReadout = value;
+        InvalidateVisual();
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -106,5 +136,33 @@ public sealed class TimelineOverlay : TimelineBarsControl
                 context.DrawLine(_snapBarPen, snapBar, snapBar + new Point(0, height));
             }
         }
+
+        if (DragReadout is { } readout)
+            DrawReadout(context, readout.Position, readout.Change, readout.Details);
+    }
+
+    private void DrawReadout(DrawingContext context, Point pointer, string change, string details)
+    {
+        const double gap = 12;
+        const double padding = 8;
+        double width = Math.Min(320, Viewport.Width - padding * 2);
+        int detailLines = width < 290 ? 2 : 1;
+        double height = detailLines == 1 ? 44 : 58;
+        if (width <= padding * 2 || Viewport.Height < height) return;
+
+        double x = Math.Clamp(pointer.X + gap, Offset.X + padding, Offset.X + Viewport.Width - width - padding);
+        double y = pointer.Y + gap;
+        if (y + height > Offset.Y + Viewport.Height)
+            y = pointer.Y - height - gap;
+        y = Math.Clamp(y, Offset.Y, Offset.Y + Viewport.Height - height);
+
+        context.DrawRectangle(ReadoutBackground, new Pen(ReadoutForeground, 0.5), new Rect(x, y, width, height), 4, 4);
+        var typeface = new Typeface(new FontFamily("Consolas, Menlo, monospace"));
+        using var delta = new TextLayout(change, typeface, 12, ReadoutForeground);
+        using var result = new TextLayout(details, typeface, 11, ReadoutForeground,
+            textWrapping: TextWrapping.Wrap, textTrimming: TextTrimming.CharacterEllipsis,
+            maxWidth: width - padding * 2, maxLines: detailLines);
+        delta.Draw(context, new Point(x + padding, y + 5));
+        result.Draw(context, new Point(x + padding, y + 22));
     }
 }

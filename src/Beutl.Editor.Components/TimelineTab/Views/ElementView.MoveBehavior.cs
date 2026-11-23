@@ -24,6 +24,7 @@ public sealed partial class ElementView
         private bool _duplicateMode;
         private bool _isSlipDrag;
         private Element[] _slipTargets = [];
+        private IReadOnlyList<SlippableMedia.Target> _slipPreviewTargets = [];
         private readonly List<Control> _ghosts = [];
         private IReadOnlyList<ElementViewModel> _relatedElements = [];
         private Point _start;
@@ -72,6 +73,7 @@ public sealed partial class ElementView
             _isSlipDrag = false;
             _duplicateMode = false;
             _slipTargets = [];
+            _slipPreviewTargets = [];
             IReadOnlyList<ElementViewModel> relatedElements = _relatedElements;
             _relatedElements = [];
             if (AssociatedObject?._timeline is { } timeline) RemoveGhosts(timeline);
@@ -109,19 +111,26 @@ public sealed partial class ElementView
                 _lastAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 MediaTime pointerFrame = point.X.PixelToTime(scale);
+                Rational rate = viewModel.Timeline.FrameRate;
 
                 if (_isSlipDrag)
                 {
                     SnapResult slipSnap = view.SnapTime(pointerFrame, scale, _lastAlt);
-                    viewModel.Timeline.SnapBarPosition.Value = slipSnap.DidSnap ? slipSnap.Time.TimeToPixel(scale) : null;
-                    // Slip shifts the media window, not element geometry — there is no
-                    // per-frame geometry preview to apply here. The Player overlay shows
-                    // the media window shift; the service runs once on release.
+                    MediaTime requested = SlipDelta(view, scale, rate, slipSnap.Time);
+                    var plan = ElementSlipService.Plan(_slipPreviewTargets, requested);
+                    MediaTime delta = plan?.Delta ?? MediaTime.Zero;
+                    string details = "";
+                    if (_slipPreviewTargets.FirstOrDefault() is { } target)
+                    {
+                        MediaTime offset = target.InitialOffset + (plan?.Changes.GetValueOrDefault(target.Offset) ?? MediaTime.Zero);
+                        details = string.Format(Strings.TimelineDrag_MediaOffset, view.FormatDragTime(offset));
+                    }
+                    viewModel.Timeline.SnapBarPosition.Value = slipSnap.DidSnap && delta == requested ? slipSnap.Time.TimeToPixel(scale) : null;
+                    view.ShowDragReadout(e, delta, details);
                     e.Handled = true;
                     return;
                 }
 
-                Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
                 // Snap the clip's start after removing the grab offset and rounding to the commit frame grid.
                 MediaTime newStart = (pointerFrame - _start.X.PixelToTime(scale))
                     .RoundToFrame(rate, MidpointRounding.AwayFromZero);
@@ -147,6 +156,9 @@ public sealed partial class ElementView
                 }
 
                 view.UpdateSnapFeedback(snap.DidSnap ? snap.Time : null, scale, e.Timestamp);
+                MediaTime shownStart = newStart.RoundToFrame(rate, MidpointRounding.AwayFromZero);
+                view.ShowDragReadout(e, shownStart - viewModel.Model.Start.Value,
+                    string.Format(Strings.TimelineDrag_StartLayer, view.FormatDragTime(shownStart), viewModel.Timeline.PreviewClipLayer(newTop)));
 
                 if (_duplicateMode && _ghosts.Count == 0)
                 {
@@ -200,6 +212,8 @@ public sealed partial class ElementView
                     _pressed = true;
                     _isSlipDrag = true;
                     _slipTargets = CollectTrimMembers(viewModel);
+                    if (viewModel.Timeline.EditorContext.GetService<IElementSlipService>() is ElementSlipService slipService)
+                        _slipPreviewTargets = slipService.CollectTargets(viewModel.Scene, _slipTargets.Prepend(viewModel.Model));
                     _start = _lastPosition = e.GetPosition(view);
                     _lastAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                     // PointerCaptureLost routes Direct, so move the capture to the border.
@@ -233,21 +247,23 @@ public sealed partial class ElementView
         {
             Element[] targets = _slipTargets;
             _slipTargets = [];
+            _slipPreviewTargets = [];
 
             float scale = viewModel.Timeline.Options.Value.Scale;
             Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
-            bool alt = _lastAlt;
-            MediaTime delta = TrimDeltaCalculator.SnappedDelta(
-                    _start.X.PixelToTime(scale),
-                    _lastPosition.X.PixelToTime(scale),
-                    t => view.SnapTime(t, scale, alt).Time)
-                .RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime delta = SlipDelta(view, scale, rate, view.SnapTime(_lastPosition.X.PixelToTime(scale), scale, _lastAlt).Time);
             if (delta != MediaTime.Zero && targets.Length > 0)
             {
                 viewModel.Timeline.EditorContext
                     .GetRequiredService<IElementSlipService>()
                     .Slip(viewModel.Scene, targets, delta);
             }
+        }
+
+        private MediaTime SlipDelta(ElementView view, float scale, Rational rate, MediaTime end)
+        {
+            MediaTime start = view.SnapTime(_start.X.PixelToTime(scale), scale, _lastAlt).Time;
+            return (end - start).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         }
 
         private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)

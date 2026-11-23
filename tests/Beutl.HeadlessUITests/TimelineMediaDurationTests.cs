@@ -13,6 +13,7 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -33,6 +34,50 @@ namespace Beutl.HeadlessUITests;
 public class TimelineMediaDurationTests
 {
     private static readonly MediaTime OneFrameAt30 = MediaTime.FromFrames(1, new Rational(30));
+
+    [AvaloniaTest]
+    public async Task Slip_feedback_shows_the_media_offset_without_moving_the_clip()
+    {
+        SourceVideo video = CreateDurationVideo();
+        video.OffsetPosition.Value = MediaTime.FromSeconds(0.1);
+        var description = new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(0.4), 0,
+            new ElementSource.EngineObject(() => video));
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-slip-readout", MediaTime.FromSeconds(4), [description]);
+        EditorConfig config = TestShell.Configuration.EditorConfig;
+        bool oldSnap = config.IsTimelineSnapEnabled.Value;
+        TimeDisplayFormat oldFormat = config.TimeDisplayFormat.Value;
+        try
+        {
+            config.IsTimelineSnapEnabled.Value = false;
+            config.TimeDisplayFormat.Value = TimeDisplayFormat.Frames;
+            host.Model.IsSlipMode.Value = true;
+            Element clip = host.Scene.Children.Single();
+            TimeRange initial = clip.Range;
+            var overlay = host.View.FindControl<TimelineOverlay>("overlay")!;
+            Border border = host.Timeline.GetVisualDescendants().OfType<ElementView>().Single().FindControl<Border>("border")!;
+            Point from = HeadlessTestHelpers.Center(border, host.Window);
+            Point to = from + new Avalonia.Vector(MediaTime.FromSeconds(0.2).TimeToPixel(1), 0);
+            TimelineTestHost.WaitForHitTest(host.Window, border, from);
+            host.Window.MouseMove(from);
+            host.Window.MouseDown(from, MouseButton.Left);
+            host.Window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(overlay.DragReadout?.Change, Is.EqualTo("+6f"));
+            Assert.That(overlay.DragReadout?.Details, Does.Contain("9f"));
+            Assert.That(clip.Range, Is.EqualTo(initial));
+            HeadlessCapture.SaveIfRequested(host.Window, nameof(TimelineMediaDurationTests), "slip-readout");
+
+            host.Window.MouseUp(to, MouseButton.Left);
+            Assert.That(overlay.DragReadout, Is.Null);
+            Assert.That(clip.Objects.OfType<SourceVideo>().Single().OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(0.3)));
+            Assert.That(clip.Range, Is.EqualTo(initial));
+        }
+        finally
+        {
+            config.IsTimelineSnapEnabled.Value = oldSnap;
+            config.TimeDisplayFormat.Value = oldFormat;
+        }
+    }
 
     [AvaloniaTest]
     [TestCase(5d, 1d, 200f, 2d)]

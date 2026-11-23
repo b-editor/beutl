@@ -27,6 +27,17 @@ public sealed class ElementSlipService : IElementSlipService
 
         if (delta == MediaTime.Zero) return false;
 
+        List<SlippableMedia.Target> applicable = CollectTargets(scene, elements);
+        if (Plan(applicable, delta) is not { } plan) return false;
+
+        SlippableMedia.ApplyOffsetChanges(plan.Changes);
+        _historyManager.Commit(CommandNames.SlipElement);
+        return true;
+    }
+
+    internal List<SlippableMedia.Target> CollectTargets(Scene scene, IEnumerable<Element> elements)
+    {
+
         // Re-check membership and lock at the mutation boundary (matching Resize): a direct
         // caller may pass an off-scene element, and a clip or its layer may have been locked
         // after the drag began, so the press-time IsEditable gate is not enough. Disqualified
@@ -45,16 +56,17 @@ public sealed class ElementSlipService : IElementSlipService
             applicable.AddRange(targets);
         }
 
-        if (applicable.Count == 0) return false;
+        return applicable;
+    }
 
+    internal static (MediaTime Delta, Dictionary<IProperty<MediaTime>, MediaTime> Changes)? Plan(
+        IReadOnlyList<SlippableMedia.Target> applicable, MediaTime delta)
+    {
         MediaTime effective = SlippableMedia.ClampSharedDelta(applicable, delta);
-        if (effective == MediaTime.Zero) return false;
-
-        if (!SlippableMedia.TryGetOffsetChanges(applicable, effective, trim: false, out var changes)
-            || changes.Values.All(d => d == MediaTime.Zero)) return false;
-        SlippableMedia.ApplyOffsetChanges(changes);
-
-        _historyManager.Commit(CommandNames.SlipElement);
-        return true;
+        return effective != MediaTime.Zero
+            && SlippableMedia.TryGetOffsetChanges(applicable, effective, trim: false, out var changes)
+            && changes.Values.Any(change => change != MediaTime.Zero)
+            ? (effective, changes)
+            : null;
     }
 }

@@ -528,6 +528,23 @@ public sealed partial class ElementView : UserControl
     {
         _lastSnapTarget = null;
         ViewModel.Timeline.SnapBarPosition.Value = null;
+        _timeline?.SetDragReadout(null);
+    }
+
+    private string FormatDragTime(MediaTime time)
+    {
+        var timeline = ViewModel.Timeline;
+        var format = timeline.TimeDisplayFormat.Value;
+        string text = TimeDisplayFormatter.Format(time, timeline.FrameRate, format);
+        return format == Beutl.Configuration.TimeDisplayFormat.Frames ? text + "f" : text;
+    }
+
+    private void ShowDragReadout(PointerEventArgs e, MediaTime delta, string details)
+    {
+        if (_timeline is not { } timeline) return;
+
+        string change = delta < MediaTime.Zero ? "-" + FormatDragTime(-delta) : "+" + FormatDragTime(delta);
+        timeline.SetDragReadout((e.GetPosition(timeline.TimelinePanel), change, details));
     }
 
     // The pressed clip's group or selection and the clip itself. Locked members stay: the Roll/Slide check needs

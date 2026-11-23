@@ -188,6 +188,9 @@ public sealed partial class TimelineTabViewModel
         return FindLayerNumber(thickness.Top + (LayerRowHeight.Value / 2), thickness.Top);
     }
 
+    internal int PreviewClipLayer(double top)
+        => FindLayerNumber(top + (LayerRowHeight.Value / 2), top, addHeaders: false);
+
     // The rows a band of the timeline covers. Unlike ToLayerNumber, this adds none.
     internal (int First, int Last) FindLayerRange(double top, double bottom)
     {
@@ -210,7 +213,7 @@ public sealed partial class TimelineTabViewModel
         return low;
     }
 
-    private int FindLayerNumber(double hitY, double overflowY)
+    private int FindLayerNumber(double hitY, double overflowY, bool addHeaders = true)
     {
         int low = FindRow(hitY);
         if (low < LayerHeaders.Count && hitY >= 0) return low;
@@ -218,7 +221,7 @@ public sealed partial class TimelineTabViewModel
         double delta = overflowY - _layerTops[^1];
         int addCount = (int)Math.Ceiling(delta / LayerRowHeight.Value);
         int zIndex = addCount + LayerHeaders.Count;
-        AddLayerHeaders(zIndex + 1);
+        if (addHeaders) AddLayerHeaders(zIndex + 1);
 
         return zIndex;
     }

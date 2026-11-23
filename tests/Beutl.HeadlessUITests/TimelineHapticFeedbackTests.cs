@@ -8,6 +8,7 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Editor.Components.Views;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -52,6 +53,7 @@ public class TimelineHapticFeedbackTests
 
             using var feedback = new HapticFeedbackRecorder();
             view = new TimelineTabView { DataContext = timeline };
+            var overlay = view.FindControl<TimelineOverlay>("overlay")!;
             window = new Window { Content = view, Width = 1400, Height = 420 };
             window.Show();
             HeadlessTestHelpers.Render(5);
@@ -71,6 +73,8 @@ public class TimelineHapticFeedbackTests
             Assert.That(feedback.Pulses.Count, Is.EqualTo(1), "Repeated trim calculations must not pulse for the press point.");
             Assert.That(timeline.SnapBarPosition.Value,
                 Is.EqualTo(MediaTime.FromSeconds(target).TimeToPixel(1)).Within(0.001));
+            Assert.That(overlay.DragReadout?.Change, Does.StartWith(kind == "left" ? "-" : "+"));
+            Assert.That(overlay.DragReadout?.Details, Is.Not.Empty);
             HeadlessCapture.SaveIfRequested(window, nameof(TimelineHapticFeedbackTests), kind);
 
             Move(unreachable + 0.02);
@@ -90,6 +94,7 @@ public class TimelineHapticFeedbackTests
             {
                 Assert.That(feedback.Pulses.Count, Is.EqualTo(2));
                 Assert.That(timeline.SnapBarPosition.Value, Is.Null);
+                Assert.That(overlay.DragReadout, Is.Null);
                 Assert.That(clip.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(initialStart)));
                 Assert.That(clip.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(kind == "roll" ? 3 : 2)));
             });
@@ -103,6 +108,7 @@ public class TimelineHapticFeedbackTests
             {
                 Assert.That(feedback.Pulses.Count, Is.EqualTo(3), "Commit calculations are silent.");
                 Assert.That(timeline.SnapBarPosition.Value, Is.Null);
+                Assert.That(overlay.DragReadout, Is.Null);
                 Assert.That(clip.Model.Start.Value.ToSeconds(), Is.EqualTo(kind == "left" ? 3 : kind == "slide" ? 5 : initialStart));
                 Assert.That(clip.Model.Range.End.ToSeconds(), Is.EqualTo(kind == "roll" ? 4 : kind is "right" or "slide" ? 7 : 6));
             });

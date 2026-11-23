@@ -44,6 +44,9 @@ public sealed partial class TimelineTabView : UserControl
     {
     }
 
+    internal void SetDragReadout((Point Position, string Change, string Details)? readout)
+        => overlay.SetDragReadout(readout);
+
     internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes,
         Func<TopLevel, IDisposable?>? attachNativeInput = null)
     {
@@ -119,6 +122,7 @@ public sealed partial class TimelineTabView : UserControl
     private void OnDataContextDetached(TimelineTabViewModel obj)
     {
         ViewModel = null;
+        overlay.SetDragReadout(null);
         ClearElementViewport();
         _recycledElementViews.Clear();
         int contentStart = TimelinePanel.Children.IndexOf(overlay) + 1;

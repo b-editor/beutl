@@ -484,6 +484,15 @@ public sealed partial class ElementViewModel : IDisposable
     {
         PrepareAnimationContext context = PrepareAnimation();
 
+        ElementResizeRequest request = GetResizeRequest(ripple, leftEdge);
+        Timeline.EditorContext.GetRequiredService<IElementResizeService>()
+            .Resize(Scene, [request], ripple);
+
+        await AnimationRequest(context);
+    }
+
+    internal ElementResizeRequest GetResizeRequest(bool ripple = false, bool leftEdge = false)
+    {
         float scale = Timeline.Options.Value.Scale;
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
         MediaTime roundedStart = BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
@@ -493,11 +502,7 @@ public sealed partial class ElementViewModel : IDisposable
             : (roundedStart, roundedLength);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
-        var request = new ElementResizeRequest(Model, start, length, zindex);
-        Timeline.EditorContext.GetRequiredService<IElementResizeService>()
-            .Resize(Scene, [request], ripple);
-
-        await AnimationRequest(context);
+        return new ElementResizeRequest(Model, start, length, zindex);
     }
 
     public PrepareAnimationContext PrepareAnimation()
