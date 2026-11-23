@@ -11,7 +11,10 @@ using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Audio;
+using Beutl.Composition;
+using Beutl.Editor.Components;
 using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
@@ -21,6 +24,8 @@ using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
+using Beutl.Graphics3D.Primitives;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -33,6 +38,7 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.HeadlessUITests;
@@ -60,11 +66,11 @@ public class ElementAddEntryPointTests
         using var notifications = new NotificationCapture(TestShell.Notifications);
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
-        var description = new ElementDescription(
+        ElementDescription description = LibraryElementDescription.Create(
+            typeof(RectShape),
             MediaTime.FromSeconds(3),
             MediaTime.FromSeconds(2),
-            4,
-            new ElementSource.EngineObject(() => new RectShape()));
+            4);
 
         await timeline.AddElement.ExecuteAsync(description);
         HeadlessTestHelpers.Settle();
@@ -84,29 +90,169 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
+    public async Task LibraryAddScene3D_ComposesTheSampleCubeAndUndoesBothTogether()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("library-add-scene3d");
+        MediaTime start = MediaTime.FromSeconds(3);
+        MediaTime length = MediaTime.FromSeconds(2);
+        const int layer = 4;
+        int undoCount = editor.HistoryManager.UndoCount;
+
+        ElementAddResult result = await timeline.AddElementWithResultAsync(
+            LibraryElementDescription.Create(typeof(Scene3D), start, length, layer));
+        Assert.That(result.IsSuccess, Is.True);
+        Element sceneElement = result.Items.Single().PrimaryElement;
+        Element cubeElement = result.Elements.Single(element => element != sceneElement);
+        Scene3D scene3D = sceneElement.Objects.OfType<Scene3D>().Single();
+        Cube3D cube = cubeElement.Objects.OfType<Cube3D>().Single();
+
+        using var compositor = new SceneCompositor(editor.Scene, TestShell.FontManager) { DisableResourceShare = true };
+        CompositionFrame frame = compositor.EvaluateGraphics(start);
+        Scene3D.Resource sceneResource = frame.Objects.OfType<Scene3D.Resource>().Single();
+        var cubeResource = (Cube3D.Resource)sceneResource.Objects.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editor.Scene.Children, Is.EquivalentTo(result.Elements));
+            Assert.That(sceneElement.ZIndex.Value, Is.EqualTo(layer));
+            Assert.That(cubeElement.ZIndex.Value, Is.EqualTo(layer + 1));
+            Assert.That(sceneElement.Start.Value, Is.EqualTo(start));
+            Assert.That(sceneElement.Length.Value, Is.EqualTo(length));
+            Assert.That(cubeElement.Range, Is.EqualTo(sceneElement.Range));
+            Assert.That(sceneElement.Objects.OfType<PortalObject>().Single().Count.Value, Is.EqualTo(1));
+            Assert.That(sceneElement.Name.Value, Is.EqualTo(GraphicsStrings.Scene3D));
+            Assert.That(cubeElement.Name.Value, Is.EqualTo(GraphicsStrings.Cube3D));
+            Assert.That(sceneElement.AccentColor.Value, Is.EqualTo(ElementAccentColorGenerator.GenerateColor(typeof(Scene3D).FullName!)));
+            Assert.That(cubeElement.AccentColor.Value, Is.EqualTo(ElementAccentColorGenerator.GenerateColor(typeof(Cube3D).FullName!)));
+            AssertCanonicalTransform(scene3D, 0, 0);
+            Assert.That(sceneResource.GetOriginal(), Is.SameAs(scene3D));
+            Assert.That(cubeResource.GetOriginal(), Is.SameAs(cube));
+            Assert.That(frame.Objects.OfType<Cube3D.Resource>(), Is.Empty);
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+        }
+
+        Assert.That(editor.HistoryManager.Undo(), Is.True);
+        Assert.That(editor.Scene.Children, Is.Empty);
+        Assert.That(editor.HistoryManager.Redo(), Is.True);
+        Assert.That(editor.Scene.Children, Is.EquivalentTo(new[] { sceneElement, cubeElement }));
+    }
+
+    [AvaloniaTest]
+    [TestCase(2, false)]
+    [TestCase(3, false)]
+    [TestCase(3, true)]
+    public async Task LibraryAddScene3D_KeepsBothClipsTogetherAroundABlockedLayer(int blockedLayer, bool locked)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("library-add-scene3d-blocked-layer");
+        var adder = editor.GetRequiredService<IElementAdder>();
+        if (locked)
+        {
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = blockedLayer }, IsLocked = { Value = true } });
+            }
+        }
+        else
+        {
+            ElementAddResult blocker = await adder.AddAsync(
+                [new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(10), blockedLayer,
+                    new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
+            Assert.That(blocker.IsSuccess, Is.True);
+        }
+
+        ElementAddResult result = await adder.AddAsync(
+            [LibraryElementDescription.Create(typeof(Scene3D), MediaTime.Zero, MediaTime.FromSeconds(2), 2)],
+            CancellationToken.None);
+        Assert.That(result.IsSuccess, Is.True);
+        Element sceneElement = result.Items.Single().PrimaryElement;
+        Element cubeElement = result.Elements.Single(element => element.Objects.OfType<Cube3D>().Any());
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(sceneElement.Objects.OfType<PortalObject>().Single().Count.Value, Is.EqualTo(1));
+            Assert.That(cubeElement.ZIndex.Value, Is.EqualTo(sceneElement.ZIndex.Value + 1));
+            Assert.That(cubeElement.Range, Is.EqualTo(sceneElement.Range));
+            Assert.That(result.Elements.Select(element => element.ZIndex.Value), Has.None.EqualTo(blockedLayer));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ProgrammaticScene3D_AddDuplicateAndPasteKeepTheSceneOnItsOwn()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("programmatic-add-scene3d");
+        Scene scene = editor.Scene;
+        ElementAddResult result = await editor.GetRequiredService<IElementAdder>().AddAsync(
+            [new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), 0,
+                new ElementSource.EngineObject(() => new Scene3D()))], CancellationToken.None);
+        Assert.That(result.IsSuccess, Is.True);
+        Element original = result.Elements.Single();
+        Assert.That(original.Objects.OfType<PortalObject>().Single().Count.Value, Is.Zero);
+
+        DuplicateOutcome duplicate = editor.GetRequiredService<IElementDuplicateService>()
+            .DuplicateAtClickedPosition(scene, [original], MediaTime.FromSeconds(3), 0);
+        Assert.That(duplicate.Success, Is.True);
+
+        var window = new Window();
+        try
+        {
+            window.Show();
+            ClipboardHelper.OverrideClipboard = window.Clipboard;
+            var clipboard = editor.GetRequiredService<IElementClipboardService>();
+            Assert.That(await clipboard.CopyAsync([original]), Is.True);
+            ElementPasteOutcome paste = await clipboard.PasteAsync(scene, MediaTime.FromSeconds(6), 0);
+            Assert.That(paste.Pasted, Is.True);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(scene.Children, Has.Count.EqualTo(3));
+                foreach (Element element in scene.Children)
+                {
+                    Assert.That(element.Objects.Select(obj => obj.GetType()),
+                        Is.EqualTo(new[] { typeof(PortalObject), typeof(Scene3D) }));
+                    Assert.That(element.Objects.OfType<PortalObject>().Single().Count.Value, Is.Zero);
+                }
+            }
+        }
+        finally
+        {
+            ClipboardHelper.OverrideClipboard = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static void AssertCanonicalTransform(Drawable drawable, float x, float y)
+    {
+        var group = (TransformGroup)drawable.Transform.Value!;
+        Assert.That(group.Children.Select(child => child.GetType()),
+            Is.EqualTo(new[] { typeof(TranslateTransform), typeof(RotationTransform), typeof(ScaleTransform) }));
+        var translate = (TranslateTransform)group.Children[0];
+        Assert.That(translate.X.Value, Is.EqualTo(x));
+        Assert.That(translate.Y.Value, Is.EqualTo(y));
+    }
+
+    [AvaloniaTest]
     public async Task TimelineAddElement_NewDrawable_StartsWithItsTransformsAndTakesThePosition()
     {
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-add-entry-transforms");
 
-        await timeline.AddElement.ExecuteAsync(new ElementDescription(
+        await timeline.AddElement.ExecuteAsync(LibraryElementDescription.Create(
+            typeof(RectShape),
             MediaTime.Zero,
             MediaTime.FromSeconds(2),
             0,
-            new ElementSource.EngineObject(() => new RectShape()),
-            Position: new Beutl.Graphics.Point(30, 40)));
+            position: new Beutl.Graphics.Point(30, 40)));
         HeadlessTestHelpers.Settle();
 
         RectShape shape = editor.Scene.Children.Single().Objects.OfType<RectShape>().Single();
-        var group = (TransformGroup)shape.Transform.Value!;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(
-                group.Children.Select(child => child.GetType()),
-                Is.EqualTo(new[] { typeof(TranslateTransform), typeof(RotationTransform), typeof(ScaleTransform) }));
-            Assert.That(((TranslateTransform)group.Children[0]).X.Value, Is.EqualTo(30));
-            Assert.That(((TranslateTransform)group.Children[0]).Y.Value, Is.EqualTo(40));
+            AssertCanonicalTransform(shape, 30, 40);
         }
     }
 
@@ -1016,6 +1162,53 @@ public class ElementAddEntryPointTests
         writer.Write("data"u8);
         writer.Write(bytes);
         writer.Write(new byte[bytes]);
+    }
+
+    [AvaloniaTest]
+    public async Task PlayerView_Scene3DDrop_TranslatesTheSceneAndAddsItsSampleCube()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("player-scene3d-drop");
+        MediaTime frame = MediaTime.FromSeconds(4);
+        editor.Player.CurrentFrame.Value = frame;
+        var frameSize = editor.Scene.FrameSize.Value;
+        editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(frameSize.Width, frameSize.Height));
+        var view = new PlayerView { DataContext = editor.Player };
+        view.image.Width = frameSize.Width;
+        view.image.Height = frameSize.Height;
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel framePanel = view.FindControl<Panel>("framePanel")!;
+            var previewSize = new Avalonia.Size(frameSize.Width, frameSize.Height);
+            view.image.Measure(previewSize);
+            view.image.Arrange(new Avalonia.Rect(previewSize));
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(BeutlDataFormats.EngineObject, TypeFormat.ToString(typeof(Scene3D))));
+            var dropPoint = new AvaPoint(frameSize.Width / 2.0 + 30, frameSize.Height / 2.0 - 40);
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, view.image, dropPoint, KeyModifiers.None);
+
+            Element sceneElement = await RaiseDropAndWaitForElement(editor.Scene, framePanel, args);
+            HeadlessTestHelpers.Settle();
+            Scene3D scene3D = sceneElement.Objects.OfType<Scene3D>().Single();
+            Element cubeElement = editor.Scene.Children.Single(element => element.Objects.OfType<Cube3D>().Any());
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(sceneElement.Start.Value, Is.EqualTo(frame));
+                Assert.That(sceneElement.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(cubeElement.ZIndex.Value, Is.EqualTo(sceneElement.ZIndex.Value + 1));
+                AssertCanonicalTransform(scene3D, 30, -40);
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     [AvaloniaTest]

@@ -1,7 +1,6 @@
 ﻿using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -42,9 +41,8 @@ public sealed partial class LibraryTabExtension
         ContextCommandPickItem<Type>[] items = EnumerateEngineObjects(editorContext.GetRequiredService<LibraryService>().Items, null).ToArray();
         if (await interaction.ShowQuickPickAsync(items) is not { Value: { } type }) return;
 
-        await AddAtPlayheadAsync(editorContext, scene, interaction.CancellationToken, (start, layer) => new ElementDescription(
-            start, s_defaultElementLength, layer,
-            new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!)));
+        await AddAtPlayheadAsync(editorContext, scene, interaction.CancellationToken,
+            (start, layer) => LibraryElementDescription.Create(type, start, s_defaultElementLength, layer));
     }
 
     private static async Task AddElementFromTemplateAsync(
