@@ -7,6 +7,8 @@ using Beutl.Extensibility;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
 
+using ConnectionRejection = Beutl.Editor.Services.NodeGraphMutationService.ConnectionRejection;
+
 namespace Beutl.AgentToolkit.NodeGraphs;
 
 // Applies the operations of one edit_node_graph call to a graph, in order, refusing the first one that cannot apply.
@@ -248,7 +250,8 @@ internal sealed partial class NodeGraphEditor(GraphModel root, Rational? frameRa
                 "Connect an output (from) to an input (to).");
         }
 
-        if (input is not IListInputPort && !input.Connection.Value.IsNull)
+        ConnectionRejection rejection = NodeGraphMutationService.ValidateConnection(graph, input, output);
+        if (rejection == ConnectionRejection.InputOccupied)
         {
             Connection existing = graph.AllConnections.First(connection => connection.Id.Value == input.Connection.Value.Id);
             if (!operation.Replace)
@@ -259,16 +262,17 @@ internal sealed partial class NodeGraphEditor(GraphModel root, Rational? frameRa
             }
 
             graph.Disconnect(existing);
+            rejection = NodeGraphMutationService.ValidateConnection(graph, input, output);
         }
 
-        if (input.FindHierarchicalParent<GraphNode>() is { } owner && !owner.CanConnectInput(input))
+        if (rejection == ConnectionRejection.InputLocked)
         {
             throw Rejected(
                 $"'{Describe(input)}' cannot be connected now.",
                 "Its property may be animated or driven by an expression, or another connected input already drives the same property.");
         }
 
-        if (NodeGraphMutationService.WouldCloseCycle(graph, input, output))
+        if (rejection == ConnectionRejection.Cycle)
         {
             throw Rejected(
                 $"Connecting '{Describe(output)}' to '{Describe(input)}' would close a cycle.",
@@ -281,46 +285,30 @@ internal sealed partial class NodeGraphEditor(GraphModel root, Rational? frameRa
     // A node that grows ports adds one matching the port at the other end, as the editor does for a wire dropped on it.
     private void AddPort(GraphModel graph, GraphNode node, INodePort mate, bool grownOnOutputSide)
     {
-        if (node is not IDynamicPortNode dynamicNode)
-        {
-            throw Rejected(
-                $"'{Describe(node)}' does not add ports; name the port.",
-                "Only nodes such as GroupInput, GroupOutput and the inputs and outputs of a loop body add a port for a connection.");
-        }
-
-        if (grownOnOutputSide ? mate is not IInputPort : mate is not IOutputPort)
-        {
-            throw Rejected(
-                $"'{Describe(mate)}' is an {(mate is IInputPort ? "input" : "output")} on the {(grownOnOutputSide ? "to" : "from")} end.",
-                "Connect an output (from) to an input (to).");
-        }
-
         NodePortLocation side = grownOnOutputSide ? NodePortLocation.Right : NodePortLocation.Left;
-        if (!dynamicNode.PossibleLocation.HasFlag(side))
+        switch (NodeGraphMutationService.ValidateNewPort(graph, node, mate, side))
         {
-            throw Rejected(
-                $"'{Describe(node)}' adds {(grownOnOutputSide ? "inputs" : "outputs")} only.",
-                grownOnOutputSide ? "Connect to it instead of from it." : "Connect from it instead of to it.");
+            case ConnectionRejection.NotDynamicNode:
+                throw Rejected(
+                    $"'{Describe(node)}' does not add ports; name the port.",
+                    "Only nodes such as GroupInput, GroupOutput and the inputs and outputs of a loop body add a port for a connection.");
+            case ConnectionRejection.WrongMateDirection:
+                throw Rejected(
+                    $"'{Describe(mate)}' is an {(mate is IInputPort ? "input" : "output")} on the {(grownOnOutputSide ? "to" : "from")} end.",
+                    "Connect an output (from) to an input (to).");
+            case ConnectionRejection.WrongSide:
+                throw Rejected(
+                    $"'{Describe(node)}' adds {(grownOnOutputSide ? "inputs" : "outputs")} only.",
+                    grownOnOutputSide ? "Connect to it instead of from it." : "Connect from it instead of to it.");
+            case ConnectionRejection.NoPortType:
+                throw Rejected($"'{Describe(mate)}' has no type for a new port to take.", "Name the port to connect to.");
+            case ConnectionRejection.InputOccupied or ConnectionRejection.InputLocked:
+                throw Rejected($"'{Describe(mate)}' is already connected or cannot be connected now.", "Disconnect it first.");
+            case ConnectionRejection.Cycle:
+                throw Rejected($"A port on '{Describe(node)}' for '{Describe(mate)}' would close a cycle.", "Connect nodes in one direction only.");
         }
 
-        if (mate.AssociatedType is null)
-        {
-            throw Rejected($"'{Describe(mate)}' has no type for a new port to take.", "Name the port to connect to.");
-        }
-
-        if (mate is IInputPort input && !NodeGraphMutationService.CanAcceptConnection(input))
-        {
-            throw Rejected(
-                $"'{Describe(input)}' is already connected or cannot be connected now.",
-                "Disconnect it first.");
-        }
-
-        if (NodeGraphMutationService.WouldNewPortCloseCycle(graph, node, mate))
-        {
-            throw Rejected($"A port on '{Describe(node)}' for '{Describe(mate)}' would close a cycle.", "Connect nodes in one direction only.");
-        }
-
-        if (!dynamicNode.AddNodePort(mate, out _))
+        if (!((IDynamicPortNode)node).AddNodePort(mate, out _))
         {
             throw Rejected($"'{Describe(node)}' could not add a port for '{Describe(mate)}'.", "Name an existing port instead.");
         }

@@ -231,23 +231,52 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
         return (port1, port2) switch
         {
-            (null, { } mate) => CanAddPort(graph, node1, mate),
-            ({ } mate, null) => CanAddPort(graph, node2, mate),
+            (null, { } mate) => ValidateNewPort(graph, node1, mate, NewPortSide(mate)) == ConnectionRejection.None,
+            ({ } mate, null) => ValidateNewPort(graph, node2, mate, NewPortSide(mate)) == ConnectionRejection.None,
             ({ } first, { } second) => TryGetConnectablePorts(graph, first, second, out _, out _),
             _ => false,
         };
     }
 
-    // A dynamic-port node adds a port on the side it offers, for a mate on the opposite side.
-    private static bool CanAddPort(GraphModel graph, GraphNode node, INodePort mate)
-        => node is IDynamicPortNode dynamicNode && mate.AssociatedType != null
-            && !WouldNewPortCloseCycle(graph, node, mate)
-            && mate switch
-            {
-                IInputPort input => dynamicNode.PossibleLocation.HasFlag(NodePortLocation.Right) && CanAcceptConnection(input),
-                IOutputPort => dynamicNode.PossibleLocation.HasFlag(NodePortLocation.Left),
-                _ => false,
-            };
+    internal enum ConnectionRejection
+    {
+        None,
+        InputOccupied,
+        InputLocked,
+        Cycle,
+        NotDynamicNode,
+        WrongMateDirection,
+        WrongSide,
+        NoPortType,
+    }
+
+    private static NodePortLocation NewPortSide(INodePort mate) =>
+        mate is IInputPort ? NodePortLocation.Right : NodePortLocation.Left;
+
+    internal static ConnectionRejection ValidateNewPort(
+        GraphModel graph, GraphNode node, INodePort mate, NodePortLocation side)
+    {
+        if (node is not IDynamicPortNode dynamicNode)
+            return ConnectionRejection.NotDynamicNode;
+
+        if (side == NodePortLocation.Right ? mate is not IInputPort : mate is not IOutputPort)
+            return ConnectionRejection.WrongMateDirection;
+
+        if (!dynamicNode.PossibleLocation.HasFlag(side))
+            return ConnectionRejection.WrongSide;
+
+        if (mate.AssociatedType is null)
+            return ConnectionRejection.NoPortType;
+
+        if (mate is IInputPort input)
+        {
+            ConnectionRejection rejection = ValidateInput(input);
+            if (rejection != ConnectionRejection.None)
+                return rejection;
+        }
+
+        return WouldNewPortCloseCycle(graph, node, mate) ? ConnectionRejection.Cycle : ConnectionRejection.None;
+    }
 
     public NodeConnectOutcome TryConnect(GraphModel graph,
         GraphNode node1, INodePort? port1,
@@ -268,37 +297,11 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         GraphNode node1, INodePort? port1,
         GraphNode node2, INodePort? port2)
     {
-        // Case 1: one side unset, the other a dynamic-port node — materialize
-        // a new port on that node.
-        if (port1 is null ^ port2 is null)
-        {
-            IDynamicPortNode? dynamicNode = null;
-            INodePort? mate = null;
-            if (port1 is null && node1 is IDynamicPortNode d1)
-            {
-                dynamicNode = d1;
-                mate = port2;
-            }
-            else if (port2 is null && node2 is IDynamicPortNode d2)
-            {
-                dynamicNode = d2;
-                mate = port1;
-            }
+        if (port1 is null && port2 is not null)
+            return AddPortCore(graph, node1, port2);
 
-            if (mate is IInputPort nestedInput && !CanAcceptConnection(nestedInput))
-            {
-                return NodeConnectOutcome.None;
-            }
-
-            if (dynamicNode is not null && mate is not null
-                && !WouldNewPortCloseCycle(graph, port1 is null ? node1 : node2, mate)
-                && dynamicNode.AddNodePort(mate, out _))
-            {
-                return NodeConnectOutcome.PortAdded;
-            }
-
-            return NodeConnectOutcome.None;
-        }
+        if (port2 is null && port1 is not null)
+            return AddPortCore(graph, node2, port1);
 
         // Case 2: both ports are present — connect if direction-compatible.
         if (port1 is not null && port2 is not null
@@ -311,21 +314,38 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         return NodeConnectOutcome.None;
     }
 
+    private static NodeConnectOutcome AddPortCore(GraphModel graph, GraphNode node, INodePort mate)
+        => ValidateNewPort(graph, node, mate, NewPortSide(mate)) == ConnectionRejection.None
+            && ((IDynamicPortNode)node).AddNodePort(mate, out _)
+                ? NodeConnectOutcome.PortAdded
+                : NodeConnectOutcome.None;
+
     private static bool TryGetConnectablePorts(GraphModel graph, INodePort a, INodePort b,
         [NotNullWhen(true)] out IInputPort? input, [NotNullWhen(true)] out IOutputPort? output)
         => SortPortDirection(a, b, out input, out output)
-           && CanAcceptConnection(input)
-           && !WouldCloseCycle(graph, input, output);
+           && ValidateConnection(graph, input, output) == ConnectionRejection.None;
 
-    internal static bool CanAcceptConnection(IInputPort input)
+    internal static ConnectionRejection ValidateConnection(GraphModel graph, IInputPort input, IOutputPort output)
+    {
+        ConnectionRejection rejection = ValidateInput(input);
+        if (rejection != ConnectionRejection.None)
+            return rejection;
+
+        return WouldCloseCycle(graph, input, output) ? ConnectionRejection.Cycle : ConnectionRejection.None;
+    }
+
+    private static ConnectionRejection ValidateInput(IInputPort input)
     {
         if (input is not IListInputPort && !input.Connection.Value.IsNull)
-            return false;
-        return input.FindHierarchicalParent<GraphNode>() is not { } owner || owner.CanConnectInput(input);
+            return ConnectionRejection.InputOccupied;
+
+        return input.FindHierarchicalParent<GraphNode>() is { } owner && !owner.CanConnectInput(input)
+            ? ConnectionRejection.InputLocked
+            : ConnectionRejection.None;
     }
 
     // A graph evaluates its nodes in dependency order, so it skips every node on a cycle.
-    internal static bool WouldCloseCycle(GraphModel graph, IInputPort input, IOutputPort output)
+    private static bool WouldCloseCycle(GraphModel graph, IInputPort input, IOutputPort output)
     {
         if (input.FindHierarchicalParent<GraphNode>() is not { } consumer
             || output.FindHierarchicalParent<GraphNode>() is not { } producer)
@@ -337,7 +357,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     }
 
     // The new port makes the node the producer of an input mate, or the consumer of an output mate.
-    internal static bool WouldNewPortCloseCycle(GraphModel graph, GraphNode node, INodePort mate)
+    private static bool WouldNewPortCloseCycle(GraphModel graph, GraphNode node, INodePort mate)
         => mate.FindHierarchicalParent<GraphNode>() is { } mateNode
             && (mate is IInputPort
                 ? WouldCloseCycle(graph, mateNode, node)
