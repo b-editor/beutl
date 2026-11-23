@@ -104,14 +104,15 @@ internal static class RelativeUnitParser
         return true;
     }
 
-    // An edit applies when the new text parses and the old text was invalid or the value or unit changed.
+    // A uniform editor can apply the same value to the other components even when this one stayed the same.
     public static bool TryParseEdit(
         string? newText,
         string? oldText,
         out float newValue,
         out RelativeUnit newUnit,
         out float oldValue,
-        out RelativeUnit oldUnit)
+        out RelativeUnit oldUnit,
+        bool allowSameValue)
     {
         if (TryParse(newText, out newValue, out newUnit))
         {
@@ -122,7 +123,7 @@ internal static class RelativeUnitParser
                 oldUnit = newUnit;
             }
 
-            return invalidOldValue || newValue != oldValue || newUnit != oldUnit;
+            return invalidOldValue || allowSameValue || newValue != oldValue || newUnit != oldUnit;
         }
 
         oldValue = default;

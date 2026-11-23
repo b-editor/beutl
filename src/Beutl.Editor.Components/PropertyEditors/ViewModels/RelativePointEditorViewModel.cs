@@ -13,6 +13,10 @@ public sealed class RelativePointEditorViewModel(IPropertyAdapter<Graphics.Relat
         Graphics.RelativePoint underlying, Graphics.RelativePoint shown, Graphics.RelativePoint input)
         => Beutl.Animation.ComponentAnimations.ReplaceEditedComponents(underlying, shown, input);
 
+    protected override Graphics.RelativePoint ReplaceUnderExpression(
+        Graphics.RelativePoint underlying, Graphics.RelativePoint shown, Graphics.RelativePoint input, int editedComponents)
+        => Beutl.Animation.ComponentAnimations.ReplaceEditedComponents(underlying, input, editedComponents);
+
     public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
     IObservable<Graphics.RelativeUnit> IRelativeUnitEditor.Unit => Value.Select(value => value.Unit);

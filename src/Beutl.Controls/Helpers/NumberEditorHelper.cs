@@ -121,12 +121,13 @@ public static class NumberEditorHelper
                 : NumberStyles.Integer;
     }
 
-    // An edit applies when the new text parses and either the old text did not parse or the value changed.
+    // A uniform editor can apply the same value to the other components even when this one stayed the same.
     internal static bool TryParseEdit<TValue>(
         string? newText,
         string? oldText,
         [NotNullWhen(true)] out TValue? newValue,
-        [NotNullWhen(true)] out TValue? oldValue)
+        [NotNullWhen(true)] out TValue? oldValue,
+        bool allowSameValue = false)
         where TValue : INumber<TValue>
     {
         if (TryParse(newText, out newValue)
@@ -138,7 +139,7 @@ public static class NumberEditorHelper
                 return true;
             }
 
-            return newValue != oldValue;
+            return allowSameValue || newValue != oldValue;
         }
 
         oldValue = default;

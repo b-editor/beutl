@@ -35,6 +35,9 @@ internal abstract class VectorValues
     {
     }
 
+    protected static int EditedComponents(int index, int count, bool allComponents)
+        => allComponents ? (1 << count) - 1 : index >= 0 ? 1 << index : 0;
+
     // The values after a scrub moves the component at index by delta, or every component for -1.
     protected static T[] Scrubbed<T>(T[] values, int index, T delta)
         where T : INumber<T>
@@ -171,7 +174,8 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     public override void Edit(int index, string? newText, string? oldText)
     {
-        if (!NumberEditorHelper.TryParseEdit(newText, oldText, out TElement? newValue, out TElement? oldValue))
+        if (!NumberEditorHelper.TryParseEdit(newText, oldText, out TElement? newValue, out TElement? oldValue,
+                allowSameValue: _editor.IsUniformValue))
             return;
 
         TElement[] oldValues = Edited(_values, index, oldValue, _editor.IsUniformValue);
@@ -217,14 +221,17 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
             return;
         }
 
-        TElement[] newValues = Edited(focusedValues, index, value, _editor.IsUniformValue);
-        _editor.RaiseUnderlyingValueChanged(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
+        bool uniform = _editor.IsUniformValue;
+        TElement[] newValues = Edited(focusedValues, index, value, uniform);
+        _editor.RaiseValueChanged(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent),
+            EditedComponents(index, _values.Length, uniform), isUnderlyingEdit: true);
     }
 
     private void ApplyValueChange(int index, TElement value, TElement[] oldValues, TElement[]? input = null)
     {
+        bool uniform = _editor.IsUniformValue;
         TElement[] newValues = input ?? [.. _values];
-        if (_editor.IsUniformValue)
+        if (uniform)
         {
             SetAll(value);
             Array.Fill(newValues, value);
@@ -235,7 +242,8 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
             newValues[index] = value;
         }
 
-        _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
+        _editor.RaiseValueChanged(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent),
+            EditedComponents(index, _values.Length, uniform));
     }
 
     public override void Scrub(int index, ref HeaderScrubGesture scrub, Visual header, PointerEventArgs e)
@@ -258,7 +266,8 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
             for (int i = 0; i < newValues.Length; i++)
                 Set(i, newValues[i]);
 
-            _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
+            _editor.RaiseValueChanged(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent),
+                EditedComponents(index, _values.Length, allComponents: index < 0));
         }
 
         // The handlers have written the accepted values back, including shared-axis constraints.
@@ -375,7 +384,8 @@ internal sealed class RelativeVectorValues : VectorValues
         if (!RelativeUnitParser.TryParseEdit(
             newText, oldText,
             out float newValue, out RelativeUnit newUnit,
-            out float oldValue, out RelativeUnit oldUnit))
+            out float oldValue, out RelativeUnit oldUnit,
+            allowSameValue: _editor.IsUniformValue))
         {
             return;
         }
@@ -416,8 +426,10 @@ internal sealed class RelativeVectorValues : VectorValues
 
     private void ApplyFocusedValueChange(int index, float value, RelativeUnit unit, float[] focusedValues, float[] oldValues, RelativeUnit oldUnit)
     {
-        float[] newValues = Edited(focusedValues, index, value, _editor.IsUniformValue);
-        _editor.RaiseUnderlyingValueChanged(_createEventArgs(newValues, unit, oldValues, oldUnit, PropertyEditor.ValueChangedEvent));
+        bool uniform = _editor.IsUniformValue;
+        float[] newValues = Edited(focusedValues, index, value, uniform);
+        _editor.RaiseValueChanged(_createEventArgs(newValues, unit, oldValues, oldUnit, PropertyEditor.ValueChangedEvent),
+            EditedComponents(index, _values.Length, uniform), isUnderlyingEdit: true);
     }
 
     // A pixel is a percent of a relative value and a whole unit of an absolute one, the small step of the wheel.
@@ -430,7 +442,8 @@ internal sealed class RelativeVectorValues : VectorValues
         for (int i = 0; i < newValues.Length; i++)
             Set(i, newValues[i]);
 
-        _editor.RaiseEvent(_createEventArgs(newValues, _unit, oldValues, _unit, PropertyEditor.ValueChangedEvent));
+        _editor.RaiseValueChanged(_createEventArgs(newValues, _unit, oldValues, _unit, PropertyEditor.ValueChangedEvent),
+            EditedComponents(index, _values.Length, allComponents: index < 0));
 
         // The handlers have written the accepted values back.
         PulseIfCrossed(_editor, oldValues, _values, null, e.Timestamp);
@@ -438,9 +451,10 @@ internal sealed class RelativeVectorValues : VectorValues
 
     private void ApplyValueChange(int index, float value, RelativeUnit unit, float[] oldValues, RelativeUnit oldUnit, float[]? input = null)
     {
+        bool uniform = _editor.IsUniformValue;
         float[] newValues = input ?? [.. _values];
         SetUnit(unit);
-        if (_editor.IsUniformValue)
+        if (uniform)
         {
             SetAll(value);
             Array.Fill(newValues, value);
@@ -451,7 +465,8 @@ internal sealed class RelativeVectorValues : VectorValues
             newValues[index] = value;
         }
 
-        _editor.RaiseEvent(_createEventArgs(newValues, unit, oldValues, oldUnit, PropertyEditor.ValueChangedEvent));
+        _editor.RaiseValueChanged(_createEventArgs(newValues, unit, oldValues, oldUnit, PropertyEditor.ValueChangedEvent),
+            EditedComponents(index, _values.Length, uniform));
     }
 
     // From the last component to the first, the order of FirstValue = SecondValue = value.
