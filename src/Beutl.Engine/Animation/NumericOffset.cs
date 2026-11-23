@@ -31,13 +31,20 @@ public static class NumericOffset
                 + (BigInteger.CreateChecked(to) - BigInteger.CreateChecked(from)) * new BigInteger(scale));
         }
 
-        // An integer type (one that truncates 0.5 to zero) keeps its value exact and rounds only the scaled delta.
+        // An integer type (one that truncates 0.5 to zero) keeps its value exact and rounds the sum half to even,
+        // as the integer animators' Math.Round does.
         if (T.IsZero(T.CreateTruncating(0.5)))
         {
-            double offset = Math.Round(double.CreateChecked(BigInteger.CreateChecked(to) - BigInteger.CreateChecked(from)) * scale);
-            return double.IsFinite(offset)
-                ? T.CreateSaturating(BigInteger.CreateChecked(value) + new BigInteger(offset))
-                : T.CreateSaturating(offset);
+            double offset = double.CreateChecked(BigInteger.CreateChecked(to) - BigInteger.CreateChecked(from)) * scale;
+            if (!double.IsFinite(offset))
+                return T.CreateSaturating(offset);
+
+            double whole = Math.Floor(offset);
+            double fraction = offset - whole;
+            BigInteger sum = BigInteger.CreateChecked(value) + new BigInteger(whole);
+            if (fraction > 0.5 || (fraction == 0.5 && !sum.IsEven))
+                sum += 1;
+            return T.CreateSaturating(sum);
         }
 
         // Other types scale in their own arithmetic, keeping a decimal's digits, and saturate on overflow.

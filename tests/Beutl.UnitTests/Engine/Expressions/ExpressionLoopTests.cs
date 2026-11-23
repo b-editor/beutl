@@ -294,6 +294,27 @@ public class ExpressionLoopTests
         Assert.That(NumericOffset.AddScaled(start + 3, start, start + 3, 0.75), Is.EqualTo(start + 5));
     }
 
+    [TestCase(1L, 1.5, 2L)]
+    [TestCase(2L, 1.5, 4L)]
+    [TestCase(1L, -1.5, 0L)]
+    public void ScaledOffsetRoundsLargeIntegersHalfToEven(long offset, double scale, long expected)
+    {
+        // start is even, so start + 2.5 rounds to start + 2 and start + 3.5 to start + 4.
+        const long start = 9_007_199_254_740_992;
+
+        Assert.That(NumericOffset.AddScaled(start + offset, start, start + 1, scale), Is.EqualTo(start + expected));
+    }
+
+    [Test]
+    public void ContinueKeepsLargeIntegerComponentsExact()
+    {
+        const int start = 1 << 25;
+        var property = MakeProperty(default(PixelPoint), "LoopOut(LoopMode.Continue)", MakeAnimation(
+            (0, new PixelPoint(start, 0)), (1, new PixelPoint(start + 3, 0))));
+
+        Assert.That(Evaluate(property, Seconds(2)).X, Is.EqualTo(start + 6));
+    }
+
     [Test]
     public void ScaledOffsetKeepsDecimalDigits()
     {

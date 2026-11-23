@@ -19,8 +19,8 @@ internal static class KeyFrameContinuation
     // How much the secant must grow as its step halves to read as a jump; a jump doubles it.
     private const double JumpRatio = 1.8;
 
-    // Extends the track along its boundary segment, at the easing's slope at the boundary. A scalar number track
-    // extends with exact, saturating arithmetic on the keys' values. Other tracks hand the segment's animator a
+    // Extends the track along its boundary segment, at the easing's slope at the boundary. A track whose animator
+    // is linear extends with exact, saturating arithmetic on the keys' values. Other tracks hand the segment's animator a
     // progress past the segment, so its own semantics apply (Color blends in linear light, a unit change steps,
     // a separated component follows its unit schedule) and the value is rounded only once; samples close to the
     // boundary would round integer values to the same one. A track without a key at the boundary, or without a
@@ -41,7 +41,8 @@ internal static class KeyFrameContinuation
             return held;
         }
 
-        T outerValue = outer == inner ? held : outerKey.Value.Value!;
+        // The key's own value, as the animator's sample of it may be rounded (PixelPoint interpolates in float).
+        T outerValue = outerKey.Value.Value ?? held;
 
         // The segment's easing belongs to its later key.
         double slope = BoundarySlope((loopOut ? edge : other).Easing.Value, loopOut);
@@ -50,7 +51,7 @@ internal static class KeyFrameContinuation
 
         long segment = Math.Abs((edge.KeyTime.Value - other.KeyTime.Value).Flicks);
         double elapsed = slope * Math.Abs((time - boundary).Flicks) / segment;
-        if (animation.HierarchicalParent is not IComponentInterpolator<T> && ComponentAnimations.IsScalarNumber<T>())
+        if (animation.HierarchicalParent is not IComponentInterpolator<T> && ComponentAnimations.InterpolatesLinearly<T>())
             return ComponentAnimations.AddScaledDelta(outerValue, other.Value.Value!, edge.Value.Value!, elapsed);
 
         // A jump at the boundary shifts the segment to end at the outer value, so the animator saturates only once.

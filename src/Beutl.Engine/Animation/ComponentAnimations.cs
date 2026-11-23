@@ -164,8 +164,11 @@ public static class ComponentAnimations
             : ScalarOffset<T>.Add!(value, from, to, scale);
     }
 
-    // A number type that is not registered as components, such as double or int.
-    internal static bool IsScalarNumber<T>() => !s_offsets.ContainsKey(typeof(T)) && ScalarOffset<T>.Add is not null;
+    // Whether the type's animator interpolates each component linearly, so adding a scaled delta extends it exactly.
+    // Color's animator blends in linear light instead. A unit change makes the offset hold the target, as the
+    // animator's step does.
+    internal static bool InterpolatesLinearly<T>()
+        => typeof(T) != typeof(Media.Color) && (s_offsets.ContainsKey(typeof(T)) || ScalarOffset<T>.Add is not null);
 
     internal static void EnsureScaledDeltaSupported<T>()
     {
