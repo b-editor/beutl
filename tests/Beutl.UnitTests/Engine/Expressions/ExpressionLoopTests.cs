@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using Beutl.Animation;
+using Beutl.Animation.Animators;
 using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -285,16 +286,44 @@ public class ExpressionLoopTests
     }
 
     [Test]
-    public void ContinueKeepsLargeIntegerValuesExact()
+    public void ScaledOffsetKeepsLargeIntegerValuesExact()
     {
         const long start = 9_007_199_254_740_992;
-        var animation = new KeyFrameAnimation<long>();
-        animation.KeyFrames.Add(new KeyFrame<long> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = start }, Easing = { Value = new LinearEasing() } });
-        animation.KeyFrames.Add(new KeyFrame<long> { KeyTime = { Value = new MediaTime(4) }, Value = { Value = start + 3 }, Easing = { Value = new LinearEasing() } });
-        var property = MakeProperty(0L, "LoopOut(LoopMode.Continue)", animation);
 
         // 3 + 3 * 0.75 = 5.25 past the start, beyond double's integer precision.
-        Assert.That(Evaluate(property, new MediaTime(7)), Is.EqualTo(start + 5));
+        Assert.That(NumericOffset.AddScaled(start + 3, start, start + 3, 0.75), Is.EqualTo(start + 5));
+    }
+
+    [TestCase("LoopOut(LoopMode.Continue)", 2.0)]
+    [TestCase("LoopIn(LoopMode.Continue)", -1.0)]
+    public void ContinueHoldsAfterAHoldEasing(string script, double time)
+    {
+        var animation = TestAnimations.Linear(0.0, 100.0, Seconds(1));
+        animation.KeyFrames[^1].Easing.Value = new HoldEasing();
+        var property = MakeProperty(0.0, script, animation);
+
+        Assert.That(Evaluate(property, Seconds(time)), Is.EqualTo(script.StartsWith("LoopOut") ? 100 : 0));
+    }
+
+    [Test]
+    public void ContinueFollowsTheColorAnimator()
+    {
+        Color from = Color.FromArgb(255, 0, 0, 0);
+        Color to = Color.FromArgb(255, 128, 128, 128);
+        var property = MakeProperty(from, "LoopOut(LoopMode.Continue)", TestAnimations.Linear(from, to, Seconds(1)));
+
+        Assert.That(Evaluate(property, Seconds(1.5)), Is.EqualTo(new ColorAnimator().Interpolate(1.5f, from, to)));
+    }
+
+    [Test]
+    public void ContinueHoldsAcrossAUnitChangeInSeparatedComponents()
+    {
+        var from = new RelativePoint(20, 40, RelativeUnit.Absolute);
+        var to = new RelativePoint(0.2f, 0.4f, RelativeUnit.Relative);
+        var property = MakeProperty(from, "LoopOut(LoopMode.Continue)", TestAnimations.Linear(from, to, Seconds(1)));
+        ComponentAnimations.Separate(property);
+
+        Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(to));
     }
 
     [Test]

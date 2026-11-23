@@ -16,9 +16,10 @@ internal static class KeyFrameContinuation
     // Easing takes a float progress, so slopes this small are rounding noise; treat them as a flat ending.
     private const double FlatSlope = 1e-3;
 
-    // Extends the track along the slope its boundary segment has at the boundary key. The keys' own values and the
-    // easing's slope give the velocity, since samples of the track may be rounded (integer animators round them).
-    // A track without a key at the boundary, or without a segment beside it, holds its value there.
+    // Extends the track by handing its boundary segment's animator a progress past the segment, so the animator's
+    // own semantics apply (Color blends in linear light, a unit change steps) and the value is rounded only once,
+    // where samples close to the boundary would round integer values to the same one. The progress grows at the
+    // easing's slope at the boundary. A track without a key at the boundary, or without a segment beside it, holds.
     public static T Continue<T>(KeyFrameAnimation<T> animation, T held, MediaTime time, MediaTime boundary, bool loopOut)
     {
         IListProperty<IKeyFrame> keys = animation.KeyFrames;
@@ -35,20 +36,40 @@ internal static class KeyFrameContinuation
             return held;
         }
 
-        long segment = Math.Abs((edge.KeyTime.Value - other.KeyTime.Value).Flicks);
-
         // The segment's easing belongs to its later key.
-        Easing easing = (loopOut ? edge : other).Easing.Value;
-        // Divide by the step float progress actually takes, so a linear segment has a slope of exactly 1.
-        float inside = loopOut ? 1 - EasingStep : EasingStep;
-        double slope = loopOut
-            ? (easing.Ease(1) - easing.Ease(inside)) / (1 - (double)inside)
-            : (easing.Ease(inside) - easing.Ease(0)) / (double)inside;
-        if (Math.Abs(slope) < FlatSlope)
+        double slope = BoundarySlope((loopOut ? edge : other).Easing.Value, loopOut);
+        if (slope == 0)
             return held;
 
-        double elapsed = (double)Math.Abs((time - boundary).Flicks) / segment;
-        return ComponentAnimations.AddScaledDelta(outerKey.Value.Value!, other.Value.Value!, edge.Value.Value!, slope * elapsed);
+        long segment = Math.Abs((edge.KeyTime.Value - other.KeyTime.Value).Flicks);
+        double elapsed = slope * Math.Abs((time - boundary).Flicks) / segment;
+        (KeyFrame<T> from, KeyFrame<T> to) = loopOut ? (other, edge) : (edge, other);
+        T value = animation.InterpolateValues((float)(loopOut ? 1 + elapsed : -elapsed),
+            from.Value.Value!, to.Value.Value!, from.KeyTime.Value, to.KeyTime.Value, local);
+        return outer == inner
+            ? value
+            : ComponentAnimations.AddScaledDelta(value, edge.Value.Value!, outerKey.Value.Value!, 1);
+    }
+
+    // The easing's slope at the end (or start) of its segment, or zero when it is flat or jumps there.
+    private static double BoundarySlope(Easing easing, bool end)
+    {
+        float boundary = end ? 1 : 0;
+        double Slope(float step)
+        {
+            float inside = end ? 1 - step : step;
+            // Divide by the step float progress actually takes, so a linear segment has a slope of exactly 1.
+            return (easing.Ease(boundary) - easing.Ease(inside)) / (boundary - (double)inside);
+        }
+
+        double near = Slope(EasingStep);
+        if (Math.Abs(near) < FlatSlope)
+            return 0;
+
+        // A jump at the boundary (HoldEasing, a step-like spline) doubles the slope as the step halves. It is not
+        // a velocity to carry on, so the track holds.
+        double far = Slope(2 * EasingStep);
+        return Math.Abs(near - far) > 0.25 * Math.Abs(near) ? 0 : near;
     }
 
     private static int FindLast(IListProperty<IKeyFrame> keys, MediaTime time)
