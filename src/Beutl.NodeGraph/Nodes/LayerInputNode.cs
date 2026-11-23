@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.NodeGraph.Nodes;
@@ -83,7 +84,10 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
             if (Activator.CreateInstance(type) is ILayerInputPort outputNodePort)
             {
                 outputNodePort.SetupProperty(inputNodePort.Name.Value);
-                outputNodePort.Property?.SetValue(inputNodePort.Property?.GetValue());
+                object? value = inputNodePort.Property?.GetValue();
+                if (value is CoreObject ownedValue and not ProjectItem { Uri: not null })
+                    value = ObjectRegeneration.Copy(ownedValue, ownedValue.GetType());
+                outputNodePort.Property?.SetValue(value);
 
                 connection = graphModel.Connect(inputNodePort, outputNodePort);
 

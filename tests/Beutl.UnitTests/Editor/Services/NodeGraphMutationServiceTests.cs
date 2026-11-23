@@ -43,6 +43,30 @@ public class NodeGraphMutationServiceTests
     }
 
     [Test]
+    public void Exposing_an_input_gives_the_layer_its_own_object_and_id()
+    {
+        var shape = new GeometryShapeNode();
+        var input = new LayerInputNode();
+        var original = new SolidColorBrush(Colors.Red);
+        shape.Fill.Property!.SetValue(original);
+        _graph.Nodes.Add(input);
+        _graph.Nodes.Add(shape);
+
+        Assert.That(input.AddNodePort(shape.Fill, out _), Is.True);
+        var port = (LayerInputNode.ILayerInputPort)input.Items.Single();
+        var copy = (SolidColorBrush)port.Property!.GetValue()!;
+        Assert.That(copy, Is.Not.SameAs(original));
+        Assert.That(copy.Id.Value, Is.Not.EqualTo(original.Id.Value));
+        Assert.That(copy.FindHierarchicalParent<LayerInputNode>(), Is.SameAs(input));
+        Assert.That(copy.Color.Value, Is.EqualTo(Colors.Red));
+
+        original.Color.Value = Colors.Blue;
+        _graph.Nodes.Remove(shape);
+        Assert.That(copy.Color.Value, Is.EqualTo(Colors.Red));
+        Assert.That(copy.FindHierarchicalParent<LayerInputNode>(), Is.SameAs(input));
+    }
+
+    [Test]
     public void AddNode_FirstGroupInput_Added()
     {
         int beforeUndo = _history.UndoCount;
