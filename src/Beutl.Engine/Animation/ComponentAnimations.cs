@@ -164,6 +164,9 @@ public static class ComponentAnimations
             : ScalarOffset<T>.Add!(value, from, to, scale);
     }
 
+    // A number type that is not registered as components, such as double or int.
+    internal static bool IsScalarNumber<T>() => !s_offsets.ContainsKey(typeof(T)) && ScalarOffset<T>.Add is not null;
+
     internal static void EnsureScaledDeltaSupported<T>()
     {
         if (!s_offsets.ContainsKey(typeof(T)) && ScalarOffset<T>.Add is null)

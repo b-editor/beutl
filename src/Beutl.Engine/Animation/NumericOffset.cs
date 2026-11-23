@@ -40,7 +40,15 @@ public static class NumericOffset
                 : T.CreateSaturating(offset);
         }
 
-        return T.CreateSaturating(double.CreateChecked(value)
-            + (double.CreateChecked(to) - double.CreateChecked(from)) * scale);
+        // Other types scale in their own arithmetic, keeping a decimal's digits, and saturate on overflow.
+        try
+        {
+            return checked(value + checked(to - from) * T.CreateChecked(scale));
+        }
+        catch (OverflowException)
+        {
+            return T.CreateSaturating(double.CreateChecked(value)
+                + (double.CreateChecked(to) - double.CreateChecked(from)) * scale);
+        }
     }
 }

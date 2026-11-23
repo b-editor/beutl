@@ -294,6 +294,47 @@ public class ExpressionLoopTests
         Assert.That(NumericOffset.AddScaled(start + 3, start, start + 3, 0.75), Is.EqualTo(start + 5));
     }
 
+    [Test]
+    public void ScaledOffsetKeepsDecimalDigits()
+    {
+        Assert.That(NumericOffset.AddScaled(10000000000000000.1m, 10000000000000000.1m, 10000000000000000.2m, 2),
+            Is.EqualTo(10000000000000000.3m));
+    }
+
+    [Test]
+    public void ContinueKeepsLargeIntegerValuesExact()
+    {
+        const long start = 9_007_199_254_740_992;
+        var animation = new KeyFrameAnimation<long>();
+        animation.KeyFrames.Add(new KeyFrame<long> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = start }, Easing = { Value = new LinearEasing() } });
+        animation.KeyFrames.Add(new KeyFrame<long> { KeyTime = { Value = new MediaTime(4) }, Value = { Value = start + 3 }, Easing = { Value = new LinearEasing() } });
+        var property = MakeProperty(0L, "LoopOut(LoopMode.Continue)", animation);
+
+        Assert.That(Evaluate(property, new MediaTime(7)), Is.EqualTo(start + 5));
+    }
+
+    [Test]
+    public void ContinueSaturatesBoundedValues()
+    {
+        var number = MakeProperty((byte)0, "LoopOut(LoopMode.Continue)", TestAnimations.Linear((byte)0, (byte)200, Seconds(1)));
+        Color from = Color.FromArgb(0, 10, 20, 30);
+        Color to = Color.FromArgb(128, 10, 20, 30);
+        var color = MakeProperty(from, "LoopOut(LoopMode.Continue)", TestAnimations.Linear(from, to, Seconds(1)));
+
+        Assert.That(Evaluate(number, Seconds(2)), Is.EqualTo(255));
+        Assert.That(Evaluate(color, Seconds(2)).A, Is.EqualTo(255));
+    }
+
+    [Test]
+    public void ContinueHoldsTheValueAfterAJumpAtAFlatBoundary()
+    {
+        var animation = MakeAnimation((0, 0.0), (1, 10.0), (1, 50.0));
+        animation.KeyFrames[1].Easing.Value = new CubicEaseOut();
+        var property = MakeProperty(0.0, "LoopOut(LoopMode.Continue)", animation);
+
+        Assert.That(Evaluate(property, Seconds(2)), Is.EqualTo(50));
+    }
+
     [TestCase("LoopOut(LoopMode.Continue)", 2.0)]
     [TestCase("LoopIn(LoopMode.Continue)", -1.0)]
     public void ContinueHoldsAfterAHoldEasing(string script, double time)
