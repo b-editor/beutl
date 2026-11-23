@@ -17,13 +17,18 @@ public interface IComponentExpression : IExpression
     int ComponentIndex { get; }
 }
 
-// An expression whose Value and ValueAtTime globals come from a combined value (such as Point for X/Y).
+// An expression whose value and keyframe globals come from a combined value (such as Point for X/Y).
 internal interface ICombinedValueExpression<TComponent> : IExpression<TComponent>
 {
     bool TryParseSameContext(
         string expressionString,
         [NotNullWhen(true)] out IExpression<TComponent>? expression,
         [NotNullWhen(false)] out string? error);
+}
+
+internal interface ICombinedValueSource
+{
+    IReadOnlyList<IProperty> Components { get; }
 }
 
 public sealed class ComponentExpression<TValue, TComponent>
@@ -185,10 +190,11 @@ public sealed class ComponentExpression<TValue, TComponent>
         public CombinedBelowExpression? Below { get; } = below;
     }
 
-    // Composes the underlying value (keyframes if any, else stored value) of each combined sibling property so
-    // Value and ValueAtTime work in shared expressions on combined rows.
-    private sealed class CombinedBelowExpression(IProperty<TComponent>[] siblings) : IExpression<TValue>
+    // Composes the underlying values and exposes their keyframes to shared expressions on combined rows.
+    private sealed class CombinedBelowExpression(IProperty<TComponent>[] siblings) : IExpression<TValue>, ICombinedValueSource
     {
+        public IReadOnlyList<IProperty> Components => siblings;
+
         public string ExpressionString => string.Empty;
 
         public bool Validate(out string? error)
@@ -224,7 +230,7 @@ public sealed class ComponentExpression<TValue, TComponent>
     }
 }
 
-// A single-component expression whose Value and ValueAtTime globals come from the combined value (such as Point for
+// A single-component expression whose value and keyframe globals come from the combined value (such as Point for
 // Translate X/Y), preserving the aggregate evaluation context when a separated component expression is edited.
 public sealed class CombinedValueExpression<TValue, TComponent>
     : IReplacingExpression<TComponent>, ICombinedValueExpression<TComponent>
@@ -294,7 +300,7 @@ public sealed class CombinedValueExpression<TValue, TComponent>
         }
 
         expression = null;
-        // A script that reads Value reports why it failed in the combined context.
+        // A script that reads from the combined value reports why it failed in that context.
         error = contextError ?? error;
         return false;
     }
