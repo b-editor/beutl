@@ -2111,4 +2111,313 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>网格控制点（第 {0} 行，第 {1} 列）</value>
   </data>
+  <data name="EllipseShape_LibraryDescription" xml:space="preserve">
+    <value>绘制可用作遮罩的圆形或椭圆（椭圆、形状、纯色层、蒙版、轨道遮罩 / ellipse, shape, solid, mask, track matte）。</value>
+  </data>
+  <data name="RectShape_LibraryDescription" xml:space="preserve">
+    <value>绘制可用作遮罩的矩形（矩形、形状、纯色层、蒙版、轨道遮罩 / rectangle, shape, solid, mask, track matte）。</value>
+  </data>
+  <data name="RoundedRectShape_LibraryDescription" xml:space="preserve">
+    <value>绘制可用作遮罩的圆角矩形（圆角矩形、形状、纯色层、蒙版、轨道遮罩 / rounded rectangle, shape, solid, mask, track matte）。</value>
+  </data>
+  <data name="GeometryShape_LibraryDescription" xml:space="preserve">
+    <value>用矢量路径绘制可作为图形或蒙版的自定义形状（矢量路径、自定义形状、图层蒙版、轨道遮罩 / vector path, custom shape, layer mask, track matte）。</value>
+  </data>
+  <data name="TextBlock_LibraryDescription" xml:space="preserve">
+    <value>在场景中添加带格式的文字（标题、字幕、文字图层 / title, caption, subtitle）。</value>
+  </data>
+  <data name="SourceVideo_LibraryDescription" xml:space="preserve">
+    <value>在场景中播放视频文件（视频剪辑、视频素材 / video clip, footage）。</value>
+  </data>
+  <data name="SourceImage_LibraryDescription" xml:space="preserve">
+    <value>显示文件中的静态图像（静态图像、图片图层 / still image, image layer）。</value>
+  </data>
+  <data name="SourceBackdrop_LibraryDescription" xml:space="preserve">
+    <value>对下方所有图层应用效果（调整图层 / adjustment layer）。</value>
+  </data>
+  <data name="Scene3D_LibraryDescription" xml:space="preserve">
+    <value>通过相机渲染三维物体和灯光（三维合成、三维场景 / 3D composition, 3D scene）。</value>
+  </data>
+  <data name="Cube3D_LibraryDescription" xml:space="preserve">
+    <value>添加可调节宽度、高度和深度的长方体（三维方块、立方体基本体 / 3D box, cube primitive）。</value>
+  </data>
+  <data name="Sphere3D_LibraryDescription" xml:space="preserve">
+    <value>添加可调节半径和细分程度的球体（三维球体、球体基本体 / 3D sphere, sphere primitive）。</value>
+  </data>
+  <data name="Plane3D_LibraryDescription" xml:space="preserve">
+    <value>在三维空间中添加平坦的矩形表面（三维平面、平面基本体 / 3D plane, surface primitive）。</value>
+  </data>
+  <data name="Model3D_LibraryDescription" xml:space="preserve">
+    <value>将文件中的三维模型导入场景（导入三维模型、导入网格 / 3D model import, mesh import）。</value>
+  </data>
+  <data name="DrawableObject3D_LibraryDescription" xml:space="preserve">
+    <value>把二维内容作为平面卡片放入三维场景（三维图层、图像平面、2.5D / 3D layer, image plane, 2.5D）。</value>
+  </data>
+  <data name="DirectionalLight3D_LibraryDescription" xml:space="preserve">
+    <value>用类似太阳光的平行光线照亮三维场景（太阳光、平行光 / sun light, parallel light）。</value>
+  </data>
+  <data name="PointLight3D_LibraryDescription" xml:space="preserve">
+    <value>从三维场景中的一点向四周发光（点光源、全向光 / point light, omni light）。</value>
+  </data>
+  <data name="SpotLight3D_LibraryDescription" xml:space="preserve">
+    <value>在三维场景中投射锥形光束（聚光灯、锥形光 / spotlight, cone light）。</value>
+  </data>
+  <data name="ParticleEmitter_LibraryDescription" xml:space="preserve">
+    <value>发射并驱动火花或雪花等大量小粒子（粒子系统、粒子生成器 / particle system, particle generator）。</value>
+  </data>
+  <data name="NodeGraphDrawable_LibraryDescription" xml:space="preserve">
+    <value>通过相互连接的节点生成图形（节点式图形、程序化图形 / node-based graphics, procedural graphics）。</value>
+  </data>
+  <data name="SceneDrawable_LibraryDescription" xml:space="preserve">
+    <value>将另一个场景的画面作为单个图层显示（预合成、嵌套序列、复合片段 / precomp, pre-compose, nested sequence, compound clip）。</value>
+  </data>
+  <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
+    <value>将多个对象作为一个图层应用效果（调整图层、效果组 / adjustment layer, effect group）。</value>
+  </data>
+  <data name="DrawableGroup_LibraryDescription" xml:space="preserve">
+    <value>统一移动、缩放和旋转子对象（父级、空对象、组控制 / parent, null object）。</value>
+  </data>
+  <data name="DrawableTimeController_LibraryDescription" xml:space="preserve">
+    <value>改变对象的播放时间和播放速度（时间重映射、变速、定格帧 / time remap, speed ramp, freeze frame）。</value>
+  </data>
+  <data name="AudioWaveformDrawable_LibraryDescription" xml:space="preserve">
+    <value>绘制音频振幅随时间的变化（音频波形、波形可视化 / audio waveform, waveform visualizer）。</value>
+  </data>
+  <data name="AudioSpectrumDrawable_LibraryDescription" xml:space="preserve">
+    <value>显示音频中各频率的强度（音频频谱、频谱分析仪 / audio spectrum, spectrum analyzer）。</value>
+  </data>
+  <data name="AudioSpectrogramDrawable_LibraryDescription" xml:space="preserve">
+    <value>用颜色显示音频频率成分随时间的变化（声谱图、频率热图 / spectrogram, frequency heatmap）。</value>
+  </data>
+  <data name="TranslateTransform_LibraryDescription" xml:space="preserve">
+    <value>水平或垂直移动对象（位置、平移 / position, translation）。</value>
+  </data>
+  <data name="SkewTransform_LibraryDescription" xml:space="preserve">
+    <value>通过倾斜对象的边使对象变形（斜切、剪切变换 / skew, shear）。</value>
+  </data>
+  <data name="ScaleTransform_LibraryDescription" xml:space="preserve">
+    <value>调整对象的宽度和高度（缩放、调整大小 / scale, resize）。</value>
+  </data>
+  <data name="RotationTransform_LibraryDescription" xml:space="preserve">
+    <value>让对象绕图像平面内的轴心旋转（旋转、二维旋转 / rotation, 2D rotate）。</value>
+  </data>
+  <data name="Rotation3DTransform_LibraryDescription" xml:space="preserve">
+    <value>在透视下倾斜和旋转平面对象（三维旋转、透视变换 / 3D rotation, perspective transform）。</value>
+  </data>
+  <data name="Blur_LibraryDescription" xml:space="preserve">
+    <value>用高斯模糊柔化图像（高斯模糊、柔焦 / Gaussian blur, soft focus）。</value>
+  </data>
+  <data name="Sharpen_LibraryDescription" xml:space="preserve">
+    <value>提高边缘附近的对比度以突出细节（USM 锐化、锐化细节 / unsharp mask, sharpen details）。</value>
+  </data>
+  <data name="RadialBlur_LibraryDescription" xml:space="preserve">
+    <value>围绕一个中心产生缩放或旋转模糊（缩放模糊、旋转模糊 / zoom blur, spin blur）。</value>
+  </data>
+  <data name="MotionBlur_LibraryDescription" xml:space="preserve">
+    <value>叠加对象在短时间内的画面来模糊运动（运动模糊、快门模糊 / motion trails, shutter blur）。</value>
+  </data>
+  <data name="Bokeh_LibraryDescription" xml:space="preserve">
+    <value>按镜头光圈的形状模糊图像（镜头模糊、散焦 / lens blur, defocus）。</value>
+  </data>
+  <data name="Bloom_LibraryDescription" xml:space="preserve">
+    <value>让高亮区域的光向周围扩散（辉光、发光 / glow, bloom）。</value>
+  </data>
+  <data name="LightRays_LibraryDescription" xml:space="preserve">
+    <value>将高光拉伸成从一点向外发散的光束（上帝光、体积光、光线 / god rays, volumetric light）。</value>
+  </data>
+  <data name="WaveRefraction_LibraryDescription" xml:space="preserve">
+    <value>让图像像透过波动的水面一样发生扭曲（涟漪、波形扭曲 / ripple, wave distortion）。</value>
+  </data>
+  <data name="PolarCoordinates_LibraryDescription" xml:space="preserve">
+    <value>将平面图像围绕中心卷成圆形，或将其展开成条带（直角坐标转极坐标、极坐标转直角坐标 / rectangular to polar, polar to rectangular）。</value>
+  </data>
+  <data name="DropShadow_LibraryDescription" xml:space="preserve">
+    <value>在对象后方添加偏移的阴影（投影、外阴影 / drop shadow, cast shadow）。</value>
+  </data>
+  <data name="InnerShadow_LibraryDescription" xml:space="preserve">
+    <value>压暗对象的内侧边缘以增强立体感（内阴影、内侧阴影 / inner shadow, inset shadow）。</value>
+  </data>
+  <data name="FlatShadow_LibraryDescription" xml:space="preserve">
+    <value>沿一个方向拉出对象的纯色阴影（长阴影、扁平阴影 / long shadow, flat shadow）。</value>
+  </data>
+  <data name="StrokeEffect_LibraryDescription" xml:space="preserve">
+    <value>沿对象轮廓绘制线条（描边、轮廓、边框 / outline, border, stroke）。</value>
+  </data>
+  <data name="Clipping_LibraryDescription" xml:space="preserve">
+    <value>从图像的四条边向内裁剪（裁剪、修剪、蒙版 / crop, trim, mask）。</value>
+  </data>
+  <data name="DiagonalClipping_LibraryDescription" xml:space="preserve">
+    <value>沿倾斜的边界或条带裁剪图像（裁剪、修剪、蒙版、斜线擦除 / crop, trim, mask, diagonal wipe）。</value>
+  </data>
+  <data name="Dilate_LibraryDescription" xml:space="preserve">
+    <value>扩大图像的亮部或不透明区域（膨胀、扩展遮罩、遮罩阻塞 / expand, grow matte, matte choker）。</value>
+  </data>
+  <data name="Erode_LibraryDescription" xml:space="preserve">
+    <value>缩小图像的亮部或不透明区域（腐蚀、收缩遮罩、遮罩阻塞 / shrink, choke, matte choker）。</value>
+  </data>
+  <data name="HighContrast_LibraryDescription" xml:space="preserve">
+    <value>调整图像的对比度，并可转为灰度或反相（增强对比度、黑白 / contrast boost, black and white）。</value>
+  </data>
+  <data name="HueRotate_LibraryDescription" xml:space="preserve">
+    <value>沿色环移动图像的色相（色相偏移、色相调整 / hue shift, hue offset）。</value>
+  </data>
+  <data name="Lighting_LibraryDescription" xml:space="preserve">
+    <value>对图像颜色执行乘法和加法调整（颜色相乘、颜色相加 / color multiply, color add）。</value>
+  </data>
+  <data name="LumaColor_LibraryDescription" xml:space="preserve">
+    <value>将图像亮度转换为透明度（亮度转 Alpha、亮度遮罩 / luma to alpha, luminance matte）。</value>
+  </data>
+  <data name="Saturate_LibraryDescription" xml:space="preserve">
+    <value>让颜色更鲜艳或更淡（饱和度、去色 / saturation, desaturate）。</value>
+  </data>
+  <data name="Threshold_LibraryDescription" xml:space="preserve">
+    <value>按亮度阈值将图像分为亮区和暗区（二值化、黑白阈值 / binarize, black and white threshold）。</value>
+  </data>
+  <data name="EdgeDetection_LibraryDescription" xml:space="preserve">
+    <value>在亮度、颜色或透明度发生变化的位置绘制线条（查找边缘、轮廓 / find edges, contour）。</value>
+  </data>
+  <data name="Brightness_LibraryDescription" xml:space="preserve">
+    <value>调亮或调暗整幅图像（提亮、压暗 / brighten, darken）。</value>
+  </data>
+  <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
+    <value>调整图像的透明程度（Alpha、透明度 / alpha, transparency）。</value>
+  </data>
+  <data name="Gamma_LibraryDescription" xml:space="preserve">
+    <value>调亮或调暗中间调以平衡影调（伽马校正、中间调 / gamma correction, midtones）。</value>
+  </data>
+  <data name="ColorGrading_LibraryDescription" xml:space="preserve">
+    <value>调整图像的整体颜色和影调（色彩校正、白平衡、调色 / color correction, white balance, grading）。</value>
+  </data>
+  <data name="Curves_LibraryDescription" xml:space="preserve">
+    <value>通过曲线调整亮度和各颜色通道（色调曲线、RGB 曲线 / tone curve, RGB curves）。</value>
+  </data>
+  <data name="FilmGrain_LibraryDescription" xml:space="preserve">
+    <value>添加类似胶片颗粒的细微噪点（噪点、颗粒 / noise, grain）。</value>
+  </data>
+  <data name="Vignette_LibraryDescription" xml:space="preserve">
+    <value>围绕指定的中心压暗图像边缘（镜头暗角、边缘压暗 / lens vignette, edge darkening）。</value>
+  </data>
+  <data name="Invert_LibraryDescription" xml:space="preserve">
+    <value>反转图像颜色（负片、反相 / negative, invert colors）。</value>
+  </data>
+  <data name="LutEffect_LibraryDescription" xml:space="preserve">
+    <value>使用查找表重新映射颜色（颜色查找表、LUT、调色 / color lookup, LUT, color grading）。</value>
+  </data>
+  <data name="BlendEffect_LibraryDescription" xml:space="preserve">
+    <value>使用混合模式将颜色或画笔叠加到图像上（混合模式、颜色叠加、着色 / blend mode, color overlay, tint）。</value>
+  </data>
+  <data name="Negaposi_LibraryDescription" xml:space="preserve">
+    <value>反转图像颜色，并可分别调整红、绿、蓝（负片、反相 / negative, invert colors）。</value>
+  </data>
+  <data name="ChromaKey_LibraryDescription" xml:space="preserve">
+    <value>按色相和饱和度去除背景（绿幕、蓝幕、色度抠像 / green screen, blue screen, keylight）。</value>
+  </data>
+  <data name="ColorKey_LibraryDescription" xml:space="preserve">
+    <value>将接近指定颜色的像素变为透明（抠像、颜色键、颜色遮罩 / keying, color key, color matte）。</value>
+  </data>
+  <data name="LumaKey_LibraryDescription" xml:space="preserve">
+    <value>根据亮度将图像的一部分变为透明（抠像、亮度键、亮度遮罩 / keying, luminance key, luma matte）。</value>
+  </data>
+  <data name="SplitEffect_LibraryDescription" xml:space="preserve">
+    <value>将图像分割成网格状的块，并可调整块之间的间距（网格分割、切片 / grid split, slice）。</value>
+  </data>
+  <data name="PartsSplitEffect_LibraryDescription" xml:space="preserve">
+    <value>将被透明区域隔开的可见部分拆成单独的块（按 Alpha 分割、分离部件 / split by alpha, separate islands）。</value>
+  </data>
+  <data name="RepeatEffect_LibraryDescription" xml:space="preserve">
+    <value>将图像的副本按行和列排列（平铺、动态拼贴、重复器 / tile, motion tile, repeater）。</value>
+  </data>
+  <data name="TransformEffect_LibraryDescription" xml:space="preserve">
+    <value>在效果处理链中移动、缩放或旋转图像（位置、缩放、旋转 / position, scale, rotation）。</value>
+  </data>
+  <data name="MosaicEffect_LibraryDescription" xml:space="preserve">
+    <value>将图像细节替换为大色块（像素化、马赛克、打码 / pixelate, censor）。</value>
+  </data>
+  <data name="ColorShift_LibraryDescription" xml:space="preserve">
+    <value>独立移动图像的各个颜色通道（RGB 分离、色差 / RGB split, chromatic aberration）。</value>
+  </data>
+  <data name="LensChromaticAberration_LibraryDescription" xml:space="preserve">
+    <value>围绕中心分离颜色通道，模拟镜头产生的彩边（RGB 分离、镜头色差、彩边 / RGB split, chromatic aberration）。</value>
+  </data>
+  <data name="ShakeEffect_LibraryDescription" xml:space="preserve">
+    <value>以可调节的速度和强度抖动图像（摆动、镜头抖动、振动 / wiggle, camera shake）。</value>
+  </data>
+  <data name="DisplacementMapEffect_LibraryDescription" xml:space="preserve">
+    <value>根据置换图移动像素，使图像发生扭曲（扭曲、变形、置换图 / distort, warp, displacement map）。</value>
+  </data>
+  <data name="MeshWarp_LibraryDescription" xml:space="preserve">
+    <value>通过移动网格上的控制点使图像变形（网格变形、网格扭曲 / mesh distortion, grid warp）。</value>
+  </data>
+  <data name="PathFollowEffect_LibraryDescription" xml:space="preserve">
+    <value>让对象沿路径移动，并可随路径方向转动（运动路径、路径动画 / motion path, path animation）。</value>
+  </data>
+  <data name="LayerEffect_LibraryDescription" xml:space="preserve">
+    <value>将分开的效果输出合并成一张图像（拼合、合并图层 / flatten, merge layers）。</value>
+  </data>
+  <data name="DelayAnimationEffect_LibraryDescription" xml:space="preserve">
+    <value>按时间差依次对副本或碎片应用同一个动画效果（错时动画、时间偏移 / stagger, time offset）。</value>
+  </data>
+  <data name="PixelSortEffect_LibraryDescription" xml:space="preserve">
+    <value>按亮度或颜色重排连续的像素，形成条纹（像素排序、条纹故障 / pixel sorting, streak glitch）。</value>
+  </data>
+  <data name="NodeGraphFilterEffect_LibraryDescription" xml:space="preserve">
+    <value>通过相互连接的效果节点处理图像（节点式合成、节点效果 / node-based compositing, node effect）。</value>
+  </data>
+  <data name="CSharpScriptEffect_LibraryDescription" xml:space="preserve">
+    <value>运行 C# 脚本来应用自定义效果（C# 脚本、脚本效果 / C# scripting, scripted effect）。</value>
+  </data>
+  <data name="SKSLScriptEffect_LibraryDescription" xml:space="preserve">
+    <value>使用 SkSL 编写的 Skia 着色器处理图像（Skia 着色器、自定义着色器 / Skia shader, custom shader）。</value>
+  </data>
+  <data name="GLSLScriptEffect_LibraryDescription" xml:space="preserve">
+    <value>使用 GLSL 片段着色器处理图像（片段着色器、自定义着色器 / fragment shader, custom shader）。</value>
+  </data>
+  <data name="CrossDissolveTransition_LibraryDescription" xml:space="preserve">
+    <value>同时改变前后片段的不透明度，使两者平滑混合（交叉淡化、叠化 / crossfade, dissolve）。</value>
+  </data>
+  <data name="FadeTransition_LibraryDescription" xml:space="preserve">
+    <value>先将前一个片段淡出至透明，再淡入下一个片段（淡入、淡出 / fade in, fade out）。</value>
+  </data>
+  <data name="WipeTransition_LibraryDescription" xml:space="preserve">
+    <value>通过移动的边缘或扩展的形状显示下一个片段（线性擦除、时钟擦除 / linear wipe, clock wipe）。</value>
+  </data>
+  <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
+    <value>将前一个片段淡出至纯色，再淡入下一个片段（颜色过渡、淡出至黑色 / fade through color, dip to black）。</value>
+  </data>
+  <data name="DipToWhiteTransition_LibraryDescription" xml:space="preserve">
+    <value>将前一个片段淡出至白色，再淡入下一个片段（淡出至白色、白闪 / fade to white, white flash）。</value>
+  </data>
+  <data name="PushTransition_LibraryDescription" xml:space="preserve">
+    <value>让下一个片段滑入画面并将前一个片段推出（推入、推移转场 / push wipe, slide push）。</value>
+  </data>
+  <data name="SlideTransition_LibraryDescription" xml:space="preserve">
+    <value>让下一个片段滑到前一个片段上方（滑入、滑动转场 / slide in, slide wipe）。</value>
+  </data>
+  <data name="ZoomTransition_LibraryDescription" xml:space="preserve">
+    <value>在叠化切换时围绕画面中心缩放片段（放大、缩小、缩放叠化 / zoom in, zoom out, zoom dissolve）。</value>
+  </data>
+  <data name="IrisTransition_LibraryDescription" xml:space="preserve">
+    <value>通过从中心扩大或缩小的开口显示或隐藏片段（光圈擦除、圆形显示 / iris wipe, circle reveal）。</value>
+  </data>
+  <data name="SplitTransition_LibraryDescription" xml:space="preserve">
+    <value>将前一个片段从中心向两侧拉开，露出下一个片段（分割擦除、开门转场 / split wipe, barn doors）。</value>
+  </data>
+  <data name="BlindsTransition_LibraryDescription" xml:space="preserve">
+    <value>打开像百叶窗一样的平行条带，露出下一个片段（百叶窗、条带擦除 / venetian blinds, strip wipe）。</value>
+  </data>
+  <data name="CheckerboardTransition_LibraryDescription" xml:space="preserve">
+    <value>先扩大棋盘格中相间的方块，使下一个片段显现（棋盘擦除、方格显示 / checker wipe, tile reveal）。</value>
+  </data>
+  <data name="ZoomBlurTransition_LibraryDescription" xml:space="preserve">
+    <value>缩放图像，并在切换处将径向模糊增强到最大（缩放模糊、径向模糊转场 / zoom blur, radial blur transition）。</value>
+  </data>
+  <data name="WhipPanTransition_LibraryDescription" xml:space="preserve">
+    <value>用快速摇摄般的方向模糊扫过切换点（甩镜、摇摄模糊 / swish pan, pan blur）。</value>
+  </data>
+  <data name="GlitchTransition_LibraryDescription" xml:space="preserve">
+    <value>用错位的横条和颜色分离效果切换片段（数字故障、RGB 分离 / digital glitch, RGB split）。</value>
+  </data>
+  <data name="LightLeakTransition_LibraryDescription" xml:space="preserve">
+    <value>用暖色漏光和光斑扫过切换处（胶片烧灼、漏光、闪光 / film burn, light flash）。</value>
+  </data>
 </root>

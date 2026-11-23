@@ -3889,4 +3889,7 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>粘贴剪辑之前请先保存项目。</value>
   </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>将下方图层的内容引入当前图层（图层引用、流程输入 / layer reference, flow input）。</value>
+  </data>
 </root>

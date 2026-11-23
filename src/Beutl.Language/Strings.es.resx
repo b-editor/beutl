@@ -3889,4 +3889,7 @@ cuando el registro del historial está activado.</value>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>Guarda el proyecto antes de pegar clips.</value>
   </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>Incorpora el contenido de las capas inferiores a la capa actual (referencia de capa, entrada de flujo / layer reference, flow input).</value>
+  </data>
 </root>
