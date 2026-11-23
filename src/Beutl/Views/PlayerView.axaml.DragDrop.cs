@@ -6,7 +6,6 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -146,25 +145,23 @@ public partial class PlayerView
             return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex.Value) + 1;
         }
 
-        ElementSource? source = null;
+        MediaTime length = MediaTime.FromSeconds(5);
+        ElementDescription? description = null;
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } type)
         {
-            source = new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!);
+            description = LibraryElementDescription.Create(type, frame, length, CalculateZIndex(scene), centeredPosition);
         }
         else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
         {
-            source = new ElementSource.File(fileName);
+            description = new ElementDescription(frame, length, CalculateZIndex(scene),
+                new ElementSource.File(fileName), Position: centeredPosition);
         }
 
-        if (source != null)
+        if (description != null)
         {
             e.Handled = true;
-
-            int zindex = CalculateZIndex(scene);
-
-            await AddElement(editViewModel, new ElementDescription(
-                frame, MediaTime.FromSeconds(5), zindex, source, Position: centeredPosition));
+            await AddElement(editViewModel, description);
         }
     }
 
