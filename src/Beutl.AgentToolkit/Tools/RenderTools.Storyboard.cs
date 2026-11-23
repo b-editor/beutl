@@ -53,6 +53,8 @@ public sealed partial class RenderTools
 
         var renderedShots = new List<RenderStoryboardShot>(plan.Shots.Count);
         var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plan.Shots.Count);
+        var warnings = new List<string>();
+        var seenWarnings = new HashSet<string>(StringComparer.Ordinal);
         progress.Report(0, plan.Shots.Count, "rendering shots");
         foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plan.Shots)
         {
@@ -63,6 +65,14 @@ public sealed partial class RenderTools
                 plan.RenderScale,
                 token,
                 plan.Fonts).ConfigureAwait(false);
+            foreach (string warning in frame.Warnings)
+            {
+                if (seenWarnings.Add(warning))
+                {
+                    warnings.Add(warning);
+                }
+            }
+
             SaveStoryboardStill(frame.Bitmap, resolvedPath);
             StillFrameVisibilityAnalysis visibility = StillRenderer.AnalyzeFrameVisibility(frame.Bitmap);
             NormalizedFocalPoint? focalPoint = string.Equals(shot.Kind, StoryboardFrameKindShot, StringComparison.Ordinal)
@@ -87,7 +97,7 @@ public sealed partial class RenderTools
         progress.Report(plan.Shots.Count, plan.Shots.Count, "contact sheet");
         storyboardRenderer.RenderContactSheet(renderedShots, plan.ContactSheetPath);
         CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
-        return new RenderStoryboardResponse(plan.ContactSheetPath, renderedShots, cutEyeTrace);
+        return new RenderStoryboardResponse(plan.ContactSheetPath, renderedShots, cutEyeTrace, warnings);
     }
 
     private static void SaveStoryboardStill(Bitmap bitmap, string outputPath)

@@ -435,6 +435,7 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.Value!.Status, Is.EqualTo("completed"));
             Assert.That(result.Value.JobId, Is.Null);
             Assert.That(result.Value.Result!.Shots, Has.Count.EqualTo(2));
+            Assert.That(result.Value.Result.Warnings, Is.Empty);
             Assert.That(result.Value.Result.Shots.Select(shot => shot.Kind), Has.All.EqualTo("shot"));
             Assert.That(result.Value.Result.Shots.Select(shot => shot.SubdivisionLevel), Has.All.EqualTo(0));
             Assert.That(File.Exists(result.Value.Result.ContactSheetPath), Is.True);

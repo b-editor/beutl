@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Reactive.Disposables;
+using Beutl.AgentToolkit.NodeGraphs;
 using Beutl.Collections;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Encoding;
@@ -77,6 +78,9 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
 
             await ThrowIfExportSourcesMissingAsync(scene, frameRate, videoEnabled, audioEnabled, cancellationToken).ConfigureAwait(false);
 
+            var graphWarnings = new List<string>();
+            var seenGraphWarnings = new HashSet<string>(StringComparer.Ordinal);
+            var graphWarningsLock = new object();
             using var providers = ExportMediaProviders.Create(
                 scene, renderFonts,
                 videoEnabled,
@@ -84,7 +88,22 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
                 normalizedScale,
                 frameRate,
                 normalizedSampleRate,
-                controller.AudioSettings.GetChannelLayout(), decoders: decoders);
+                controller.AudioSettings.GetChannelLayout(),
+                decoders: decoders,
+                onFrameRendered: renderedScene =>
+                {
+                    IReadOnlyList<string> failures = NodeGraphDiagnostics.CollectRenderFailures(renderedScene);
+                    lock (graphWarningsLock)
+                    {
+                        foreach (string failure in failures)
+                        {
+                            if (seenGraphWarnings.Add(failure))
+                            {
+                                graphWarnings.Add(failure);
+                            }
+                        }
+                    }
+                });
             IFrameProvider frameProvider = providers.FrameProvider;
             ISampleProvider sampleProvider = providers.SampleProvider;
             using IDisposable frameProgressSubscription = onFrameProgress is null
@@ -110,6 +129,11 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
                         : null) is { } bitrateWarning)
             {
                 warnings.Add(bitrateWarning);
+            }
+
+            lock (graphWarningsLock)
+            {
+                warnings.AddRange(graphWarnings);
             }
 
             output.Commit(controller.OutputFiles, cancellationToken);
