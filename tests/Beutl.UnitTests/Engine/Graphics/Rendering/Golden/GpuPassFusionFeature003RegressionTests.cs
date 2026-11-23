@@ -125,8 +125,8 @@ public sealed class GpuPassFusionFeature003RegressionTests
                 "the most detailed transformed axis defines available density");
             Assert.That(rotation, Is.EqualTo(EffectiveScale.At(2)),
                 "a pure rotation must not invent or discard density");
-            Assert.That(scaleOne, Is.EqualTo((100, 50)),
-                "the scale-one effectItem allocation truncates fractional dimensions");
+            Assert.That(scaleOne, Is.EqualTo((101, 51)),
+                "the scale-one effectItem allocation includes fractional edge pixels");
             Assert.That(dense, Is.EqualTo((201, 101)),
                 "non-unit device allocation uses ceil after scaling");
         });

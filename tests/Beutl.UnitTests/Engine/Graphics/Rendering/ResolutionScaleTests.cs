@@ -321,7 +321,7 @@ public class ResolutionScaleTests
     {
         // EffectItem custom effects size local buffers from dimensions, not from rounded global edges.
         Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.7f, 50.2f), 1f),
-            Is.EqualTo((100, 50)), "the historical w == 1 path truncates fractional dimensions");
+            Is.EqualTo((101, 51)), "unit density includes the partly covered right and bottom pixels");
         Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.0f, 50.0f), 2f),
             Is.EqualTo((200, 100)), "integral bounds * w stays integral");
         Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.3f, 50.1f), 2f),

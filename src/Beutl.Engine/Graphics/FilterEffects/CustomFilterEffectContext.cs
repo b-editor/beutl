@@ -144,13 +144,13 @@ public class CustomFilterEffectContext
 
     /// <summary>
     /// Device-buffer dimensions for a logical <paramref name="bounds"/> at density <paramref name="w"/>.
-    /// The effect-item custom-effect contract sizes the local buffer from the logical dimensions only;
-    /// a fractional logical origin does not add a rounding pixel.
+    /// The logical dimensions are rounded up at every density to include partly covered pixels. A fractional
+    /// logical origin does not change the local buffer size.
     /// </summary>
     public static (int Width, int Height) DeviceBufferSize(Rect bounds, float w)
     {
-        int width = w == 1f ? (int)bounds.Width : (int)MathF.Ceiling(bounds.Width * w);
-        int height = w == 1f ? (int)bounds.Height : (int)MathF.Ceiling(bounds.Height * w);
+        int width = (int)MathF.Ceiling(bounds.Width * w);
+        int height = (int)MathF.Ceiling(bounds.Height * w);
         return (width, height);
     }
 

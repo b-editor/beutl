@@ -56,10 +56,10 @@ public class CustomTargetClampConsistencyTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(target.RenderTarget!.Width, Is.EqualTo(181));
-                Assert.That(target.RenderTarget.Height, Is.EqualTo(101));
+                Assert.That(target.RenderTarget!.Width, Is.EqualTo(182));
+                Assert.That(target.RenderTarget.Height, Is.EqualTo(102));
                 Assert.That(target.Placement.RasterBounds,
-                    Is.EqualTo(new Rect(bounds.Position, new Size(181, 101))));
+                    Is.EqualTo(new Rect(bounds.Position, new Size(182, 102))));
                 Assert.That(canvas.LogicalSize, Is.EqualTo(bounds.Size));
                 Assert.That(canvas.Transform.Transform(default(Point)), Is.EqualTo(default(Point)));
             });

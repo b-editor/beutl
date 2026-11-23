@@ -666,7 +666,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             renderer.Render(actualCanvas);
         }
 
-        using var localTarget = new CpuRenderTarget(9, 7);
+        using var localTarget = new CpuRenderTarget(10, 8);
         using (var localCanvas = new ImmediateCanvas(localTarget, RenderIntent.Preview, logicalSize: effectItemBounds.Size))
         {
             DrawEffectItemPattern(localCanvas);
@@ -727,8 +727,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
 
         using RenderTarget localTarget = retainedInput
             ?? throw new AssertionException("The effectItem callback did not receive a materialized input.");
-        Assert.That(localTarget.Width, Is.EqualTo(9));
-        Assert.That(localTarget.Height, Is.EqualTo(7));
+        Assert.That(localTarget.Width, Is.EqualTo(10));
+        Assert.That(localTarget.Height, Is.EqualTo(8));
 
         using var expectedTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
         using (var expectedCanvas = new ImmediateCanvas(expectedTarget, RenderIntent.Preview, logicalSize: domain.Size))
