@@ -76,7 +76,7 @@ public sealed class UpdateHandoffTests
     [Test]
     public void UnixZipStaging_StaysInTheHomeDirectory()
     {
-        string staging = UpdateDialogViewModel.GetZipStagingDirectory("/mnt/apps/Beutl/", "/home/user/.beutl/tmp/update");
+        string staging = UpdateFolders.GetZipStagingDirectory("/mnt/apps/Beutl/", "/home/user/.beutl/tmp/update");
 
         Assert.That(staging, Is.EqualTo(Path.Combine("/home/user/.beutl/tmp/update", "Beutl")));
     }
@@ -90,7 +90,7 @@ public sealed class UpdateHandoffTests
             string staging = Directory.CreateDirectory(Path.Combine(root, "Beutl")).FullName;
             File.WriteAllText(Path.Combine(staging, "Beutl.dll"), "an update that was not installed");
 
-            UpdateDialogViewModel.PrepareStagingDirectory(staging);
+            UpdateFolders.PrepareStagingDirectory(staging);
 
             Assert.That(Directory.GetFileSystemEntries(staging), Is.Empty);
         }

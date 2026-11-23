@@ -52,7 +52,7 @@ internal sealed class AppUpdateController
     internal AppUpdateController(UpdateConfig configuration, INotificationService notifications)
         : this(update => new UpdateDialogViewModel(update, configuration), notifications,
             () => CanDownloadAutomatically && configuration.AutoDownload.Value
-                && UpdateDialogViewModel.ClaimUpdateFolders())
+                && UpdateFolders.Claim())
     {
     }
 
