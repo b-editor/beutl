@@ -215,6 +215,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<TransformEffect>(GraphicsStrings.Transform)
                 .AddFilterEffect<MosaicEffect>(GraphicsStrings.MosaicEffect)
                 .AddFilterEffect<ColorShift>(GraphicsStrings.ColorShift)
+                .AddFilterEffect<LensChromaticAberration>(GraphicsStrings.LensChromaticAberration)
                 .AddFilterEffect<ShakeEffect>(GraphicsStrings.ShakeEffect)
                 .AddFilterEffect<DisplacementMapEffect>(GraphicsStrings.DisplacementMapEffect)
                 .AddFilterEffect<MeshWarp>(GraphicsStrings.MeshWarp)

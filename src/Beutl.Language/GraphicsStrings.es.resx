@@ -377,6 +377,12 @@
   <data name="ColorShift_RedOffset" xml:space="preserve">
     <value>Desplazamiento rojo</value>
   </data>
+  <data name="LensChromaticAberration" xml:space="preserve">
+    <value>Aberración cromática de lente</value>
+  </data>
+  <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
+    <value>Aplica al canal rojo un factor de escala de (1 + Cantidad/100) y al canal azul un factor de (1 - Cantidad/100) respecto al centro. El canal verde conserva su posición. Los valores negativos intercambian los colores de los bordes.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>Curvas</value>
   </data>
