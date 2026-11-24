@@ -120,6 +120,8 @@ public sealed partial class ElementViewModel
             .AddTo(_disposables);
 
         // Changing clip width or row height changes the video slot count, so cached slot indices no longer match.
+        // Keep _visibleRangeStale set until the rebuild reports the new count so queued old-count ranges cannot
+        // cancel the rebuild or query past the new strip length.
         Observable.Merge(
                 Width.Select(_ => true),
                 Timeline.LayerRowHeight.Skip(1)
@@ -133,16 +135,7 @@ public sealed partial class ElementViewModel
             })
             .Throttle(TimeSpan.FromMilliseconds(500))
             .ObserveOnUIDispatcher()
-            .Subscribe(_ =>
-            {
-                if (_visibleRangeStale)
-                {
-                    _visibleRangeStale = false;
-                    _lastVisibleStart = _lastVisibleEnd = -1;
-                }
-
-                UpdateThumbnailsAsync();
-            })
+            .Subscribe(_ => UpdateThumbnailsAsync())
             .AddTo(_disposables);
 
         _visibleRangeSubject
@@ -248,6 +241,7 @@ public sealed partial class ElementViewModel
     {
         CancelThumbnailsLoading();
         CancelScrollThumbnailsLoading();
+        _visibleRangeStale = false;
         _lastVisibleStart = _lastVisibleEnd = -1;
         ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
         VideoThumbnailCount.Value = 0;
@@ -348,7 +342,7 @@ public sealed partial class ElementViewModel
 
     private async Task UpdateVisibleThumbnailsAsync(int start, int end)
     {
-        if (!CanGenerateThumbnails || end < start) return;
+        if (!CanGenerateThumbnails || _visibleRangeStale || end < start) return;
 
         var provider = _currentThumbnailsProvider;
         if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
@@ -404,8 +398,14 @@ public sealed partial class ElementViewModel
             }
         });
 
-        int startIndex = _lastVisibleStart >= 0 ? _lastVisibleStart : 0;
-        int endIndex = _lastVisibleEnd >= 0 ? _lastVisibleEnd : -1;
+        bool staleRange = _visibleRangeStale;
+        if (staleRange)
+        {
+            _lastVisibleStart = _lastVisibleEnd = -1;
+        }
+
+        int startIndex = !staleRange && _lastVisibleStart >= 0 ? _lastVisibleStart : 0;
+        int endIndex = !staleRange && _lastVisibleEnd >= 0 ? _lastVisibleEnd : -1;
 
         await StreamVideoThumbnailsAsync(provider, (int)width, startIndex, endIndex, ct);
     }
@@ -429,6 +429,7 @@ public sealed partial class ElementViewModel
                 {
                     if (!ct.IsCancellationRequested)
                     {
+                        _visibleRangeStale = false;
                         VideoThumbnailCount.Value = count;
                         ThumbnailReady?.Invoke(index, !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null);
                     }

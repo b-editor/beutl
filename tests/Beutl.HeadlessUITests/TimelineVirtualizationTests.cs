@@ -793,6 +793,8 @@ public sealed class TimelineVirtualizationTests
             }
 
             config.TimelineLayerSize.Value = TimelineLayerSize.Large;
+            // Simulate a stale old-count visible range emitted while the rebuild is pending/in flight.
+            model.OnVisibleRangeChanged(smallCount - 1, smallCount - 1);
             await HeadlessTestHelpers.WaitUntilAsync(() =>
                 videoSource.LastRequestedHeight == 64 && model.VideoThumbnailCount.Value < smallCount);
             HeadlessTestHelpers.Render(3);

@@ -328,7 +328,16 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
                 await AnimationRequested(newMargin, newLeftMargin, cancellationToken);
             }
 
-            Margin.Value = newMargin;
+            if (_disposed) return;
+
+            LayerHeaderViewModel currentHeader = LayerHeader.Value ?? layerHeader;
+            int currentIndex = currentHeader.Inlines.IndexOf(this);
+            if (currentIndex >= 0) Index.Value = currentIndex;
+            double committedTop = currentHeader.CalculateInlineTop(Index.Value) + Timeline.LayerRowHeight.Value;
+            Thickness committedLayerMargin = LayerHeader.Value is { } current
+                ? new Thickness(0, Timeline.CalculateLayerTop(current.Number), 0, 0)
+                : layerMargin;
+            Margin.Value = new Thickness(0, committedTop, 0, 0) + committedLayerMargin;
             LeftMargin.Value = newLeftMargin;
         }
     }

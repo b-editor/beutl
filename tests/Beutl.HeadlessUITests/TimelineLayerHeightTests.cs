@@ -217,6 +217,23 @@ public sealed class TimelineLayerHeightTests
             host.Model.DetachInline(host.Model.Inlines[0]);
             Assert.That(host.Model.Inlines.Single().Margin.Value.Top, Is.EqualTo(128));
             Assert.That(host.Model.LayerHeaders[1].Height.Value, Is.EqualTo(128));
+
+            // Changing row height while an inline settle animation is awaiting must commit the new row height.
+            size.Value = TimelineLayerSize.Small;
+            HeadlessTestHelpers.Render(3);
+            InlineAnimationLayerViewModel remaining = host.Model.Inlines.Single();
+            var animationStarted = new TaskCompletionSource();
+            var finishAnimation = new TaskCompletionSource();
+            remaining.AnimationRequested = async (_, _, _) =>
+            {
+                animationStarted.TrySetResult();
+                await finishAnimation.Task;
+            };
+            remaining.AnimationRequest(remaining.PrepareAnimation(), new Thickness(0, 25, 0, 0), default);
+            await animationStarted.Task;
+            size.Value = TimelineLayerSize.Large;
+            finishAnimation.SetResult();
+            await HeadlessTestHelpers.WaitUntilAsync(() => remaining.Margin.Value.Top == 128);
         }
         finally
         {
