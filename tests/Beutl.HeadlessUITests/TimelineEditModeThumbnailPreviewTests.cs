@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
@@ -89,9 +90,11 @@ public class TimelineEditModeThumbnailPreviewTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task TrimEdit_AnchorsFrontAndBackContent(bool slide)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task TrimEdit_AnchorsFrontAndBackContent(bool slide, bool animatedSpeed)
     {
         using var config = new PreviewConfigScope();
         var (_, timeline) = await TimelineTestHost.OpenTimelineAsync("trim-thumbnail-preview",
@@ -102,10 +105,18 @@ public class TimelineEditModeThumbnailPreviewTests
         ElementViewModel front = clips[0];
         ElementViewModel back = clips[^1];
         ElementViewModel dragged = slide ? clips[1] : front;
+        if (animatedSpeed)
+            AnimateSpeed(back.Model.Objects.OfType<SourceSound>().Single());
+
         timeline.ClearSelected();
         timeline.SelectElement(dragged);
         timeline.IsRollMode.Value = !slide;
         timeline.IsSlideMode.Value = slide;
+
+        WaveformChunk? observedChunk = null;
+        WaveformChunk? previewChunk = null;
+        int probeIndex = -1;
+        back.WaveformChunkReady += ObserveWaveform;
         try
         {
             using var view = new TimelineViewScope(dragged, width: 1400);
@@ -116,6 +127,8 @@ public class TimelineEditModeThumbnailPreviewTests
 
             double frontWidth = frontWave.Bounds.Width;
             double backWidth = backWave.Bounds.Width;
+            int baseCount = back.WaveformChunkCount.Value;
+            probeIndex = baseCount / 4;
             MediaTime delta = MediaTime.FromSeconds(slide ? 0.5 : -0.5);
             double deltaPixels = delta.TimeToPixel(view.Scale);
             double pressX = slide ? view.Border.Bounds.Width / 2 : view.Border.Bounds.Width - 2;
@@ -129,17 +142,32 @@ public class TimelineEditModeThumbnailPreviewTests
                     Assert.That(front.ThumbnailContentOffsetX.Value, Is.Zero);
                     Assert.That(back.IsThumbnailPreviewActive.Value, Is.True);
                     Assert.That(back.ThumbnailContentWidth.Value, Is.EqualTo(backWidth));
-                    Assert.That(back.ThumbnailContentOffsetX.Value, Is.EqualTo(-deltaPixels).Within(0.5));
+                    Assert.That(back.ThumbnailContentOffsetX.Value, Is.EqualTo(animatedSpeed ? 0 : -deltaPixels).Within(0.5));
                     if (slide)
                         Assert.That(double.IsNaN(dragged.ThumbnailContentWidth.Value), Is.True);
                 });
 
-                if (!slide)
+                if (animatedSpeed)
+                {
+                    await HeadlessTestHelpers.WaitUntilAsync(() => observedChunk.HasValue);
+                    if (!slide)
+                        await HeadlessTestHelpers.WaitUntilAsync(() => backWave.GetMissingIndices(baseCount, baseCount + 5).Count == 0);
+                    previewChunk = observedChunk;
+                    observedChunk = null;
+                }
+                else if (!slide)
+                {
                     await HeadlessTestHelpers.WaitUntilAsync(() => backWave.GetMissingIndices(-10, -1).Count == 0);
+                }
             });
 
             await HeadlessTestHelpers.WaitUntilAsync(() =>
                 double.IsNaN(front.ThumbnailContentWidth.Value) && double.IsNaN(back.ThumbnailContentWidth.Value));
+            if (previewChunk is { } sample)
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(() => observedChunk.HasValue);
+                Assert.That(observedChunk!.Value.MaxValue, Is.EqualTo(sample.MaxValue).Within(0.05f));
+            }
             Assert.Multiple(() =>
             {
                 Assert.That(front.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2) + delta));
@@ -153,6 +181,13 @@ public class TimelineEditModeThumbnailPreviewTests
         {
             timeline.IsRollMode.Value = false;
             timeline.IsSlideMode.Value = false;
+            back.WaveformChunkReady -= ObserveWaveform;
+        }
+
+        void ObserveWaveform(WaveformChunk chunk)
+        {
+            if (chunk.Index == probeIndex)
+                observedChunk = chunk;
         }
     }
 
@@ -174,45 +209,30 @@ public class TimelineEditModeThumbnailPreviewTests
         int baseCount = clip.VideoThumbnailCount.Value;
 
         // Queue a rebuild for the zoomed layout behind a render-thread operation.
-        using var resumeRendering = new ManualResetEventSlim();
-        var blocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        Task blocker = RenderThread.Dispatcher.InvokeAsync(() =>
-        {
-            blocked.SetResult();
-            if (!resumeRendering.Wait(TimeSpan.FromSeconds(10)))
-                throw new TimeoutException("The resize did not release the render thread.");
-        });
-        try
-        {
-            await blocked.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            timeline.Options.Value = timeline.Options.Value with { Scale = 1.5f };
-            HeadlessTestHelpers.Render(3);
-            clip.InvalidateAndUpdateThumbnails();
-            double baseWidth = strip.Bounds.Width;
-            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "video-before");
+        await using var pause = new DispatcherPause(RenderThread.Dispatcher);
+        await pause.Entered;
+        timeline.Options.Value = timeline.Options.Value with { Scale = 1.5f };
+        HeadlessTestHelpers.Render(3);
+        clip.InvalidateAndUpdateThumbnails();
+        double baseWidth = strip.Bounds.Width;
+        HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "video-before");
 
-            Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width - 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
-            Point release = press.WithX(press.X + MediaTime.FromSeconds(0.75).TimeToPixel(1.5f));
-            await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
-            {
-                resumeRendering.Set();
-                await HeadlessTestHelpers.WaitUntilAsync(() => strip.GetMissingIndices(baseCount, baseCount).Count == 0);
-                Assert.Multiple(() =>
-                {
-                    Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
-                    Assert.That(clip.VideoThumbnailCount.Value, Is.EqualTo(baseCount));
-                    Assert.That(clip.ThumbnailContentWidth.Value, Is.EqualTo(baseWidth));
-                });
-                HeadlessTestHelpers.Render(3);
-                HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "video-drag");
-                view.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
-            });
-        }
-        finally
+        Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width - 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
+        Point release = press.WithX(press.X + MediaTime.FromSeconds(0.75).TimeToPixel(1.5f));
+        await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
         {
-            resumeRendering.Set();
-            await blocker;
-        }
+            pause.Release();
+            await HeadlessTestHelpers.WaitUntilAsync(() => strip.GetMissingIndices(baseCount, baseCount).Count == 0);
+            Assert.Multiple(() =>
+            {
+                Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
+                Assert.That(clip.VideoThumbnailCount.Value, Is.EqualTo(baseCount));
+                Assert.That(clip.ThumbnailContentWidth.Value, Is.EqualTo(baseWidth));
+            });
+            HeadlessTestHelpers.Render(3);
+            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "video-drag");
+            view.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        });
 
         await HeadlessTestHelpers.WaitUntilAsync(() => clip.VideoThumbnailCount.Value > baseCount);
         Assert.That(clip.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
@@ -282,20 +302,7 @@ public class TimelineEditModeThumbnailPreviewTests
         using var config = new PreviewConfigScope();
         ElementViewModel clip = await OpenAudioClip(startSeconds: 1, lengthSeconds: 2, offsetSeconds: 1, sourceSeconds: 10);
         var sound = clip.Model.Objects.OfType<SourceSound>().Single();
-        var speed = new KeyFrameAnimation<float> { UseGlobalClock = { Value = false } };
-        speed.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = { Value = MediaTime.Zero },
-            Value = { Value = 100 },
-            Easing = { Value = new LinearEasing() }
-        });
-        speed.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = { Value = MediaTime.FromSeconds(2) },
-            Value = { Value = 200 },
-            Easing = { Value = new LinearEasing() }
-        });
-        sound.Speed.SetKeyFrameAnimation(speed);
+        AnimateSpeed(sound);
         clip.Timeline.ClearSelected();
         clip.Timeline.SelectElement(clip);
         clip.Timeline.IsSlipMode.Value = true;
@@ -317,8 +324,27 @@ public class TimelineEditModeThumbnailPreviewTests
                         "Variable-speed slips must resample with the source-offset delta rather than translating the old strip.");
                     Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
                 });
-                await Task.Delay(50);
-                HeadlessTestHelpers.Render(3);
+                bool waveformArrived = false;
+                clip.WaveformChunkReady += ObserveWaveform;
+                try
+                {
+                    // Keep sending different source deltas more often than the preview sampling interval.
+                    for (int i = 0; i < 80 && !waveformArrived; i++)
+                    {
+                        view.Window.MouseMove(release.WithX(release.X + (i % 8) * 5),
+                            RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
+                        HeadlessTestHelpers.Settle();
+                        await Task.Delay(5);
+                    }
+
+                    Assert.That(waveformArrived, Is.True, "Preview must stream while the pointer is still moving.");
+                }
+                finally
+                {
+                    clip.WaveformChunkReady -= ObserveWaveform;
+                }
+
+                void ObserveWaveform(WaveformChunk _) => waveformArrived = true;
             });
 
             await HeadlessTestHelpers.WaitUntilAsync(() => double.IsNaN(clip.ThumbnailContentWidth.Value));
@@ -338,6 +364,10 @@ public class TimelineEditModeThumbnailPreviewTests
         using var view = new TimelineViewScope(clip, width: 1200);
         await WaitForWaveformReady(clip, view.Waveform);
 
+        int baseCount = clip.WaveformChunkCount.Value;
+        await using var pause = new DispatcherPause(ComposeThread.Dispatcher);
+        await pause.Entered;
+
         var settle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         clip.AnimationRequested = (_, _) => settle.Task;
         clip.UpdateMediaPreview(0);
@@ -345,7 +375,16 @@ public class TimelineEditModeThumbnailPreviewTests
         Task resize = clip.SubmitViewModelChanges();
         try
         {
-            Assert.That(clip.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(clip.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+                Assert.That(double.IsNaN(clip.ThumbnailContentWidth.Value), Is.False);
+                Assert.That(view.Waveform.GetMissingIndices(0, baseCount - 1), Is.Empty,
+                    "The original waveform stays visible until the first replacement chunk arrives.");
+            });
+            pause.Release();
+            await HeadlessTestHelpers.WaitUntilAsync(() => clip.WaveformChunkCount.Value > baseCount);
             await WaitForWaveformReady(clip, view.Waveform);
 
             clip.UpdateMediaPreview(-10);
@@ -367,6 +406,24 @@ public class TimelineEditModeThumbnailPreviewTests
             await resize;
             clip.EndMediaPreview(committed: false);
         }
+    }
+
+    private static void AnimateSpeed(SourceSound sound)
+    {
+        var speed = new KeyFrameAnimation<float> { UseGlobalClock = { Value = false } };
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 100 },
+            Easing = { Value = new LinearEasing() }
+        });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = 200 },
+            Easing = { Value = new LinearEasing() }
+        });
+        sound.Speed.SetKeyFrameAnimation(speed);
     }
 
     private static async Task WaitForWaveformReady(ElementViewModel clip, WaveformControl waveform)
@@ -476,6 +533,41 @@ public class TimelineEditModeThumbnailPreviewTests
 
             sound = buffer;
             return true;
+        }
+    }
+
+    private sealed class DispatcherPause : IAsyncDisposable
+    {
+        private readonly ManualResetEventSlim _release = new();
+        private readonly Task _blocker;
+
+        public DispatcherPause(Dispatcher dispatcher)
+        {
+            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Entered = entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            _blocker = dispatcher.InvokeAsync(() =>
+            {
+                entered.SetResult();
+                if (!_release.Wait(TimeSpan.FromSeconds(10)))
+                    throw new TimeoutException("The test did not release the dispatcher.");
+            });
+        }
+
+        public Task Entered { get; }
+
+        public void Release() => _release.Set();
+
+        public async ValueTask DisposeAsync()
+        {
+            Release();
+            try
+            {
+                await _blocker;
+            }
+            finally
+            {
+                _release.Dispose();
+            }
         }
     }
 

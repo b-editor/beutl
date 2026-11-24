@@ -51,9 +51,6 @@ public sealed partial class ElementViewModel : IDisposable
     private bool _isDisposed;
     private bool _viewStateInitialized;
     private readonly Subject<(int Start, int End)> _visibleRangeSubject = new();
-    private readonly Subject<(int Start, int End)> _previewVisibleRangeSubject = new();
-    private readonly Subject<(int Start, int End)> _waveformVisibleRangeSubject = new();
-    private CancellationTokenSource? _waveformPreviewCts;
     private readonly IProxyStore? _proxyStore;
     private readonly IProxyJobQueue? _proxyJobQueue;
     private string? _proxySourceKey;
@@ -431,18 +428,9 @@ public sealed partial class ElementViewModel : IDisposable
         _thumbnailsInvalidatedSubject.Dispose();
         _elementEditedSubject.Dispose();
         _visibleRangeSubject.Dispose();
-        _previewVisibleRangeSubject.Dispose();
-        _waveformVisibleRangeSubject.Dispose();
-
+        _previewTimer?.Stop();
         CancelThumbnailsLoading();
-
-        _scrollThumbnailsCts?.Cancel();
-        _scrollThumbnailsCts?.Dispose();
-        _scrollThumbnailsCts = null;
-
-        _waveformPreviewCts?.Cancel();
-        _waveformPreviewCts?.Dispose();
-        _waveformPreviewCts = null;
+        CancelScrollThumbnailsLoading();
         if (_lastThumbnailsCacheKey != null)
             InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 

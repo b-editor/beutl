@@ -119,7 +119,8 @@ public sealed partial class ElementView
             ElementViewModel ViewModel,
             double InitialLeft,
             double InitialWidth,
-            MediaTime InitialStart);
+            MediaTime InitialStart,
+            SlippableMedia.Target? ResampleTarget = null);
 
         private record struct TrimDragContext(
             TrimDragKind Kind,
@@ -281,7 +282,7 @@ public sealed partial class ElementView
             SnapResult snap = view.SnapTime(pointerFrame, scale, alt);
             MediaTime requestedDelta = (snap.Time - pressTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             MediaTime previewDelta = _trimDrag.ClampDelta(requestedDelta);
-            ApplyTrimDragPreview(previewDelta.TimeToPixel(scale));
+            ApplyTrimDragPreview(previewDelta, scale);
             view.UpdateSnapFeedback(snap.DidSnap && previewDelta == requestedDelta ? snap.Time : null, scale, timestamp);
         }
 
@@ -331,9 +332,10 @@ public sealed partial class ElementView
             }
         }
 
-        private void ApplyTrimDragPreview(double deltaPixels)
+        private void ApplyTrimDragPreview(MediaTime delta, float scale)
         {
             TrimDragContext ctx = _trimDrag;
+            double deltaPixels = delta.TimeToPixel(scale);
 
             foreach (TrimSegment front in ctx.Fronts)
             {
@@ -348,7 +350,7 @@ public sealed partial class ElementView
 
             foreach (TrimSegment back in ctx.Backs)
             {
-                back.ViewModel.UpdateMediaPreview(-deltaPixels);
+                back.ViewModel.UpdateMediaPreview(-deltaPixels, back.ResampleTarget?.SourceDelta(delta, trim: true));
                 back.ViewModel.BorderMargin.Value = new Thickness(back.InitialLeft + deltaPixels, 0, 0, 0);
                 back.ViewModel.Width.Value = back.InitialWidth - deltaPixels;
             }
@@ -495,6 +497,7 @@ public sealed partial class ElementView
             // only other group members' cuts, detached from the pointer.
             if (!pairs.Any(p => p.Front == model || p.Back == model)) return false;
 
+            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene, pairs, viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, decoders: ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext));
             var fronts = new TrimSegment[pairs.Count];
             var backs = new TrimSegment[pairs.Count];
             for (int i = 0; i < pairs.Count; i++)
@@ -503,10 +506,9 @@ public sealed partial class ElementView
                 ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(pairs[i].Back);
                 if (frontVm is null || backVm is null) return false;
                 fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value, frontVm.Model.Start.Value);
-                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value, backVm.Model.Start.Value);
+                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value, backVm.Model.Start.Value,
+                    backVm.FindResampledThumbnailTarget(constraints.BackTargets, trim: true));
             }
-
-            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene, pairs, viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, decoders: ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext));
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Roll,
@@ -526,6 +528,9 @@ public sealed partial class ElementView
                 viewModel.Scene, CollectTrimMembers(viewModel));
             if (lanes is null) return false;
 
+            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene,
+                lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(), viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig,
+                lanes.SelectMany(l => l.Middles), decoders: ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext));
             var fronts = new TrimSegment[lanes.Count];
             var backs = new TrimSegment[lanes.Count];
             var middles = new List<TrimSegment>();
@@ -535,7 +540,8 @@ public sealed partial class ElementView
                 ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(lanes[i].Back);
                 if (frontVm is null || backVm is null) return false;
                 fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value, frontVm.Model.Start.Value);
-                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value, backVm.Model.Start.Value);
+                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value, backVm.Model.Start.Value,
+                    backVm.FindResampledThumbnailTarget(constraints.BackTargets, trim: true));
 
                 foreach (Element middle in lanes[i].Middles)
                 {
@@ -544,10 +550,6 @@ public sealed partial class ElementView
                     middles.Add(new TrimSegment(middleVm, middleVm.BorderMargin.Value.Left, middleVm.Width.Value, middleVm.Model.Start.Value));
                 }
             }
-
-            var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene,
-                lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(), viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig,
-                lanes.SelectMany(l => l.Middles), decoders: ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext));
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Slide,

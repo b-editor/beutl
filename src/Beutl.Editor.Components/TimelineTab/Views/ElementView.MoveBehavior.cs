@@ -4,11 +4,9 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media.Immutable;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.Engine;
 using Beutl.JsonConverters;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
@@ -103,10 +101,16 @@ public sealed partial class ElementView
         // The first move opens the DragSession; null means another gesture holds history.
         private bool EnsureDrag(ElementView view, ElementViewModel viewModel)
         {
-            _drag ??= DragSession.Begin(
+            if (_drag != null) return true;
+
+            _drag = DragSession.Begin(
                 viewModel.Timeline.EditorContext, view.border, CommandNames.MoveElement, ConfirmDrag, CancelDrag);
             if (_drag is not null)
+            {
+                if (_isSlipDrag)
+                    PrepareSlipPreview(viewModel, _slipTargets);
                 return true;
+            }
 
             CancelDrag();
             return false;
@@ -137,15 +141,7 @@ public sealed partial class ElementView
                     double offsetX = -previewDelta.TimeToPixel(scale);
                     foreach (SlipPreviewEntry entry in _slipPreviewElements)
                     {
-                        if (entry.VariableSpeedTarget is { } variableTarget)
-                        {
-                            MediaTime sourceDelta = variableTarget.SourceDelta(previewDelta, trim: false);
-                            entry.ViewModel.UpdateMediaPreview(0, sourceDelta);
-                        }
-                        else
-                        {
-                            entry.ViewModel.UpdateMediaPreview(offsetX);
-                        }
+                        entry.ViewModel.UpdateMediaPreview(offsetX, entry.VariableSpeedTarget?.SourceDelta(previewDelta, trim: false));
                     }
 
                     view.UpdateSnapFeedback(slipSnap.DidSnap && previewDelta == requestedDelta ? slipSnap.Time : null, scale, e.Timestamp);
@@ -232,7 +228,6 @@ public sealed partial class ElementView
                     _pressed = true;
                     _isSlipDrag = true;
                     _slipTargets = CollectTrimMembers(viewModel);
-                    PrepareSlipPreview(viewModel, _slipTargets);
                     _start = _lastPosition = e.GetPosition(view);
                     _lastAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                     // PointerCaptureLost routes Direct, so move the capture to the border.
@@ -281,27 +276,13 @@ public sealed partial class ElementView
                 mediaTargets.AddRange(collected);
                 if (viewModel.Timeline.GetViewModelFor(element) is { } vm)
                 {
-                    SlippableMedia.Target? variableTarget = FindVariableSpeedThumbnailTarget(vm, collected);
+                    SlippableMedia.Target? variableTarget = vm.FindResampledThumbnailTarget(collected, trim: false);
                     previewElements.Add(new SlipPreviewEntry(vm, variableTarget));
                 }
             }
 
             _slipMediaTargets = mediaTargets;
             _slipPreviewElements = [.. previewElements];
-        }
-
-        // Translating the existing strip by previewDelta is exact only when source time is linear in clip time.
-        // When the thumbnail provider's speed varies over time, resample with the planned source-offset delta instead.
-        private static SlippableMedia.Target? FindVariableSpeedThumbnailTarget(
-            ElementViewModel viewModel,
-            List<SlippableMedia.Target> targets)
-        {
-            var provider = viewModel.FindThumbnailsProvider();
-            return provider is (Beutl.Graphics.SourceVideo or Beutl.Audio.SourceSound)
-                && provider is ITimeMappedSource { Speed: { } speed } source
-                && (speed.HasExpression || speed.GetKeyFrameAnimation() is { KeyFrames.Count: > 0 })
-                ? targets.FirstOrDefault(t => ReferenceEquals(t.Offset, source.OffsetPosition))
-                : null;
         }
 
         private void CommitSlipDrag(ElementView view, ElementViewModel viewModel)
@@ -335,8 +316,7 @@ public sealed partial class ElementView
             double? translatedOffsetX = applied ? -effectiveDelta.TimeToPixel(scale) : null;
             foreach (SlipPreviewEntry entry in previewElements)
             {
-                double? finalOffsetX = entry.VariableSpeedTarget != null ? (applied ? 0d : null) : translatedOffsetX;
-                entry.ViewModel.EndMediaPreview(committed: applied, finalContentOffsetX: finalOffsetX);
+                entry.ViewModel.EndMediaPreview(committed: applied, finalContentOffsetX: translatedOffsetX);
             }
         }
 

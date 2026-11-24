@@ -113,7 +113,7 @@ public sealed partial class WaveformControl : Control
             buffer: 16,
             ContentWidth,
             ContentOffsetX,
-            allowOutOfRange: false);
+            allowOutOfRange: IsPreviewActive);
 
     public List<int> GetMissingIndices(int start, int end)
     {
@@ -131,14 +131,7 @@ public sealed partial class WaveformControl : Control
         if (!IsPreviewActive)
             return;
 
-        var (start, end) = TimelineSlotRange.Compute(
-            this,
-            _scrollViewer,
-            ChunkCount,
-            buffer: 16,
-            ContentWidth,
-            ContentOffsetX,
-            allowOutOfRange: true);
+        var (start, end) = GetVisibleRange();
         if (start != _lastNotifiedStart || end != _lastNotifiedEnd)
         {
             _lastNotifiedStart = start;
