@@ -122,23 +122,41 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
         const string heads = "refs/heads/";
         try
         {
-            string branchRef = revision.StartsWith(heads, StringComparison.Ordinal) ? revision : heads + revision;
+            string? branchRef = revision.StartsWith(heads, StringComparison.Ordinal) ? revision : null;
+            string target = revision == "HEAD" ? "refs/remotes/origin/HEAD" : revision;
             bool fullObjectId = revision.Length is 40 or 64 && GitRevisionValidator.IsHexadecimalRevision(revision);
-            bool abbreviatedObjectId = GitRevisionValidator.IsAbbreviatedObjectId(revision);
-            bool isBranch = revision.StartsWith(heads, StringComparison.Ordinal)
-                || !fullObjectId && revision != "HEAD" && !revision.StartsWith("refs/", StringComparison.Ordinal)
-                && (await GitCliVersionControlService.RefExistsAsync(repository, runner, $"refs/remotes/origin/{revision}",
-                        cancellationToken).ConfigureAwait(false)
-                    || !abbreviatedObjectId && await GitCliVersionControlService.RefExistsAsync(repository, runner, branchRef,
-                        cancellationToken).ConfigureAwait(false));
-            if (isBranch)
+            if (!fullObjectId && revision != "HEAD" && !revision.StartsWith("refs/", StringComparison.Ordinal))
+            {
+                string candidate = heads + revision;
+                if (await GitCliVersionControlService.RefExistsAsync(repository, runner, $"refs/remotes/origin/{revision}",
+                        cancellationToken).ConfigureAwait(false))
+                {
+                    branchRef = candidate;
+                }
+                else if (!GitRevisionValidator.IsAbbreviatedObjectId(revision))
+                {
+                    // Clone resolves a remote branch or tag. Allow a local-only branch as a fallback.
+                    string tag = $"refs/tags/{revision}";
+                    if (await GitCliVersionControlService.RefExistsAsync(repository, runner, tag, cancellationToken)
+                            .ConfigureAwait(false))
+                    {
+                        target = tag;
+                    }
+                    else if (await GitCliVersionControlService.RefExistsAsync(repository, runner, candidate, cancellationToken)
+                                 .ConfigureAwait(false))
+                    {
+                        branchRef = candidate;
+                    }
+                }
+            }
+
+            if (branchRef is not null)
             {
                 string currentBranch = (await runner.RunAsync(repository, ["symbolic-ref", "--quiet", "HEAD"],
                     GitCommandOptions.Local, cancellationToken).ConfigureAwait(false)).Stdout.TrimEnd('\r', '\n');
                 return currentBranch == branchRef;
             }
 
-            string target = revision == "HEAD" ? "refs/remotes/origin/HEAD" : revision;
             string? requestedCommit = await GitCliVersionControlService.TryResolveHostedCommitAsync(repository, runner, target,
                 cancellationToken).ConfigureAwait(false);
             return requestedCommit is not null

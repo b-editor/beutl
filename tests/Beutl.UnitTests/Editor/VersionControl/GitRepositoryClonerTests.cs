@@ -277,6 +277,31 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
             Is.EqualTo(project));
     }
 
+    [Test]
+    public async Task Locator_resolves_a_tag_before_a_local_only_branch_of_the_same_name()
+    {
+        await CommitFileAsync("Project.bep", "released", "Initial release");
+        await RunGitAsync("tag", "-a", "release", "-m", "Initial release");
+        await RunGitAsync("switch", "-c", "release");
+        await CommitFileAsync("Project.bep", "later", "Advance the local branch");
+        await RunGitAsync("remote", "add", "origin", $"{BeutlApiApplication.BaseUrl}/api/v3/git/{RepoId}.git");
+        var locator = new LocalRepositoryLocator(CreateInstalledLocator());
+        string project = Path.Combine(Root, "Project.bep");
+        var repositoryId = Guid.Parse(RepoId);
+
+        Assert.That(await locator.FindProjectAsync([project], repositoryId, CancellationToken.None, "release"), Is.Null);
+        Assert.That(await locator.FindProjectAsync([project], repositoryId, CancellationToken.None, "refs/heads/release"),
+            Is.EqualTo(project));
+
+        const string originRelease = "refs/remotes/origin/release";
+        await RunGitAsync("update-ref", originRelease, "HEAD");
+        Assert.That(await locator.FindProjectAsync([project], repositoryId, CancellationToken.None, "release"), Is.EqualTo(project));
+
+        await RunGitAsync("update-ref", "-d", originRelease);
+        await RunGitAsync("switch", "--detach", "refs/tags/release");
+        Assert.That(await locator.FindProjectAsync([project], repositoryId, CancellationToken.None, "release"), Is.EqualTo(project));
+    }
+
     private sealed class CredentialProbeRunner(IGitCliRunner inner) : DelegatingGitCliRunner(inner)
     {
         public Dictionary<string, string> Credentials { get; } = new(StringComparer.Ordinal);
