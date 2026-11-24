@@ -7,6 +7,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Models;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -17,8 +18,11 @@ namespace Beutl.ViewModels;
 public partial class PlayerViewModel : IPreviewPuppetPinEditor
 {
     private CancellationTokenSource? _puppetPlacement;
+    private readonly ReactivePropertySlim<Ref<Bitmap>?> _puppetPlacementImage = new();
 
     internal ReactivePropertySlim<Puppet?> PuppetPlacementEffect { get; } = new();
+
+    internal ReadOnlyReactivePropertySlim<Ref<Bitmap>?> EditorPreviewImage { get; private set; } = null!;
 
     internal ReactivePropertySlim<PuppetPin?> SelectedPuppetPin { get; } = new();
 
@@ -26,6 +30,10 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
 
     private void InitializePuppetPinEditor()
     {
+        EditorPreviewImage = _puppetPlacementImage.CombineLatest(PreviewImage, static (placement, preview) => placement ?? preview)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        _puppetPlacementImage.DisposeWith(_disposables);
         _editorSelection.SelectedObject.Subscribe(selected =>
         {
             if (SelectedPuppetPin.Value is { } pin && !ReferenceEquals(pin.FindHierarchicalParent<Puppet>(), selected))
@@ -84,9 +92,15 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
         CancellationTokenSource? request = _puppetPlacement;
         if (request is null) return;
 
-        _puppetPlacement = null;
-        PuppetPlacementEffect.Value = null;
+        ClearPuppetPinPlacement();
         request.Cancel();
+    }
+
+    private void ClearPuppetPinPlacement()
+    {
+        _puppetPlacement = null;
+        ReplaceImage(_puppetPlacementImage, null);
+        PuppetPlacementEffect.Value = null;
     }
 
     async Task<bool> IPreviewPuppetPinEditor.PlacePinsAsync(
@@ -102,6 +116,7 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
         PuppetPlacementEffect.Value = effect;
         using var select = _editorSelection.SelectedObject.Where(selected => !ReferenceEquals(selected, effect))
             .Subscribe(_ => request.Cancel());
+        using var tool = IsMoveMode.Where(move => !move).Subscribe(_ => request.Cancel());
         try
         {
             await Pause();
@@ -121,18 +136,25 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
             while (!request.IsCancellationRequested)
             {
                 int revision = Volatile.Read(ref sceneRevision);
-                Puppet.PinPlacement? placement = await RenderThread.Dispatcher.InvokeAsync(() =>
+                HashSet<EngineObject> after = FilterEffectOrder.After(effect);
+                var capture = await RenderThread.Dispatcher.InvokeAsync(() =>
                 {
                     using SceneRenderer renderer = EditViewModel.CreatePreviewRenderer(scene, scale, disableResourceShare: true);
                     renderer.CacheOptions = RenderCacheOptions.Disabled;
-                    return effect.CapturePinPlacement(() => renderer.Render(
+                    // Show the same effect stage that supplies the placement mesh. Later effects may move its pixels.
+                    renderer.Compositor.DisabledObjects = after;
+                    Puppet.PinPlacement? capturedPlacement = effect.CapturePinPlacement(() => renderer.Render(
                         renderer.Compositor.EvaluateGraphics(time, frameRate, request.Token)));
+                    var stageImage = after.Count > 0 && capturedPlacement is not null ? Ref<Bitmap>.Create(renderer.Snapshot()) : null;
+                    return (Placement: capturedPlacement, Image: stageImage);
                 }, ct: request.Token);
+                using var image = capture.Image;
                 if (request.IsCancellationRequested) return true;
                 if (revision != Volatile.Read(ref sceneRevision)) continue;
-                if (placement is null) return false;
+                if (capture.Placement is not { } placement) return false;
 
                 // Refresh the transform after the isolated renderer has released the render thread.
+                ReplaceImage(_puppetPlacementImage, image);
                 _editorSelection.Select(effect, notifyIfSelected: true);
                 PuppetPin? pin = null;
                 pickRevision = revision;
@@ -174,10 +196,7 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
         finally
         {
             if (ReferenceEquals(_puppetPlacement, request))
-            {
-                _puppetPlacement = null;
-                PuppetPlacementEffect.Value = null;
-            }
+                ClearPuppetPinPlacement();
         }
     }
 }

@@ -52,11 +52,12 @@ public partial class ListEditor : UserControl
             expandToggle.Tag = null;
             layout.Children.Remove(expandToggle);
             fixedHeader.Children.Add(headerActions);
-            fixedHeader.IsVisible = true;
             expandItem.IsVisible = true;
         }
         else
         {
+            layout.Children.Remove(fixedHeader);
+            headerActions.Children.Remove(removeButton);
             ExpandTransitionHelper.Attach(expandToggle, expandItem);
         }
     }

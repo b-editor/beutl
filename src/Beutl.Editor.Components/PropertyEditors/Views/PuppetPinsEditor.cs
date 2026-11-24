@@ -27,7 +27,6 @@ internal sealed class PuppetPinsEditor : ListEditor
 
     public PuppetPinsEditor() : base(alwaysExpanded: true)
     {
-        RemoveButton.IsVisible = true;
         ToolTip.SetTip(RemoveButton, GraphicsStrings.Puppet_RemovePin);
         AutomationProperties.SetName(RemoveButton, GraphicsStrings.Puppet_RemovePin);
         RemoveButton.Click += RemoveSelectedPin;

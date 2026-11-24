@@ -30,7 +30,14 @@ internal sealed partial class PuppetMesh(Vector2[] rest, ushort[] indices, int[]
             const double edgeTolerance = 1e-6;
             if (wa >= -edgeTolerance && wb >= -edgeTolerance && wc >= -edgeTolerance)
             {
-                restPoint = (float)wa * Rest[a] + (float)wb * Rest[b] + (float)wc * Rest[c];
+                // A hit just outside a triangle is projected back onto its edge before the anchor is stored.
+                wa = Math.Max(0, wa);
+                wb = Math.Max(0, wb);
+                wc = Math.Max(0, wc);
+                double sum = wa + wb + wc;
+                restPoint = new Vector2(
+                    (float)((wa * Rest[a].X + wb * Rest[b].X + wc * Rest[c].X) / sum),
+                    (float)((wa * Rest[a].Y + wb * Rest[b].Y + wc * Rest[c].Y) / sum));
                 return true;
             }
         }

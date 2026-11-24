@@ -27,6 +27,24 @@ public sealed class PuppetTests
     }
 
     [Test]
+    public void PlacementAtTheEdgeBindsToTheRestMesh()
+    {
+        Point[][] outlines = [[new(10, 0), new(80, 0), new(80, 64), new(10, 64)]];
+        var size = new Size(80, 64);
+        var raster = new PixelSize(80, 64);
+        var mesh = PuppetMesh.Create(outlines, size, raster, [], out _)!;
+        var placement = new Puppet.PinPlacement(new Rect(size), mesh, mesh.Rest);
+
+        var pin = placement.CreatePin(new Point(MathF.BitDecrement(10), 16));
+        Assert.That(pin, Is.Not.Null);
+        Point rest = pin!.RestPosition.Value;
+        Assert.That(rest, Is.EqualTo(new Point(10 / size.Width, 16 / size.Height)));
+        Assert.That(pin.Position.Value, Is.EqualTo(rest));
+        var rebuilt = PuppetMesh.Create(outlines, size, raster, [rest], out _)!;
+        Assert.That(rebuilt.PinVertices[0], Is.GreaterThanOrEqualTo(0));
+    }
+
+    [Test]
     public void MeshSharesStripEdgesAndPinsAroundAConcaveOutlineWithAHole()
     {
         // The sharp bend on the left is outside the next strip, which still fills to its seam.
@@ -212,6 +230,87 @@ public sealed class PuppetTests
                 Assert.That(tested, Is.GreaterThan(40_000));
                 Assert.That(missing, Is.Zero);
             });
+        }
+    }
+
+    [Test]
+    public void CollapsingTheMeshToALineClearsItsInput()
+    {
+        var bounds = new Rect(0, 0, 8, 8);
+        using RenderTarget input = CpuRenderTargets.Create(8, 8);
+        input.Value.Canvas.Clear(SKColors.White);
+        var target = new EffectTarget(input, bounds);
+        using var targets = new EffectTargets { target };
+        var cache = new PuppetMeshCache();
+        PuppetMesh mesh = cache.GetOrCreate(target, [])!.Value.Mesh;
+        var effect = new Puppet();
+        foreach (Vector2 vertex in mesh.Rest)
+        {
+            Point rest = PuppetMesh.Normalize(bounds.Size, vertex);
+            effect.Pins.Add(Pin(rest, new Point(rest.X, 0.5f)));
+        }
+        Point[] anchors = effect.Pins.Select(pin => pin.RestPosition.Value).ToArray();
+        Point[] positions = effect.Pins.Select(pin => pin.Position.Value).ToArray();
+        var prepared = cache.GetOrCreate(target, anchors)!.Value;
+        Assert.That(prepared.Deformer.Deform(bounds.Size, positions).Select(vertex => vertex.Y), Is.All.EqualTo(4f),
+            "the test mesh collapses to its pin line");
+
+        using var resource = effect.ToResource(CompositionContext.Default);
+        using var context = new FilterEffectContext(bounds);
+        context.ApplyTransactional(resource);
+        using var builder = new SKImageFilterBuilder();
+        using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Preview, RenderRequestPurpose.Frame,
+            drawableBrushMaterializer: null, workingScale: 1, maxWorkingScale: 1);
+        executor.Apply(context);
+        executor.Flush(false);
+
+        Assert.That(targets, Is.Empty);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DownsamplingTheMaskPreservesAThinUnpinnedIsland(bool vulkan)
+    {
+        if (vulkan)
+        {
+            VulkanTestEnvironment.EnsureAvailable();
+            VulkanTestEnvironment.InvokeOnRenderThread(() => Verify((width, height) => RenderTarget.Create(width, height)!));
+        }
+        else
+        {
+            Verify(CpuRenderTargets.Create);
+        }
+
+        static void Verify(Func<int, int, RenderTarget> createTarget)
+        {
+            var bounds = new Rect(0, 0, 4096, 256);
+            using RenderTarget input = createTarget(4096, 256);
+            var canvas = input.Value.Canvas;
+            canvas.Clear(SKColors.Transparent);
+            Fill(canvas, new SKRect(100, 20, 101, 236), SKColors.White);
+            Fill(canvas, new SKRect(1200, 40, 2100, 200), SKColors.White);
+            var effect = new Puppet { Pins = { Pin(new Point(0.4f, 0.5f), new Point(0.5f, 0.5f)) } };
+            using var targets = new EffectTargets { new EffectTarget(input, bounds) };
+            using var resource = effect.ToResource(CompositionContext.Default);
+            using var context = new FilterEffectContext(bounds);
+            context.ApplyTransactional(resource);
+            using var builder = new SKImageFilterBuilder();
+            using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Preview, RenderRequestPurpose.Frame,
+                drawableBrushMaterializer: null, workingScale: 1, maxWorkingScale: 1);
+            executor.Apply(context);
+            executor.Flush(false);
+
+            EffectTarget output = targets.Single();
+            using Bitmap alpha = output.RenderTarget!.SnapshotAlpha();
+            Assert.That(AlphaAt(new Point(100.5f, 80.5f)), Is.GreaterThan(200), "the thin unpinned island stays in place");
+            Assert.That(AlphaAt(new Point(2350.5f, 100.5f)), Is.EqualTo(255), "the pinned rectangle was translated");
+
+            byte AlphaAt(Point point)
+            {
+                Assert.That(output.Placement.RasterBounds.Contains(point), Is.True);
+                Point local = point - output.Placement.RasterBounds.Position;
+                return alpha.GetRow((int)local.Y)[(int)local.X];
+            }
         }
     }
 

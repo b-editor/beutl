@@ -81,7 +81,7 @@ internal sealed class PuppetPinItemEditor : ContentControl, IListItemEditor
         Puppet? effect = pin.FindHierarchicalParent<Puppet>();
         IPreviewPuppetPinEditor? preview = model.EditsSeveralElements ? null : model.GetService<IPreviewPuppetPinEditor>();
         editor.DataContext = position;
-        editor.MenuContent = new PropertyEditorMenu { DataContext = position };
+        editor.MenuContent = new PropertyEditorMenu { DataContext = position, EditComponentsInFlyout = true };
         editor.Classes.Add("numbered-list-item");
         UpdateNumber();
         editor.GetObservable(PropertyEditor.ReorderHandleProperty)

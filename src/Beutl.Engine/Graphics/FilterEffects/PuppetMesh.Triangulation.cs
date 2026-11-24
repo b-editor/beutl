@@ -269,7 +269,9 @@ internal sealed partial class PuppetMesh
         }
         return edges;
 
-        Vector2 ToPoint(SKPoint point) => new(point.X * sx, point.Y * sy);
+        Vector2 ToPoint(SKPoint point) => new(
+            Math.Clamp(point.X * sx, 0, size.Width),
+            Math.Clamp(point.Y * sy, 0, size.Height));
     }
 
     private static float[] Divide(float start, float end, int count)

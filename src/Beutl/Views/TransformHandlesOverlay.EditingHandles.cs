@@ -81,12 +81,17 @@ internal sealed partial class TransformHandlesOverlay
         if (!HasShape || _editingHandleProvider is null) return null;
         EditingHandle? nearest = null;
         bool puppet = _editingHandleProvider is Puppet;
-        double distance = puppet ? 13 / _editingHandleZoom : 8;
-        foreach (EditingHandle handle in _editingHandles)
+        double unit = 1 / _editingHandleZoom;
+        double distance = puppet ? 13 * unit : 8;
+        for (int i = 0; i < _editingHandles.Count; i++)
         {
+            EditingHandle handle = _editingHandles[i];
             double candidate = Point.Distance(point, LocalToImage(handle.Position.X, handle.Position.Y));
-            if (candidate <= distance && (!puppet || candidate < distance || nearest is null
-                || nearest.Id != _selectedPuppetPinId || handle.Id == _selectedPuppetPinId))
+            if (puppet && handle.Id == _selectedPuppetPinId
+                && candidate <= PinRadius(PinLabel(i, true, unit), true, unit) + 1.75 * unit)
+                return (_editingHandleProvider, handle);
+
+            if (candidate <= distance)
             {
                 nearest = handle;
                 distance = candidate;
@@ -134,10 +139,8 @@ internal sealed partial class TransformHandlesOverlay
         {
             EditingHandle handle = _editingHandles[index];
             Point position = LocalToImage(handle.Position.X, handle.Position.Y);
-            string number = _pinNumbers[index].ToString(CultureInfo.CurrentCulture);
-            var text = new FormattedText(number, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                s_pinTypeface, 10 * unit, active ? s_pinFill : Brushes.White);
-            double radius = Math.Max((active ? 10 : 8.5) * unit, text.Width / 2 + 2.5 * unit);
+            FormattedText text = PinLabel(index, active, unit);
+            double radius = PinRadius(text, active, unit);
             if (active)
                 context.DrawEllipse(Brushes.Black, null, position, radius + 1.75 * unit, radius + 1.75 * unit);
             context.DrawEllipse(active ? Brushes.White : s_pinFill, active ? selectedStroke : normalStroke,
@@ -145,4 +148,11 @@ internal sealed partial class TransformHandlesOverlay
             context.DrawText(text, new Point(position.X - text.Width / 2, position.Y - text.Height / 2));
         }
     }
+
+    private FormattedText PinLabel(int index, bool active, double unit)
+        => new(_pinNumbers[index].ToString(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight, s_pinTypeface, 10 * unit, active ? s_pinFill : Brushes.White);
+
+    private static double PinRadius(FormattedText text, bool active, double unit)
+        => Math.Max((active ? 10 : 8.5) * unit, text.Width / 2 + 2.5 * unit);
 }

@@ -47,6 +47,11 @@ public sealed partial class Puppet
 
         var outputBounds = new Rect(bounds.X + minimum.X, bounds.Y + minimum.Y,
             maximum.X - minimum.X, maximum.Y - minimum.Y);
+        if (RenderRectValidation.IsFiniteNonNegative(outputBounds) && (outputBounds.Width == 0 || outputBounds.Height == 0))
+        {
+            context.Targets.Clear();
+            return;
+        }
         if (!EffectEditingFrames.HasArea(outputBounds)) return;
 
         var rest = new Point[deformed.Length];

@@ -153,13 +153,14 @@ public partial class PlayerView : UserControl
         _boundsSubscription?.Dispose();
         RemoveHdrView();
 
+        const string sourcePath = $"{nameof(PlayerViewModel.EditorPreviewImage)}.Value";
         if (useHdr)
         {
             // A native view covers what the UI draws in its place, and follows neither the frame panel's transform nor
             // its clip. So it covers the whole viewport and draws the frame where the slot is, zoom and pan included,
             // with a copy of what the UI draws over the frame. Around the frame the UI under it shows.
             var slot = new PreviewFrameSlot();
-            var view = (HdrBitmapView)PreviewSurface.CreateImage(true, "PreviewImage.Value");
+            var view = (HdrBitmapView)PreviewSurface.CreateImage(true, sourcePath);
             _hdrSourceSizeSubscription = view.GetObservable(HdrBitmapView.SourceSizeProperty)
                 .Subscribe(size => slot.SourceSize = size);
             image = slot;
@@ -171,7 +172,7 @@ public partial class PlayerView : UserControl
         }
         else
         {
-            image = PreviewSurface.CreateImage(false, "PreviewImage.Value");
+            image = PreviewSurface.CreateImage(false, sourcePath);
             // Insert after imageBackground, before guideOverlay
             framePanel.Children.Insert(1, image);
         }

@@ -8,6 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -31,6 +32,7 @@ using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using AvaPoint = Avalonia.Point;
@@ -44,6 +46,22 @@ namespace Beutl.HeadlessUITests;
 public sealed class PuppetEditingTests
 {
     [AvaloniaTest]
+    public void The_selected_pin_hits_in_front_of_a_marker_it_covers()
+    {
+        var first = new PuppetPin { Position = { Value = new Point(0.5f, 0.5f) } };
+        var second = new PuppetPin { Position = { Value = new Point(0.53f, 0.5f) } };
+        var puppet = new Puppet { Pins = { first, second } };
+        var overlay = new TransformHandlesOverlay();
+        var viewport = PlayerViewportTransform.Create(new Avalonia.Size(200, 200), new Beutl.Media.PixelSize(200, 200))!;
+        overlay.Update(new RectShape(), null, new Beutl.Graphics.Rect(0, 0, 200, 200), Beutl.Graphics.Matrix.Identity, default, viewport);
+        overlay.UpdateEditingHandles(puppet, MediaTime.Zero);
+        overlay.SetSelectedPuppetPin(first.Id.Value.ToString());
+
+        Assert.That(overlay.HitTestEditingHandle(new AvaPoint(106, 100))?.Handle.Id, Is.EqualTo(first.Id.Value.ToString()));
+        Assert.That(overlay.HitTestEditingHandle(new AvaPoint(113, 100))?.Handle.Id, Is.EqualTo(second.Id.Value.ToString()));
+    }
+
+    [AvaloniaTest]
     public async Task PreviewAddsAndDragsIndependentPinsAtTheRemappedTime()
     {
         TestGpu.RequireAnyDevice();
@@ -52,11 +70,14 @@ public sealed class PuppetEditingTests
         var initialPosition = new Point(0.35f, 0.45f);
         effect.Pins.Add(new PuppetPin { Position = { Value = initialPosition }, RestPosition = { Value = initialPosition } });
         var shape = new RectShape { Width = { Value = 320 }, Height = { Value = 210 } };
-        ((FilterEffectGroup)shape.FilterEffect.Value!).Children.Add(effect);
+        var effects = (FilterEffectGroup)shape.FilterEffect.Value!;
+        effects.Children.Add(effect);
+        var downstream = new TransformEffect { Transform = { Value = new TranslateTransform(220, 0) } };
+        effects.Children.Add(downstream);
         ((TransformGroup)shape.Transform.Value!).Children.Add(new RotationTransform(17));
         await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(4));
         Element element = scene.Children.Single();
-        var remapped = MediaTime.FromSeconds(0.5);
+        var remapped = MediaTime.FromFrames(25, new Rational(48)); // Source frame 12.5 at 24 fps.
         var timeController = new DrawableTimeController { OffsetPosition = { Value = remapped } };
         element.AddObject(timeController);
         editor.HistoryManager.Commit("Add test time controller");
@@ -140,13 +161,23 @@ public sealed class PuppetEditingTests
 
             int beforeAdd = editor.HistoryManager.UndoCount;
             await StartAdding(add);
+            var previewView = (Beutl.Controls.BitmapView)player.image;
+            var firstPinPoint = new Point(70, 100);
+            Assert.Multiple(() =>
+            {
+                Assert.That(AlphaAtLocal(editor.Player.PreviewImage.Value!.Value, firstPinPoint), Is.Zero,
+                    "the downstream transform moves the picture away from the Puppet stage's pin position");
+                Assert.That(AlphaAtLocal(previewView.Source!.Value, firstPinPoint), Is.GreaterThan(200),
+                    "the displayed placement frame uses the same stage as the pin picker");
+                Assert.That(downstream.IsEnabled.Value, Is.True);
+            });
             Assert.That(player.transformHandlesOverlay.HitTest(player.transformHandlesOverlay.PivotImage),
                 Is.EqualTo(TransformHandlesOverlay.HandleKind.None));
             Capture("puppet-placement.png");
             ClickLocal(new Point(-20, 95));
             Assert.That(effect.Pins, Is.Empty);
             Assert.That(editor.Player.PointPick.Value, Is.Not.Null);
-            ClickLocal(new Point(70, 100));
+            ClickLocal(firstPinPoint);
             await WaitForSelectedRow(1, 0);
             Assert.That(effect.Pins[0].Position.Value, Is.EqualTo(effect.Pins[0].RestPosition.Value));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(beforeAdd + 1));
@@ -158,7 +189,7 @@ public sealed class PuppetEditingTests
             Assert.That(element.Objects.OfType<DrawableTimeController>().Single(), Is.SameAs(timeController));
             await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.PointPick.Value is { } pick
                 && !ReferenceEquals(pick, beforeUndo));
-            ClickLocal(new Point(70, 100));
+            ClickLocal(firstPinPoint);
             await WaitForSelectedRow(1, 0);
             Assert.That(editor.Player.PuppetPlacementEffect.Value, Is.SameAs(effect),
                 "Undo refreshes the frame while keeping placement active");
@@ -200,6 +231,11 @@ public sealed class PuppetEditingTests
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             await HeadlessTestHelpers.WaitUntilAsync(() => PlacementEnded(add));
             Assert.That(effect.Pins, Has.Count.EqualTo(2));
+            Assert.That(AlphaAtLocal(previewView.Source!.Value, firstPinPoint), Is.Zero,
+                "the ordinary preview shows the downstream effect again after placement");
+            effects.Children.Remove(downstream);
+            editor.HistoryManager.Commit("Remove downstream test transform");
+            await Render();
 
             TextBlock firstNumber = GripNumber(Rows()[0]);
             Assert.That(firstNumber.IsVisible, Is.True);
@@ -250,6 +286,9 @@ public sealed class PuppetEditingTests
             HeadlessTestHelpers.Click(previousKey);
             await HeadlessTestHelpers.WaitUntilAsync(() => clock.CurrentTime.Value == MediaTime.Zero);
 
+            await VerifySeparatedEditors(Rows()[1], moving);
+            animation = (KeyFrameAnimation<Point>)moving.Position.GetKeyFrameAnimation()!;
+
             await StartAdding(add);
             Point from = effect.GetEditingHandles(MediaTime.Zero).Single(handle => handle.Id == moving.Id.Value.ToString()).Position;
             Point to = from + new Point(24, -54);
@@ -271,6 +310,7 @@ public sealed class PuppetEditingTests
                 Assert.That(animation.KeyFrames.Select(key => key.KeyTime.Value),
                     Is.EqualTo(new[] { MediaTime.Zero, remapped, MediaTime.FromSeconds(1) }));
                 var written = (Point)animation.KeyFrames[1].Value!;
+                Assert.That(moving.Position.Evaluate(new EvaluationContext(remapped)), Is.EqualTo(written));
                 Assert.That(written.X, Is.EqualTo(original.X + 24 / 320f).Within(0.01));
                 Assert.That(written.Y, Is.EqualTo(original.Y - 54 / 210f).Within(0.01));
                 Assert.That(fixedPin.Position.GetKeyFrameAnimation(), Is.Null);
@@ -344,6 +384,12 @@ public sealed class PuppetEditingTests
             window.MouseUp(rightClick, MouseButton.Right);
             await HeadlessTestHelpers.WaitUntilAsync(() => PlacementEnded(add));
 
+            await StartAdding(add);
+            editor.Player.IsMoveMode.Value = false;
+            await HeadlessTestHelpers.WaitUntilAsync(() => PlacementEnded(add),
+                message: "Leaving the move tool should end pin placement.");
+            Assert.That(editor.Player.PointPick.Value, Is.Null);
+
             editor.GetRequiredService<IEditorClock>().Seek(MediaTime.FromSeconds(5));
             await Render();
             add.BringIntoView();
@@ -396,12 +442,62 @@ public sealed class PuppetEditingTests
                 $"The selected Puppet's drawable could not be resolved. Preview viewport present: {player.ViewportTransform is not null}.");
         }
 
-        void Capture(string fileName)
+        async Task VerifySeparatedEditors(Vector2Editor<float> row, PuppetPin pin)
+        {
+            var menu = (PropertyEditorMenu)row.MenuContent!;
+            var button = menu.GetVisualDescendants().OfType<Button>().Single();
+            var actions = (FAMenuFlyout)button.ContextFlyout!;
+            actions.ShowAt(button);
+            HeadlessTestHelpers.Render(3);
+            var separate = actions.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "separateComponentsItem");
+            Assert.That(separate.IsEffectivelyEnabled, Is.True);
+            separate.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            actions.Hide();
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            {
+                HeadlessTestHelpers.Render(2);
+                return CoordinateEditors().Length == 2;
+            }, message: "The separated X and Y editors should open from the pin row menu.");
+
+            var coordinates = CoordinateEditors();
+            Assert.Multiple(() =>
+            {
+                Assert.That(pin.Position.GetPropertyAnimation(), Is.InstanceOf<IComponentAnimation<Point>>());
+                Assert.That(row.IsEffectivelyVisible, Is.True);
+                Assert.That(coordinates.Select(field => field.Header), Is.EqualTo(new[] { "X", "Y" }));
+                Assert.That(coordinates.Select(field => field.MenuContent), Is.All.InstanceOf<PropertyEditorMenu>());
+            });
+            Capture("puppet-separated-coordinates.png", TopLevel.GetTopLevel(coordinates[0]));
+
+            var xInput = coordinates[0].GetVisualDescendants().OfType<TextBox>().Single();
+            var yInput = coordinates[1].GetVisualDescendants().OfType<TextBox>().Single();
+            var time = new EvaluationContext(MediaTime.Zero);
+            Point original = pin.Position.Evaluate(time);
+            xInput.Focus();
+            xInput.SelectAll();
+            TopLevel.GetTopLevel(xInput)!.KeyTextInput(0.5f.ToString(CultureInfo.CurrentCulture));
+            yInput.Focus();
+            HeadlessTestHelpers.Render();
+            Assert.That(pin.Position.Evaluate(time), Is.EqualTo(new Point(0.5f, original.Y)));
+            editor.HistoryManager.Undo();
+            Assert.That(pin.Position.Evaluate(time), Is.EqualTo(original));
+
+            editor.HistoryManager.Undo();
+            await HeadlessTestHelpers.WaitUntilAsync(() => CoordinateEditors().Length == 0);
+            Assert.That(pin.Position.GetKeyFrameAnimation(), Is.Not.Null);
+
+            NumberEditor<float>[] CoordinateEditors() => window.OpenedPopups
+                .SelectMany(popup => popup.Child?.GetVisualDescendants().OfType<NumberEditor<float>>() ?? [])
+                .Where(field => field.IsEffectivelyVisible)
+                .ToArray();
+        }
+
+        void Capture(string fileName, TopLevel? host = null)
         {
             if (Environment.GetEnvironmentVariable("BEUTL_PUPPET_CAPTURE") is not { Length: > 0 } capture) return;
 
             Directory.CreateDirectory(capture);
-            using WriteableBitmap frame = window.CaptureRenderedFrame()!;
+            using WriteableBitmap frame = (host ?? window).CaptureRenderedFrame()!;
             frame.Save(Path.Combine(capture, fileName), PngBitmapEncoderOptions.Default);
         }
 
@@ -419,6 +515,15 @@ public sealed class PuppetEditingTests
             AvaPoint position = ToWindow(point);
             window.MouseDown(position, MouseButton.Left);
             window.MouseUp(position, MouseButton.Left);
+        }
+
+        byte AlphaAtLocal(Beutl.Media.Bitmap frame, Point local)
+        {
+            Point point = player.transformHandlesOverlay.UserMatrix.Transform(local);
+            using Beutl.Media.Bitmap alpha = frame.Convert(BitmapColorType.Alpha8);
+            int x = (int)(point.X * frame.Width / scene.FrameSize.Value.Width);
+            int y = (int)(point.Y * frame.Height / scene.FrameSize.Value.Height);
+            return alpha.GetPixelSpan()[y * alpha.RowBytes + x];
         }
 
         AvaPoint ToWindow(Point local)

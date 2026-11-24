@@ -4,7 +4,6 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.JsonConverters;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -75,7 +74,7 @@ public sealed partial class Puppet : FilterEffect, IEditingHandleProvider
 
     public void MoveEditingHandle(string id, Point position, MediaTime time) => BeginEditingHandleDrag(id, time)(position);
 
-    private void SetValueAt<T>(IExpressionProperty<T> property, T value, MediaTime evaluationTime)
+    private static void SetValueAt<T>(IExpressionProperty<T> property, T value, MediaTime evaluationTime)
     {
         if (property.HasExpression) return;
 
@@ -85,10 +84,9 @@ public sealed partial class Puppet : FilterEffect, IEditingHandleProvider
             return;
         }
 
-        Rational rate = Project.ReadFrameRate(this.FindHierarchicalParent<Project>());
-        MediaTime localTime = animation.ToLocal(evaluationTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        MediaTime localTime = animation.ToLocal(evaluationTime);
         var key = animation.KeyFrames.OfType<KeyFrame<T>>()
-            .FirstOrDefault(key => MediaTimeJsonConverter.SnapToFrame(key.KeyTime.Value, rate) == localTime);
+            .FirstOrDefault(key => key.KeyTime.Value == localTime);
         if (key is not null)
         {
             key.Value.Value = value;
@@ -156,9 +154,7 @@ public sealed partial class Puppet : FilterEffect, IEditingHandleProvider
             }
 
             Point destination = PuppetMesh.Normalize(bounds.Size, point);
-            Point anchor = ReferenceEquals(mesh.Rest, deformed)
-                ? destination
-                : PuppetMesh.Normalize(bounds.Size, rest);
+            Point anchor = PuppetMesh.Normalize(bounds.Size, rest);
             anchor = new Point(Math.Clamp(anchor.X, 0, 1), Math.Clamp(anchor.Y, 0, 1));
             return new PuppetPin
             {

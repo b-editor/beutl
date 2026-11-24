@@ -55,7 +55,6 @@
                             VerticalContentAlignment="Center"
                             Classes="size-24x24"
                             IsEnabled="False"
-                            IsVisible="False"
                             Theme="{StaticResource TransparentButton}">
                         <icons:FluentIcon Icon="Subtract" />
                     </Button>
@@ -65,8 +64,7 @@
 
         <Grid x:Name="fixedHeader"
               Margin="8,4"
-              ColumnDefinitions="*,Auto"
-              IsVisible="False">
+              ColumnDefinitions="*,Auto">
             <TextBlock x:Name="headerLabel"
                        VerticalAlignment="Center"
                        Text="{Binding Header, FallbackValue=List}"
