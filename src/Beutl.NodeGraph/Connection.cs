@@ -35,6 +35,9 @@ public sealed partial class Connection : Hierarchical
     [NotTracked]
     public IProperty<ConnectionStatus> Status { get; } = Property.CreateValue<ConnectionStatus>(default);
 
+    // Diagnostic detail posted with the status by the graph evaluation.
+    internal bool HasFailedPicture { get; set; }
+
     public void Connect()
     {
         if (Output.Value.Value is not IOutputPort outputNodePort || Input.Value.Value is not IInputPort inputNodePort)
@@ -45,6 +48,7 @@ public sealed partial class Connection : Hierarchical
 
     public void Disconnect()
     {
+        HasFailedPicture = false;
         if (Output.Value.Value is IOutputPort outputNodePort) outputNodePort.NotifyDisconnected(this);
         if (Input.Value.Value is IInputPort inputNodePort) inputNodePort.NotifyDisconnected(this);
         Status.Value = ConnectionStatus.Disconnected;

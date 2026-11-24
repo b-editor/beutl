@@ -155,11 +155,23 @@ internal static partial class NodeGraphDiagnostics
         GraphNode? consumer = input?.FindHierarchicalParent<GraphNode>();
         string from = End(producer, output, label);
         string to = End(consumer, input, label);
-        string message = producer is not null && NodeGraphMembers.ReadError(producer) is not null
-            ? "The connection fails because the node it comes from failed; see that node's error."
-            : output is null || input is null
-                ? "The connection has an end that no longer exists."
-                : $"{NodeGraphMembers.FormatType(NodeGraphMembers.ValueTypeOf(output))} from the output does not convert to {NodeGraphMembers.FormatType(NodeGraphMembers.ValueTypeOf(input))} of the input, or the input cannot take a connection now.";
+        string message;
+        if (producer is not null && NodeGraphMembers.ReadError(producer) is not null)
+        {
+            message = "The connection fails because the node it comes from failed; see that node's error.";
+        }
+        else if (connection.HasFailedPicture)
+        {
+            message = "The connection fails because the shader graph could not produce a picture. See the shader nodes' errors.";
+        }
+        else if (output is null || input is null)
+        {
+            message = "The connection has an end that no longer exists.";
+        }
+        else
+        {
+            message = $"{NodeGraphMembers.FormatType(NodeGraphMembers.ValueTypeOf(output))} from the output does not convert to {NodeGraphMembers.FormatType(NodeGraphMembers.ValueTypeOf(input))} of the input, or the input cannot take a connection now.";
+        }
         return new NodeGraphDiagnostic(Error, message, consumer?.Id.Value.ToString(), consumer is null ? null : label(consumer), $"{from} -> {to}")
         {
             ConnectionKey = $"{connection.Output.Value.Id} -> {connection.Input.Value.Id}"
