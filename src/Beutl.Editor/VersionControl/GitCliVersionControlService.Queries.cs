@@ -282,7 +282,7 @@ internal sealed partial class GitCliVersionControlService
 
     // Verified rather than matched: for-each-ref treats its operand as a pattern, so asking for
     // refs/remotes/origin/foo also succeeds when only refs/remotes/origin/foo/bar exists.
-    private static async Task<bool> RefExistsAsync(
+    internal static async Task<bool> RefExistsAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         string refName,

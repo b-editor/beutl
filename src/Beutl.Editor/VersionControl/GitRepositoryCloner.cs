@@ -58,9 +58,9 @@ internal sealed class GitRepositoryCloner(
             string? branch = revision?.StartsWith(headsPrefix, StringComparison.Ordinal) == true
                 ? revision[headsPrefix.Length..]
                 : revision;
+            bool hexadecimalRevision = revision is { Length: >= 4 and <= 64 } && revision.All(char.IsAsciiHexDigit);
             bool checkoutRevision = branch == revision && revision is not null
-                && (revision.StartsWith("refs/", StringComparison.Ordinal)
-                    || (revision.Length is 40 or 64 && revision.All(char.IsAsciiHexDigit)));
+                && (revision.StartsWith("refs/", StringComparison.Ordinal) || hexadecimalRevision);
             if (checkoutRevision)
                 arguments.Add("--no-checkout");
             else if (branch is not null and not "HEAD")
@@ -78,7 +78,9 @@ internal sealed class GitRepositoryCloner(
                 await remote.ConfigureLocalCredentialsAsync(repository, runner, helper, cancellationToken, local)
                     .ConfigureAwait(false);
             if (checkoutRevision)
-                await CheckoutRevisionAsync(repository, runner, revision!, network, safeProgress, cancellationToken)
+                await CheckoutRevisionAsync(repository, runner, revision!,
+                        preferTrackingBranch: hexadecimalRevision && revision!.Length is not (40 or 64),
+                        network, safeProgress, cancellationToken)
                     .ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -127,9 +129,22 @@ internal sealed class GitRepositoryCloner(
     }
 
     private static async Task CheckoutRevisionAsync(
-        RepositoryInfo repository, IGitCliRunner runner, string revision,
+        RepositoryInfo repository, IGitCliRunner runner, string revision, bool preferTrackingBranch,
         GitCommandOptions options, IProgress<string>? progress, CancellationToken cancellationToken)
     {
+        if (preferTrackingBranch)
+        {
+            // A short hex name can name a real branch as well as an abbreviated object ID.
+            string branchRef = $"refs/remotes/origin/{revision}";
+            if (await GitCliVersionControlService.RefExistsAsync(repository, runner, branchRef, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                await runner.RunAsync(repository, ["switch", "-C", revision, "--track", "--", branchRef],
+                    options, cancellationToken, progress).ConfigureAwait(false);
+                return;
+            }
+        }
+
         string hash = (await runner.RunAsync(repository,
             ["rev-parse", "--verify", "--end-of-options", $"{revision}^{{commit}}"], GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false)).Stdout.Trim();

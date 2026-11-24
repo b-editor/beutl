@@ -17,12 +17,17 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
     [TestCase("sample-tag", false)]
     [TestCase("refs/tags/sample-tag", false)]
     [TestCase("commit", false)]
+    [TestCase("short-commit", false)]
+    [TestCase("7abc123", true)]
+    [TestCase("7def456", false)]
     public async Task Clones_a_branch_tag_or_commit_with_projects_in_root_first_order(string revision, bool branch)
     {
         await CommitFileAsync("Root.bep", "project", "first");
         string initial = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await RunGitAsync("tag", "sample-tag");
         await RunGitAsync("branch", "feature/demo");
+        await RunGitAsync("branch", "7abc123");
+        await RunGitAsync("tag", "7def456");
         await CommitFileAsync("README", "new", "advance main");
         string remote = await CreateBareCloneAsync();
         string destination = Path.Combine(CreateTemporaryDirectory(), "clone");
@@ -30,13 +35,23 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
         var progress = new RecordingProgress();
         var cloner = new GitRepositoryCloner(CreateInstalledLocator(), _ => Runner);
 
-        await cloner.CloneAsync(remote, destination, revision == "commit" ? initial : revision, progress);
+        string requested = revision switch
+        {
+            "commit" => initial,
+            "short-commit" => initial[..8],
+            _ => revision,
+        };
+        await cloner.CloneAsync(remote, destination, requested, progress);
 
         var workingCopy = new RepositoryInfo(destination, destination);
         Assert.That((await Runner.RunAsync(workingCopy, ["rev-parse", "HEAD"], GitCommandOptions.Local, CancellationToken.None)).Stdout.Trim(),
             Is.EqualTo(initial));
+        string branchName = revision.StartsWith("refs/heads/", StringComparison.Ordinal) ? revision["refs/heads/".Length..] : revision;
         Assert.That((await Runner.RunAsync(workingCopy, ["branch", "--show-current"], GitCommandOptions.Local, CancellationToken.None)).Stdout.Trim(),
-            Is.EqualTo(branch ? "feature/demo" : string.Empty));
+            Is.EqualTo(branch ? branchName : string.Empty));
+        if (branch)
+            Assert.That((await Runner.RunAsync(workingCopy, ["rev-parse", "--abbrev-ref", "@{upstream}"],
+                GitCommandOptions.Local, CancellationToken.None)).Stdout.Trim(), Is.EqualTo($"origin/{branchName}"));
         Assert.That(progress.Messages, Is.Not.Empty);
 
         Directory.CreateDirectory(Path.Combine(destination, ".hidden"));
