@@ -2108,6 +2108,18 @@
   <data name="EchoBlendMode_Add" xml:space="preserve">
     <value>Aditivo</value>
   </data>
+  <data name="SteppedMotion" xml:space="preserve">
+    <value>Movimiento a saltos</value>
+  </data>
+  <data name="SteppedMotion_Description" xml:space="preserve">
+    <value>Mantiene cada muestra durante un intervalo fijo a partir del inicio del elemento.</value>
+  </data>
+  <data name="SteppedMotion_FrameRate" xml:space="preserve">
+    <value>Cadencia (fps)</value>
+  </data>
+  <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
+    <value>Número de muestras por segundo. Un valor menor mantiene cada fotograma durante más tiempo.</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>Modo alfa</value>
   </data>
@@ -2260,6 +2272,9 @@
   </data>
   <data name="Echo_LibraryDescription" xml:space="preserve">
     <value>Superpone copias atenuadas de instantes anteriores o posteriores sobre el fotograma actual (estela, rastro fantasma / afterimage, ghost trail, motion trails).</value>
+  </data>
+  <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
+    <value>Mantiene los fotogramas durante intervalos fijos para crear un aspecto de animación cuadro a cuadro (baja frecuencia de fotogramas / frame hold, stop motion).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>Desenfoca la imagen con la forma de la apertura del objetivo (desenfoque de lente, desenfoque de objetivo / lens blur, defocus).</value>

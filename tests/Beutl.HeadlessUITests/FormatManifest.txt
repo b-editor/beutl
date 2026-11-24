@@ -590,6 +590,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:SplitEffect
   unsealed
   keys: Animations, Expressions, HorizontalDivisions, HorizontalSpacing, Id, IsEnabled, Name, VerticalDivisions, VerticalSpacing
+[Beutl.Engine]Beutl.Graphics.Effects:SteppedMotion
+  sealed
+  keys: Animations, Expressions, FrameRate, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics.Effects:StrokeEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Offset, Pen

@@ -2109,6 +2109,18 @@
   <data name="EchoBlendMode_Add" xml:space="preserve">
     <value>Add</value>
   </data>
+  <data name="SteppedMotion" xml:space="preserve">
+    <value>Stepped Motion</value>
+  </data>
+  <data name="SteppedMotion_Description" xml:space="preserve">
+    <value>Holds each sampled frame until the next, with timing measured from the start of the element.</value>
+  </data>
+  <data name="SteppedMotion_FrameRate" xml:space="preserve">
+    <value>Rate (fps)</value>
+  </data>
+  <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
+    <value>The number of samples per second. Lower values hold each frame for longer.</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>Alpha Mode</value>
   </data>
@@ -2261,6 +2273,9 @@
   </data>
   <data name="Echo_LibraryDescription" xml:space="preserve">
     <value>Draws fading copies from earlier or later moments over the current frame (afterimage, ghost trail, motion trails).</value>
+  </data>
+  <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
+    <value>Holds frames at a lower rate for a stop-motion look (frame hold, stop motion, low frame rate).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>Softens the image using the shape of a lens aperture (lens blur, defocus).</value>
