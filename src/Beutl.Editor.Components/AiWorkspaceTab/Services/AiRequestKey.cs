@@ -14,7 +14,11 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
 /// The server finds the job a repeat already reserved before it checks the balance, so a caller must not check
 /// the balance for a repeat, or it refuses to collect something already bought.
 /// </remarks>
-internal readonly record struct AiRequestName(string Key, bool IsRepeat);
+internal readonly record struct AiRequestName(string Key, bool IsRepeat, string? AccountId = null)
+{
+    // A saved run can have the same wire key on separate accounts.
+    public (string? AccountId, string Key) AccountAndKey => (AccountId, Key);
+}
 
 /// <summary>
 /// Which refusals happened before the server reserved anything.
@@ -60,7 +64,7 @@ internal sealed class AiRequestKey : IDisposable
 {
     private readonly Lock _gate = new();
     // The names issued and the requests they represent. Only unsettled requests remain here.
-    private readonly Dictionary<string, Issued> _outstanding = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string? AccountId, string Key), Issued> _outstanding = [];
     // A settled request cannot be sent again under the same name, so its next name takes the next generation.
     private readonly Dictionary<string, int> _generations = new(StringComparer.Ordinal);
     private readonly ReactivePropertySlim<bool> _hasOutstandingName = new(false);
@@ -169,7 +173,7 @@ internal sealed class AiRequestKey : IDisposable
             throw new AuthenticationRequiredException();
         _recoveryContext.Abandon(attempt);
         lock (_gate)
-            Forget(attempt.Key, advance: true);
+            Forget((attempt.AccountId, attempt.Key), advance: true);
         RefreshIdentity();
     }
 
@@ -177,13 +181,12 @@ internal sealed class AiRequestKey : IDisposable
     {
         if (_recoveryContext is null)
             return Disposable.Empty;
-        string account;
         lock (_gate)
         {
-            account = _outstanding.GetValueOrDefault(name.Key).Account
-                ?? throw new InvalidOperationException("The AI request name is not outstanding.");
+            if (!_outstanding.ContainsKey(name.AccountAndKey))
+                throw new InvalidOperationException("The AI request name is not outstanding.");
         }
-        return _recoveryContext.Enter(account);
+        return _recoveryContext.Enter(name.AccountId!);
     }
 
     /// <summary>
@@ -225,8 +228,8 @@ internal sealed class AiRequestKey : IDisposable
     {
         lock (_gate)
         {
-            foreach (KeyValuePair<string, Issued> pair in _outstanding)
-                RemovePersisted(pair.Key, pair.Value);
+            foreach (var (name, issued) in _outstanding)
+                RemovePersisted(name, issued);
             _seed = NewSeed();
             _outstanding.Clear();
             _generations.Clear();
@@ -252,11 +255,11 @@ internal sealed class AiRequestKey : IDisposable
         bool anyLeft;
         lock (_gate)
         {
-            released = _outstanding.TryGetValue(name.Key, out Issued issued);
+            released = _outstanding.TryGetValue(name.AccountAndKey, out Issued issued);
             if (released)
             {
-                RemovePersisted(name.Key, issued);
-                Forget(name.Key, advance);
+                RemovePersisted(name.AccountAndKey, issued);
+                Forget(name.AccountAndKey, advance);
             }
 
             anyLeft = HasCurrentOutstanding();
@@ -284,13 +287,13 @@ internal sealed class AiRequestKey : IDisposable
                 if (operation.Length == 0)
                     throw new InvalidOperationException("An AI request operation is required for durable recovery.");
                 // A name this run still holds whose row is gone was settled elsewhere, so it is spent.
-                foreach (string spent in _outstanding
-                             .Where(pair => GenerationIdentity(pair.Value.Account, pair.Value.Operation, pair.Value.Fingerprint) == identity)
+                foreach (var spent in _outstanding
+                             .Where(pair => GenerationIdentity(pair.Key.AccountId, pair.Value.Operation, pair.Value.Fingerprint) == identity)
                              .Select(pair => pair.Key)
                              .ToArray())
                 {
                     if (!_recoveryContext.Store.PendingFor(account!, operation)
-                            .Any(row => row.Fingerprint == fingerprint && row.Key == spent))
+                            .Any(row => row.Fingerprint == fingerprint && row.Key == spent.Key))
                     {
                         Forget(spent, advance: true);
                     }
@@ -304,18 +307,19 @@ internal sealed class AiRequestKey : IDisposable
                     () => ComposeKey(request, account, operation, _generations.GetValueOrDefault(identity)));
                 bool resumed = _resumedAttemptPending;
                 _resumedAttemptPending = false;
-                name = new AiRequestName(row.Key, existed || resumed || _outstanding.ContainsKey(row.Key));
-                _outstanding[row.Key] = new Issued(fingerprint, account, operation);
+                var issuedKey = (row.AccountId, row.Key);
+                name = new AiRequestName(row.Key, existed || resumed || _outstanding.ContainsKey(issuedKey), row.AccountId);
+                _outstanding[issuedKey] = new Issued(fingerprint, operation);
             }
             else
             {
                 string key = ComposeKey(request, account, operation, _generations.GetValueOrDefault(identity));
-                if (_outstanding.ContainsKey(key))
+                if (_outstanding.ContainsKey((null, key)))
                     return new AiRequestName(key, true);
                 bool resumed = _resumedAttemptPending;
                 _resumedAttemptPending = false;
                 name = new AiRequestName(key, resumed);
-                _outstanding[key] = new Issued(request, account, operation);
+                _outstanding[name.AccountAndKey] = new Issued(request, operation);
             }
         }
 
@@ -335,21 +339,21 @@ internal sealed class AiRequestKey : IDisposable
     }
 
     // Forgets a name; advance makes the request's next name a new one. Called under _gate.
-    private void Forget(string key, bool advance)
+    private void Forget((string? AccountId, string Key) name, bool advance)
     {
-        if (!_outstanding.Remove(key, out Issued issued) || !advance)
+        if (!_outstanding.Remove(name, out Issued issued) || !advance)
             return;
-        string identity = GenerationIdentity(issued.Account, issued.Operation, issued.Fingerprint);
+        string identity = GenerationIdentity(name.AccountId, issued.Operation, issued.Fingerprint);
         _generations[identity] = _generations.GetValueOrDefault(identity) + 1;
     }
 
-    private void RemovePersisted(string key, Issued issued)
+    private void RemovePersisted((string? AccountId, string Key) name, Issued issued)
     {
-        if (_recoveryContext is null || issued.Account is null)
+        if (_recoveryContext is null || name.AccountId is null)
             return;
         try
         {
-            _recoveryContext.Store.Remove(new AiPendingAttempt(issued.Account, issued.Operation, issued.Fingerprint, key));
+            _recoveryContext.Store.Remove(new AiPendingAttempt(name.AccountId, issued.Operation, issued.Fingerprint, name.Key));
         }
         catch (InvalidDataException)
         {
@@ -365,7 +369,7 @@ internal sealed class AiRequestKey : IDisposable
         string? account = _recoveryContext?.TryGetIdentity()?.AccountId;
         return _recoveryContext is null
             ? _outstanding.Count > 0
-            : account is not null && _outstanding.Values.Any(issued => issued.Account == account);
+            : account is not null && _outstanding.Keys.Any(name => name.AccountId == account);
     }
 
     private string ResolveOperation(ReadOnlySpan<string?> parts)
@@ -417,5 +421,5 @@ internal sealed class AiRequestKey : IDisposable
                 .AsSpan(0, 8))
             .ToLowerInvariant();
 
-    private readonly record struct Issued(string Fingerprint, string? Account, string Operation);
+    private readonly record struct Issued(string Fingerprint, string Operation);
 }

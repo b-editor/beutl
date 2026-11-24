@@ -94,7 +94,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
                 ex => _logger.LogError(ex, "Failed to clear image-edit state after an account change."),
                 ex => _logger.LogWarning(ex, "Failed to abandon image-edit recovery attempt.")),
             CollectAsync,
-            attempt => Forget(new AiRequestName(attempt.Key, IsRepeat: true)));
+            attempt => Forget(new AiRequestName(attempt.Key, IsRepeat: true, AccountId: attempt.AccountId)));
         PromptLibrary = new AiPromptLibraryViewModel(
                 PromptTaskKind.ImageEdit,
                 () => Prompt.Value,
@@ -140,7 +140,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             .DisposeWith(_disposables);
         // Keep every model named by an uncollected request even after it leaves the catalog.
         // A task can have more than one such request, so return all of them.
-        ModelPicker.KeepOffered = requested => ModelsOfOutstandingRequestsFor(requested);
+        ModelPicker.KeepOffered = ModelsOfOutstandingRequestsFor;
         // Only the list already on screen is held back: a task whose list is not here yet is fetched
         // even while its own request waits, or the screen has no model to send for it.
         ModelPicker.CanReload = requested =>

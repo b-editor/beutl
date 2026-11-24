@@ -26,6 +26,7 @@ internal sealed partial class AiImageEditDialogViewModel
         ResultImage.Value = null;
         Error.Value = null;
         ModelPicker.ReconcileRecoveryModels();
+        _outstandingRevision.Value++;
         _recovery.Revision.Value++;
     }
 
@@ -138,23 +139,25 @@ internal sealed partial class AiImageEditDialogViewModel
         _recovery.Revision.Value++;
     }
 
-    // Whether any request this tab sent is still waiting to be collected for this task.
+    private string? CurrentAccountId => _requestRecoveryContext.GetCurrentIdentity()?.AccountId;
+
+    // Whether any request this account sent is still waiting to be collected for this task.
     // Each of the five is its own operation with its own models and its own
     // price, so a name outstanding on one says nothing about another.
     private bool HoldsNameFor(string task)
-        => _outstanding.Any(request => IsFor(request, task));
+        => _outstanding.Any(CurrentAccountId, request => IsFor(request, task));
 
     private bool TryFindOutstandingModelFor(string task, out AiModelId? model)
     {
         model = null;
-        if (!_outstanding.TryFind(request => IsFor(request, task), out string?[] held))
+        if (!_outstanding.TryFind(CurrentAccountId, request => IsFor(request, task), out string?[] held))
             return false;
         model = held[ModelPartIndex] is { } id ? new AiModelId(id) : null;
         return true;
     }
 
     private IReadOnlyList<AiModelId> ModelsOfOutstandingRequestsFor(AiOperationId operation)
-        => _outstanding.All()
+        => _outstanding.All(CurrentAccountId)
             .Where(request => request[TaskPartIndex] is { } task
                 && AiOperations.ImageEdit(new AiImageEditTaskId(task)) == operation)
             .Select(request => request[ModelPartIndex])

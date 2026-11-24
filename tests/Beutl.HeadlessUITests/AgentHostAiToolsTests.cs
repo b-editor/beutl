@@ -578,6 +578,35 @@ public sealed class AgentHostAiToolsTests
     }
 
     [AvaloniaTest]
+    [TestCase(false, AgentAiJobStatus.Succeeded, null)]
+    [TestCase(true, AgentAiJobStatus.Failed, ErrorCode.AiUnavailable)]
+    public async Task ACompletedJobPublishesOnlyWhileItsStartingAccountIsCurrent(
+        bool changeAccount, AgentAiJobStatus expectedStatus, string? expectedError)
+    {
+        await TestShell.OpenNewSceneAsync("agent-ai-account-completion");
+        using var identity = new ReactivePropertySlim<AiAuthenticatedRequestIdentity?>(new("account-a", User: null));
+        using var recovery = new AiRequestRecoveryContext(
+            new FileAiRequestKeyMap(_directory), () => identity.Value, identity);
+        var backend = new FakeBackend { RecoveryContext = recovery, Result = WritePng("result.png") };
+        backend.BeforeReturningResult = () =>
+        {
+            if (changeAccount)
+                identity.Value = new("account-b", User: null);
+        };
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        AgentAiJobSnapshot finished = (await tools.GenerateImage("a cat", waitSeconds: 5)).Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(finished.Status, Is.EqualTo(expectedStatus));
+            Assert.That(finished.ErrorCode, Is.EqualTo(expectedError));
+            Assert.That(finished.Output?.OutputPath, Is.EqualTo(changeAccount ? null : backend.Result));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task AnAccountOutOfCreditsIsUnavailableNotAFailedGeneration()
     {
         await TestShell.OpenNewSceneAsync("agent-ai-credits");
@@ -865,6 +894,8 @@ public sealed class AgentHostAiToolsTests
 
         public Action? OnValidate { get; set; }
 
+        public Action? BeforeReturningResult { get; set; }
+
         // The real executor's checks, against this backend's models. The stub clip lasts six seconds.
         public Task<GenerativeRefusal?> ValidateAsync(GenerativeRequest request, CancellationToken cancellationToken)
         {
@@ -906,7 +937,9 @@ public sealed class AgentHostAiToolsTests
                 await gate.Task.WaitAsync(cancellationToken);
             if (Failure is { } failure)
                 throw failure;
-            return new GenerativeExecutionResult(new Uri(Result), "model", 1, request.Operation == GenerativeOperation.VideoGeneration);
+            var result = new GenerativeExecutionResult(new Uri(Result), "model", 1, request.Operation == GenerativeOperation.VideoGeneration);
+            BeforeReturningResult?.Invoke();
+            return result;
         }
 
         public Task<AgentTranscript> TranscribeAsync(

@@ -34,8 +34,8 @@ internal static class AiMeteredDispatch
             sent = true;
             return await send(cancellationToken);
         }
-        catch (Exception ex) when (!account.AccountChanged
-            && ((!sent && !name.IsRepeat) || AiRequestOutcome.CanWithdraw(name, ex)))
+        catch (Exception ex) when ((!sent && !name.IsRepeat)
+            || (!account.AccountChanged && AiRequestOutcome.CanWithdraw(name, ex)))
         {
             withdraw(name);
             throw;

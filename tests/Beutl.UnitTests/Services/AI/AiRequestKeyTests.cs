@@ -329,6 +329,78 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
+    public async Task AccountSwitchDuringAvailabilityWithdrawsOnlyTheUnsentName()
+    {
+        const string operation = "image.generate";
+        string account = "account-a";
+        var store = new FileAiRequestKeyMap(_directory);
+        using var context = RecoveryContext(store, () => account);
+        using var key = new AiRequestKey(seed: "saved-run", recoveryContext: context, operation: operation);
+        using var startingAccount = new AiAccountJobScope(context);
+        AiRequestName issued = key.NameFor("prompt");
+        var availability = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<int> dispatch = AiMeteredDispatch.SendAsync<int>(
+            startingAccount,
+            issued,
+            _ => availability.Task,
+            _ => throw new AssertionException("The request must not be sent after switching accounts."),
+            name => key.WithdrawAfterNoReservation(name),
+            CancellationToken.None);
+
+        account = "account-b";
+        context.RefreshIdentity();
+        AiRequestName other = key.NameFor("prompt");
+        availability.SetResult(true);
+        await Assert.ThrowsAsync<AuthenticationRequiredException>(() => dispatch);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(other.Key, Is.EqualTo(issued.Key), "saved seeds preserve the same wire key across accounts");
+            Assert.That(store.PendingFor("account-a", operation), Is.Empty);
+            Assert.That(store.PendingFor("account-b", operation).Select(row => row.Key), Is.EqualTo(new[] { other.Key }));
+            Assert.That(other.IsRepeat, Is.False);
+        });
+
+        account = "account-a";
+        context.RefreshIdentity();
+        using var retryAccount = new AiAccountJobScope(context);
+        AiRequestName retry = key.NameFor("prompt");
+        Assert.That(retry.IsRepeat, Is.False);
+        await Assert.ThrowsAsync<AiUsageLimitExceededException>(() => AiMeteredDispatch.SendAsync<int>(
+            retryAccount,
+            retry,
+            _ => Task.FromResult(false),
+            _ => throw new AssertionException("The retry must check the balance before sending."),
+            name => key.WithdrawAfterNoReservation(name),
+            CancellationToken.None));
+    }
+
+    [Test]
+    public async Task AccountSwitchBeforeSendingARepeatKeepsItsName()
+    {
+        const string operation = "image.generate";
+        string account = "account-a";
+        var store = new FileAiRequestKeyMap(_directory);
+        using var context = RecoveryContext(store, () => account);
+        using var key = new AiRequestKey(recoveryContext: context, operation: operation);
+        using var startingAccount = new AiAccountJobScope(context);
+        _ = key.NameFor("prompt");
+        AiRequestName repeat = key.NameFor("prompt");
+
+        account = "account-b";
+        context.RefreshIdentity();
+        await Assert.ThrowsAsync<AuthenticationRequiredException>(() => AiMeteredDispatch.SendAsync<int>(
+            startingAccount,
+            repeat,
+            _ => throw new AssertionException("A repeat can collect a job without checking the balance."),
+            _ => throw new AssertionException("The repeat must not be sent after switching accounts."),
+            name => key.WithdrawAfterNoReservation(name),
+            CancellationToken.None));
+
+        Assert.That(store.PendingFor("account-a", operation).Single().Key, Is.EqualTo(repeat.Key));
+    }
+
+    [Test]
     public void StoreFailureDoesNotPublishAnInMemoryOutstandingName()
     {
         var key = new AiRequestKey(
@@ -505,7 +577,7 @@ public sealed class AiRequestKeyTests
         first.Settle(oldAttempt);
         AiRequestName currentName = first.NameFor("same");
 
-        AiRequestName materializedOld = new(oldName.Key, true);
+        AiRequestName materializedOld = new(oldName.Key, IsRepeat: true, AccountId: oldName.AccountId);
         stale.Retire(materializedOld);
         stale.WithdrawAfterNoReservation(materializedOld);
 

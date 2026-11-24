@@ -499,7 +499,9 @@ internal sealed class AgentHostAiTools(
             try
             {
                 using IDisposable scope = account.Enter(cancellation.Token);
-                return await prepared.Run(progress, cancellation.Token).ConfigureAwait(false);
+                AgentAiJobOutput output = await prepared.Run(progress, cancellation.Token).ConfigureAwait(false);
+                account.ThrowIfInvalid(cancellation.Token);
+                return output;
             }
             catch (Exception ex) when (ex is AuthenticationRequiredException || account.AccountChanged)
             {

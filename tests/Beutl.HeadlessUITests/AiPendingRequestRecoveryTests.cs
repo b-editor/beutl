@@ -216,6 +216,72 @@ public sealed class AiPendingRequestRecoveryTests
     }
 
     [AvaloniaTest]
+    public async Task AnOutstandingImageEditOnlyHoldsTheModelForItsStartingAccount()
+    {
+        const string accountA = "test-user";
+        const string accountB = "account-b";
+        var upscale = new AiOperationId("image.edit.upscale");
+        var modelA = new AiModelId("current-edit");
+        var modelB = new AiModelId("other-edit");
+        var submitted = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new StubHandler(async (request, cancellationToken) =>
+        {
+            string path = request.RequestUri!.AbsolutePath;
+            switch (path)
+            {
+                case "/api/v3/ai/images/edit":
+                    submitted.SetResult(IdempotencyKeyOf(request)!);
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                    throw new AssertionException("The edit should have been cancelled after switching accounts.");
+                case "/api/v3/ai/jobs/by-idempotency-key":
+                    return JsonResponse(HttpStatusCode.OK, JobJson("image", "running"));
+                case "/api/v3/ai/capabilities" when request.Headers.Authorization?.Parameter == $"token-{accountB}":
+                    return JsonResponse(HttpStatusCode.OK, RecoveryCapabilitiesJson().Replace(modelA.Value, modelB.Value));
+                default:
+                    return RecoveryCatalog(path) ?? NotFoundResponse();
+            }
+        });
+        await using BeutlApiApplication app = CreateApp(handler);
+        var store = new FileAiRequestKeyMap(Path.Combine(_root, "recovery"));
+        using var recovery = TrackAccount(app, store);
+        await using var dialog = CreateImageEditDialog(app, context: recovery);
+        string sourcePath = Path.Combine(_root, "source.png");
+        await File.WriteAllBytesAsync(sourcePath, s_png);
+        dialog.SelectedTask.Value = dialog.Tasks.Single(task => task.Value == "upscale");
+        dialog.SourceFilePath.Value = sourcePath;
+        await WaitUntilAsync(() => dialog.CanEdit.Value && dialog.ModelPicker.SelectedModel == modelA);
+
+        Task edit = dialog.Edit.ExecuteAsync();
+        string key = await submitted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(dialog.HoldsRequestName.Value, Is.True);
+
+        SetAuthenticatedUser(app, accountB);
+        await edit.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dialog.HoldsRequestName.Value, Is.False);
+            Assert.That(dialog.ModelPicker.CanReload!(upscale), Is.True);
+            Assert.That(dialog.ModelPicker.KeepOffered!(upscale), Is.Empty);
+            Assert.That(dialog.RecoveryAttempts.Value, Is.Empty);
+            Assert.That(store.PendingFor(accountA, upscale.Value).Single().Key, Is.EqualTo(key));
+        });
+        dialog.RefreshModels();
+        await WaitUntilAsync(() => dialog.ModelPicker.SelectedModel == modelB);
+
+        SetAuthenticatedUser(app, accountA);
+        await WaitUntilAsync(() => dialog.Error.Value == Strings.AiRequestInProgress && !dialog.IsEditing.Value);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dialog.HoldsRequestName.Value, Is.True);
+            Assert.That(dialog.ModelPicker.CanReload!(upscale), Is.False);
+            Assert.That(dialog.ModelPicker.KeepOffered!(upscale), Is.EqualTo(new[] { modelA }));
+            Assert.That(dialog.RecoveryAttempts.Value.Single().Key, Is.EqualTo(key));
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase("account-b")]
     [TestCase(null)]
     public async Task IdentityChangeBetweenVideoPollsKeepsTheSubmittedKey(string? nextAccount)
