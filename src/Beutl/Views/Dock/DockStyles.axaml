@@ -569,13 +569,9 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
-            <Setter Property="RenderTransform" Value="scale(1)" />
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Foreground" Duration="00:00:00.083" />
-                    <TransformOperationsTransition Easing="0,0 0,1"
-                                                   Property="RenderTransform"
-                                                   Duration="00:00:00.083" />
                 </Transitions>
             </Setter>
         </Style>
@@ -585,20 +581,15 @@
         </Style>
         <Style Selector="^ Button#PART_TabCloseButton:pressed">
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonPressedBackgroundBrush}" />
-            <Setter Property="RenderTransform" Value="scale(0.9)" />
         </Style>
         <Style Selector="^ Button#PART_TabUnpinButton">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
-            <Setter Property="RenderTransform" Value="scale(1)" />
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Foreground" Duration="00:00:00.083" />
-                    <TransformOperationsTransition Easing="0,0 0,1"
-                                                   Property="RenderTransform"
-                                                   Duration="00:00:00.083" />
                 </Transitions>
             </Setter>
         </Style>
@@ -608,7 +599,6 @@
         </Style>
         <Style Selector="^ Button#PART_TabUnpinButton:pressed">
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonPressedBackgroundBrush}" />
-            <Setter Property="RenderTransform" Value="scale(0.9)" />
         </Style>
         <!--  :focus-visible keeps the keyboard tab stop from being an invisible way to close the tab.  -->
         <Style Selector="^:selected:pointerover Button#PART_TabCloseButton, ^ Button#PART_TabCloseButton:focus-visible">
