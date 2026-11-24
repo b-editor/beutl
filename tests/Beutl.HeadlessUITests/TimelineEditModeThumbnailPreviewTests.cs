@@ -10,6 +10,7 @@ using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
+using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -27,6 +28,7 @@ using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.Threading;
 using Point = Avalonia.Point;
+using WriteableBitmap = Avalonia.Media.Imaging.WriteableBitmap;
 
 namespace Beutl.HeadlessUITests;
 
@@ -294,6 +296,7 @@ public class TimelineEditModeThumbnailPreviewTests
         using var config = new PreviewConfigScope();
         ElementViewModel clip = await OpenVideoClip();
         TimelineTabViewModel timeline = clip.Timeline;
+        var video = clip.Model.Objects.OfType<SourceVideo>().Single();
         if (reverse)
         {
             // The speed curve overshoots below zero before reaching its second keyframe.
@@ -305,7 +308,7 @@ public class TimelineEditModeThumbnailPreviewTests
                 Value = { Value = 100 },
                 Easing = { Value = new BackEaseIn() },
             });
-            clip.Model.Objects.OfType<SourceVideo>().Single().Speed.SetKeyFrameAnimation(animation);
+            video.Speed.SetKeyFrameAnimation(animation);
             TestShell.Configuration.EditorConfig.ClampResizeToOriginalLength.Value = false;
         }
         string captureName = reverse ? "reverse-video" : "video";
@@ -329,13 +332,25 @@ public class TimelineEditModeThumbnailPreviewTests
         await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
         {
             pause.Release();
-            await HeadlessTestHelpers.WaitUntilAsync(() => strip.TryGetThumbnail(baseCount, out var thumbnail) && thumbnail != null);
+            WriteableBitmap? thumbnail = null;
+            await HeadlessTestHelpers.WaitUntilAsync(() => strip.TryGetThumbnail(baseCount, out thumbnail) && thumbnail != null);
             Assert.Multiple(() =>
             {
                 Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
                 Assert.That(clip.VideoThumbnailCount.Value, Is.EqualTo(baseCount));
                 Assert.That(clip.ThumbnailContentWidth.Value, Is.EqualTo(baseWidth));
             });
+            if (reverse)
+            {
+                // The first added slot samples the original clip end at the frozen slot spacing.
+                using var playback = video.ToResource(new CompositionContext(clip.Model.Range.End) { Decoders = TestShell.Decoders });
+                var source = playback.Source!;
+                MediaTime sourceTime = playback.RequestedPosition + playback.OffsetPosition;
+                Assert.That(sourceTime, Is.GreaterThan(source.Duration - MediaTime.FromSeconds(1)));
+                Bgra8888 expected = PreviewVideoReader.FrameColor(source.GetFrameIndex(sourceTime));
+                var center = new Avalonia.PixelPoint(thumbnail!.PixelSize.Width / 2, thumbnail.PixelSize.Height / 2);
+                Assert.That(HeadlessTestHelpers.ReadPixel(thumbnail, center), Is.EqualTo((expected.R, expected.G, expected.B)).Within(1));
+            }
             if (HeadlessCapture.IsRequested)
             {
                 var (_, end) = strip.GetVisibleRange();
@@ -834,10 +849,13 @@ public class TimelineEditModeThumbnailPreviewTests
         public override bool HasVideo => true;
         public override bool HasAudio => false;
 
+        public static Bgra8888 FrameColor(int frame)
+            => new((byte)(frame * 5), (byte)(80 + frame * 2), (byte)(180 - frame), 255);
+
         public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
         {
             var bitmap = new Bitmap(64, 36);
-            bitmap.GetPixelSpan<Bgra8888>().Fill(new Bgra8888((byte)(frame * 5), (byte)(80 + frame * 2), (byte)(180 - frame), 255));
+            bitmap.GetPixelSpan<Bgra8888>().Fill(FrameColor(frame));
             image = Ref<Bitmap>.Create(bitmap);
             return true;
         }
