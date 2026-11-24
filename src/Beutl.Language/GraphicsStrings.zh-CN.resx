@@ -2274,7 +2274,7 @@
     <value>相对于图像的坐标。左上角是 (0, 0)，右下角是 (1, 1)。</value>
   </data>
   <data name="Puppet_LibraryDescription" xml:space="preserve">
-    <value>放置并移动图钉来弯曲图像。</value>
+    <value>放置并移动图钉来弯曲图像（操控点、变形 / puppet pin, puppet tool, deform）。</value>
   </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>绘制可用作遮罩的圆形或椭圆（椭圆、形状、纯色层、蒙版、轨道遮罩 / ellipse, shape, solid, mask, track matte）。</value>
@@ -2385,7 +2385,7 @@
     <value>在当前帧上叠加较早或较晚时刻逐渐淡出的副本（残影、重影、运动拖尾 / afterimage, ghost trail, motion trails）。</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>以较低帧率保持画面，营造定格动画效果（帧保持、低帧率 / frame hold, stop motion）。</value>
+    <value>以较低帧率保持画面，营造定格动画效果（帧保持、低帧率 / frame hold, stop motion, posterize time）。</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>按镜头光圈的形状模糊图像（镜头模糊、散焦 / lens blur, defocus）。</value>
@@ -2451,7 +2451,7 @@
     <value>调亮或调暗整幅图像（提亮、压暗 / brighten, darken）。</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>调整图像的透明程度（Alpha、透明度 / alpha, transparency）。</value>
+    <value>调整图像的透明程度（Alpha、透明度、淡入淡出 / alpha, transparency, fade）。</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>调亮或调暗中间调以平衡影调（伽马校正、中间调 / gamma correction, midtones）。</value>
@@ -2466,7 +2466,7 @@
     <value>添加类似胶片颗粒的细微噪点（噪点、颗粒 / noise, grain）。</value>
   </data>
   <data name="Vignette_LibraryDescription" xml:space="preserve">
-    <value>围绕指定的中心压暗图像边缘（镜头暗角、边缘压暗 / lens vignette, edge darkening）。</value>
+    <value>围绕指定的中心压暗图像边缘，数量为负值时则提亮边缘（镜头暗角、边缘压暗 / lens vignette, edge darkening）。</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
     <value>反转图像颜色（负片、反相 / negative, invert colors）。</value>
@@ -2481,7 +2481,7 @@
     <value>反转图像颜色，并可分别调整红、绿、蓝（负片、反相 / negative, invert colors）。</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
-    <value>按色相和饱和度去除背景（绿幕、蓝幕、色度抠像 / green screen, blue screen, keylight）。</value>
+    <value>按色相和饱和度去除背景，并抑制溢到主体上的背景色（绿幕、蓝幕、色度抠像、溢色抑制 / green screen, blue screen, keylight, despill, spill suppressor）。</value>
   </data>
   <data name="ColorKey_LibraryDescription" xml:space="preserve">
     <value>将接近指定颜色的像素变为透明（抠像、颜色键、颜色遮罩 / keying, color key, color matte）。</value>
@@ -2526,7 +2526,7 @@
     <value>将分开的效果输出合并成一张图像（拼合、合并图层 / flatten, merge layers）。</value>
   </data>
   <data name="DelayAnimationEffect_LibraryDescription" xml:space="preserve">
-    <value>按时间差依次对副本或碎片应用同一个动画效果（错时动画、时间偏移 / stagger, time offset）。</value>
+    <value>按时间差依次对副本、碎片或文本中的字符应用同一个动画效果，使它们逐个动起来（错时动画、时间偏移、文字动画 / stagger, time offset, text animator）。</value>
   </data>
   <data name="PixelSortEffect_LibraryDescription" xml:space="preserve">
     <value>按亮度或颜色重排连续的像素，形成条纹（像素排序、条纹故障 / pixel sorting, streak glitch）。</value>

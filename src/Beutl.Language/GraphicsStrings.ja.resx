@@ -2270,7 +2270,7 @@
     <value>画像内の相対座標です。左上が (0, 0)、右下が (1, 1) です。</value>
   </data>
   <data name="Puppet_LibraryDescription" xml:space="preserve">
-    <value>画像にピンを置き、動かして曲げます。</value>
+    <value>画像にピンを置き、動かして曲げます（パペットピン、パペットツール、変形 / puppet pin, puppet tool, deform）。</value>
   </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>円や楕円を描画し、マットとしても使えます（楕円、シェイプ、平面、マスク、トラックマット / ellipse, shape, solid, mask, track matte）。</value>
@@ -2381,7 +2381,7 @@
     <value>過去や未来の時刻のコピーを不透明度を下げながら重ねます（残像、ゴースト、軌跡 / afterimage, ghost trail, motion trails）。</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>フレームを一定間隔で保持してコマ撮り風の動きにします（ストップモーション、低フレームレート / frame hold, stop motion）。</value>
+    <value>フレームを一定間隔で保持してコマ撮り風の動きにします（ストップモーション、低フレームレート、ポスタリゼーション時間 / frame hold, stop motion, posterize time）。</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>レンズの絞りの形で画像をぼかします（レンズぼかし、デフォーカス / lens blur, defocus）。</value>
@@ -2447,7 +2447,7 @@
     <value>画像全体を明るくしたり暗くしたりします（明るさ調整、増光、減光 / brighten, darken）。</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>画像の透け具合を変えます（透明度、アルファ / alpha, transparency）。</value>
+    <value>画像の透け具合を変えます（透明度、アルファ、フェード / alpha, transparency, fade）。</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>中間調の明るさを変えて階調を調整します（ガンマ補正、中間調 / gamma correction, midtones）。</value>
@@ -2462,7 +2462,7 @@
     <value>フィルムの粒子に似た細かなざらつきを加えます（ノイズ、グレイン / noise, grain）。</value>
   </data>
   <data name="Vignette_LibraryDescription" xml:space="preserve">
-    <value>指定した中心から離れるほど画像を暗くします（周辺減光、ビネット / lens vignette, edge darkening）。</value>
+    <value>指定した中心から離れるほど画像を暗くし、量を負の値にすると明るくします（周辺減光、ビネット / lens vignette, edge darkening）。</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
     <value>画像の色を反転します（色反転、ネガポジ反転 / negative, invert colors）。</value>
@@ -2477,7 +2477,7 @@
     <value>赤・緑・青を個別に調整しながら画像の色を反転します（色反転、ネガポジ反転 / negative, invert colors）。</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
-    <value>色相と彩度で背景を選んで透明にします（グリーンバック、ブルーバック、キーイング、キーライト / green screen, blue screen, keylight）。</value>
+    <value>色相と彩度で背景を選んで透明にし、被写体に映り込んだ背景色も抑えます（グリーンバック、ブルーバック、キーイング、キーライト、スピル抑制、スピル除去 / green screen, blue screen, keylight, despill, spill suppressor）。</value>
   </data>
   <data name="ColorKey_LibraryDescription" xml:space="preserve">
     <value>指定した色に近いピクセルを透明にします（キーイング、カラーキー、カラーマット / keying, color key, color matte）。</value>
@@ -2522,7 +2522,7 @@
     <value>分かれているエフェクトの出力を一枚の画像にまとめます（レイヤーの統合、フラット化 / flatten, merge layers）。</value>
   </data>
   <data name="DelayAnimationEffect_LibraryDescription" xml:space="preserve">
-    <value>コピーや分割したパーツごとにエフェクトのアニメーションをずらします（時間差、タイムオフセット、ずらしアニメーション / stagger, time offset）。</value>
+    <value>コピーや分割したパーツ、テキストの文字ごとにエフェクトのアニメーションをずらし、順番に動かします（時間差、タイムオフセット、ずらしアニメーション、テキストアニメーター / stagger, time offset, text animator）。</value>
   </data>
   <data name="PixelSortEffect_LibraryDescription" xml:space="preserve">
     <value>並んだピクセルを明るさや色で並べ替え、筋状の模様を作ります（ピクセルソート、グリッチ / pixel sorting, streak glitch）。</value>
