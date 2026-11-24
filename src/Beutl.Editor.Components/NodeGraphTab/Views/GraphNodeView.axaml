@@ -18,6 +18,7 @@
              Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
              BorderBrush="{DynamicResource ControlElevationBorderBrush}"
              BorderThickness="1"
+             Classes.expanded="{Binding IsExpanded.Value}"
              Classes.selected="{Binding IsSelected.Value}"
              ClipToBounds="False"
              controls:UiMotion.Slides="False"
@@ -49,6 +50,13 @@
         <Style Selector="views|GraphNodeView.selected /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />
         </Style>
+        <!-- One pixel tighter than ControlCornerRadius, so the header and body sit flush inside the 1px node border. -->
+        <Style Selector="Border#handle">
+            <Setter Property="CornerRadius" Value="7" />
+        </Style>
+        <Style Selector="views|GraphNodeView.expanded Border#handle">
+            <Setter Property="CornerRadius" Value="7,7,0,0" />
+        </Style>
     </UserControl.Styles>
     <Grid RowDefinitions="Auto,Auto">
         <Border x:Name="handle"
@@ -56,7 +64,6 @@
                 AutomationProperties.HelpText="{Binding FallbackMessage}"
                 Padding="4"
                 Background="{Binding Color}"
-                CornerRadius="{DynamicResource ControlCornerRadius}"
                 Focusable="True"
                 ToolTip.Tip="{Binding NodeName.Value}">
             <Border.ContextFlyout>
@@ -169,11 +176,13 @@
                 </Button>
             </Grid>
         </Border>
+        <!-- One pixel tighter than ControlCornerRadius, so the body sits flush inside the 1px node border. -->
         <Border x:Name="nodeContent"
                 Grid.Row="1"
                 Padding="0,0,0,8"
                 Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                ClipToBounds="False">
+                ClipToBounds="False"
+                CornerRadius="0,0,7,7">
             <StackPanel x:Name="stackPanel">
                 <StackPanel x:Name="fallbackMessage" Margin="8" IsVisible="{Binding IsFallback}" Spacing="8">
                     <TextBlock Text="{Binding FallbackMessage}" TextWrapping="Wrap" />

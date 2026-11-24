@@ -36,6 +36,11 @@
             Classes.elm-locked="{Binding !IsEditable.Value}"
             Classes.selected="{Binding IsSelected.Value}"
             ToolTip.Tip="{Binding RecoveryProtectionToolTip.Value}">
+        <Border.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="00:00:00.083" />
+            </Transitions>
+        </Border.Transitions>
         <Border.Styles>
             <Style Selector="Border:pressed">
                 <Setter Property="Opacity" Value="0.8" />

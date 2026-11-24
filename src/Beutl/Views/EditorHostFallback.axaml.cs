@@ -55,6 +55,7 @@ public partial class EditorHostFallback : UserControl
     private readonly ObservableCollection<RecentProjectItem> _recentItems = [];
     private RecentProjectItem? _pressedItem;
     private ViewConfig? _configuration;
+    private bool _bindingConfiguration;
 
     // "Show in Finder", "Show in Explorer" or "Open in File Manager", as the platform calls it.
     public static string FileManagerMenuHeader => FileManagerLauncher.MenuHeader;
@@ -111,7 +112,15 @@ public partial class EditorHostFallback : UserControl
             _configuration.RecentProjects.CollectionChanged -= OnRecentProjectsChanged;
         _configuration = (DataContext as MainViewModel)?.Configuration.ViewConfig
             ?? ControlConfiguration.GetConfiguration(this)?.ViewConfig;
-        layoutTabs.SelectedIndex = _configuration?.RecentProjectsLayout.Value == RecentProjectsLayout.List ? 1 : 0;
+        _bindingConfiguration = true;
+        try
+        {
+            layoutTabs.SelectedIndex = _configuration?.RecentProjectsLayout.Value == RecentProjectsLayout.List ? 1 : 0;
+        }
+        finally
+        {
+            _bindingConfiguration = false;
+        }
         if (_configuration != null && this.IsAttachedToVisualTree())
             _configuration.RecentProjects.CollectionChanged += OnRecentProjectsChanged;
         SyncRecentItems();
@@ -156,9 +165,13 @@ public partial class EditorHostFallback : UserControl
     private void OnLayoutChanged(int index)
     {
         RecentProjectsLayout layout = index == 1 ? RecentProjectsLayout.List : RecentProjectsLayout.Grid;
-        recentList.Classes.Set("grid", layout == RecentProjectsLayout.Grid);
+        bool wasGrid = recentList.Classes.Contains("grid");
+        bool isGrid = layout == RecentProjectsLayout.Grid;
+        recentList.Classes.Set("grid", isGrid);
         if (_configuration != null)
             _configuration.RecentProjectsLayout.Value = layout;
+        if (!_bindingConfiguration && wasGrid != isGrid && this.IsAttachedToVisualTree() && recentList.ItemCount > 0)
+            UiMotion.Reveal(recentList, UiMotion.Normal);
     }
 
     private async void CreateNewProject_Click(object? sender, RoutedEventArgs e)

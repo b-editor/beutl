@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Beutl.Controls;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Services.Tutorials;
@@ -38,11 +39,16 @@ public partial class TutorialOverlay : UserControl
     {
         if (state == null)
         {
+            UiMotion.Cancel(this);
+            UiMotion.Cancel(TipContainer);
+            Opacity = 1;
+            TipContainer.Opacity = 1;
             IsVisible = false;
             ClearHighlights();
             return;
         }
 
+        bool wasVisible = IsVisible;
         IsVisible = true;
         TutorialStep step = state.CurrentStep;
 
@@ -55,6 +61,10 @@ public partial class TutorialOverlay : UserControl
         NextButton.Content = state.IsLastStep ? TutorialStrings.TutorialFinish : TutorialStrings.TutorialNext;
 
         UpdateTargetHighlight(step);
+
+        if (!wasVisible)
+            UiMotion.FadeIn(this, UiMotion.Normal);
+        UiMotion.Reveal(TipContainer, UiMotion.Normal);
     }
 
     private void UpdateTargetHighlight(TutorialStep step)
@@ -182,6 +192,7 @@ public partial class TutorialOverlay : UserControl
         {
             var border = new Border
             {
+                Classes = { "tutorial-highlight" },
                 BorderBrush = Application.Current?.FindResource("AccentFillColorDefaultBrush") as IBrush,
                 BorderThickness = new Thickness(2),
                 CornerRadius = Application.Current?.FindResource("ControlCornerRadius") is CornerRadius cornerRadius

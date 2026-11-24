@@ -15,8 +15,21 @@
                   TargetType="Button">
         <Setter Property="Padding" Value="0" />
 
+        <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="00:00:00.083" />
+                </Transitions>
+            </Setter>
+        </Style>
+
         <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Opacity" Value="0.8" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Opacity" Value="0.65" />
             <Setter Property="Background" Value="Transparent" />
         </Style>
     </ControlTheme>

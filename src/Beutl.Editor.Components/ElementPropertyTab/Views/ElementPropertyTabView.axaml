@@ -45,7 +45,9 @@
         </ContentControl>
 
         <ScrollViewer x:Name="scrollViewer">
-            <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Items}">
+            <ItemsControl x:Name="itemsControl"
+                          controls:ItemsMotion.RevealsAddedItems="True"
+                          ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="viewModel:EngineObjectPropertyViewModel">
                         <local:EngineObjectPropertyView IsVisible="{Binding IsShown.Value}" />

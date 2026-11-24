@@ -1,11 +1,11 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Language;
@@ -15,10 +15,6 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public partial class GraphNodeView : UserControl
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
-
-    private CancellationTokenSource? _lastTransitionCts;
-
     private Point _start;
     private bool _captured;
     private Point _snapshot;
@@ -48,13 +44,18 @@ public partial class GraphNodeView : UserControl
         expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
             {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
-
-                nodeContent.IsVisible = v == true;
-
-                _ = s_transition.Start(null, this, localToken);
+                bool open = v == true;
+                bool changed = nodeContent.IsVisible != open;
+                nodeContent.IsVisible = open;
+                if (open && changed && this.IsAttachedToVisualTree())
+                {
+                    UiMotion.Reveal(nodeContent, UiMotion.Normal);
+                }
+                else
+                {
+                    UiMotion.Cancel(nodeContent);
+                    nodeContent.Opacity = 1;
+                }
             });
 
         this.SubscribeDataContextChange<GraphNodeViewModel>(OnDataContextAttached, OnDataContextDetached);

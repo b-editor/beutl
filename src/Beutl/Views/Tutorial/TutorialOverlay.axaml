@@ -8,6 +8,23 @@
              d:DesignHeight="450"
              d:DesignWidth="800"
              mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="Border.tutorial-highlight">
+            <Style.Animations>
+                <Animation IterationCount="Infinite" Duration="0:0:1.8">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="1.0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="50%" KeySpline="0.4,0 0.6,1">
+                        <Setter Property="Opacity" Value="0.5" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%" KeySpline="0.4,0 0.6,1">
+                        <Setter Property="Opacity" Value="1.0" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
 
     <Panel>
         <!-- 半透明暗幕（ターゲット要素の矩形を切り抜き） -->
