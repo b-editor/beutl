@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace Beutl.Graphics.Effects;
 
@@ -10,6 +11,9 @@ internal sealed class PuppetDeformer
     private const float Tolerance = 1f / 64;
     // Bounds the work for a pose that converges slowly, such as one that folds the picture over itself.
     private const int MaxIterations = 100;
+    // Amortize the two parallel loop dispatches over enough free vertices.
+    private const int ParallelThreshold = 4096;
+    private const int ParallelBlockSize = 512;
     private readonly PuppetMesh _mesh;
     private readonly int[][] _neighbors;
     private readonly int[] _pinAtVertex;
@@ -20,7 +24,11 @@ internal sealed class PuppetDeformer
     private readonly int[] _free;
     private readonly LaplacianFactor _laplacian;
 
-    public PuppetDeformer(PuppetMesh mesh)
+    public PuppetDeformer(PuppetMesh mesh) : this(mesh, allowParallel: Environment.ProcessorCount > 1)
+    {
+    }
+
+    internal PuppetDeformer(PuppetMesh mesh, bool allowParallel)
     {
         _mesh = mesh;
         _neighbors = BuildNeighbors(mesh);
@@ -41,8 +49,11 @@ internal sealed class PuppetDeformer
         _rotating = Enumerable.Range(0, mesh.Rest.Length)
             .Where(vertex => _componentPinCount[_component[vertex]] >= 2).ToArray();
         _free = _rotating.Where(vertex => _pinAtVertex[vertex] < 0).ToArray();
+        UsesParallelSteps = allowParallel && _free.Length >= ParallelThreshold;
         _laplacian = new LaplacianFactor(_neighbors, _free, _pinAtVertex);
     }
+
+    internal bool UsesParallelSteps { get; }
 
     public Vector2[] Deform(Size size, Point[] targets) => Deform(size, targets, Tolerance, MaxIterations);
 
@@ -142,10 +153,11 @@ internal sealed class PuppetDeformer
         var rotations = new Vector2[rest.Length];
         var right = new Vector2[rest.Length];
         var solved = new Vector2[rest.Length];
+        double[]? energyTerms = UsesParallelSteps ? ArrayPool<double>.Shared.Rent(_rotating.Length) : null;
         AndersonMixer? mixer = null;
         try
         {
-            double energy = FitRotations(rest, displacement, rotations);
+            double energy = FitRotations(rest, displacement, rotations, energyTerms);
             for (int iteration = 0; iteration < maxIterations; iteration++)
             {
                 BuildRight(rest, displacement, rotations, right);
@@ -164,7 +176,7 @@ internal sealed class PuppetDeformer
                 mixer ??= new AndersonMixer(_free.Length);
                 if (mixer.Mix(_free, displacement, solved))
                 {
-                    double mixedEnergy = FitRotations(rest, displacement, rotations);
+                    double mixedEnergy = FitRotations(rest, displacement, rotations, energyTerms);
                     if (mixedEnergy < energy)
                     {
                         energy = mixedEnergy;
@@ -174,56 +186,104 @@ internal sealed class PuppetDeformer
 
                 foreach (int vertex in _free)
                     displacement[vertex] = solved[vertex];
-                energy = FitRotations(rest, displacement, rotations);
+                energy = FitRotations(rest, displacement, rotations, energyTerms);
             }
         }
         finally
         {
             mixer?.Dispose();
+            if (energyTerms is not null)
+                ArrayPool<double>.Shared.Return(energyTerms);
         }
     }
 
     // The local step: each vertex's rotation that best maps its rest edges onto the current ones. Returns the ARAP energy
     // of the current positions with those rotations.
-    private double FitRotations(Vector2[] rest, Vector2[] displacement, Vector2[] rotations)
+    private double FitRotations(Vector2[] rest, Vector2[] displacement, Vector2[] rotations, double[]? energyTerms)
     {
+        if (energyTerms is not null)
+            return FitRotationsParallel(rest, displacement, rotations, energyTerms);
+
         double energy = 0;
         foreach (int vertex in _rotating)
-        {
-            double cosine = 0;
-            double sine = 0;
-            double squares = 0;
-            foreach (int other in _neighbors[vertex])
-            {
-                Vector2 original = rest[vertex] - rest[other];
-                Vector2 current = original + displacement[vertex] - displacement[other];
-                cosine += (double)original.X * current.X + (double)original.Y * current.Y;
-                sine += (double)original.X * current.Y - (double)original.Y * current.X;
-                // Squared in double: the energies compared to accept an accelerated step can differ by less than a float
-                // squared length rounds away.
-                squares += (double)original.X * original.X + (double)original.Y * original.Y
-                    + (double)current.X * current.X + (double)current.Y * current.Y;
-            }
-
-            double length = Math.Sqrt(cosine * cosine + sine * sine);
-            energy += squares - 2 * length;
-            rotations[vertex] = length > 0
-                ? new Vector2((float)(cosine / length), (float)(sine / length))
-                : Vector2.UnitX;
-        }
+            energy += FitRotation(rest, displacement, rotations, vertex);
         return energy;
+    }
+
+    private double FitRotationsParallel(Vector2[] rest, Vector2[] displacement, Vector2[] rotations, double[] energyTerms)
+    {
+        Parallel.For(0, (_rotating.Length + ParallelBlockSize - 1) / ParallelBlockSize, block =>
+        {
+            int start = block * ParallelBlockSize;
+            int end = Math.Min(start + ParallelBlockSize, _rotating.Length);
+            for (int i = start; i < end; i++)
+                energyTerms[i] = FitRotation(rest, displacement, rotations, _rotating[i]);
+        });
+
+        // The sum must round in vertex order because it decides whether to keep the accelerated step.
+        double energy = 0;
+        for (int i = 0; i < _rotating.Length; i++)
+            energy += energyTerms[i];
+        return energy;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private double FitRotation(Vector2[] rest, Vector2[] displacement, Vector2[] rotations, int vertex)
+    {
+        Vector2 restVertex = rest[vertex];
+        Vector2 displacementVertex = displacement[vertex];
+        double cosine = 0;
+        double sine = 0;
+        double squares = 0;
+        foreach (int other in _neighbors[vertex])
+        {
+            Vector2 original = restVertex - rest[other];
+            Vector2 current = original + displacementVertex - displacement[other];
+            cosine += (double)original.X * current.X + (double)original.Y * current.Y;
+            sine += (double)original.X * current.Y - (double)original.Y * current.X;
+            // Squared in double: the energies compared to accept an accelerated step can differ by less than a float
+            // squared length rounds away.
+            squares += (double)original.X * original.X + (double)original.Y * original.Y
+                + (double)current.X * current.X + (double)current.Y * current.Y;
+        }
+
+        double length = Math.Sqrt(cosine * cosine + sine * sine);
+        rotations[vertex] = length > 0
+            ? new Vector2((float)(cosine / length), (float)(sine / length))
+            : Vector2.UnitX;
+        return squares - 2 * length;
     }
 
     private void BuildRight(Vector2[] rest, Vector2[] displacement, Vector2[] rotations, Vector2[] right)
     {
-        // Solve for displacements from rest so small moves on a large image retain their precision.
-        foreach (int vertex in _free)
+        if (UsesParallelSteps)
+            BuildRightParallel(rest, displacement, rotations, right);
+        else
+            BuildRightRange(rest, displacement, rotations, right, 0, _free.Length);
+    }
+
+    private void BuildRightParallel(Vector2[] rest, Vector2[] displacement, Vector2[] rotations, Vector2[] right)
+    {
+        Parallel.For(0, (_free.Length + ParallelBlockSize - 1) / ParallelBlockSize, block =>
         {
+            int start = block * ParallelBlockSize;
+            int end = Math.Min(start + ParallelBlockSize, _free.Length);
+            BuildRightRange(rest, displacement, rotations, right, start, end);
+        });
+    }
+
+    private void BuildRightRange(Vector2[] rest, Vector2[] displacement, Vector2[] rotations, Vector2[] right, int start, int end)
+    {
+        // Solve for displacements from rest so small moves on a large image retain their precision.
+        foreach (int vertex in _free.AsSpan(start, end - start))
+        {
+            Vector2 restVertex = rest[vertex];
+            Vector2 rotationVertex = rotations[vertex];
             Vector2 value = Vector2.Zero;
             foreach (int other in _neighbors[vertex])
             {
-                Vector2 edge = rest[vertex] - rest[other];
-                Vector2 rotation = (rotations[vertex] + rotations[other]) * 0.5f;
+                Vector2 edge = restVertex - rest[other];
+                Vector2 rotation = (rotationVertex + rotations[other]) * 0.5f;
                 value += new Vector2(rotation.X * edge.X - rotation.Y * edge.Y,
                     rotation.Y * edge.X + rotation.X * edge.Y) - edge;
                 if (_pinAtVertex[other] >= 0)
