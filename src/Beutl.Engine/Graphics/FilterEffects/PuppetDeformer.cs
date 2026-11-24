@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace Beutl.Graphics.Effects;
 
-// Two-dimensional ARAP with uniform edge weights and exact positional constraints.
+// Two-dimensional ARAP with cotangent edge weights and exact positional constraints.
 internal sealed class PuppetDeformer
 {
     // The iterations stop once no vertex moves further than this in one of them, in the input's units.
@@ -14,8 +14,12 @@ internal sealed class PuppetDeformer
     // Amortize the two parallel loop dispatches over enough free vertices.
     private const int ParallelThreshold = 4096;
     private const int ParallelBlockSize = 512;
+    // Preserve coupling for edges with nonpositive cotangent sums.
+    private const float MinEdgeWeight = 0.25f;
+    // Bound the influence of edges opposite very small angles.
+    private const float MaxEdgeWeight = 64f;
     private readonly PuppetMesh _mesh;
-    private readonly int[][] _neighbors;
+    private readonly Neighbor[][] _neighbors;
     private readonly int[] _pinAtVertex;
     private readonly int[] _component;
     private readonly int[] _componentPinCount;
@@ -235,16 +239,16 @@ internal sealed class PuppetDeformer
         double cosine = 0;
         double sine = 0;
         double squares = 0;
-        foreach (int other in _neighbors[vertex])
+        foreach (var (other, weight) in _neighbors[vertex])
         {
             Vector2 original = restVertex - rest[other];
             Vector2 current = original + displacementVertex - displacement[other];
-            cosine += (double)original.X * current.X + (double)original.Y * current.Y;
-            sine += (double)original.X * current.Y - (double)original.Y * current.X;
+            cosine += weight * ((double)original.X * current.X + (double)original.Y * current.Y);
+            sine += weight * ((double)original.X * current.Y - (double)original.Y * current.X);
             // Squared in double: the energies compared to accept an accelerated step can differ by less than a float
             // squared length rounds away.
-            squares += (double)original.X * original.X + (double)original.Y * original.Y
-                + (double)current.X * current.X + (double)current.Y * current.Y;
+            squares += weight * ((double)original.X * original.X + (double)original.Y * original.Y
+                + (double)current.X * current.X + (double)current.Y * current.Y);
         }
 
         double length = Math.Sqrt(cosine * cosine + sine * sine);
@@ -280,14 +284,14 @@ internal sealed class PuppetDeformer
             Vector2 restVertex = rest[vertex];
             Vector2 rotationVertex = rotations[vertex];
             Vector2 value = Vector2.Zero;
-            foreach (int other in _neighbors[vertex])
+            foreach (var (other, weight) in _neighbors[vertex])
             {
                 Vector2 edge = restVertex - rest[other];
                 Vector2 rotation = (rotationVertex + rotations[other]) * 0.5f;
-                value += new Vector2(rotation.X * edge.X - rotation.Y * edge.Y,
-                    rotation.Y * edge.X + rotation.X * edge.Y) - edge;
+                value += weight * (new Vector2(rotation.X * edge.X - rotation.Y * edge.Y,
+                    rotation.Y * edge.X + rotation.X * edge.Y) - edge);
                 if (_pinAtVertex[other] >= 0)
-                    value += displacement[other];
+                    value += weight * displacement[other];
             }
             right[vertex] = value;
         }
@@ -453,7 +457,7 @@ internal sealed class PuppetDeformer
     {
         private readonly Column[] _columns;
 
-        public LaplacianFactor(int[][] neighbors, int[] free, int[] pinAtVertex)
+        public LaplacianFactor(Neighbor[][] neighbors, int[] free, int[] pinAtVertex)
         {
             _columns = new Column[free.Length];
             if (free.Length == 0) return;
@@ -464,13 +468,13 @@ internal sealed class PuppetDeformer
             foreach (int vertex in free)
             {
                 var entries = new Dictionary<int, double>();
-                foreach (int other in neighbors[vertex])
+                foreach (var (other, weight) in neighbors[vertex])
                 {
                     if (pinAtVertex[other] < 0)
-                        entries.Add(other, -1);
+                        entries.Add(other, -weight);
+                    diagonal[vertex] += weight;
                 }
                 right[vertex] = entries;
-                diagonal[vertex] = neighbors[vertex].Length;
                 Enqueue(vertex, entries.Count);
             }
 
@@ -542,9 +546,12 @@ internal sealed class PuppetDeformer
         private readonly record struct Column(int Vertex, float InverseDiagonal, int[] Rows, float[] Weights);
     }
 
-    private static int[][] BuildNeighbors(PuppetMesh mesh)
+    private readonly record struct Neighbor(int Vertex, float Weight);
+
+    private static Neighbor[][] BuildNeighbors(PuppetMesh mesh)
     {
-        var neighbors = new HashSet<int>[mesh.Rest.Length];
+        Vector2[] rest = mesh.Rest;
+        var neighbors = new Dictionary<int, double>[rest.Length];
         for (int vertex = 0; vertex < neighbors.Length; vertex++)
             neighbors[vertex] = [];
         ushort[] indices = mesh.Indices;
@@ -553,21 +560,31 @@ internal sealed class PuppetDeformer
             int a = indices[index];
             int b = indices[index + 1];
             int c = indices[index + 2];
-            AddEdge(a, b);
-            AddEdge(b, c);
-            AddEdge(c, a);
+            AddEdge(a, b, c);
+            AddEdge(b, c, a);
+            AddEdge(c, a, b);
         }
 
-        return neighbors.Select(list => list.Order().ToArray()).ToArray();
+        // The opposite angles can contribute with different signs, so clamp their sum.
+        return neighbors.Select(list => list.OrderBy(edge => edge.Key)
+            .Select(edge => new Neighbor(edge.Key, (float)Math.Clamp(edge.Value, MinEdgeWeight, MaxEdgeWeight)))
+            .ToArray()).ToArray();
 
-        void AddEdge(int a, int b)
+        void AddEdge(int a, int b, int opposite)
         {
-            neighbors[a].Add(b);
-            neighbors[b].Add(a);
+            double ax = rest[a].X - (double)rest[opposite].X;
+            double ay = rest[a].Y - (double)rest[opposite].Y;
+            double bx = rest[b].X - (double)rest[opposite].X;
+            double by = rest[b].Y - (double)rest[opposite].Y;
+            double twiceArea = Math.Abs(ax * by - ay * bx);
+            double contribution = twiceArea > 0 ? 0.5 * (ax * bx + ay * by) / twiceArea : 0;
+            double weight = neighbors[a].GetValueOrDefault(b) + contribution;
+            neighbors[a][b] = weight;
+            neighbors[b][a] = weight;
         }
     }
 
-    private static int[] FindComponents(int[][] neighbors, out int count)
+    private static int[] FindComponents(Neighbor[][] neighbors, out int count)
     {
         var components = new int[neighbors.Length];
         Array.Fill(components, -1);
@@ -581,7 +598,7 @@ internal sealed class PuppetDeformer
             pending.Push(start);
             while (pending.TryPop(out int vertex))
             {
-                foreach (int other in neighbors[vertex])
+                foreach (var (other, _) in neighbors[vertex])
                 {
                     if (components[other] >= 0) continue;
 

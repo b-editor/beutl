@@ -86,6 +86,30 @@ public sealed class PuppetDeformerConvergenceTests
     [Test]
     public void LargeBendMatchesSequentialSolveBitForBit()
     {
+        var (mesh, destinations) = CreateSmoothBend();
+        var sequential = new PuppetDeformer(mesh, allowParallel: false);
+        var parallel = new PuppetDeformer(mesh, allowParallel: true);
+        Assert.That(sequential.UsesParallelSteps, Is.False);
+        Assert.That(parallel.UsesParallelSteps, Is.True, "The large bend must exercise the parallel steps.");
+
+        Vector2[] expected = sequential.Deform(s_frame, destinations);
+        Vector2[] actual = parallel.Deform(s_frame, destinations);
+        Assert.That(MemoryMarshal.AsBytes(actual.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(expected.AsSpan())),
+            Is.True, "The parallel and sequential results must match bit for bit.");
+    }
+
+    [Test]
+    public void StrongBendOfSmoothOutlineLimitsFolding()
+    {
+        var (mesh, destinations) = CreateSmoothBend();
+        Vector2[] deformed = new PuppetDeformer(mesh).Deform(s_frame, destinations);
+
+        Assert.That(deformed.All(vertex => float.IsFinite(vertex.X) && float.IsFinite(vertex.Y)), Is.True);
+        Assert.That(FoldedTriangles(mesh, deformed), Is.LessThanOrEqualTo(200), "Folded triangles after bending the smooth outline");
+    }
+
+    private static (PuppetMesh Mesh, Point[] Destinations) CreateSmoothBend()
+    {
         const int points = 3000;
         Point[] outline = new Point[points];
         for (int i = 0; i < outline.Length; i++)
@@ -100,15 +124,7 @@ public sealed class PuppetDeformerConvergenceTests
         PuppetMesh mesh = PuppetMesh.Create([outline], s_frame, s_mask, anchors, out _)!;
         Assert.That(mesh.PinVertices, Has.All.GreaterThanOrEqualTo(0));
         Point[] destinations = [anchors[0], new(0.5f, 0.5f + 325f / 1080), anchors[2]];
-        var sequential = new PuppetDeformer(mesh, allowParallel: false);
-        var parallel = new PuppetDeformer(mesh, allowParallel: true);
-        Assert.That(sequential.UsesParallelSteps, Is.False);
-        Assert.That(parallel.UsesParallelSteps, Is.True, "The large bend must exercise the parallel steps.");
-
-        Vector2[] expected = sequential.Deform(s_frame, destinations);
-        Vector2[] actual = parallel.Deform(s_frame, destinations);
-        Assert.That(MemoryMarshal.AsBytes(actual.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(expected.AsSpan())),
-            Is.True, "The parallel and sequential results must match bit for bit.");
+        return (mesh, destinations);
     }
 
     private static int FoldedTriangles(PuppetMesh mesh, Vector2[] deformed)
