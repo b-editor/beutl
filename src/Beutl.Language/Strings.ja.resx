@@ -4067,6 +4067,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="HostedGit_CloneFailed" xml:space="preserve">
     <value>リポジトリのクローンに失敗しました。</value>
   </data>
+  <data name="HostedGit_CloneRequiresLfs" xml:space="preserve">
+    <value>このリポジトリには Git LFS ファイルが含まれています。Git LFS をインストールしてから、もう一度クローンしてください。</value>
+  </data>
   <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
     <value>開くプロジェクトを選択</value>
   </data>

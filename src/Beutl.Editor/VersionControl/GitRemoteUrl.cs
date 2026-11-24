@@ -31,6 +31,8 @@ internal sealed class GitRemoteUrl
 
     public bool HasCredentials => _password is not null;
 
+    // Explicit hosted connections select a repository for both fetch and push.
+    // A pasted URL edits the fetch URL and keeps Git's separately configured push URLs.
     public bool IsHostedConnection { get; }
 
     public static GitRemoteUrl Parse(string url)

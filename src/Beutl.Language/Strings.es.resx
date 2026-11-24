@@ -4072,6 +4072,9 @@ cuando el registro del historial está activado.</value>
   <data name="HostedGit_CloneFailed" xml:space="preserve">
     <value>No se pudo clonar el repositorio.</value>
   </data>
+  <data name="HostedGit_CloneRequiresLfs" xml:space="preserve">
+    <value>Este repositorio contiene archivos de Git LFS. Instala Git LFS y vuelve a clonar el repositorio.</value>
+  </data>
   <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
     <value>Elige un proyecto para abrir</value>
   </data>

@@ -2,6 +2,7 @@
 using Beutl.Api.Clients;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Beutl.Language;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -146,6 +147,28 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
 
         Assert.That(await File.ReadAllTextAsync(Path.Combine(destination, "media.mp4")), Is.EqualTo(media));
         Assert.That(await File.ReadAllTextAsync(config), Is.EqualTo(filters));
+    }
+
+    [Test]
+    public async Task Clone_without_LFS_keeps_the_destination_empty_when_the_target_requires_it()
+    {
+        await CommitFileAsync("Project.bep", "project", "Initial project");
+        string initial = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await CommitFileAsync(".gitattributes", "*.mp4 filter=lfs diff=lfs merge=lfs -text\n", "Set LFS attributes");
+        string pointer = $"version https://git-lfs.github.com/spec/v1\noid sha256:{new string('a', 64)}\nsize 12\n";
+        await CommitFileAsync("media.mp4", pointer, "Store an LFS pointer");
+        string output = CreateTemporaryDirectory();
+        string destination = Path.Combine(output, "clone");
+        Directory.CreateDirectory(destination);
+        var cloner = new GitRepositoryCloner(CreateInstalledLocator(), _ => Runner);
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => cloner.CloneAsync(Root, destination));
+        Assert.That(failure!.Message, Is.EqualTo(Strings.HostedGit_CloneRequiresLfs));
+        Assert.That(Directory.GetFileSystemEntries(output), Is.EqualTo(new[] { destination }));
+        Assert.That(Directory.GetFileSystemEntries(destination), Is.Empty);
+
+        await cloner.CloneAsync(Root, destination, initial);
+        Assert.That(File.Exists(Path.Combine(destination, "Project.bep")), Is.True);
     }
 
     [Test]

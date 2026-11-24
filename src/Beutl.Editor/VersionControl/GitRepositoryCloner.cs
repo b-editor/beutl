@@ -76,21 +76,31 @@ internal sealed class GitRepositoryCloner(
             if (remote.HasCredentials)
                 await remote.ConfigureLocalCredentialsAsync(repository, runner, helper, cancellationToken, local)
                     .ConfigureAwait(false);
+
+            string reference = "HEAD";
+            string[] checkoutArguments = ["reset", "--hard"];
+            if (checkoutRevision)
+            {
+                (reference, checkoutArguments) = await ResolveRevisionCheckoutAsync(repository, runner, revision!, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             if (availability.LfsInstalled)
             {
                 // A clone does not inherit the source repository's local LFS filters.
                 await runner.RunAsync(repository, ["lfs", "install", "--local", "--skip-repo"],
                     local, cancellationToken).ConfigureAwait(false);
             }
-            if (checkoutRevision)
-                await CheckoutRevisionAsync(repository, runner, revision!,
-                        preferTrackingBranch: GitRevisionValidator.IsAbbreviatedObjectId(revision!),
-                        network, safeProgress, cancellationToken)
-                    .ConfigureAwait(false);
-            else
-                await runner.RunAsync(repository, [.. GitCliVersionControlService.LfsPathFilterOverrides, "reset", "--hard"],
-                        network, cancellationToken, safeProgress)
-                    .ConfigureAwait(false);
+            else if (await GitCliVersionControlService.TryResolveCommitAsync(repository, runner, reference, cancellationToken)
+                         .ConfigureAwait(false) is { } commit
+                     && await GitCliVersionControlService.TargetContainsLfsPointerAsync(
+                         repository, runner, commit, LfsPrefetchScope.RepositoryWide, cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException(Strings.HostedGit_CloneRequiresLfs);
+            }
+
+            await runner.RunAsync(repository, [.. GitCliVersionControlService.LfsPathFilterOverrides, .. checkoutArguments],
+                network, cancellationToken, safeProgress).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
             if (existedEmpty)
@@ -137,29 +147,24 @@ internal sealed class GitRepositoryCloner(
         }
     }
 
-    private static async Task CheckoutRevisionAsync(
-        RepositoryInfo repository, IGitCliRunner runner, string revision, bool preferTrackingBranch,
-        GitCommandOptions options, IProgress<string>? progress, CancellationToken cancellationToken)
+    private static async Task<(string Reference, string[] Arguments)> ResolveRevisionCheckoutAsync(
+        RepositoryInfo repository, IGitCliRunner runner, string revision, CancellationToken cancellationToken)
     {
-        if (preferTrackingBranch)
+        if (GitRevisionValidator.IsAbbreviatedObjectId(revision))
         {
             // A short hex name can name a real branch as well as an abbreviated object ID.
             string branchRef = $"refs/remotes/origin/{revision}";
             if (await GitCliVersionControlService.RefExistsAsync(repository, runner, branchRef, cancellationToken)
                     .ConfigureAwait(false))
             {
-                await runner.RunAsync(repository,
-                    [.. GitCliVersionControlService.LfsPathFilterOverrides, "switch", "-C", revision, "--track", "--", branchRef],
-                    options, cancellationToken, progress).ConfigureAwait(false);
-                return;
+                return (branchRef, ["switch", "-C", revision, "--track", "--", branchRef]);
             }
         }
 
         string hash = await GitCliVersionControlService.TryResolveHostedCommitAsync(repository, runner, revision, cancellationToken)
             .ConfigureAwait(false) ?? throw new InvalidOperationException(Strings.HostedGit_InvalidRevision);
         GitRevisionValidator.ValidateCommitId(hash, nameof(revision));
-        await runner.RunAsync(repository, [.. GitCliVersionControlService.LfsPathFilterOverrides, "switch", "--detach", "--", hash],
-            options, cancellationToken, progress).ConfigureAwait(false);
+        return (hash, ["switch", "--detach", "--", hash]);
     }
 
     internal static bool CheckDestination(string destination)

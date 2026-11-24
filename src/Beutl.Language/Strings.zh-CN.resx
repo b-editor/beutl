@@ -4072,6 +4072,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="HostedGit_CloneFailed" xml:space="preserve">
     <value>无法克隆仓库。</value>
   </data>
+  <data name="HostedGit_CloneRequiresLfs" xml:space="preserve">
+    <value>此仓库包含 Git LFS 文件。请安装 Git LFS 后重试克隆。</value>
+  </data>
   <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
     <value>选择要打开的项目</value>
   </data>

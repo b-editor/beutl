@@ -4072,6 +4072,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="HostedGit_CloneFailed" xml:space="preserve">
     <value>저장소를 복제하지 못했습니다.</value>
   </data>
+  <data name="HostedGit_CloneRequiresLfs" xml:space="preserve">
+    <value>이 저장소에는 Git LFS 파일이 있습니다. Git LFS를 설치한 후 다시 복제하세요.</value>
+  </data>
   <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
     <value>열 프로젝트 선택</value>
   </data>
