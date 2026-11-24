@@ -118,7 +118,8 @@ public sealed partial class ElementView
         private record struct TrimSegment(
             ElementViewModel ViewModel,
             double InitialLeft,
-            double InitialWidth);
+            double InitialWidth,
+            MediaTime InitialStart);
 
         private record struct TrimDragContext(
             TrimDragKind Kind,
@@ -193,10 +194,15 @@ public sealed partial class ElementView
             if (ctx.Kind is not TrimDragKind.None)
             {
                 RestoreTrimDragVisuals(ctx);
+                EndTrimMediaPreviews(ctx, committed: false, scale: 0);
             }
             else
             {
                 ForceRestoreVisualToModel(resizeContexts.Select(context => context.ViewModel));
+                foreach (ElementResizeContext resizeCtx in resizeContexts)
+                {
+                    resizeCtx.ViewModel.EndMediaPreview(committed: false);
+                }
             }
             if (AssociatedObject is { ViewModel: { } } view)
             {
@@ -244,6 +250,7 @@ public sealed partial class ElementView
             {
                 foreach (ElementResizeContext ctx in _resizeContexts)
                 {
+                    ctx.ViewModel.UpdateMediaPreview(0);
                     if (_resizeType == AlignmentX.Right)
                     {
                         PreviewRightEdge(ctx, point.X, scale, minWidth, viewModel.Timeline.IsRippleEnabled.Value);
@@ -330,6 +337,7 @@ public sealed partial class ElementView
 
             foreach (TrimSegment front in ctx.Fronts)
             {
+                front.ViewModel.UpdateMediaPreview(0);
                 front.ViewModel.Width.Value = front.InitialWidth + deltaPixels;
             }
 
@@ -340,6 +348,7 @@ public sealed partial class ElementView
 
             foreach (TrimSegment back in ctx.Backs)
             {
+                back.ViewModel.UpdateMediaPreview(-deltaPixels);
                 back.ViewModel.BorderMargin.Value = new Thickness(back.InitialLeft + deltaPixels, 0, 0, 0);
                 back.ViewModel.Width.Value = back.InitialWidth - deltaPixels;
             }
@@ -493,8 +502,8 @@ public sealed partial class ElementView
                 ElementViewModel? frontVm = viewModel.Timeline.GetViewModelFor(pairs[i].Front);
                 ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(pairs[i].Back);
                 if (frontVm is null || backVm is null) return false;
-                fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value);
-                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value);
+                fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value, frontVm.Model.Start.Value);
+                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value, backVm.Model.Start.Value);
             }
 
             var constraints = ElementResizeService.CreateTrimConstraints(viewModel.Scene, pairs, viewModel.Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, decoders: ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext));
@@ -525,14 +534,14 @@ public sealed partial class ElementView
                 ElementViewModel? frontVm = viewModel.Timeline.GetViewModelFor(lanes[i].Front);
                 ElementViewModel? backVm = viewModel.Timeline.GetViewModelFor(lanes[i].Back);
                 if (frontVm is null || backVm is null) return false;
-                fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value);
-                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value);
+                fronts[i] = new TrimSegment(frontVm, frontVm.BorderMargin.Value.Left, frontVm.Width.Value, frontVm.Model.Start.Value);
+                backs[i] = new TrimSegment(backVm, backVm.BorderMargin.Value.Left, backVm.Width.Value, backVm.Model.Start.Value);
 
                 foreach (Element middle in lanes[i].Middles)
                 {
                     ElementViewModel? middleVm = viewModel.Timeline.GetViewModelFor(middle);
                     if (middleVm is null) return false;
-                    middles.Add(new TrimSegment(middleVm, middleVm.BorderMargin.Value.Left, middleVm.Width.Value));
+                    middles.Add(new TrimSegment(middleVm, middleVm.BorderMargin.Value.Left, middleVm.Width.Value, middleVm.Model.Start.Value));
                 }
             }
 
@@ -618,24 +627,39 @@ public sealed partial class ElementView
 
             RestoreTrimDragVisuals(ctx);
 
+            bool applied = false;
             if (delta != MediaTime.Zero)
             {
                 IElementResizeService resizeService = viewModel.Timeline.EditorContext
                     .GetRequiredService<IElementResizeService>();
-                if (ctx.Kind == TrimDragKind.Roll)
-                {
-                    resizeService.Roll(viewModel.Scene, ctx.RollPairs, delta);
-                }
-                else
-                {
-                    resizeService.Slide(viewModel.Scene, ctx.SlideLanes, delta);
-                }
+                applied = ctx.Kind == TrimDragKind.Roll
+                    ? resizeService.Roll(viewModel.Scene, ctx.RollPairs, delta)
+                    : resizeService.Slide(viewModel.Scene, ctx.SlideLanes, delta);
+            }
+
+            EndTrimMediaPreviews(ctx, applied, scale);
+        }
+
+        private static void EndTrimMediaPreviews(TrimDragContext ctx, bool committed, float scale)
+        {
+            foreach (TrimSegment front in ctx.Fronts)
+            {
+                front.ViewModel.EndMediaPreview(committed);
+            }
+
+            foreach (TrimSegment back in ctx.Backs)
+            {
+                double? finalOffsetX = committed
+                    ? -(back.ViewModel.Model.Start.Value - back.InitialStart).TimeToPixel(scale)
+                    : null;
+                back.ViewModel.EndMediaPreview(committed, finalOffsetX);
             }
         }
 
         private void CommitGroupResize(ElementViewModel viewModel, bool ripple, bool leftEdge)
         {
-            var animations = _resizeContexts
+            ElementResizeContext[] contexts = _resizeContexts;
+            var animations = contexts
                 .Select(x => (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation()))
                 .ToArray();
 
@@ -647,12 +671,12 @@ public sealed partial class ElementView
                 double edge = ctx.ViewModel.BorderMargin.Value.Left + (leftEdge ? 0 : ctx.ViewModel.Width.Value);
                 return edge.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             }
-            MediaTime? sharedEdge = _resizeContexts.Any(ctx => ctx.MediaConstraints?.HasSharedClock == true)
-                ? RoundEdge(_resizeContexts[0]) : null;
-            var requests = new ElementResizeRequest[_resizeContexts.Length];
-            for (int i = 0; i < _resizeContexts.Length; i++)
+            MediaTime? sharedEdge = contexts.Any(ctx => ctx.MediaConstraints?.HasSharedClock == true)
+                ? RoundEdge(contexts[0]) : null;
+            var requests = new ElementResizeRequest[contexts.Length];
+            for (int i = 0; i < contexts.Length; i++)
             {
-                ElementResizeContext ctx = _resizeContexts[i];
+                ElementResizeContext ctx = contexts[i];
                 // Round the moving edge once and retain the opposite edge.
                 // Rounding each start/length separately can split a shared
                 // edge when the clips have different sub-frame starts.
@@ -668,9 +692,23 @@ public sealed partial class ElementView
                 .GetRequiredService<IElementResizeService>()
                 .Resize(viewModel.Scene, requests, ripple);
 
-            _ = AnimateToModelAsync(
+            _ = CompleteGroupResizeAsync(animations, contexts);
+        }
+
+        private static async Task CompleteGroupResizeAsync(
+            (ElementViewModel ViewModel, ElementViewModel.PrepareAnimationContext Context)[] animations,
+            ElementResizeContext[] contexts)
+        {
+            await AnimateToModelAsync(
                 animations,
                 ex => s_logger.LogWarning(ex, "Animation failed after a group resize; snapping visuals to model."));
+
+            foreach (ElementResizeContext ctx in contexts)
+            {
+                bool changed = ctx.ViewModel.Model.Start.Value != ctx.RecordedStartTime
+                    || ctx.ViewModel.Model.Range.End != ctx.RecordedEndTime;
+                ctx.ViewModel.EndMediaPreview(committed: changed);
+            }
         }
 
         private static void RestoreTrimDragVisuals(TrimDragContext ctx)

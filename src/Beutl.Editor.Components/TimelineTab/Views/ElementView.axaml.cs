@@ -290,12 +290,17 @@ public sealed partial class ElementView : UserControl
         obj.GetClickedTime = null;
 
         obj.GetMissingThumbnailIndices = null;
+        obj.GetMissingWaveformIndices = null;
+        obj.GetMediaViewportWidth = null;
         thumbnailStrip.VisibleRangeChanged -= obj.OnVisibleRangeChanged;
+        waveformControl.VisibleRangeChanged -= obj.OnWaveformVisibleRangeChanged;
 
         obj.ThumbnailReady -= OnThumbnailReady;
         obj.ThumbnailsClear -= OnThumbnailsClear;
+        obj.ThumbnailsPruneOutOfRange -= OnThumbnailsPruneOutOfRange;
         obj.WaveformChunkReady -= OnWaveformChunkReady;
         obj.WaveformClear -= OnWaveformClear;
+        obj.WaveformPruneOutOfRange -= OnWaveformPruneOutOfRange;
 
         obj.SetTimelineViewAttached(false);
         thumbnailStrip.ClearThumbnails();
@@ -332,7 +337,10 @@ public sealed partial class ElementView : UserControl
         obj.GetClickedTime = () => _pointerPosition;
 
         obj.GetMissingThumbnailIndices = thumbnailStrip.GetMissingIndices;
+        obj.GetMissingWaveformIndices = waveformControl.GetMissingIndices;
+        obj.GetMediaViewportWidth = () => mediaClip.Bounds.Width;
         thumbnailStrip.VisibleRangeChanged += obj.OnVisibleRangeChanged;
+        waveformControl.VisibleRangeChanged += obj.OnWaveformVisibleRangeChanged;
 
         obj.IsSelected
             .ObserveOnUIDispatcher()
@@ -345,8 +353,10 @@ public sealed partial class ElementView : UserControl
 
         obj.ThumbnailReady += OnThumbnailReady;
         obj.ThumbnailsClear += OnThumbnailsClear;
+        obj.ThumbnailsPruneOutOfRange += OnThumbnailsPruneOutOfRange;
         obj.WaveformChunkReady += OnWaveformChunkReady;
         obj.WaveformClear += OnWaveformClear;
+        obj.WaveformPruneOutOfRange += OnWaveformPruneOutOfRange;
         obj.SetTimelineViewAttached(true);
     }
 
@@ -360,6 +370,11 @@ public sealed partial class ElementView : UserControl
         thumbnailStrip.ClearThumbnails();
     }
 
+    private void OnThumbnailsPruneOutOfRange()
+    {
+        thumbnailStrip.PruneOutOfRangeThumbnails();
+    }
+
     private void OnWaveformChunkReady(WaveformChunk chunk)
     {
         waveformControl.SetChunk(chunk);
@@ -368,6 +383,11 @@ public sealed partial class ElementView : UserControl
     private void OnWaveformClear()
     {
         waveformControl.ClearChunks();
+    }
+
+    private void OnWaveformPruneOutOfRange()
+    {
+        waveformControl.PruneOutOfRangeChunks();
     }
 
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)

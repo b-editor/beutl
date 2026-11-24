@@ -1,6 +1,7 @@
 ﻿using System.Reactive;
 using Beutl.Configuration;
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -16,13 +17,139 @@ public sealed partial class ElementViewModel
 {
     // Media detail requires at least this much horizontal space.
     internal const double MinimumThumbnailWidth = 25;
+    private const int MaxWaveformSamplesPerChunk = 4096;
     private bool _timelineViewAttached;
     private int _thumbnailLayoutVersion;
     private int _thumbnailCountVersion;
     private int _failedThumbnailLayoutVersion = -1;
+    private bool _isEditPreviewActive;
+    private bool _holdPreviewUntilThumbnailsRefresh;
+    private bool _previewResumedPendingRefresh;
+    private double _previewInitialOffsetX;
+    private int _previewBaseRequestWidth;
 
     private bool CanGenerateThumbnails => !_isDisposed && _timelineViewAttached
-        && !IsThumbnailsDisabled.Value && Width.Value >= MinimumThumbnailWidth;
+        && !IsThumbnailsDisabled.Value && GetEffectiveThumbnailWidth() >= MinimumThumbnailWidth;
+
+    private double GetEffectiveThumbnailWidth()
+        => _holdPreviewUntilThumbnailsRefresh
+            ? Model.Length.Value.TimeToPixel(Timeline.Options.Value.Scale)
+            : Width.Value;
+
+    internal void BeginMediaPreview()
+    {
+        if (_isDisposed || _isEditPreviewActive) return;
+
+        bool resumingPendingRefresh = _holdPreviewUntilThumbnailsRefresh;
+        _isEditPreviewActive = true;
+        _holdPreviewUntilThumbnailsRefresh = false;
+        _previewResumedPendingRefresh = resumingPendingRefresh;
+
+        if (resumingPendingRefresh)
+        {
+            // A previous commit's rebuild has not swapped the strip yet; cancel it so it cannot clear
+            // mid-drag, and keep offsetting the still-displayed strip without fetching against the newer model.
+            CancelThumbnailsLoading();
+            _previewInitialOffsetX = ThumbnailContentOffsetX.Value;
+            IsThumbnailPreviewActive.Value = false;
+            return;
+        }
+
+        _previewInitialOffsetX = 0;
+        double modelWidth = Model.Length.Value.TimeToPixel(Timeline.Options.Value.Scale);
+        _previewBaseRequestWidth = (int)modelWidth;
+
+        double contentWidth = GetMediaViewportWidth?.Invoke() ?? 0;
+        if (contentWidth <= 0)
+            contentWidth = Math.Max(0, modelWidth - 2);
+
+        if ((VideoThumbnailCount.Value > 0 || WaveformChunkCount.Value > 0) && contentWidth > 0)
+        {
+            ThumbnailContentWidth.Value = contentWidth;
+            ThumbnailContentOffsetX.Value = 0;
+            IsThumbnailPreviewActive.Value = true;
+        }
+    }
+
+    internal void UpdateMediaPreview(double contentOffsetX)
+    {
+        if (_isDisposed) return;
+
+        if (!_isEditPreviewActive)
+            BeginMediaPreview();
+
+        if (IsThumbnailPreviewActive.Value || _previewResumedPendingRefresh)
+        {
+            ThumbnailContentOffsetX.Value = _previewInitialOffsetX + contentOffsetX;
+        }
+    }
+
+    internal void EndMediaPreview(bool committed, double? finalContentOffsetX = null)
+    {
+        if (!_isEditPreviewActive) return;
+
+        bool resumedPendingRefresh = _previewResumedPendingRefresh;
+        double initialOffsetX = _previewInitialOffsetX;
+        _isEditPreviewActive = false;
+        _previewResumedPendingRefresh = false;
+        _previewInitialOffsetX = 0;
+        CancelScrollThumbnailsLoading();
+        CancelWaveformPreviewLoading();
+
+        if (_isDisposed)
+        {
+            ResetMediaPreviewVisuals();
+            return;
+        }
+
+        if (!committed)
+        {
+            if (resumedPendingRefresh)
+            {
+                // Restore the previous commit's offset and finish its cancelled rebuild.
+                ThumbnailContentOffsetX.Value = initialOffsetX;
+                _holdPreviewUntilThumbnailsRefresh = true;
+                IsThumbnailPreviewActive.Value = false;
+                Interlocked.Increment(ref _thumbnailLayoutVersion);
+                UpdateThumbnailsAsync();
+                return;
+            }
+
+            ResetMediaPreviewVisuals();
+            ThumbnailsPruneOutOfRange?.Invoke();
+            WaveformPruneOutOfRange?.Invoke();
+            return;
+        }
+
+        if (IsThumbnailPreviewActive.Value || resumedPendingRefresh)
+        {
+            if (finalContentOffsetX is { } finalOffset)
+                ThumbnailContentOffsetX.Value = initialOffsetX + finalOffset;
+
+            _holdPreviewUntilThumbnailsRefresh = true;
+            IsThumbnailPreviewActive.Value = false;
+        }
+        else
+        {
+            ResetMediaPreviewVisuals();
+        }
+
+        Interlocked.Increment(ref _thumbnailLayoutVersion);
+        UpdateThumbnailsAsync();
+    }
+
+    private void ResetMediaPreviewVisuals()
+    {
+        _holdPreviewUntilThumbnailsRefresh = false;
+        _previewResumedPendingRefresh = false;
+        _previewInitialOffsetX = 0;
+        _previewBaseRequestWidth = 0;
+        if (_isDisposed) return;
+
+        IsThumbnailPreviewActive.Value = false;
+        ThumbnailContentWidth.Value = double.NaN;
+        ThumbnailContentOffsetX.Value = 0;
+    }
 
     internal void SetTimelineViewAttached(bool attached)
     {
@@ -115,11 +242,22 @@ public sealed partial class ElementViewModel
         // Stop pending work as soon as the clip becomes narrow; only regeneration is debounced.
         Width.Select(width => width < MinimumThumbnailWidth)
             .DistinctUntilChanged()
-            .Where(narrow => narrow && _timelineViewAttached)
+            .Where(narrow => narrow && _timelineViewAttached && !_isEditPreviewActive)
             .ObserveOnUIDispatcher()
             .Subscribe(_ =>
             {
-                if (Width.Value < MinimumThumbnailWidth) UpdateThumbnailsAsync();
+                if (!_isEditPreviewActive && GetEffectiveThumbnailWidth() < MinimumThumbnailWidth) UpdateThumbnailsAsync();
+            })
+            .AddTo(_disposables);
+
+        Observable.Merge(
+                Timeline.Scale.Skip(1).Select(_ => Unit.Default),
+                Timeline.LayerRowHeight.Skip(1).Select(_ => Unit.Default))
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ =>
+            {
+                if (_holdPreviewUntilThumbnailsRefresh)
+                    ResetMediaPreviewVisuals();
             })
             .AddTo(_disposables);
 
@@ -132,21 +270,38 @@ public sealed partial class ElementViewModel
                     .Where(_ => ThumbnailsKind.Value == Engine.ThumbnailsKind.Video)
                     .Select(_ => true),
                 _thumbnailsInvalidatedSubject.AsObservable().Select(_ => false))
-            .Where(_ => _timelineViewAttached)
+            .Where(_ => _timelineViewAttached && !_isEditPreviewActive)
             .Do(resetVisibleRange =>
             {
                 if (resetVisibleRange) Interlocked.Increment(ref _thumbnailLayoutVersion);
             })
             .Throttle(TimeSpan.FromMilliseconds(500))
             .ObserveOnUIDispatcher()
-            .Subscribe(_ => UpdateThumbnailsAsync())
+            .Subscribe(_ =>
+            {
+                if (!_isEditPreviewActive) UpdateThumbnailsAsync();
+            })
             .AddTo(_disposables);
 
         _visibleRangeSubject
-            .Where(_ => !IsThumbnailsDisabled.Value)
+            .Where(_ => !IsThumbnailsDisabled.Value && !_isEditPreviewActive)
             .Throttle(TimeSpan.FromMilliseconds(50))
             .ObserveOnUIDispatcher()
             .Subscribe(range => _ = UpdateVisibleThumbnailsAsync(range.Start, range.End))
+            .AddTo(_disposables);
+
+        _previewVisibleRangeSubject
+            .Where(_ => !IsThumbnailsDisabled.Value && _isEditPreviewActive)
+            .Throttle(TimeSpan.FromMilliseconds(16))
+            .ObserveOnUIDispatcher()
+            .Subscribe(range => _ = UpdatePreviewThumbnailsAsync(range.Start, range.End))
+            .AddTo(_disposables);
+
+        _waveformVisibleRangeSubject
+            .Where(_ => !IsThumbnailsDisabled.Value && _isEditPreviewActive)
+            .Throttle(TimeSpan.FromMilliseconds(30))
+            .ObserveOnUIDispatcher()
+            .Subscribe(range => _ = UpdatePreviewWaveformAsync(range.Start, range.End))
             .AddTo(_disposables);
     }
 
@@ -183,6 +338,13 @@ public sealed partial class ElementViewModel
         _scrollThumbnailsCts = null;
     }
 
+    private void CancelWaveformPreviewLoading()
+    {
+        _waveformPreviewCts?.Cancel();
+        _waveformPreviewCts?.Dispose();
+        _waveformPreviewCts = null;
+    }
+
     private async void UpdateThumbnailsAsync()
     {
         if (_isDisposed || !_timelineViewAttached) return;
@@ -202,6 +364,7 @@ public sealed partial class ElementViewModel
 
         if (provider == null)
         {
+            ResetMediaPreviewVisuals();
             ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
             return;
         }
@@ -222,6 +385,9 @@ public sealed partial class ElementViewModel
                 case Engine.ThumbnailsKind.Audio:
                     await UpdateAudioThumbnailsAsync(provider, ct);
                     break;
+                default:
+                    ResetMediaPreviewVisuals();
+                    break;
             }
         }
         catch (OperationCanceledException)
@@ -230,6 +396,8 @@ public sealed partial class ElementViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update thumbnails.");
+            if (_holdPreviewUntilThumbnailsRefresh && !_isDisposed)
+                Avalonia.Threading.Dispatcher.UIThread.Post(ResetMediaPreviewVisuals);
         }
         finally
         {
@@ -245,6 +413,9 @@ public sealed partial class ElementViewModel
     {
         CancelThumbnailsLoading();
         CancelScrollThumbnailsLoading();
+        CancelWaveformPreviewLoading();
+        _isEditPreviewActive = false;
+        ResetMediaPreviewVisuals();
         Volatile.Write(ref _thumbnailCountVersion, Volatile.Read(ref _thumbnailLayoutVersion));
         Volatile.Write(ref _failedThumbnailLayoutVersion, -1);
         _lastVisibleStart = _lastVisibleEnd = -1;
@@ -340,14 +511,156 @@ public sealed partial class ElementViewModel
 
     public void OnVisibleRangeChanged(int start, int end)
     {
+        if (_isEditPreviewActive)
+        {
+            _previewVisibleRangeSubject.OnNext((start, end));
+            return;
+        }
+
         _lastVisibleStart = start;
         _lastVisibleEnd = end;
         _visibleRangeSubject.OnNext((start, end));
     }
 
+    public void OnWaveformVisibleRangeChanged(int start, int end)
+    {
+        if (_isEditPreviewActive)
+        {
+            _waveformVisibleRangeSubject.OnNext((start, end));
+        }
+    }
+
+    private async Task UpdatePreviewThumbnailsAsync(int start, int end)
+    {
+        if (_isDisposed || !_timelineViewAttached || IsThumbnailsDisabled.Value || !_isEditPreviewActive || end < start)
+            return;
+
+        if (_currentThumbnailsProvider is not Beutl.Graphics.SourceVideo video)
+            return;
+
+        int baseWidth = _previewBaseRequestWidth;
+        if (baseWidth <= 0 || VideoThumbnailCount.Value <= 0)
+            return;
+
+        var missing = GetMissingThumbnailIndices?.Invoke(start, end);
+        if (missing == null || missing.Count == 0)
+            return;
+
+        CancelScrollThumbnailsLoading();
+        _scrollThumbnailsCts = new CancellationTokenSource();
+        var ct = _scrollThumbnailsCts.Token;
+
+        try
+        {
+            int maxThumbnailHeight = Math.Max(1, (int)Math.Round(Timeline.LayerRowHeight.Value));
+            await foreach (var (index, _, thumbnail) in video.GetPreviewThumbnailStripAsync(
+                               Timeline.EditorContext.GetRequiredService<FontManager>(),
+                               baseWidth,
+                               maxThumbnailHeight,
+                               missing,
+                               _thumbnailCacheService,
+                               ct,
+                               PreferProxyForThumbnails,
+                               PreferredProxyPresetForThumbnails,
+                               ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext)))
+            {
+                if (ct.IsCancellationRequested || !_isEditPreviewActive)
+                {
+                    thumbnail?.Dispose();
+                    break;
+                }
+
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    using (thumbnail)
+                    {
+                        if (!ct.IsCancellationRequested && _isEditPreviewActive)
+                        {
+                            ThumbnailReady?.Invoke(index, thumbnail != null && !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null);
+                        }
+                    }
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update preview thumbnails.");
+        }
+        finally
+        {
+            if (_scrollThumbnailsCts is { } cts && cts.Token == ct)
+            {
+                _scrollThumbnailsCts = null;
+                cts.Dispose();
+            }
+        }
+    }
+
+    private async Task UpdatePreviewWaveformAsync(int start, int end)
+    {
+        if (_isDisposed || !_timelineViewAttached || IsThumbnailsDisabled.Value || !_isEditPreviewActive || end < start)
+            return;
+
+        if (_currentThumbnailsProvider is not Beutl.Audio.SourceSound sound)
+            return;
+
+        int baseChunkCount = WaveformChunkCount.Value;
+        if (baseChunkCount <= 0)
+            return;
+
+        var missing = GetMissingWaveformIndices?.Invoke(start, end);
+        if (missing == null || missing.Count == 0)
+            return;
+
+        CancelWaveformPreviewLoading();
+        _waveformPreviewCts = new CancellationTokenSource();
+        var ct = _waveformPreviewCts.Token;
+
+        try
+        {
+            await foreach (var chunk in sound.GetPreviewWaveformChunksAsync(
+                               baseChunkCount,
+                               MaxWaveformSamplesPerChunk,
+                               missing,
+                               _thumbnailCacheService,
+                               ct,
+                               ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext)))
+            {
+                if (ct.IsCancellationRequested || !_isEditPreviewActive)
+                    break;
+
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (!ct.IsCancellationRequested && _isEditPreviewActive)
+                    {
+                        WaveformChunkReady?.Invoke(chunk);
+                    }
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update preview waveform.");
+        }
+        finally
+        {
+            if (_waveformPreviewCts is { } cts && cts.Token == ct)
+            {
+                _waveformPreviewCts = null;
+                cts.Dispose();
+            }
+        }
+    }
+
     private async Task UpdateVisibleThumbnailsAsync(int start, int end)
     {
-        if (!CanGenerateThumbnails || end < start) return;
+        if (!CanGenerateThumbnails || _isEditPreviewActive || end < start) return;
 
         var provider = _currentThumbnailsProvider;
         if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
@@ -376,7 +689,7 @@ public sealed partial class ElementViewModel
 
         try
         {
-            double width = Width.Value;
+            double width = GetEffectiveThumbnailWidth();
             if (width <= 0)
                 return;
 
@@ -401,9 +714,12 @@ public sealed partial class ElementViewModel
 
     private async Task UpdateVideoThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
     {
-        double width = Width.Value;
+        double width = GetEffectiveThumbnailWidth();
         if (width <= 0)
+        {
+            ResetMediaPreviewVisuals();
             return;
+        }
 
         int layoutVersion = Volatile.Read(ref _thumbnailLayoutVersion);
         Volatile.Write(ref _failedThumbnailLayoutVersion, -1);
@@ -413,8 +729,9 @@ public sealed partial class ElementViewModel
         {
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (!ct.IsCancellationRequested)
+                if (!ct.IsCancellationRequested && !_isEditPreviewActive)
                 {
+                    ResetMediaPreviewVisuals();
                     ThumbnailsClear?.Invoke();
                 }
             });
@@ -471,24 +788,27 @@ public sealed partial class ElementViewModel
 
     private async Task UpdateAudioThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
     {
-        const int MaxSamplesPerChunk = 4096;
-        double width = Width.Value;
+        double width = GetEffectiveThumbnailWidth();
         if (width <= 0)
+        {
+            ResetMediaPreviewVisuals();
             return;
+        }
 
         int chunkCount = Math.Max(1, (int)width);
 
         await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (!ct.IsCancellationRequested)
+            if (!ct.IsCancellationRequested && !_isEditPreviewActive)
             {
+                ResetMediaPreviewVisuals();
                 WaveformClear?.Invoke();
                 WaveformChunkCount.Value = chunkCount;
             }
         });
 
         ct.ThrowIfCancellationRequested();
-        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, _thumbnailCacheService, ct, ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext)))
+        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxWaveformSamplesPerChunk, _thumbnailCacheService, ct, ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext)))
         {
             if (ct.IsCancellationRequested)
                 break;

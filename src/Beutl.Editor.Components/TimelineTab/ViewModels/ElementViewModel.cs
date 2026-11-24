@@ -51,12 +51,17 @@ public sealed partial class ElementViewModel : IDisposable
     private bool _isDisposed;
     private bool _viewStateInitialized;
     private readonly Subject<(int Start, int End)> _visibleRangeSubject = new();
+    private readonly Subject<(int Start, int End)> _previewVisibleRangeSubject = new();
+    private readonly Subject<(int Start, int End)> _waveformVisibleRangeSubject = new();
+    private CancellationTokenSource? _waveformPreviewCts;
     private readonly IProxyStore? _proxyStore;
     private readonly IProxyJobQueue? _proxyJobQueue;
     private string? _proxySourceKey;
     private IReadOnlyList<ProxyFingerprint> _proxyFingerprints = [];
 
     public Func<int, int, List<int>>? GetMissingThumbnailIndices;
+    public Func<int, int, List<int>>? GetMissingWaveformIndices;
+    public Func<double>? GetMediaViewportWidth;
 
     public ElementViewModel(Element element, TimelineTabViewModel timeline)
     {
@@ -339,6 +344,12 @@ public sealed partial class ElementViewModel : IDisposable
 
     public ReactivePropertySlim<int> WaveformChunkCount { get; } = new();
 
+    public ReactivePropertySlim<double> ThumbnailContentWidth { get; } = new(double.NaN);
+
+    public ReactivePropertySlim<double> ThumbnailContentOffsetX { get; } = new(0d);
+
+    public ReactivePropertySlim<bool> IsThumbnailPreviewActive { get; } = new(false);
+
     public ReactivePropertySlim<bool> ShowProxyIndicator { get; } = new();
 
     public ReactivePropertySlim<ProxyState> ProxyIndicatorState { get; } = new(ProxyState.None);
@@ -351,9 +362,13 @@ public sealed partial class ElementViewModel : IDisposable
 
     public event Action? ThumbnailsClear;
 
+    public event Action? ThumbnailsPruneOutOfRange;
+
     public event Action<WaveformChunk>? WaveformChunkReady;
 
     public event Action? WaveformClear;
+
+    public event Action? WaveformPruneOutOfRange;
 
     public IReadOnlyList<ElementViewModel> GetGroupOrSelectedElements()
     {
@@ -414,12 +429,18 @@ public sealed partial class ElementViewModel : IDisposable
         _thumbnailsInvalidatedSubject.Dispose();
         _elementEditedSubject.Dispose();
         _visibleRangeSubject.Dispose();
+        _previewVisibleRangeSubject.Dispose();
+        _waveformVisibleRangeSubject.Dispose();
 
         CancelThumbnailsLoading();
 
         _scrollThumbnailsCts?.Cancel();
         _scrollThumbnailsCts?.Dispose();
         _scrollThumbnailsCts = null;
+
+        _waveformPreviewCts?.Cancel();
+        _waveformPreviewCts?.Dispose();
+        _waveformPreviewCts = null;
         if (_lastThumbnailsCacheKey != null)
             InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
@@ -430,6 +451,9 @@ public sealed partial class ElementViewModel : IDisposable
         ThumbnailsKind.Dispose();
         VideoThumbnailCount.Dispose();
         WaveformChunkCount.Dispose();
+        ThumbnailContentWidth.Dispose();
+        ThumbnailContentOffsetX.Dispose();
+        IsThumbnailPreviewActive.Dispose();
         ShowProxyIndicator.Dispose();
         ProxyIndicatorState.Dispose();
         KeyFrameMarkTimes.Dispose();
@@ -438,6 +462,8 @@ public sealed partial class ElementViewModel : IDisposable
         AnimationRequested = (_, _) => Task.CompletedTask;
         GetClickedTime = null;
         GetMissingThumbnailIndices = null;
+        GetMissingWaveformIndices = null;
+        GetMediaViewportWidth = null;
     }
 
     public async void AnimationRequest(int layerNum)
@@ -498,6 +524,8 @@ public sealed partial class ElementViewModel : IDisposable
     public async Task SubmitViewModelChanges(bool ripple = false, bool leftEdge = false)
     {
         PrepareAnimationContext context = PrepareAnimation();
+        MediaTime beforeStart = Model.Start.Value;
+        MediaTime beforeLength = Model.Length.Value;
 
         float scale = Timeline.Options.Value.Scale;
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
@@ -512,7 +540,9 @@ public sealed partial class ElementViewModel : IDisposable
         Timeline.EditorContext.GetRequiredService<IElementResizeService>()
             .Resize(Scene, [request], ripple);
 
+        bool changed = Model.Start.Value != beforeStart || Model.Length.Value != beforeLength;
         await AnimationRequest(context);
+        EndMediaPreview(committed: changed);
     }
 
     public PrepareAnimationContext PrepareAnimation()

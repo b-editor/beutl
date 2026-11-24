@@ -18,11 +18,26 @@ public sealed partial class ThumbnailStripControl : Control
 
     static ThumbnailStripControl()
     {
-        AffectsRender<ThumbnailStripControl>(ThumbnailCountProperty);
+        AffectsRender<ThumbnailStripControl>(
+            ThumbnailCountProperty,
+            ContentWidthProperty,
+            ContentOffsetXProperty,
+            IsPreviewActiveProperty);
     }
 
     [GeneratedStyledProperty]
     public partial int ThumbnailCount { get; set; }
+
+    [GeneratedStyledProperty(DefaultValue = double.NaN)]
+    public partial double ContentWidth { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial double ContentOffsetX { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial bool IsPreviewActive { get; set; }
+
+    private bool HasCustomLayout => IsPreviewActive || !double.IsNaN(ContentWidth) || ContentOffsetX != 0;
 
     public void SetThumbnail(int index, WriteableBitmap? thumbnail)
     {
@@ -44,7 +59,36 @@ public sealed partial class ThumbnailStripControl : Control
         }
 
         _thumbnails.Clear();
+        _lastNotifiedStart = -1;
+        _lastNotifiedEnd = -1;
 
+        InvalidateVisual();
+    }
+
+    public void PruneOutOfRangeThumbnails()
+    {
+        int count = ThumbnailCount;
+        List<int>? toRemove = null;
+        foreach (var kvp in _thumbnails)
+        {
+            if (kvp.Key < 0 || kvp.Key >= count)
+            {
+                toRemove ??= [];
+                toRemove.Add(kvp.Key);
+            }
+        }
+
+        if (toRemove != null)
+        {
+            foreach (int key in toRemove)
+            {
+                if (_thumbnails.Remove(key, out var old))
+                    old?.Dispose();
+            }
+        }
+
+        _lastNotifiedStart = -1;
+        _lastNotifiedEnd = -1;
         InvalidateVisual();
     }
 
@@ -57,10 +101,24 @@ public sealed partial class ThumbnailStripControl : Control
             ClearThumbnails();
             NotifyVisibleRangeIfChanged();
         }
+        else if (change.Property == ContentOffsetXProperty
+            || change.Property == ContentWidthProperty
+            || change.Property == IsPreviewActiveProperty
+            || change.Property == BoundsProperty)
+        {
+            NotifyVisibleRangeIfChanged();
+        }
     }
 
-    private (int Start, int End) ComputeVisibleRange()
-        => TimelineSlotRange.Compute(this, _scrollViewer, ThumbnailCount, buffer: 2);
+    private (int Start, int End) ComputeVisibleRange(bool? allowOutOfRange = null)
+        => TimelineSlotRange.Compute(
+            this,
+            _scrollViewer,
+            ThumbnailCount,
+            buffer: 2,
+            ContentWidth,
+            ContentOffsetX,
+            allowOutOfRange ?? IsPreviewActive);
 
     public List<int> GetMissingIndices(int start, int end)
     {
@@ -99,9 +157,36 @@ public sealed partial class ThumbnailStripControl : Control
         if (count <= 0)
             return;
 
-        double slotWidth = width / count;
-        var (startIndex, endIndex) = ComputeVisibleRange();
+        double contentWidth = !double.IsNaN(ContentWidth) && ContentWidth > 0 ? ContentWidth : width;
+        double slotWidth = contentWidth / count;
+        if (slotWidth <= 0)
+            return;
 
+        double contentOffsetX = ContentOffsetX;
+        bool customLayout = HasCustomLayout;
+        var (startIndex, endIndex) = ComputeVisibleRange(allowOutOfRange: customLayout);
+
+        if (customLayout)
+        {
+            using (context.PushClip(new Rect(0, 0, width, height)))
+            {
+                DrawThumbnails(context, startIndex, endIndex, slotWidth, contentOffsetX, height);
+            }
+        }
+        else
+        {
+            DrawThumbnails(context, startIndex, endIndex, slotWidth, contentOffsetX, height);
+        }
+    }
+
+    private void DrawThumbnails(
+        DrawingContext context,
+        int startIndex,
+        int endIndex,
+        double slotWidth,
+        double contentOffsetX,
+        double height)
+    {
         foreach (var kvp in _thumbnails)
         {
             int i = kvp.Key;
@@ -110,7 +195,7 @@ public sealed partial class ThumbnailStripControl : Control
             if (img == null || i < startIndex || i > endIndex)
                 continue;
 
-            double slotX = i * slotWidth;
+            double slotX = contentOffsetX + i * slotWidth;
 
             // 背景が見えてしまうので微調整
             var dstSize = new Size(slotWidth + 1, height);

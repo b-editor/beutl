@@ -13,6 +13,10 @@ public sealed partial class WaveformControl : Control
     private readonly Dictionary<int, WaveformChunk> _chunks = new();
     private ScrollViewer? _scrollViewer;
     private IReadOnlyList<(double Start, double End)> _highlights = [];
+    private int _lastNotifiedStart = -1;
+    private int _lastNotifiedEnd = -1;
+
+    public event Action<int, int>? VisibleRangeChanged;
 
     public void SetHighlights(IReadOnlyList<(double Start, double End)> ranges)
     {
@@ -33,11 +37,27 @@ public sealed partial class WaveformControl : Control
 
     static WaveformControl()
     {
-        AffectsRender<WaveformControl>(ChunkCountProperty, WaveformBrushProperty);
+        AffectsRender<WaveformControl>(
+            ChunkCountProperty,
+            WaveformBrushProperty,
+            ContentWidthProperty,
+            ContentOffsetXProperty,
+            IsPreviewActiveProperty);
     }
 
     [GeneratedStyledProperty]
     public partial int ChunkCount { get; set; }
+
+    [GeneratedStyledProperty(DefaultValue = double.NaN)]
+    public partial double ContentWidth { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial double ContentOffsetX { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial bool IsPreviewActive { get; set; }
+
+    private bool HasCustomLayout => IsPreviewActive || !double.IsNaN(ContentWidth) || ContentOffsetX != 0;
 
     public IBrush? WaveformBrush
     {
@@ -55,8 +75,66 @@ public sealed partial class WaveformControl : Control
     public void ClearChunks()
     {
         _chunks.Clear();
+        _lastNotifiedStart = -1;
+        _lastNotifiedEnd = -1;
 
         InvalidateVisual();
+    }
+
+    public void PruneOutOfRangeChunks()
+    {
+        int count = ChunkCount;
+        List<int>? toRemove = null;
+        foreach (int key in _chunks.Keys)
+        {
+            if (key < 0 || key >= count)
+            {
+                toRemove ??= [];
+                toRemove.Add(key);
+            }
+        }
+
+        if (toRemove != null)
+        {
+            foreach (int key in toRemove)
+                _chunks.Remove(key);
+        }
+
+        _lastNotifiedStart = -1;
+        _lastNotifiedEnd = -1;
+        InvalidateVisual();
+    }
+
+    public List<int> GetMissingIndices(int start, int end)
+    {
+        var missing = new List<int>();
+        for (int i = start; i <= end; i++)
+        {
+            if (!_chunks.ContainsKey(i))
+                missing.Add(i);
+        }
+        return missing;
+    }
+
+    private void NotifyVisibleRangeIfChanged()
+    {
+        if (!IsPreviewActive)
+            return;
+
+        var (start, end) = TimelineSlotRange.Compute(
+            this,
+            _scrollViewer,
+            ChunkCount,
+            buffer: 16,
+            ContentWidth,
+            ContentOffsetX,
+            allowOutOfRange: true);
+        if (start != _lastNotifiedStart || end != _lastNotifiedEnd)
+        {
+            _lastNotifiedStart = start;
+            _lastNotifiedEnd = end;
+            VisibleRangeChanged?.Invoke(start, end);
+        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -66,6 +144,18 @@ public sealed partial class WaveformControl : Control
         if (change.Property == ChunkCountProperty)
         {
             ClearChunks();
+        }
+        else if (change.Property == IsPreviewActiveProperty)
+        {
+            _lastNotifiedStart = -1;
+            _lastNotifiedEnd = -1;
+            NotifyVisibleRangeIfChanged();
+        }
+        else if (change.Property == ContentOffsetXProperty
+            || change.Property == ContentWidthProperty
+            || change.Property == BoundsProperty)
+        {
+            NotifyVisibleRangeIfChanged();
         }
     }
 
@@ -88,7 +178,12 @@ public sealed partial class WaveformControl : Control
         if (brush == null)
             return;
 
-        double slotWidth = width / count;
+        double contentWidth = !double.IsNaN(ContentWidth) && ContentWidth > 0 ? ContentWidth : width;
+        double slotWidth = contentWidth / count;
+        if (slotWidth <= 0)
+            return;
+
+        double contentOffsetX = ContentOffsetX;
         double centerY = height / 2;
 
         foreach (var range in _highlights)
@@ -99,8 +194,38 @@ public sealed partial class WaveformControl : Control
                 context.FillRectangle(s_highlightBrush, new Rect(left, 0, right - left, height));
         }
 
-        var (startIndex, endIndex) = TimelineSlotRange.Compute(this, _scrollViewer, count, buffer: 1);
+        bool customLayout = HasCustomLayout;
+        var (startIndex, endIndex) = TimelineSlotRange.Compute(
+            this,
+            _scrollViewer,
+            count,
+            buffer: 1,
+            contentWidth,
+            contentOffsetX,
+            allowOutOfRange: customLayout);
 
+        if (customLayout)
+        {
+            using (context.PushClip(new Rect(0, 0, width, height)))
+            {
+                DrawChunks(context, brush, startIndex, endIndex, slotWidth, contentOffsetX, centerY);
+            }
+        }
+        else
+        {
+            DrawChunks(context, brush, startIndex, endIndex, slotWidth, contentOffsetX, centerY);
+        }
+    }
+
+    private void DrawChunks(
+        DrawingContext context,
+        IBrush brush,
+        int startIndex,
+        int endIndex,
+        double slotWidth,
+        double contentOffsetX,
+        double centerY)
+    {
         foreach (var kvp in _chunks)
         {
             int i = kvp.Key;
@@ -109,7 +234,7 @@ public sealed partial class WaveformControl : Control
             if (i < startIndex || i > endIndex)
                 continue;
 
-            double slotX = i * slotWidth;
+            double slotX = contentOffsetX + i * slotWidth;
 
             float minVal = Math.Clamp(chunk.MinValue, -1f, 1f);
             float maxVal = Math.Clamp(chunk.MaxValue, -1f, 1f);
@@ -128,6 +253,7 @@ public sealed partial class WaveformControl : Control
         base.OnAttachedToVisualTree(e);
         _scrollViewer = this.FindAncestorOfType<ScrollViewer>();
         _scrollViewer?.PropertyChanged += OnScrollViewerPropertyChanged;
+        NotifyVisibleRangeIfChanged();
     }
 
     private void OnScrollViewerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -136,6 +262,7 @@ public sealed partial class WaveformControl : Control
             e.Property == ScrollViewer.ViewportProperty)
         {
             InvalidateVisual();
+            NotifyVisibleRangeIfChanged();
         }
     }
 

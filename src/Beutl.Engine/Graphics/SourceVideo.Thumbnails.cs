@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -223,6 +224,200 @@ public partial class SourceVideo : IThumbnailsProvider
                 StripGate.Release();
             }
         }
+    }
+
+    internal async IAsyncEnumerable<(int Index, int Count, Bitmap? Thumbnail)> GetPreviewThumbnailStripAsync(
+        FontManager fonts,
+        int baseWidth,
+        int maxHeight,
+        IReadOnlyList<int> indices,
+        IThumbnailCacheService? cacheService,
+        [EnumeratorCancellation] CancellationToken cancellationToken,
+        bool preferProxy,
+        ProxyPreset preferredProxyPreset = ProxyPreset.Quarter,
+        DecoderRegistry? decoders = null)
+    {
+        if (indices.Count == 0)
+            yield break;
+
+        if (!await StripGate.TryEnterAsync(cancellationToken))
+            yield break;
+
+        Resource? resource = null;
+        DrawableRenderNode? node = null;
+        RenderNodeRenderer? renderer = null;
+        try
+        {
+            resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(new CompositionContext(MediaTime.Zero)
+            {
+                Fonts = fonts,
+                Decoders = decoders,
+                PreferProxy = preferProxy,
+                PreferredProxyPreset = preferredProxyPreset,
+            }), DispatchPriority.Low, cancellationToken);
+
+            if (resource.Source is not { } source)
+                yield break;
+
+            if (source.Duration <= MediaTime.Zero)
+                yield break;
+
+            var duration = TimeRange.Value.Duration;
+            if (duration <= MediaTime.Zero)
+                yield break;
+
+            var frameSize = source.LogicalFrameSize;
+            int count = GetVideoThumbnailCount(frameSize, baseWidth, maxHeight);
+            if (count <= 0)
+                yield break;
+
+            float thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
+            double interval = duration.ToSeconds() / count;
+
+            string? baseKey = cacheService != null ? GetThumbnailsCacheKey() : null;
+            string? cacheKey = baseKey != null
+                ? baseKey + (preferProxy ? GetProxyThumbnailCacheKeySuffix(preferredProxyPreset) : OriginalThumbnailCacheKeySuffix)
+                : null;
+            var cacheThreshold = MediaTime.FromSeconds(interval * 0.5);
+
+            node = new DrawableRenderNode(resource);
+            renderer = new RenderNodeRenderer(
+                node,
+                new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
+                    OutputScale = 1,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                });
+
+            foreach (int i in indices)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    yield break;
+
+                var time = MediaTime.FromSeconds(i * interval);
+
+                if (cacheKey != null
+                    && cacheService!.TryGet(cacheKey, time, cacheThreshold, out var cached)
+                    && cached != null)
+                {
+                    if (cached.Height == maxHeight)
+                    {
+                        yield return (i, count, cached);
+                        continue;
+                    }
+
+                    cached.Dispose();
+                }
+
+                var (hasFrame, thumbnail) = await RenderThread.Dispatcher.InvokeAsync(() =>
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        return (false, (Bitmap?)null);
+
+                    MediaTime evalTime = time >= MediaTime.Zero ? time + TimeRange.Value.Start : TimeRange.Value.Start;
+                    var ctx = new CompositionContext(evalTime)
+                    {
+                        Fonts = fonts,
+                        Decoders = decoders,
+                        PreferProxy = preferProxy,
+                        PreferredProxyPreset = preferredProxyPreset,
+                    };
+                    bool versionBumped = false;
+                    resource.Reconcile(this, ctx, ref versionBumped);
+
+                    if (!TryComputePreviewSourcePosition(resource, time, out MediaTime sourcePosition))
+                        return (false, (Bitmap?)null);
+
+                    using (var gctx = new GraphicsContext2D(node, new Size((int)thumbWidth, maxHeight)))
+                    using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width,
+                               (float)maxHeight / frameSize.Height)))
+                    {
+                        resource.DrawAtSourcePosition(gctx, sourcePosition);
+                    }
+
+                    using RenderNodeRasterization rasterization = renderer.Rasterize();
+                    return (true, rasterization.Bitmap?.Clone());
+                }, DispatchPriority.Low, cancellationToken);
+
+                if (!hasFrame)
+                {
+                    // Yield null so the strip marks out-of-source slots as resolved and stops re-requesting them.
+                    yield return (i, count, null);
+                    continue;
+                }
+
+                if (thumbnail != null)
+                {
+                    if (cacheKey != null)
+                        cacheService!.Save(cacheKey, time, thumbnail);
+
+                    yield return (i, count, thumbnail);
+                }
+            }
+        }
+        finally
+        {
+            try
+            {
+                await DisposeThumbnailRenderResourcesAsync(renderer, node, resource);
+            }
+            finally
+            {
+                StripGate.Release();
+            }
+        }
+    }
+
+    internal bool TryComputePreviewSourcePosition(Resource resource, MediaTime relativeTime, out MediaTime sourcePosition)
+    {
+        sourcePosition = MediaTime.Zero;
+        if (resource.Source is not { IsDisposed: false } source || source.Duration <= MediaTime.Zero)
+            return false;
+
+        MediaTime requested;
+        var anm = Speed.GetKeyFrameAnimation();
+        if (anm is KeyFrameAnimation<float> keyFrameAnimation && keyFrameAnimation.KeyFrames.Count > 0)
+        {
+            if (relativeTime >= MediaTime.Zero)
+            {
+                if (keyFrameAnimation.UseGlobalClock.Value)
+                {
+                    requested = CalculateVideoTime(TimeRange.Value.Start + relativeTime, resource)
+                                - CalculateVideoTime(TimeRange.Value.Start, resource);
+                }
+                else
+                {
+                    requested = CalculateVideoTime(relativeTime, resource);
+                }
+            }
+            else
+            {
+                // Local speed animations start at t = 0; extrapolate backwards at the clip's starting rate.
+                float startSpeed = keyFrameAnimation.UseGlobalClock.Value
+                    ? keyFrameAnimation.Interpolate(TimeRange.Value.Start)
+                    : keyFrameAnimation.Interpolate(MediaTime.Zero);
+                requested = new MediaTime((long)Math.Round(relativeTime.Flicks * (double)(startSpeed / 100f)));
+            }
+        }
+        else
+        {
+            requested = new MediaTime((long)Math.Round(relativeTime.Flicks * (double)(resource.Speed / 100f)));
+        }
+
+        MediaTime position = requested + resource.OffsetPosition;
+        if (resource.IsLoop)
+        {
+            sourcePosition = SpeedAdjustedTime.WrapIntoDuration(position, source.Duration);
+            return true;
+        }
+
+        if (position < MediaTime.Zero || position >= source.Duration)
+            return false;
+
+        sourcePosition = position;
+        return true;
     }
 
     internal static Task DisposeThumbnailRenderResourcesAsync(params IDisposable?[] resources)

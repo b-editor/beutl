@@ -165,6 +165,16 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
             OnDraw(context);
         }
 
+        internal void DrawAtSourcePosition(GraphicsContext2D context, MediaTime sourcePosition)
+        {
+            if (Source?.IsDisposed == false)
+            {
+                int frame = Source.GetFrameIndex(sourcePosition);
+                context.DrawVideoSource(Source, frame, Brushes.Resource.White, null);
+                RenderedPosition = sourcePosition - OffsetPosition;
+            }
+        }
+
         partial void PostDispose(bool disposing)
         {
             _speedIntegrator.Dispose();
