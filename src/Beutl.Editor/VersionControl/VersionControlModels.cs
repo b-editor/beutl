@@ -188,7 +188,7 @@ internal abstract record RemoteOpResult
     {
     }
 
-    public sealed record Success : RemoteOpResult;
+    public sealed record Success(IReadOnlyList<string>? PushUrls = null) : RemoteOpResult;
 
     public sealed record AuthFailed(string Guidance, string Stderr) : RemoteOpResult;
 

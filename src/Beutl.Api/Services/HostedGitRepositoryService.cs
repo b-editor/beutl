@@ -1,4 +1,6 @@
 ﻿using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -36,7 +38,10 @@ public sealed class HostedGitApiException : Exception
 public sealed class HostedGitRepositoryService : IBeutlApiResource
 {
     private const int MaxNameLength = 80;
+    public const int MaxThumbnailBytes = 1024 * 1024;
     private readonly BeutlApiApplication _app;
+
+    internal TimeSpan ThumbnailDownloadTimeout { get; set; } = TimeSpan.FromSeconds(15);
 
     internal HostedGitRepositoryService(BeutlApiApplication app)
     {
@@ -101,6 +106,99 @@ public sealed class HostedGitRepositoryService : IBeutlApiResource
             await _app.GitRepositories.Delete(auth, id, token).ConfigureAwait(false);
             return true;
         }, cancellationToken);
+    }
+
+    public Task<GitRepositorySummary> UploadThumbnailAsync(
+        Guid repositoryId,
+        ReadOnlyMemory<byte> pngBytes,
+        AuthenticatedUser expectedUser,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expectedUser);
+        string id = ValidateId(repositoryId);
+        if (pngBytes.IsEmpty || pngBytes.Length > MaxThumbnailBytes)
+            throw new ArgumentException("Thumbnail must be a non-empty PNG up to 1 MiB.", nameof(pngBytes));
+
+        byte[] payload = pngBytes.ToArray();
+        return SendAsync(async (auth, token) =>
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v3/repos/{id}/thumbnail");
+            request.Headers.TryAddWithoutValidation("Authorization", auth);
+            var content = new ByteArrayContent(payload);
+            content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            request.Content = content;
+
+            using HttpResponseMessage response = await _app.HttpClient.SendAsync(request, token).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                string? body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+                throw MapError(response.StatusCode, body, collection: false);
+            }
+
+            return await response.Content.ReadFromJsonAsync<GitRepositorySummary>(cancellationToken: token)
+                .ConfigureAwait(false)
+                ?? throw new HostedGitApiException(HostedGitError.RequestFailed, Strings.HostedGit_RequestFailed, response.StatusCode);
+        }, cancellationToken, expectedUser);
+    }
+
+    public async Task<byte[]?> DownloadThumbnailAsync(
+        Guid repositoryId,
+        AuthenticatedUser expectedUser,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expectedUser);
+        string id = ValidateId(repositoryId);
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(ThumbnailDownloadTimeout);
+        try
+        {
+            return await SendAsync<byte[]?>(async (auth, token) =>
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/repos/{id}/thumbnail");
+                request.Headers.TryAddWithoutValidation("Authorization", auth);
+
+                using HttpResponseMessage response = await _app.HttpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    token).ConfigureAwait(false);
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                    return null;
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    string? body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+                    throw MapError(response.StatusCode, body, collection: false);
+                }
+
+                if (response.Content.Headers.ContentLength is > MaxThumbnailBytes)
+                    return null;
+
+                await using Stream stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+                using var buffer = new MemoryStream(
+                    response.Content.Headers.ContentLength is { } known and > 0 and <= MaxThumbnailBytes
+                        ? (int)known
+                        : 0);
+                byte[] chunk = new byte[16 * 1024];
+                int total = 0;
+                while (true)
+                {
+                    int read = await stream.ReadAsync(chunk, token).ConfigureAwait(false);
+                    if (read == 0)
+                        break;
+                    total += read;
+                    if (total > MaxThumbnailBytes)
+                        return null;
+                    buffer.Write(chunk, 0, read);
+                }
+
+                return total > 0 ? buffer.ToArray() : null;
+            }, timeout.Token, expectedUser).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
+        {
+            throw new HostedGitApiException(HostedGitError.Unavailable, Strings.HostedGit_Unavailable);
+        }
     }
 
     public async Task<IReadOnlyList<GitAccessTokenSummary>> ListTokensAsync(
@@ -222,14 +320,17 @@ public sealed class HostedGitRepositoryService : IBeutlApiResource
     }
 
     private static HostedGitApiException MapError(ApiException exception, bool collection)
+        => MapError(exception.StatusCode, exception.Content, collection);
+
+    private static HostedGitApiException MapError(HttpStatusCode statusCode, string? content, bool collection)
     {
-        (HostedGitError error, string message) = exception.StatusCode switch
+        (HostedGitError error, string message) = statusCode switch
         {
             HttpStatusCode.Unauthorized => (HostedGitError.AuthenticationRequired, Strings.HostedGit_AuthenticationRequired),
             HttpStatusCode.ServiceUnavailable => (HostedGitError.Unavailable, Strings.HostedGit_Unavailable),
             HttpStatusCode.NotFound when collection => (HostedGitError.Unavailable, Strings.HostedGit_Unavailable),
             HttpStatusCode.NotFound => (HostedGitError.NotFound, Strings.HostedGit_NotFound),
-            HttpStatusCode.Conflict => ReadApiMessage(exception.Content) switch
+            HttpStatusCode.Conflict => ReadApiMessage(content) switch
             {
                 "Repository limit reached" => (HostedGitError.RepositoryLimit, Strings.HostedGit_RepositoryLimit),
                 "Access token limit reached" => (HostedGitError.TokenLimit, Strings.HostedGit_TokenLimit),
@@ -239,7 +340,7 @@ public sealed class HostedGitRepositoryService : IBeutlApiResource
             },
             _ => (HostedGitError.RequestFailed, Strings.HostedGit_RequestFailed),
         };
-        return new HostedGitApiException(error, message, exception.StatusCode);
+        return new HostedGitApiException(error, message, statusCode);
     }
 
     private static string? ReadApiMessage(string? content)

@@ -383,7 +383,9 @@ public partial class EditorHostFallback : UserControl
         {
             RecentProjectItem item = _recentItems[i];
             bool keep = item.UnclonedRepositoryId is { } id
-                ? hosted.TryGetValue(id, out GitRepositorySummary? repo) && item.Name == repo.Name
+                ? hosted.TryGetValue(id, out GitRepositorySummary? repo)
+                    && item.Name == repo.Name
+                    && item.ThumbnailUpdatedAt == repo.ThumbnailUpdatedAt
                 : localPaths.Contains(item.FullName);
             if (!keep)
             {
@@ -414,9 +416,20 @@ public partial class EditorHostFallback : UserControl
         {
             int current = IndexOfRecentItem(item => item.UnclonedRepositoryId == id);
             if (current < 0)
-                _recentItems.Insert(position, new RecentProjectItem(id, repository.Name, repository.UpdatedAt));
+            {
+                var item = new RecentProjectItem(id, repository.Name, repository.UpdatedAt, repository.ThumbnailUpdatedAt);
+                _recentItems.Insert(position, item);
+                if (repository.ThumbnailUpdatedAt.HasValue
+                    && _repositorySource?.Service is { } service
+                    && _repositorySource.User is { } user)
+                {
+                    _ = item.LoadRemoteThumbnailAsync(service, user, _remoteThumbnailGate);
+                }
+            }
             else if (current != position)
+            {
                 _recentItems.Move(current, position);
+            }
             position++;
         }
     }
