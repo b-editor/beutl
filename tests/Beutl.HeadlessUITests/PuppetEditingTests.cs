@@ -112,6 +112,10 @@ public sealed class PuppetEditingTests
                 .Single(button => AutomationProperties.GetName(button) == GraphicsStrings.Puppet_AddPin);
             Button remove = listControl.GetVisualDescendants().OfType<Button>()
                 .Single(button => AutomationProperties.GetName(button) == GraphicsStrings.Puppet_RemovePin);
+            var effectRow = listControl.FindAncestorOfType<FilterEffectListItemEditor>()!;
+            var effectHeader = (Grid)effectRow.FindControl<Button>("selectEffectButton")!.Parent!;
+            var visibility = effectHeader.Children.OfType<ToggleButton>().Single(button => Grid.GetColumn(button) == 2);
+            var deleteEffect = effectHeader.Children.OfType<Button>().Single(button => Grid.GetColumn(button) == 3);
             AvaPoint addCenter = HeadlessTestHelpers.Center(add, window);
             AvaPoint removeCenter = HeadlessTestHelpers.Center(remove, window);
             AvaPoint rightEdge = remove.TranslatePoint(new AvaPoint(remove.Bounds.Width, 0), listControl)!.Value;
@@ -121,7 +125,8 @@ public sealed class PuppetEditingTests
                 Assert.That(listControl.GetVisualDescendants().OfType<ToggleButton>().Any(button => button.Name == "expandToggle"), Is.False);
                 Assert.That(remove.IsEffectivelyVisible, Is.True);
                 Assert.That(remove.IsEnabled, Is.False);
-                Assert.That(removeCenter.X - addCenter.X, Is.EqualTo(add.Bounds.Width).Within(0.5));
+                Assert.That(addCenter.X, Is.EqualTo(HeadlessTestHelpers.Center(visibility, window).X).Within(0.5));
+                Assert.That(removeCenter.X, Is.EqualTo(HeadlessTestHelpers.Center(deleteEffect, window).X).Within(0.5));
                 Assert.That(removeCenter.Y, Is.EqualTo(addCenter.Y).Within(0.5));
                 Assert.That(rightEdge.X, Is.EqualTo(listControl.Bounds.Width - 8).Within(0.5));
             });

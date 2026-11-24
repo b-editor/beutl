@@ -23,7 +23,8 @@
             <ToggleButton.Tag>
                 <StackPanel x:Name="headerActions"
                             Grid.Column="1"
-                            Orientation="Horizontal">
+                            Orientation="Horizontal"
+                            Spacing="4">
                     <Button x:Name="addButton"
                             Padding="0"
                             HorizontalContentAlignment="Center"
