@@ -252,6 +252,8 @@ public partial class TextBlock : Drawable
         private (Brush.Resource Resource, int Version)? _fillCache;
         private TextElements? _elements;
         private VerticalTextLayout? _verticalLayout;
+        private TextPartLayout? _textPartLayout;
+        private int _textPartLayoutRevision;
         private Dictionary<(SKTypeface Typeface, string Cluster), bool>? _verticalAlternates;
         private bool _isDirty = true;
         private long _fontRevision;
@@ -261,6 +263,19 @@ public partial class TextBlock : Drawable
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             return _verticalLayout ??= new VerticalTextLayout(GetTextElements(), _verticalAlternates ??= []);
+        }
+
+        internal TextPartLayout GetTextPartLayout()
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            if (_textPartLayout is { } layout && layout.WritingMode == WritingMode)
+                return layout;
+
+            return _textPartLayout = TextPartLayout.Create(
+                GetTextElements(),
+                WritingMode == Media.WritingMode.VerticalRl ? GetVerticalLayout() : null,
+                WritingMode,
+                ++_textPartLayoutRevision);
         }
 
         public FontStyle FontStyle { get; private set; }
@@ -367,6 +382,7 @@ public partial class TextBlock : Drawable
 
         partial void PostDispose(bool disposing)
         {
+            _textPartLayout = null;
             _pen?.Dispose();
             _verticalLayout?.Dispose();
             _verticalLayout = null;
@@ -453,6 +469,7 @@ public partial class TextBlock : Drawable
             if (_isDirty)
             {
                 Version++;
+                _textPartLayout = null;
                 _verticalLayout?.Dispose();
                 _verticalLayout = null;
                 _elements?.Dispose();

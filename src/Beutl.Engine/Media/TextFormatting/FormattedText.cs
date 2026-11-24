@@ -37,6 +37,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private SKPath? _fillPath;
     private SKPath? _strokePath;
     private List<Geometry.Resource> _pathList = [];
+    private GlyphPart[] _glyphParts = [];
     private readonly ScaledTextCache _scaledCache;
     private readonly Dictionary<int, (ShapedGlyph Glyph, FormattedText? Text)> _nonOutlineGlyphs = [];
     private readonly List<Rect> _nonOutlineBounds = [];
@@ -78,6 +79,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
 
         _pathList = [];
+        _glyphParts = [];
         _textBlob = null;
         _fillPath = null;
         _strokePath = null;
@@ -307,6 +309,14 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         return CollectionsMarshal.AsSpan(_pathList);
     }
 
+    internal readonly record struct GlyphPart(int Cluster, bool HasInk);
+
+    internal ReadOnlySpan<GlyphPart> GetGlyphParts()
+    {
+        MeasureAndSetField();
+        return _glyphParts;
+    }
+
     // A borrowed, already-shaped single-glyph run, owned by this text just like ToGeometries().
     // Keeping the glyph ID and position preserves ligatures, surrogate pairs and character spacing.
     internal FormattedText? GetNonOutlineGlyph(int index)
@@ -465,6 +475,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         {
             ClearNonOutlineGlyphs();
             pathList = PreparePathList(glyphCount);
+            if (_glyphParts.Length != glyphCount)
+                _glyphParts = new GlyphPart[glyphCount];
         }
 
         Rect nonOutlineBounds = default;
@@ -512,11 +524,13 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 positions[i] = point;
 
                 SKPath? tmp = runFont.GetGlyphPath(glyphs[i]);
-                if (tmp is null || tmp.IsEmpty)
+                bool hasInk = tmp is { IsEmpty: false };
+                if (!hasInk)
                 {
                     runFont.GetGlyphWidths(glyphs.Slice(i, 1), glyphWidth, glyphBounds);
                     if (!glyphBounds[0].IsEmpty)
                     {
+                        hasInk = true;
                         glyphBounds[0].Offset(point);
                         Rect inkBounds = glyphBounds[0].ToGraphicsRect();
                         nonOutlineBounds = nonOutlineBounds.Union(inkBounds);
@@ -531,6 +545,9 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                         }
                     }
                 }
+
+                if (updatePathList)
+                    _glyphParts[glyphIndex] = new GlyphPart((int)result.Clusters[i], hasInk);
 
                 if (tmp != null)
                 {
