@@ -290,6 +290,15 @@ public sealed partial class ElementViewModel
         Observable.Merge(
                 Timeline.Scale.Skip(1).Select(_ => Unit.Default),
                 Timeline.LayerRowHeight.Skip(1).Select(_ => Unit.Default))
+            .Do(_ =>
+            {
+                // Keep the pending layout change across the end of the pointer gesture.
+                if (_timelineViewAttached && _isEditPreviewActive)
+                {
+                    Interlocked.Increment(ref _thumbnailLayoutVersion);
+                    _thumbnailRefreshPending = true;
+                }
+            })
             .ObserveOnUIDispatcher()
             .Subscribe(_ =>
             {

@@ -95,6 +95,9 @@ public sealed partial class ThumbnailStripControl : Control
 
     public List<int> GetMissingIndices(int start, int end) => _thumbnails.GetMissingIndices(start, end);
 
+    internal bool TryGetThumbnail(int index, out WriteableBitmap? thumbnail)
+        => _thumbnails.TryGetValue(index, out thumbnail);
+
     private void NotifyVisibleRangeIfChanged()
     {
         var (start, end) = ComputeVisibleRange();
@@ -153,7 +156,7 @@ public sealed partial class ThumbnailStripControl : Control
     {
         for (int i = startIndex; i <= endIndex; i++)
         {
-            if (!_thumbnails.TryGetValue(i, out var img) || img == null)
+            if (!TryGetThumbnail(i, out var img) || img == null)
                 continue;
 
             double slotX = contentOffsetX + i * slotWidth;

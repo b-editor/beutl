@@ -194,14 +194,9 @@ public class TimelineEditModeThumbnailPreviewTests
     [AvaloniaTest]
     public async Task VideoResize_PausesPendingStripRebuildUntilDragEnds()
     {
-        TestGpu.RequireAnyDevice();
         using var config = new PreviewConfigScope();
-        TestShell.EnsureDecoder<PreviewMediaDecoder>();
-        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{Guid.NewGuid():N}.preview-video");
-        File.WriteAllBytes(path, []);
-        var (_, timeline) = await TimelineTestHost.OpenTimelineAsync("video-thumbnail-preview",
-            [ClipDescription(1, 2, () => new SourceVideo { Source = { Value = VideoSource.Open(path) } })]);
-        ElementViewModel clip = timeline.AllElements().Single();
+        ElementViewModel clip = await OpenVideoClip();
+        TimelineTabViewModel timeline = clip.Timeline;
         using var view = new TimelineViewScope(clip, width: 1200);
         var strip = view.Element.FindControl<ThumbnailStripControl>("thumbnailStrip")!;
         await HeadlessTestHelpers.WaitUntilAsync(() => clip.VideoThumbnailCount.Value > 0
@@ -222,7 +217,7 @@ public class TimelineEditModeThumbnailPreviewTests
         await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
         {
             pause.Release();
-            await HeadlessTestHelpers.WaitUntilAsync(() => strip.GetMissingIndices(baseCount, baseCount).Count == 0);
+            await HeadlessTestHelpers.WaitUntilAsync(() => strip.TryGetThumbnail(baseCount, out var thumbnail) && thumbnail != null);
             Assert.Multiple(() =>
             {
                 Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
@@ -236,6 +231,54 @@ public class TimelineEditModeThumbnailPreviewTests
 
         await HeadlessTestHelpers.WaitUntilAsync(() => clip.VideoThumbnailCount.Value > baseCount);
         Assert.That(clip.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+    }
+
+    [AvaloniaTest]
+    public async Task SlipEdit_EscapeAppliesTheZoomChangeWhileKeepingTheClipRealized()
+    {
+        using var config = new PreviewConfigScope();
+        ElementViewModel clip = await OpenVideoClip();
+        clip.Timeline.IsSlipMode.Value = true;
+        using var view = new TimelineViewScope(clip, width: 1200);
+        var strip = view.Element.FindControl<ThumbnailStripControl>("thumbnailStrip")!;
+        await HeadlessTestHelpers.WaitUntilAsync(() => clip.VideoThumbnailCount.Value > 0
+            && strip.GetMissingIndices(0, clip.VideoThumbnailCount.Value - 1).Count == 0);
+        await RenderThread.Dispatcher.InvokeAsync(static () => { }, DispatchPriority.Low);
+        HeadlessTestHelpers.Settle();
+        Assert.That(view.Element.Focus(), Is.True);
+        Point press = HeadlessTestHelpers.Center(view.Border, view.Window);
+        Point move = press.WithX(press.X + MediaTime.FromSeconds(0.5).TimeToPixel(view.Scale));
+
+        try
+        {
+            await view.DragAsync(press, move, RawInputModifiers.Alt, () =>
+            {
+                view.Window.MouseWheel(move, new Avalonia.Vector(0, -16), TimelineTestHost.CommandModifier);
+                HeadlessTestHelpers.Render(3);
+                HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "slip-zoom-preview");
+                Assert.Multiple(() =>
+                {
+                    Assert.That(clip.Width.Value, Is.LessThan(ElementViewModel.MinimumThumbnailWidth));
+                    Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
+                    Assert.That(clip.VideoThumbnailCount.Value, Is.Positive);
+                });
+
+                view.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+                HeadlessTestHelpers.Render(3);
+                HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "slip-zoom-cancelled");
+                Assert.Multiple(() =>
+                {
+                    Assert.That(view.Element.DataContext, Is.SameAs(clip));
+                    Assert.That(clip.VideoThumbnailCount.Value, Is.Zero);
+                    Assert.That(clip.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+                });
+                return Task.CompletedTask;
+            });
+        }
+        finally
+        {
+            clip.Timeline.IsSlipMode.Value = false;
+        }
     }
 
     [AvaloniaTest]
@@ -554,6 +597,17 @@ public class TimelineEditModeThumbnailPreviewTests
     {
         var (_, timeline) = await TimelineTestHost.OpenTimelineAsync("edit-mode-thumbnail-preview",
             [ClipDescription(startSeconds, lengthSeconds, () => CreateAudio(offsetSeconds, sourceSeconds))]);
+        return timeline.AllElements().Single();
+    }
+
+    private static async Task<ElementViewModel> OpenVideoClip()
+    {
+        TestGpu.RequireAnyDevice();
+        TestShell.EnsureDecoder<PreviewMediaDecoder>();
+        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{Guid.NewGuid():N}.preview-video");
+        File.WriteAllBytes(path, []);
+        var (_, timeline) = await TimelineTestHost.OpenTimelineAsync("video-thumbnail-preview",
+            [ClipDescription(1, 2, () => new SourceVideo { Source = { Value = VideoSource.Open(path) } })]);
         return timeline.AllElements().Single();
     }
 
