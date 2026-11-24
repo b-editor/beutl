@@ -6,6 +6,7 @@ using Beutl.Language;
 using Beutl.Services;
 using FluentIcons.Common;
 using Reactive.Bindings;
+using SkiaSharp;
 
 namespace Beutl.ViewModels;
 
@@ -13,6 +14,8 @@ namespace Beutl.ViewModels;
 // or disconnected drive. Each entry reads on its own, so a stalled drive holds up only its own entries.
 public sealed class RecentProjectItem : IDisposable
 {
+    private const int MaxThumbnailDimension = 1024;
+    private const long MaxThumbnailPixels = 1024L * 1024L;
     private readonly CancellationTokenSource _disposal = new();
 
     public RecentProjectItem(string fullName)
@@ -175,7 +178,8 @@ public sealed class RecentProjectItem : IDisposable
     {
         try
         {
-            return new Bitmap(path);
+            using FileStream stream = File.OpenRead(path);
+            return ReadValidatedBitmap(stream);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -189,12 +193,37 @@ public sealed class RecentProjectItem : IDisposable
         try
         {
             using var stream = new MemoryStream(bytes, writable: false);
-            return new Bitmap(stream);
+            return ReadValidatedBitmap(stream);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // A damaged picture is the same as none.
             return null;
         }
+    }
+
+    private static Bitmap? ReadValidatedBitmap(Stream stream)
+    {
+        if (!stream.CanSeek || stream.Length is <= 0 or > HostedGitRepositoryService.MaxThumbnailBytes)
+            return null;
+
+        using SKData? data = SKData.Create(stream);
+        if (data is null)
+            return null;
+
+        using SKCodec? codec = SKCodec.Create(data);
+        if (codec is null)
+            return null;
+
+        SKImageInfo info = codec.Info;
+        if (info.Width <= 0 || info.Height <= 0
+            || info.Width > MaxThumbnailDimension || info.Height > MaxThumbnailDimension
+            || (long)info.Width * info.Height > MaxThumbnailPixels)
+        {
+            return null;
+        }
+
+        stream.Position = 0;
+        return new Bitmap(stream);
     }
 }

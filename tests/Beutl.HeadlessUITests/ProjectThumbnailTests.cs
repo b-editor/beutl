@@ -325,6 +325,24 @@ public class ProjectThumbnailTests
 
         using var noThumbnail = new RecentProjectItem(Guid.Parse(repoId), "None", now, null);
         Assert.That(noThumbnail.ShowRemotePlaceholder.Value, Is.True);
+
+        // Oversized decoded dimensions must be rejected before full bitmap decode.
+        byte[] oversizedPng;
+        using (var oversized = new Bitmap(1025, 16))
+        using (var ms = new MemoryStream())
+        {
+            Assert.That(oversized.Save(ms, Beutl.Graphics.EncodedImageFormat.Png), Is.True);
+            oversizedPng = ms.ToArray();
+        }
+        pngBytes = oversizedPng;
+        missing = false;
+        using var oversizedItem = new RecentProjectItem(Guid.Parse(repoId), "Oversized", now, now);
+        await oversizedItem.LoadRemoteThumbnailAsync(service, owner);
+        Assert.Multiple(() =>
+        {
+            Assert.That(oversizedItem.Thumbnail.Value, Is.Null);
+            Assert.That(oversizedItem.ShowRemotePlaceholder.Value, Is.True);
+        });
     }
 
     private static async Task<AuthenticatedUser> SignInTestUserAsync(BeutlApiApplication api)
