@@ -25,9 +25,8 @@ using Beutl.Testing.Headless;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Moq;
-
-using Pointer = Avalonia.Input.Pointer;
 using static Beutl.Controls.ObjCRuntime;
+using Pointer = Avalonia.Input.Pointer;
 
 namespace Beutl.HeadlessUITests;
 
@@ -780,7 +779,8 @@ internal static partial class NativeBrowserFrameTestHost
         {
             browser.Source = uri;
             return browser;
-        }, () => (true, null, false)) { DataContext = vm };
+        }, () => (true, null, false))
+        { DataContext = vm };
         view.DownloadOptionsSelector = (_, _) =>
             Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(downloads.Path, false));
 
