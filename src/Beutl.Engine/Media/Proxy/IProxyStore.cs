@@ -1,20 +1,22 @@
-﻿namespace Beutl.Media.Proxy;
+﻿using Beutl.Media.Decoding;
+
+namespace Beutl.Media.Proxy;
 
 public interface IProxyStore
 {
     string StoreRootPath { get; }
 
-    ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset);
+    ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default);
 
     IReadOnlyList<ProxyEntry> Enumerate();
 
     void Register(ProxyEntry entry);
 
-    bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null);
+    bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null, VideoDeinterlaceOptions deinterlace = default);
 
-    bool Delete(ProxyFingerprint source, ProxyPreset preset);
+    bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default);
 
-    void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc);
+    void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc, VideoDeinterlaceOptions deinterlace = default);
 
     long GetTotalBytes();
 
@@ -32,6 +34,8 @@ public sealed class ProxyStoreChangedEventArgs : EventArgs
     public required ProxyFingerprint Source { get; init; }
 
     public required ProxyPreset Preset { get; init; }
+
+    public VideoDeinterlaceOptions Deinterlace { get; init; }
 
     public required ProxyStoreChangeKind Kind { get; init; }
 }

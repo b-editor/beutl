@@ -4,6 +4,7 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -53,7 +54,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint fp = Fingerprint();
         var store = new FakeProxyStore();
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [fp]), Is.EqualTo(ProxyState.None));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(fp, default)]), Is.EqualTo(ProxyState.None));
     }
 
     [Test]
@@ -62,7 +63,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint fp = Fingerprint();
         var store = new FakeProxyStore(Entry(fp, ProxyState.Ready));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [fp]), Is.EqualTo(ProxyState.Ready));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(fp, default)]), Is.EqualTo(ProxyState.Ready));
     }
 
     [Test]
@@ -72,7 +73,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint outdated = Fingerprint(size: 2000);
         var store = new FakeProxyStore(Entry(outdated, ProxyState.Ready));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [current]), Is.EqualTo(ProxyState.Stale));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(current, default)]), Is.EqualTo(ProxyState.Stale));
     }
 
     [Test]
@@ -81,7 +82,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint fp = Fingerprint();
         var store = new FakeProxyStore(Entry(fp, ProxyState.Failed));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [fp]), Is.EqualTo(ProxyState.Failed));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(fp, default)]), Is.EqualTo(ProxyState.Failed));
     }
 
     [Test]
@@ -92,7 +93,7 @@ public sealed class ElementViewModelProxyStateTests
             Entry(fp, ProxyState.Failed, ProxyPreset.Half),
             Entry(fp, ProxyState.Ready, ProxyPreset.Quarter));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [fp]), Is.EqualTo(ProxyState.Ready));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(fp, default)]), Is.EqualTo(ProxyState.Ready));
     }
 
     // After an in-place source replace + failed regen, the store holds a same-path Stale leftover
@@ -107,7 +108,7 @@ public sealed class ElementViewModelProxyStateTests
             Entry(outdated, ProxyState.Ready, ProxyPreset.Half),
             Entry(current, ProxyState.Failed, ProxyPreset.Quarter));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [current]), Is.EqualTo(ProxyState.Failed));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(current, default)]), Is.EqualTo(ProxyState.Failed));
     }
 
     [Test]
@@ -119,7 +120,7 @@ public sealed class ElementViewModelProxyStateTests
             Entry(outdated, ProxyState.Ready, ProxyPreset.Half),
             Entry(current, ProxyState.Ready, ProxyPreset.Quarter));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [current]), Is.EqualTo(ProxyState.Ready));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(current, default)]), Is.EqualTo(ProxyState.Ready));
     }
 
     [Test]
@@ -129,7 +130,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint outdated = Fingerprint(size: 2000);
         var store = new FakeProxyStore(Entry(outdated, ProxyState.Failed));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [current]), Is.EqualTo(ProxyState.Stale));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(current, default)]), Is.EqualTo(ProxyState.Stale));
     }
 
     // For an offline source whose newest same-path entry failed, ResolveSourceFingerprint returns that
@@ -146,7 +147,7 @@ public sealed class ElementViewModelProxyStateTests
         Assert.Multiple(() =>
         {
             Assert.That(resolved, Is.EqualTo(failedSource), "the newest offline entry's exact fingerprint is returned");
-            Assert.That(ElementViewModel.AggregateProxyState(store, null, [resolved!.Value]), Is.EqualTo(ProxyState.Failed),
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [(resolved!.Value, default)]), Is.EqualTo(ProxyState.Failed),
                 "so the badge reads the real failed state instead of a forced Stale");
         });
     }
@@ -158,7 +159,21 @@ public sealed class ElementViewModelProxyStateTests
         var store = new FakeProxyStore();
         var queue = new FakeProxyJobQueue(new ProxyJob(fp, ProxyPreset.Quarter));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, queue, [fp]), Is.EqualTo(ProxyState.Generating));
+        Assert.That(ElementViewModel.AggregateProxyState(store, queue, [(fp, default)]), Is.EqualTo(ProxyState.Generating));
+    }
+
+    [Test]
+    public void IndicatorMatchesTheSettingsOfEachClipUsingTheSameFile()
+    {
+        ProxyFingerprint fp = Fingerprint();
+        var active = new VideoDeinterlaceOptions(DeinterlaceMode.On, DeinterlaceFieldOrder.Auto,
+            DeinterlaceMethod.Bwdif, DeinterlaceFrameRateMode.Field);
+        var store = new FakeProxyStore(Entry(fp, ProxyState.Ready));
+        var queue = new FakeProxyJobQueue(new ProxyJob(fp, ProxyPreset.Quarter, deinterlace: active));
+
+        Assert.That(ElementViewModel.AggregateProxyState(store, queue, [(fp, default)]), Is.EqualTo(ProxyState.Ready));
+        Assert.That(ElementViewModel.AggregateProxyState(store, queue, [(fp, active)]), Is.EqualTo(ProxyState.Generating));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(fp, active)]), Is.EqualTo(ProxyState.None));
     }
 
     // The badge caches fingerprints keyed on the ordered set of source URIs. A high-frequency
@@ -167,7 +182,7 @@ public sealed class ElementViewModelProxyStateTests
     [Test]
     public void ResolveCachedFingerprints_SameUrisWithoutInvalidate_ReturnsCachedWithoutRestat()
     {
-        var uris = new[] { new Uri(s_path) };
+        var uris = new[] { (new Uri(s_path), default(VideoDeinterlaceOptions)) };
         ProxyFingerprint before = Fingerprint(size: 1000);
         ProxyFingerprint after = Fingerprint(size: 2000);
         ProxyFingerprint current = before;
@@ -178,17 +193,17 @@ public sealed class ElementViewModelProxyStateTests
             return current;
         };
 
-        string? cachedKey = null;
-        IReadOnlyList<ProxyFingerprint> cached = [];
+        IReadOnlyList<(Uri, VideoDeinterlaceOptions)>? cachedKey = null;
+        IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions)> cached = [];
 
         ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat);
         current = after;
-        IReadOnlyList<ProxyFingerprint> resolved =
+        var resolved =
             ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat);
 
         Assert.Multiple(() =>
         {
-            Assert.That(resolved, Is.EqualTo(new[] { before }));
+            Assert.That(resolved, Is.EqualTo(new[] { (before, default(VideoDeinterlaceOptions)) }));
             Assert.That(statCalls, Is.EqualTo(1));
         });
     }
@@ -196,21 +211,21 @@ public sealed class ElementViewModelProxyStateTests
     [Test]
     public void ResolveCachedFingerprints_InvalidateCache_ReStatsSameUris()
     {
-        var uris = new[] { new Uri(s_path) };
+        var uris = new[] { (new Uri(s_path), default(VideoDeinterlaceOptions)) };
         ProxyFingerprint before = Fingerprint(size: 1000);
         ProxyFingerprint after = Fingerprint(size: 2000);
         ProxyFingerprint current = before;
         Func<Uri, ProxyFingerprint?> stat = _ => current;
 
-        string? cachedKey = null;
-        IReadOnlyList<ProxyFingerprint> cached = [];
+        IReadOnlyList<(Uri, VideoDeinterlaceOptions)>? cachedKey = null;
+        IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions)> cached = [];
 
         ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat);
         current = after;
-        IReadOnlyList<ProxyFingerprint> resolved =
+        var resolved =
             ElementViewModel.ResolveCachedFingerprints(uris, true, ref cachedKey, ref cached, stat);
 
-        Assert.That(resolved, Is.EqualTo(new[] { after }));
+        Assert.That(resolved, Is.EqualTo(new[] { (after, default(VideoDeinterlaceOptions)) }));
     }
 
     [Test]
@@ -222,14 +237,14 @@ public sealed class ElementViewModelProxyStateTests
         Func<Uri, ProxyFingerprint?> stat = u =>
             u.LocalPath == s_path ? first : second;
 
-        string? cachedKey = null;
-        IReadOnlyList<ProxyFingerprint> cached = [];
+        IReadOnlyList<(Uri, VideoDeinterlaceOptions)>? cachedKey = null;
+        IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions)> cached = [];
 
-        ElementViewModel.ResolveCachedFingerprints([new Uri(s_path)], false, ref cachedKey, ref cached, stat);
-        IReadOnlyList<ProxyFingerprint> resolved = ElementViewModel.ResolveCachedFingerprints(
-            [new Uri(s_path), new Uri(otherPath)], false, ref cachedKey, ref cached, stat);
+        ElementViewModel.ResolveCachedFingerprints([(new Uri(s_path), default)], false, ref cachedKey, ref cached, stat);
+        var resolved = ElementViewModel.ResolveCachedFingerprints(
+            [(new Uri(s_path), default), (new Uri(otherPath), default)], false, ref cachedKey, ref cached, stat);
 
-        Assert.That(resolved, Is.EqualTo(new[] { first, second }));
+        Assert.That(resolved, Is.EqualTo(new[] { (first, default(VideoDeinterlaceOptions)), (second, default(VideoDeinterlaceOptions)) }));
     }
 
     [Test]
@@ -238,28 +253,28 @@ public sealed class ElementViewModelProxyStateTests
         // A fresh Ready proxy exists for the overwritten file (new fingerprint). Before the cache-bust
         // the badge compares the store entry against the stale fingerprint and reads Stale; after the
         // bust the fingerprint matches the entry and reads Ready.
-        var uris = new[] { new Uri(s_path) };
+        var uris = new[] { (new Uri(s_path), default(VideoDeinterlaceOptions)) };
         ProxyFingerprint before = Fingerprint(size: 1000);
         ProxyFingerprint after = Fingerprint(size: 2000);
         ProxyFingerprint current = before;
         Func<Uri, ProxyFingerprint?> stat = _ => current;
         var store = new FakeProxyStore(Entry(after, ProxyState.Ready));
 
-        string? cachedKey = null;
-        IReadOnlyList<ProxyFingerprint> cached = [];
+        IReadOnlyList<(Uri, VideoDeinterlaceOptions)>? cachedKey = null;
+        IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions)> cached = [];
 
         ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat);
         current = after;
 
         ProxyFingerprint stale =
-            ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat)[0];
+            ElementViewModel.ResolveCachedFingerprints(uris, false, ref cachedKey, ref cached, stat)[0].Fingerprint;
         ProxyFingerprint fresh =
-            ElementViewModel.ResolveCachedFingerprints(uris, true, ref cachedKey, ref cached, stat)[0];
+            ElementViewModel.ResolveCachedFingerprints(uris, true, ref cachedKey, ref cached, stat)[0].Fingerprint;
 
         Assert.Multiple(() =>
         {
-            Assert.That(ElementViewModel.AggregateProxyState(store, null, [stale]), Is.EqualTo(ProxyState.Stale));
-            Assert.That(ElementViewModel.AggregateProxyState(store, null, [fresh]), Is.EqualTo(ProxyState.Ready));
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [(stale, default)]), Is.EqualTo(ProxyState.Stale));
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [(fresh, default)]), Is.EqualTo(ProxyState.Ready));
         });
     }
 
@@ -272,7 +287,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint b = new(Path.Combine(Path.GetTempPath(), "clip-b.mov"), 2000, DateTime.UtcNow);
         var store = new FakeProxyStore(Entry(a, ProxyState.Ready), Entry(b, ProxyState.Ready));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [a, b]), Is.EqualTo(ProxyState.Ready));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(a, default), (b, default)]), Is.EqualTo(ProxyState.Ready));
     }
 
     [Test]
@@ -282,7 +297,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint b = new(Path.Combine(Path.GetTempPath(), "clip-b.mov"), 2000, DateTime.UtcNow);
         var store = new FakeProxyStore(Entry(a, ProxyState.Ready));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, null, [a, b]), Is.EqualTo(ProxyState.Partial));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [(a, default), (b, default)]), Is.EqualTo(ProxyState.Partial));
     }
 
     [Test]
@@ -293,7 +308,7 @@ public sealed class ElementViewModelProxyStateTests
         var store = new FakeProxyStore(Entry(a, ProxyState.Ready));
         var queue = new FakeProxyJobQueue(new ProxyJob(b, ProxyPreset.Quarter));
 
-        Assert.That(ElementViewModel.AggregateProxyState(store, queue, [a, b]), Is.EqualTo(ProxyState.Generating));
+        Assert.That(ElementViewModel.AggregateProxyState(store, queue, [(a, default), (b, default)]), Is.EqualTo(ProxyState.Generating));
     }
 
     [Test]
@@ -393,7 +408,7 @@ public sealed class ElementViewModelProxyStateTests
         Assert.Multiple(() =>
         {
             Assert.That(resolved, Is.EqualTo(fp));
-            Assert.That(ElementViewModel.AggregateProxyState(store, null, [resolved!.Value]), Is.EqualTo(ProxyState.Ready));
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [(resolved!.Value, default)]), Is.EqualTo(ProxyState.Ready));
         });
     }
 
@@ -431,7 +446,7 @@ public sealed class ElementViewModelProxyStateTests
         {
             Assert.That(resolved, Is.Not.Null);
             Assert.That(resolved!.Value.AbsolutePath, Is.EqualTo(ProxyFingerprint.ResolveComparableKey(missing)));
-            Assert.That(ElementViewModel.AggregateProxyState(store, null, [resolved.Value]), Is.EqualTo(ProxyState.None));
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [(resolved.Value, default)]), Is.EqualTo(ProxyState.None));
         });
     }
 
@@ -439,19 +454,19 @@ public sealed class ElementViewModelProxyStateTests
     {
         public string StoreRootPath => Path.GetTempPath();
 
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset)
-            => entries.FirstOrDefault(e => e.Source == source && e.Preset == preset);
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
+            => entries.FirstOrDefault(e => e.Source == source && e.Preset == preset && e.Deinterlace == deinterlace.Normalize());
 
         public IReadOnlyList<ProxyEntry> Enumerate() => entries;
 
         public void Register(ProxyEntry entry) => throw new NotSupportedException();
 
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null, VideoDeinterlaceOptions deinterlace = default)
             => throw new NotSupportedException();
 
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => throw new NotSupportedException();
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => throw new NotSupportedException();
 
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc, VideoDeinterlaceOptions deinterlace = default)
         {
         }
 
@@ -502,7 +517,7 @@ public sealed class ElementViewModelProxyStateTests
     {
         public int MaxConcurrency => 1;
 
-        public ValueTask<ProxyJob> EnqueueAsync(ProxyFingerprint source, ProxyPreset preset, int priority = 0, CancellationToken cancellationToken = default)
+        public ValueTask<ProxyJob> EnqueueAsync(ProxyFingerprint source, ProxyPreset preset, int priority = 0, CancellationToken cancellationToken = default, VideoDeinterlaceOptions deinterlace = default)
             => throw new NotSupportedException();
 
         public IReadOnlyList<ProxyJob> Pending() => pending;

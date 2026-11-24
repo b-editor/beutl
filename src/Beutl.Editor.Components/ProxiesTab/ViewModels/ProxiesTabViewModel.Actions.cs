@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
@@ -29,7 +30,7 @@ public sealed partial class ProxiesTabViewModel
         if (!EnsureQueueAvailable())
             return;
 
-        await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
+        await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority, deinterlace: clip.Deinterlace);
         RefreshJobs();
     }
 
@@ -43,7 +44,7 @@ public sealed partial class ProxiesTabViewModel
     private bool DeleteClipProxy(ProxyClipViewModel clip)
     {
         CancelMatchingJobs(clip);
-        return TryDeleteEntry(clip.EntrySource ?? clip.Source, clip.Preset.Value);
+        return TryDeleteEntry(clip.EntrySource ?? clip.Source, clip.Preset.Value, clip.Deinterlace);
     }
 
     // Delete reports whether the store removed the proxy entry, not whether its .mp4 could be unlinked in
@@ -51,12 +52,12 @@ public sealed partial class ProxiesTabViewModel
     // when the last pin is released; checking File.Exists here turned that normal deferred cleanup into an
     // "in use" failure even though the entry was already gone, and the second click then "succeeded".
     // Delete returning false for an already-gone entry is a benign race (eviction / another instance).
-    private bool TryDeleteEntry(ProxyFingerprint source, ProxyPreset preset)
+    private bool TryDeleteEntry(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace)
     {
         if (_store is not { } store)
             return true;
 
-        return store.Delete(source, preset) || store.TryGet(source, preset) is null;
+        return store.Delete(source, preset, deinterlace) || store.TryGet(source, preset, deinterlace) is null;
     }
 
     private void ReportDeleteFailures(int failed)
@@ -75,19 +76,19 @@ public sealed partial class ProxiesTabViewModel
     // the current Source differs (the media file changed), so cancel both.
     private void CancelMatchingJobs(ProxyClipViewModel clip)
     {
-        CancelMatchingJobs(clip.Source, clip.Preset.Value);
+        CancelMatchingJobs(clip.Source, clip.Preset.Value, clip.Deinterlace);
         if (clip.EntrySource is { } entrySource && entrySource != clip.Source)
-            CancelMatchingJobs(entrySource, clip.Preset.Value);
+            CancelMatchingJobs(entrySource, clip.Preset.Value, clip.Deinterlace);
     }
 
-    private void CancelMatchingJobs(ProxyFingerprint source, ProxyPreset preset)
+    private void CancelMatchingJobs(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace)
     {
         if (_queue == null)
             return;
 
         foreach (ProxyJob job in _queue.Pending())
         {
-            if (job.Source == source && job.Preset == preset)
+            if (job.Source == source && job.Preset == preset && job.Deinterlace == deinterlace)
                 _queue.Cancel(job.JobId);
         }
     }
@@ -108,7 +109,7 @@ public sealed partial class ProxiesTabViewModel
 
     internal void RefreshClip(ProxyClipViewModel clip)
     {
-        clip.UpdateEntry(FindEntry(clip.Source, clip.Preset.Value));
+        clip.UpdateEntry(FindEntry(clip.Source, clip.Preset.Value, clip.Deinterlace));
         RefreshJobs();
         UpdateClipSummary();
     }
@@ -118,7 +119,7 @@ public sealed partial class ProxiesTabViewModel
         // A job still queued or running for the old preset would hold the serial slot for a preset no
         // longer selected; each source has one row, so cancelling it affects no other clip.
         if (oldPreset != newPreset)
-            CancelMatchingJobs(clip.Source, oldPreset);
+            CancelMatchingJobs(clip.Source, oldPreset, clip.Deinterlace);
 
         RefreshClip(clip);
     }
@@ -133,8 +134,8 @@ public sealed partial class ProxiesTabViewModel
         if (_isDisposed)
             return;
 
-        HashSet<ProxyFingerprint> eligibleSources =
-            [.. snapshot.Where((_, index) => eligibleResults[index]).Select(static clip => clip.Source)];
+        HashSet<(ProxyFingerprint, VideoDeinterlaceOptions)> eligibleSources =
+            [.. snapshot.Where((_, index) => eligibleResults[index]).Select(static clip => (clip.Source, clip.Deinterlace))];
 
         if (eligibleSources.Count == 0)
         {
@@ -149,13 +150,13 @@ public sealed partial class ProxiesTabViewModel
         // A scene/store edit can rebuild Clips while the probes are pending. Reconcile the result
         // against the current rows so a removed or replaced source is not queued, and a preset chosen
         // (or changed) while probing is honored.
-        ProxyClipViewModel[] eligible = [.. Clips.Where(clip => eligibleSources.Contains(clip.Source))];
+        ProxyClipViewModel[] eligible = [.. Clips.Where(clip => eligibleSources.Contains((clip.Source, clip.Deinterlace)))];
         if (eligible.Length == 0)
             return;
 
         foreach (ProxyClipViewModel clip in eligible)
         {
-            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, BulkGenerationPriority);
+            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, BulkGenerationPriority, deinterlace: clip.Deinterlace);
         }
 
         RefreshJobs();
@@ -221,7 +222,7 @@ public sealed partial class ProxiesTabViewModel
 
         foreach (ProxyClipViewModel clip in SelectedClips())
         {
-            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
+            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority, deinterlace: clip.Deinterlace);
         }
 
         if (refreshClips)
@@ -267,7 +268,7 @@ public sealed partial class ProxiesTabViewModel
         int failed = 0;
         foreach (ProxyEntry entry in entries)
         {
-            if (!TryDeleteEntry(entry.Source, entry.Preset))
+            if (!TryDeleteEntry(entry.Source, entry.Preset, entry.Deinterlace))
                 failed++;
         }
 

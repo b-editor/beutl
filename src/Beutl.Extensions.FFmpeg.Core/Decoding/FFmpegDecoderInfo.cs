@@ -38,6 +38,11 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
 
     public string Name => "FFmpeg Decoder";
 
+    public DecoderCapabilities Capabilities =>
+        DecoderCapabilities.DeinterlaceAuto | DecoderCapabilities.DeinterlaceExplicit
+        | DecoderCapabilities.DeinterlaceFieldOrderOverride | DecoderCapabilities.DeinterlaceDoubleRate
+        | DecoderCapabilities.DeinterlaceYadif | DecoderCapabilities.DeinterlaceBwdif;
+
     public IEnumerable<string> AudioExtensions()
     {
         yield return ".mp3";
@@ -101,6 +106,7 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
             StreamsToLoad = (int)options.StreamsToLoad,
             ThreadCount = _settings.ThreadCount.Value,
             Acceleration = (int)_settings.Acceleration.Value,
+            Deinterlace = options.Deinterlace.Normalize(),
         };
 
         // Nothing uses a reader the worker opens after the time limit, so close it rather than leave its decoder

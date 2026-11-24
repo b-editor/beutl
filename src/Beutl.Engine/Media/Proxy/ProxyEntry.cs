@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Media.Decoding;
+using Beutl.Media;
 
 namespace Beutl.Media.Proxy;
 
@@ -12,4 +13,15 @@ public sealed record ProxyEntry(
     PixelSize ProxyDecodedFrameSize,
     DateTime GeneratedAtUtc,
     DateTime LastUsedUtc,
-    string? FailureReason);
+    string? FailureReason)
+{
+    public VideoDeinterlaceOptions Deinterlace { get; init => field = value.Normalize(); }
+
+    public VideoFieldOrder DetectedFieldOrder { get; init; }
+
+    public DeinterlaceApplicationStatus DeinterlaceStatus { get; init; }
+
+    public VideoColorTags OriginalColorTags { get; init; }
+
+    public Rational? OriginalDuration { get; init; }
+}

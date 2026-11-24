@@ -14,7 +14,7 @@ public sealed partial class ProxyJobQueue
         ProxyEntry? previous;
         try
         {
-            previous = _store.TryGet(job.Source, job.Preset);
+            previous = _store.TryGet(job.Source, job.Preset, job.Deinterlace);
         }
         catch (Exception ex)
         {
@@ -32,13 +32,16 @@ public sealed partial class ProxyJobQueue
                 job.Source,
                 job.Preset,
                 ProxyState.Failed,
-                ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset),
+                ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset, deinterlace: job.Deinterlace),
                 0,
                 default,
                 default,
                 now,
                 now,
-                failureReason));
+                failureReason)
+            {
+                Deinterlace = job.Deinterlace,
+            });
             return new FailureRegistration(previous, Changed: true);
         }
         catch (Exception ex)
@@ -82,10 +85,10 @@ public sealed partial class ProxyJobQueue
             }
             else
             {
-                _store.Delete(job.Source, job.Preset);
+                _store.Delete(job.Source, job.Preset, job.Deinterlace);
             }
 
-            ProxyEntry? restored = _store.TryGet(job.Source, job.Preset);
+            ProxyEntry? restored = _store.TryGet(job.Source, job.Preset, job.Deinterlace);
             if (!Equals(restored, registration.Previous))
             {
                 throw new InvalidOperationException(

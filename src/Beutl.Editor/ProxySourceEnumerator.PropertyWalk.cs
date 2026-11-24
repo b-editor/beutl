@@ -14,7 +14,7 @@ namespace Beutl.Editor;
 
 public static partial class ProxySourceEnumerator
 {
-    private static IEnumerable<IFileSource> EnumeratePropertyFileSources(
+    private static IEnumerable<FileSourceUse> EnumeratePropertyFileSources(
         EngineObject obj, TimeRange? localRange = null, bool skipDisabledElements = false, HashSet<EngineObject>? visitedValues = null,
         TimeRange? sceneWindow = null, ObjectWalkContext? walkContext = null)
     {
@@ -25,12 +25,13 @@ public static partial class ProxySourceEnumerator
             // Connected nested inputs override this exact property, including its base, animation,
             // and object subtree. The upstream node contributes the effective sources instead.
             if (walkContext?.ConnectedNodeInputs?.Contains(property) == true) continue;
+            var deinterlace = GetVideoSettings(property);
             // IExpressionProperty.Evaluate evaluates an expression ahead of the animation/current value, so a
             // reference-expression pointing at a file source is what the render opens. Resolve it (no
             // evaluation — just id/path lookup) and report its sources. StringExpressions are arbitrary
             // C# and are not evaluated here.
-            foreach (IFileSource source in EnumerateExpressionFileSources(obj, (property as IExpressionProperty)?.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext: walkContext))
-                yield return source;
+            foreach (FileSourceUse source in EnumerateExpressionFileSources(obj, (property as IExpressionProperty)?.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext: walkContext))
+                yield return source with { Deinterlace = deinterlace ?? source.Deinterlace };
 
             // When an expression is present, Evaluate takes the expression branch and never samples the
             // base value or the animation, so in a windowed pass (which mirrors what the render opens)
@@ -44,8 +45,8 @@ public static partial class ProxySourceEnumerator
             bool baseOverridden = localRange is not null && (expressionOverrides || AnimationSuppliesValue(property.GetKeyFrameAnimation()));
             if (!baseOverridden)
             {
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.Value, localRange, skipDisabledElements, visitedValues, walkContext))
-                    yield return source;
+                foreach (FileSourceUse source in EnumeratePropertyValueFileSources(property.Value, localRange, skipDisabledElements, visitedValues, walkContext))
+                    yield return source with { Deinterlace = deinterlace ?? source.Deinterlace };
             }
 
             // Rendering (and the proxy scanner) consume animated file-source values too, so media
@@ -53,8 +54,8 @@ public static partial class ProxySourceEnumerator
             // the animation entirely in a windowed pass.
             if (!expressionOverrides)
             {
-                foreach (IFileSource animated in EnumerateAnimatedFileSources(property.GetKeyFrameAnimation(), localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
-                    yield return animated;
+                foreach (FileSourceUse animated in EnumerateAnimatedFileSources(property.GetKeyFrameAnimation(), localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
+                    yield return animated with { Deinterlace = deinterlace ?? animated.Deinterlace };
             }
         }
     }
@@ -68,13 +69,13 @@ public static partial class ProxySourceEnumerator
 
     // An EngineObject value holds nested file sources, so recurse, except for the types that have their own
     // guarded walks (Drawable, SceneSound, Scene, Element, GraphNode).
-    private static IEnumerable<IFileSource> EnumeratePropertyValueFileSources(
+    private static IEnumerable<FileSourceUse> EnumeratePropertyValueFileSources(
         object? value, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues,
         ObjectWalkContext? walkContext = null)
     {
         if (value is IFileSource fileSource)
         {
-            yield return fileSource;
+            yield return new FileSourceUse(fileSource);
             yield break;
         }
 
@@ -86,12 +87,12 @@ public static partial class ProxySourceEnumerator
                 {
                     if (skipDisabledElements && !drawable.IsEnabled.Value
                         || !TryVisitGraphDrawable(drawable, localRange, walkContext)) continue;
-                    foreach (IFileSource source in EnumerateObjectFileSources(
+                    foreach (FileSourceUse source in EnumerateObjectFileSources(
                         drawable, walkContext, skipDisabledElements, localRange))
                         yield return source;
                     continue;
                 }
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(item, localRange, skipDisabledElements, visitedValues, walkContext))
+                foreach (FileSourceUse source in EnumeratePropertyValueFileSources(item, localRange, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
             yield break;
@@ -107,7 +108,7 @@ public static partial class ProxySourceEnumerator
             && (!skipDisabledElements || nestedDrawable.IsEnabled.Value)
             && walkContext.VisitedTargets.Add(nestedDrawable))
         {
-            foreach (IFileSource source in EnumerateObjectFileSources(
+            foreach (FileSourceUse source in EnumerateObjectFileSources(
                 nestedDrawable, walkContext, skipDisabledElements, localRange))
                 yield return source;
             // Fall through so the brush's own remaining properties (Transform, …) are still walked.
@@ -120,7 +121,7 @@ public static partial class ProxySourceEnumerator
         {
             // Shifted into referenced-scene time, like the embed composes it.
             TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange?.AddStart(referencedScene.Start.Value) : null;
-            foreach (IFileSource source in EnumerateReferencedSceneSources(
+            foreach (FileSourceUse source in EnumerateReferencedSceneSources(
                 referencedScene, soundContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow,
                 soundContext.FrameRate, soundContext.FrameOrigin - sceneSound.Start + referencedScene.Start.Value))
                 yield return source;
@@ -142,7 +143,7 @@ public static partial class ProxySourceEnumerator
                 if (skipDisabledElements && !child.IsEnabled.Value)
                     continue;
 
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(child, localRange, skipDisabledElements, visitedValues, walkContext))
+                foreach (FileSourceUse source in EnumeratePropertyValueFileSources(child, localRange, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
 
@@ -157,7 +158,7 @@ public static partial class ProxySourceEnumerator
             yield break;
         }
 
-        foreach (IFileSource source in EnumeratePropertyFileSources(engineObject, localRange, skipDisabledElements, visitedValues, walkContext?.SceneWindow, walkContext))
+        foreach (FileSourceUse source in EnumeratePropertyFileSources(engineObject, localRange, skipDisabledElements, visitedValues, walkContext?.SceneWindow, walkContext))
             yield return source;
     }
 
@@ -177,7 +178,7 @@ public static partial class ProxySourceEnumerator
     // target through the value recursion. A cross-referenced target has its own guarded walk when it is
     // reached structurally, so recursing its resolved value here (guarded by visitedValues) only adds the
     // file sources it exposes as a value, without re-walking a scene/element/drawable navigator.
-    private static IEnumerable<IFileSource> EnumerateExpressionFileSources(
+    private static IEnumerable<FileSourceUse> EnumerateExpressionFileSources(
         EngineObject owner, IExpression? expression, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues,
         TimeRange? sceneWindow = null, HashSet<IProperty>? visitedExpressionProps = null, ObjectWalkContext? walkContext = null)
     {
@@ -189,7 +190,7 @@ public static partial class ProxySourceEnumerator
 
         if (!reference.HasPropertyPath)
         {
-            foreach (IFileSource source in EnumeratePropertyValueFileSources(target, localRange, skipDisabledElements, visitedValues, walkContext))
+            foreach (FileSourceUse source in EnumeratePropertyValueFileSources(target, localRange, skipDisabledElements, visitedValues, walkContext))
                 yield return source;
 
             yield break;
@@ -211,14 +212,14 @@ public static partial class ProxySourceEnumerator
             if (!visitedExpressionProps.Add(property))
                 yield break;
 
-            foreach (IFileSource source in EnumerateExpressionFileSources(target, (property as IExpressionProperty)?.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, visitedExpressionProps, walkContext))
+            foreach (FileSourceUse source in EnumerateExpressionFileSources(target, (property as IExpressionProperty)?.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, visitedExpressionProps, walkContext))
                 yield return source;
 
             bool targetExpressionOverrides = localRange is not null && HasActiveExpression(property, walkContext);
             bool targetBaseOverridden = localRange is not null && (targetExpressionOverrides || AnimationSuppliesValue(property.GetKeyFrameAnimation()));
             if (!targetBaseOverridden)
             {
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.Value, localRange, skipDisabledElements, visitedValues, walkContext))
+                foreach (FileSourceUse source in EnumeratePropertyValueFileSources(property.Value, localRange, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
 
@@ -226,7 +227,7 @@ public static partial class ProxySourceEnumerator
             {
                 // The target property renders through PropertyLookup at scene time, so a global-clock
                 // source animation on it is windowed by sceneWindow just like a direct property.
-                foreach (IFileSource source in EnumerateAnimatedFileSources(property.GetKeyFrameAnimation(), localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
+                foreach (FileSourceUse source in EnumerateAnimatedFileSources(property.GetKeyFrameAnimation(), localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext))
                     yield return source;
             }
 
@@ -280,7 +281,7 @@ public static partial class ProxySourceEnumerator
         return property.Value as T;
     }
 
-    private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(
+    private static IEnumerable<FileSourceUse> EnumerateAnimatedFileSources(
         IKeyFrameAnimation? animation, TimeRange? localRange = null, bool skipDisabledElements = false, HashSet<EngineObject>? visitedValues = null,
         TimeRange? sceneWindow = null, ObjectWalkContext? walkContext = null)
     {
@@ -316,7 +317,7 @@ public static partial class ProxySourceEnumerator
                     continue;
             }
 
-            foreach (IFileSource source in EnumeratePropertyValueFileSources(value, localRange, skipDisabledElements, visitedValues, walkContext))
+            foreach (FileSourceUse source in EnumeratePropertyValueFileSources(value, localRange, skipDisabledElements, visitedValues, walkContext))
                 yield return source;
         }
     }

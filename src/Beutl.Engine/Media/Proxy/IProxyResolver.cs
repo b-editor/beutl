@@ -1,10 +1,14 @@
-﻿using Beutl.Media;
+﻿using Beutl.Media.Decoding;
+using Beutl.Media;
 
 namespace Beutl.Media.Proxy;
 
 public interface IProxyResolver
 {
     ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset);
+
+    ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset, VideoDeinterlaceOptions deinterlace)
+        => deinterlace.Normalize() == VideoDeinterlaceOptions.Default ? Resolve(sourceUri, preferredPreset) : null;
 
     /// <summary>
     /// A version that starts at 0 and increases only when this source's own proxy entries change.
@@ -36,6 +40,16 @@ public sealed record ProxyResolution(
     PixelSize OriginalLogicalFrameSize,
     PixelSize ProxyDecodedFrameSize)
 {
+    public VideoDeinterlaceOptions Deinterlace { get; init => field = value.Normalize(); }
+
+    public VideoFieldOrder DetectedFieldOrder { get; init; }
+
+    public DeinterlaceApplicationStatus DeinterlaceStatus { get; init; }
+
+    public VideoColorTags OriginalColorTags { get; init; }
+
+    public Rational? OriginalDuration { get; init; }
+
     public float SupplyDensity => SupplyDensityOf(OriginalLogicalFrameSize, ProxyDecodedFrameSize);
 
     internal static float SupplyDensityOf(PixelSize originalLogicalFrameSize, PixelSize proxyDecodedFrameSize)

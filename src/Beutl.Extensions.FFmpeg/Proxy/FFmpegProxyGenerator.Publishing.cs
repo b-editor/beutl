@@ -1,4 +1,5 @@
 ﻿using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Microsoft.Extensions.Logging;
 
@@ -17,7 +18,11 @@ public sealed partial class FFmpegProxyGenerator
         PixelSize proxySize,
         CancellationToken ct,
         Func<string, string, bool>? moveAttempt = null,
-        Func<string, string?>? metadataBackupAttempt = null)
+        Func<string, string?>? metadataBackupAttempt = null,
+        VideoColorTags originalColorTags = default,
+        VideoFieldOrder detectedFieldOrder = default,
+        DeinterlaceApplicationStatus deinterlaceStatus = default,
+        Rational? originalDuration = null)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -26,7 +31,7 @@ public sealed partial class FFmpegProxyGenerator
         if (File.Exists(finalPath))
             throw new IOException("A proxy generation must publish to a new file path.");
 
-        ProxyEntry? previous = store.TryGet(job.Source, job.Preset);
+        ProxyEntry? previous = store.TryGet(job.Source, job.Preset, job.Deinterlace);
         string? metadataBackupPath = null;
         ProxyEntry? entry = null;
         try
@@ -51,7 +56,14 @@ public sealed partial class FFmpegProxyGenerator
                 proxySize,
                 now,
                 now,
-                null);
+                null)
+            {
+                OriginalColorTags = originalColorTags,
+                Deinterlace = job.Deinterlace,
+                DetectedFieldOrder = detectedFieldOrder,
+                DeinterlaceStatus = deinterlaceStatus,
+                OriginalDuration = originalDuration,
+            };
 
             metadataBackupPath = TryCopyExistingFileToBackup(GetMetadataPath(finalPath), metadataBackupAttempt);
             await FinalizeAsync(finalPath, entry, ct);
@@ -89,15 +101,15 @@ public sealed partial class FFmpegProxyGenerator
         {
             // Register may have updated the store before throwing. Roll back only our generation;
             // a concurrently registered replacement must keep its own entry.
-            if (store.TryGet(entry.Source, entry.Preset)?.ProxyFileRelative == entry.ProxyFileRelative)
+            if (store.TryGet(entry.Source, entry.Preset, entry.Deinterlace)?.ProxyFileRelative == entry.ProxyFileRelative)
             {
                 if (previous != null)
                     store.Register(previous);
                 else
-                    store.Delete(entry.Source, entry.Preset);
+                    store.Delete(entry.Source, entry.Preset, entry.Deinterlace);
             }
 
-            return store.TryGet(entry.Source, entry.Preset)?.ProxyFileRelative != entry.ProxyFileRelative;
+            return store.TryGet(entry.Source, entry.Preset, entry.Deinterlace)?.ProxyFileRelative != entry.ProxyFileRelative;
         }
         catch (Exception ex)
         {

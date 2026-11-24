@@ -282,17 +282,21 @@ public sealed class GraphicsContext2D(
             });
 
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+        => DrawVideoSource(source, frame, fill, pen, VideoTransferInterpretation.Auto);
+
+    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen,
+        VideoTransferInterpretation interpretation)
         => DrawNode(
-            (Source: source, Frame: frame, Fill: fill, Pen: pen),
+            (Source: source, Frame: frame, Fill: fill, Pen: pen, Interpretation: interpretation),
             static p =>
             {
                 ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
-                return new VideoSourceRenderNode(p.Source, p.Frame, p.Fill, p.Pen);
+                return new VideoSourceRenderNode(p.Source, p.Frame, p.Fill, p.Pen, p.Interpretation);
             },
             static (node, p) =>
             {
                 ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
-                return node.Update(p.Source, p.Frame, p.Fill, p.Pen);
+                return node.Update(p.Source, p.Frame, p.Fill, p.Pen, p.Interpretation);
             });
 
     public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)

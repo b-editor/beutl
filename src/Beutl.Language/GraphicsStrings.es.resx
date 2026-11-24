@@ -890,6 +890,78 @@
   <data name="SourceVideo_IsLoop" xml:space="preserve">
     <value>Bucle</value>
   </data>
+  <data name="SourceVideo_Deinterlace" xml:space="preserve">
+    <value>Desentrelazado</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFieldOrder" xml:space="preserve">
+    <value>Orden de campos</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceMethod" xml:space="preserve">
+    <value>Método</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFrameRate" xml:space="preserve">
+    <value>Frecuencia de fotogramas</value>
+  </data>
+  <data name="VideoDeinterlace_Off" xml:space="preserve">
+    <value>Desactivado</value>
+  </data>
+  <data name="VideoDeinterlace_Auto" xml:space="preserve">
+    <value>Automático</value>
+  </data>
+  <data name="VideoDeinterlace_On" xml:space="preserve">
+    <value>Activado</value>
+  </data>
+  <data name="VideoDeinterlace_TopFieldFirst" xml:space="preserve">
+    <value>Campo superior primero (TFF)</value>
+  </data>
+  <data name="VideoDeinterlace_BottomFieldFirst" xml:space="preserve">
+    <value>Campo inferior primero (BFF)</value>
+  </data>
+  <data name="VideoDeinterlace_Bwdif" xml:space="preserve">
+    <value>BWDIF</value>
+  </data>
+  <data name="VideoDeinterlace_Yadif" xml:space="preserve">
+    <value>YADIF</value>
+  </data>
+  <data name="VideoDeinterlace_Frame" xml:space="preserve">
+    <value>Fotograma (1×)</value>
+  </data>
+  <data name="VideoDeinterlace_Field" xml:space="preserve">
+    <value>Campo (2×)</value>
+  </data>
+  <data name="VideoDeinterlace_Progressive" xml:space="preserve">
+    <value>Progresivo</value>
+  </data>
+  <data name="VideoDeinterlace_Mixed" xml:space="preserve">
+    <value>Exploración mixta</value>
+  </data>
+  <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
+    <value>Progresivo · No requiere desentrelazado</value>
+  </data>
+  <data name="VideoDeinterlace_Applied" xml:space="preserve">
+    <value>Desentrelazado aplicado</value>
+  </data>
+  <data name="VideoDeinterlace_Unsupported" xml:space="preserve">
+    <value>El decodificador no admite el desentrelazado</value>
+  </data>
+  <data name="SourceVideo_TransferInterpretation" xml:space="preserve">
+    <value>Curva de transferencia</value>
+  </data>
+  <data name="VideoTransfer_Auto" xml:space="preserve">
+    <value>Automático (según las etiquetas)</value>
+  </data>
+  <data name="VideoTransfer_QuickTime" xml:space="preserve">
+    <value>QuickTime</value>
+  </data>
+  <data name="VideoTransfer_Bt1886" xml:space="preserve">
+    <value>BT.1886</value>
+  </data>
+  <data name="VideoTransfer_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="VideoTransfer_Bt709Scene" xml:space="preserve">
+    <value>BT.709 (referido a escena)</value>
+  </data>
   <data name="SourceVideo_OffsetPosition" xml:space="preserve">
     <value>Posición de desplazamiento</value>
   </data>
