@@ -203,6 +203,43 @@ public sealed class LensChromaticAberrationTests
         });
     }
 
+    [TestCase(1.5f)]
+    [TestCase(2f)]
+    public void RepeatedEdgesKeepTheirColorsAtOtherDensities(float scale)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            // The channel that reads outward reaches past every edge of the picture, which spans (20, 40) to (180, 160).
+            using Drawable.Resource resource = Picture(new LensChromaticAberration
+            {
+                Amount = { Value = 10f },
+                Center = { Value = new RelativePoint(0.85f, 0.4f, RelativeUnit.Relative) },
+            }, new SolidColorBrush(Color.FromRgb(220, 170, 120)));
+            using Bitmap bitmap = GoldenImageHarness.RenderAtScale(resource, s_frame, scale, clearColor: Colors.Transparent);
+            int left = (int)(20 * scale), right = (int)(180 * scale) - 1, top = (int)(40 * scale), bottom = (int)(160 * scale) - 1;
+            int x = (int)(100 * scale), y = (int)(100 * scale);
+            Rgba color = PixelAt(bitmap, x, y);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(MathF.Min(color.Red, MathF.Min(color.Green, color.Blue)), Is.GreaterThan(0.1f));
+                foreach (int inset in (int[])[0, 1, 2, 4])
+                {
+                    AssertColor(PixelAt(bitmap, left + inset, y), color, $"{inset} px inside the left edge");
+                    AssertColor(PixelAt(bitmap, right - inset, y), color, $"{inset} px inside the right edge");
+                    AssertColor(PixelAt(bitmap, x, top + inset), color, $"{inset} px inside the top edge");
+                    AssertColor(PixelAt(bitmap, x, bottom - inset), color, $"{inset} px inside the bottom edge");
+                }
+
+                Assert.That(PixelAt(bitmap, left - 1, y), Is.EqualTo(default(Rgba)), "left of the picture");
+                Assert.That(PixelAt(bitmap, right + 1, y), Is.EqualTo(default(Rgba)), "right of the picture");
+                Assert.That(PixelAt(bitmap, x, top - 1), Is.EqualTo(default(Rgba)), "above the picture");
+                Assert.That(PixelAt(bitmap, x, bottom + 1), Is.EqualTo(default(Rgba)), "below the picture");
+            }
+        });
+    }
+
     [TestCase(false, 1.5f)]
     [TestCase(false, 2f)]
     [TestCase(true, 1.5f)]
@@ -212,16 +249,16 @@ public sealed class LensChromaticAberrationTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            // Inside the picture's left edge, where the blue channel reads past the edge.
-            var region = new Rect(24, 80, 10, 24);
+            // Six units inside the picture's left edge, where the blue channel reads past the edge.
+            var region = new Rect(26, 80, 8, 24);
             PixelRect deviceRegion = PixelRect.FromRect(region, scale);
-            using Drawable.Resource resource = StripedPicture(new LensChromaticAberration
+            using Drawable.Resource resource = Picture(new LensChromaticAberration
             {
                 Amount = { Value = 10f },
                 Center = { Value = new RelativePoint(0.85f, 0.4f, RelativeUnit.Relative) },
                 RepeatEdgePixels = { Value = repeatEdgePixels },
-            });
-            using Drawable.Resource controlResource = StripedPicture(new FilterEffectGroup());
+            }, Stripes());
+            using Drawable.Resource controlResource = Picture(new FilterEffectGroup(), Stripes());
             using Bitmap full = GoldenImageHarness.RenderAtScale(resource, s_frame, scale, clearColor: Colors.Transparent);
             using Bitmap partial = GoldenImageHarness.RenderAtScale(
                 resource, s_frame, scale, requestedRegion: region, clearColor: Colors.Transparent);
@@ -301,8 +338,20 @@ public sealed class LensChromaticAberrationTests
         Assert.That(difference, Is.LessThanOrEqualTo(0.002f), $"{message}: {actual} instead of {expected}");
     }
 
-    // A 160 x 120 picture of vertical stripes in the middle of the frame.
-    private static Drawable.Resource StripedPicture(FilterEffect effect)
+    // A 160 x 120 picture in the middle of the frame.
+    private static Drawable.Resource Picture(FilterEffect effect, Brush fill)
+    {
+        var shape = new RectShape();
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 160;
+        shape.Height.Value = 120;
+        shape.Fill.Value = fill;
+        shape.FilterEffect.Value = effect;
+        return shape.ToResource(CompositionContext.Default);
+    }
+
+    private static LinearGradientBrush Stripes()
     {
         var stripes = new LinearGradientBrush
         {
@@ -314,14 +363,7 @@ public sealed class LensChromaticAberrationTests
         stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
         stripes.GradientStops.Add(new GradientStop(Colors.Gray, 0.5f));
         stripes.GradientStops.Add(new GradientStop(Colors.Gray, 1));
-        var shape = new RectShape();
-        shape.AlignmentX.Value = AlignmentX.Center;
-        shape.AlignmentY.Value = AlignmentY.Center;
-        shape.Width.Value = 160;
-        shape.Height.Value = 120;
-        shape.Fill.Value = stripes;
-        shape.FilterEffect.Value = effect;
-        return shape.ToResource(CompositionContext.Default);
+        return stripes;
     }
 
     // The fringe tests keep the transparent edges they were written for.
