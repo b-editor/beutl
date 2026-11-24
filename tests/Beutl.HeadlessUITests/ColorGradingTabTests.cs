@@ -777,32 +777,33 @@ public sealed class ColorGradingTabTests
     {
         using TabHost host = await TabHost.OpenAsync($"grading-overflow-{mode}", width, height, mode);
         ColorWheelsPanel wheels = host.Wheels;
-        ColorBalancePad firstPad = wheels.Children[0].GetVisualDescendants().OfType<ColorBalancePad>().Single();
         var lastField = wheels.Children[^1].GetVisualDescendants().OfType<TextBox>().Last();
         var toolbar = host.View.FindControl<Control>("ToolBar")!;
-        var scroller = host.View.FindControl<ScrollViewer>("ContentScroller")!;
+        var contentScroller = host.View.FindControl<ScrollViewer>("ContentScroller")!;
+        var adjustmentsScroller = host.View.FindControl<ScrollViewer>("AdjustmentsScroller")!;
         AvaPoint? toolbarPosition = toolbar.TranslatePoint(default, host.Window);
 
-        Assert.That(scroller.Extent.Height, Is.GreaterThan(scroller.Viewport.Height));
+        Assert.Multiple(() =>
+        {
+            Assert.That(contentScroller.Extent.Height, Is.GreaterThan(contentScroller.Viewport.Height));
+            Assert.That(adjustmentsScroller.Extent.Height, Is.LessThanOrEqualTo(adjustmentsScroller.Viewport.Height));
+        });
         HeadlessCapture.SaveIfRequested(host.View, nameof(ColorGradingTabTests), $"overflow-{mode}-top");
-        AvaPoint scrollPoint = firstPad.TranslatePoint(firstPad.DiskBounds.Center, host.Window)!.Value;
-        host.Window.MouseWheel(scrollPoint, new Vector(0, -10));
+        host.Window.MouseWheel(FieldCenter(NumberField("TemperatureEditor")), new Vector(0, -10));
         HeadlessTestHelpers.Render(3);
         HeadlessCapture.SaveIfRequested(host.View, nameof(ColorGradingTabTests), $"overflow-{mode}-bottom");
 
         Assert.Multiple(() =>
         {
-            Assert.That(scroller.Offset.Y, Is.EqualTo(scroller.Extent.Height - scroller.Viewport.Height));
+            Assert.That(contentScroller.Offset.Y, Is.EqualTo(contentScroller.Extent.Height - contentScroller.Viewport.Height));
             AssertReachable(lastField, "The last wheel's RGB field");
+            AssertReachable(NumberField("HueEditor"), "The last adjustment field");
             Assert.That(toolbar.TranslatePoint(default, host.Window), Is.EqualTo(toolbarPosition));
 
             if (mode == 0)
             {
                 foreach (string name in new[] { "LowRangeEditor", "HighRangeEditor" })
-                {
-                    var rangeEditor = host.View.FindControl<NumberEditor<float>>(name)!;
-                    AssertReachable(rangeEditor.GetVisualDescendants().OfType<TextBox>().Single(), name);
-                }
+                    AssertReachable(NumberField(name), name);
             }
         });
 
@@ -811,13 +812,19 @@ public sealed class ColorGradingTabTests
         HeadlessTestHelpers.Render(3);
         Assert.Multiple(() =>
         {
-            Assert.That(scroller.Extent.Height, Is.LessThanOrEqualTo(scroller.Viewport.Height));
-            Assert.That(scroller.Offset.Y, Is.Zero);
+            Assert.That(contentScroller.Extent.Height, Is.LessThanOrEqualTo(contentScroller.Viewport.Height));
+            Assert.That(contentScroller.Offset.Y, Is.Zero);
         });
+
+        TextBox NumberField(string name)
+            => host.View.FindControl<StringEditorBase>(name)!.GetVisualDescendants().OfType<TextBox>().Single();
+
+        AvaPoint FieldCenter(TextBox field)
+            => field.TranslatePoint(new Rect(field.Bounds.Size).Center, host.Window)!.Value;
 
         void AssertReachable(TextBox field, string description)
         {
-            AvaPoint center = field.TranslatePoint(new Rect(field.Bounds.Size).Center, host.Window)!.Value;
+            AvaPoint center = FieldCenter(field);
             Assert.That(host.Window.InputHitTest(center) is Visual hit && (hit == field || field.IsVisualAncestorOf(hit)),
                 Is.True, $"{description} at {center} should be reachable.");
         }
@@ -830,6 +837,7 @@ public sealed class ColorGradingTabTests
     {
         using TabHost host = await TabHost.OpenAsync("grading-wrapped-range", width, height, mode: 0);
         var scroller = host.View.FindControl<ScrollViewer>("AdjustmentsScroller")!;
+        var contentScroller = host.View.FindControl<ScrollViewer>("ContentScroller")!;
         var range = host.View.FindControl<Grid>("TonalRangeRow")!;
         var boxes = host.View.FindControl<WrapPanel>("TonalRangeEditors")!;
         AssertWrappedLayout();
@@ -853,6 +861,7 @@ public sealed class ColorGradingTabTests
             Assert.That(host.View.CurrentPlacement, Is.EqualTo(ColorGradingTabView.AdjustmentsPlacement.Above));
             Assert.That(Grid.GetRow(boxes), Is.EqualTo(1));
             Assert.That(scroller.Extent.Height, Is.GreaterThan(scroller.Viewport.Height));
+            Assert.That(contentScroller.Extent.Height, Is.LessThanOrEqualTo(contentScroller.Viewport.Height));
             Assert.That(host.Wheels.PadSize, Is.GreaterThanOrEqualTo(95.5));
             foreach (ColorGradingWheel wheel in host.Wheels.Children.OfType<ColorGradingWheel>())
             {
