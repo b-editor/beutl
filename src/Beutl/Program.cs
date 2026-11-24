@@ -76,10 +76,6 @@ internal static class Program
                 WinUICompositionBackdropCornerRadius = 8f,
                 UseCompositionSwapChain = true
             })
-            .With(new X11PlatformOptions()
-            {
-                UseXShmFramebuffer = true
-            })
             .With(UiFonts.CreateFontManagerOptions(configuration.ViewConfig.UICulture.Value))
             .AfterSetup(_ => Telemetry.CompressLogFiles())
 #if DEBUG

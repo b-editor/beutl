@@ -20,10 +20,6 @@ internal class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .With(new X11PlatformOptions()
-            {
-                UseXShmFramebuffer = true
-            })
             .With(UiFonts.CreateFontManagerOptions(System.Globalization.CultureInfo.CurrentUICulture))
             .LogToTrace();
 }

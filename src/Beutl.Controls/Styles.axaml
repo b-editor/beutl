@@ -82,7 +82,6 @@
                     <StaticResource x:Key="MainWindowBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" />
                     <!--  The border theme matches this to its dock splitter.  -->
                     <SolidColorBrush x:Key="TitleBarBottomBorderBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
-                    <BlurEffect x:Key="PreviewOverlayBackdropEffect" Radius="12" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <ResourceDictionary.MergedDictionaries>
@@ -91,14 +90,8 @@
                     </ResourceDictionary.MergedDictionaries>
                     <SolidColorBrush x:Key="MainWindowBackground" Color="#FF111111" />
                     <SolidColorBrush x:Key="TitleBarBottomBorderBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
-                    <BlurEffect x:Key="PreviewOverlayBackdropEffect" Radius="12" />
                 </ResourceDictionary>
-                <ResourceDictionary x:Key="{x:Static sty:FluentAvaloniaTheme.HighContrastTheme}">
-                    <ResourceDictionary.MergedDictionaries>
-                        <styling:HighContrastTextOnAccentResources />
-                    </ResourceDictionary.MergedDictionaries>
-                    <BlurEffect x:Key="PreviewOverlayBackdropEffect" Radius="0" />
-                </ResourceDictionary>
+                <styling:HighContrastTextOnAccentResources x:Key="{x:Static sty:FluentAvaloniaTheme.HighContrastTheme}" />
             </ResourceDictionary.ThemeDictionaries>
 
             <x:Double x:Key="LayerHeight">25</x:Double>

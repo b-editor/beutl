@@ -271,7 +271,6 @@
                 <!-- Keep the error outside framePanel so preview pan/zoom does not transform it. -->
                 <Border Name="previewRenderErrorOverlay"
                         Padding="24"
-                        BackdropEffect="{DynamicResource PreviewOverlayBackdropEffect}"
                         Background="{DynamicResource SmokeFillColorDefaultBrush}"
                         IsHitTestVisible="False"
                         IsVisible="{Binding PreviewRenderError.Value,
