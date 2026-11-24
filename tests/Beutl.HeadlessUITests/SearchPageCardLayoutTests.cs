@@ -80,13 +80,10 @@ public class SearchPageCardLayoutTests
             window.Show();
             HeadlessTestHelpers.Render();
 
-            Button? card = view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.DataContext == package);
-            Assert.That(
-                card,
-                Is.Not.Null,
-                "the package card did not materialize headlessly - revisit the test host before trusting it");
+            Button card = view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.DataContext == package)
+                ?? throw new AssertionException("The package card did not materialize headlessly.");
 
-            List<TextBlock> blocks = card!.GetVisualDescendants().OfType<TextBlock>().ToList();
+            List<TextBlock> blocks = card.GetVisualDescendants().OfType<TextBlock>().ToList();
             TextBlock? name = blocks.FirstOrDefault(t => t.Text == LongName);
             TextBlock? displayName = blocks.FirstOrDefault(t => t.Text == LongDisplayName);
             TextBlock? description = blocks.FirstOrDefault(t => t.Text == LongDescription);

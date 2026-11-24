@@ -110,7 +110,7 @@ public sealed class NodeRecordingTransactionTests
             Assert.That(
                 descriptions,
                 Has.All.Matches<ShaderDescription>(
-                    item => ReferenceEquals(item.Source, descriptions[0].Source)),
+                    item => item is not null && ReferenceEquals(item.Source, descriptions[0].Source)),
                 "The constant fusion source must be normalized and validated once.");
             Assert.That(
                 descriptions.Take(8),

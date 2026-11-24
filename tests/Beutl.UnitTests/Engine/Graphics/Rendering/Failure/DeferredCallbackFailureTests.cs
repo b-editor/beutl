@@ -37,7 +37,7 @@ public sealed class DeferredCallbackFailureTests
             Assert.That(node.CallbackEntries, Is.EqualTo(1));
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => !target.IsDisposed));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { IsDisposed: false }));
         });
     }
 

@@ -119,16 +119,16 @@ public sealed class TransformRenderNodeRegionTests
     {
         public override void Process(RenderNodeContext context)
             => context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
-                "red-and-blue",
-                static (session, _) =>
+                (Red: Colors.Red, Blue: Colors.Blue),
+                static (session, colors) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputPlacement.LogicalBounds);
-                    output.Canvas.Use(static canvas =>
+                    output.Canvas.Use(canvas =>
                     {
                         using (canvas.PushClip(new Rect(0, 0, 50, 100)))
-                            canvas.Clear(Colors.Red);
+                            canvas.Clear(colors.Red);
                         using (canvas.PushClip(new Rect(50, 0, 50, 100)))
-                            canvas.Clear(Colors.Blue);
+                            canvas.Clear(colors.Blue);
                     });
                     session.Publish(output);
                 },

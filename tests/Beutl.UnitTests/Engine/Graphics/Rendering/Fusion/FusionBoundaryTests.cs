@@ -252,7 +252,7 @@ public sealed class FusionBoundaryTests
             Assert.That(runs.Select(static run => run.StageFragmentIndices.Length),
                 Is.EqualTo(new[] { budget.MaxStages, 1 }));
             Assert.That(runs, Has.All.Matches<CompiledShaderRun>(
-                run => run.Program.Budget.Equals(budget)));
+                run => run is not null && run.Program.Budget.Equals(budget)));
         });
     }
 

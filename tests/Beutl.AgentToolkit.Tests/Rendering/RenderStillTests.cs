@@ -182,7 +182,7 @@ public sealed class RenderStillTests
         Assert.Multiple(() =>
         {
             Assert.That(result.FrameCoverage, Has.All.Matches<MotionFrameCoverage>(item =>
-                item.OccupiedBoundsRatio <= 0.35 && item.MaxQuadrantForegroundRatio >= 0.90));
+                item is { OccupiedBoundsRatio: <= 0.35, MaxQuadrantForegroundRatio: >= 0.90 }));
         });
     }
 

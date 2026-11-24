@@ -71,7 +71,7 @@ public sealed class LocalPackageInstallTests
             install.Download.Value?.ErrorMessage.Value ?? install.Resolve.Value?.ErrorMessage.Value);
         Assert.Multiple(() =>
         {
-            Assert.That(install.Download.Value.DownloadSkipped.Value, Is.True);
+            Assert.That(install.Download.Value?.DownloadSkipped.Value, Is.True);
             Assert.That(app.GetResource<InstalledPackageRepository>().ExistsPackage(identity), Is.True);
             Assert.That(handler.RequestCount, Is.EqualTo(requestsBeforeDownload),
                 "A local installation must not require a package or release from the web store.");

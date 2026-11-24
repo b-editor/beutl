@@ -130,10 +130,10 @@ public static class NumberEditorHelper
         bool allowSameValue = false)
         where TValue : INumber<TValue>
     {
-        if (TryParse(newText, out newValue)
+        if (TryParse<TValue>(newText, out newValue)
             && newValue is not null)
         {
-            if (!TryParse(oldText, out oldValue) || oldValue is null)
+            if (!TryParse<TValue>(oldText, out oldValue) || oldValue is null)
             {
                 oldValue = newValue;
                 return true;

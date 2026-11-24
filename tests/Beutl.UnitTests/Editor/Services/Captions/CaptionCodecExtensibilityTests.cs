@@ -55,7 +55,7 @@ public class CaptionCodecExtensibilityTests
             Assert.That(Encoding.UTF8.GetString(exported), Is.EqualTo("custom text"));
             Assert.That(failure.IsSuccess, Is.False);
             Assert.That(failure.Diagnostics, Has.One.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidStructure
+                error is not null && error.Kind == CaptionDiagnosticKinds.InvalidStructure
                 && error.Message == "Custom codec rejected the content."));
         }
     }

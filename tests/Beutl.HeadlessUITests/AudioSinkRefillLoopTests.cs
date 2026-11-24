@@ -188,7 +188,7 @@ public class AudioSinkRefillLoopTests
 
         public int MaxQueued { get; private set; }
 
-        public int BufferCount => bufferCount;
+        public int BufferCount { get; } = bufferCount;
 
         // One sample into the playing buffer, so the startup wait sees progress.
         public long PlayedSamples => _completedSamples + (_playing && _queued.Count > 0 ? 1 : 0);

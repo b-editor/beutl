@@ -357,7 +357,7 @@ public class ElementClipboardServiceTests
             Assert.That(elementAdder.CallCount, Is.EqualTo(1));
             Assert.That(elementAdder.Descriptions, Has.Count.EqualTo(2));
             Assert.That(elementAdder.Descriptions, Has.All.Matches<ElementDescription>(description =>
-                description.Start == MediaTime.FromSeconds(12)
+                description is not null && description.Start == MediaTime.FromSeconds(12)
                 && description.Length == MediaTime.FromSeconds(5)
                 && description.Layer == 4
                 && description.Source is ElementSource.File));

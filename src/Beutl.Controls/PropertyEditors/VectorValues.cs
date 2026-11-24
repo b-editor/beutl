@@ -190,7 +190,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     public override bool Step(int index, string? text, PointerWheelEventArgs e)
     {
-        if (!NumberEditorHelper.TryParse(text, out TElement? value) || value is null)
+        if (!NumberEditorHelper.TryParse<TElement>(text, out TElement? value) || value is null)
             return false;
 
         if (ReadFocusedValues?.Invoke() is { } focused)

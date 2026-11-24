@@ -360,7 +360,8 @@ public sealed class FileBrowserFolderCopyTests
                 .Where(button => button.IsEffectivelyVisible && button.Content is string)
                 .Select(button => (string)button.Content!)];
             using WriteableBitmap? frame = window.CaptureRenderedFrame();
-            frame?.Save(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"folder-conflict-dialog-{(light ? "light" : "dark")}.png"));
+            frame?.Save(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"folder-conflict-dialog-{(light ? "light" : "dark")}.png"),
+                PngBitmapEncoderOptions.Default);
 
             Assert.Multiple(() =>
             {

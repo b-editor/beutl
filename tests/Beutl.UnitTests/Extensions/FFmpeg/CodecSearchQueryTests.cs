@@ -36,9 +36,9 @@ public class CodecSearchQueryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(name, Is.GreaterThan(namePrefix));
-            Assert.That(namePrefix, Is.GreaterThan(longNamePrefix));
-            Assert.That(longNamePrefix, Is.GreaterThan(anywhere));
+            Assert.That(name > namePrefix, Is.True);
+            Assert.That(namePrefix > longNamePrefix, Is.True);
+            Assert.That(longNamePrefix > anywhere, Is.True);
             Assert.That(anywhere, Is.Not.Null);
         });
     }

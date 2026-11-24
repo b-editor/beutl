@@ -98,7 +98,7 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
                 AssertDominant(bitmap, 2, 0, red: false, green: false, blue: true);
                 Assert.That(factory.Targets, Is.Not.Empty);
                 Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(
-                    target => target.IsDisposed && target.DisposeCalls == 1));
+                    target => target is { IsDisposed: true, DisposeCalls: 1 }));
                 Assert.That(source.IsDisposed, Is.False);
             });
 

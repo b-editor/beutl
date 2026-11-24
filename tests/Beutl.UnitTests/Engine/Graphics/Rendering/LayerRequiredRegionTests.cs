@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -272,6 +273,7 @@ public sealed class LayerRequiredRegionTests
 }
 
 // Moves every target by a fixed offset, as a shake does at one moment, and says where it reads or leaves it unknown.
+[SuppressResourceClassGeneration]
 internal sealed class FixedOffsetEffect : FilterEffect
 {
     public Vector Offset { get; init; }

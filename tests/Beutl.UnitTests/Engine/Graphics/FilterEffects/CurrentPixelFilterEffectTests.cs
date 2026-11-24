@@ -209,9 +209,9 @@ public sealed class CurrentPixelFilterEffectTests
         Assert.Multiple(() =>
         {
             Assert.That(programs.Sum(static program => program.StageCount), Is.EqualTo(descriptions.Length));
-            Assert.That(programs, Has.Some.Matches<SkslMergedProgram>(static program => program.StageCount > 1));
+            Assert.That(programs, Has.Some.Matches<SkslMergedProgram>(static program => program is { StageCount: > 1 }));
             Assert.That(programs, Has.All.Matches<SkslMergedProgram>(
-                static program => !program.RequiresStandaloneExecution));
+                static program => program is { RequiresStandaloneExecution: false }));
         });
 
         foreach (SkslMergedProgram program in programs)
