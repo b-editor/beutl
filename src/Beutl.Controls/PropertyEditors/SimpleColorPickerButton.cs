@@ -11,21 +11,18 @@ namespace Beutl.Controls.PropertyEditors;
 // A swatch that edits its color with SimpleColorPicker, palettes included, for a color that is not a property of an
 // object, such as a layer's or a setting's. The picker applies its color when it is confirmed, and ColorConfirmed
 // reports a change, which also joins the recent colors.
-public class SimpleColorPickerButton : TemplatedControl
+public partial class SimpleColorPickerButton : TemplatedControl
 {
-    public static readonly StyledProperty<Color> ColorProperty =
-        AvaloniaProperty.Register<SimpleColorPickerButton, Color>(
-            nameof(Color), Colors.White, defaultBindingMode: BindingMode.TwoWay);
-
-    public static readonly StyledProperty<bool> IsAlphaEnabledProperty =
-        SimpleColorPicker.IsAlphaEnabledProperty.AddOwner<SimpleColorPickerButton>();
-
     public static readonly DirectProperty<SimpleColorPickerButton, IBrush> PreviewBrushProperty =
         AvaloniaProperty.RegisterDirect<SimpleColorPickerButton, IBrush>(nameof(PreviewBrush), o => o.PreviewBrush);
 
     private Button? _button;
     private SimpleColorPickerFlyout? _flyout;
     private IBrush _previewBrush = new SolidColorBrush(Colors.White);
+
+    public static readonly StyledProperty<Color> ColorProperty =
+        AvaloniaProperty.Register<SimpleColorPickerButton, Color>(
+            nameof(Color), Colors.White, defaultBindingMode: BindingMode.TwoWay);
 
     public Color Color
     {
@@ -34,11 +31,8 @@ public class SimpleColorPickerButton : TemplatedControl
     }
 
     // False keeps the color opaque and hides the picker's opacity.
-    public bool IsAlphaEnabled
-    {
-        get => GetValue(IsAlphaEnabledProperty);
-        set => SetValue(IsAlphaEnabledProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(SimpleColorPicker))]
+    public partial bool IsAlphaEnabled { get; set; }
 
     // The swatch the theme shows for the color.
     public IBrush PreviewBrush => _previewBrush;

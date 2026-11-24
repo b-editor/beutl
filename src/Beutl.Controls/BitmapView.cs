@@ -11,24 +11,8 @@ using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.Controls;
 
-public class BitmapView : Avalonia.Controls.Control
+public partial class BitmapView : Avalonia.Controls.Control
 {
-    public static readonly StyledProperty<Ref<BtlBitmap>?> SourceProperty =
-        AvaloniaProperty.Register<BitmapView, Ref<BtlBitmap>?>(nameof(Source));
-
-    public static readonly StyledProperty<Stretch> StretchProperty =
-        AvaloniaProperty.Register<BitmapView, Stretch>(nameof(Stretch), Stretch.Uniform);
-
-    public static readonly StyledProperty<BitmapInterpolationMode> InterpolationModeProperty =
-        AvaloniaProperty.Register<BitmapView, BitmapInterpolationMode>(
-            nameof(InterpolationMode), BitmapInterpolationMode.HighQuality);
-
-    public static readonly StyledProperty<UIToneMappingOperator> ToneMappingProperty =
-        AvaloniaProperty.Register<BitmapView, UIToneMappingOperator>(nameof(ToneMapping), UIToneMappingOperator.None);
-
-    public static readonly StyledProperty<float> ToneMappingExposureProperty =
-        AvaloniaProperty.Register<BitmapView, float>(nameof(ToneMappingExposure), 0f);
-
     private Size? _lastSourceSize;
     private Ref<BtlBitmap>? _clonedSource;
 
@@ -39,35 +23,20 @@ public class BitmapView : Avalonia.Controls.Control
         AffectsMeasure<BitmapView>(StretchProperty);
     }
 
-    public Ref<BtlBitmap>? Source
-    {
-        get => GetValue(SourceProperty);
-        set => SetValue(SourceProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Ref<BtlBitmap>? Source { get; set; }
 
-    public Stretch Stretch
-    {
-        get => GetValue(StretchProperty);
-        set => SetValue(StretchProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = Stretch.Uniform)]
+    public partial Stretch Stretch { get; set; }
 
-    public BitmapInterpolationMode InterpolationMode
-    {
-        get => GetValue(InterpolationModeProperty);
-        set => SetValue(InterpolationModeProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = BitmapInterpolationMode.HighQuality)]
+    public partial BitmapInterpolationMode InterpolationMode { get; set; }
 
-    public UIToneMappingOperator ToneMapping
-    {
-        get => GetValue(ToneMappingProperty);
-        set => SetValue(ToneMappingProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = UIToneMappingOperator.None)]
+    public partial UIToneMappingOperator ToneMapping { get; set; }
 
-    public float ToneMappingExposure
-    {
-        get => GetValue(ToneMappingExposureProperty);
-        set => SetValue(ToneMappingExposureProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 0f)]
+    public partial float ToneMappingExposure { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

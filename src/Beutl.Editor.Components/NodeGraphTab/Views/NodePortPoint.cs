@@ -11,14 +11,8 @@ using FluentAvalonia.UI.Media;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
-public sealed class NodePortPoint : Control
+public sealed partial class NodePortPoint : Control
 {
-    public static readonly StyledProperty<IBrush?> BrushProperty =
-        AvaloniaProperty.Register<NodePortPoint, IBrush?>(nameof(Brush));
-
-    public static readonly StyledProperty<bool> IsConnectedProperty =
-        AvaloniaProperty.Register<NodePortPoint, bool>(nameof(IsConnected));
-
     private const double BaseRadius = 5;
     private const double HoverRadius = 6.2;
     private const double SnapRadius = 6.8;
@@ -42,17 +36,11 @@ public sealed class NodePortPoint : Control
         AffectsRender<NodePortPoint>(BrushProperty, IsConnectedProperty);
     }
 
-    public IBrush? Brush
-    {
-        get => GetValue(BrushProperty);
-        set => SetValue(BrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? Brush { get; set; }
 
-    public bool IsConnected
-    {
-        get => GetValue(IsConnectedProperty);
-        set => SetValue(IsConnectedProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsConnected { get; set; }
 
     internal double VisualRadius => _visualRadius;
 

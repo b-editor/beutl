@@ -7,22 +7,10 @@ using Beutl.Extensibility;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class BooleanEditor : PropertyEditor, IValueEditorControl<bool>
+public partial class BooleanEditor : PropertyEditor, IValueEditorControl<bool>
 {
-    public static readonly DirectProperty<BooleanEditor, bool> ValueProperty =
-        AvaloniaProperty.RegisterDirect<BooleanEditor, bool>(
-            nameof(Value),
-            o => o.Value,
-            (o, v) => o.Value = v,
-            defaultBindingMode: BindingMode.TwoWay);
-
-    private bool _value;
-
-    public bool Value
-    {
-        get => _value;
-        set => SetAndRaise(ValueProperty, ref _value, value);
-    }
+    [GeneratedDirectProperty(DefaultBindingMode = BindingMode.TwoWay)]
+    public partial bool Value { get; set; }
 
     public void Connect(IValueEditorContext<bool> context) => ConnectConfirmedValue(context, ValueProperty);
 

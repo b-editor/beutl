@@ -8,14 +8,8 @@ namespace Beutl.Controls.PropertyEditors;
 // wider than high. A single row is kept unless another layout makes the pads clearly larger, so that the wheels read
 // left to right as they do in other tools. What a wheel needs besides its pad comes from measuring the first wheel
 // with no limits. Each wheel sits in the middle of its cell, and a shorter last row is centered.
-public sealed class ColorWheelsPanel : Panel
+public sealed partial class ColorWheelsPanel : Panel
 {
-    public static readonly StyledProperty<double> SpacingProperty =
-        AvaloniaProperty.Register<ColorWheelsPanel, double>(nameof(Spacing), 8);
-
-    public static readonly StyledProperty<double> MaxPadSizeProperty =
-        AvaloniaProperty.Register<ColorWheelsPanel, double>(nameof(MaxPadSize), 240);
-
     // The gap between a pad and the column beside it, which the wheel's theme also keeps.
     internal const double SideGap = 12;
     private const double MinPadSize = 32;
@@ -33,17 +27,11 @@ public sealed class ColorWheelsPanel : Panel
         AffectsMeasure<ColorWheelsPanel>(SpacingProperty, MaxPadSizeProperty);
     }
 
-    public double Spacing
-    {
-        get => GetValue(SpacingProperty);
-        set => SetValue(SpacingProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 8)]
+    public partial double Spacing { get; set; }
 
-    public double MaxPadSize
-    {
-        get => GetValue(MaxPadSizeProperty);
-        set => SetValue(MaxPadSizeProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 240)]
+    public partial double MaxPadSize { get; set; }
 
     // The layout chosen last, for tests.
     internal int Columns => _arrangement.Columns;

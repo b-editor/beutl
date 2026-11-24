@@ -4,20 +4,15 @@ using Avalonia.Media;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
-public sealed class TimelineBackground : TemplatedControl
+public sealed partial class TimelineBackground : TemplatedControl
 {
-    public static readonly StyledProperty<double> ItemHeightProperty = AvaloniaProperty.Register<TimelineBackground, double>(nameof(ItemHeight), 25);
-
     static TimelineBackground()
     {
         AffectsRender<TimelineBackground>(ItemHeightProperty, BorderBrushProperty);
     }
 
-    public double ItemHeight
-    {
-        get => GetValue(ItemHeightProperty);
-        set => SetValue(ItemHeightProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 25)]
+    public partial double ItemHeight { get; set; }
 
     public override void Render(DrawingContext context)
     {

@@ -20,15 +20,6 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public sealed partial class BrushEditor : UserControl
 {
-    public static readonly StyledProperty<Avalonia.Media.Brush?> BrushProperty =
-        AvaloniaProperty.Register<BrushEditor, Avalonia.Media.Brush?>(nameof(Brush));
-
-    public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
-        AvaloniaProperty.Register<BrushEditor, Media.Brush?>(nameof(OriginalBrush));
-
-    public static readonly StyledProperty<Avalonia.Media.GradientStops?> BackgroundStopsProperty =
-        AvaloniaProperty.Register<BrushEditor, Avalonia.Media.GradientStops?>(nameof(BackgroundStops));
-
     private BrushEditorFlyout? _flyout;
     private readonly LiveEditDrag _drag = new();
     private Media.DrawableBrush? _followedBrush;
@@ -93,23 +84,14 @@ public sealed partial class BrushEditor : UserControl
         EditorDragDropHelper.HandleTemplateFileDragOver(e);
     }
 
-    public Avalonia.Media.Brush? Brush
-    {
-        get => GetValue(BrushProperty);
-        set => SetValue(BrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Avalonia.Media.Brush? Brush { get; set; }
 
-    public Media.Brush? OriginalBrush
-    {
-        get => GetValue(OriginalBrushProperty);
-        set => SetValue(OriginalBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Media.Brush? OriginalBrush { get; set; }
 
-    public Avalonia.Media.GradientStops? BackgroundStops
-    {
-        get => GetValue(BackgroundStopsProperty);
-        set => SetValue(BackgroundStopsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Avalonia.Media.GradientStops? BackgroundStops { get; set; }
 
     protected override void OnPointerEntered(PointerEventArgs e)
     {

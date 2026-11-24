@@ -11,17 +11,11 @@ namespace Beutl.Controls.PropertyEditors;
 /// nested rows. Grid still handles the children, validation and responsive row placement.
 /// </summary>
 [PseudoClasses(":aligned")]
-public sealed class PropertyEditorGrid : Grid
+public sealed partial class PropertyEditorGrid : Grid
 {
-    public static readonly AttachedProperty<bool> IsAlignmentScopeProperty =
-        AvaloniaProperty.RegisterAttached<PropertyEditorGrid, Control, bool>("IsAlignmentScope");
-
     public static readonly AttachedProperty<double> ValueColumnRatioProperty =
         AvaloniaProperty.RegisterAttached<PropertyEditorGrid, Control, double>("ValueColumnRatio", .5,
             validate: value => double.IsFinite(value) && value is >= 0 and <= 1);
-
-    public static readonly StyledProperty<int> ValueColumnProperty =
-        AvaloniaProperty.Register<PropertyEditorGrid, int>(nameof(ValueColumn), 2);
 
     private const double MinimumScopeWidth = 640;
     private const double MinimumHeaderWidth = 80;
@@ -56,16 +50,13 @@ public sealed class PropertyEditorGrid : Grid
         });
     }
 
-    public static bool GetIsAlignmentScope(Control control) => control.GetValue(IsAlignmentScopeProperty);
-    public static void SetIsAlignmentScope(Control control, bool value) => control.SetValue(IsAlignmentScopeProperty, value);
+    [GeneratedAttachedProperty]
+    public static partial bool GetIsAlignmentScope(Control control);
     public static double GetValueColumnRatio(Control control) => control.GetValue(ValueColumnRatioProperty);
     public static void SetValueColumnRatio(Control control, double value) => control.SetValue(ValueColumnRatioProperty, value);
 
-    public int ValueColumn
-    {
-        get => GetValue(ValueColumnProperty);
-        set => SetValue(ValueColumnProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 2)]
+    public partial int ValueColumn { get; set; }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {

@@ -8,11 +8,8 @@ namespace Beutl.Editor.Components.Helpers;
 
 // Opt-in for controls whose click handlers do not expose a reactive command.
 // Values in XAML are static Tool.Feature identifiers; never bind this property.
-public sealed class UsageTracking : AvaloniaObject
+public sealed partial class UsageTracking : AvaloniaObject
 {
-    public static readonly AttachedProperty<string?> FeatureProperty =
-        AvaloniaProperty.RegisterAttached<UsageTracking, Interactive, string?>("Feature");
-
     static UsageTracking()
     {
         FeatureProperty.Changed.AddClassHandler<Interactive>((control, change) =>
@@ -22,8 +19,8 @@ public sealed class UsageTracking : AvaloniaObject
         });
     }
 
-    public static string? GetFeature(Interactive control) => control.GetValue(FeatureProperty);
-    public static void SetFeature(Interactive control, string? value) => control.SetValue(FeatureProperty, value);
+    [GeneratedAttachedProperty]
+    public static partial string? GetFeature(Interactive control);
 
     private static void SetHandler(Interactive control, bool attach)
     {

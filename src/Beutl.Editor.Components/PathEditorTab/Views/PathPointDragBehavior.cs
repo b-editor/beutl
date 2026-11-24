@@ -21,11 +21,8 @@ using BtlVector = Beutl.Graphics.Vector;
 
 namespace Beutl.Editor.Components.PathEditorTab.Views;
 
-public sealed class PathPointDragBehavior : Behavior<Thumb>
+public sealed partial class PathPointDragBehavior : Behavior<Thumb>
 {
-    public static readonly AttachedProperty<bool> IsSelectedProperty =
-        AvaloniaProperty.RegisterAttached<PathPointDragBehavior, Thumb, bool>("IsSelected");
-
     private PathPointDragState? _dragState;
     private PathPointDragState[]? _coordDragStates;
     private Point? _lastPoint;
@@ -41,15 +38,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             (e.Sender as Thumb)?.Classes.Set("selected", e.NewValue.GetValueOrDefault()));
     }
 
-    public static void SetIsSelected(Thumb owner, bool value)
-    {
-        owner.SetValue(IsSelectedProperty, value);
-    }
-
-    public static bool GetIsSelected(Thumb owner)
-    {
-        return owner.GetValue(IsSelectedProperty);
-    }
+    [GeneratedAttachedProperty]
+    public static partial bool GetIsSelected(Thumb owner);
 
     protected override void OnAttached()
     {

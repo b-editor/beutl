@@ -22,18 +22,8 @@ public enum GradingColorPickerInputType
 }
 
 [PseudoClasses(":details")]
-public class GradingColorPicker : TemplatedControl
+public partial class GradingColorPicker : TemplatedControl
 {
-    public static readonly StyledProperty<GradingColor> ColorProperty =
-        AvaloniaProperty.Register<GradingColorPicker, GradingColor>(nameof(Color),
-            new GradingColor(1, 1, 1), defaultBindingMode: BindingMode.TwoWay);
-
-    public static readonly StyledProperty<GradingColorPickerInputType> InputTypeProperty =
-        AvaloniaProperty.Register<GradingColorPicker, GradingColorPickerInputType>(nameof(InputType));
-
-    public static readonly StyledProperty<bool> ShowDetailsProperty =
-        AvaloniaProperty.Register<GradingColorPicker, bool>(nameof(ShowDetails));
-
     private readonly CompositeDisposable _disposables = [];
     private ColorSpectrum? _ringSpectrum;
     private ColorPreviewer? _previewer;
@@ -47,6 +37,10 @@ public class GradingColorPicker : TemplatedControl
     private GradingColor _oldColor;
     private UnboundedHsv _currentHsv;
     private readonly ColorPartPress _press;
+
+    public static readonly StyledProperty<GradingColor> ColorProperty =
+        AvaloniaProperty.Register<GradingColorPicker, GradingColor>(
+            nameof(Color), new GradingColor(1, 1, 1), defaultBindingMode: BindingMode.TwoWay);
 
     public GradingColorPicker()
     {
@@ -63,17 +57,11 @@ public class GradingColorPicker : TemplatedControl
         set => SetValue(ColorProperty, value);
     }
 
-    public GradingColorPickerInputType InputType
-    {
-        get => GetValue(InputTypeProperty);
-        set => SetValue(InputTypeProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial GradingColorPickerInputType InputType { get; set; }
 
-    public bool ShowDetails
-    {
-        get => GetValue(ShowDetailsProperty);
-        set => SetValue(ShowDetailsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool ShowDetails { get; set; }
 
     private ColorSlider?[] GetColorSliders() =>
     [

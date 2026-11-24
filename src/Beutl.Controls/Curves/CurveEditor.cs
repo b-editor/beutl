@@ -13,29 +13,8 @@ using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.Controls.Curves;
 
-public class CurveEditor : Control
+public partial class CurveEditor : Control
 {
-    public static readonly StyledProperty<IList<CurveControlPoint>?> PointsProperty =
-        AvaloniaProperty.Register<CurveEditor, IList<CurveControlPoint>?>(nameof(Points));
-
-    public static readonly StyledProperty<bool> IsReadOnlyProperty =
-        AvaloniaProperty.Register<CurveEditor, bool>(nameof(IsReadOnly));
-
-    public static readonly StyledProperty<CurveVisualization> VisualizationProperty =
-        AvaloniaProperty.Register<CurveEditor, CurveVisualization>(nameof(Visualization), CurveVisualization.None);
-
-    public static readonly StyledProperty<CurveVisualizationRenderer?> VisualizationRendererProperty =
-        AvaloniaProperty.Register<CurveEditor, CurveVisualizationRenderer?>(nameof(VisualizationRenderer));
-
-    public static readonly StyledProperty<double?> MarkerPositionProperty =
-        AvaloniaProperty.Register<CurveEditor, double?>(nameof(MarkerPosition));
-
-    public static readonly StyledProperty<double> MarkerRangeProperty =
-        AvaloniaProperty.Register<CurveEditor, double>(nameof(MarkerRange));
-
-    public static readonly StyledProperty<double?> HoverPositionProperty =
-        AvaloniaProperty.Register<CurveEditor, double?>(nameof(HoverPosition));
-
     private static readonly IPen s_curvePen = new Pen(new SolidColorBrush(Color.FromArgb(200, 0, 122, 204)), 2).ToImmutable();
     private static readonly IPen s_axisPen = new Pen(new SolidColorBrush(Color.FromArgb(120, 255, 255, 255)), 1).ToImmutable();
     private static readonly IPen s_handleLinePen = new Pen(new SolidColorBrush(Color.FromArgb(150, 255, 200, 100)), 1).ToImmutable();
@@ -69,51 +48,30 @@ public class CurveEditor : Control
         AffectsRender<CurveEditor>(PointsProperty, MarkerPositionProperty, MarkerRangeProperty, HoverPositionProperty);
     }
 
-    public IList<CurveControlPoint>? Points
-    {
-        get => GetValue(PointsProperty);
-        set => SetValue(PointsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IList<CurveControlPoint>? Points { get; set; }
 
-    public bool IsReadOnly
-    {
-        get => GetValue(IsReadOnlyProperty);
-        set => SetValue(IsReadOnlyProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsReadOnly { get; set; }
 
-    public CurveVisualization Visualization
-    {
-        get => GetValue(VisualizationProperty);
-        set => SetValue(VisualizationProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = CurveVisualization.None)]
+    public partial CurveVisualization Visualization { get; set; }
 
-    public CurveVisualizationRenderer? VisualizationRenderer
-    {
-        get => GetValue(VisualizationRendererProperty);
-        set => SetValue(VisualizationRendererProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial CurveVisualizationRenderer? VisualizationRenderer { get; set; }
 
     // Where a picked color stands on the curve, from 0 to 1, drawn as a line; null draws none.
-    public double? MarkerPosition
-    {
-        get => GetValue(MarkerPositionProperty);
-        set => SetValue(MarkerPositionProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double? MarkerPosition { get; set; }
 
     // The width of the band around the marker that the color's range covers, from 0 to 1. The band goes on at the
     // other edge where it passes one, as hue does.
-    public double MarkerRange
-    {
-        get => GetValue(MarkerRangeProperty);
-        set => SetValue(MarkerRangeProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double MarkerRange { get; set; }
 
     // Where the color under an eyedropper stands, drawn as a dashed line; null draws none.
-    public double? HoverPosition
-    {
-        get => GetValue(HoverPositionProperty);
-        set => SetValue(HoverPositionProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double? HoverPosition { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

@@ -6,20 +6,8 @@ using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
 
-public sealed class SpectrumControl : AudioVisualizerControlBase
+public sealed partial class SpectrumControl : AudioVisualizerControlBase
 {
-    public static readonly StyledProperty<int> FftSizeProperty =
-        AvaloniaProperty.Register<SpectrumControl, int>(nameof(FftSize), 2048);
-
-    public static readonly StyledProperty<float> MinDecibelsProperty =
-        AvaloniaProperty.Register<SpectrumControl, float>(nameof(MinDecibels), -90f);
-
-    public static readonly StyledProperty<float> SmoothingProperty =
-        AvaloniaProperty.Register<SpectrumControl, float>(nameof(Smoothing), 55f);
-
-    public static readonly StyledProperty<SpectrumDisplayShape> ShapeProperty =
-        AvaloniaProperty.Register<SpectrumControl, SpectrumDisplayShape>(nameof(Shape), SpectrumDisplayShape.Bar);
-
     private const double FrequencyLabelFontSize = 12.0;
     // In parts of the plot's height, which leaves less than a pixel to a plot under 500 pixels tall.
     private const float SettledBarDelta = 0.002f;
@@ -37,29 +25,17 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         AffectsRender<SpectrumControl>(FftSizeProperty, MinDecibelsProperty, SmoothingProperty, ShapeProperty);
     }
 
-    public int FftSize
-    {
-        get => GetValue(FftSizeProperty);
-        set => SetValue(FftSizeProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 2048)]
+    public partial int FftSize { get; set; }
 
-    public float MinDecibels
-    {
-        get => GetValue(MinDecibelsProperty);
-        set => SetValue(MinDecibelsProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = -90f)]
+    public partial float MinDecibels { get; set; }
 
-    public float Smoothing
-    {
-        get => GetValue(SmoothingProperty);
-        set => SetValue(SmoothingProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 55f)]
+    public partial float Smoothing { get; set; }
 
-    public SpectrumDisplayShape Shape
-    {
-        get => GetValue(ShapeProperty);
-        set => SetValue(ShapeProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = SpectrumDisplayShape.Bar)]
+    public partial SpectrumDisplayShape Shape { get; set; }
 
     public override void Render(DrawingContext context)
     {

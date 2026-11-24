@@ -18,48 +18,6 @@ public partial class ColorPaletteItem
             x => x.Color, (x, v) => x.Color = v);
 
     /// <summary>
-    /// Defines the <see cref="BorderBrush"/> property
-    /// </summary>
-    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
-        Border.BorderBrushProperty.AddOwner<ColorPaletteItem>();
-
-    /// <summary>
-    /// Defines the <see cref="BorderBrushPointerOver"/> property
-    /// </summary>
-    public static readonly StyledProperty<IBrush?> BorderBrushPointerOverProperty =
-        AvaloniaProperty.Register<ColorPaletteItem, IBrush?>(nameof(BorderBrushPointerOver));
-
-    /// <summary>
-    /// Defines the <see cref="BorderThickness"/> property
-    /// </summary>
-    public static readonly StyledProperty<Thickness> BorderThicknessProperty =
-        Border.BorderThicknessProperty.AddOwner<ColorPaletteItem>();
-
-    /// <summary>
-    /// Defines the <see cref="BorderThicknessPointerOver"/> property
-    /// </summary>
-    public static readonly StyledProperty<Thickness> BorderThicknessPointerOverProperty =
-        AvaloniaProperty.Register<ColorPaletteItem, Thickness>(nameof(BorderThicknessPointerOver));
-
-    /// <summary>
-    /// Defines the <see cref="CornerRadius"/> property
-    /// </summary>
-    public static readonly StyledProperty<CornerRadius> CornerRadiusProperty =
-        Border.CornerRadiusProperty.AddOwner<ColorPaletteItem>();
-
-    /// <summary>
-    /// Defines the <see cref="IsSelected"/> property
-    /// </summary>
-    public static readonly StyledProperty<bool> IsSelectedProperty =
-        AvaloniaProperty.Register<ColorPaletteItem, bool>(nameof(IsSelected));
-
-    /// <summary>
-    /// Defines the <see cref="SelectionBrush"/> property
-    /// </summary>
-    public static readonly StyledProperty<IBrush?> SelectionBrushProperty =
-        AvaloniaProperty.Register<ColorPaletteItem, IBrush?>(nameof(SelectionBrush));
-
-    /// <summary>
     /// Defines the <see cref="Click"/> event
     /// </summary>
     public static readonly RoutedEvent<RoutedEventArgs> ClickEvent =
@@ -86,67 +44,46 @@ public partial class ColorPaletteItem
     /// <summary>
     /// Gets or sets the Border Brush this item should use when rendering
     /// </summary>
-    public IBrush? BorderBrush
-    {
-        get => GetValue(BorderBrushProperty);
-        set => SetValue(BorderBrushProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial IBrush? BorderBrush { get; set; }
 
     /// <summary>
     /// Gets or sets the Border Brush this item should use when rendering and the
     /// pointer is over the item
     /// </summary>
-    public IBrush? BorderBrushPointerOver
-    {
-        get => GetValue(BorderBrushPointerOverProperty);
-        set => SetValue(BorderBrushPointerOverProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? BorderBrushPointerOver { get; set; }
 
     /// <summary>
     /// Gets or sets the Border Thickness this item should use when rendering
     /// </summary>
-    public Thickness BorderThickness
-    {
-        get => GetValue(BorderThicknessProperty);
-        set => SetValue(BorderThicknessProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial Thickness BorderThickness { get; set; }
 
     /// <summary>
     /// Gets or sets the Border Thickness this item should use when rendering and the
     /// pointer is over th item
     /// </summary>
-    public Thickness BorderThicknessPointerOver
-    {
-        get => GetValue(BorderThicknessPointerOverProperty);
-        set => SetValue(BorderThicknessPointerOverProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Thickness BorderThicknessPointerOver { get; set; }
 
     /// <summary>
     /// Gets or sets the Corner Radius this item should use when rendering
     /// </summary>
-    public CornerRadius CornerRadius
-    {
-        get => GetValue(CornerRadiusProperty);
-        set => SetValue(CornerRadiusProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial CornerRadius CornerRadius { get; set; }
 
     /// <summary>
     /// Gets or sets whether the item is the color being edited, which draws a ring around it
     /// </summary>
-    public bool IsSelected
-    {
-        get => GetValue(IsSelectedProperty);
-        set => SetValue(IsSelectedProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsSelected { get; set; }
 
     /// <summary>
     /// Gets or sets the brush of the ring drawn around a selected item
     /// </summary>
-    public IBrush? SelectionBrush
-    {
-        get => GetValue(SelectionBrushProperty);
-        set => SetValue(SelectionBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? SelectionBrush { get; set; }
 
     /// <summary>
     /// Raised when the item is clicked with the left button

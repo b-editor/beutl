@@ -8,14 +8,8 @@ using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
 
-public sealed class SpectrogramControl : AudioVisualizerControlBase
+public sealed partial class SpectrogramControl : AudioVisualizerControlBase
 {
-    public static readonly StyledProperty<int> FftSizeProperty =
-        AvaloniaProperty.Register<SpectrogramControl, int>(nameof(FftSize), 1024);
-
-    public static readonly StyledProperty<float> MinDecibelsProperty =
-        AvaloniaProperty.Register<SpectrogramControl, float>(nameof(MinDecibels), -90f);
-
     private const float WindowSeconds = 4f;
     private const int TimeColumns = 192;
     private const int VerticalBands = 96;
@@ -34,17 +28,11 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
         AffectsRender<SpectrogramControl>(FftSizeProperty, MinDecibelsProperty);
     }
 
-    public int FftSize
-    {
-        get => GetValue(FftSizeProperty);
-        set => SetValue(FftSizeProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 1024)]
+    public partial int FftSize { get; set; }
 
-    public float MinDecibels
-    {
-        get => GetValue(MinDecibelsProperty);
-        set => SetValue(MinDecibelsProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = -90f)]
+    public partial float MinDecibels { get; set; }
 
     public override void Render(DrawingContext context)
     {

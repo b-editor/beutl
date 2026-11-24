@@ -19,14 +19,11 @@ using BtlPoint = Beutl.Graphics.Point;
 namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 // The state and thumb handling shared by the path editor tab and the preview overlay.
-public abstract class PathEditorViewBase : UserControl, IPathEditorView
+public abstract partial class PathEditorViewBase : UserControl, IPathEditorView
 {
     public static readonly DirectProperty<PathEditorViewBase, double> ScaleProperty =
         AvaloniaProperty.RegisterDirect<PathEditorViewBase, double>(nameof(Scale),
             o => o.Scale);
-
-    public static readonly StyledProperty<Matrix> MatrixProperty =
-        AvaloniaProperty.Register<PathEditorViewBase, Matrix>(nameof(Matrix), Matrix.Identity);
 
     private Canvas _canvas = null!;
     private PathGeometryControl _view = null!;
@@ -38,6 +35,9 @@ public abstract class PathEditorViewBase : UserControl, IPathEditorView
     internal PathEditorTool Tool { get => _interaction.Tool; set => _interaction.Tool = value; }
 
     private protected PathEditorInteraction Interaction => _interaction;
+
+    public static readonly StyledProperty<Matrix> MatrixProperty =
+        AvaloniaProperty.Register<PathEditorViewBase, Matrix>(nameof(Matrix), Matrix.Identity);
 
     public bool SkipUpdatePosition { get; set; }
 

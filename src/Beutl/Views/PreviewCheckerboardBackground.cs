@@ -14,11 +14,8 @@ namespace Beutl.Views;
 // The checkerboard the preview can show behind the frame in place of black (#4066). It lies outside the frame panel's
 // transform, under it, so its squares keep their size on screen whatever the zoom: drawn inside the transform, a tile
 // that is not whole pixels in the panel's units left a seam between tiles. The squares start at the frame's corner.
-internal sealed class PreviewCheckerboardBackground : Control
+internal sealed partial class PreviewCheckerboardBackground : Control
 {
-    public static readonly StyledProperty<Rect?> FrameRectProperty =
-        AvaloniaProperty.Register<PreviewCheckerboardBackground, Rect?>(nameof(FrameRect));
-
     static PreviewCheckerboardBackground()
     {
         AffectsRender<PreviewCheckerboardBackground>(FrameRectProperty);
@@ -30,11 +27,8 @@ internal sealed class PreviewCheckerboardBackground : Control
     }
 
     // Where the frame is, in this control's coordinates, or null while there is none.
-    public Rect? FrameRect
-    {
-        get => GetValue(FrameRectProperty);
-        set => SetValue(FrameRectProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Rect? FrameRect { get; set; }
 
     public override void Render(DrawingContext context)
     {

@@ -10,14 +10,8 @@ namespace Beutl.Controls;
 /// instead while <see cref="IsMarqueeActive"/> is set.
 /// </summary>
 /// <remarks>Only <see cref="TextBlock.Text"/> scrolls, laid out left to right and moving to the left; inlines stay trimmed.</remarks>
-public class MarqueeTextBlock : TextBlock
+public partial class MarqueeTextBlock : TextBlock
 {
-    public static readonly StyledProperty<bool> IsMarqueeActiveProperty =
-        AvaloniaProperty.Register<MarqueeTextBlock, bool>(nameof(IsMarqueeActive));
-
-    public static readonly StyledProperty<double> MarqueeSpeedProperty =
-        AvaloniaProperty.Register<MarqueeTextBlock, double>(nameof(MarqueeSpeed), 40);
-
     public static readonly StyledProperty<TimeSpan> MarqueeDelayProperty =
         AvaloniaProperty.Register<MarqueeTextBlock, TimeSpan>(nameof(MarqueeDelay), TimeSpan.FromSeconds(1));
 
@@ -37,18 +31,12 @@ public class MarqueeTextBlock : TextBlock
         TextTrimmingProperty.OverrideDefaultValue<MarqueeTextBlock>(TextTrimming.CharacterEllipsis);
     }
 
-    public bool IsMarqueeActive
-    {
-        get => GetValue(IsMarqueeActiveProperty);
-        set => SetValue(IsMarqueeActiveProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsMarqueeActive { get; set; }
 
     // In device-independent pixels per second.
-    public double MarqueeSpeed
-    {
-        get => GetValue(MarqueeSpeedProperty);
-        set => SetValue(MarqueeSpeedProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 40)]
+    public partial double MarqueeSpeed { get; set; }
 
     // The pause at the start of every pass, while the text keeps its trimmed look.
     public TimeSpan MarqueeDelay

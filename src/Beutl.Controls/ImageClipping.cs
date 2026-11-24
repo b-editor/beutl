@@ -5,18 +5,13 @@ using Avalonia.Xaml.Interactivity;
 
 namespace Beutl.Controls;
 
-public sealed class RoundedClippingBehavior : Behavior<Control>
+public sealed partial class RoundedClippingBehavior : Behavior<Control>
 {
-    public static readonly StyledProperty<CornerRadius> CornerRadiusProperty
-        = AvaloniaProperty.Register<RoundedClippingBehavior, CornerRadius>("CornerRadius");
     private IDisposable? _disposable;
     private IDisposable? _disposable1;
 
-    public CornerRadius CornerRadius
-    {
-        get => GetValue(CornerRadiusProperty);
-        set => SetValue(CornerRadiusProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial CornerRadius CornerRadius { get; set; }
 
     protected override void OnAttached()
     {
@@ -90,11 +85,8 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
     }
 }
 
-public class ImageClipping : AvaloniaObject
+public partial class ImageClipping : AvaloniaObject
 {
-    public static readonly AttachedProperty<CornerRadius> CornerRadiusProperty
-        = AvaloniaProperty.RegisterAttached<ImageClipping, Control, CornerRadius>("CornerRadius");
-
     static ImageClipping()
     {
         CornerRadiusProperty.Changed.Subscribe(args =>
@@ -117,13 +109,6 @@ public class ImageClipping : AvaloniaObject
         });
     }
 
-    public static void SetCornerRadius(Control obj, CornerRadius value)
-    {
-        obj.SetValue(CornerRadiusProperty, value);
-    }
-
-    public static CornerRadius GetCornerRadius(Control obj)
-    {
-        return obj.GetValue(CornerRadiusProperty);
-    }
+    [GeneratedAttachedProperty]
+    public static partial CornerRadius GetCornerRadius(Control obj);
 }

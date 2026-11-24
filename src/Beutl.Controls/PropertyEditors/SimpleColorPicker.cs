@@ -25,18 +25,8 @@ public enum SimpleColorPickerInputType
 }
 
 [PseudoClasses(":details")]
-public class SimpleColorPicker : TemplatedControl
+public partial class SimpleColorPicker : TemplatedControl
 {
-    public static readonly StyledProperty<Color2> ColorProperty =
-        AvaloniaProperty.Register<SimpleColorPicker, Color2>(nameof(Color),
-            Colors.Red, defaultBindingMode: BindingMode.TwoWay);
-
-    public static readonly StyledProperty<SimpleColorPickerInputType> InputTypeProperty =
-        AvaloniaProperty.Register<SimpleColorPicker, SimpleColorPickerInputType>(nameof(InputType));
-
-    public static readonly StyledProperty<bool> IsAlphaEnabledProperty =
-        AvaloniaProperty.Register<SimpleColorPicker, bool>(nameof(IsAlphaEnabled), true);
-
     private readonly CompositeDisposable _disposables = [];
     private ColorSpectrum? _spectrum;
     private ColorSpectrum? _ringSpectrum;
@@ -56,6 +46,10 @@ public class SimpleColorPicker : TemplatedControl
     private CancellationTokenSource? _cts;
     private readonly ColorPartPress _press;
 
+    public static readonly StyledProperty<Color2> ColorProperty =
+        AvaloniaProperty.Register<SimpleColorPicker, Color2>(
+            nameof(Color), Colors.Red, defaultBindingMode: BindingMode.TwoWay);
+
     public SimpleColorPicker()
     {
         _press = new ColorPartPress(this, () => _oldColor = Color, ConfirmPress);
@@ -71,18 +65,12 @@ public class SimpleColorPicker : TemplatedControl
         set => SetValue(ColorProperty, value);
     }
 
-    public SimpleColorPickerInputType InputType
-    {
-        get => GetValue(InputTypeProperty);
-        set => SetValue(InputTypeProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial SimpleColorPickerInputType InputType { get; set; }
 
     // False keeps every color opaque, as a layer's label needs, and the theme hides the opacity.
-    public bool IsAlphaEnabled
-    {
-        get => GetValue(IsAlphaEnabledProperty);
-        set => SetValue(IsAlphaEnabledProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = true)]
+    public partial bool IsAlphaEnabled { get; set; }
 
     // Whether a spectrum, slider or previewer is being dragged.
     public bool IsDragging => _press.IsPressed;

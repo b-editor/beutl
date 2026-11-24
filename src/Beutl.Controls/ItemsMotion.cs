@@ -8,11 +8,8 @@ namespace Beutl.Controls;
 // Reveals a row an ItemsControl gains while it is on screen (an effect added to a list, say). Only a lone addition
 // counts: rows filled in when a list opens or is replaced, and rows a reorder removes and inserts again, come with
 // other changes and appear at once.
-public static class ItemsMotion
+public static partial class ItemsMotion
 {
-    public static readonly AttachedProperty<bool> RevealsAddedItemsProperty =
-        AvaloniaProperty.RegisterAttached<ItemsControl, bool>("RevealsAddedItems", typeof(ItemsMotion));
-
     private static readonly AttachedProperty<Tracker?> TrackerProperty =
         AvaloniaProperty.RegisterAttached<ItemsControl, Tracker?>("Tracker", typeof(ItemsMotion));
 
@@ -25,10 +22,8 @@ public static class ItemsMotion
         });
     }
 
-    public static bool GetRevealsAddedItems(ItemsControl control) => control.GetValue(RevealsAddedItemsProperty);
-
-    public static void SetRevealsAddedItems(ItemsControl control, bool value) =>
-        control.SetValue(RevealsAddedItemsProperty, value);
+    [GeneratedAttachedProperty]
+    public static partial bool GetRevealsAddedItems(ItemsControl control);
 
     private sealed class Tracker : IDisposable
     {

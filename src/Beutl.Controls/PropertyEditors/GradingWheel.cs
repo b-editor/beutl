@@ -5,11 +5,8 @@ using Avalonia.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class GradingWheel : Thumb
+public partial class GradingWheel : Thumb
 {
-    public static readonly StyledProperty<double> TickOffsetProperty =
-        AvaloniaProperty.Register<GradingWheel, double>(nameof(TickOffset), 0.0);
-
     private const int TickCount = 40;
     private const double TickSpacing = 0.025;
 
@@ -20,11 +17,8 @@ public class GradingWheel : Thumb
         AffectsRender<GradingWheel>(TickOffsetProperty);
     }
 
-    public double TickOffset
-    {
-        get => GetValue(TickOffsetProperty);
-        set => SetValue(TickOffsetProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 0.0)]
+    public partial double TickOffset { get; set; }
 
     protected override void OnDragStarted(VectorEventArgs e)
     {

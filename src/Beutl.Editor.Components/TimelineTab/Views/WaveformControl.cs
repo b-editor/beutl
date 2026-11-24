@@ -7,14 +7,8 @@ using Beutl.Engine;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
-public sealed class WaveformControl : Control
+public sealed partial class WaveformControl : Control
 {
-    public static readonly StyledProperty<int> ChunkCountProperty =
-        AvaloniaProperty.Register<WaveformControl, int>(nameof(ChunkCount));
-
-    public static readonly StyledProperty<IBrush?> WaveformBrushProperty =
-        AvaloniaProperty.Register<WaveformControl, IBrush?>(nameof(WaveformBrush), Brushes.White);
-
     private static readonly IImmutableBrush s_highlightBrush = new ImmutableSolidColorBrush(Color.FromArgb(90, 245, 150, 45));
     private readonly Dictionary<int, WaveformChunk> _chunks = new();
     private ScrollViewer? _scrollViewer;
@@ -34,16 +28,16 @@ public sealed class WaveformControl : Control
         InvalidateVisual();
     }
 
+    public static readonly StyledProperty<IBrush?> WaveformBrushProperty =
+        AvaloniaProperty.Register<WaveformControl, IBrush?>(nameof(WaveformBrush), Brushes.White);
+
     static WaveformControl()
     {
         AffectsRender<WaveformControl>(ChunkCountProperty, WaveformBrushProperty);
     }
 
-    public int ChunkCount
-    {
-        get => GetValue(ChunkCountProperty);
-        set => SetValue(ChunkCountProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial int ChunkCount { get; set; }
 
     public IBrush? WaveformBrush
     {

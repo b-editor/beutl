@@ -329,10 +329,12 @@ public class PreviewRenderErrorTests
             HeadlessTestHelpers.Render();
 
             Assert.That(overlay.IsVisible, Is.True);
+            Assert.That(overlay.BackdropEffect, Is.Null);
             Assert.That(message.Text, Is.EqualTo(Beutl.Language.MessageStrings.FrameDrawingException));
             Assert.That(
                 AutomationProperties.GetName(message),
                 Is.EqualTo(Beutl.Language.MessageStrings.FrameDrawingException));
+            HeadlessCapture.SaveIfRequested(overlay, nameof(PreviewRenderErrorTests), "player-error");
 
             // A preview render that succeeds clears the error.
             editor.Player.QueuePreviewRender();

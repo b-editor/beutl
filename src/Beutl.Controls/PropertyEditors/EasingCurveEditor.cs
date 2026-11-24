@@ -20,26 +20,8 @@ public sealed class EasingCurveEditedEventArgs(SplineEasing oldValue, SplineEasi
 // Plots an easing over progress [0, 1] and lets the control points of a spline be dragged.
 // A drag never mutates the displayed spline: each step reports a new instance, so the owner
 // can write it through the property and record the whole drag as one history entry.
-public sealed class EasingCurveEditor : Control
+public sealed partial class EasingCurveEditor : Control
 {
-    public static readonly StyledProperty<Easing?> EasingProperty =
-        AvaloniaProperty.Register<EasingCurveEditor, Easing?>(nameof(Easing));
-
-    public static readonly StyledProperty<bool> IsReadOnlyProperty =
-        AvaloniaProperty.Register<EasingCurveEditor, bool>(nameof(IsReadOnly));
-
-    public static readonly StyledProperty<IBrush?> BackgroundProperty =
-        AvaloniaProperty.Register<EasingCurveEditor, IBrush?>(nameof(Background));
-
-    public static readonly StyledProperty<IBrush?> GridBrushProperty =
-        AvaloniaProperty.Register<EasingCurveEditor, IBrush?>(nameof(GridBrush), Brushes.Gray);
-
-    public static readonly StyledProperty<IBrush?> CurveBrushProperty =
-        AvaloniaProperty.Register<EasingCurveEditor, IBrush?>(nameof(CurveBrush), Brushes.White);
-
-    public static readonly StyledProperty<IBrush?> HandleBrushProperty =
-        AvaloniaProperty.Register<EasingCurveEditor, IBrush?>(nameof(HandleBrush), Brushes.DodgerBlue);
-
     // Keeps handles placed on the plot corners and their focus ring fully inside the bounds, clear of the focus border.
     private const double Inset = 12;
     private const double HandleRadius = 4;
@@ -61,6 +43,15 @@ public sealed class EasingCurveEditor : Control
     private SplineEasing? _observedSpline;
     private bool _isAttached;
     private Cursor? _handCursor;
+
+    public static readonly StyledProperty<IBrush?> GridBrushProperty =
+        AvaloniaProperty.Register<EasingCurveEditor, IBrush?>(nameof(GridBrush), Brushes.Gray);
+
+    public static readonly StyledProperty<IBrush?> CurveBrushProperty =
+        AvaloniaProperty.Register<EasingCurveEditor, IBrush?>(nameof(CurveBrush), Brushes.White);
+
+    public static readonly StyledProperty<IBrush?> HandleBrushProperty =
+        AvaloniaProperty.Register<EasingCurveEditor, IBrush?>(nameof(HandleBrush), Brushes.DodgerBlue);
 
     static EasingCurveEditor()
     {
@@ -86,23 +77,14 @@ public sealed class EasingCurveEditor : Control
 
     private readonly record struct ValueRange(double Minimum, double Maximum);
 
-    public Easing? Easing
-    {
-        get => GetValue(EasingProperty);
-        set => SetValue(EasingProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Easing? Easing { get; set; }
 
-    public bool IsReadOnly
-    {
-        get => GetValue(IsReadOnlyProperty);
-        set => SetValue(IsReadOnlyProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsReadOnly { get; set; }
 
-    public IBrush? Background
-    {
-        get => GetValue(BackgroundProperty);
-        set => SetValue(BackgroundProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? Background { get; set; }
 
     public IBrush? GridBrush
     {

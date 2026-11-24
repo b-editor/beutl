@@ -9,7 +9,7 @@ using Beutl.Utilities;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
-public sealed class EaseLine : Line
+public sealed partial class EaseLine : Line
 {
     public static readonly DirectProperty<EaseLine, double> StartXProperty
         = AvaloniaProperty.RegisterDirect<EaseLine, double>(nameof(StartX), o => o.StartX, (o, v) => o.StartX = v);
@@ -22,14 +22,6 @@ public sealed class EaseLine : Line
 
     public static readonly DirectProperty<EaseLine, double> EndYProperty
         = AvaloniaProperty.RegisterDirect<EaseLine, double>(nameof(EndY), o => o.EndY, (o, v) => o.EndY = v);
-
-    public static readonly DirectProperty<EaseLine, double> BaselineProperty
-        = AvaloniaProperty.RegisterDirect<EaseLine, double>(nameof(Baseline), o => o.Baseline, (o, v) => o.Baseline = v);
-
-    public static readonly StyledProperty<Animation.Easings.Easing> EasingProperty
-        = AvaloniaProperty.Register<EaseLine, Animation.Easings.Easing>(nameof(Easing));
-
-    private double _baseline;
 
     static EaseLine()
     {
@@ -90,17 +82,11 @@ public sealed class EaseLine : Line
         }
     }
 
-    public double Baseline
-    {
-        get => _baseline;
-        set => SetAndRaise(BaselineProperty, ref _baseline, value);
-    }
+    [GeneratedDirectProperty]
+    public partial double Baseline { get; set; }
 
-    public Animation.Easings.Easing Easing
-    {
-        get => GetValue(EasingProperty);
-        set => SetValue(EasingProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Animation.Easings.Easing Easing { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

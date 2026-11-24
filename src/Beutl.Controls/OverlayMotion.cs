@@ -7,29 +7,21 @@ namespace Beutl.Controls;
 // Shows and hides an overlay (the command palette, the tab switcher) in place of binding its IsVisible: it fades in
 // while its surface grows slightly into place. It hides at once, because the overlays empty their lists as they close
 // and a fade would show the empty card.
-public static class OverlayMotion
+public static partial class OverlayMotion
 {
     private const double SurfaceStartScale = 0.97;
-
-    public static readonly AttachedProperty<bool> IsOpenProperty =
-        AvaloniaProperty.RegisterAttached<Control, bool>("IsOpen", typeof(OverlayMotion));
-
-    // The card that grows into place; the whole overlay fades.
-    public static readonly AttachedProperty<Visual?> SurfaceProperty =
-        AvaloniaProperty.RegisterAttached<Control, Visual?>("Surface", typeof(OverlayMotion));
 
     static OverlayMotion()
     {
         IsOpenProperty.Changed.AddClassHandler<Control>((overlay, e) => OnIsOpenChanged(overlay, e.GetNewValue<bool>()));
     }
 
-    public static bool GetIsOpen(Control control) => control.GetValue(IsOpenProperty);
+    [GeneratedAttachedProperty]
+    public static partial bool GetIsOpen(Control control);
 
-    public static void SetIsOpen(Control control, bool value) => control.SetValue(IsOpenProperty, value);
-
-    public static Visual? GetSurface(Control control) => control.GetValue(SurfaceProperty);
-
-    public static void SetSurface(Control control, Visual? value) => control.SetValue(SurfaceProperty, value);
+    // The card that grows into place; the whole overlay fades.
+    [GeneratedAttachedProperty]
+    public static partial Visual? GetSurface(Control control);
 
     private static void OnIsOpenChanged(Control overlay, bool open)
     {

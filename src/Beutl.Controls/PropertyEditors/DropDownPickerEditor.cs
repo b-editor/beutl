@@ -9,21 +9,15 @@ namespace Beutl.Controls.PropertyEditors;
 /// A property editor that shows a value as text on a drop-down button, laid out as the font family editor
 /// is, and leaves picking a new value to whoever handles <see cref="DropDownClick"/>.
 /// </summary>
-public class DropDownPickerEditor : PropertyEditor
+public partial class DropDownPickerEditor : PropertyEditor
 {
-    public static readonly StyledProperty<string?> TextProperty =
-        AvaloniaProperty.Register<DropDownPickerEditor, string?>(nameof(Text));
-
     public static readonly RoutedEvent<RoutedEventArgs> DropDownClickEvent =
         RoutedEvent.Register<DropDownPickerEditor, RoutedEventArgs>(nameof(DropDownClick), RoutingStrategies.Bubble);
 
     private IDisposable? _disposable;
 
-    public string? Text
-    {
-        get => GetValue(TextProperty);
-        set => SetValue(TextProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? Text { get; set; }
 
     public event EventHandler<RoutedEventArgs>? DropDownClick
     {

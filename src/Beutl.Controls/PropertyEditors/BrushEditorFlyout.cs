@@ -26,56 +26,26 @@ public enum BrushType
     Presenter
 }
 
-public sealed class BrushEditorFlyout : FAPickerFlyoutBase
+public sealed partial class BrushEditorFlyout : FAPickerFlyoutBase
 {
     // The last color this opening of the flyout applied, if any.
     private Color? _appliedColor;
     private ColorPaletteService? _paletteService;
 
-    public static readonly StyledProperty<Brush?> BrushProperty =
-        AvaloniaProperty.Register<BrushEditorFlyout, Brush?>(nameof(Brush));
+    [GeneratedStyledProperty]
+    public partial Brush? Brush { get; set; }
 
-    public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
-        AvaloniaProperty.Register<BrushEditorFlyout, Media.Brush?>(nameof(OriginalBrush));
+    [GeneratedStyledProperty]
+    public partial Media.Brush? OriginalBrush { get; set; }
 
-    public static readonly StyledProperty<GradientStops?> BackgroundStopsProperty =
-        AvaloniaProperty.Register<BrushEditorFlyout, GradientStops?>(nameof(BackgroundStops));
+    [GeneratedStyledProperty]
+    public partial GradientStops? BackgroundStops { get; set; }
 
-    public static readonly StyledProperty<string?> DrawableNameProperty =
-        AvaloniaProperty.Register<BrushEditorFlyout, string?>(nameof(DrawableName));
+    [GeneratedStyledProperty]
+    public partial string? DrawableName { get; set; }
 
-    public static readonly StyledProperty<bool> CanEditDrawableProperty =
-        AvaloniaProperty.Register<BrushEditorFlyout, bool>(nameof(CanEditDrawable), false);
-
-    public Brush? Brush
-    {
-        get => GetValue(BrushProperty);
-        set => SetValue(BrushProperty, value);
-    }
-
-    public Media.Brush? OriginalBrush
-    {
-        get => GetValue(OriginalBrushProperty);
-        set => SetValue(OriginalBrushProperty, value);
-    }
-
-    public GradientStops? BackgroundStops
-    {
-        get => GetValue(BackgroundStopsProperty);
-        set => SetValue(BackgroundStopsProperty, value);
-    }
-
-    public string? DrawableName
-    {
-        get => GetValue(DrawableNameProperty);
-        set => SetValue(DrawableNameProperty, value);
-    }
-
-    public bool CanEditDrawable
-    {
-        get => GetValue(CanEditDrawableProperty);
-        set => SetValue(CanEditDrawableProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = false)]
+    public partial bool CanEditDrawable { get; set; }
 
     // ドラッグ操作中または、Colorプロパティの変更
     public event EventHandler<(int OldIndex, int NewIndex, GradientStop Object)>? GradientStopChanged;

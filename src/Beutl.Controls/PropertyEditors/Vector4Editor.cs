@@ -135,7 +135,7 @@ public class Vector4Editor<TElement> : Vector4Editor, IValueEditorControl<(TElem
 [TemplatePart("PART_InnerThirdTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerFourthTextBox", typeof(TextBox))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector4Editor : VectorEditorBase
+public partial class Vector4Editor : VectorEditorBase
 {
     public static readonly DirectProperty<Vector4Editor, string> FirstTextProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor, string>(
@@ -164,26 +164,6 @@ public class Vector4Editor : VectorEditorBase
             o => o.FourthText,
             (o, v) => o.FourthText = v,
             defaultBindingMode: BindingMode.TwoWay);
-
-    public static readonly StyledProperty<string?> FirstHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(FirstHeader));
-
-    public static readonly StyledProperty<string?> SecondHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(SecondHeader));
-
-    public static readonly StyledProperty<string?> ThirdHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(ThirdHeader));
-
-    public static readonly StyledProperty<string?> FourthHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(nameof(FourthHeader));
-
-    public static readonly StyledProperty<bool> IsUniformProperty =
-        AvaloniaProperty.Register<Vector4Editor, bool>(nameof(IsUniform));
-
-    public static readonly StyledProperty<string?> NumberFormatProperty =
-        AvaloniaProperty.Register<Vector4Editor, string?>(
-            nameof(NumberFormat),
-            defaultValue: null);
 
     public Vector4Editor()
         : base(
@@ -217,41 +197,23 @@ public class Vector4Editor : VectorEditorBase
         set => SetText(3, value);
     }
 
-    public string? FirstHeader
-    {
-        get => GetValue(FirstHeaderProperty);
-        set => SetValue(FirstHeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? FirstHeader { get; set; }
 
-    public string? SecondHeader
-    {
-        get => GetValue(SecondHeaderProperty);
-        set => SetValue(SecondHeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? SecondHeader { get; set; }
 
-    public string? ThirdHeader
-    {
-        get => GetValue(ThirdHeaderProperty);
-        set => SetValue(ThirdHeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? ThirdHeader { get; set; }
 
-    public string? FourthHeader
-    {
-        get => GetValue(FourthHeaderProperty);
-        set => SetValue(FourthHeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? FourthHeader { get; set; }
 
-    public bool IsUniform
-    {
-        get => GetValue(IsUniformProperty);
-        set => SetValue(IsUniformProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsUniform { get; set; }
 
-    public string? NumberFormat
-    {
-        get => GetValue(NumberFormatProperty);
-        set => SetValue(NumberFormatProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? NumberFormat { get; set; }
 
     protected override Type StyleKeyOverride => typeof(Vector4Editor);
 

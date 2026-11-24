@@ -8,14 +8,8 @@ using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
-internal sealed class WebBrowserAddressBox : TextBox
+internal sealed partial class WebBrowserAddressBox : TextBox
 {
-    public static readonly StyledProperty<string?> AddressProperty =
-        AvaloniaProperty.Register<WebBrowserAddressBox, string?>(nameof(Address));
-
-    public static readonly StyledProperty<IReadOnlyList<string>?> SuggestionsProperty =
-        AvaloniaProperty.Register<WebBrowserAddressBox, IReadOnlyList<string>?>(nameof(Suggestions));
-
     private bool _updatingText;
     private bool _completingText;
     private CancellationTokenSource? _suggestionRequest;
@@ -31,17 +25,11 @@ internal sealed class WebBrowserAddressBox : TextBox
 
     protected override Type StyleKeyOverride => typeof(TextBox);
 
-    public string? Address
-    {
-        get => GetValue(AddressProperty);
-        set => SetValue(AddressProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? Address { get; set; }
 
-    public IReadOnlyList<string>? Suggestions
-    {
-        get => GetValue(SuggestionsProperty);
-        set => SetValue(SuggestionsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IReadOnlyList<string>? Suggestions { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

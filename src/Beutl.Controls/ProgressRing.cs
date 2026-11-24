@@ -11,22 +11,10 @@ namespace Beutl.Controls;
 /// A control used to indicate the progress of an operation.
 /// </summary>
 [PseudoClasses(":preserveaspect", ":indeterminate")]
-public class ProgressRing : RangeBase
+public partial class ProgressRing : RangeBase
 {
-    public static readonly StyledProperty<bool> IsIndeterminateProperty =
-        ProgressBar.IsIndeterminateProperty.AddOwner<ProgressRing>();
-
-    public static readonly StyledProperty<bool> PreserveAspectProperty =
-        AvaloniaProperty.Register<ProgressRing, bool>(nameof(PreserveAspect), true);
-
     public static readonly StyledProperty<double> ValueAngleProperty =
         AvaloniaProperty.Register<ProgressRing, double>(nameof(ValueAngle), 0);
-
-    public static readonly StyledProperty<double> StartAngleProperty =
-        AvaloniaProperty.Register<ProgressRing, double>(nameof(StartAngle), 0);
-
-    public static readonly StyledProperty<double> EndAngleProperty =
-        AvaloniaProperty.Register<ProgressRing, double>(nameof(EndAngle), 360);
 
     static ProgressRing()
     {
@@ -44,17 +32,11 @@ public class ProgressRing : RangeBase
         UpdatePseudoClasses(IsIndeterminate, PreserveAspect);
     }
 
-    public bool IsIndeterminate
-    {
-        get => GetValue(IsIndeterminateProperty);
-        set => SetValue(IsIndeterminateProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(ProgressBar))]
+    public partial bool IsIndeterminate { get; set; }
 
-    public bool PreserveAspect
-    {
-        get => GetValue(PreserveAspectProperty);
-        set => SetValue(PreserveAspectProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = true)]
+    public partial bool PreserveAspect { get; set; }
 
     public double ValueAngle
     {
@@ -62,17 +44,11 @@ public class ProgressRing : RangeBase
         private set => SetValue(ValueAngleProperty, value);
     }
 
-    public double StartAngle
-    {
-        get => GetValue(StartAngleProperty);
-        set => SetValue(StartAngleProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 0)]
+    public partial double StartAngle { get; set; }
 
-    public double EndAngle
-    {
-        get => GetValue(EndAngleProperty);
-        set => SetValue(EndAngleProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 360)]
+    public partial double EndAngle { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

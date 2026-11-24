@@ -19,17 +19,8 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class GradientStopsSlider : TemplatedControl
+public partial class GradientStopsSlider : TemplatedControl
 {
-    public static readonly StyledProperty<GradientStops?> StopsProperty =
-        AvaloniaProperty.Register<GradientStopsSlider, GradientStops?>(nameof(Stops));
-
-    public static readonly StyledProperty<GradientStop?> SelectedStopProperty =
-        AvaloniaProperty.Register<GradientStopsSlider, GradientStop?>(nameof(SelectedStop));
-
-    public static readonly StyledProperty<GradientStops?> BackgroundStopsProperty =
-        AvaloniaProperty.Register<GradientStopsSlider, GradientStops?>(nameof(BackgroundStops));
-
     private readonly CompositeDisposable _disposables = [];
     private Rectangle? _backgroundElement;
     private ItemsControl? _itemsControl;
@@ -43,24 +34,15 @@ public class GradientStopsSlider : TemplatedControl
     private bool _dragStopped;
     private int _oldIndex;
 
-    public GradientStops? Stops
-    {
-        get => GetValue(StopsProperty);
-        set => SetValue(StopsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial GradientStops? Stops { get; set; }
 
-    public GradientStop? SelectedStop
-    {
-        get => GetValue(SelectedStopProperty);
-        set => SetValue(SelectedStopProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial GradientStop? SelectedStop { get; set; }
 
     /// <summary>What the bar shows in place of <see cref="Stops"/>, for a gradient that Avalonia would not mix alike.</summary>
-    public GradientStops? BackgroundStops
-    {
-        get => GetValue(BackgroundStopsProperty);
-        set => SetValue(BackgroundStopsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial GradientStops? BackgroundStops { get; set; }
 
     // ドラッグ操作中
     public event EventHandler<(int OldIndex, int NewIndex, GradientStop Object)>? Changed;

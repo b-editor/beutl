@@ -28,34 +28,10 @@ public enum PropertyEditorStyle
 [TemplatePart("PART_RightButton", typeof(Button))]
 [TemplatePart("PART_DeleteButton", typeof(Button))]
 [TemplatePart("PART_ReorderHandle", typeof(Control))]
-public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, IListItemEditor
+public partial class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, IListItemEditor
 {
-    public static readonly StyledProperty<string?> HeaderProperty =
-        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(Header));
-
-    public static readonly StyledProperty<string?> DescriptionProperty =
-        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(Description));
-
-    public static readonly StyledProperty<string?> HoverInfoProperty =
-        AvaloniaProperty.Register<PropertyEditor, string?>(nameof(HoverInfo));
-
     public static readonly DirectProperty<PropertyEditor, string?> HeaderTooltipProperty =
         AvaloniaProperty.RegisterDirect<PropertyEditor, string?>(nameof(HeaderTooltip), o => o.HeaderTooltip);
-
-    public static readonly StyledProperty<bool> IsReadOnlyProperty =
-        TextBox.IsReadOnlyProperty.AddOwner<PropertyEditor>();
-
-    public static readonly StyledProperty<PropertyEditorStyle> EditorStyleProperty =
-        AvaloniaProperty.Register<PropertyEditor, PropertyEditorStyle>(nameof(EditorStyle), PropertyEditorStyle.Normal);
-
-    public static readonly StyledProperty<object?> MenuContentProperty =
-        AvaloniaProperty.Register<PropertyEditor, object?>(nameof(MenuContent));
-
-    public static readonly StyledProperty<IDataTemplate?> MenuContentTemplateProperty =
-        AvaloniaProperty.Register<PropertyEditor, IDataTemplate?>(nameof(MenuContentTemplate));
-
-    public static readonly StyledProperty<float> KeyFrameIndexProperty =
-        AvaloniaProperty.Register<PropertyEditor, float>(nameof(KeyFrameIndex), 0);
 
     public static readonly StyledProperty<int> KeyFrameCountProperty =
         AvaloniaProperty.Register<PropertyEditor, int>(nameof(KeyFrameCount), 0, coerce: (_, v) => Math.Max(v, 0));
@@ -79,55 +55,31 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         MarginProperty.OverrideDefaultValue<PropertyEditor>(new(4, 0));
     }
 
-    public string? Header
-    {
-        get => GetValue(HeaderProperty);
-        set => SetValue(HeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? Header { get; set; }
 
-    public string? Description
-    {
-        get => GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? Description { get; set; }
 
-    public string? HoverInfo
-    {
-        get => GetValue(HoverInfoProperty);
-        set => SetValue(HoverInfoProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? HoverInfo { get; set; }
 
     public string? HeaderTooltip => _headerTooltip;
 
-    public bool IsReadOnly
-    {
-        get => GetValue(IsReadOnlyProperty);
-        set => SetValue(IsReadOnlyProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(TextBox))]
+    public partial bool IsReadOnly { get; set; }
 
-    public PropertyEditorStyle EditorStyle
-    {
-        get => GetValue(EditorStyleProperty);
-        set => SetValue(EditorStyleProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = PropertyEditorStyle.Normal)]
+    public partial PropertyEditorStyle EditorStyle { get; set; }
 
-    public object? MenuContent
-    {
-        get => GetValue(MenuContentProperty);
-        set => SetValue(MenuContentProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial object? MenuContent { get; set; }
 
-    public IDataTemplate? MenuContentTemplate
-    {
-        get => GetValue(MenuContentTemplateProperty);
-        set => SetValue(MenuContentTemplateProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IDataTemplate? MenuContentTemplate { get; set; }
 
-    public float KeyFrameIndex
-    {
-        get => GetValue(KeyFrameIndexProperty);
-        set => SetValue(KeyFrameIndexProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 0)]
+    public partial float KeyFrameIndex { get; set; }
 
     public int KeyFrameCount
     {

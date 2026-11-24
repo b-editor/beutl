@@ -5,16 +5,10 @@ using Avalonia.Media;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
-public sealed class NodeGraphBackground : ZoomBorderBoundControl
+public sealed partial class NodeGraphBackground : ZoomBorderBoundControl
 {
-    public static readonly StyledProperty<IBrush?> BorderBrushProperty
-        = Border.BorderBrushProperty.AddOwner<NodeGraphBackground>();
-
-    public IBrush? BorderBrush
-    {
-        get => GetValue(BorderBrushProperty);
-        set => SetValue(BorderBrushProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial IBrush? BorderBrush { get; set; }
 
     public override void Render(DrawingContext context)
     {

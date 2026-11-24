@@ -12,120 +12,48 @@ using FluentAvalonia.UI.Controls;
 namespace Beutl.Controls;
 
 // https://github.com/amwx/FluentAvalonia/blob/master/FluentAvaloniaSamples/Controls/OptionsDisplayItem.cs
-public class OptionsDisplayItem : TemplatedControl
+public partial class OptionsDisplayItem : TemplatedControl
 {
-    public static readonly StyledProperty<object?> HeaderProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, object?>(nameof(Header));
-
-    public static readonly StyledProperty<object?> DescriptionProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, object?>(nameof(Description));
-
-    public static readonly StyledProperty<FAIconElement?> IconProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, FAIconElement?>(nameof(Icon));
-
-    public static readonly StyledProperty<bool> NavigatesProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, bool>(nameof(Navigates));
-
-    public static readonly StyledProperty<Control?> ActionButtonProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, Control?>(nameof(ActionButton));
-
-    public static readonly StyledProperty<bool> ExpandsProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, bool>(nameof(Expands));
-
-    public static readonly StyledProperty<bool> ClickableProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, bool>(nameof(Clickable), true);
-
-    public static readonly StyledProperty<object?> ContentProperty =
-        ContentControl.ContentProperty.AddOwner<OptionsDisplayItem>();
-
-    public static readonly StyledProperty<bool> IsExpandedProperty =
-        Expander.IsExpandedProperty.AddOwner<OptionsDisplayItem>();
-
-    public static readonly StyledProperty<ICommand?> NavigationCommandProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, ICommand?>(nameof(NavigationCommand));
-
-    public static readonly StyledProperty<object?> NavigationCommandParameterProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, object?>(nameof(NavigationCommandParameter));
-
-    public static readonly StyledProperty<IPageTransition?> ContentTransitionProperty =
-        AvaloniaProperty.Register<OptionsDisplayItem, IPageTransition?>(nameof(ContentTransition));
-
     public OptionsDisplayItem()
     {
         UpdateClickability();
     }
 
-    public object? Header
-    {
-        get => GetValue(HeaderProperty);
-        set => SetValue(HeaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial object? Header { get; set; }
 
-    public object? Description
-    {
-        get => GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial object? Description { get; set; }
 
-    public FAIconElement? Icon
-    {
-        get => GetValue(IconProperty);
-        set => SetValue(IconProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial FAIconElement? Icon { get; set; }
 
-    public bool Navigates
-    {
-        get => GetValue(NavigatesProperty);
-        set => SetValue(NavigatesProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool Navigates { get; set; }
 
-    public bool Clickable
-    {
-        get => GetValue(ClickableProperty);
-        set => SetValue(ClickableProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = true)]
+    public partial bool Clickable { get; set; }
 
-    public Control? ActionButton
-    {
-        get => GetValue(ActionButtonProperty);
-        set => SetValue(ActionButtonProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Control? ActionButton { get; set; }
 
-    public bool Expands
-    {
-        get => GetValue(ExpandsProperty);
-        set => SetValue(ExpandsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool Expands { get; set; }
 
-    public object? Content
-    {
-        get => GetValue(ContentProperty);
-        set => SetValue(ContentProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(ContentControl))]
+    public partial object? Content { get; set; }
 
-    public bool IsExpanded
-    {
-        get => GetValue(IsExpandedProperty);
-        set => SetValue(IsExpandedProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Expander))]
+    public partial bool IsExpanded { get; set; }
 
-    public ICommand? NavigationCommand
-    {
-        get => GetValue(NavigationCommandProperty);
-        set => SetValue(NavigationCommandProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial ICommand? NavigationCommand { get; set; }
 
-    public object? NavigationCommandParameter
-    {
-        get => GetValue(NavigationCommandParameterProperty);
-        set => SetValue(NavigationCommandParameterProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial object? NavigationCommandParameter { get; set; }
 
-    public IPageTransition? ContentTransition
-    {
-        get => GetValue(ContentTransitionProperty);
-        set => SetValue(ContentTransitionProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IPageTransition? ContentTransition { get; set; }
 
     public static readonly RoutedEvent<RoutedEventArgs> NavigationRequestedEvent =
         RoutedEvent.Register<OptionsDisplayItem, RoutedEventArgs>(nameof(NavigationRequested), RoutingStrategies.Bubble);

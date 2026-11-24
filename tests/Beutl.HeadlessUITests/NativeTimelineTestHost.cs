@@ -64,7 +64,8 @@ internal static partial class NativeTimelineTestHost
 
     private static async void Run()
     {
-        var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime)
+            return;
         Window? window = null;
         TimelineTabView? view = null;
         int exitCode = 1;

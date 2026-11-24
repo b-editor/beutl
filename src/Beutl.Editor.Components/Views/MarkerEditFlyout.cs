@@ -13,40 +13,22 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class MarkerEditFlyout : FAPickerFlyoutBase
+public sealed partial class MarkerEditFlyout : FAPickerFlyoutBase
 {
-    public static readonly StyledProperty<string> MarkerNameProperty
-        = AvaloniaProperty.Register<MarkerEditFlyout, string>(nameof(MarkerName), string.Empty);
-
-    public static readonly StyledProperty<string> NoteProperty
-        = AvaloniaProperty.Register<MarkerEditFlyout, string>(nameof(Note), string.Empty);
-
-    public static readonly StyledProperty<AvaColor> ColorProperty
-        = AvaloniaProperty.Register<MarkerEditFlyout, AvaColor>(nameof(Color));
-
     private TextBox? _nameBox;
     private TextBox? _noteBox;
     private SimpleColorPickerButton? _colorButton;
     private Button? _deleteButton;
     private MarkerEditValues _initial;
 
-    public string MarkerName
-    {
-        get => GetValue(MarkerNameProperty);
-        set => SetValue(MarkerNameProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = "")]
+    public partial string MarkerName { get; set; }
 
-    public string Note
-    {
-        get => GetValue(NoteProperty);
-        set => SetValue(NoteProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = "")]
+    public partial string Note { get; set; }
 
-    public AvaColor Color
-    {
-        get => GetValue(ColorProperty);
-        set => SetValue(ColorProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial AvaColor Color { get; set; }
 
     public event EventHandler<MarkerEditValues>? ValuesChanged;
     public event EventHandler? DeleteRequested;
@@ -97,7 +79,6 @@ public sealed class MarkerEditFlyout : FAPickerFlyoutBase
             Margin = new Thickness(4),
             Children =
             {
-
                 new TextBlock { Text = Strings.Name },
                 _nameBox,
                 new TextBlock { Text = Strings.Color },

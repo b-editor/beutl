@@ -13,22 +13,8 @@ namespace Beutl.Controls.PropertyEditors;
 // and the puck shows Chroma in units of the radius. A drag anywhere moves the puck by the drag, a tenth as far with
 // Alt or Command, and a double click asks to center it. As a scrub of a property's header does, the drag hides the
 // cursor and shows it again where the drag began, so that the cursor does not wander off the puck it moves.
-public class ColorBalancePad : Control
+public partial class ColorBalancePad : Control
 {
-    public static readonly StyledProperty<Vector> ChromaProperty =
-        AvaloniaProperty.Register<ColorBalancePad, Vector>(nameof(Chroma));
-
-    // The neutral color in the middle of the disk.
-    public static readonly StyledProperty<IBrush?> BackgroundProperty =
-        Border.BackgroundProperty.AddOwner<ColorBalancePad>();
-
-    public static readonly StyledProperty<IBrush?> PuckBrushProperty =
-        AvaloniaProperty.Register<ColorBalancePad, IBrush?>(nameof(PuckBrush), Brushes.White);
-
-    // The crosshair in the middle.
-    public static readonly StyledProperty<IBrush?> GuideBrushProperty =
-        AvaloniaProperty.Register<ColorBalancePad, IBrush?>(nameof(GuideBrush));
-
     public static readonly RoutedEvent<VectorEventArgs> DragStartedEvent =
         RoutedEvent.Register<ColorBalancePad, VectorEventArgs>(nameof(DragStarted), RoutingStrategies.Bubble);
 
@@ -50,23 +36,21 @@ public class ColorBalancePad : Control
     private DiskKey? _diskKey;
     private HeaderScrubGesture _scrub;
 
+    public static readonly StyledProperty<IBrush?> PuckBrushProperty =
+        AvaloniaProperty.Register<ColorBalancePad, IBrush?>(nameof(PuckBrush), Brushes.White);
+
     static ColorBalancePad()
     {
         AffectsRender<ColorBalancePad>(ChromaProperty, BackgroundProperty, PuckBrushProperty, GuideBrushProperty);
         FocusableProperty.OverrideDefaultValue<ColorBalancePad>(false);
     }
 
-    public Vector Chroma
-    {
-        get => GetValue(ChromaProperty);
-        set => SetValue(ChromaProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Vector Chroma { get; set; }
 
-    public IBrush? Background
-    {
-        get => GetValue(BackgroundProperty);
-        set => SetValue(BackgroundProperty, value);
-    }
+    // The neutral color in the middle of the disk.
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial IBrush? Background { get; set; }
 
     public IBrush? PuckBrush
     {
@@ -74,11 +58,9 @@ public class ColorBalancePad : Control
         set => SetValue(PuckBrushProperty, value);
     }
 
-    public IBrush? GuideBrush
-    {
-        get => GetValue(GuideBrushProperty);
-        set => SetValue(GuideBrushProperty, value);
-    }
+    // The crosshair in the middle.
+    [GeneratedStyledProperty]
+    public partial IBrush? GuideBrush { get; set; }
 
     public bool IsDragging => _scrub.IsActive;
 

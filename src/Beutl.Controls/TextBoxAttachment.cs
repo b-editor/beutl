@@ -6,11 +6,8 @@ using Avalonia.LogicalTree;
 
 namespace Beutl.Controls;
 
-public static class TextBoxAttachment
+public static partial class TextBoxAttachment
 {
-    public static readonly AttachedProperty<EnterBehaviorMode> EnterDownBehaviorProperty =
-        AvaloniaProperty.RegisterAttached<TextBox, EnterBehaviorMode>("EnterDownBehavior", typeof(TextBoxAttachment), EnterBehaviorMode.None);
-
     static TextBoxAttachment()
     {
         EnterDownBehaviorProperty.Changed.Subscribe(ev =>
@@ -36,15 +33,8 @@ public static class TextBoxAttachment
         Auto
     }
 
-    public static EnterBehaviorMode GetEnterDownBehavior(TextBox obj)
-    {
-        return obj.GetValue(EnterDownBehaviorProperty);
-    }
-
-    public static void SetEnterDownBehavior(TextBox obj, EnterBehaviorMode value)
-    {
-        obj.SetValue(EnterDownBehaviorProperty, value);
-    }
+    [GeneratedAttachedProperty(DefaultValue = EnterBehaviorMode.None)]
+    public static partial EnterBehaviorMode GetEnterDownBehavior(TextBox obj);
 
     private static void OnTextBoxKeyDown(object? sender, KeyEventArgs e)
     {
@@ -67,7 +57,6 @@ public static class TextBoxAttachment
                     return;
                 }
             }
-
 
             foreach (InputElement item in tb.GetLogicalAncestors().OfType<InputElement>())
             {

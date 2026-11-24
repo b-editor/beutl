@@ -21,7 +21,7 @@ namespace Beutl.Controls.PropertyEditors;
 [TemplatePart("PART_MasterWheel", typeof(GradingWheel))]
 [TemplatePart("PART_Components", typeof(GradingColorComponentsEditor))]
 [TemplatePart("PART_ResetButton", typeof(Button))]
-public class ColorGradingWheel : PropertyEditor
+public partial class ColorGradingWheel : PropertyEditor
 {
     public static readonly DirectProperty<ColorGradingWheel, GradingColor> ColorProperty =
         AvaloniaProperty.RegisterDirect<ColorGradingWheel, GradingColor>(
@@ -29,21 +29,6 @@ public class ColorGradingWheel : PropertyEditor
             o => o.Color,
             (o, v) => o.Color = v,
             defaultBindingMode: BindingMode.TwoWay);
-
-    // The color that changes nothing, such as (1, 1, 1) for Gain.
-    public static readonly StyledProperty<GradingColor> NeutralProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, GradingColor>(nameof(Neutral));
-
-    // The chroma, in Cb and Cr, at the edge of the pad.
-    public static readonly StyledProperty<double> MaxChromaProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, double>(nameof(MaxChroma), 0.25);
-
-    // What a drag across the whole jog adds to R, G and B.
-    public static readonly StyledProperty<double> MasterRangeProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, double>(nameof(MasterRange), 1.0);
-
-    public static readonly StyledProperty<bool> IsSideBySideProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, bool>(nameof(IsSideBySide));
 
     private readonly CompositeDisposable _partHandlers = [];
     private Grid? _layout;
@@ -69,29 +54,20 @@ public class ColorGradingWheel : PropertyEditor
         set => SetAndRaise(ColorProperty, ref field, value);
     }
 
-    public GradingColor Neutral
-    {
-        get => GetValue(NeutralProperty);
-        set => SetValue(NeutralProperty, value);
-    }
+    // The color that changes nothing, such as (1, 1, 1) for Gain.
+    [GeneratedStyledProperty]
+    public partial GradingColor Neutral { get; set; }
 
-    public double MaxChroma
-    {
-        get => GetValue(MaxChromaProperty);
-        set => SetValue(MaxChromaProperty, value);
-    }
+    // The chroma, in Cb and Cr, at the edge of the pad.
+    [GeneratedStyledProperty(DefaultValue = 0.25)]
+    public partial double MaxChroma { get; set; }
 
-    public double MasterRange
-    {
-        get => GetValue(MasterRangeProperty);
-        set => SetValue(MasterRangeProperty, value);
-    }
+    // What a drag across the whole jog adds to R, G and B.
+    [GeneratedStyledProperty(DefaultValue = 1.0)]
+    public partial double MasterRange { get; set; }
 
-    public bool IsSideBySide
-    {
-        get => GetValue(IsSideBySideProperty);
-        set => SetValue(IsSideBySideProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsSideBySide { get; set; }
 
     // What the wheel needs besides its pad, whether stacked or side by side: the height of the header, the jog and
     // the boxes with the spacing between them, and the width they would like. Measured with no limits, they are what

@@ -109,7 +109,7 @@ public class Vector3Editor<TElement> : Vector3Editor, IValueEditorControl<(TElem
 [TemplatePart("PART_HeaderSecondTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_HeaderThirdTextBlock", typeof(TextBlock))]
 [TemplatePart("PART_BackgroundBorder", typeof(Border))]
-public class Vector3Editor : VectorEditorBase
+public partial class Vector3Editor : VectorEditorBase
 {
     public static readonly DirectProperty<Vector3Editor, string> FirstTextProperty =
         Vector4Editor.FirstTextProperty.AddOwner<Vector3Editor>(
@@ -125,21 +125,6 @@ public class Vector3Editor : VectorEditorBase
         Vector4Editor.ThirdTextProperty.AddOwner<Vector3Editor>(
             o => o.ThirdText,
             (o, v) => o.ThirdText = v);
-
-    public static readonly StyledProperty<string?> FirstHeaderProperty =
-        Vector4Editor.FirstHeaderProperty.AddOwner<Vector3Editor>();
-
-    public static readonly StyledProperty<string?> SecondHeaderProperty =
-        Vector4Editor.SecondHeaderProperty.AddOwner<Vector3Editor>();
-
-    public static readonly StyledProperty<string?> ThirdHeaderProperty =
-        Vector4Editor.ThirdHeaderProperty.AddOwner<Vector3Editor>();
-
-    public static readonly StyledProperty<bool> IsUniformProperty =
-        Vector4Editor.IsUniformProperty.AddOwner<Vector3Editor>();
-
-    public static readonly StyledProperty<string?> NumberFormatProperty =
-        Vector4Editor.NumberFormatProperty.AddOwner<Vector3Editor>();
 
     public Vector3Editor()
         : base([FirstTextProperty, SecondTextProperty, ThirdTextProperty], IsUniformProperty, componentHeaders: true)
@@ -164,35 +149,20 @@ public class Vector3Editor : VectorEditorBase
         set => SetText(2, value);
     }
 
-    public string? FirstHeader
-    {
-        get => GetValue(FirstHeaderProperty);
-        set => SetValue(FirstHeaderProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial string? FirstHeader { get; set; }
 
-    public string? SecondHeader
-    {
-        get => GetValue(SecondHeaderProperty);
-        set => SetValue(SecondHeaderProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial string? SecondHeader { get; set; }
 
-    public string? ThirdHeader
-    {
-        get => GetValue(ThirdHeaderProperty);
-        set => SetValue(ThirdHeaderProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial string? ThirdHeader { get; set; }
 
-    public bool IsUniform
-    {
-        get => GetValue(IsUniformProperty);
-        set => SetValue(IsUniformProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial bool IsUniform { get; set; }
 
-    public string? NumberFormat
-    {
-        get => GetValue(NumberFormatProperty);
-        set => SetValue(NumberFormatProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Vector4Editor))]
+    public partial string? NumberFormat { get; set; }
 
     protected override Type StyleKeyOverride => typeof(Vector3Editor);
 }
