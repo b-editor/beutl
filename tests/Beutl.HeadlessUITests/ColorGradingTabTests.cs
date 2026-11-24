@@ -771,6 +771,45 @@ public sealed class ColorGradingTabTests
     }
 
     [AvaloniaTest]
+    [TestCase(600, 280, 1)]
+    [TestCase(480, 240, 0)]
+    public async Task The_lower_wheel_fields_can_be_reached_by_scrolling(int width, int height, int mode)
+    {
+        using TabHost host = await TabHost.OpenAsync($"grading-overflow-{mode}", width, height, mode);
+        ColorWheelsPanel wheels = host.Wheels;
+        ColorBalancePad firstPad = wheels.Children[0].GetVisualDescendants().OfType<ColorBalancePad>().Single();
+        var lastField = wheels.Children[^1].GetVisualDescendants().OfType<TextBox>().Last();
+        var toolbar = host.View.FindControl<Control>("ToolBar")!;
+        var scroller = host.View.FindControl<ScrollViewer>("ContentScroller")!;
+        AvaPoint? toolbarPosition = toolbar.TranslatePoint(default, host.Window);
+
+        Assert.That(scroller.Extent.Height, Is.GreaterThan(scroller.Viewport.Height));
+        HeadlessCapture.SaveIfRequested(host.View, nameof(ColorGradingTabTests), $"overflow-{mode}-top");
+        AvaPoint scrollPoint = firstPad.TranslatePoint(firstPad.DiskBounds.Center, host.Window)!.Value;
+        host.Window.MouseWheel(scrollPoint, new Vector(0, -10));
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(host.View, nameof(ColorGradingTabTests), $"overflow-{mode}-bottom");
+
+        AvaPoint fieldCenter = lastField.TranslatePoint(new Rect(lastField.Bounds.Size).Center, host.Window)!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(scroller.Offset.Y, Is.Positive);
+            Assert.That(host.Window.InputHitTest(fieldCenter) is Visual hit && (hit == lastField || lastField.IsVisualAncestorOf(hit)),
+                Is.True, $"The last wheel's RGB field at {fieldCenter} should be reachable.");
+            Assert.That(toolbar.TranslatePoint(default, host.Window), Is.EqualTo(toolbarPosition));
+        });
+
+        host.Window.Width = 1080;
+        host.Window.Height = 360;
+        HeadlessTestHelpers.Render(3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(scroller.Extent.Height, Is.LessThanOrEqualTo(scroller.Viewport.Height));
+            Assert.That(scroller.Offset.Y, Is.Zero);
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(420, 560)]
     [TestCase(550, 674)]
     public async Task The_wrapped_tonal_range_leaves_room_for_the_pads_after_redocking(int width, int height)

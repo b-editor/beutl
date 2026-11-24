@@ -61,115 +61,119 @@
             </controls:ToolTabBarPanel>
         </controls:ToolTabBar>
 
-        <local:GradingContentPanel x:Name="ContentPanel"
-                                   Grid.Row="1"
-                                   Margin="12,8,12,10"
-                                   Grid.IsSharedSizeScope="True"
-                                   IsVisible="{Binding HasEffect.Value}">
-            <ScrollViewer x:Name="AdjustmentsScroller"
-                          HorizontalScrollBarVisibility="Disabled"
-                          IsVisible="{Binding IsNumberEditorsVisible.Value}"
-                          VerticalScrollBarVisibility="Auto">
-                <!--  Each group's name stands above its sliders. The groups share a row while each gets a slider of some
-                      length, and stack otherwise, as they do beside the wheels.  -->
-                <local:GradingAdjustmentsPanel x:Name="AdjustmentGroups">
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="{x:Static lang:Strings.ColorGrading_WhiteBalance}" Theme="{StaticResource GradingGroupLabelTheme}" />
-                        <pe:NumberSliderEditor x:Name="TemperatureEditor"
-                                               x:TypeArguments="x:Single"
-                                               Theme="{StaticResource NumberSliderEditorTheme}" />
-                        <pe:NumberSliderEditor x:Name="TintEditor"
-                                               x:TypeArguments="x:Single"
-                                               Theme="{StaticResource NumberSliderEditorTheme}" />
-                    </StackPanel>
+        <local:GradingContentScrollViewer x:Name="ContentScroller"
+                                         Grid.Row="1"
+                                         Margin="0,8,0,10"
+                                         Padding="12,0"
+                                         HorizontalScrollBarVisibility="Disabled"
+                                         IsVisible="{Binding HasEffect.Value}"
+                                         VerticalScrollBarVisibility="Auto">
+            <local:GradingContentPanel x:Name="ContentPanel" Grid.IsSharedSizeScope="True">
+                <ScrollViewer x:Name="AdjustmentsScroller"
+                              HorizontalScrollBarVisibility="Disabled"
+                              IsVisible="{Binding IsNumberEditorsVisible.Value}"
+                              VerticalScrollBarVisibility="Auto">
+                    <!--  Each group's name stands above its sliders. The groups share a row while each gets a slider of some
+                          length, and stack otherwise, as they do beside the wheels.  -->
+                    <local:GradingAdjustmentsPanel x:Name="AdjustmentGroups">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{x:Static lang:Strings.ColorGrading_WhiteBalance}" Theme="{StaticResource GradingGroupLabelTheme}" />
+                            <pe:NumberSliderEditor x:Name="TemperatureEditor"
+                                                   x:TypeArguments="x:Single"
+                                                   Theme="{StaticResource NumberSliderEditorTheme}" />
+                            <pe:NumberSliderEditor x:Name="TintEditor"
+                                                   x:TypeArguments="x:Single"
+                                                   Theme="{StaticResource NumberSliderEditorTheme}" />
+                        </StackPanel>
 
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="{x:Static lang:Strings.ColorGrading_Tone}" Theme="{StaticResource GradingGroupLabelTheme}" />
-                        <pe:NumberSliderEditor x:Name="ExposureEditor"
-                                               x:TypeArguments="x:Single"
-                                               Theme="{StaticResource NumberSliderEditorTheme}" />
-                        <pe:NumberSliderEditor x:Name="ContrastEditor"
-                                               x:TypeArguments="x:Single"
-                                               Theme="{StaticResource NumberSliderEditorTheme}" />
-                        <pe:NumberSliderEditor x:Name="ContrastPivotEditor"
-                                               x:TypeArguments="x:Single"
-                                               Theme="{StaticResource NumberSliderEditorTheme}" />
-                    </StackPanel>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{x:Static lang:Strings.ColorGrading_Tone}" Theme="{StaticResource GradingGroupLabelTheme}" />
+                            <pe:NumberSliderEditor x:Name="ExposureEditor"
+                                                   x:TypeArguments="x:Single"
+                                                   Theme="{StaticResource NumberSliderEditorTheme}" />
+                            <pe:NumberSliderEditor x:Name="ContrastEditor"
+                                                   x:TypeArguments="x:Single"
+                                                   Theme="{StaticResource NumberSliderEditorTheme}" />
+                            <pe:NumberSliderEditor x:Name="ContrastPivotEditor"
+                                                   x:TypeArguments="x:Single"
+                                                   Theme="{StaticResource NumberSliderEditorTheme}" />
+                        </StackPanel>
 
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="{x:Static lang:Strings.ColorGrading_Color}" Theme="{StaticResource GradingGroupLabelTheme}" />
-                        <pe:NumberSliderEditor x:Name="SaturationEditor"
-                                               x:TypeArguments="x:Single"
-                                               Theme="{StaticResource NumberSliderEditorTheme}" />
-                        <pe:NumberSliderEditor x:Name="VibranceEditor"
-                                               x:TypeArguments="x:Single"
-                                               Theme="{StaticResource NumberSliderEditorTheme}" />
-                        <pe:NumberSliderEditor x:Name="HueEditor"
-                                               x:TypeArguments="x:Single"
-                                               Theme="{StaticResource NumberSliderEditorTheme}" />
-                    </StackPanel>
-                </local:GradingAdjustmentsPanel>
-            </ScrollViewer>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{x:Static lang:Strings.ColorGrading_Color}" Theme="{StaticResource GradingGroupLabelTheme}" />
+                            <pe:NumberSliderEditor x:Name="SaturationEditor"
+                                                   x:TypeArguments="x:Single"
+                                                   Theme="{StaticResource NumberSliderEditorTheme}" />
+                            <pe:NumberSliderEditor x:Name="VibranceEditor"
+                                                   x:TypeArguments="x:Single"
+                                                   Theme="{StaticResource NumberSliderEditorTheme}" />
+                            <pe:NumberSliderEditor x:Name="HueEditor"
+                                                   x:TypeArguments="x:Single"
+                                                   Theme="{StaticResource NumberSliderEditorTheme}" />
+                        </StackPanel>
+                    </local:GradingAdjustmentsPanel>
+                </ScrollViewer>
 
-            <pe:ColorWheelsPanel x:Name="LiftWheels" IsVisible="{Binding IsLiftGammaGainMode.Value}">
-                <pe:ColorGradingWheel x:Name="LiftPicker" />
-                <pe:ColorGradingWheel x:Name="GammaPicker" />
-                <pe:ColorGradingWheel x:Name="GainPicker" />
-                <pe:ColorGradingWheel x:Name="OffsetPicker" />
-            </pe:ColorWheelsPanel>
+                <pe:ColorWheelsPanel x:Name="LiftWheels" IsVisible="{Binding IsLiftGammaGainMode.Value}">
+                    <pe:ColorGradingWheel x:Name="LiftPicker" />
+                    <pe:ColorGradingWheel x:Name="GammaPicker" />
+                    <pe:ColorGradingWheel x:Name="GainPicker" />
+                    <pe:ColorGradingWheel x:Name="OffsetPicker" />
+                </pe:ColorWheelsPanel>
 
-            <pe:ColorWheelsPanel x:Name="LogWheels" IsVisible="{Binding IsLogMode.Value}">
-                <pe:ColorGradingWheel x:Name="ShadowsPicker" />
-                <pe:ColorGradingWheel x:Name="MidtonesPicker" />
-                <pe:ColorGradingWheel x:Name="HighlightsPicker" />
-            </pe:ColorWheelsPanel>
+                <pe:ColorWheelsPanel x:Name="LogWheels" IsVisible="{Binding IsLogMode.Value}">
+                    <pe:ColorGradingWheel x:Name="ShadowsPicker" />
+                    <pe:ColorGradingWheel x:Name="MidtonesPicker" />
+                    <pe:ColorGradingWheel x:Name="HighlightsPicker" />
+                </pe:ColorWheelsPanel>
 
-            <!--  Narrow, the range's boxes go under the slider so that it keeps its length, and wrap if they must.  -->
-            <Grid x:Name="TonalRangeRow"
-                  IsVisible="{Binding IsLogMode.Value}"
-                  Container.Name="TonalRangeRow"
-                  Container.Sizing="Width"
-                  RowDefinitions="Auto,Auto">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <Grid.Styles>
-                    <Style Selector="WrapPanel#TonalRangeEditors">
-                        <Setter Property="Grid.Column" Value="2" />
-                        <Setter Property="Margin" Value="16,0,0,0" />
-                    </Style>
-                    <ContainerQuery Name="TonalRangeRow" Query="max-width:600">
+                <!--  Narrow, the range's boxes go under the slider so that it keeps its length, and wrap if they must.  -->
+                <Grid x:Name="TonalRangeRow"
+                      IsVisible="{Binding IsLogMode.Value}"
+                      Container.Name="TonalRangeRow"
+                      Container.Sizing="Width"
+                      RowDefinitions="Auto,Auto">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.Styles>
                         <Style Selector="WrapPanel#TonalRangeEditors">
-                            <Setter Property="Grid.Row" Value="1" />
-                            <Setter Property="Grid.Column" Value="0" />
-                            <Setter Property="Grid.ColumnSpan" Value="3" />
-                            <Setter Property="Margin" Value="0,6,0,0" />
-                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Grid.Column" Value="2" />
+                            <Setter Property="Margin" Value="16,0,0,0" />
                         </Style>
-                    </ContainerQuery>
-                </Grid.Styles>
+                        <ContainerQuery Name="TonalRangeRow" Query="max-width:600">
+                            <Style Selector="WrapPanel#TonalRangeEditors">
+                                <Setter Property="Grid.Row" Value="1" />
+                                <Setter Property="Grid.Column" Value="0" />
+                                <Setter Property="Grid.ColumnSpan" Value="3" />
+                                <Setter Property="Margin" Value="0,6,0,0" />
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                            </Style>
+                        </ContainerQuery>
+                    </Grid.Styles>
 
-                <TextBlock Margin="0,0,16,0"
-                           VerticalAlignment="Center"
-                           Text="{x:Static lang:Strings.ColorGrading_TonalRange}"
-                           Theme="{StaticResource GradingGroupLabelTheme}" />
-                <pe:TonalRangeSlider x:Name="TonalRangeSlider"
-                                     Grid.Column="1"
-                                     VerticalAlignment="Center" />
-                <WrapPanel x:Name="TonalRangeEditors"
-                           ItemSpacing="16"
-                           LineSpacing="4">
-                    <pe:NumberEditor x:Name="LowRangeEditor"
-                                     x:TypeArguments="x:Single"
-                                     Theme="{StaticResource GradingCompactNumberEditor}" />
-                    <pe:NumberEditor x:Name="HighRangeEditor"
-                                     x:TypeArguments="x:Single"
-                                     Theme="{StaticResource GradingCompactNumberEditor}" />
-                </WrapPanel>
-            </Grid>
-        </local:GradingContentPanel>
+                    <TextBlock Margin="0,0,16,0"
+                               VerticalAlignment="Center"
+                               Text="{x:Static lang:Strings.ColorGrading_TonalRange}"
+                               Theme="{StaticResource GradingGroupLabelTheme}" />
+                    <pe:TonalRangeSlider x:Name="TonalRangeSlider"
+                                         Grid.Column="1"
+                                         VerticalAlignment="Center" />
+                    <WrapPanel x:Name="TonalRangeEditors"
+                               ItemSpacing="16"
+                               LineSpacing="4">
+                        <pe:NumberEditor x:Name="LowRangeEditor"
+                                         x:TypeArguments="x:Single"
+                                         Theme="{StaticResource GradingCompactNumberEditor}" />
+                        <pe:NumberEditor x:Name="HighRangeEditor"
+                                         x:TypeArguments="x:Single"
+                                         Theme="{StaticResource GradingCompactNumberEditor}" />
+                    </WrapPanel>
+                </Grid>
+            </local:GradingContentPanel>
+        </local:GradingContentScrollViewer>
 
         <controls:EmptyState Grid.Row="1"
                              Title="{x:Static lang:MessageStrings.ColorGradingMissing}"
