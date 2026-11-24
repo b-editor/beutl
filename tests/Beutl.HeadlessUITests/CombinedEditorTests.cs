@@ -1487,7 +1487,7 @@ public sealed partial class OverlappingPairOwner : EngineObject
 }
 
 // An extension's object that is not an engine object, with two properties it marks as one row.
-internal sealed class NonEnginePairOwner : CoreObject
+internal sealed partial class NonEnginePairOwner : CoreObject
 {
     public NonEnginePairOwner() => ScanProperties<NonEnginePairOwner>();
 

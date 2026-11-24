@@ -66,9 +66,9 @@ public sealed class GenerativeNodeModelTests
     {
         var node = new AiImageGenerationNode();
         using var vm = CreateEditor(node.Model.Property!);
-        EnumEditor editor = await ShowAsync(vm, CreateCatalog(), e => e.Items.Count == 2);
+        EnumEditor editor = await ShowAsync(vm, CreateCatalog(), e => e.Items is { Count: 2 });
 
-        Assert.That(editor.Items.Select(item => item.DisplayName), Is.EqualTo(new[]
+        Assert.That(editor.Items?.Select(item => item.DisplayName), Is.EqualTo(new[]
         {
             $"Wide — {Strings.AiModelCostLow}",
             $"Square — {Strings.AiModelCostHigh}",
@@ -83,15 +83,15 @@ public sealed class GenerativeNodeModelTests
         var node = new AiImageGenerationNode();
         Assert.That(node.AspectRatio.Property!.GetValue(), Is.EqualTo("16:9"), "The AI tab's default shape.");
         using var vm = CreateEditor(node.AspectRatio.Property!);
-        EnumEditor editor = await ShowAsync(vm, CreateCatalog(), e => e.Items.Count == 2);
-        Assert.That(editor.Items.Select(item => item.Value), Is.EqualTo(new[] { "16:9", "1:1" }),
+        EnumEditor editor = await ShowAsync(vm, CreateCatalog(), e => e.Items is { Count: 2 });
+        Assert.That(editor.Items?.Select(item => item.Value), Is.EqualTo(new[] { "16:9", "1:1" }),
             "Left on the default model, the default model's shapes are offered.");
 
         node.Model.Property!.SetValue("square");
         HeadlessTestHelpers.Render(3);
 
         Assert.That(node.AspectRatio.Property!.GetValue(), Is.EqualTo("1:1"));
-        Assert.That(editor.Items.Select(item => item.Value), Is.EqualTo(new[] { "1:1" }));
+        Assert.That(editor.Items?.Select(item => item.Value), Is.EqualTo(new[] { "1:1" }));
     }
 
     [AvaloniaTest]
@@ -389,15 +389,15 @@ public sealed class GenerativeNodeModelTests
             new StubEntitlements());
         var node = new AiImageEditNode();
         using var vm = CreateEditor(node.Model.Property!);
-        EnumEditor editor = await ShowAsync(vm, catalog, e => e.Items.Count == 1);
-        Assert.That(editor.Items.Select(i => i.Value), Is.EqualTo(new[] { "clear" }),
+        EnumEditor editor = await ShowAsync(vm, catalog, e => e.Items is { Count: 1 });
+        Assert.That(editor.Items?.Select(i => i.Value), Is.EqualTo(new[] { "clear" }),
             "Removing a background needs a model that can make one transparent.");
         node.Model.Property!.SetValue("clear");
 
         node.Task.Property!.SetValue(AiImageEditTask.Restyle);
-        await HeadlessTestHelpers.WaitUntilAsync(() => Equals(editor.Items.FirstOrDefault()?.Value, "paint"));
+        await HeadlessTestHelpers.WaitUntilAsync(() => Equals(editor.Items?.FirstOrDefault()?.Value, "paint"));
 
-        Assert.That(editor.Items.Select(i => i.Value), Is.EqualTo(new[] { "paint" }));
+        Assert.That(editor.Items?.Select(i => i.Value), Is.EqualTo(new[] { "paint" }));
         Assert.That(node.Model.Property!.GetValue(), Is.Empty, "Another task's model would be refused.");
     }
 
@@ -519,15 +519,15 @@ public sealed class GenerativeNodeModelTests
             new StubEntitlements());
         var node = new AiVideoGenerationNode();
         using var vm = CreateEditor(node.Duration.Property!);
-        EnumEditor editor = await ShowAsync(vm, catalog, e => e.Items.Count == 3);
-        Assert.That(editor.Items.Select(i => i.DisplayName).First(), Is.EqualTo($"4 {Strings.AiVideoSeconds}"));
+        EnumEditor editor = await ShowAsync(vm, catalog, e => e.Items is { Count: 3 });
+        Assert.That(editor.Items?.FirstOrDefault()?.DisplayName, Is.EqualTo($"4 {Strings.AiVideoSeconds}"));
         Assert.That(editor.SelectedIndex, Is.EqualTo(1), "The AI tab starts on 6 seconds.");
 
         node.Model.Property!.SetValue("odd");
         HeadlessTestHelpers.Render(3);
 
         Assert.That(node.Duration.Property!.GetValue(), Is.EqualTo(5));
-        Assert.That(editor.Items.Select(i => i.Value), Is.EqualTo(new object[] { 5, 10 }));
+        Assert.That(editor.Items?.Select(i => i.Value), Is.EqualTo(new object[] { 5, 10 }));
     }
 
     [AvaloniaTest]
@@ -824,7 +824,7 @@ public sealed class GenerativeNodeModelTests
         IGenerativeModelCatalog catalog,
         Func<EnumEditor, bool>? ready = null)
     {
-        ready ??= editor => editor.Items.Count > 1;
+        ready ??= editor => editor.Items is { Count: > 1 };
         vm.Accept(new PropertyEditorTestHost.ServiceVisitor((typeof(IGenerativeModelCatalog), catalog)));
         Assert.That(PropertyEditorHost.TryCreateControl(vm, PropertyEditorSurface.Node, out var control), Is.True);
         var editor = (EnumEditor)control!;

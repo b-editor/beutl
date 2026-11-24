@@ -359,7 +359,7 @@ public sealed class SchemaGenerationTests
             Assert.That(Property(nameof(Echo.BlendMode)).EnumValues, Is.EqualTo(new[] { nameof(EchoBlendMode.NewestOnTop), nameof(EchoBlendMode.Add) }));
             Assert.That(descriptor.Properties.Where(property => property.Animatable).Select(property => property.Name),
                 Is.EquivalentTo(animatedProperties));
-            Assert.That(descriptor.Properties, Has.All.Matches<PropertyDescriptor>(property => property.SupportsExpression));
+            Assert.That(descriptor.Properties, Has.All.Matches<PropertyDescriptor>(property => property is { SupportsExpression: true }));
         }
 
         PropertyDescriptor Property(string name) => descriptor.Properties.Single(property => property.Name == name);

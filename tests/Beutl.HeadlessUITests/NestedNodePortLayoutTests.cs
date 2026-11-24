@@ -40,7 +40,7 @@ public class NestedNodePortLayoutTests
                 .Single(p => ReferenceEquals(p.DataContext, member));
             Assert.That(point.IsEnabled, Is.True);
 
-            node.Object.Value.Brush.Expression = Expression.CreateReference<Brush?>(Guid.NewGuid());
+            node.Object.Value.Brush.Expression = Expression.CreateReference<Brush>(Guid.NewGuid());
             HeadlessTestHelpers.Render(3);
             Assert.That(member.CanConnect.Value, Is.False);
             Assert.That(point.IsEnabled, Is.False);

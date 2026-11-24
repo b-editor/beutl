@@ -908,6 +908,7 @@ public sealed class TimelineVirtualizationTests
         }
     }
 
+    [SuppressResourceClassGeneration]
     private sealed class CountingThumbnailSource(ThumbnailsKind kind = ThumbnailsKind.Audio, bool scaledSlots = false) : EngineObject, IThumbnailsProvider
     {
         private readonly HashSet<(int Height, int Index)> _yielded = [];

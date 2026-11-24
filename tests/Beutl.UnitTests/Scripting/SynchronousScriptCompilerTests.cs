@@ -71,7 +71,6 @@ public sealed class SynchronousScriptCompilerTests
     {
         var options = ScriptOptions.Default
             .WithFilePath("script.csx")
-            .WithFileEncoding(null)
             .WithEmitDebugInformation(true);
         var script = CSharpScript.Create<object>("21 * 2", options);
         Assert.That(script.GetCompilation().GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), Is.False);

@@ -330,7 +330,7 @@ public class SharedMediaReadersTests
 
         Assert.That(await opening.WaitAsync(TimeSpan.FromSeconds(10)), Is.False);
         Assert.That(_opened, Has.Count.EqualTo(2));
-        Assert.That(_opened, Has.All.Matches<FakeReader>(reader => reader.IsDisposed));
+        Assert.That(_opened, Has.All.Matches<FakeReader>(reader => reader is { IsDisposed: true }));
     }
 
     [Test]

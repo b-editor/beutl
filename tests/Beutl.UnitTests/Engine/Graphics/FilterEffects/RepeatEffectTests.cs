@@ -847,16 +847,16 @@ public sealed class RepeatEffectTests
 
         public override void Process(RenderNodeContext context)
             => context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
-                "red-and-blue",
-                static (session, _) =>
+                (Red: Colors.Red, Blue: Colors.Blue),
+                static (session, colors) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(s_picture);
-                    output.Canvas.Use(static canvas =>
+                    output.Canvas.Use(canvas =>
                     {
                         using (canvas.PushClip(new Rect(900, 500, 60, 80)))
-                            canvas.Clear(Colors.Red);
+                            canvas.Clear(colors.Red);
                         using (canvas.PushClip(new Rect(960, 500, 60, 80)))
-                            canvas.Clear(Colors.Blue);
+                            canvas.Clear(colors.Blue);
                     });
                     session.Publish(output);
                 },

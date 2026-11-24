@@ -372,14 +372,15 @@ public class ExtensionsStoreCaptureTests
                         canvas.DrawRoundRect(cx - r, cy - r, r * 2, r * 2, r * 0.3f, r * 0.3f, mark);
                         break;
                     case Shape.Diamond:
-                        using (var path2 = new SKPath())
+                        using (var pathBuilder = new SKPathBuilder())
                         {
-                            path2.MoveTo(cx, cy - r * 1.2f);
-                            path2.LineTo(cx + r * 1.2f, cy);
-                            path2.LineTo(cx, cy + r * 1.2f);
-                            path2.LineTo(cx - r * 1.2f, cy);
-                            path2.Close();
-                            canvas.DrawPath(path2, mark);
+                            pathBuilder.MoveTo(cx, cy - r * 1.2f);
+                            pathBuilder.LineTo(cx + r * 1.2f, cy);
+                            pathBuilder.LineTo(cx, cy + r * 1.2f);
+                            pathBuilder.LineTo(cx - r * 1.2f, cy);
+                            pathBuilder.Close();
+                            using SKPath diamond = pathBuilder.Detach();
+                            canvas.DrawPath(diamond, mark);
                         }
 
                         break;

@@ -55,22 +55,23 @@ public class TerminalControlInputTests
 
         using var view = new TerminalTabView();
         using var host = new ControlHost(view, 640, 320);
+        var clipboard = host.Window.Clipboard ?? throw new AssertionException("Expected a clipboard on the headless window.");
         var terminal = view.FindControl<TerminalControl>("Terminal")!;
         terminal.StartPty("/bin/cat");
         terminal.WriteOutput("copy this"u8);
         terminal.SelectAll();
         HeadlessTestHelpers.Click(terminal, new Point(10, 10), MouseButton.Right);
-        Assert.That((await host.Window.Clipboard!.TryGetTextAsync())?.Trim(), Is.EqualTo("copy this"));
+        Assert.That((await clipboard.TryGetTextAsync())?.Trim(), Is.EqualTo("copy this"));
         Assert.That(terminal.HasSelection, Is.False);
 
-        await host.Window.Clipboard.SetTextAsync("paste this");
+        await clipboard.SetTextAsync("paste this");
         HeadlessTestHelpers.Click(terminal, new Point(10, 10), MouseButton.Right);
         await HeadlessTestHelpers.WaitUntilAsync(() => ScreenText(terminal).Contains("paste this"));
         terminal.SelectAll();
         host.Window.KeyPress(Key.C, RawInputModifiers.Control, PhysicalKey.C, "c");
         host.Window.KeyRelease(Key.C, RawInputModifiers.Control, PhysicalKey.C, "c");
         HeadlessTestHelpers.Settle();
-        Assert.That(await host.Window.Clipboard.TryGetTextAsync(), Does.Contain("copy this"));
+        Assert.That(await clipboard.TryGetTextAsync(), Does.Contain("copy this"));
         Assert.That(terminal.HasActiveSession, Is.True);
 
         terminal.WriteOutput("\u001b[?1000h"u8);

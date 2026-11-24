@@ -69,7 +69,7 @@ public sealed class LevelMeterControlTests
         frame.Arrange(new Rect(bitmap.Size));
         using var output = new RenderTargetBitmap(bitmap.PixelSize);
         output.Render(frame);
-        output.Save(Path.Combine(directory, name + ".png"));
+        output.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
     }
 
     private static float[] Sine(int channels, float[] amplitudes)

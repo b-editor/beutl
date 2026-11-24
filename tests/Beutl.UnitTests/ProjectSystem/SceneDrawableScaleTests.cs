@@ -294,8 +294,8 @@ public class SceneDrawableScaleTests
             Assert.That(retrying.ObservedOutputScales, Is.EqualTo(new[] { 1f, 2f }));
             Assert.That(child.Children, Has.Count.EqualTo(2));
             Assert.That(child.Children, Is.Not.EqualTo(firstOutputs));
-            Assert.That(child.Children, Has.All.Matches<RenderNode>(node => !node.IsDisposed));
-            Assert.That(firstOutputs, Has.All.Matches<RenderNode>(node => node.IsDisposed));
+            Assert.That(child.Children, Has.All.Matches<RenderNode>(node => node is { IsDisposed: false }));
+            Assert.That(firstOutputs, Has.All.Matches<RenderNode>(node => node is { IsDisposed: true }));
         });
     }
 

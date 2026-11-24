@@ -24,7 +24,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Document, Is.Null);
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidUtf8));
+                error?.Kind == CaptionDiagnosticKinds.InvalidUtf8));
         });
     }
 
@@ -62,7 +62,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.Document!.Cues.Select(cue => cue.Text),
                 Is.EqualTo(new[] { "first", "second" }));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.InvalidStructure));
+                diagnostic?.Kind == CaptionDiagnosticKinds.InvalidStructure));
         });
     }
 
@@ -120,7 +120,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Document, Is.Null);
             Assert.That(result.Diagnostics, Has.Some.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidTiming));
+                error?.Kind == CaptionDiagnosticKinds.InvalidTiming));
         });
     }
 
@@ -148,7 +148,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document!.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "first", "third" }));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.InvalidTiming));
+                diagnostic?.Kind == CaptionDiagnosticKinds.InvalidTiming));
         }
     }
 
@@ -260,9 +260,9 @@ public class CaptionDocumentSerializerTests
         Assert.Multiple(() =>
         {
             Assert.That(missingHeader.Diagnostics, Has.One.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidHeader));
+                error?.Kind == CaptionDiagnosticKinds.InvalidHeader));
             Assert.That(badTiming.Diagnostics, Has.One.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidTiming));
+                error?.Kind == CaptionDiagnosticKinds.InvalidTiming));
             Assert.That(missingHeader.Document, Is.Null);
             Assert.That(badTiming.Document, Is.Null);
         });
@@ -291,7 +291,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document!.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "first", "third" }));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.InvalidTiming));
+                diagnostic?.Kind == CaptionDiagnosticKinds.InvalidTiming));
         }
     }
 
@@ -327,7 +327,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.Document![0].Speaker, Is.EqualTo(expectedSpeaker));
             Assert.That(result.Document[0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+                diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -349,7 +349,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Document[0].Language, Is.EqualTo(expectedLanguage));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+                diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -365,7 +365,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document![0].Text, Is.EqualTo("text"));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+                diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -385,7 +385,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+                diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -430,7 +430,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document!.Cues, Is.Empty);
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+                diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -502,7 +502,7 @@ public class CaptionDocumentSerializerTests
                 "ja-JP",
                 Metadata(CaptionMetadataKeys.AssStyle, "Narration"))));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+                diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         });
     }
 
@@ -521,7 +521,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+                diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -547,7 +547,7 @@ public class CaptionDocumentSerializerTests
                 result.Document![0].Metadata.GetValueOrDefault(CaptionMetadataKeys.AssStyle),
                 Is.EqualTo("Narration"));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+                diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
         }
     }
 
@@ -571,7 +571,7 @@ public class CaptionDocumentSerializerTests
         CaptionImportResult result = new AssCaptionCodec().Decode(withUnusedStyle);
 
         Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-            diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+            diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
     }
 
     [Test]
@@ -589,7 +589,7 @@ public class CaptionDocumentSerializerTests
         CaptionImportResult result = new AssCaptionCodec().Decode(reordered);
 
         Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-            diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+            diagnostic?.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
     }
 
     [Test]
@@ -739,7 +739,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Document, Is.Null);
             Assert.That(result.Diagnostics, Has.Some.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidTiming));
+                error?.Kind == CaptionDiagnosticKinds.InvalidTiming));
         });
     }
 
@@ -761,7 +761,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Document!.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "first", "third" }));
             Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
-                diagnostic.Kind == CaptionDiagnosticKinds.InvalidTiming));
+                diagnostic?.Kind == CaptionDiagnosticKinds.InvalidTiming));
         }
     }
 
@@ -778,9 +778,9 @@ public class CaptionDocumentSerializerTests
         Assert.Multiple(() =>
         {
             Assert.That(missingEvents.Diagnostics, Has.One.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidHeader));
+                error?.Kind == CaptionDiagnosticKinds.InvalidHeader));
             Assert.That(unsupportedFormat.Diagnostics, Has.One.Matches<CaptionDiagnostic>(error =>
-                error.Kind == CaptionDiagnosticKinds.InvalidStructure));
+                error?.Kind == CaptionDiagnosticKinds.InvalidStructure));
         });
     }
 

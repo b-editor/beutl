@@ -239,14 +239,12 @@ public sealed class SessionToolsTests
                 Is.All.EqualTo(elementRelativePath));
             Assert.That(opened.Value.RecoveryIncidents,
                 Has.One.Matches<RecoveryIncident>(incident =>
-                    incident.Reason == nameof(FallbackReason.TypeNotFound)
-                    && incident.TypeName == MissingType
-                    && incident.Message is null));
+                    incident is { Reason: nameof(FallbackReason.TypeNotFound), TypeName: MissingType, Message: null }));
             Assert.That(opened.Value.RecoveryIncidents,
                 Has.One.Matches<RecoveryIncident>(incident =>
-                    incident.Reason == nameof(FallbackReason.TypeNotFound)
+                    incident is { Reason: nameof(FallbackReason.TypeNotFound), Message: { } message }
                     && incident.TypeName == "[Missing.Assembly]Missing.Namespace:MissingEasing"
-                    && incident.Message!.Contains("could not be resolved", StringComparison.Ordinal)));
+                    && message.Contains("could not be resolved", StringComparison.Ordinal)));
         });
     }
 

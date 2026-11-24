@@ -506,7 +506,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(observations, Has.Count.EqualTo(2));
             Assert.That(
                 observations.Select(static item => item.InputSupplies),
-                Is.All.Matches<IReadOnlyList<EffectiveScale>>(static supplies => supplies.Count == 1));
+                Is.All.Matches<IReadOnlyList<EffectiveScale>>(static supplies => supplies is { Count: 1 }));
             Assert.That(
                 observations.Select(static item => item.InputSupplies.Single()),
                 Is.EqualTo(new[] { EffectiveScale.At(0.5f), EffectiveScale.At(2) }));
@@ -1384,7 +1384,7 @@ public class SourceEffectiveScaleFlowTests
         {
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns.Count(), Is.EqualTo(2));
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns, Has.All.Matches<CompiledShaderRun>(
-                static run => run.StageFragmentIndices.Length == 1));
+                static run => run is { StageFragmentIndices.Length: 1 }));
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns.Last().GetInput(mismatchRequest.Graph),
                 Is.SameAs(mismatchRequest.ExecutionPlan.ShaderRuns.First().GetOutput(mismatchRequest.Graph)));
             Assert.That(sameDensityRequest.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices,

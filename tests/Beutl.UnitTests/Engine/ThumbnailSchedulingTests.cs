@@ -43,7 +43,7 @@ public class ThumbnailSchedulingTests
 
             Assert.That(await generation.WaitAsync(s_timeout), Is.EqualTo(video || cancel ? 0 : 1));
             Assert.That(decoder.Readers, Has.Count.EqualTo(1));
-            Assert.That(decoder.Readers, Has.All.Matches<MediaReader>(r => r.IsDisposed));
+            Assert.That(decoder.Readers, Has.All.Matches<MediaReader>(r => r is { IsDisposed: true }));
         }
         finally
         {
@@ -97,7 +97,7 @@ public class ThumbnailSchedulingTests
 
         await second.DisposeAsync();
         Assert.That(decoder.Readers, Has.Count.EqualTo(1));
-        Assert.That(decoder.Readers, Has.All.Matches<MediaReader>(r => r.IsDisposed));
+        Assert.That(decoder.Readers, Has.All.Matches<MediaReader>(r => r is { IsDisposed: true }));
     }
 
     private static IThumbnailsProvider CreateProvider(string path, bool video)

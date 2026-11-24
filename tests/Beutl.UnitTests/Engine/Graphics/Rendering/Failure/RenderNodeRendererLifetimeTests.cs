@@ -102,7 +102,7 @@ public sealed class RenderNodeRendererLifetimeTests
             Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.EqualTo(1));
             Assert.That(renderer.TargetPoolStatistics.OwnedTargets, Is.GreaterThanOrEqualTo(1));
             Assert.That(factory.Targets, Is.Not.Empty);
-            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => !target.IsDisposed));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { IsDisposed: false }));
         });
 
         renderer.Dispose();
@@ -115,8 +115,8 @@ public sealed class RenderNodeRendererLifetimeTests
             Assert.That(renderer.ProgramCacheStatistics.RetainedBytes, Is.Zero);
             Assert.That(renderer.TargetPoolStatistics.OwnedTargets, Is.Zero);
             Assert.That(renderer.TargetPoolStatistics.OwnedBytes, Is.Zero);
-            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.IsDisposed));
-            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { IsDisposed: true }));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target is { DisposeCalls: 1 }));
             Assert.That(factory.IsDisposed, Is.False, "The caller owns the target factory.");
             Assert.That(node.IsDisposed, Is.False, "The caller owns the root node.");
             Assert.That(node.Cache.IsDisposed, Is.False, "The root owns its render cache.");

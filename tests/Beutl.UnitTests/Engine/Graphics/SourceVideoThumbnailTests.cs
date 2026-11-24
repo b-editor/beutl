@@ -109,7 +109,7 @@ public class SourceVideoThumbnailTests
         await SourceVideo.DisposeThumbnailRenderResourcesAsync(resources);
 
         Assert.That(resources, Has.All.Matches<DisposalThreadProbe>(static item =>
-            item.DisposeCount == 1 && item.DisposedOnRenderThread));
+            item is { DisposeCount: 1, DisposedOnRenderThread: true }));
     }
 
     [Test]

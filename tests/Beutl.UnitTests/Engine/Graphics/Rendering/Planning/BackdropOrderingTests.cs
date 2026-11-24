@@ -163,7 +163,7 @@ public sealed class BackdropOrderingTests
             Assert.That(references.Count(static item => item.Kind == RenderFragmentKind.TargetCommand),
                 Is.EqualTo(1));
             Assert.That(references, Has.None.Matches<RenderFragmentReference>(
-                static item => item.Kind == RenderFragmentKind.RawTargetCommand));
+                static item => item is { Kind: RenderFragmentKind.RawTargetCommand }));
         });
     }
 

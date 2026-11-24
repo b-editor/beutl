@@ -380,7 +380,7 @@ public sealed class ListItemLayoutTests
             // The row with the name shows the buttons to hide and remove the transform.
             Button[] buttons = NameRowButtons(item);
             Assert.That(buttons, Has.Length.EqualTo(2));
-            Assert.That(buttons, Has.All.Matches<Button>(b => b.IsEffectivelyVisible));
+            Assert.That(buttons, Has.All.Matches<Button>(b => b is { IsEffectivelyVisible: true }));
             HeadlessTestHelpers.Click(buttons.OfType<ToggleButton>().Single(), ticks: 3);
             Assert.That(scale.IsEnabled.Value, Is.False);
             HeadlessTestHelpers.Click(buttons.OfType<ToggleButton>().Single(), ticks: 3);
@@ -392,7 +392,7 @@ public sealed class ListItemLayoutTests
             Assert.That(nameRow.IsEffectivelyVisible, Is.False);
             await Settle();
             Assert.That(item.ReorderHandle, Is.SameAs(icon));
-            Assert.That(buttons, Has.None.Matches<Button>(b => b.IsEffectivelyVisible));
+            Assert.That(buttons, Has.None.Matches<Button>(b => b is { IsEffectivelyVisible: true }));
 
             HeadlessTestHelpers.Click(Grip(icon), ticks: 3);
             await Settle();
@@ -546,7 +546,7 @@ public sealed class ListItemLayoutTests
                 ToggleButton nameRow = item.FindControl<ToggleButton>("reorderHandle")!;
                 Assert.That(item.ReorderHandle, Is.SameAs(nameRow));
                 Assert.That(nameRow.IsEffectivelyVisible, Is.True);
-                Assert.That(NameRowButtons(item), Has.All.Matches<Button>(b => b.IsEffectivelyVisible));
+                Assert.That(NameRowButtons(item), Has.All.Matches<Button>(b => b is { IsEffectivelyVisible: true }));
                 Assert.That(item.FindControl<Panel>("content")!.IsVisible, Is.True);
             }
             finally
