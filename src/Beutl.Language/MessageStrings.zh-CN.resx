@@ -566,4 +566,13 @@
   <data name="ExtensionUpdatesIncluded" xml:space="preserve">
     <value>将同时更新 {0} 个扩展。</value>
   </data>
+  <data name="FlowInputMissingDrawable" xml:space="preserve">
+    <value>{0}需要一个绘图对象。请将其放在下方图层，使两个片段在时间上重叠，并将该图层纳入传送门的“数量”范围。</value>
+  </data>
+  <data name="FlowInputMissingObject3D" xml:space="preserve">
+    <value>{0}需要一个3D对象。请将其放在下方图层，使两个片段在时间上重叠，并将该图层纳入传送门的“数量”范围。</value>
+  </data>
+  <data name="FlowInputMissingSound" xml:space="preserve">
+    <value>{0}需要一个音频对象。请将其放在下方图层，使两个片段在时间上重叠，并将该图层纳入传送门的“数量”范围。</value>
+  </data>
 </root>

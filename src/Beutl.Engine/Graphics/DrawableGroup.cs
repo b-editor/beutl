@@ -9,7 +9,7 @@ using Beutl.Media;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(GraphicsStrings.Group), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class DrawableGroup : Drawable, IFlowOperator
+public sealed partial class DrawableGroup : Drawable, IFlowInputOperator
 {
     public DrawableGroup()
     {
@@ -20,6 +20,12 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.Children), ResourceType = typeof(GraphicsStrings))]
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
+
+    FlowInputKind IFlowInputOperator.RequiredInput => FlowInputKind.Drawable;
+
+    bool IFlowInputOperator.HasNestedInput => Children.Count > 0;
+
+    string IFlowInputOperator.MissingInputMessage => MessageStrings.FlowInputMissingDrawable;
 
     /// <summary>
     /// Pushes the node that applies a container's transform to its content, laid out from the top-left corner.

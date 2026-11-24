@@ -35,13 +35,20 @@
             Classes.elm-disabled="{Binding !IsEnabled.Value}"
             Classes.elm-locked="{Binding !IsEditable.Value}"
             Classes.selected="{Binding IsSelected.Value}"
-            ToolTip.Tip="{Binding RecoveryProtectionToolTip.Value}">
+            ToolTip.Tip="{Binding ClipToolTip.Value}">
         <Border.Transitions>
             <Transitions>
                 <DoubleTransition Property="Opacity" Duration="00:00:00.083" />
             </Transitions>
         </Border.Transitions>
         <Border.Styles>
+            <Style Selector="ToolTip">
+                <Setter Property="ContentTemplate">
+                    <DataTemplate x:DataType="x:String">
+                        <TextBlock MaxWidth="300" Text="{Binding}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                </Setter>
+            </Style>
             <Style Selector="Border:pressed">
                 <Setter Property="Opacity" Value="0.8" />
             </Style>
@@ -274,9 +281,8 @@
                                     Scale="{Binding Timeline.Scale^}"
                                     Stroke="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
                                     Times="{Binding KeyFrameMarkTimes.Value}" />
-            <!-- The lock and recovery (part of the clip could not be loaded) glyphs own columns; the label clears them.
-                 None of them takes pointer input, so a long name does not cover the transition handles. -->
-            <Grid Height="21" ColumnDefinitions="Auto,Auto,Auto,*" VerticalAlignment="Center">
+            <!-- The status glyphs own columns and leave pointer input to the clip. -->
+            <Grid Height="21" ColumnDefinitions="Auto,Auto,Auto,Auto,*" VerticalAlignment="Center">
                 <icons:FluentIcon x:Name="lockIcon"
                                   Grid.Column="0"
                                   Margin="6,0,0,0"
@@ -295,8 +301,18 @@
                                   IsHitTestVisible="False"
                                   IsVisible="{Binding IsRecoveryProtected.Value}"
                                   Icon="Warning" />
+                <icons:FluentIcon x:Name="flowInputWarningIcon"
+                                  Grid.Column="2"
+                                  Margin="6,0,0,0"
+                                  VerticalAlignment="Center"
+                                  FontSize="14"
+                                  Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                  IsHitTestVisible="False"
+                                  IsVisible="{Binding FlowInputWarning.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                  Icon="Warning"
+                                  IconVariant="Filled" />
                 <TextBlock x:Name="matteIndicator"
-                           Grid.Column="2"
+                           Grid.Column="3"
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
@@ -304,7 +320,7 @@
                            Text="{Binding MatteIndicator.Value}"
                            IsVisible="{Binding MatteIndicator.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 <TextBlock x:Name="textBlock"
-                           Grid.Column="3"
+                           Grid.Column="4"
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            ClipToBounds="True"
@@ -312,7 +328,7 @@
                            IsHitTestVisible="False"
                            Text="{Binding Name.Value}" />
                 <TextBox x:Name="textBox"
-                         Grid.Column="3"
+                         Grid.Column="4"
                          Height="21"
                          MinHeight="0"
                          HorizontalAlignment="Stretch"

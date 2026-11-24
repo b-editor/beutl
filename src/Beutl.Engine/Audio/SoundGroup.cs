@@ -9,7 +9,7 @@ using Beutl.Media.Source;
 namespace Beutl.Audio;
 
 [Display(Name = nameof(AudioStrings.SoundGroup), ResourceType = typeof(AudioStrings))]
-public sealed partial class SoundGroup : Sound, IFlowOperator
+public sealed partial class SoundGroup : Sound, IFlowInputOperator
 {
     public SoundGroup()
     {
@@ -19,6 +19,12 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
 
     [SuppressResourceClassGeneration]
     public IListProperty<Sound> Children { get; } = Property.CreateList<Sound>();
+
+    FlowInputKind IFlowInputOperator.RequiredInput => FlowInputKind.Sound;
+
+    bool IFlowInputOperator.HasNestedInput => Children.Count > 0;
+
+    string IFlowInputOperator.MissingInputMessage => MessageStrings.FlowInputMissingSound;
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {

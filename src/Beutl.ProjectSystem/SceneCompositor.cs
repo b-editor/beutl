@@ -809,8 +809,7 @@ public sealed partial class SceneCompositor : ICompositor
                 flow.Add(GetOrCreateResource(obj, context));
             }
 
-            if (context.GraphicsState is { } frame && element.MatteMode.Value != MatteMode.None
-                && (element.MatteSourceKind.Value != MatteSourceKind.Layer || element.MatteSourceZIndex.Value != null))
+            if (context.GraphicsState is { } frame && element.HasTrackMatte)
             {
                 ApplyTrackMatte(element, element.GetMatteSourceZIndex(Scene, frame.Time), context, flow);
             }
