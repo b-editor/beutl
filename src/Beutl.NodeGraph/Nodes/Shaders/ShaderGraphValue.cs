@@ -7,6 +7,10 @@ using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.NodeGraph.Nodes.Shaders;
 
+/// <summary>A failed pass whose originating node is responsible for reporting the error.</summary>
+internal sealed class ShaderPassFailureException(string message, Exception? innerException = null)
+    : InvalidOperationException(message, innerException);
+
 /// <summary>A wire value that <see cref="ShaderGraphRecordingContext"/> can record without knowing its type.</summary>
 internal interface IShaderGraphValue
 {

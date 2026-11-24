@@ -1161,6 +1161,80 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    [TestCase(false, "account-b")]
+    [TestCase(false, null)]
+    [TestCase(true, "account-b")]
+    [TestCase(true, null)]
+    public async Task IdentityChangeAfterAChargeLeavesTheSubtitleRunRecoverable(bool translation, string? nextAccount)
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-account");
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(0.1);
+        BeutlApiApplication? clients = null;
+        int availabilityChecks = 0;
+        int paidCalls = 0;
+        string endpoint = translation ? "/api/v3/ai/translations" : "/api/v3/ai/transcriptions";
+        await using var api = new ApiScope(new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/ai-availability")
+            {
+                availabilityChecks++;
+                return JsonResponse(HttpStatusCode.OK, """{"available":true}""");
+            }
+            if (request.RequestUri?.AbsolutePath == endpoint)
+            {
+                paidCalls++;
+                Assert.That(request.Headers.Authorization?.Parameter, Is.EqualTo("token-test-user"));
+                HttpResponseMessage response = translation
+                    ? CreateTranslationResponse(request, "first")
+                    : CreateTranscriptionResponse("first");
+                SetAuthenticatedUser(clients!, nextAccount);
+                return response;
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        }, handleAvailability: false));
+        clients = api.Clients;
+        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"subtitle-account-{Guid.NewGuid():N}");
+        var draftStore = new FileCaptionDraftStore(directory);
+        var scope = new CaptionDraftScope("test-user", Guid.NewGuid(), editor.Scene.Id.Value);
+        using var recovery = TrackAccount(clients, new FileAiRequestKeyMap(directory));
+        IObservable<CaptionDraftScope?> draftScopes = clients.AuthenticatedUser.Select(user =>
+            user is null ? null : new CaptionDraftScope(user.Profile.Id, scope.ProjectId, scope.SceneId));
+        await using (var dialog = CreateSubtitleDialog(clients, editor, draftStore, draftScopes, recoveryContext: recovery))
+        {
+            UseSilentSceneMix(dialog, TimeSpan.FromMilliseconds(50));
+            await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value);
+            if (translation)
+            {
+                dialog.ResultSegments.Value = CreateTranslationBatchSegments();
+                await WaitUntilAsync(() => dialog.CanTranslate.Value);
+                await dialog.Translate.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            else
+            {
+                await WaitUntilAsync(() => dialog.CanTranscribe.Value);
+                await dialog.Transcribe.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            Assert.That(dialog.ResultSegments.Value, Is.Null);
+        }
+
+        Assert.That(draftStore.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            CaptionDraft? draft = session!.Read().Entry?.Draft;
+            Assert.Multiple(() =>
+            {
+                Assert.That(availabilityChecks, Is.EqualTo(1));
+                Assert.That(paidCalls, Is.EqualTo(1));
+                Assert.That(translation
+                    ? draft?.TranslationResume?.RequestKeyNamePending
+                    : draft?.SceneTranscriptionResume?.RequestKeyNamePending, Is.True);
+            });
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Silent_transcription_chunk_completes_before_the_next_spoken_chunk()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("silent-transcription-chunk");

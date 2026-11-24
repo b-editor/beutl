@@ -190,6 +190,9 @@ public class SimpleColorPicker : TemplatedControl
             .Subscribe(OnOpacityBoxTextChanged)
             .DisposeWith(_disposables);
 
+        _opacityBox?.AddDisposableHandler(LostFocusEvent, OnOpacityBoxLostFocus)
+            .DisposeWith(_disposables);
+
         _opacityBox?.AddDisposableHandler(PointerWheelChangedEvent, OnOpacityBoxPointerWheelChanged, RoutingStrategies.Tunnel)
             .DisposeWith(_disposables);
 
@@ -430,16 +433,29 @@ public class SimpleColorPicker : TemplatedControl
 
     private static bool TryParseOpacity(string? s, out float r)
     {
-        r = 0;
-        if (string.IsNullOrWhiteSpace(s)) return false;
-
-        string text = s.Trim();
-        if (text.EndsWith('%'))
+        if (!RelativeUnitParser.TryStripPercentUnits(s, out string expression, out _))
         {
-            text = text.TrimEnd('%');
+            r = 0;
+            return false;
         }
 
-        return NumberEditorHelper.TryParse(text, out r);
+        return NumberEditorHelper.TryParse(expression, out r);
+    }
+
+    private void OnOpacityBoxLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (_opacityBox != null && !_ignoreColorChange && !DataValidationErrors.GetHasErrors(_opacityBox))
+        {
+            try
+            {
+                _ignoreColorChange = true;
+                _opacityBox.Text = Color.Af.ToString("P0");
+            }
+            finally
+            {
+                _ignoreColorChange = false;
+            }
+        }
     }
 
     private void OnOpacityBoxTextChanged(AvaloniaPropertyChangedEventArgs args)
@@ -448,7 +464,8 @@ public class SimpleColorPicker : TemplatedControl
         {
             if (TryParseOpacity(_opacityBox.Text, out float f))
             {
-                UpdateColor(Color.WithAlphaf(f / 100f), ignoreOpacity: f >= 0 && f <= 100);
+                DataValidationErrors.ClearErrors(_opacityBox);
+                UpdateColor(Color.WithAlphaf(f / 100f), ignoreOpacity: _opacityBox.IsKeyboardFocusWithin || (f >= 0 && f <= 100));
             }
             else
             {

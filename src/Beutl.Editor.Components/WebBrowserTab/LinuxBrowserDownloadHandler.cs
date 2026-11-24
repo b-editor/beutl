@@ -29,6 +29,7 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
     private readonly Action<Uri?, string, IBrowserDownloadSource, Uri?> _onGeneratedDownload;
     private readonly Action<Uri, string?> _onNewWindowRequested;
     private readonly Action<Uri> _onWindowOpened;
+    private nint _referrerPolicyScript;
     private volatile bool _disposed;
 
     private LinuxBrowserDownloadHandler(Api api, nint webView, Action<Uri, string?> onDownload,
@@ -53,9 +54,15 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
         var handler = new LinuxBrowserDownloadHandler(api, ObjectRef(webView), onDownload, onGeneratedDownload,
             onNewWindowRequested, onWindowOpened);
         lock (s_lock) s_handlers[handler._webView] = handler;
-        _ = OnGlibAsync(api.InstallHooks);
         return handler;
     }
+
+    internal Task InstallAsync() => OnGlibAsync(() =>
+    {
+        if (_disposed) return;
+        _api.InstallHooks();
+        _referrerPolicyScript = _api.AddReferrerPolicyScript(_webView);
+    });
 
     public void Dispose()
     {
@@ -65,7 +72,11 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
         {
             if (s_handlers.TryGetValue(_webView, out var current) && current == this) s_handlers.Remove(_webView);
         }
-        _ = OnGlibAsync(() => ObjectUnref(_webView));
+        _ = OnGlibAsync(() =>
+        {
+            if (_referrerPolicyScript != 0) _api.RemoveReferrerPolicyScript(_webView, _referrerPolicyScript);
+            ObjectUnref(_webView);
+        });
     }
 
     // Runs on the GLib thread during the decision, so it must not wait for the UI thread, which may be waiting for GLib.
@@ -178,6 +189,10 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
         private readonly delegate* unmanaged[Cdecl]<nint, void> _cancel;
         private readonly delegate* unmanaged[Cdecl]<nint, nint> _getNavigationAction, _getActionRequest, _getHeaders;
         private readonly delegate* unmanaged[Cdecl]<nint, byte*, nint> _getHeader;
+        private readonly delegate* unmanaged[Cdecl]<nint, nint> _getUserContentManager;
+        private readonly delegate* unmanaged[Cdecl]<nint, int, int, nint, nint, nint> _newUserScript;
+        private readonly delegate* unmanaged[Cdecl]<nint, nint, void> _addUserScript, _removeUserScript;
+        private readonly delegate* unmanaged[Cdecl]<nint, void> _unrefUserScript;
 
         private Api(nint webkit, nint soup, bool wpe)
         {
@@ -187,12 +202,20 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
             _getRequestUri = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_uri_request_get_uri");
             _getHeaders = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_uri_request_get_http_headers");
             _getHeader = (delegate* unmanaged[Cdecl]<nint, byte*, nint>)NativeLibrary.GetExport(soup, "soup_message_headers_get_one");
+            _getUserContentManager = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_web_view_get_user_content_manager");
+            _newUserScript = (delegate* unmanaged[Cdecl]<nint, int, int, nint, nint, nint>)NativeLibrary.GetExport(webkit, "webkit_user_script_new");
+            _addUserScript = (delegate* unmanaged[Cdecl]<nint, nint, void>)NativeLibrary.GetExport(webkit, "webkit_user_content_manager_add_script");
+            _unrefUserScript = (delegate* unmanaged[Cdecl]<nint, void>)NativeLibrary.GetExport(webkit, "webkit_user_script_unref");
+            if (NativeLibrary.TryGetExport(webkit, "webkit_user_content_manager_remove_script", out nint removeScript))
+                _removeUserScript = (delegate* unmanaged[Cdecl]<nint, nint, void>)removeScript;
             // WPE decides responses itself and reports all new windows from create.
             if (wpe) return;
+            // Since WebKit 2.40; earlier versions cannot tell a subframe's response apart.
+            if (!NativeLibrary.TryGetExport(webkit, "webkit_response_policy_decision_is_main_frame_main_resource", out nint isMainFrameResource))
+                return;
+            _isMainFrameResource = (delegate* unmanaged[Cdecl]<nint, int>)isMainFrameResource;
             _getNavigationAction = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_navigation_policy_decision_get_navigation_action");
             _getWebContextType = (delegate* unmanaged[Cdecl]<nuint>)NativeLibrary.GetExport(webkit, "webkit_web_context_get_type");
-            // Since WebKit 2.40; earlier versions cannot tell a subframe's response apart.
-            _isMainFrameResource = (delegate* unmanaged[Cdecl]<nint, int>)NativeLibrary.GetExport(webkit, "webkit_response_policy_decision_is_main_frame_main_resource");
             _isMimeTypeSupported = (delegate* unmanaged[Cdecl]<nint, int>)NativeLibrary.GetExport(webkit, "webkit_response_policy_decision_is_mime_type_supported");
             _getRequest = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_response_policy_decision_get_request");
             _getResponse = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_response_policy_decision_get_response");
@@ -214,6 +237,7 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
         // Only touched on the GLib thread. The hooks serve every web view and stay for the process.
         internal void InstallHooks()
         {
+            if (!IsWpe && _isMainFrameResource == null) return;
             if (!IsWpe && !_policyHookInstalled)
             {
                 uint signal = SignalLookup("decide-policy", _getWebViewType());
@@ -232,6 +256,27 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
                 if (signal != 0) AddEmissionHook(signal, 0, (nint)(delegate* unmanaged[Cdecl]<nint, uint, nint, nint, int>)&OnCreate, 0, 0);
                 _createHookInstalled = signal != 0;
             }
+        }
+
+        internal nint AddReferrerPolicyScript(nint webView)
+        {
+            const int topFrame = 1; // WEBKIT_USER_CONTENT_INJECT_TOP_FRAME
+            const int documentStart = 0; // WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START
+            nint source = Marshal.StringToCoTaskMemUTF8(BrowserReferrerPolicyScript.Source);
+            nint script;
+            try { script = _newUserScript(source, topFrame, documentStart, 0, 0); }
+            finally { Marshal.FreeCoTaskMem(source); }
+            _addUserScript(_getUserContentManager(webView), script);
+            // The manager owns the installed script. Keep this handle only if it can remove the script on detach.
+            if (_removeUserScript != null) return script;
+            _unrefUserScript(script);
+            return 0;
+        }
+
+        internal void RemoveReferrerPolicyScript(nint webView, nint script)
+        {
+            _removeUserScript(_getUserContentManager(webView), script);
+            _unrefUserScript(script);
         }
 
         internal bool IsMainFrameResponse(nint decision) => _isMainFrameResource(decision) != 0;

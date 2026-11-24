@@ -46,6 +46,20 @@ public sealed class ExportMediaProviders : IDisposable
         Rational frameRate,
         int sampleRate,
         AudioChannelLayout channelLayout, DecoderRegistry? decoders = null)
+        => Create(scene, fonts, videoEnabled, audioEnabled, renderScale, frameRate, sampleRate, channelLayout,
+            decoders, onFrameRendered: null);
+
+    internal static ExportMediaProviders Create(
+        Scene scene,
+        FontManager fonts,
+        bool videoEnabled,
+        bool audioEnabled,
+        float renderScale,
+        Rational frameRate,
+        int sampleRate,
+        AudioChannelLayout channelLayout,
+        DecoderRegistry? decoders,
+        Action<Scene>? onFrameRendered)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
@@ -55,7 +69,8 @@ public sealed class ExportMediaProviders : IDisposable
             if (videoEnabled)
             {
                 providers._renderer = ExportRendererFactory.Create(scene, fonts, renderScale, decoders);
-                providers._frameProvider = new FrameProviderImpl(scene, frameRate, providers._renderer, providers._frameProgress);
+                providers._frameProvider = new FrameProviderImpl(
+                    scene, frameRate, providers._renderer, providers._frameProgress, onFrameRendered: onFrameRendered);
             }
 
             if (audioEnabled)

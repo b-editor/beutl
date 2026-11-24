@@ -1,12 +1,15 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Logging;
 
 using Beutl.Extensibility;
 using Beutl.Reactive;
@@ -42,7 +45,7 @@ public abstract class VectorEditorBase : PropertyEditor
     // The scrub of a header.
     private HeaderScrubGesture _scrub;
     private Control? _editSource;
-    private bool _isUnderlyingEdit;
+    private (RoutedEventArgs Args, int EditedComponents, bool IsUnderlyingEdit)? _valueChange;
 
     private bool IsRelativeEdit => _editSource is not TextBox;
 
@@ -93,16 +96,17 @@ public abstract class VectorEditorBase : PropertyEditor
     internal bool IsTextBoxFocused(int index)
         => index >= 0 && index < _textBoxes.Length && _textBoxes[index]?.IsFocused == true;
 
-    internal void RaiseUnderlyingValueChanged(RoutedEventArgs args)
+    internal void RaiseValueChanged(RoutedEventArgs args, int editedComponents, bool isUnderlyingEdit = false)
     {
-        _isUnderlyingEdit = true;
+        var previous = _valueChange;
+        _valueChange = (args, editedComponents, isUnderlyingEdit);
         try
         {
             RaiseEvent(args);
         }
         finally
         {
-            _isUnderlyingEdit = false;
+            _valueChange = previous;
         }
     }
 
@@ -138,7 +142,14 @@ public abstract class VectorEditorBase : PropertyEditor
         var valueHandlers = new ComponentValueHandlers(
             OnInnerTextBoxGotFocus, OnInnerTextBoxLostFocus, OnInnerTextBoxTextChanged, OnInnerTextBoxPointerWheelChanged);
         foreach (TextBox? textBox in _textBoxes)
+        {
+            if (textBox == null) continue;
             valueHandlers.Subscribe(textBox, _disposables);
+            textBox.AddDisposableHandler(TextInputEvent, OnInnerTextBoxTextInput, RoutingStrategies.Tunnel)
+                .DisposeWith(_disposables);
+            textBox.AddDisposableHandler(TextBox.PastingFromClipboardEvent, OnInnerTextBoxPasting)
+                .DisposeWith(_disposables);
+        }
 
         if (values.CanScrub)
         {
@@ -184,9 +195,16 @@ public abstract class VectorEditorBase : PropertyEditor
             {
                 if ((reportsMismatch ? e.Expect<TEdit>(s) : e as PropertyEditorValueChangedEventArgs<TEdit>) is { } args)
                 {
-                    show(_isUnderlyingEdit
-                        ? PreviewFocusedEdit(context, args.NewValue)
-                        : PreviewEdit(context, args.NewValue, IsRelativeEdit));
+                    if (_valueChange is { } change && ReferenceEquals(change.Args, e))
+                    {
+                        show(change.IsUnderlyingEdit
+                            ? PreviewFocusedEdit(context, args.NewValue)
+                            : PreviewEdit(context, args.NewValue, IsRelativeEdit, change.EditedComponents));
+                    }
+                    else
+                    {
+                        show(PreviewEdit(context, args.NewValue, IsRelativeEdit));
+                    }
                 }
             })
             .DisposeWith(connection);
@@ -277,6 +295,46 @@ public abstract class VectorEditorBase : PropertyEditor
         }
 
         UpdateErrors();
+    }
+
+    // Replacing a selection with identical text raises no text change, but can still change the linked components.
+    private void OnInnerTextBoxTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (IsUniformValue && !IsReadOnly && sender is TextBox { IsReadOnly: false } box
+            && e.Text is { Length: > 0 } input && input == box.SelectedText)
+        {
+            OnInnerTextBoxTextChanged(box, box.Text, box.Text);
+        }
+    }
+
+    private async void OnInnerTextBoxPasting(object? sender, RoutedEventArgs e)
+    {
+        if (!IsUniformValue || IsReadOnly || sender is not TextBox { IsReadOnly: false, IsKeyboardFocusWithin: true } box
+            || box.SelectionStart == box.SelectionEnd || TopLevel.GetTopLevel(box)?.Clipboard is not { } clipboard)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        string? input;
+        try
+        {
+            input = await clipboard.TryGetTextAsync();
+        }
+        catch (Exception ex) when (ex is TimeoutException or OperationCanceledException or UnauthorizedAccessException or COMException)
+        {
+            Logger.TryGet(LogEventLevel.Warning, LogArea.Control)?.Log(this, "Failed to read text from clipboard: {Error}", ex);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(input) || !box.IsKeyboardFocusWithin || !Array.Exists(_textBoxes, part => ReferenceEquals(part, box)))
+            return;
+
+        string? oldText = box.Text;
+        bool hadSelection = box.SelectionStart != box.SelectionEnd;
+        box.SelectedText = input;
+        if (IsUniformValue && hadSelection && box.SelectionStart == box.SelectionEnd && box.Text == oldText)
+            OnInnerTextBoxTextChanged(box, box.Text, oldText);
     }
 
     private void UpdateErrors()

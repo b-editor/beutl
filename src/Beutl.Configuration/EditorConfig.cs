@@ -39,6 +39,13 @@ public enum TimelineAutoScrollMode
     PageScroll
 }
 
+public enum TimelineLayerSize
+{
+    Small = 25,
+    Medium = 40,
+    Large = 64
+}
+
 // The numbers are what settings files hold. Auto took 0 from None, the default before Auto existed, so a preview left at
 // that default follows its display.
 public enum UIToneMappingOperator
@@ -123,6 +130,8 @@ public sealed partial class EditorConfig : ConfigurationBase
     // zooming a timeline full of media from decoding thumbnails.
     public IProperty<bool> ShowTimelineThumbnailsByDefault { get; } = Property.CreateValue(true);
 
+    public IProperty<TimelineLayerSize> TimelineLayerSize { get; } = Property.CreateValue(Configuration.TimelineLayerSize.Small);
+
     public IProperty<bool> IsTimelineSnapEnabled { get; } = Property.CreateValue(true);
 
     public IProperty<bool> IsRippleEnabled { get; } = Property.CreateValue(false);
@@ -199,6 +208,24 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         if (Enum.IsDefined(typeof(PreviewSourceMode), index))
             PreviewSourceMode.Value = (PreviewSourceMode)index;
+    }
+
+    private static readonly TimelineLayerSize[] s_timelineLayerSizeOrder =
+    [
+        Configuration.TimelineLayerSize.Small,
+        Configuration.TimelineLayerSize.Medium,
+        Configuration.TimelineLayerSize.Large
+    ];
+
+    public static int GetTimelineLayerSizeIndex(TimelineLayerSize size)
+    {
+        return Array.IndexOf(s_timelineLayerSizeOrder, size);
+    }
+
+    public void SetTimelineLayerSizeFromIndex(int index)
+    {
+        if ((uint)index < (uint)s_timelineLayerSizeOrder.Length)
+            TimelineLayerSize.Value = s_timelineLayerSizeOrder[index];
     }
 
     // The order the settings page lists the tone mapping modes in: Auto first, then the others as they were listed before

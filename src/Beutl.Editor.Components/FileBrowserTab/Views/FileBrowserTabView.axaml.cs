@@ -14,14 +14,12 @@ using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Views;
 
 public partial class FileBrowserTabView : UserControl
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => ControlNotifications.FromDataContextOrDefault(this);
 
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
     private readonly Dictionary<Control, CancellationTokenSource> _sectionTransitionCts = [];

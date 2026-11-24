@@ -307,4 +307,46 @@
   <data name="RingModulatorEffect_Mix" xml:space="preserve">
     <value>ミックス (%)</value>
   </data>
+  <data name="SourceSound_LibraryDescription" xml:space="preserve">
+    <value>メディアファイルの音声を再生します（オーディオクリップ、音声素材 / audio clip, sound source）。</value>
+  </data>
+  <data name="SceneSound_LibraryDescription" xml:space="preserve">
+    <value>別のシーンでミックスされた音声を再生します（ネスト音声、プリコンポ音声 / nested audio, precomp audio）。</value>
+  </data>
+  <data name="SoundGroup_LibraryDescription" xml:space="preserve">
+    <value>複数の音声をまとめてミックスし、一括で調整できるようにします（オーディオバス、サブミックス、オーディオグループ / audio bus, submix, audio group）。</value>
+  </data>
+  <data name="DelayEffect_LibraryDescription" xml:space="preserve">
+    <value>指定した間隔で音を繰り返します（エコー、ディレイ / echo, audio delay）。</value>
+  </data>
+  <data name="EqualizerEffect_LibraryDescription" xml:space="preserve">
+    <value>周波数帯ごとの音量を上げ下げします（EQ、グラフィックイコライザー、音質調整 / EQ, graphic equalizer, tone control）。</value>
+  </data>
+  <data name="CompressorEffect_LibraryDescription" xml:space="preserve">
+    <value>大きな音を抑えて音量の差を小さくします（ダイナミックレンジ圧縮、コンプレッサー / dynamic range compression, audio compressor）。</value>
+  </data>
+  <data name="LimiterEffect_LibraryDescription" xml:space="preserve">
+    <value>音量のピークが設定したレベルを超えないようにします（ピークリミッター、ブリックウォールリミッター / peak limiter, brickwall limiter）。</value>
+  </data>
+  <data name="GateEffect_LibraryDescription" xml:space="preserve">
+    <value>設定したレベルより小さい音を抑えます（ノイズゲート、エキスパンダー / noise gate, expander）。</value>
+  </data>
+  <data name="TimeStretchEffect_LibraryDescription" xml:space="preserve">
+    <value>音の高さを保ったまま再生速度を変えます（タイムストレッチ、速度変更、ピッチ維持 / time stretch, speed change, preserve pitch）。</value>
+  </data>
+  <data name="NoiseReductionEffect_LibraryDescription" xml:space="preserve">
+    <value>ヒスノイズやハムノイズなどの持続的な雑音を抑えます（ノイズ除去、デノイズ / denoise, noise removal）。</value>
+  </data>
+  <data name="PitchShiftEffect_LibraryDescription" xml:space="preserve">
+    <value>音の高さを半音単位で上げ下げします（ピッチシフター、移調 / pitch shifter, transpose）。</value>
+  </data>
+  <data name="ResamplingEffect_LibraryDescription" xml:space="preserve">
+    <value>音声のサンプルレートをプロジェクトの設定に合わせて変換します（サンプルレート変換、リサンプリング / sample rate conversion, SRC）。</value>
+  </data>
+  <data name="VibratoEffect_LibraryDescription" xml:space="preserve">
+    <value>音の高さを周期的に揺らします（ピッチ変調、音程の揺れ / pitch modulation, pitch wobble）。</value>
+  </data>
+  <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
+    <value>音声に一定周波数の信号を掛け合わせて金属的な音にします（リング変調、金属的な声 / ring modulation, metallic voice）。</value>
+  </data>
 </root>

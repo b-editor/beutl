@@ -1,7 +1,10 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Editor.Components.TimelineTab.Services;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Threading;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
@@ -37,6 +40,57 @@ public class SourceVideoThumbnailTests
         int count = SourceVideo.GetVideoThumbnailCount(new PixelSize(1920, 1080), maxWidth: 1920, maxHeight: 25);
 
         Assert.That(count, Is.EqualTo(44));
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task GetThumbnailStrip_ReplacesCachedThumbnailWhenHeightChanges()
+    {
+        TestGpu.RequireAnyDevice();
+        var decoders = TestMediaHelper.CreateRegistry();
+        var video = new VideoSource();
+        video.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(128, 64, new Rational(30, 1), 30)));
+        var drawable = new SourceVideo
+        {
+            Source = { Value = video },
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) },
+        };
+        var cache = new ThumbnailCacheService();
+        string? baseKey = drawable.GetThumbnailsCacheKey();
+        Assert.That(baseKey, Is.Not.Null);
+        string key = baseKey + SourceVideo.OriginalThumbnailCacheKeySuffix;
+        try
+        {
+            Assert.That(await ReadFirstThumbnailHeight(25), Is.EqualTo(25));
+            Assert.That(GetCachedHeight(), Is.EqualTo(25));
+
+            Assert.That(await ReadFirstThumbnailHeight(64), Is.EqualTo(64));
+            Assert.That(GetCachedHeight(), Is.EqualTo(64), "The rerender replaces the entry under the same key.");
+        }
+        finally
+        {
+            SourceVideo.InvalidateThumbnailCacheKeys(cache, baseKey);
+        }
+
+        async Task<int> ReadFirstThumbnailHeight(int height)
+        {
+            await foreach (var (_, _, thumbnail) in drawable.GetThumbnailStripAsync(
+                               TestFonts.Manager, maxWidth: 128, maxHeight: height, cacheService: cache,
+                               endIndex: 0, decoders: decoders))
+            {
+                using (thumbnail)
+                    return thumbnail.Height;
+            }
+
+            throw new AssertionException("The source did not yield a thumbnail.");
+        }
+
+        int GetCachedHeight()
+        {
+            Assert.That(cache.TryGet(key, MediaTime.Zero, MediaTime.Zero, out var bitmap), Is.True);
+            using (bitmap)
+                return bitmap!.Height;
+        }
     }
 
     [Test]

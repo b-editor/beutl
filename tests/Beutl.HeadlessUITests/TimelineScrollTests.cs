@@ -6,6 +6,9 @@ using Avalonia.Input;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Extensibility;
+using Beutl.Graphics.Shapes;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Vector2 = System.Numerics.Vector2;
@@ -15,6 +18,29 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class TimelineScrollTests
 {
+    [AvaloniaTest]
+    public async Task Adding_an_element_at_the_end_scrolls_it_to_the_left_margin_on_a_wide_view()
+    {
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-scroll-wide", MediaTime.FromSeconds(5),
+            width: 740);
+        Assert.That(host.Timeline.Bounds.Width, Is.EqualTo(MediaTime.FromSeconds(5).TimeToPixel(1) + 500));
+
+        host.Window.Width = 1881;
+        HeadlessTestHelpers.Render();
+        MediaTime start = MediaTime.FromSeconds(20);
+        var clip = new ElementDescription(start, MediaTime.FromSeconds(0.5), 0,
+            new ElementSource.EngineObject(() => new RectShape()));
+        Assert.That((await host.Model.AddElementWithResultAsync(clip)).IsSuccess, Is.True);
+
+        double expectedOffset = start.TimeToPixel(1) - 40;
+        await HeadlessTestHelpers.WaitUntilAsync(() =>
+        {
+            HeadlessTestHelpers.Render();
+            return Math.Abs(host.Content.Offset.X - expectedOffset) < 0.5;
+        }, TimeSpan.FromSeconds(3), "The added element did not reach the 40 px left margin.");
+        Assert.That(host.Model.Options.Value.Offset.X, Is.EqualTo(expectedOffset).Within(0.5));
+    }
+
     [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(false, true)]

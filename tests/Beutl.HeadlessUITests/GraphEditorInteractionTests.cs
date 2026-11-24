@@ -19,6 +19,25 @@ namespace Beutl.HeadlessUITests;
 public class GraphEditorInteractionTests
 {
     [AvaloniaTest]
+    public async Task Fit_selection_shows_a_key_at_the_end_at_the_left_margin_on_a_wide_view()
+    {
+        using var graph = await GraphScope.CreateAsync(elementStart: MediaTime.FromSeconds(20));
+        graph.Model.Scene.Duration.Value = MediaTime.FromSeconds(22);
+        graph.Second.KeyTime.Value = MediaTime.FromSeconds(2);
+        graph.Model.SelectedView.Value!.SetSelection([graph.Second]);
+        graph.Window.Width = 1660;
+        HeadlessTestHelpers.Render();
+
+        var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+        graph.View.Focus();
+        graph.PressKey(Key.F, RawInputModifiers.Shift);
+
+        double left = scroll.TranslatePoint(default, graph.Window)!.Value.X;
+        HeadlessCapture.SaveIfRequested(graph.View, nameof(GraphEditorInteractionTests), "fit-selection-wide");
+        Assert.That(graph.Position(graph.Second).X - left, Is.EqualTo(32).Within(0.5));
+    }
+
+    [AvaloniaTest]
     [TestCase(KeyModifiers.Control, false)]
     [TestCase(KeyModifiers.Meta, false)]
     [TestCase(KeyModifiers.Control, true)]

@@ -25,7 +25,8 @@ internal sealed class AiEntitlementService(
             "AiEntitlementService.Refresh",
             ActivityKind.Client);
 
-        AuthenticatedUser? authenticatedUser = application.AuthenticatedUser.Value;
+        AuthenticatedUser? authenticatedUser = AiAuthenticatedRequestScope.RequireExpectedUser(
+            application.AuthenticatedUser.Value);
         if (authenticatedUser is null)
             return null;
 

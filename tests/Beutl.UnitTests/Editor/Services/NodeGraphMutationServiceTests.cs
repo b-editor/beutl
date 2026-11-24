@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Editor.Services;
@@ -208,6 +209,39 @@ public class NodeGraphMutationServiceTests
     }
 
     [Test]
+    public void CheckConnect_ResolvesPortsAndReportsTheCurrentInputState()
+    {
+        var source = new SwitchNode();
+        var target = new GeometryShapeNode();
+        var dynamicNode = new GroupInput();
+        var brush = new SolidColorBrush();
+        target.Fill.Property!.SetValue(brush);
+        _graph.Nodes.AddRange([source, target, dynamicNode]);
+        IInputPort nested = target.NestedInputPorts.Single(port => ReferenceEquals(port.Property!.GetEngineProperty(), brush.Opacity));
+        Connection fillConnection = _graph.Connect(target.Fill, source.Output);
+
+        NodeConnectionRejection rejection = NodeGraphMutationService.CheckConnect(_graph, nested, source.Output,
+            out IInputPort? input, out IOutputPort? output);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejection, Is.EqualTo(NodeConnectionRejection.InputLocked));
+            Assert.That(input, Is.SameAs(nested));
+            Assert.That(output, Is.SameAs(source.Output));
+            Assert.That(NodeGraphMutationService.CheckAddPort(_graph, dynamicNode, nested, grownOnOutputSide: true),
+                Is.EqualTo(NodeConnectionRejection.InputLocked));
+        });
+
+        _graph.Disconnect(fillConnection);
+        Assert.That(NodeGraphMutationService.CheckConnect(_graph, nested, source.Output, out _, out _),
+            Is.EqualTo(NodeConnectionRejection.None));
+
+        _graph.Connect(nested, source.Output);
+        Assert.That(NodeGraphMutationService.CheckConnect(_graph, nested, source.Output, out _, out _),
+            Is.EqualTo(NodeConnectionRejection.InputOccupied));
+    }
+
+    [Test]
     public void TryConnect_SameNode_IsRefused()
     {
         var node = new SwitchNode();
@@ -275,6 +309,31 @@ public class NodeGraphMutationServiceTests
             Assert.That(input.Items, Is.Empty);
             Assert.That(output.Items, Is.Empty);
             Assert.That(_service.TryConnect(_graph, input, null, first, first.True), Is.EqualTo(NodeConnectOutcome.PortAdded));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TryConnect_RejectsWrongSideOrMissingTypeBeforeCallingTheDynamicNode(bool typeless)
+    {
+        var node = new RecordingGroupInput();
+        var other = new SwitchNode();
+        var typelessInput = new TypelessInput();
+        other.Items.Add(typelessInput);
+        _graph.Nodes.AddRange([node, other]);
+        INodePort mate = typeless ? typelessInput : other.Output;
+
+        NodeConnectionRejection rejection = NodeGraphMutationService.CheckAddPort(_graph, node, mate, grownOnOutputSide: typeless);
+        bool canConnect = _service.CanConnect(_graph, node, null, other, mate);
+        NodeConnectOutcome outcome = _service.TryConnect(_graph, node, null, other, mate);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejection, Is.EqualTo(typeless ? NodeConnectionRejection.NoPortType : NodeConnectionRejection.WrongSide));
+            Assert.That(canConnect, Is.False);
+            Assert.That(outcome, Is.EqualTo(NodeConnectOutcome.None));
+            Assert.That(node.AddPortCalls, Is.Zero);
+            Assert.That(_graph.AllConnections, Is.Empty);
         });
     }
 
@@ -699,6 +758,11 @@ public class NodeGraphMutationServiceTests
         });
     }
 
+    private sealed class TypelessInput : InputPort<object?>
+    {
+        public override Type? AssociatedType => null;
+    }
+
     // Reads a node back from JSON whose width keyframe names an easing type that is not loaded.
     private static RectGeometryNode CreateNodeWithUnreadableEasing()
     {
@@ -710,5 +774,16 @@ public class NodeGraphMutationServiceTests
         json["Object"]!["Animations"]![nameof(RectGeometry.Width)]![nameof(IKeyFrameAnimation.KeyFrames)]![0]![nameof(KeyFrame.Easing)] =
             RecoveryBlockers.MissingEasingType;
         return (RectGeometryNode)CoreSerializer.DeserializeFromJsonObject(json, typeof(RectGeometryNode));
+    }
+}
+
+internal sealed partial class RecordingGroupInput : GroupInput
+{
+    public int AddPortCalls { get; private set; }
+
+    public override bool AddNodePort(INodePort port, [NotNullWhen(true)] out Connection? connection)
+    {
+        AddPortCalls++;
+        return base.AddNodePort(port, out connection);
     }
 }

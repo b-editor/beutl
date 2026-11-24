@@ -671,6 +671,12 @@
   <data name="RippleEdit" xml:space="preserve">
     <value>Ripple Edit</value>
   </data>
+  <data name="RippleEdit_Description" xml:space="preserve">
+    <value>Toggle ripple edit. While it is on, deleting or cutting an element moves the elements after it on the same layer, and trimming an edge moves the elements on that side.</value>
+  </data>
+  <data name="TimelineSnap_Description" xml:space="preserve">
+    <value>Toggle snapping. Hold Alt / Option while dragging to ignore it.</value>
+  </data>
   <data name="UseGlobalClock" xml:space="preserve">
     <value>Use the Global Clock</value>
   </data>
@@ -3894,5 +3900,8 @@ when history recording is enabled.</value>
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>Save the project before pasting elements.</value>
+  </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>Feeds the contents of layers below into the current layer (layer reference, flow input).</value>
   </data>
 </root>

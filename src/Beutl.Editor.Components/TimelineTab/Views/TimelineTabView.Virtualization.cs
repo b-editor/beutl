@@ -354,7 +354,7 @@ public sealed partial class TimelineTabView
             void Update()
             {
                 Bounds = new Rect(model.BorderMargin.Value.Left, model.Margin.Value.Top,
-                    Math.Max(0, model.Width.Value), FrameNumberHelper.LayerHeight);
+                    Math.Max(0, model.Width.Value), model.Timeline.LayerRowHeight.Value);
                 ScopeBounds = new Rect(model.Scope.Margin.Value.Left, model.Scope.Margin.Value.Top,
                     Math.Max(0, model.Scope.Width.Value), Math.Max(0, model.Scope.Height.Value));
                 invalidate();
@@ -363,6 +363,7 @@ public sealed partial class TimelineTabView
             model.Margin.Subscribe(_ => Update()).DisposeWith(_subscriptions);
             model.BorderMargin.Subscribe(_ => Update()).DisposeWith(_subscriptions);
             model.Width.Subscribe(_ => Update()).DisposeWith(_subscriptions);
+            model.Timeline.LayerRowHeight.Skip(1).Subscribe(_ => Update()).DisposeWith(_subscriptions);
             model.Scope.Margin.Subscribe(_ => Update()).DisposeWith(_subscriptions);
             model.Scope.Width.Subscribe(_ => Update()).DisposeWith(_subscriptions);
             model.Scope.Height.Subscribe(_ => Update()).DisposeWith(_subscriptions);

@@ -3,4 +3,5 @@
 public sealed record RenderStoryboardResponse(
     string ContactSheetPath,
     IReadOnlyList<RenderStoryboardShot> Shots,
-    IReadOnlyList<CutEyeTrace> CutEyeTrace);
+    IReadOnlyList<CutEyeTrace> CutEyeTrace,
+    IReadOnlyList<string> Warnings);

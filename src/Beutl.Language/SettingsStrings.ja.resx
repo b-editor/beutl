@@ -326,6 +326,22 @@
     <value>タイムラインの要素にフィルムストリップと波形を表示します。オフにすると、要素の右クリックメニューから個別にオンにできます。メディアの多いタイムラインの拡大縮小が軽くなります。</value>
     <comment/>
   </data>
+  <data name="TimelineLayerSize" xml:space="preserve">
+    <value>タイムラインのレイヤーの高さ</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Small" xml:space="preserve">
+    <value>小</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Medium" xml:space="preserve">
+    <value>中</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Large" xml:space="preserve">
+    <value>大</value>
+    <comment />
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>Graphics</value>
     <comment/>

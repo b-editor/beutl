@@ -311,4 +311,46 @@
   <data name="RingModulatorEffect_Mix" xml:space="preserve">
     <value>混合 (%)</value>
   </data>
+  <data name="SourceSound_LibraryDescription" xml:space="preserve">
+    <value>播放媒体文件中的音频（音频剪辑、声音素材 / audio clip, sound source）。</value>
+  </data>
+  <data name="SceneSound_LibraryDescription" xml:space="preserve">
+    <value>播放另一个场景的混音（嵌套音频、预合成音频 / nested audio, precomp audio）。</value>
+  </data>
+  <data name="SoundGroup_LibraryDescription" xml:space="preserve">
+    <value>将多段声音混合起来以便统一调整（音频总线、子混音、音频组 / audio bus, submix, audio group）。</value>
+  </data>
+  <data name="DelayEffect_LibraryDescription" xml:space="preserve">
+    <value>经过可调的延迟后重复播放声音（回声、音频延迟 / echo, audio delay）。</value>
+  </data>
+  <data name="EqualizerEffect_LibraryDescription" xml:space="preserve">
+    <value>提升或降低各个频段的电平（EQ、图形均衡器、音色控制 / EQ, graphic equalizer, tone control）。</value>
+  </data>
+  <data name="CompressorEffect_LibraryDescription" xml:space="preserve">
+    <value>降低响亮声音的电平以缩小动态范围（动态范围压缩、音频压缩器 / dynamic range compression, audio compressor）。</value>
+  </data>
+  <data name="LimiterEffect_LibraryDescription" xml:space="preserve">
+    <value>将音频峰值限制在设定电平以内（峰值限制器、硬限幅器 / peak limiter, brickwall limiter）。</value>
+  </data>
+  <data name="GateEffect_LibraryDescription" xml:space="preserve">
+    <value>衰减低于设定电平的声音（噪声门、扩展器 / noise gate, expander）。</value>
+  </data>
+  <data name="TimeStretchEffect_LibraryDescription" xml:space="preserve">
+    <value>在保持音高的同时改变音频播放速度（时间伸缩、变速、保持音高 / time stretch, speed change, preserve pitch）。</value>
+  </data>
+  <data name="NoiseReductionEffect_LibraryDescription" xml:space="preserve">
+    <value>减轻嘶嘶声或嗡嗡声等持续的背景噪声（降噪、去除噪声 / denoise, noise removal）。</value>
+  </data>
+  <data name="PitchShiftEffect_LibraryDescription" xml:space="preserve">
+    <value>按半音升高或降低音频的音高（变调器、移调 / pitch shifter, transpose）。</value>
+  </data>
+  <data name="ResamplingEffect_LibraryDescription" xml:space="preserve">
+    <value>将音频转换为项目的采样率（采样率转换、重采样 / sample rate conversion, SRC）。</value>
+  </data>
+  <data name="VibratoEffect_LibraryDescription" xml:space="preserve">
+    <value>周期性地升降音频的音高（音高调制、音高颤动 / pitch modulation, pitch wobble）。</value>
+  </data>
+  <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
+    <value>将音频与单频信号相乘以产生金属质感（环形调制、金属音 / ring modulation, metallic voice）。</value>
+  </data>
 </root>

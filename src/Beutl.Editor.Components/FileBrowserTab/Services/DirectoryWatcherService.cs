@@ -307,6 +307,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     internal async void OnWatcherError(object sender, ErrorEventArgs e)
     {
         long request;
+        string? requestedPath;
         lock (_stateSync)
         {
             if (_disposed || !ReferenceEquals(_watcher, sender))
@@ -316,17 +317,20 @@ internal sealed partial class DirectoryWatcherService : IDisposable
             if (!IsCurrentWatcher(sender))
                 return;
             request = _watchRequest;
+            requestedPath = _watchedRequestedPath;
         }
 
         _logger.LogWarning(e.GetException(), "FileSystemWatcher stopped; rebuilding it");
 
-        if (await TryRearmAfterErrorAsync(sender))
+        // Losing the watched root can arrive as an Error. The listing must catch up even
+        // when the missing directory prevents the watcher from restarting.
+        if (await TryRearmAfterErrorAsync(sender) || (requestedPath is not null && !Directory.Exists(requestedPath)))
         {
             _postDelivery(() =>
             {
                 lock (_stateSync)
                 {
-                    // Resync changes missed while the watcher was down.
+                    // Resync changes from this request, unless navigation superseded it.
                     if (!_disposed && request == _watchRequest)
                         Changed?.Invoke();
                 }
@@ -468,8 +472,8 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         if (IsCurrentWatcher(sender))
         {
             // Windows also reports a parent directory's last-write change for child writes.
-            // Child name/write events already describe the update; this duplicate would turn
-            // an atomic editor save into a full refresh that replaces the existing tree items.
+            // Child name/write events already describe the update; the duplicate would make
+            // an atomic editor save trigger a rescan of the whole view.
             if (e.ChangeType == WatcherChangeTypes.Changed && Directory.Exists(e.FullPath))
                 return;
 

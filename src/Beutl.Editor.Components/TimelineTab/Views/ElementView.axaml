@@ -12,7 +12,7 @@
              xmlns:v="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
              x:Name="root"
-             Height="{DynamicResource LayerHeight}"
+             Height="{CompiledBinding Timeline.LayerRowHeight.Value}"
              Margin="{CompiledBinding Margin.Value}"
              Padding="0,1"
              HorizontalAlignment="Stretch"
@@ -271,13 +271,14 @@
                                     Times="{Binding KeyFrameMarkTimes.Value}" />
             <!-- The lock and recovery (part of the clip could not be loaded) glyphs own columns; the label clears them.
                  None of them takes pointer input, so a long name does not cover the transition handles. -->
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*" IsHitTestVisible="False">
+            <Grid Height="21" ColumnDefinitions="Auto,Auto,Auto,*" VerticalAlignment="Center">
                 <icons:FluentIcon x:Name="lockIcon"
                                   Grid.Column="0"
                                   Margin="6,0,0,0"
                                   VerticalAlignment="Center"
                                   FontSize="12"
                                   Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                  IsHitTestVisible="False"
                                   IsVisible="{Binding IsLockedByUser.Value}"
                                   Icon="LockClosed" />
                 <icons:FluentIcon x:Name="recoveryIcon"
@@ -286,6 +287,7 @@
                                   VerticalAlignment="Center"
                                   FontSize="12"
                                   Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                  IsHitTestVisible="False"
                                   IsVisible="{Binding IsRecoveryProtected.Value}"
                                   Icon="Warning" />
                 <TextBlock x:Name="matteIndicator"
@@ -293,6 +295,7 @@
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                           IsHitTestVisible="False"
                            Text="{Binding MatteIndicator.Value}"
                            IsVisible="{Binding MatteIndicator.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 <TextBlock x:Name="textBlock"
@@ -301,14 +304,19 @@
                            VerticalAlignment="Center"
                            ClipToBounds="True"
                            Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                           IsHitTestVisible="False"
                            Text="{Binding Name.Value}" />
+                <TextBox x:Name="textBox"
+                         Grid.Column="3"
+                         Height="21"
+                         MinHeight="0"
+                         HorizontalAlignment="Stretch"
+                         VerticalAlignment="Center"
+                         IsEnabled="{Binding IsEditable.Value}"
+                         IsVisible="False"
+                         Text="{Binding Name.Value, UpdateSourceTrigger=LostFocus}"
+                         Theme="{StaticResource ElementNameTextBoxTheme}" />
             </Grid>
-            <TextBox x:Name="textBox"
-                     HorizontalAlignment="Stretch"
-                     IsEnabled="{Binding IsEditable.Value}"
-                     IsVisible="False"
-                     Text="{Binding Name.Value, UpdateSourceTrigger=LostFocus}"
-                     Theme="{StaticResource ElementNameTextBoxTheme}" />
 
             <Border Width="8"
                     Height="8"
