@@ -290,7 +290,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Element second = AddElement(1, 1, 1);
         var animation = AnimateSpeed(100, 200);
         var secondOffset = AddMedia(second, baseSpeed, 1, animation);
-        using var playback = new SpeedIntegrator(mediaKind == nameof(SourceVideo) ? 60 : 44100);
+        using var playback = new SpeedIntegrator();
         playback.EnsureCache(animation);
         double expected = 1 + playback.Integrate(MediaTime.FromSeconds(1), animation).ToSeconds();
         History.Commit();
@@ -325,7 +325,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Element back = AddElement(backStart, 2);
         var animation = AnimateSpeed(100, 200);
         var offset = AddMedia(animateFront ? front : back, 100, 1, animation);
-        using var playback = new SpeedIntegrator(mediaKind == nameof(SourceVideo) ? 60 : 44100);
+        using var playback = new SpeedIntegrator();
         playback.EnsureCache(animation);
         double expected = animateFront ? 1 : 1 + playback.Integrate(MediaTime.FromSeconds(1), animation).ToSeconds();
         History.Commit();

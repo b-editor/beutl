@@ -653,7 +653,6 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
 public sealed class AudioSourceItem
 {
-    private const int AnimationSampleRate = 1000;
     private readonly MediaTime _elementStart;
     private readonly MediaTime _elementLength;
     private readonly MediaTime _sourceOffset;
@@ -717,12 +716,10 @@ public sealed class AudioSourceItem
         if (_speedAnimation is null)
             return Math.Max(_elementLength.ToSeconds() * (_speed / 100d), 0);
 
-        using var integrator = new SpeedIntegrator(AnimationSampleRate);
+        using var integrator = new SpeedIntegrator();
         integrator.EnsureCache(_speedAnimation);
-        MediaTime elapsed = _speedAnimation.UseGlobalClock.Value
-            ? integrator.Integrate(_elementStart + _elementLength, _speedAnimation)
-              - integrator.Integrate(_elementStart, _speedAnimation)
-            : integrator.Integrate(_elementLength, _speedAnimation);
+        MediaTime start = _speedAnimation.UseGlobalClock.Value ? _elementStart : MediaTime.Zero;
+        MediaTime elapsed = integrator.IntegratePlayback(start, start + _elementLength);
         return Math.Max(elapsed.ToSeconds(), 0);
     }
 
@@ -784,11 +781,9 @@ public sealed class AudioSourceItem
         if (elementLength <= 0)
             return [];
 
-        using var integrator = new SpeedIntegrator(AnimationSampleRate);
-        if (_speedAnimation != null)
-        {
-            integrator.EnsureCache(_speedAnimation);
-        }
+        using var integrator = new SpeedIntegrator();
+        integrator.EnsureCache(_speedAnimation);
+        MediaTime start = _speedAnimation?.UseGlobalClock.Value == true ? _elementStart : MediaTime.Zero;
 
         double SourceElapsedAt(double localSeconds)
         {
@@ -796,10 +791,7 @@ public sealed class AudioSourceItem
             if (_speedAnimation == null)
                 return localTime.ToSeconds() * (_speed / 100d);
 
-            MediaTime elapsed = _speedAnimation.UseGlobalClock.Value
-                ? integrator.Integrate(_elementStart + localTime, _speedAnimation)
-                  - integrator.Integrate(_elementStart, _speedAnimation)
-                : integrator.Integrate(localTime, _speedAnimation);
+            MediaTime elapsed = integrator.IntegratePlayback(start, start + localTime);
             return Math.Max(elapsed.ToSeconds(), 0);
         }
 

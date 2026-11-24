@@ -243,7 +243,7 @@ public class TimelineMediaDurationTests
                 });
             });
 
-            using var integrator = new SpeedIntegrator(44100);
+            using var integrator = new SpeedIntegrator();
             integrator.EnsureCache(speed);
             MediaTime sourceEnd = sound.OffsetPosition.Value + integrator.Integrate(back.Model.Length.Value, speed);
             Assert.Multiple(() =>

@@ -10,22 +10,25 @@ namespace Beutl.Graphics;
 internal static class SpeedAdjustedTime
 {
     /// <summary>
-    /// Maps <paramref name="time"/> through <paramref name="speed"/>: unchanged without a keyframe animation, scaled
-    /// by <paramref name="currentSpeed"/> percent when the animation has no keyframes, and integrated over the
-    /// animated rate otherwise.
+    /// Maps the time between <paramref name="from"/> and <paramref name="to"/> through <paramref name="speed"/>.
+    /// With no animation the span is unchanged. With an empty animation it is scaled by
+    /// <paramref name="currentSpeed"/> percent. Otherwise it is integrated over the animated rate.
     /// </summary>
-    public static MediaTime Map(IProperty<float> speed, float currentSpeed, SpeedIntegrator integrator, MediaTime time)
+    public static MediaTime Map(IProperty<float> speed, float currentSpeed, SpeedIntegrator integrator,
+        MediaTime from, MediaTime to)
     {
         var anm = speed.GetKeyFrameAnimation();
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
-            return time;
+            return to - from;
 
         if (keyFrameAnimation.KeyFrames.Count == 0)
         {
-            return new MediaTime((long)(time.Flicks * (currentSpeed / 100.0)));
+            double factor = currentSpeed / 100d;
+            return new MediaTime((long)(to.Flicks * factor)) - new MediaTime((long)(from.Flicks * factor));
         }
 
-        return integrator.Integrate(time, keyFrameAnimation);
+        integrator.EnsureCache(keyFrameAnimation);
+        return integrator.IntegratePlayback(from, to);
     }
 
     /// <summary>
