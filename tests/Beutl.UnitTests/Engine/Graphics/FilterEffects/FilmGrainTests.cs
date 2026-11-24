@@ -179,6 +179,26 @@ public sealed class FilmGrainTests
     }
 
     [Test]
+    public void Each_channel_keeps_its_grain_strength_at_any_color_value()
+    {
+        double[] DeviationsAt(float color)
+        {
+            byte[] pixels = Render(GrayRectangle(new FilmGrain { Color = { Value = color } }));
+            return [.. Enumerable.Range(0, 3).Select(channel => Measure(Channel(pixels, channel)).Deviation)];
+        }
+
+        double mono = DeviationsAt(0)[1];
+        double[] half = DeviationsAt(50);
+        double[] full = DeviationsAt(100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(half, Is.All.EqualTo(mono).Within(5).Percent, "half the grain shared by the channels");
+            Assert.That(full, Is.All.EqualTo(mono).Within(5).Percent, "none of the grain shared");
+        });
+    }
+
+    [Test]
     public void Skia_raster_and_Vulkan_render_the_same_pattern()
     {
         RectShape shape = GrayRectangle(new FilmGrain { Size = { Value = 3 }, Color = { Value = 100 } });
