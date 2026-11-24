@@ -153,6 +153,38 @@ public sealed class SteppedMotionTests
         Assert.That(evaluated.Sample!.Time, Is.EqualTo(element.Start.Value + MediaTime.FromFrames(33, rate)));
     }
 
+    // A spline that overshoots to 3 clamps the rate at 240 fps at every sample of its 100 s piece, yet the rate rises
+    // from 1 fps over the first 0.14 s: by 1/30 s it has counted about 3.6 steps rather than 8, and by 50 s some 8
+    // fewer than 240 fps throughout would have.
+    [TestCase(1)]
+    [TestCase(1500)]
+    public void ClampedOvershootStillCountsTheRiseToTheLimit(int frame)
+    {
+        KeyFrameAnimation<float> animation = Keys(Key(0, 1), Key(100, 240, new SplineEasing(0, 3, 0, 3)));
+        var effect = new SteppedMotion();
+        effect.FrameRate.SetKeyFrameAnimation(animation);
+        MediaTime time = MediaTime.FromFrames(frame, new Rational(30));
+        MediaTime[] held = HeldTimes(effect, MediaTime.Zero, [time]);
+
+        // The clamped rate summed every 10 µs through the first second and every 1 ms after it, and where that sum
+        // last reached a whole number.
+        double seconds = time.ToSeconds();
+        var points = new List<(double Time, double Count)> { (0, 0) };
+        for (double t = 0; t < seconds;)
+        {
+            double width = Math.Min(t < 1 ? 1e-5 : 1e-3, seconds - t);
+            float rate = animation.Interpolate(MediaTime.FromSeconds(t + width / 2));
+            points.Add((t + width, points[^1].Count + Math.Clamp(rate, 0.01f, 240f) * width));
+            t += width;
+        }
+
+        double steps = Math.Floor(points[^1].Count);
+        int reached = points.FindIndex(point => point.Count >= steps);
+        ((double t0, double c0), (double t1, double c1)) = (points[reached - 1], points[reached]);
+        Assert.That(points[^1].Count, Is.LessThan(240 * seconds - 3));
+        Assert.That(held[0].ToSeconds(), Is.EqualTo(t0 + (steps - c0) / (c1 - c0) * (t1 - t0)).Within(1e-5));
+    }
+
     // A frame's held time follows from its own time alone, so the order frames are rendered in never matters.
     [Test]
     public void SeekingBackwardHoldsTheSameTimes()
@@ -164,10 +196,12 @@ public sealed class SteppedMotionTests
         Assert.That(Enumerable.Reverse(backward), Is.EqualTo(forward));
     }
 
-    // Steps count back from the start at the rate there: 2 + 2t fps on the scene's clock, 3 steps in the second before
-    // an element at 1 s, the second of which starts at √2 − 1 s.
+    // Steps count back from the start at the rate there: 2 + 2t fps on the scene's clock from 0 s, and 2 fps before it.
+    // The second before an element at 1 s holds 3 steps, the second of which starts at √2 − 1 s, and the next one back,
+    // past the key frame at 0 s, starts at −0.5 s.
     [TestCase(0.5, 1.41421356237309505 - 1)]
     [TestCase(0.25, 0)]
+    [TestCase(-0.25, -0.5)]
     public void BeforeTheStartStepsCountBackFromIt(double seconds, double expected)
     {
         var effect = new SteppedMotion();

@@ -115,7 +115,7 @@ public sealed partial class SteppedMotion
                 long next = Next(position, direction);
                 if (direction > 0 ? next < to : next > to)
                 {
-                    sum += Between(position, next).Total;
+                    sum += Between(Math.Min(position, next), Math.Max(position, next)).Total;
                     position = next;
                     continue;
                 }
@@ -162,16 +162,18 @@ public sealed partial class SteppedMotion
             // Pieces that began at an earlier start of the drawable are left behind by moving it.
             if (_pieces.Count >= 2 * _keys.Count + 16) _pieces.Clear();
 
-            Quadrature estimate = Estimate(a, b);
-            if (estimate.Minimum == estimate.Maximum)
+            double rate = ConstantRate(a, b);
+            if (!double.IsNaN(rate))
             {
-                piece = new Piece([a, b], [0, estimate.Minimum * (b - a)], estimate.Minimum);
+                piece = new Piece([a, b], [0, rate * (b - a)], rate);
             }
             else
             {
+                Quadrature estimate = Estimate(a, b);
+                double scale = Math.Max(estimate.Maximum, Math.Max(Rate(a), Rate(b)));
                 List<double> ends = [a];
                 List<double> sums = [0];
-                Divide(a, b, estimate, s_tolerance * estimate.Maximum, ends, sums);
+                Divide(a, b, estimate, s_tolerance * scale, ends, sums);
                 piece = new Piece([.. ends], [.. sums], double.NaN);
             }
 
@@ -179,12 +181,34 @@ public sealed partial class SteppedMotion
             return piece;
         }
 
-        // Halves an interval until its 15-point Kronrod estimate agrees with the 7-point Gauss one, then adds it. Neither
-        // rule samples the ends, so a hold key frame's value at its own time never counts for the piece before it.
+        // The one rate the key frames give throughout the piece from a to b, which no key frame divides, or NaN when it
+        // does not follow from them. Samples cannot tell: an easing that overshoots can clamp at every one of them and
+        // still change near an end.
+        private double ConstantRate(long a, long b)
+        {
+            // The key frame that ends the piece, whose easing shapes it.
+            int next = FirstAtOrAfter(b);
+            // Past the last key frame its value holds.
+            if (next == _keys.Count) return Clamp(_keys[^1].Value);
+
+            Key end = _keys[next];
+            // Equal values stay equal through an easing that keeps its output finite.
+            if (next > 0) return _keys[next - 1].Value == end.Value && Bounded(end.Easing) ? Clamp(end.Value) : double.NaN;
+
+            // Before the first key frame its value holds throughout when it is at the key frames' zero, and otherwise
+            // while its easing's progress, counted from that zero, stays in [0, 1].
+            return end.Time == _origin || (a >= _origin && Bounded(end.Easing)) ? Clamp(end.Value) : double.NaN;
+
+            static bool Bounded(Easing easing)
+                => easing.TryGetOutputRange(out float minimum, out float maximum)
+                    && float.IsFinite(minimum) && float.IsFinite(maximum);
+        }
+
+        // Halves an interval until its estimate holds, then adds it. One of 1024 flicks or less is not divided: its nodes
+        // still fall inside it, so a hold key frame's value at its own time never counts for the interval before it.
         private void Divide(double a, double b, Quadrature estimate, double tolerance, List<double> ends, List<double> sums)
         {
-            if (estimate.Minimum != estimate.Maximum && b - a > 16
-                && Math.Abs(estimate.Kronrod - estimate.Gauss) > tolerance * (b - a))
+            if (b - a > 1024 && !Holds(a, b, estimate, tolerance))
             {
                 double middle = a + (b - a) / 2;
                 Divide(a, middle, Estimate(a, middle), tolerance, ends, sums);
@@ -194,6 +218,22 @@ public sealed partial class SteppedMotion
 
             ends.Add(b);
             sums.Add(sums[^1] + Area(estimate, b - a));
+        }
+
+        // Whether an interval's estimate holds: its 15-point Kronrod and 7-point Gauss rules agree, and the rate at each
+        // end continues the line through the two nodes nearest that end. Neither rule samples the ends, which lie 0.43%
+        // of the interval beyond the outermost nodes, so a change there, such as an overshooting easing leaving the
+        // rate's limit, shows only at the ends.
+        private bool Holds(double a, double b, Quadrature estimate, double tolerance)
+        {
+            if (Math.Abs(estimate.Kronrod - estimate.Gauss) > tolerance * (b - a)) return false;
+
+            // What a change between an outermost node and its end can add stays within the tolerance.
+            double gap = 1 - s_nodes[0];
+            double reach = gap / (s_nodes[0] - s_nodes[1]);
+            double allowed = 2 * tolerance / gap;
+            return Math.Abs(Rate(a) - (estimate.Left + (estimate.Left - estimate.LeftInner) * reach)) <= allowed
+                && Math.Abs(Rate(b) - (estimate.Right + (estimate.Right - estimate.RightInner) * reach)) <= allowed;
         }
 
         // The integral from the piece's start to x, which lies in it.
@@ -266,50 +306,79 @@ public sealed partial class SteppedMotion
             double gauss = s_gaussWeights[^1] * value;
             double minimum = value;
             double maximum = value;
+            double left = 0, leftInner = 0, right = 0, rightInner = 0;
             for (int i = 0; i < s_nodes.Length; i++)
             {
-                double left = Rate(center - half * s_nodes[i]);
-                double right = Rate(center + half * s_nodes[i]);
-                minimum = Math.Min(minimum, Math.Min(left, right));
-                maximum = Math.Max(maximum, Math.Max(left, right));
-                kronrod += s_kronrodWeights[i] * (left + right);
-                if (i % 2 == 1) gauss += s_gaussWeights[i / 2] * (left + right);
+                double before = Rate(center - half * s_nodes[i]);
+                double after = Rate(center + half * s_nodes[i]);
+                if (i == 0) (left, right) = (before, after);
+                else if (i == 1) (leftInner, rightInner) = (before, after);
+                minimum = Math.Min(minimum, Math.Min(before, after));
+                maximum = Math.Max(maximum, Math.Max(before, after));
+                kronrod += s_kronrodWeights[i] * (before + after);
+                if (i % 2 == 1) gauss += s_gaussWeights[i / 2] * (before + after);
             }
 
-            return new Quadrature(kronrod * half, gauss * half, minimum, maximum);
+            return new Quadrature(kronrod * half, gauss * half, minimum, maximum, left, leftInner, right, rightInner);
         }
 
-        // The rate at a scene time in flicks, clamped as the effect clamps the current rate.
+        // The rate at a scene time in flicks, clamped as the effect clamps the current rate. A key frame's progress is a
+        // float, which rounds to 1 for the last 2^-25 of the span before the key frame, so a time there is read where
+        // the progress is still below 1: a hold key frame's value would otherwise count from just before its time.
         private double Rate(double flicks)
         {
-            float rate = _animation!.Interpolate(new MediaTime((long)Math.Round(flicks) - _origin));
-            return float.IsNaN(rate) ? MinimumRate : Math.Clamp(rate, (float)MinimumRate, MaximumRate);
+            long time = (long)Math.Round(flicks);
+            int next = FirstAtOrAfter(time);
+            if (next < _keys.Count && _keys[next].Time > time)
+            {
+                long span = _keys[next].Time - (next > 0 ? _keys[next - 1].Time : _origin);
+                if (span > 0) time = Math.Min(time, _keys[next].Time - (long)Math.Ceiling(Math.ScaleB((double)span, -24)));
+            }
+
+            return Clamp(_animation!.Interpolate(new MediaTime(time - _origin)));
         }
+
+        private static double Clamp(float rate)
+            => float.IsNaN(rate) ? MinimumRate : Math.Clamp(rate, (float)MinimumRate, MaximumRate);
 
         // The nearest key frame time beyond position in the direction, or MaxValue or MinValue when there is none.
         private long Next(long position, int direction)
+        {
+            if (direction > 0)
+            {
+                int after = FirstAtOrAfter(position + 1);
+                return after < _keys.Count ? _keys[after].Time : long.MaxValue;
+            }
+
+            int before = FirstAtOrAfter(position) - 1;
+            return before >= 0 ? _keys[before].Time : long.MinValue;
+        }
+
+        // The index of the first key frame at or after time, or the count when there is none, by binary search over the
+        // times in order.
+        private int FirstAtOrAfter(long time)
         {
             int low = 0;
             int high = _keys.Count;
             while (low < high)
             {
                 int middle = (low + high) >>> 1;
-                if (_keys[middle].Time > position) high = middle;
+                if (_keys[middle].Time >= time) high = middle;
                 else low = middle + 1;
             }
 
-            if (direction > 0) return low < _keys.Count ? _keys[low].Time : long.MaxValue;
-
-            while (low > 0 && _keys[low - 1].Time == position) low--;
-            return low > 0 ? _keys[low - 1].Time : long.MinValue;
+            return low;
         }
 
         private readonly record struct Key(long Time, float Value, Easing Easing, (float, float, float, float) Shape);
 
-        private readonly record struct Quadrature(double Kronrod, double Gauss, double Minimum, double Maximum);
+        // The two rules' estimates, the extremes of the rates they sampled, and the rates at the two outermost nodes
+        // on each side, outermost first.
+        private readonly record struct Quadrature(double Kronrod, double Gauss, double Minimum, double Maximum,
+            double Left, double LeftInner, double Right, double RightInner);
 
         // A piece as adaptive quadrature divided it: the ends of its intervals and the integral up to each, in
-        // rate × flicks, with its one rate when every node gave the same, otherwise NaN.
+        // rate × flicks, with its one rate when the key frames give it one, otherwise NaN.
         private sealed record Piece(double[] Ends, double[] Sums, double Rate)
         {
             public double Total => Sums[^1];
