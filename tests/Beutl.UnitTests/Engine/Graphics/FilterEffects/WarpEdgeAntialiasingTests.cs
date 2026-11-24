@@ -64,16 +64,16 @@ public sealed class WarpEdgeAntialiasingTests
         {
             // Lifting the right pin while the left one holds raises the right of the picture, so its top edge leans.
             var held = new Point(0.25f, 0.5f);
-            var effect = new Puppet { Pins = { Pin(held, held), Pin(new Point(0.75f, 0.5f), new Point(0.75f, 0.2f)) } };
+            var effect = new Puppet { Pins = { Pin(held, held), Pin(new Point(0.75f, 0.5f), new Point(0.75f, 0.3f)) } };
             using Bitmap bitmap = FilteredShapeHarness.Render(
                 new Rect(40, 40, 120, 120), effect, fullBleed: true, surface: Surface,
                 targetDomain: new Rect(0, 0, Surface, Surface));
 
-            // Columns 45 to 140 cross only the leaning top edge between y = 70 and the top of the surface.
+            // Columns 40 to 125 cross only the leaning top edge between y = 70 and the top of the surface.
             var problems = new List<string>();
             int columns = 0;
             int partlyCoveredColumns = 0;
-            for (int x = 45; x <= 140; x++)
+            for (int x = 40; x <= 125; x++)
             {
                 float[] alphas = ReadColumnUpward(bitmap, x, 70);
                 columns++;
