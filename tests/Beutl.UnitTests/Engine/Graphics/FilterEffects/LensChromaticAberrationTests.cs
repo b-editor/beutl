@@ -203,6 +203,31 @@ public sealed class LensChromaticAberrationTests
         });
     }
 
+    [Test]
+    public void RepeatedEdgesKeepThePartialCoverageOfFractionalBounds()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            const int surface = 1000;
+            // The left and right edges cover three quarters of their pixels.
+            var content = new Rect(100.25f, 100, 799.5f, 800);
+            using var fill = (Brush.Resource)new SolidColorBrush(Color.FromRgb(220, 170, 120))
+                .ToResource(CompositionContext.Default);
+            using Bitmap bitmap = FilteredShapeHarness.Render(content, new LensChromaticAberration(), fullBleed: true,
+                surface, new Rect(0, 0, surface, surface), fill);
+            Rgba color = PixelAt(bitmap, 500, 500);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(PixelAt(bitmap, 100, 500).Alpha, Is.EqualTo(0.75f).Within(0.02f), "the left edge pixel");
+                Assert.That(PixelAt(bitmap, 899, 500).Alpha, Is.EqualTo(0.75f).Within(0.02f), "the right edge pixel");
+                AssertColor(PixelAt(bitmap, 101, 500), color, "the first whole pixel");
+                AssertColor(PixelAt(bitmap, 898, 500), color, "the last whole pixel");
+            }
+        });
+    }
+
     [TestCase(1.5f)]
     [TestCase(2f)]
     public void RepeatedEdgesKeepTheirColorsAtOtherDensities(float scale)

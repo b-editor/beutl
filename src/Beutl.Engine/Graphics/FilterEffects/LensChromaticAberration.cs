@@ -46,7 +46,19 @@ public sealed partial class LensChromaticAberration : FilterEffect
             vec4 red = sampleAt(redAt);
             vec4 green = sampleAt(greenAt);
             vec4 blue = sampleAt(blueAt);
-            outColor = vec4(red.r, green.g, blue.b, max(max(red.a, green.a), blue.a));
+            vec4 color = vec4(red.r, green.g, blue.b, max(max(red.a, green.a), blue.a));
+            if (pc.repeatEdgePixels != 0.0) {
+                // The reads above skip partly covered pixels, so give each output pixel the share of it that the
+                // picture's bounds cover. A share within 1/64 of nothing or of a whole pixel is rounding.
+                float halfPixel = 0.5 / outputFrame.pixels.z;
+                vec2 covered = clamp(
+                    (min(position + halfPixel, source.bounds.xy + source.bounds.zw) - max(position - halfPixel, source.bounds.xy))
+                        * outputFrame.pixels.z,
+                    0.0, 1.0);
+                covered = mix(covered, round(covered), lessThan(min(covered, 1.0 - covered), vec2(1.0 / 64.0)));
+                color *= covered.x * covered.y;
+            }
+            outColor = color;
         }
         """));
 
