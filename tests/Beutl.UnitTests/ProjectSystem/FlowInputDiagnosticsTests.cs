@@ -101,11 +101,19 @@ public class FlowInputDiagnosticsTests
 
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
 
+        using var compositor = new SceneCompositor(scene, null);
+        secondPortal.Count.Value = 2;
+        Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<DrawableGroup.Resource>().Single().Children, Is.Empty);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
+
+        AddClip(scene, new Cube3D(), layer: 3, start: 0, duration: 2);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
+        secondPortal.Count.Value = 1;
+
         Element matte = AddClip(scene, new RectShape(), layer: 3, start: 0, duration: 2);
         matte.MatteMode.Value = MatteMode.Alpha;
         matte.MatteSourceKind.Value = MatteSourceKind.Layer;
         matte.MatteSourceZIndex.Value = 4;
-        using var compositor = new SceneCompositor(scene, null);
         Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<DrawableGroup.Resource>().Single().Children, Is.Empty);
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
 
@@ -149,6 +157,32 @@ public class FlowInputDiagnosticsTests
         source.IsVisibleInOutput.Value = true;
         source.Objects[0].IsEnabled.Value = false;
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
+
+        source.Objects[0].IsEnabled.Value = true;
+        portal.Count.Expression = new StringExpression<int>("0");
+        receiver.Objects.Insert(1, new PortalObject { Count = { Value = 1 }, Clear = { Value = true } });
+        Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<DrawableGroup.Resource>().Single().Children, Has.Count.EqualTo(1));
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+    }
+
+    [Test]
+    public void FixedPortalsConsumeInputsInsideAnExpressionPortal()
+    {
+        var scene = new Scene();
+        var scene3D = new Scene3D();
+        Element receiver = AddClip(scene, scene3D, layer: 0, start: 0, duration: 2);
+        ((PortalObject)receiver.Objects[0]).Count.Expression = new StringExpression<int>("1");
+        Element nested = AddClip(scene, new PortalObject { Count = { Value = 1 } }, layer: 1, start: 0, duration: 2);
+        var clear = new PortalObject { Count = { Value = 1 }, Clear = { Value = true } };
+        nested.Objects.Add(clear);
+        AddClip(scene, new Cube3D(), layer: 2, start: 0, duration: 2);
+
+        using var compositor = new SceneCompositor(scene, null);
+        Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<Scene3D.Resource>().Single().Objects, Is.Empty);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
+
+        clear.Clear.Value = false;
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
     }
 
     [Test]

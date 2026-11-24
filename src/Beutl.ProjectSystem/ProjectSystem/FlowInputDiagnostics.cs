@@ -95,7 +95,7 @@ internal static class FlowInputDiagnostics
             MediaTime time = graphics ? FirstFrameAtOrAfter(start, frameRate) : start;
             if (time >= end) continue;
 
-            pass.InspectInterval(time, lastInputLayer);
+            pass.InspectInterval(time);
             if (!missing.Exists(obj => obj.GetCompositionTarget() == target)) return;
         }
 
@@ -145,45 +145,34 @@ internal static class FlowInputDiagnostics
     };
 
     private readonly record struct InputScope(PooledList<Element> Elements, MediaTime Time, bool IsMatteSource,
-        bool MayShareInputs, MediaTime? FrameTime = null, MediaTime? SideTime = null);
+        MediaTime? FrameTime = null, MediaTime? SideTime = null);
 
     private sealed class InputPass(Scene scene, Element owner, List<EngineObject> missing,
         CompositionTarget target, HashSet<Element>? participants)
     {
         private readonly HashSet<int> _matteLayers = [];
         private readonly HashSet<Element> _evaluating = new(ReferenceEqualityComparer.Instance);
-        private readonly Dictionary<(Element, InputScope), FlowInputKind> _possibleOutputs = [];
+        private readonly Dictionary<(PortalObject Portal, MediaTime Time, MediaTime? FrameTime, MediaTime? SideTime),
+            (Element[] Elements, FlowInputKind Output)> _variablePortalOutputs = [];
         private MediaTime _frameTime;
-        private int _lastInputLayer;
 
         public void InspectLocalInputs()
         {
             using var empty = new PooledList<Element>();
-            ReadObjects(owner, new InputScope(empty, owner.Range.Start, false, false));
+            ReadObjects(owner, new InputScope(empty, owner.Range.Start, IsMatteSource: false));
         }
 
-        public void InspectInterval(MediaTime time, int lastInputLayer)
+        public void InspectInterval(MediaTime time)
         {
             _frameTime = time;
-            _lastInputLayer = lastInputLayer;
             _matteLayers.Clear();
-            _possibleOutputs.Clear();
+            _variablePortalOutputs.Clear();
             using var active = new PooledList<Element>();
             SceneCompositor.CollectFrameElements(scene, time, active, target, participants);
-            InspectRoots(CreateScope(active, time, isMatteSource: false));
+            InspectRoots(new InputScope(active, time, IsMatteSource: false));
 
             // A hidden clip can be authored as a matte source. Its inputs use their own pass.
             if (participants != null && !owner.IsVisibleInOutput.Value) InspectMatte(owner.ZIndex.Value);
-        }
-
-        private InputScope CreateScope(PooledList<Element> elements, MediaTime time, bool isMatteSource)
-        {
-            // An expression-driven Count can change which Portal took a clip. Keep those possible
-            // sources available for this pass while still using the pass's visibility rules.
-            bool mayShare = elements.Any(element => element.ZIndex.Value < _lastInputLayer
-                && (participants == null || isMatteSource || element.IsVisibleInOutput.Value)
-                && HasVariablePortal(element));
-            return new InputScope(elements, time, isMatteSource, mayShare);
         }
 
         private void InspectRoots(InputScope scope, int? layer = null)
@@ -203,16 +192,9 @@ internal static class FlowInputDiagnostics
         }
 
         private FlowInputKind Read(Element element, InputScope scope)
-        {
-            var key = (element, scope);
-            if (scope.MayShareInputs && _possibleOutputs.TryGetValue(key, out FlowInputKind output)) return output;
-
-            output = participants?.Contains(element) == true && ElementTransitions.TryGetActive(element, scope.Time, out var boundary)
+            => participants?.Contains(element) == true && ElementTransitions.TryGetActive(element, scope.Time, out var boundary)
                 ? ReadTransition(boundary, scope)
                 : ReadElement(element, scope);
-            if (scope.MayShareInputs) _possibleOutputs[key] = output;
-            return output;
-        }
 
         private FlowInputKind ReadElement(Element element, InputScope scope)
         {
@@ -238,7 +220,7 @@ internal static class FlowInputDiagnostics
 
             using var elements = new PooledList<Element>();
             SceneCompositor.CollectFrameElements(scene, _frameTime, elements, target, participants);
-            InspectRoots(CreateScope(elements, _frameTime, isMatteSource: true), layer);
+            InspectRoots(new InputScope(elements, _frameTime, IsMatteSource: true), layer);
         }
 
         private FlowInputKind ReadObjects(Element element, InputScope scope)
@@ -276,29 +258,40 @@ internal static class FlowInputDiagnostics
         private FlowInputKind ReadPortal(PortalObject portal, InputScope scope)
         {
             var span = InputLayers(portal);
-            FlowInputKind flow = FlowInputKind.None;
-            if (!scope.MayShareInputs)
-            {
-                int index = 0;
-                while (PortalObject.TakeNextInput(scope.Elements, span, ref index) is { } element)
-                    flow |= ReadInput(element);
-                return flow;
-            }
+            if (!portal.Count.HasExpression) return TakePortalInputs(span, scope);
 
-            foreach (Element element in scope.Elements.Span)
+            // Count can let this Portal reach any prefix of the remaining lower layers, or none of
+            // them. Inspect the longest prefix on a copy, leaving the caller's confirmed claims intact.
+            ReadOnlySpan<Element> available = scope.Elements.Span;
+            int first = 0;
+            while (first < available.Length && available[first].ZIndex.Value < span.First) first++;
+            available = available[first..];
+            if (available.IsEmpty) return FlowInputKind.None;
+
+            // A nested Portal can be reached repeatedly with the same remaining input order. Matte
+            // reads also depend on the clips being evaluated by the caller, so they use a separate read.
+            var key = (portal, scope.Time, scope.FrameTime, scope.SideTime);
+            if (!scope.IsMatteSource && _variablePortalOutputs.TryGetValue(key, out var previous)
+                && available.SequenceEqual(previous.Elements)) return previous.Output;
+
+            using var possible = new PooledList<Element>(available.Length);
+            possible.AddRange(available);
+            FlowInputKind output = TakePortalInputs(span, scope with { Elements = possible });
+            if (!scope.IsMatteSource) _variablePortalOutputs[key] = (available.ToArray(), output);
+            return output;
+        }
+
+        private FlowInputKind TakePortalInputs((int First, int Last) span, InputScope scope)
+        {
+            FlowInputKind flow = FlowInputKind.None;
+            int index = 0;
+            while (PortalObject.TakeNextInput(scope.Elements, span, ref index) is { } element)
             {
-                int layer = element.ZIndex.Value;
-                if (layer > span.Last) break;
-                if (layer >= span.First) flow |= ReadInput(element);
+                MediaTime time = SceneCompositor.GetPortalInputTime(element, scope.Time, scope.FrameTime, scope.SideTime);
+                flow |= Read(element, scope with { Time = time });
             }
 
             return flow;
-
-            FlowInputKind ReadInput(Element element)
-            {
-                MediaTime time = SceneCompositor.GetPortalInputTime(element, scope.Time, scope.FrameTime, scope.SideTime);
-                return Read(element, scope with { Time = time });
-            }
         }
 
         private FlowInputKind ReadTransition(TransitionBoundary boundary, InputScope scope)
@@ -341,31 +334,27 @@ internal static class FlowInputDiagnostics
                 SceneCompositor.CollectFrameElements(scene, time, atSideTime, target, participants);
                 SceneCompositor.CollectHeldSideInputs(scene.ElementIndex, time, scope.Time, inputs,
                     atSideTime, participants!, sideInputs);
-
-                if (mayUseFrameInputs)
-                {
-                    foreach (Element input in inputs)
-                    {
-                        if (!sideInputs.Contains(input)) sideInputs.Add(input);
-                    }
-                    scene.ElementIndex.Sort(sideInputs);
-                }
             }
 
-            InputScope sideScope = CreateScope(sideInputs, time, scope.IsMatteSource);
-            sideScope = sideScope with
-            {
-                MayShareInputs = sideScope.MayShareInputs || scope.MayShareInputs || HasVariablePortal(side),
-                FrameTime = scope.Time,
-                SideTime = time,
-            };
+            var sideScope = new InputScope(sideInputs, time, scope.IsMatteSource, FrameTime: scope.Time, SideTime: time);
             using var offered = new PooledList<Element>(sideInputs.Count);
             offered.AddRange(sideInputs.Span);
             ReadElement(side, sideScope);
+
+            if (!usesFrameInputs && mayUseFrameInputs)
+            {
+                // The expression can select either input list. Run each in its own order and carry
+                // back only the claims present in both alternatives.
+                using var frameInputs = new PooledList<Element>(inputs.Length);
+                frameInputs.AddRange(inputs.AsSpan());
+                ReadElement(side, sideScope with { Elements = frameInputs });
+                foreach (Element input in frameInputs.Span)
+                {
+                    if (offered.Contains(input) && !sideInputs.Contains(input)) sideInputs.Add(input);
+                }
+            }
+
             SceneCompositor.RemoveConsumedSideInputs(scope.Elements, sideInputs, offered.Span);
         }
-
-        private static bool HasVariablePortal(Element element)
-            => element.Objects.Any(obj => obj is PortalObject { IsEnabled.Value: true, Count.HasExpression: true });
     }
 }
