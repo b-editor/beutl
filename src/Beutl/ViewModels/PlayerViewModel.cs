@@ -84,7 +84,6 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         _editorSelection = editViewModel.GetRequiredService<IEditorSelection>();
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
-        InitializePuppetPinEditor();
 
         // Reapply panel-derived cache size to every rebuilt FrameCacheManager instance.
         editViewModel.FrameCacheManager
@@ -229,6 +228,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
+        InitializePuppetPinEditor();
 
         // The frame shows no boundary while the path editor is open (RenderOnRenderThread), so a paused frame is drawn
         // again when it opens or closes.

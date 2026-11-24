@@ -2183,6 +2183,9 @@
   <data name="Puppet_PlacementHint" xml:space="preserve">
     <value>Haz clic en la imagen para colocar pines. Pulsa Esc para terminar.</value>
   </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>Editando los pines de Marioneta. La vista previa oculta los efectos posteriores.</value>
+  </data>
   <data name="Puppet_PreparingPlacement" xml:space="preserve">
     <value>Preparando la colocación de pines…</value>
   </data>

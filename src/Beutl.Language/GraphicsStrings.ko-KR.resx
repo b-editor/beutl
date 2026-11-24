@@ -2183,6 +2183,9 @@
   <data name="Puppet_PlacementHint" xml:space="preserve">
     <value>이미지를 클릭해 핀을 배치하세요. Esc로 종료합니다.</value>
   </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>퍼펫 핀 편집 중입니다. 미리 보기에서 이후 효과를 일시적으로 숨깁니다.</value>
+  </data>
   <data name="Puppet_PreparingPlacement" xml:space="preserve">
     <value>핀 배치 준비 중…</value>
   </data>

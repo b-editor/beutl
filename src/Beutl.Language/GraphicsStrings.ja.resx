@@ -2179,6 +2179,9 @@
   <data name="Puppet_PlacementHint" xml:space="preserve">
     <value>画像上をクリックして配置。Escで終了</value>
   </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>パペットのピンを編集中。プレビューでは後続のエフェクトを一時的に非表示にしています。</value>
+  </data>
   <data name="Puppet_PreparingPlacement" xml:space="preserve">
     <value>ピンの配置を準備中…</value>
   </data>

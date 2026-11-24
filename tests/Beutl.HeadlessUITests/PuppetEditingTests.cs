@@ -159,11 +159,11 @@ public sealed class PuppetEditingTests
             effect.Pins.RemoveAt(0);
             editor.HistoryManager.Commit("Remove initial test pin");
             Border placementHint = player.FindControl<Border>("puppetPlacementHint")!;
+            TextBlock placementMessage = player.FindControl<TextBlock>("puppetPlacementMessage")!;
             editor.Player.FrameMatrix.Value = new Beutl.Graphics.Matrix(1.12f, 0, 0, 1.12f, -36, -25);
             await Render();
 
             int beforeAdd = editor.HistoryManager.UndoCount;
-            await StartAdding(add);
             var previewView = (Beutl.Controls.BitmapView)player.image;
             var firstPinPoint = new Point(70, 100);
 
@@ -175,11 +175,14 @@ public sealed class PuppetEditingTests
                 scene.FrameSize.Value.Width / 2d + localX * cos - localY * sin,
                 scene.FrameSize.Value.Height / 2d + localX * sin + localY * cos);
             double scale = player.image.Bounds.Width / scene.FrameSize.Value.Width;
-            AvaPoint firstPinClick = player.image.TranslatePoint(new AvaPoint(firstPinFrame.X * scale, firstPinFrame.Y * scale), window)!.Value;
+            var firstPinImage = new AvaPoint(firstPinFrame.X * scale, firstPinFrame.Y * scale);
+            AvaPoint firstPinClick = player.image.TranslatePoint(firstPinImage, window)!.Value;
+            Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.Zero,
+                "the downstream transform moves the picture away from the Puppet stage's pin position");
+
+            await StartAdding(add);
             Assert.Multiple(() =>
             {
-                Assert.That(AlphaAtFrame(editor.Player.PreviewImage.Value!.Value, firstPinFrame), Is.Zero,
-                    "the downstream transform moves the picture away from the Puppet stage's pin position");
                 Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.GreaterThan(200),
                     "the displayed placement frame uses the same stage as the pin picker");
                 Assert.That(downstream.IsEnabled.Value, Is.True);
@@ -250,11 +253,10 @@ public sealed class PuppetEditingTests
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             await HeadlessTestHelpers.WaitUntilAsync(() => PlacementEnded(add));
             Assert.That(effect.Pins, Has.Count.EqualTo(2));
-            Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.Zero,
-                "the ordinary preview shows the downstream effect again after placement");
-            effects.Children.Remove(downstream);
-            editor.HistoryManager.Commit("Remove downstream test transform");
-            await Render();
+            Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.GreaterThan(200),
+                "the preview stays at the Puppet stage while existing pins can be dragged");
+            Assert.That(player.transformHandlesOverlay.HitTestEditingHandle(firstPinImage)?.Handle.Id,
+                Is.EqualTo(fixedPin.Id.Value.ToString()), "the marker sits on the same independently positioned click point");
 
             TextBlock firstNumber = GripNumber(Rows()[0]);
             Assert.That(firstNumber.IsVisible, Is.True);
@@ -308,7 +310,7 @@ public sealed class PuppetEditingTests
             await VerifySeparatedEditors(Rows()[1], moving);
             animation = (KeyFrameAnimation<Point>)moving.Position.GetKeyFrameAnimation()!;
 
-            await StartAdding(add);
+            await Render();
             Point from = effect.GetEditingHandles(MediaTime.Zero).Single(handle => handle.Id == moving.Id.Value.ToString()).Position;
             Point to = from + new Point(24, -54);
             int beforeDrag = editor.HistoryManager.UndoCount;
@@ -324,8 +326,9 @@ public sealed class PuppetEditingTests
                 Assert.That(editor.Player.SelectedPuppetPin.Value, Is.SameAs(moving));
                 Assert.That(RowIsSelected(1), Is.True);
                 Assert.That(AutomationProperties.GetName(add), Is.EqualTo(GraphicsStrings.Puppet_AddPin));
-                Assert.That(placementHint.IsVisible, Is.False);
+                Assert.That(placementMessage.Text, Is.EqualTo(GraphicsStrings.Puppet_EditingPreviewHint));
                 Assert.That(effect.Pins, Has.Count.EqualTo(2));
+                Assert.That(downstream.IsEnabled.Value, Is.True);
                 Assert.That(animation.KeyFrames.Select(key => key.KeyTime.Value),
                     Is.EqualTo(new[] { MediaTime.Zero, remapped, MediaTime.FromSeconds(1) }));
                 var written = (Point)animation.KeyFrames[1].Value!;
@@ -349,6 +352,10 @@ public sealed class PuppetEditingTests
                 HeadlessTestHelpers.Render(3);
             }
 
+            editor.Player.IsMoveMode.Value = false;
+            await HeadlessTestHelpers.WaitUntilAsync(() => !editor.Player.ShowsPuppetStage.Value && !placementHint.IsVisible);
+            Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.Zero,
+                "switching tools restores the downstream effect in the ordinary preview");
             byte[] preview = AlphaOf(editor.Player.PreviewImage.Value!.Value);
             Scene snapshot = SceneSnapshot.Create(scene);
             using (SceneRenderer renderer = ExportRendererFactory.Create(snapshot, TestShell.FontManager,
@@ -360,6 +367,8 @@ public sealed class PuppetEditingTests
                 Assert.That(exported, Is.Not.Null);
                 Assert.That(AlphaOf(exported!), Is.EqualTo(preview), "preview and the saved project's export frame");
             }
+            editor.Player.IsMoveMode.Value = true;
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.ShowsPuppetStage.Value && placementHint.IsVisible);
 
             editor.HistoryManager.Undo();
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
@@ -396,6 +405,10 @@ public sealed class PuppetEditingTests
             editor.HistoryManager.Undo();
             editor.HistoryManager.Undo();
             Assert.That(effect.Pins.Select(pin => pin.Id.Value), Is.EqualTo(new[] { fixedPin.Id.Value, moving.Id.Value }));
+
+            await StartAdding(add);
+            ClickLocal(effect.GetEditingHandles(MediaTime.Zero)[0].Position);
+            await HeadlessTestHelpers.WaitUntilAsync(() => PlacementEnded(add));
 
             await StartAdding(add);
             AvaPoint rightClick = ToWindow(new Point(170, 92));
@@ -437,7 +450,10 @@ public sealed class PuppetEditingTests
             }
 
             bool PlacementEnded(Button button) => AutomationProperties.GetName(button) == GraphicsStrings.Puppet_AddPin
-                && editor.Player.PuppetPlacementEffect.Value is null && !placementHint.IsVisible;
+                && editor.Player.PuppetPlacementEffect.Value is null
+                && (editor.Player.ShowsPuppetStage.Value
+                    ? placementMessage.Text == GraphicsStrings.Puppet_EditingPreviewHint
+                    : !placementHint.IsVisible);
         }
         finally
         {

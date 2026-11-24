@@ -2184,6 +2184,9 @@
   <data name="Puppet_PlacementHint" xml:space="preserve">
     <value>Click the image to place pins. Esc to finish.</value>
   </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>Editing Puppet pins. Later effects are hidden in the preview.</value>
+  </data>
   <data name="Puppet_PreparingPlacement" xml:space="preserve">
     <value>Preparing pin placement…</value>
   </data>

@@ -2183,6 +2183,9 @@
   <data name="Puppet_PlacementHint" xml:space="preserve">
     <value>点击图像放置图钉。按 Esc 结束。</value>
   </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>正在编辑木偶图钉。预览会暂时隐藏后续效果。</value>
+  </data>
   <data name="Puppet_PreparingPlacement" xml:space="preserve">
     <value>正在准备放置图钉…</value>
   </data>

@@ -374,16 +374,20 @@ public partial class PlayerView : UserControl
 
     private void SubscribeCursor(PlayerViewModel vm)
     {
-        var picking = vm.PointPick.CombineLatest(vm.PuppetPlacementEffect, static (point, effect) => (point, effect));
+        var picking = vm.PointPick.CombineLatest(vm.PuppetPlacementEffect, vm.ShowsPuppetStage,
+            static (point, effect, stage) => (point, effect, stage));
         vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode, picking)
             .ObserveOnUIDispatcher()
             .Subscribe(t =>
             {
-                var (point, puppet) = t.Fourth;
-                puppetPlacementHint.IsVisible = puppet is not null;
-                puppetPlacementMessage.Text = puppet is null ? null : ReferenceEquals(point?.LocalOwner, puppet)
-                    ? GraphicsStrings.Puppet_PlacementHint
-                    : GraphicsStrings.Puppet_PreparingPlacement;
+                var (point, puppet, stage) = t.Fourth;
+                puppetPlacementHint.IsVisible = puppet is not null || stage;
+                if (puppet is not null)
+                    puppetPlacementMessage.Text = ReferenceEquals(point?.LocalOwner, puppet)
+                        ? GraphicsStrings.Puppet_PlacementHint
+                        : GraphicsStrings.Puppet_PreparingPlacement;
+                else
+                    puppetPlacementMessage.Text = stage ? GraphicsStrings.Puppet_EditingPreviewHint : null;
                 if (point is not null || puppet is not null)
                     framePanel.Cursor = Cursors.Cross;
                 else if (t.First)
