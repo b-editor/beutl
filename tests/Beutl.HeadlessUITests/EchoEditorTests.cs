@@ -34,7 +34,7 @@ public sealed class EchoEditorTests
                 Count = { Value = 7 },
                 StartingIntensity = { Value = 80 },
                 Decay = { Value = 65 },
-                BlendMode = { Value = EchoBlendMode.Add },
+                BlendMode = { Value = EchoBlendMode.NewestOnTop },
             };
             var title = new TextBlock { Text = GraphicsStrings.Echo };
             panel.Children.Add(title);
@@ -62,7 +62,7 @@ public sealed class EchoEditorTests
                 Assert.That(count.Value, Is.EqualTo(7));
                 Assert.That(intensity.Value, Is.EqualTo(80));
                 Assert.That(decay.Value, Is.EqualTo(65));
-                Assert.That(blendMode.SelectedIndex, Is.EqualTo((int)EchoBlendMode.Add));
+                Assert.That(blendMode.SelectedIndex, Is.EqualTo((int)EchoBlendMode.NewestOnTop));
                 Assert.That(blendMode.Items!.Select(item => item.DisplayName), Has.Exactly(2).Items.And.All.Not.Empty);
             }
 
