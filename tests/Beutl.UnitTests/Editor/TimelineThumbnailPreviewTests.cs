@@ -7,10 +7,12 @@ using Beutl.Audio.Effects;
 using Beutl.Composition;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -144,16 +146,30 @@ public class TimelineThumbnailPreviewTests
     }
 
     [Test]
-    public void SourceVideo_PreviewAfterStartChangeMatchesGlobalSpeedPlayback()
+    public void SourceVideo_PreviewAfterStartChangeUsesTheProspectiveRange()
     {
         var decoders = TestMediaHelper.CreateRegistry();
         var source = new VideoSource();
         source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(64, 36, new Rational(30, 1), 300)));
+        var nextSource = new VideoSource();
+        nextSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(64, 36, new Rational(30, 1), 240)));
         var video = new SourceVideo
         {
             Source = { Value = source },
             TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2)) },
         };
+        new TestHierarchicalRoot().HierarchicalChildren.Add(video);
+        var sources = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = { Value = true } };
+        sources.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = source } });
+        sources.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(2.5) }, Value = { Value = nextSource } });
+        video.Source.SetKeyFrameAnimation(sources);
+        video.OffsetPosition.Expression = Expression.Create<MediaTime>("TimeSpan.FromSeconds(Start + 2 * Time + Duration / 10)");
+
+        var loop = new KeyFrameAnimation<bool>();
+        loop.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = false } });
+        loop.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.FromSeconds(1.5) }, Value = { Value = true } });
+        video.IsLoop.SetKeyFrameAnimation(loop);
+
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = true } };
         animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100 } });
         animation.KeyFrames.Add(new KeyFrame<float>
@@ -166,14 +182,23 @@ public class TimelineThumbnailPreviewTests
 
         MediaTime relativeTime = MediaTime.FromSeconds(1);
         MediaTime startDelta = MediaTime.FromSeconds(0.5);
+        var conditions = CompositionConditions.Default with { Decoders = decoders };
         string? originalKey = video.GetThumbnailsCacheKey();
-        using var original = (SourceVideo.Resource)video.ToResource(new CompositionContext(video.Start + relativeTime) { Decoders = decoders });
-        Assert.That(video.TryComputePreviewSourcePosition(original, relativeTime, out var preview, startDelta: startDelta), Is.True);
+        using var original = video.ToResource(video.CreateThumbnailContext(relativeTime, MediaTime.Zero, conditions));
+        using var previewResource = video.ToResource(video.CreateThumbnailContext(relativeTime, startDelta, conditions));
+        Assert.That(video.TryComputePreviewSourcePosition(previewResource, relativeTime, out var preview, startDelta: startDelta), Is.True);
 
         video.TimeRange.Value = new TimeRange(video.Start + startDelta, video.Duration - startDelta);
-        using var committed = (SourceVideo.Resource)video.ToResource(new CompositionContext(video.Start + relativeTime) { Decoders = decoders });
+        using var committed = video.ToResource(video.CreateThumbnailContext(relativeTime, MediaTime.Zero, conditions));
         Assert.Multiple(() =>
         {
+            Assert.That(original.Source?.GetOriginal(), Is.SameAs(source));
+            Assert.That(previewResource.Source?.GetOriginal(), Is.SameAs(nextSource));
+            Assert.That(previewResource.Source?.GetOriginal(), Is.SameAs(committed.Source?.GetOriginal()));
+            Assert.That(previewResource.OffsetPosition, Is.EqualTo(committed.OffsetPosition));
+            Assert.That(previewResource.OffsetPosition, Is.Not.EqualTo(original.OffsetPosition));
+            Assert.That(committed.IsLoop, Is.False);
+            Assert.That(previewResource.IsLoop, Is.EqualTo(committed.IsLoop));
             Assert.That(preview, Is.EqualTo(committed.RequestedPosition + committed.OffsetPosition));
             Assert.That(preview, Is.Not.EqualTo(original.RequestedPosition + original.OffsetPosition));
             Assert.That(video.GetThumbnailsCacheKey(), Is.Not.EqualTo(originalKey));

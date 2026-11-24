@@ -87,10 +87,14 @@ public partial class SourceVideo : IThumbnailsProvider
         }
 
         string? key = ThumbnailsCacheKey.Compute(CoreSerializer.SerializeToJsonObject(this), properties);
-        return key != null && HasGlobalSpeedAnimation ? $"{key}|start:{TimeRange.Value.Start.Flicks}" : key;
+        return key != null && RequiresResampledStartPreview ? $"{key}|start:{TimeRange.Value.Start.Flicks}" : key;
     }
 
-    internal bool HasGlobalSpeedAnimation => Speed.GetKeyFrameAnimation() is { KeyFrames.Count: > 0, UseGlobalClock.Value: true };
+    internal bool RequiresResampledStartPreview
+        => AnimationSampler.DependsOnTimelineStart(Speed)
+            || AnimationSampler.DependsOnTimelineStart(OffsetPosition)
+            || AnimationSampler.DependsOnTimelineStart(Source)
+            || AnimationSampler.DependsOnTimelineStart(IsLoop);
 
     public IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         FontManager fonts,
@@ -168,15 +172,17 @@ public partial class SourceVideo : IThumbnailsProvider
         RenderNodeRenderer? renderer = null;
         try
         {
-            // Opening the decoder can parse a large media file. Queue it with the strip's rendering
-            // work so enumeration from a timeline view never performs that I/O on the UI thread.
-            resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(new CompositionContext(MediaTime.Zero)
+            var conditions = CompositionConditions.Default with
             {
                 Fonts = fonts,
                 Decoders = decoders,
                 PreferProxy = preferProxy,
                 PreferredProxyPreset = preferredProxyPreset,
-            }), DispatchPriority.Low, cancellationToken);
+            };
+            // Opening the decoder can parse a large media file. Queue it with the strip's rendering work.
+            resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(previewIndices != null
+                ? CreateThumbnailContext(MediaTime.Zero, startDelta, conditions)
+                : new CompositionContext(MediaTime.Zero) { Conditions = conditions }), DispatchPriority.Low, cancellationToken);
 
             if (resource.Source is not { } source)
                 yield break;
@@ -250,13 +256,7 @@ public partial class SourceVideo : IThumbnailsProvider
                         return (false, (Bitmap?)null);
 
                     MediaTime relativeEvalTime = previewIndices != null && time < MediaTime.Zero ? MediaTime.Zero : time;
-                    var ctx = new CompositionContext(relativeEvalTime + TimeRange.Value.Start)
-                    {
-                        Fonts = fonts,
-                        Decoders = decoders,
-                        PreferProxy = preferProxy,
-                        PreferredProxyPreset = preferredProxyPreset,
-                    };
+                    var ctx = CreateThumbnailContext(relativeEvalTime, startDelta, conditions);
                     bool versionBumped = false;
                     resource.Reconcile(this, ctx, ref versionBumped);
 
@@ -301,6 +301,17 @@ public partial class SourceVideo : IThumbnailsProvider
         }
     }
 
+    internal CompositionContext CreateThumbnailContext(MediaTime relativeTime, MediaTime startDelta, CompositionConditions conditions)
+    {
+        TimeRange range = TimeRange.Value;
+        MediaTime start = range.Start + startDelta;
+        return new CompositionContext(start + relativeTime)
+        {
+            Conditions = conditions,
+            PreviewTimeRange = startDelta != MediaTime.Zero ? (this, start, range.Duration - startDelta) : null
+        };
+    }
+
     internal bool TryComputePreviewSourcePosition(
         Resource resource,
         MediaTime relativeTime,
@@ -312,17 +323,17 @@ public partial class SourceVideo : IThumbnailsProvider
         if (resource.Source is not { IsDisposed: false } source || source.Duration <= MediaTime.Zero)
             return false;
 
-        MediaTime start = TimeRange.Value.Start;
+        MediaTime start = TimeRange.Value.Start + startDelta;
         MediaTime requested;
         if (relativeTime < MediaTime.Zero && Speed.GetKeyFrameAnimation() is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } animation)
         {
             // Extrapolate before the clip using its starting rate.
-            float startSpeed = animation.Interpolate(animation.UseGlobalClock.Value ? start + startDelta : MediaTime.Zero);
+            float startSpeed = animation.Interpolate(animation.UseGlobalClock.Value ? start : MediaTime.Zero);
             requested = new MediaTime((long)Math.Round(relativeTime.Flicks * (double)(startSpeed / 100f)));
         }
         else
         {
-            requested = CalculateRequestedPosition(start + relativeTime, resource, startDelta);
+            requested = CalculateRequestedPosition(start + relativeTime, resource, start);
         }
 
         // Playback can move backwards after the in-point. Extending before it can also expose empty media space.

@@ -522,7 +522,7 @@ public sealed partial class ElementViewModel
     internal bool RequiresResampledStartPreview()
         => FindThumbnailsProvider() switch
         {
-            Beutl.Graphics.SourceVideo video => video.HasGlobalSpeedAnimation,
+            Beutl.Graphics.SourceVideo video => video.RequiresResampledStartPreview,
             Beutl.Audio.SourceSound sound => sound.RequiresResampledStartPreview,
             _ => false
         };

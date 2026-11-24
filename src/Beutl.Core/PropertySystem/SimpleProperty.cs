@@ -133,7 +133,10 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             }
             else
             {
-                expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
+                expressionContext = new ExpressionContext(context.Time, this, _propertyLookup)
+                {
+                    PreviewTimeRange = context.PreviewTimeRange
+                };
             }
 
             IProperty previousProperty = expressionContext.CurrentProperty;

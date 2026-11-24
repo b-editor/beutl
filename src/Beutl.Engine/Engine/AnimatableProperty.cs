@@ -164,7 +164,10 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
             }
             else
             {
-                expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
+                expressionContext = new ExpressionContext(context.Time, this, _propertyLookup)
+                {
+                    PreviewTimeRange = context.PreviewTimeRange
+                };
             }
 
             IProperty previousProperty = expressionContext.CurrentProperty;
@@ -188,7 +191,9 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         }
         if (_keyFrames is { } keyFrames)
         {
-            value = keyFrames.EvaluateAt(context.Time) ?? _currentValue;
+            value = (keyFrames is KeyFrameAnimation<T> animation
+                ? animation.EvaluateAt(context)
+                : keyFrames.EvaluateAt(context.Time)) ?? _currentValue;
             value = ValidateAndCoerce(value);
         }
         else

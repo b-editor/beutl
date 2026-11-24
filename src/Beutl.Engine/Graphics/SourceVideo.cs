@@ -109,13 +109,12 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
     private MediaTime CalculateVideoTime(MediaTime timeSpan, Resource resource)
         => SpeedAdjustedTime.Map(Speed, resource.Speed, resource._speedIntegrator, timeSpan);
 
-    private MediaTime CalculateRequestedPosition(MediaTime time, Resource resource, MediaTime startDelta = default)
+    private MediaTime CalculateRequestedPosition(MediaTime time, Resource resource, MediaTime start)
     {
-        MediaTime start = TimeRange.Value.Start;
         if (Speed.GetKeyFrameAnimation() is KeyFrameAnimation<float> animation)
         {
             return animation.UseGlobalClock.Value
-                ? CalculateVideoTime(time + startDelta, resource) - CalculateVideoTime(start + startDelta, resource)
+                ? CalculateVideoTime(time, resource) - CalculateVideoTime(start, resource)
                 : CalculateVideoTime(time - start, resource);
         }
 
@@ -280,14 +279,15 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
                     BumpVersion(ref versionBumped);
             }
 
-            UpdatePosition(video, context.Time);
+            MediaTime start = context.GetPreviewTimeRange(video)?.Start ?? video.TimeRange.Value.Start;
+            UpdatePosition(video, context.Time, start);
             if (GetType() == typeof(Resource))
                 CompleteReconciliation(context);
         }
 
-        private void UpdatePosition(SourceVideo obj, MediaTime time)
+        private void UpdatePosition(SourceVideo obj, MediaTime time, MediaTime start)
         {
-            RequestedPosition = NormalizeRequestedPosition(this, obj.CalculateRequestedPosition(time, this),
+            RequestedPosition = NormalizeRequestedPosition(this, obj.CalculateRequestedPosition(time, this, start),
                 OffsetPosition, normalizeReverse: true);
 
             if (RequestedPosition != RenderedPosition)

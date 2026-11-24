@@ -57,9 +57,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
             || HasEnabledEffect(Effect.Value);
 
     internal bool RequiresResampledStartPreview
-        => Properties.Any(property => property is IExpressionProperty { HasExpression: true }
-                || property.GetKeyFrameAnimation() is { KeyFrames.Count: > 0, UseGlobalClock.Value: true })
-            || HasEnabledEffect(Effect.Value);
+        => Properties.Any(AnimationSampler.DependsOnTimelineStart) || HasEnabledEffect(Effect.Value);
 
     private static bool HasEnabledEffect(AudioEffect? effect)
         => effect is { IsEnabled.Value: true }
