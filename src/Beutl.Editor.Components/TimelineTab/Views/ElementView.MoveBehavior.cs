@@ -4,9 +4,11 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media.Immutable;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.JsonConverters;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
@@ -22,11 +24,13 @@ public sealed partial class ElementView
 {
     private sealed class _MoveBehavior : Behavior<ElementView>
     {
+        private readonly record struct SlipPreviewEntry(ElementViewModel ViewModel, SlippableMedia.Target? VariableSpeedTarget);
+
         private bool _pressed;
         private bool _duplicateMode;
         private bool _isSlipDrag;
         private Element[] _slipTargets = [];
-        private ElementViewModel[] _slipPreviewElements = [];
+        private SlipPreviewEntry[] _slipPreviewElements = [];
         private List<SlippableMedia.Target> _slipMediaTargets = [];
         private readonly List<Control> _ghosts = [];
         private IReadOnlyList<ElementViewModel> _relatedElements = [];
@@ -76,12 +80,12 @@ public sealed partial class ElementView
             _isSlipDrag = false;
             _duplicateMode = false;
             _slipTargets = [];
-            ElementViewModel[] slipPreviewElements = _slipPreviewElements;
+            SlipPreviewEntry[] slipPreviewElements = _slipPreviewElements;
             _slipPreviewElements = [];
             _slipMediaTargets = [];
-            foreach (ElementViewModel vm in slipPreviewElements)
+            foreach (SlipPreviewEntry entry in slipPreviewElements)
             {
-                vm.EndMediaPreview(committed: false);
+                entry.ViewModel.EndMediaPreview(committed: false);
             }
             IReadOnlyList<ElementViewModel> relatedElements = _relatedElements;
             _relatedElements = [];
@@ -131,9 +135,17 @@ public sealed partial class ElementView
                         ? SlippableMedia.ClampSharedDelta(_slipMediaTargets, requestedDelta)
                         : MediaTime.Zero;
                     double offsetX = -previewDelta.TimeToPixel(scale);
-                    foreach (ElementViewModel vm in _slipPreviewElements)
+                    foreach (SlipPreviewEntry entry in _slipPreviewElements)
                     {
-                        vm.UpdateMediaPreview(offsetX);
+                        if (entry.VariableSpeedTarget is { } variableTarget)
+                        {
+                            MediaTime sourceDelta = variableTarget.SourceDelta(previewDelta, trim: false);
+                            entry.ViewModel.UpdateMediaPreview(0, sourceDelta);
+                        }
+                        else
+                        {
+                            entry.ViewModel.UpdateMediaPreview(offsetX);
+                        }
                     }
 
                     view.UpdateSnapFeedback(slipSnap.DidSnap && previewDelta == requestedDelta ? slipSnap.Time : null, scale, e.Timestamp);
@@ -256,7 +268,7 @@ public sealed partial class ElementView
             DecoderRegistry? decoders = ExtensionGuard.FindService<DecoderRegistry>(viewModel.Timeline.EditorContext);
             var seen = new HashSet<Element>();
             var mediaTargets = new List<SlippableMedia.Target>();
-            var previewElements = new List<ElementViewModel>();
+            var previewElements = new List<SlipPreviewEntry>();
             foreach (Element element in targets)
             {
                 if (!seen.Add(element)) continue;
@@ -268,17 +280,34 @@ public sealed partial class ElementView
 
                 mediaTargets.AddRange(collected);
                 if (viewModel.Timeline.GetViewModelFor(element) is { } vm)
-                    previewElements.Add(vm);
+                {
+                    SlippableMedia.Target? variableTarget = FindVariableSpeedThumbnailTarget(vm, collected);
+                    previewElements.Add(new SlipPreviewEntry(vm, variableTarget));
+                }
             }
 
             _slipMediaTargets = mediaTargets;
             _slipPreviewElements = [.. previewElements];
         }
 
+        // Translating the existing strip by previewDelta is exact only when source time is linear in clip time.
+        // When the thumbnail provider's speed varies over time, resample with the planned source-offset delta instead.
+        private static SlippableMedia.Target? FindVariableSpeedThumbnailTarget(
+            ElementViewModel viewModel,
+            List<SlippableMedia.Target> targets)
+        {
+            var provider = viewModel.FindThumbnailsProvider();
+            return provider is (Beutl.Graphics.SourceVideo or Beutl.Audio.SourceSound)
+                && provider is ITimeMappedSource { Speed: { } speed } source
+                && (speed.HasExpression || speed.GetKeyFrameAnimation() is { KeyFrames.Count: > 0 })
+                ? targets.FirstOrDefault(t => ReferenceEquals(t.Offset, source.OffsetPosition))
+                : null;
+        }
+
         private void CommitSlipDrag(ElementView view, ElementViewModel viewModel)
         {
             Element[] targets = _slipTargets;
-            ElementViewModel[] previewElements = _slipPreviewElements;
+            SlipPreviewEntry[] previewElements = _slipPreviewElements;
             List<SlippableMedia.Target> mediaTargets = _slipMediaTargets;
             _slipTargets = [];
             _slipPreviewElements = [];
@@ -303,10 +332,11 @@ public sealed partial class ElementView
                     .Slip(viewModel.Scene, targets, delta);
             }
 
-            double? finalOffsetX = applied ? -effectiveDelta.TimeToPixel(scale) : null;
-            foreach (ElementViewModel vm in previewElements)
+            double? translatedOffsetX = applied ? -effectiveDelta.TimeToPixel(scale) : null;
+            foreach (SlipPreviewEntry entry in previewElements)
             {
-                vm.EndMediaPreview(committed: applied, finalContentOffsetX: finalOffsetX);
+                double? finalOffsetX = entry.VariableSpeedTarget != null ? (applied ? 0d : null) : translatedOffsetX;
+                entry.ViewModel.EndMediaPreview(committed: applied, finalContentOffsetX: finalOffsetX);
             }
         }
 

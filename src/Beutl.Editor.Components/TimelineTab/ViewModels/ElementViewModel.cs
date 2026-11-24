@@ -61,6 +61,8 @@ public sealed partial class ElementViewModel : IDisposable
 
     public Func<int, int, List<int>>? GetMissingThumbnailIndices;
     public Func<int, int, List<int>>? GetMissingWaveformIndices;
+    public Func<(int Start, int End)>? GetVisibleThumbnailRange;
+    public Func<(int Start, int End)>? GetVisibleWaveformRange;
     public Func<double>? GetMediaViewportWidth;
 
     public ElementViewModel(Element element, TimelineTabViewModel timeline)
@@ -463,6 +465,8 @@ public sealed partial class ElementViewModel : IDisposable
         GetClickedTime = null;
         GetMissingThumbnailIndices = null;
         GetMissingWaveformIndices = null;
+        GetVisibleThumbnailRange = null;
+        GetVisibleWaveformRange = null;
         GetMediaViewportWidth = null;
     }
 
@@ -541,8 +545,8 @@ public sealed partial class ElementViewModel : IDisposable
             .Resize(Scene, [request], ripple);
 
         bool changed = Model.Start.Value != beforeStart || Model.Length.Value != beforeLength;
-        await AnimationRequest(context);
         EndMediaPreview(committed: changed);
+        await AnimationRequest(context);
     }
 
     public PrepareAnimationContext PrepareAnimation()

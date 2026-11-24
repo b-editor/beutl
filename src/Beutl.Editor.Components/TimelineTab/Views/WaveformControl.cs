@@ -105,6 +105,16 @@ public sealed partial class WaveformControl : Control
         InvalidateVisual();
     }
 
+    internal (int Start, int End) GetVisibleRange()
+        => TimelineSlotRange.Compute(
+            this,
+            _scrollViewer,
+            ChunkCount,
+            buffer: 16,
+            ContentWidth,
+            ContentOffsetX,
+            allowOutOfRange: false);
+
     public List<int> GetMissingIndices(int start, int end)
     {
         var missing = new List<int>();

@@ -1,25 +1,29 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
-using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Extensibility;
-using Beutl.Graphics.Shapes;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Decoding;
+using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels;
+using Beutl.Threading;
 using Point = Avalonia.Point;
 
 namespace Beutl.HeadlessUITests;
@@ -62,7 +66,6 @@ public class TimelineEditModeThumbnailPreviewTests
             // Wait for newly exposed chunks past initialChunkCount to be populated on demand.
             await HeadlessTestHelpers.WaitUntilAsync(() =>
                 view.Waveform.GetMissingIndices(initialChunkCount, initialChunkCount + 10).Count == 0);
-
             // Cancel with Escape: preview clears and out-of-range chunks are pruned while base chunks remain.
             view.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
             HeadlessTestHelpers.Settle(4);
@@ -86,144 +89,133 @@ public class TimelineEditModeThumbnailPreviewTests
     }
 
     [AvaloniaTest]
-    public async Task RollEdit_KeepsFrontAnchoredAndOffsetsBackInTimelineSpace()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task TrimEdit_AnchorsFrontAndBackContent(bool slide)
     {
         using var config = new PreviewConfigScope();
-        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("roll-thumbnail-preview");
-        scene.Duration.Value = MediaTime.FromSeconds(12);
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        Assert.That((await adder.AddAsync([
-            new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
-            new ElementDescription(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape()))
-        ], CancellationToken.None)).IsSuccess, Is.True);
-
-        Element frontModel = scene.Children[0];
-        Element backModel = scene.Children[1];
-        AttachAudio(frontModel, offsetSeconds: 1, sourceSeconds: 8);
-        AttachAudio(backModel, offsetSeconds: 2, sourceSeconds: 8);
-
-        var timeline = editor.FindToolTab<TimelineTabViewModel>()!;
-        timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
-        HeadlessTestHelpers.Settle();
-
-        ElementViewModel front = timeline.GetViewModelFor(frontModel)!;
-        ElementViewModel back = timeline.GetViewModelFor(backModel)!;
+        var (_, timeline) = await TimelineTestHost.OpenTimelineAsync("trim-thumbnail-preview",
+            Enumerable.Range(0, slide ? 3 : 2)
+                .Select(i => ClipDescription(1 + i * 2, 2, () => CreateAudio(offsetSeconds: 2, sourceSeconds: 10)))
+                .ToArray());
+        List<ElementViewModel> clips = timeline.AllElements();
+        ElementViewModel front = clips[0];
+        ElementViewModel back = clips[^1];
+        ElementViewModel dragged = slide ? clips[1] : front;
         timeline.ClearSelected();
-        timeline.SelectElement(front);
-        timeline.IsRollMode.Value = true;
+        timeline.SelectElement(dragged);
+        timeline.IsRollMode.Value = !slide;
+        timeline.IsSlideMode.Value = slide;
         try
         {
-            using var view = new TimelineViewScope(front, width: 1200);
+            using var view = new TimelineViewScope(dragged, width: 1400);
             WaveformControl frontWave = view.GetWaveformFor(front);
             WaveformControl backWave = view.GetWaveformFor(back);
             await WaitForWaveformReady(front, frontWave);
             await WaitForWaveformReady(back, backWave);
 
-            double frontBaseWidth = frontWave.Bounds.Width;
-            double backBaseWidth = backWave.Bounds.Width;
-            float scale = view.Scale;
-            double deltaPixels = MediaTime.FromSeconds(-0.5).TimeToPixel(scale);
-            Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width - 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
-            Point release = press.WithX(press.X + deltaPixels);
-
-            await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
+            double frontWidth = frontWave.Bounds.Width;
+            double backWidth = backWave.Bounds.Width;
+            MediaTime delta = MediaTime.FromSeconds(slide ? 0.5 : -0.5);
+            double deltaPixels = delta.TimeToPixel(view.Scale);
+            double pressX = slide ? view.Border.Bounds.Width / 2 : view.Border.Bounds.Width - 2;
+            Point press = view.Border.TranslatePoint(new Point(pressX, view.Border.Bounds.Height / 2), view.Window)!.Value;
+            await view.DragAsync(press, press.WithX(press.X + deltaPixels), RawInputModifiers.Alt, async () =>
             {
                 Assert.Multiple(() =>
                 {
                     Assert.That(front.IsThumbnailPreviewActive.Value, Is.True);
-                    Assert.That(front.ThumbnailContentWidth.Value, Is.EqualTo(frontBaseWidth).Within(0.01));
+                    Assert.That(front.ThumbnailContentWidth.Value, Is.EqualTo(frontWidth));
                     Assert.That(front.ThumbnailContentOffsetX.Value, Is.Zero);
-
                     Assert.That(back.IsThumbnailPreviewActive.Value, Is.True);
-                    Assert.That(back.ThumbnailContentWidth.Value, Is.EqualTo(backBaseWidth).Within(0.01));
-                    // Moving the cut left by 0.5s exposes 0.5s on the left of Back -> positive ContentOffsetX = -deltaPixels.
+                    Assert.That(back.ThumbnailContentWidth.Value, Is.EqualTo(backWidth));
                     Assert.That(back.ThumbnailContentOffsetX.Value, Is.EqualTo(-deltaPixels).Within(0.5));
+                    if (slide)
+                        Assert.That(double.IsNaN(dragged.ThumbnailContentWidth.Value), Is.True);
                 });
 
-                // Wait for newly exposed negative chunks on Back to load while dragging.
-                await HeadlessTestHelpers.WaitUntilAsync(() => backWave.GetMissingIndices(-10, -1).Count == 0);
+                if (!slide)
+                    await HeadlessTestHelpers.WaitUntilAsync(() => backWave.GetMissingIndices(-10, -1).Count == 0);
             });
 
-            // After commit, both clips refresh and clear preview transforms.
             await HeadlessTestHelpers.WaitUntilAsync(() =>
-                double.IsNaN(front.ThumbnailContentWidth.Value)
-                && double.IsNaN(back.ThumbnailContentWidth.Value));
+                double.IsNaN(front.ThumbnailContentWidth.Value) && double.IsNaN(back.ThumbnailContentWidth.Value));
             Assert.Multiple(() =>
             {
-                Assert.That(front.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
-                Assert.That(back.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
-                Assert.That(back.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
-                Assert.That(front.ThumbnailContentOffsetX.Value, Is.Zero);
-                Assert.That(back.ThumbnailContentOffsetX.Value, Is.Zero);
+                Assert.That(front.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2) + delta));
+                Assert.That(back.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(slide ? 5 : 3) + delta));
+                Assert.That(back.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2) - delta));
+                if (slide)
+                    Assert.That(dragged.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3) + delta));
             });
         }
         finally
         {
             timeline.IsRollMode.Value = false;
+            timeline.IsSlideMode.Value = false;
         }
     }
 
     [AvaloniaTest]
-    public async Task SlideEdit_PreviewsFrontAndBackWithoutModifyingMiddleThumbnails()
+    public async Task VideoResize_PausesPendingStripRebuildUntilDragEnds()
     {
+        TestGpu.RequireAnyDevice();
         using var config = new PreviewConfigScope();
-        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("slide-thumbnail-preview");
-        scene.Duration.Value = MediaTime.FromSeconds(14);
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        Assert.That((await adder.AddAsync([
-            new ElementDescription(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
-            new ElementDescription(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
-            new ElementDescription(MediaTime.FromSeconds(4), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape()))
-        ], CancellationToken.None)).IsSuccess, Is.True);
+        TestShell.EnsureDecoder<PreviewMediaDecoder>();
+        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{Guid.NewGuid():N}.preview-video");
+        File.WriteAllBytes(path, []);
+        var (_, timeline) = await TimelineTestHost.OpenTimelineAsync("video-thumbnail-preview",
+            [ClipDescription(1, 2, () => new SourceVideo { Source = { Value = VideoSource.Open(path) } })]);
+        ElementViewModel clip = timeline.AllElements().Single();
+        using var view = new TimelineViewScope(clip, width: 1200);
+        var strip = view.Element.FindControl<ThumbnailStripControl>("thumbnailStrip")!;
+        await HeadlessTestHelpers.WaitUntilAsync(() => clip.VideoThumbnailCount.Value > 0
+            && strip.GetMissingIndices(0, clip.VideoThumbnailCount.Value - 1).Count == 0);
+        int baseCount = clip.VideoThumbnailCount.Value;
 
-        AttachAudio(scene.Children[0], offsetSeconds: 1, sourceSeconds: 8);
-        AttachAudio(scene.Children[1], offsetSeconds: 1, sourceSeconds: 8);
-        AttachAudio(scene.Children[2], offsetSeconds: 2, sourceSeconds: 8);
-
-        var timeline = editor.FindToolTab<TimelineTabViewModel>()!;
-        timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
-        HeadlessTestHelpers.Settle();
-
-        ElementViewModel front = timeline.GetViewModelFor(scene.Children[0])!;
-        ElementViewModel middle = timeline.GetViewModelFor(scene.Children[1])!;
-        ElementViewModel back = timeline.GetViewModelFor(scene.Children[2])!;
-        timeline.ClearSelected();
-        timeline.SelectElement(middle);
-        timeline.IsSlideMode.Value = true;
+        // Queue a rebuild for the zoomed layout behind a render-thread operation.
+        using var resumeRendering = new ManualResetEventSlim();
+        var blocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task blocker = RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            blocked.SetResult();
+            if (!resumeRendering.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The resize did not release the render thread.");
+        });
         try
         {
-            using var view = new TimelineViewScope(middle, width: 1400);
-            await WaitForWaveformReady(front, view.GetWaveformFor(front));
-            await WaitForWaveformReady(middle, view.GetWaveformFor(middle));
-            await WaitForWaveformReady(back, view.GetWaveformFor(back));
+            await blocked.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            timeline.Options.Value = timeline.Options.Value with { Scale = 1.5f };
+            HeadlessTestHelpers.Render(3);
+            clip.InvalidateAndUpdateThumbnails();
+            double baseWidth = strip.Bounds.Width;
+            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "video-before");
 
-            float scale = view.Scale;
-            double deltaPixels = MediaTime.FromSeconds(0.5).TimeToPixel(scale);
-            Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width / 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
-            Point release = press.WithX(press.X + deltaPixels);
-
-            view.Drag(press, release, RawInputModifiers.Alt, () =>
+            Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width - 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
+            Point release = press.WithX(press.X + MediaTime.FromSeconds(0.75).TimeToPixel(1.5f));
+            await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
             {
+                resumeRendering.Set();
+                await HeadlessTestHelpers.WaitUntilAsync(() => strip.GetMissingIndices(baseCount, baseCount).Count == 0);
                 Assert.Multiple(() =>
                 {
-                    Assert.That(front.IsThumbnailPreviewActive.Value, Is.True);
-                    Assert.That(front.ThumbnailContentOffsetX.Value, Is.Zero);
-                    Assert.That(middle.IsThumbnailPreviewActive.Value, Is.False);
-                    Assert.That(double.IsNaN(middle.ThumbnailContentWidth.Value), Is.True);
-                    Assert.That(back.IsThumbnailPreviewActive.Value, Is.True);
-                    Assert.That(back.ThumbnailContentOffsetX.Value, Is.EqualTo(-deltaPixels).Within(0.5));
+                    Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
+                    Assert.That(clip.VideoThumbnailCount.Value, Is.EqualTo(baseCount));
+                    Assert.That(clip.ThumbnailContentWidth.Value, Is.EqualTo(baseWidth));
                 });
+                HeadlessTestHelpers.Render(3);
+                HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "video-drag");
+                view.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
             });
-
-            await HeadlessTestHelpers.WaitUntilAsync(() =>
-                double.IsNaN(front.ThumbnailContentWidth.Value)
-                && double.IsNaN(back.ThumbnailContentWidth.Value));
-            Assert.That(middle.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
         }
         finally
         {
-            timeline.IsSlideMode.Value = false;
+            resumeRendering.Set();
+            await blocker;
         }
+
+        await HeadlessTestHelpers.WaitUntilAsync(() => clip.VideoThumbnailCount.Value > baseCount);
+        Assert.That(clip.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [AvaloniaTest]
@@ -241,6 +233,7 @@ public class TimelineEditModeThumbnailPreviewTests
             using var view = new TimelineViewScope(clip, width: 1200);
             await WaitForWaveformReady(clip, view.Waveform);
 
+            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "slip-before");
             double initialWidth = clip.Width.Value;
             double initialLeft = clip.BorderMargin.Value.Left;
             int initialChunkCount = clip.WaveformChunkCount.Value;
@@ -266,6 +259,8 @@ public class TimelineEditModeThumbnailPreviewTests
                 // Newly revealed right-hand chunks (indices >= initialChunkCount) must load during slip drag.
                 await HeadlessTestHelpers.WaitUntilAsync(() =>
                     view.Waveform.GetMissingIndices(initialChunkCount, initialChunkCount + 10).Count == 0);
+                HeadlessTestHelpers.Render(3);
+                HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "slip-drag");
             });
 
             await HeadlessTestHelpers.WaitUntilAsync(() => double.IsNaN(clip.ThumbnailContentWidth.Value));
@@ -281,6 +276,99 @@ public class TimelineEditModeThumbnailPreviewTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task SlipEdit_AnimatedSpeed_ResamplesInPlaceWithoutTranslatingStrip()
+    {
+        using var config = new PreviewConfigScope();
+        ElementViewModel clip = await OpenAudioClip(startSeconds: 1, lengthSeconds: 2, offsetSeconds: 1, sourceSeconds: 10);
+        var sound = clip.Model.Objects.OfType<SourceSound>().Single();
+        var speed = new KeyFrameAnimation<float> { UseGlobalClock = { Value = false } };
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 100 },
+            Easing = { Value = new LinearEasing() }
+        });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = 200 },
+            Easing = { Value = new LinearEasing() }
+        });
+        sound.Speed.SetKeyFrameAnimation(speed);
+        clip.Timeline.ClearSelected();
+        clip.Timeline.SelectElement(clip);
+        clip.Timeline.IsSlipMode.Value = true;
+        try
+        {
+            using var view = new TimelineViewScope(clip, width: 1200);
+            await WaitForWaveformReady(clip, view.Waveform);
+
+            float scale = view.Scale;
+            Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width / 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
+            Point release = press.WithX(press.X + MediaTime.FromSeconds(1).TimeToPixel(scale));
+
+            await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
+                    Assert.That(clip.ThumbnailContentOffsetX.Value, Is.Zero,
+                        "Variable-speed slips must resample with the source-offset delta rather than translating the old strip.");
+                    Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+                });
+                await Task.Delay(50);
+                HeadlessTestHelpers.Render(3);
+            });
+
+            await HeadlessTestHelpers.WaitUntilAsync(() => double.IsNaN(clip.ThumbnailContentWidth.Value));
+            Assert.That(sound.OffsetPosition.Value, Is.GreaterThan(MediaTime.FromSeconds(1)));
+        }
+        finally
+        {
+            clip.Timeline.IsSlipMode.Value = false;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task SecondDragKeepsItsPreviewWhenThePreviousResizeSettles()
+    {
+        using var config = new PreviewConfigScope();
+        ElementViewModel clip = await OpenAudioClip(startSeconds: 1, lengthSeconds: 2, offsetSeconds: 1, sourceSeconds: 6);
+        using var view = new TimelineViewScope(clip, width: 1200);
+        await WaitForWaveformReady(clip, view.Waveform);
+
+        var settle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        clip.AnimationRequested = (_, _) => settle.Task;
+        clip.UpdateMediaPreview(0);
+        clip.Width.Value += MediaTime.FromSeconds(1).TimeToPixel(view.Scale);
+        Task resize = clip.SubmitViewModelChanges();
+        try
+        {
+            Assert.That(clip.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            await WaitForWaveformReady(clip, view.Waveform);
+
+            clip.UpdateMediaPreview(-10);
+            double width = clip.ThumbnailContentWidth.Value;
+            Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
+
+            settle.SetResult();
+            await resize;
+            Assert.Multiple(() =>
+            {
+                Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
+                Assert.That(clip.ThumbnailContentWidth.Value, Is.EqualTo(width));
+                Assert.That(clip.ThumbnailContentOffsetX.Value, Is.EqualTo(-10));
+            });
+        }
+        finally
+        {
+            settle.TrySetResult();
+            await resize;
+            clip.EndMediaPreview(committed: false);
+        }
+    }
+
     private static async Task WaitForWaveformReady(ElementViewModel clip, WaveformControl waveform)
     {
         await HeadlessTestHelpers.WaitUntilAsync(() =>
@@ -292,50 +380,61 @@ public class TimelineEditModeThumbnailPreviewTests
     private static async Task<ElementViewModel> OpenAudioClip(
         double startSeconds, double lengthSeconds, double offsetSeconds, double sourceSeconds)
     {
-        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("edit-mode-thumbnail-preview");
-        scene.Duration.Value = MediaTime.FromSeconds(10);
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        Assert.That((await adder.AddAsync([new ElementDescription(
-            Start: MediaTime.FromSeconds(startSeconds),
-            Length: MediaTime.FromSeconds(lengthSeconds),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
-
-        Element element = scene.Children.Single();
-        AttachAudio(element, offsetSeconds, sourceSeconds);
-
-        var timeline = editor.FindToolTab<TimelineTabViewModel>()!;
-        timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
-        HeadlessTestHelpers.Settle();
-        return timeline.GetViewModelFor(element)!;
+        var (_, timeline) = await TimelineTestHost.OpenTimelineAsync("edit-mode-thumbnail-preview",
+            [ClipDescription(startSeconds, lengthSeconds, () => CreateAudio(offsetSeconds, sourceSeconds))]);
+        return timeline.AllElements().Single();
     }
 
-    private static void AttachAudio(Element element, double offsetSeconds, double sourceSeconds)
+    private static ElementDescription ClipDescription(double start, double length, Func<EngineObject> create)
+        => new(MediaTime.FromSeconds(start), MediaTime.FromSeconds(length), 0, new ElementSource.EngineObject(create));
+
+    private static SourceSound CreateAudio(double offsetSeconds, double sourceSeconds)
     {
-        TestShell.EnsureDecoder<ToneAudioDecoder>();
-        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"tone-{sourceSeconds:F1}-{Guid.NewGuid():N}.preview-tone");
+        TestShell.EnsureDecoder<PreviewMediaDecoder>();
+        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{Guid.NewGuid():N}.preview-tone");
         File.WriteAllText(path, sourceSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        var source = new SoundSource();
-        source.ReadFrom(new Uri(path));
-        element.Objects.Clear();
-        element.Objects.Add(new SourceSound
+        return new SourceSound
         {
-            Source = { Value = source },
+            Source = { Value = SoundSource.Open(path) },
             OffsetPosition = { Value = MediaTime.FromSeconds(offsetSeconds) },
-        });
+        };
     }
 
-    private sealed class ToneAudioDecoder : IDecoderInfo
+    private sealed class PreviewMediaDecoder : IDecoderInfo
     {
-        public string Name => "Timeline preview tone decoder";
-        public IEnumerable<string> VideoExtensions() => [];
+        public string Name => "Timeline preview test decoder";
+        public IEnumerable<string> VideoExtensions() => [".preview-video"];
         public IEnumerable<string> AudioExtensions() => [".preview-tone"];
 
         public MediaReader? Open(string file, MediaOptions options)
+            => Path.GetExtension(file) switch
+            {
+                ".preview-video" => new PreviewVideoReader(),
+                ".preview-tone" => new ToneAudioReader(44100, 2, MediaTime.FromSeconds(
+                    double.Parse(File.ReadAllText(file), System.Globalization.CultureInfo.InvariantCulture))),
+                _ => null
+            };
+    }
+
+    private sealed class PreviewVideoReader : MediaReader
+    {
+        public override VideoStreamInfo VideoInfo { get; } = new("test", 180, new Beutl.Media.PixelSize(64, 36), new Rational(30, 1));
+        public override AudioStreamInfo AudioInfo => throw new NotSupportedException();
+        public override bool HasVideo => true;
+        public override bool HasAudio => false;
+
+        public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
         {
-            if (Path.GetExtension(file) != ".preview-tone") return null;
-            double seconds = double.Parse(File.ReadAllText(file), System.Globalization.CultureInfo.InvariantCulture);
-            return new ToneAudioReader(44100, 2, MediaTime.FromSeconds(seconds));
+            var bitmap = new Bitmap(64, 36);
+            bitmap.GetPixelSpan<Bgra8888>().Fill(new Bgra8888((byte)(frame * 5), (byte)(80 + frame * 2), (byte)(180 - frame), 255));
+            image = Ref<Bitmap>.Create(bitmap);
+            return true;
+        }
+
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
+        {
+            sound = null;
+            return false;
         }
     }
 
@@ -369,7 +468,9 @@ public class TimelineEditModeThumbnailPreviewTests
                 Span<float> data = buffer.GetChannelData(ch);
                 for (int i = 0; i < actualLength; i++)
                 {
-                    data[i] = 0.5f * MathF.Sin(2f * MathF.PI * 440f * (start + i) / sampleRate);
+                    float time = (start + i) / (float)sampleRate;
+                    float amplitude = 0.5f + 0.4f * MathF.Sin(2f * MathF.PI * time * time / 3);
+                    data[i] = amplitude * MathF.Sin(2f * MathF.PI * 440f * time);
                 }
             }
 
@@ -439,23 +540,6 @@ public class TimelineEditModeThumbnailPreviewTests
             => _view.GetVisualDescendants().OfType<ElementView>()
                 .Single(v => ReferenceEquals(v.DataContext, vm))
                 .FindControl<WaveformControl>("waveformControl")!;
-
-        public void Drag(Point press, Point release, RawInputModifiers modifiers, Action whilePressed)
-        {
-            Window.MouseMove(press, modifiers);
-            Window.MouseDown(press, MouseButton.Left, modifiers);
-            try
-            {
-                Window.MouseMove(release, modifiers | RawInputModifiers.LeftMouseButton);
-                HeadlessTestHelpers.Render(5);
-                whilePressed();
-            }
-            finally
-            {
-                Window.MouseUp(release, MouseButton.Left, modifiers);
-                HeadlessTestHelpers.Settle(4);
-            }
-        }
 
         public async Task DragAsync(Point press, Point release, RawInputModifiers modifiers, Func<Task> whilePressed)
         {

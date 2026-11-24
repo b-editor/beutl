@@ -583,6 +583,8 @@ public sealed partial class ElementView
         {
             _drag = null;
             _pressed = false;
+            ElementResizeContext[] contexts = _resizeContexts;
+            _resizeContexts = [];
 
             if (AssociatedObject is { ViewModel: { } viewModel } view)
             {
@@ -598,17 +600,15 @@ public sealed partial class ElementView
                     && _resizeType is AlignmentX.Right or AlignmentX.Left;
                 bool leftEdge = _resizeType == AlignmentX.Left;
 
-                if (_resizeContexts.Length == 1)
+                if (contexts.Length == 1)
                 {
                     await viewModel.SubmitViewModelChanges(ripple, leftEdge);
                 }
-                else if (_resizeContexts.Length > 1)
+                else if (contexts.Length > 1)
                 {
-                    CommitGroupResize(viewModel, ripple, leftEdge);
+                    CommitGroupResize(viewModel, contexts, ripple, leftEdge);
                 }
             }
-
-            _resizeContexts = [];
         }
 
         private void CommitTrimDrag(ElementView view, ElementViewModel viewModel)
@@ -656,9 +656,8 @@ public sealed partial class ElementView
             }
         }
 
-        private void CommitGroupResize(ElementViewModel viewModel, bool ripple, bool leftEdge)
+        private static void CommitGroupResize(ElementViewModel viewModel, ElementResizeContext[] contexts, bool ripple, bool leftEdge)
         {
-            ElementResizeContext[] contexts = _resizeContexts;
             var animations = contexts
                 .Select(x => (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation()))
                 .ToArray();
@@ -692,23 +691,16 @@ public sealed partial class ElementView
                 .GetRequiredService<IElementResizeService>()
                 .Resize(viewModel.Scene, requests, ripple);
 
-            _ = CompleteGroupResizeAsync(animations, contexts);
-        }
-
-        private static async Task CompleteGroupResizeAsync(
-            (ElementViewModel ViewModel, ElementViewModel.PrepareAnimationContext Context)[] animations,
-            ElementResizeContext[] contexts)
-        {
-            await AnimateToModelAsync(
-                animations,
-                ex => s_logger.LogWarning(ex, "Animation failed after a group resize; snapping visuals to model."));
-
             foreach (ElementResizeContext ctx in contexts)
             {
                 bool changed = ctx.ViewModel.Model.Start.Value != ctx.RecordedStartTime
                     || ctx.ViewModel.Model.Range.End != ctx.RecordedEndTime;
                 ctx.ViewModel.EndMediaPreview(committed: changed);
             }
+
+            _ = AnimateToModelAsync(
+                animations,
+                ex => s_logger.LogWarning(ex, "Animation failed after a group resize; snapping visuals to model."));
         }
 
         private static void RestoreTrimDragVisuals(TrimDragContext ctx)

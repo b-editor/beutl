@@ -110,6 +110,8 @@ public sealed partial class ThumbnailStripControl : Control
         }
     }
 
+    internal (int Start, int End) GetVisibleRange() => ComputeVisibleRange(allowOutOfRange: false);
+
     private (int Start, int End) ComputeVisibleRange(bool? allowOutOfRange = null)
         => TimelineSlotRange.Compute(
             this,

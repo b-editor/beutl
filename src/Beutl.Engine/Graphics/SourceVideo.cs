@@ -71,6 +71,19 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
     private MediaTime CalculateVideoTime(MediaTime timeSpan, Resource resource)
         => SpeedAdjustedTime.Map(Speed, resource.Speed, resource._speedIntegrator, timeSpan);
 
+    private MediaTime CalculateRequestedPosition(MediaTime time, Resource resource)
+    {
+        MediaTime start = TimeRange.Value.Start;
+        if (Speed.GetKeyFrameAnimation() is KeyFrameAnimation<float> animation)
+        {
+            return animation.UseGlobalClock.Value
+                ? CalculateVideoTime(time, resource) - CalculateVideoTime(start, resource)
+                : CalculateVideoTime(time - start, resource);
+        }
+
+        return new MediaTime((long)Math.Round((time - start).Flicks * (double)(resource.Speed / 100f)));
+    }
+
     public MediaTime? CalculateOriginalTime(Resource resource)
     {
         if (resource.Source == null) return null;
@@ -149,29 +162,16 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
         }
 
         protected override void OnDraw(GraphicsContext2D context)
+            => DrawInternal(context);
+
+        internal void DrawInternal(GraphicsContext2D context, MediaTime? previewSourcePosition = null)
         {
             if (Source?.IsDisposed == false)
             {
-                MediaTime pos = RequestedPosition + OffsetPosition;
-                int frame = Source.GetFrameIndex(pos);
-
-                context.DrawVideoSource(Source, frame, Brushes.Resource.White, null);
-                RenderedPosition = RequestedPosition;
-            }
-        }
-
-        internal void DrawInternal(GraphicsContext2D context)
-        {
-            OnDraw(context);
-        }
-
-        internal void DrawAtSourcePosition(GraphicsContext2D context, MediaTime sourcePosition)
-        {
-            if (Source?.IsDisposed == false)
-            {
+                MediaTime sourcePosition = previewSourcePosition ?? RequestedPosition + OffsetPosition;
                 int frame = Source.GetFrameIndex(sourcePosition);
                 context.DrawVideoSource(Source, frame, Brushes.Resource.White, null);
-                RenderedPosition = sourcePosition - OffsetPosition;
+                RenderedPosition = previewSourcePosition.HasValue ? sourcePosition - OffsetPosition : RequestedPosition;
             }
         }
 
@@ -182,27 +182,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
 
         partial void PostReconcile(SourceVideo obj, CompositionContext context)
         {
-            var time = context.Time;
-            // SpeedIntegrator.Integrate は「時刻 0 から入力時刻までの累積積分」を返すため、
-            // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始 (obj.TimeRange.Start) 時点の
-            // 積分を差し引いて要素ローカルから見た累積に揃える。
-            var anm = obj.Speed.GetKeyFrameAnimation();
-            if (anm is KeyFrameAnimation<float> keyFrameAnimation)
-            {
-                if (keyFrameAnimation.UseGlobalClock.Value)
-                {
-                    RequestedPosition = obj.CalculateVideoTime(time, this)
-                                      - obj.CalculateVideoTime(obj.TimeRange.Value.Start, this);
-                }
-                else
-                {
-                    RequestedPosition = obj.CalculateVideoTime(time - obj.TimeRange.Value.Start, this);
-                }
-            }
-            else
-            {
-                RequestedPosition = new MediaTime((long)Math.Round((time - obj.TimeRange.Value.Start).Flicks * (double)(_speed / 100)));
-            }
+            RequestedPosition = obj.CalculateRequestedPosition(context.Time, this);
 
             if (IsLoop && Source?.IsDisposed == false && Source.Duration > MediaTime.Zero)
             {

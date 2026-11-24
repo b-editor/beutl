@@ -291,6 +291,8 @@ public sealed partial class ElementView : UserControl
 
         obj.GetMissingThumbnailIndices = null;
         obj.GetMissingWaveformIndices = null;
+        obj.GetVisibleThumbnailRange = null;
+        obj.GetVisibleWaveformRange = null;
         obj.GetMediaViewportWidth = null;
         thumbnailStrip.VisibleRangeChanged -= obj.OnVisibleRangeChanged;
         waveformControl.VisibleRangeChanged -= obj.OnWaveformVisibleRangeChanged;
@@ -338,6 +340,8 @@ public sealed partial class ElementView : UserControl
 
         obj.GetMissingThumbnailIndices = thumbnailStrip.GetMissingIndices;
         obj.GetMissingWaveformIndices = waveformControl.GetMissingIndices;
+        obj.GetVisibleThumbnailRange = thumbnailStrip.GetVisibleRange;
+        obj.GetVisibleWaveformRange = waveformControl.GetVisibleRange;
         obj.GetMediaViewportWidth = () => mediaClip.Bounds.Width;
         thumbnailStrip.VisibleRangeChanged += obj.OnVisibleRangeChanged;
         waveformControl.VisibleRangeChanged += obj.OnWaveformVisibleRangeChanged;

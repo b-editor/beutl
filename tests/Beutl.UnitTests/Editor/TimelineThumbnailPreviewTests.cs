@@ -1,8 +1,10 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Audio;
+using Beutl.Audio.Effects;
 using Beutl.Composition;
-using Beutl.Editor.Components.TimelineTab.Services;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -23,84 +25,17 @@ public class TimelineThumbnailPreviewTests
         }
     }
 
-    [Test]
-    public void TimelineSlotRange_DefaultMode_ClampsToZeroAndCountMinusOne()
+    [TestCase(200, 0, false, 0, 3)]
+    [TestCase(300, 0, true, 0, 6)]
+    [TestCase(200, 100, true, -2, 2)]
+    [TestCase(200, -100, true, 2, 6)]
+    public void TimelineSlotRange_KeepsOriginalScaleDuringPreview(
+        double width, double offset, bool preview, int start, int end)
     {
-        var control = new BoundsControl(width: 200, height: 25);
+        var control = new BoundsControl(width, height: 25);
 
-        (int start, int end) = TimelineSlotRange.Compute(control, scrollViewer: null, count: 4, buffer: 2);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(start, Is.EqualTo(0));
-            Assert.That(end, Is.EqualTo(3));
-        });
-    }
-
-    [Test]
-    public void TimelineSlotRange_PreviewExtendedRight_RequestsSlotsBeyondCount()
-    {
-        // Base strip had 4 slots across 200px (50px/slot). Extending width to 300px reveals slots 4 and 5.
-        var control = new BoundsControl(width: 300, height: 25);
-
-        (int start, int end) = TimelineSlotRange.Compute(
-            control,
-            scrollViewer: null,
-            count: 4,
-            buffer: 0,
-            contentWidth: 200,
-            contentOffsetX: 0,
-            allowOutOfRange: true);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(start, Is.EqualTo(0));
-            Assert.That(end, Is.EqualTo(6));
-        });
-    }
-
-    [Test]
-    public void TimelineSlotRange_PreviewPositiveOffset_RequestsNegativeSlots()
-    {
-        // Positive contentOffsetX shifts existing slots right (left roll/slide extend or slip left), revealing negative indices.
-        var control = new BoundsControl(width: 200, height: 25);
-
-        (int start, int end) = TimelineSlotRange.Compute(
-            control,
-            scrollViewer: null,
-            count: 4,
-            buffer: 0,
-            contentWidth: 200,
-            contentOffsetX: 100,
-            allowOutOfRange: true);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(start, Is.EqualTo(-2));
-            Assert.That(end, Is.EqualTo(2));
-        });
-    }
-
-    [Test]
-    public void TimelineSlotRange_PreviewNegativeOffset_ShiftsRangeForward()
-    {
-        // Negative contentOffsetX shifts existing slots left (right roll/slide trim or slip right), revealing indices >= count.
-        var control = new BoundsControl(width: 200, height: 25);
-
-        (int start, int end) = TimelineSlotRange.Compute(
-            control,
-            scrollViewer: null,
-            count: 4,
-            buffer: 0,
-            contentWidth: 200,
-            contentOffsetX: -100,
-            allowOutOfRange: true);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(start, Is.EqualTo(2));
-            Assert.That(end, Is.EqualTo(6));
-        });
+        Assert.That(TimelineSlotRange.Compute(control, scrollViewer: null, count: 4, buffer: 0,
+            contentWidth: 200, contentOffsetX: offset, allowOutOfRange: preview), Is.EqualTo((start, end)));
     }
 
     [Test]
@@ -166,54 +101,86 @@ public class TimelineThumbnailPreviewTests
     }
 
     [Test]
-    public async Task SourceSound_GetPreviewWaveformChunks_ReadsNegativeAndExtendedIndicesAndSilencesOutOfBounds()
+    public void SourceVideo_TryComputePreviewSourcePosition_AppliesExplicitOffsetDeltaForAnimatedSpeedSlip()
     {
         var decoders = TestMediaHelper.CreateRegistry();
-        string path = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, channels: 2, durationSeconds: 3.0);
-        var soundSource = new SoundSource();
-        soundSource.ReadFrom(new Uri(path));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(64, 36, new Rational(30, 1), 300))); // 10s
+        var speed = new KeyFrameAnimation<float> { UseGlobalClock = { Value = false } };
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 100 },
+            Easing = { Value = new LinearEasing() }
+        });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = 300 },
+            Easing = { Value = new LinearEasing() }
+        });
+        var video = new SourceVideo
+        {
+            Source = { Value = videoSource },
+            OffsetPosition = { Value = MediaTime.FromSeconds(1) },
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)) },
+        };
+        video.Speed.SetKeyFrameAnimation(speed);
+
+        using var resource = (SourceVideo.Resource)video.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders });
+        // At t = 1s on linear 100% -> 300% over 2s, f(1) = integral_0^1 (1 + u) du = 1.5s.
+        // Adding a fixed slip source offset delta of +0.75s yields Offset(1) + f(1)(1.5) + 0.75 = 3.25s.
+        bool ok = video.TryComputePreviewSourcePosition(
+            resource,
+            MediaTime.FromSeconds(1),
+            out MediaTime sourcePos,
+            offsetDelta: MediaTime.FromSeconds(0.75));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ok, Is.True);
+            Assert.That(sourcePos.ToSeconds(), Is.EqualTo(3.25).Within(0.02));
+        });
+    }
+
+    [TestCase("none")]
+    [TestCase("channel map")]
+    [TestCase("effect")]
+    public async Task PreviewWaveform_ProcessesSourceInsideItsBounds(string processing)
+    {
+        var decoders = TestMediaHelper.CreateRegistry();
+        var source = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3));
         var sound = new SourceSound
         {
-            Source = { Value = soundSource },
+            Source = { Value = source },
             OffsetPosition = { Value = MediaTime.FromSeconds(1) },
             TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) },
         };
-        var cache = new ThumbnailCacheService();
-        string? cacheKey = sound.GetThumbnailsCacheKey();
-        try
-        {
-            // baseChunkCount = 10 -> each chunk is 0.1s.
-            // Index -15 -> -1.5s relative -> -0.5s source (before source start -> silence).
-            // Index -5  -> -0.5s relative ->  0.5s source (in source -> non-zero audio).
-            // Index 15  ->  1.5s relative ->  2.5s source (in source -> non-zero audio).
-            // Index 25  ->  2.5s relative ->  3.5s source (past source end -> silence).
-            int[] requested = [-15, -5, 15, 25];
-            var chunks = new Dictionary<int, WaveformChunk>();
-            await foreach (var chunk in sound.GetPreviewWaveformChunksAsync(
-                               baseChunkCount: 10,
-                               samplesPerChunk: 4096,
-                               indices: requested,
-                               cacheService: cache,
-                               decoders: decoders))
-            {
-                chunks[chunk.Index] = chunk;
-            }
+        if (processing == "channel map")
+            sound.ChannelMap.Value = new AudioChannelMap(AudioChannelFormat.Stereo, AudioChannelLayout.Stereo, [-1, -1]);
+        if (processing == "effect")
+            sound.Effect.Value = new RingModulatorEffect { Frequency = { Value = 0 } };
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(chunks.Keys, Is.EquivalentTo(requested));
-                Assert.That(chunks[-15].MinValue, Is.Zero);
-                Assert.That(chunks[-15].MaxValue, Is.Zero);
-                Assert.That(chunks[-5].MaxValue - chunks[-5].MinValue, Is.GreaterThan(0.01f));
-                Assert.That(chunks[15].MaxValue - chunks[15].MinValue, Is.GreaterThan(0.01f));
-                Assert.That(chunks[25].MinValue, Is.Zero);
-                Assert.That(chunks[25].MaxValue, Is.Zero);
-            });
-        }
-        finally
+        // Relative [-1.5, -0.5, 1.5, 2.5]s reads source [-0.5, 0.5, 2.5, 3.5]s.
+        int[] requested = [-15, -5, 15, 25];
+        var peaks = new Dictionary<int, float>();
+        await foreach (var chunk in sound.GetPreviewWaveformChunksAsync(10, 4096, requested, decoders: decoders))
         {
-            if (cacheKey != null)
-                cache.Invalidate(cacheKey);
+            peaks[chunk.Index] = chunk.MaxValue - chunk.MinValue;
         }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(peaks.Keys, Is.EquivalentTo(requested));
+            Assert.That(peaks[-15], Is.Zero);
+            Assert.That(peaks[25], Is.Zero);
+            foreach (int index in new[] { -5, 15 })
+            {
+                if (processing == "none")
+                    Assert.That(peaks[index], Is.GreaterThan(0.01f));
+                else
+                    Assert.That(peaks[index], Is.Zero);
+            }
+        });
     }
 }

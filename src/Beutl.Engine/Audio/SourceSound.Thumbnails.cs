@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using Beutl.Animation;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
@@ -174,23 +175,71 @@ public sealed partial class SourceSound : IThumbnailsProvider
         int baseChunkCount,
         int samplesPerChunk,
         IReadOnlyList<int> indices,
-        IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default,
-        DecoderRegistry? decoders = null)
+        DecoderRegistry? decoders = null,
+        MediaTime offsetDelta = default)
     {
-        if (indices.Count == 0 || baseChunkCount <= 0 || samplesPerChunk <= 0)
-            yield break;
-
-        if (!await WaveformGate.TryEnterAsync(cancellationToken))
+        if (indices.Count == 0 || baseChunkCount <= 0 || samplesPerChunk <= 0
+            || !await WaveformGate.TryEnterAsync(cancellationToken))
             yield break;
 
         try
         {
-            await foreach (var chunk in GetPreviewWaveformChunksCoreAsync(
-                               baseChunkCount, samplesPerChunk, indices, cacheService, cancellationToken, decoders))
+            using var resource = await ComposeThread.Dispatcher.InvokeAsync(
+                () => ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders }),
+                DispatchPriority.Low, cancellationToken);
+            if (resource.Source is not { SampleRate: > 0 } source || source.Duration <= MediaTime.Zero)
+                yield break;
+
+            TimeRange clipRange = TimeRange.Value;
+            if (clipRange.Duration <= MediaTime.Zero)
+                yield break;
+
+            int sampleRate = source.SampleRate;
+            long totalSamples = clipRange.Duration.ToSamples(sampleRate, MidpointRounding.ToZero);
+            using var audioContext = new AudioContext(sampleRate, AudioChannelLayout.Stereo);
+            var (output, finiteEndSample) = await ComposeThread.Dispatcher.InvokeAsync(() =>
             {
-                yield return chunk;
+                var output = ComposeForWaveformPreview(audioContext, resource, offsetDelta);
+                return (output, output?.GetFiniteSourceEndSample(sampleRate));
+            }, DispatchPriority.Low, cancellationToken);
+            var sampler = new AnimationSampler();
+
+            // Sparse requests have different processing history from a normal, sequential waveform.
+            foreach (int index in indices)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                long start = GetSamplePosition(index);
+                int count = (int)Math.Min(GetSamplePosition(index + 1) - start, samplesPerChunk);
+                if (count <= 0 || output == null || finiteEndSample is { } end && start >= end)
+                {
+                    yield return new WaveformChunk(index, 0, 0);
+                    continue;
+                }
+
+                var range = new TimeRange(
+                    MediaTime.FromSamples(start, sampleRate),
+                    AudioProcessContext.GetDurationForSampleCount(count, sampleRate));
+                yield return await ComposeThread.Dispatcher.InvokeAsync(() =>
+                {
+                    using var buffer = output.Process(new AudioProcessContext(
+                        range, sampleRate, sampler, range.AddStart(clipRange.Start)));
+                    for (int ch = 0; ch < buffer.ChannelCount; ch++)
+                    {
+                        var data = buffer.GetChannelData(ch);
+                        AudioMath.ApplyLimiter(data);
+                        AudioMath.ClampToFullScale(data);
+                    }
+
+                    var (min, max) = MeasureMonoRange(buffer, count);
+                    return new WaveformChunk(index, min, max);
+                }, DispatchPriority.Low, cancellationToken);
             }
+
+            long GetSamplePosition(int index)
+                => index >= 0 && index <= baseChunkCount
+                    ? GetWaveformChunkSamplePosition(index, totalSamples, baseChunkCount)
+                    : (long)Math.Floor((double)index * totalSamples / baseChunkCount);
         }
         finally
         {
@@ -198,144 +247,22 @@ public sealed partial class SourceSound : IThumbnailsProvider
         }
     }
 
-    private async IAsyncEnumerable<WaveformChunk> GetPreviewWaveformChunksCoreAsync(
-        int baseChunkCount,
-        int samplesPerChunk,
-        IReadOnlyList<int> indices,
-        IThumbnailCacheService? cacheService,
-        [EnumeratorCancellation] CancellationToken cancellationToken,
-        DecoderRegistry? decoders)
-    {
-        using var resource = await ComposeThread.Dispatcher.InvokeAsync(
-            () => ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders }), DispatchPriority.Low, cancellationToken);
-        if (resource.Source == null)
-            yield break;
-
-        if (resource.Source.Duration <= MediaTime.Zero || resource.Source.SampleRate <= 0)
-            yield break;
-
-        var duration = TimeRange.Value.Duration;
-        if (duration <= MediaTime.Zero)
-            yield break;
-
-        int sampleRate = resource.Source.SampleRate;
-        long totalSamples = duration.ToSamples(sampleRate, MidpointRounding.ToZero);
-        long sourceTotalSamples = resource.Source.Duration.ToSamples(sampleRate, MidpointRounding.ToZero);
-        if (totalSamples <= 0 || sourceTotalSamples <= 0)
-            yield break;
-
-        string? cacheKey = cacheService != null ? GetThumbnailsCacheKey() : null;
-        double chunkDurationSecs = duration.ToSeconds() / baseChunkCount;
-        var cacheThreshold = MediaTime.FromSeconds(chunkDurationSecs * 0.5);
-
-        float speedRatio = Speed.Value / 100f;
-        float gainFactor = Gain.Value / 100f;
-        long offsetSamples = OffsetPosition.Value.ToSamples(sampleRate, MidpointRounding.ToZero);
-
-        foreach (int chunkIndex in indices)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                yield break;
-
-            long startSample = GetSignedWaveformChunkSamplePosition(chunkIndex, totalSamples, baseChunkCount);
-            long endSample = GetSignedWaveformChunkSamplePosition(chunkIndex + 1, totalSamples, baseChunkCount);
-            long fullSpan = endSample - startSample;
-            if (fullSpan <= 0)
-                continue;
-
-            var chunkTime = MediaTime.FromSamples(startSample, sampleRate);
-            if (cacheKey != null
-                && cacheService!.TryGetWaveform(cacheKey, chunkTime, cacheThreshold, out float cachedMin, out float cachedMax))
-            {
-                yield return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
-                continue;
-            }
-
-            long sourceStartSample = offsetSamples + (long)Math.Round(startSample * (double)speedRatio);
-            long sourceSpan = Math.Max(1L, (long)Math.Round(fullSpan * (double)Math.Abs(speedRatio)));
-            int readCount = (int)Math.Min(sourceSpan, samplesPerChunk);
-
-            var chunk = await ComposeThread.Dispatcher.InvokeAsync(() =>
-            {
-                if (cancellationToken.IsCancellationRequested)
-                    return (WaveformChunk?)null;
-
-                if (sourceStartSample >= sourceTotalSamples || sourceStartSample + readCount <= 0 || readCount <= 0)
-                    return new WaveformChunk(chunkIndex, 0f, 0f);
-
-                long clampedStart = Math.Max(0L, sourceStartSample);
-                int clampedCount = (int)Math.Min(readCount - (clampedStart - sourceStartSample), sourceTotalSamples - clampedStart);
-                if (clampedCount <= 0 || clampedStart > int.MaxValue)
-                    return new WaveformChunk(chunkIndex, 0f, 0f);
-
-                if (!resource.Source.Read((int)clampedStart, clampedCount, out AudioBuffer? buffer) || buffer.SampleCount == 0)
-                    return new WaveformChunk(chunkIndex, 0f, 0f);
-
-                using (buffer)
-                {
-                    (float minValue, float maxValue) = MeasureMonoRange(buffer, clampedCount);
-                    return new WaveformChunk(
-                        chunkIndex,
-                        Math.Clamp(minValue * gainFactor, -1f, 1f),
-                        Math.Clamp(maxValue * gainFactor, -1f, 1f));
-                }
-            }, DispatchPriority.Low, cancellationToken);
-
-            if (chunk.HasValue)
-            {
-                if (cacheKey != null)
-                    cacheService!.SaveWaveform(cacheKey, chunkTime, chunk.Value.MinValue, chunk.Value.MaxValue);
-
-                yield return chunk.Value;
-            }
-        }
-    }
-
-    internal static long GetSignedWaveformChunkSamplePosition(int chunkIndex, long totalSamples, int chunkCount)
-    {
-        if (chunkCount <= 0)
-            throw new ArgumentOutOfRangeException(nameof(chunkCount));
-        if (totalSamples < 0)
-            throw new ArgumentOutOfRangeException(nameof(totalSamples));
-
-        if (chunkIndex >= 0 && chunkIndex <= chunkCount)
-            return GetWaveformChunkSamplePosition(chunkIndex, totalSamples, chunkCount);
-
-        return (long)Math.Floor((double)chunkIndex * totalSamples / chunkCount);
-    }
-
     // The extremes of the left/right average over at most sampleCount samples.
     private static (float Min, float Max) MeasureMonoRange(AudioBuffer buffer, int sampleCount)
     {
         int count = Math.Min(sampleCount, buffer.SampleCount);
-        if (count <= 0 || buffer.ChannelCount <= 0)
+        if (count <= 0)
             return (0f, 0f);
 
         var firstChannel = buffer.GetChannelData(0);
+        var secondChannel = buffer.GetChannelData(buffer.ChannelCount > 1 ? 1 : 0);
         float minValue = float.MaxValue;
         float maxValue = float.MinValue;
-
-        if (buffer.ChannelCount == 1)
+        for (int i = 0; i < count; i++)
         {
-            for (int i = 0; i < count; i++)
-            {
-                float monoValue = firstChannel[i];
-                minValue = Math.Min(minValue, monoValue);
-                maxValue = Math.Max(maxValue, monoValue);
-            }
-        }
-        else
-        {
-            var secondChannel = buffer.GetChannelData(1);
-            for (int i = 0; i < count; i++)
-            {
-                float left = firstChannel[i];
-                float right = secondChannel[i];
-
-                float monoValue = (left + right) * 0.5f;
-                minValue = Math.Min(minValue, monoValue);
-                maxValue = Math.Max(maxValue, monoValue);
-            }
+            float monoValue = (firstChannel[i] + secondChannel[i]) * 0.5f;
+            minValue = Math.Min(minValue, monoValue);
+            maxValue = Math.Max(maxValue, monoValue);
         }
 
         return (minValue, maxValue);
