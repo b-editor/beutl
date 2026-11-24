@@ -225,6 +225,8 @@ internal partial class VersionControlTabViewModel
     {
         RemoteInfo? remote = (await service.GetRemotesAsync(cancellationToken))
             .FirstOrDefault();
+        HostedGitRemoteUrl? hosted = await HostedGitRemoteUrl.ResolveAsync(remote?.Url,
+            _editorContext.GetService<BeutlApiApplication>(), cancellationToken, _hostedRemote);
         if (cancellationToken.IsCancellationRequested
             || !ReferenceEquals(service, _service)
             || serviceRevision is { } bindingRevision
@@ -237,15 +239,19 @@ internal partial class VersionControlTabViewModel
             return;
         }
 
-        SetOrigin(remote?.Url);
+        SetOrigin(remote?.Url, hosted);
     }
 
-    private void SetOrigin(string? origin)
+    private void SetOrigin(string? origin, HostedGitRemoteUrl? hosted = null)
     {
         _currentOrigin = origin;
         HasRemote.Value = origin is not null;
         RemoteUrl.Value = GetRemoteUrlForPresentation(origin);
-        HostedGitRemoteUrl.TryParse(origin, out _hostedRemote);
+        if (hosted is null && _hostedRemote?.OriginUrl == origin)
+            hosted = _hostedRemote;
+        if (hosted is null)
+            HostedGitRemoteUrl.TryParse(origin, out hosted);
+        _hostedRemote = hosted;
         HostedRepositoryId.Value = _hostedRemote?.RepositoryId;
     }
 

@@ -38,7 +38,7 @@ internal sealed class RepositoryCloneWorkflow(
 
     private async Task<bool> TryOpenExistingProjectAsync(Window owner, RepositoryOpenRequest request, CancellationToken token)
     {
-        var locator = new LocalRepositoryLocator(_installation);
+        var locator = new LocalRepositoryLocator(_installation, api);
         Project? activeProject = projects.CurrentProject.Value;
         if (activeProject?.Uri is { IsFile: true } activeUri
             && await locator.FindProjectAsync([activeUri.LocalPath], request.RepositoryId, token) is not null

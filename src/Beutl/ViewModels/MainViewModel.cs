@@ -147,7 +147,8 @@ public sealed partial class MainViewModel : BasePageViewModel
         TitleBarBranch = new TitleBarBranchViewModel(AppServices.GetRequiredService<INotificationService>(),
             _editorService.ProjectVersionControlService,
             _versionControlCoordinator.IsGitAvailable,
-            _versionControlCoordinator);
+            _versionControlCoordinator,
+            _beutlClients);
         Status = new TitleBarStatusViewModel(
             IsRunningStartupTasks,
             _editorService,

@@ -1,4 +1,6 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using Beutl.Api;
+using Beutl.Api.Clients;
+using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -32,6 +34,21 @@ public sealed class HostedGitRemoteUrlTests
         Assert.That(parsed!.GetRepositoryUri().AbsoluteUri, Is.EqualTo($"{origin}/dashboard/repositories/{Id}"));
         Assert.That(HostedGitRemoteUrl.TryParse($"https://localhost:3001/api/v3/git/{Id}.git", origin, out _), Is.False);
         Assert.That(HostedGitRemoteUrl.TryParse($"http://localhost:3002/api/v3/git/{Id}.git", origin, out _), Is.False);
+    }
+
+    [Test]
+    public void An_advertised_git_origin_keeps_dashboard_links_on_the_web_origin()
+    {
+        const string git = "https://git.example.invalid/api/v3/git/" + Id + ".git";
+        var repository = new GitRepositorySummary(Id, "Sample project", git, default, default);
+
+        Assert.That(HostedGitRemoteUrl.TryParseAdvertised(git, repository, out var remote), Is.True);
+        Assert.That(remote!.GetRepositoryUri("main").AbsoluteUri,
+            Is.EqualTo($"{BeutlApiApplication.BaseUrl}/dashboard/repositories/{Id}?ref=main"));
+        Assert.That(HostedGitRemoteUrl.TryParseAdvertised(git.Replace("git.example", "other.example", StringComparison.Ordinal),
+            repository, out _), Is.False);
+        Assert.That(HostedGitRemoteUrl.TryParseAdvertised(git, repository with { Id = Guid.NewGuid().ToString("D") }, out _),
+            Is.False);
     }
 
     [TestCase("https://github.com/api/v3/git/" + Id + ".git")]

@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Reactive.Disposables;
+using Beutl.Api;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Services;
@@ -18,6 +19,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
     private readonly ILogger _logger = Log.CreateLogger<TitleBarBranchViewModel>();
     private readonly IProjectVersionControlCoordinator _coordinator;
+    private readonly BeutlApiApplication? _api;
     private readonly Action<Action> _postToUi;
     private readonly CompositeDisposable _disposables = [];
     private readonly CancellationTokenSource _lifetimeCancellation = new();
@@ -39,12 +41,14 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     internal TitleBarBranchViewModel(INotificationService notifications,
         IReadOnlyReactiveProperty<IProjectVersionControlService?> serviceSource,
         IReadOnlyReactiveProperty<bool> gitAvailabilitySource,
-        IProjectVersionControlCoordinator coordinator)
+        IProjectVersionControlCoordinator coordinator,
+        BeutlApiApplication? api = null)
         : this(
             notifications, serviceSource,
             gitAvailabilitySource,
             coordinator,
-            VersionControlUiThread.Post)
+            VersionControlUiThread.Post,
+            api)
     {
     }
 
@@ -52,10 +56,12 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         IReadOnlyReactiveProperty<IProjectVersionControlService?> serviceSource,
         IReadOnlyReactiveProperty<bool> gitAvailabilitySource,
         IProjectVersionControlCoordinator coordinator,
-        Action<Action> postToUi)
+        Action<Action> postToUi,
+        BeutlApiApplication? api = null)
     {
         _notifications = notifications;
         _coordinator = coordinator;
+        _api = api;
         _postToUi = postToUi;
         _coordinatorGitAvailable = gitAvailabilitySource.Value;
 
@@ -402,7 +408,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
         WorkspaceStatus status;
         IReadOnlyList<BranchInfo>? branches = null;
-        string? origin = null;
+        HostedGitRemoteUrl? hostedRemote = null;
         int statusRevision = Volatile.Read(ref _statusRevision);
         try
         {
@@ -410,7 +416,8 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             if (refreshBranches && IsCurrentStatusRead(status, statusRevision))
             {
                 branches = await service.GetBranchesAsync(cancellationToken);
-                origin = (await service.GetRemotesAsync(cancellationToken))?.FirstOrDefault()?.Url;
+                string? origin = (await service.GetRemotesAsync(cancellationToken))?.FirstOrDefault()?.Url;
+                hostedRemote = await HostedGitRemoteUrl.ResolveAsync(origin, _api, cancellationToken, _hostedRemote);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -442,7 +449,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             {
                 if (refreshBranches)
                 {
-                    HostedGitRemoteUrl.TryParse(origin, out _hostedRemote);
+                    _hostedRemote = hostedRemote;
                     IsHostedGitRemote.Value = _hostedRemote is not null;
                 }
                 ApplyState(status, branches);
