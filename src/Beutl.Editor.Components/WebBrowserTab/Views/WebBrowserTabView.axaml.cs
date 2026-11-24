@@ -149,6 +149,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _adBlockSession = null;
         _nativeNewWindow = null;
         _openerNavigation = null;
+        _pendingHtmlNavigation = null;
         _downloadCancellation?.Cancel();
         ClearDeferredNativeDownloads();
         ResetPageDownloadRequests();
@@ -258,6 +259,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     // NativeWebView issues its last address before AdapterCreated. Hold the first document until the
     // native handlers can observe its response and install the script that runs at document start.
     private Uri? _pendingAdapterAddress;
+    private (string Html, Uri? BaseUri)? _pendingHtmlNavigation;
 
     private void OnEnvironmentRequested(object? sender, WebViewEnvironmentRequestedEventArgs e)
     {
@@ -277,9 +279,18 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private bool HoldAdapterAddress(Uri uri)
     {
+        _pendingHtmlNavigation = null;
         if (_pendingAdapterAddress == null) return false;
         _pendingAdapterAddress = uri;
         return true;
+    }
+
+    private void SupersedeHeldAdapterAddress(Uri? request)
+    {
+        if (_pendingAdapterAddress == null || request == null || !BrowserMediaDownload.IsHttpUri(request)) return;
+        // Keep holding address bar requests until setup finishes, without replaying the previous address.
+        _pendingAdapterAddress = WebBrowserTabViewModel.BlankPage;
+        _openerNavigation = null;
     }
 
     internal async void OnAdapterCreated(object? sender, WebViewAdapterEventArgs e)
@@ -375,7 +386,11 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         // With ad blocking on, the session starts it once its rules are in place.
         Uri? pending = _pendingAdapterAddress;
         _pendingAdapterAddress = null;
-        if (_openerNavigation == null && pending != null && BrowserMediaDownload.IsHttpUri(pending))
+        if (_pendingHtmlNavigation != null)
+        {
+            ResumeHtmlNavigation(webView);
+        }
+        else if (_openerNavigation == null && pending != null && BrowserMediaDownload.IsHttpUri(pending))
         {
             if (_adBlockSession?.IsPreparing == true) _adBlockSession.HoldNavigation(pending, replacePending: true);
             else webView.Navigate(pending);
@@ -572,6 +587,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         _pendingAdapterAddress = null;
+        _pendingHtmlNavigation = null;
         _webView.EnvironmentRequested -= OnEnvironmentRequested;
         _webView.AdapterCreated -= LinuxWebKitCookies.PersistCookies;
         _webView.AdapterCreated -= OnAdapterCreated;

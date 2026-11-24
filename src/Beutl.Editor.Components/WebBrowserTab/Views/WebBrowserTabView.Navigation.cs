@@ -72,6 +72,7 @@ internal partial class WebBrowserTabView
             return;
         }
 
+        SupersedeHeldAdapterAddress(e.Request);
         _latestNavigationRequest = e.Request;
         if (_nativeBrowserHandler is WindowsBrowserDownloadHandler windows) windows.BeginDocument(e.Request);
 
@@ -160,6 +161,7 @@ internal partial class WebBrowserTabView
         // The canceled media never replaced the document. Its failure may arrive even after
         // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
         Uri uri = request ?? _webView.Source;
+        if (isSuccess) SupersedeHeldAdapterAddress(uri);
         if (!isSuccess && ConsumeNativeDownloadFailure(request, uri))
         {
             return;
@@ -313,12 +315,36 @@ internal partial class WebBrowserTabView
         return _viewModel?.TryOpenNewTab(request, referrer) == true;
     }
 
+    internal void NavigateToString(string html, Uri? baseUri = null)
+    {
+        if (_webView is not { } webView) return;
+        _openerNavigation = null;
+        // An HTML load can be queued before EnvironmentRequested. Keep it here so the
+        // adapter's blank startup navigation cannot replace it.
+        _pendingHtmlNavigation = (html, baseUri);
+        if (_pendingAdapterAddress == null && webView.TryGetPlatformHandle() != null)
+            ResumeHtmlNavigation(webView);
+    }
+
+    private void ResumeHtmlNavigation(NativeWebView webView)
+    {
+        if (_adBlockSession?.IsPreparing == true)
+            _adBlockSession.HoldNavigation(WebBrowserTabViewModel.BlankPage, replacePending: true);
+        else
+            ResumeNavigation(webView, WebBrowserTabViewModel.BlankPage);
+    }
+
     // Ad blocking holds a new tab's first navigation until its rules are in place.
     private void ResumeNavigation(NativeWebView webView, Uri uri)
     {
         // The adapter will resume the latest address entered while it was starting.
         if (_pendingAdapterAddress != null) return;
-        if (_openerNavigation?.Uri == uri)
+        if (_pendingHtmlNavigation is { } html)
+        {
+            _pendingHtmlNavigation = null;
+            webView.NavigateToString(html.Html, html.BaseUri);
+        }
+        else if (_openerNavigation?.Uri == uri)
         {
             _openerNavigationIssued = false;
             NavigateFromOpener(webView);

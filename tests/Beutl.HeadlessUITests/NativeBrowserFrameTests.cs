@@ -96,6 +96,15 @@ internal static partial class NativeBrowserFrameTestHost
                 exitCode = await CheckLinuxFocusAsync(window, focusTimeout.Token) ? 0 : SkippedExitCode;
                 return;
             }
+            if (scenario == "--native-browser-direct-navigation")
+            {
+                window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
+                window.Show();
+                using var navigationTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await CheckDirectStartupNavigationAsync(window, navigationTimeout.Token);
+                exitCode = 0;
+                return;
+            }
             if (scenario == "--native-browser-adblock-reference")
             {
                 window = new Window { Width = 480, Height = 320, Opacity = 0, ShowActivated = false, ShowInTaskbar = false };
@@ -136,7 +145,7 @@ internal static partial class NativeBrowserFrameTestHost
             }
             var loaded = new TaskCompletionSource();
             webView.NavigationCompleted += (_, _) => loaded.TrySetResult();
-            webView.NavigateToString("""
+            view.NavigateToString("""
                 <script>
                     window.loadedFrames = [];
                     addEventListener('message', e => loadedFrames.push(e.data));
@@ -253,7 +262,7 @@ internal static partial class NativeBrowserFrameTestHost
         var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         browser.NavigationCompleted += (_, e) =>
         {
-            if (e.IsSuccess) loaded.TrySetResult();
+            if (e.IsSuccess && e.Request == page) loaded.TrySetResult();
         };
 
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), page);
@@ -262,7 +271,7 @@ internal static partial class NativeBrowserFrameTestHost
         window.AddHandler(InputElement.KeyDownEvent, (_, _) => leakedToWindow++, RoutingStrategies.Bubble);
         window.Content = view;
 
-        browser.NavigateToString("<html><body><input id='box' type='text'></body></html>", page);
+        view.NavigateToString("<html><body><input id='box' type='text'></body></html>", page);
         await loaded.Task.WaitAsync(token);
 
         IPlatformHandle? handle = browser.TryGetPlatformHandle();
@@ -343,6 +352,42 @@ internal static partial class NativeBrowserFrameTestHost
             "After focus leaves the browser, X11 KeyPress on the host window must reach Avalonia normally.");
 
         return true;
+    }
+
+    private static async Task CheckDirectStartupNavigationAsync(Window window, CancellationToken token)
+    {
+        await using var server = WebApplication.CreateSlimBuilder().Build();
+        server.Urls.Add("http://127.0.0.1:0");
+        int initialRequests = 0;
+        server.MapGet("/initial", () =>
+        {
+            Interlocked.Increment(ref initialRequests);
+            return Results.Content("<title>Initial HTTP page</title>", "text/html");
+        });
+        await server.StartAsync(token);
+        var origin = new Uri(server.Urls.Single());
+        var initialPage = new Uri(origin, "/initial");
+        var htmlPage = new Uri(origin, "/direct");
+        var browser = new NativeWebView();
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), initialPage);
+        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        browser.EnvironmentRequested += (_, e) =>
+        {
+            if (e is AppleWKWebViewEnvironmentRequestedEventArgs apple) apple.NonPersistentDataStore = true;
+            // The view has held the initial address and the adapter has yet to be created.
+            view.NavigateToString("<title>Direct HTML</title>", htmlPage);
+        };
+        var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        browser.NavigationCompleted += (_, e) =>
+        {
+            // WebView2 gives NavigateToString an about:blank URL.
+            if (e.IsSuccess && (e.Request == htmlPage || OperatingSystem.IsWindows())) loaded.TrySetResult();
+        };
+        window.Content = view;
+        await loaded.Task.WaitAsync(token);
+        while (WebBrowserTabView.NormalizePageTitle(await browser.InvokeScript("document.title").WaitAsync(token)) != "Direct HTML")
+            await Task.Delay(20, token);
+        Assert.That(Volatile.Read(ref initialRequests), Is.Zero, "The held HTTP address was superseded by the HTML navigation.");
     }
 
     private static Task SendX11KeyPressAsync(nint targetWindow, nuint keysym, uint state)
@@ -764,6 +809,11 @@ internal static partial class NativeBrowserFrameTestHost
             return Results.Content($"{meta}{script}<a href='{destination}'{linkPolicy}>download</a>", "text/html");
         });
         server.MapGet("/plain", () => Results.Content("<title>Plain</title>", "text/html"));
+        server.MapGet("/media-referrer", () => Results.Content("""
+            <meta id='earlier' name='referrer' content='no-referrer'>
+            <meta name='referrer' content='strict-origin'>
+            <a href='/media.mp3'>download</a>
+            """, "text/html"));
         await server.StartAsync(token);
         var origin = new Uri(server.Urls.Single());
         Uri initialPage = new(origin, "/source?header=origin&apply=no-referrer");
@@ -834,6 +884,16 @@ internal static partial class NativeBrowserFrameTestHost
         await Check("header=no-referrer&apply=origin&later", origin.AbsoluteUri, probe: true);
         await Check("header=origin&apply=no-referrer&later", "", probe: true);
         await Check("meta=origin&apply=no-referrer&prepend", "", probe: true);
+
+        var mediaPage = new Uri(origin, "/media-referrer");
+        await Load(mediaPage);
+        await CheckDownload(mediaPage, origin.AbsoluteUri, "before the media change");
+        await browser.InvokeScript("""
+            document.getElementById('earlier').media = 'not all';
+            void fetch('/referrer-probe', { cache: 'no-store' });
+            """).WaitAsync(token);
+        await CheckDownload(mediaPage, "", "after the media change", probe: true);
+
         if (!OperatingSystem.IsLinux())
         {
             // The Windows and macOS handlers also supply the document's response header.
@@ -1523,6 +1583,7 @@ public class NativeBrowserFrameTests
     [TestCase("--native-browser-referrers", TestName = "NewTabRequestsHonorLinkAndDocumentReferrerPolicies", IncludePlatform = "Win,Linux")]
     [TestCase("--native-browser-cookie-clear", TestName = "LinuxCookieClearRemovesSessionAndPersistentCookies", IncludePlatform = "Linux")]
     [TestCase("--native-browser-linux-focus", TestName = "LinuxWebKitBlocksCoreKeyPropagationFromEmbeddedX11Window", IncludePlatform = "Linux")]
+    [TestCase("--native-browser-direct-navigation", TestName = "DirectHtmlNavigationSupersedesTheAdapterStartupAddress", IncludePlatform = "Win,MacOSX,Linux")]
     [TestCase("--native-browser-download-referrers", TestName = "PageLinkDownloadsHonorTheDocumentReferrerPolicy", IncludePlatform = "Win,MacOSX,Linux")]
     [TestCase("--native-browser-adblock-reference", TestName = "WindowsAdBlockBackendKeepsTheAdaptersWebViewReference", IncludePlatform = "Win")]
     public async Task NativeNavigation(string scenario)

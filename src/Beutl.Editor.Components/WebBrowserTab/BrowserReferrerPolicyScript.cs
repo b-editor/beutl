@@ -60,6 +60,8 @@ internal static class BrowserReferrerPolicyScript
                     if (record.type === 'attributes') {
                         if (!(target instanceof HTMLMetaElement)) continue;
                         if (inDocument(target) && applyMeta(target)) return;
+                        // Both engines reapply the policy on a media change without evaluating the query.
+                        if (record.attributeName === 'media') continue;
                         const state = attributes.get(target) ?? { name: target.name, content: target.content };
                         state[record.attributeName] = record.oldValue ?? '';
                         attributes.set(target, state);
@@ -84,7 +86,7 @@ internal static class BrowserReferrerPolicyScript
                 }
             }
             const observer = new MutationObserver(applyChanges);
-            observer.observe(document, {subtree:true, childList:true, attributes:true, attributeOldValue:true, attributeFilter:['name','content']});
+            observer.observe(document, {subtree:true, childList:true, attributes:true, attributeOldValue:true, attributeFilter:['name','content','media']});
             Object.defineProperty(window, '__beutlReferrerPolicy', {
                 value: () => {
                     applyChanges(observer.takeRecords());
