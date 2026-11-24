@@ -578,8 +578,12 @@ public sealed class PuppetEditingTests
         {
             var view = (Beutl.Controls.BitmapView)player.image;
             Ref<Beutl.Media.Bitmap>? frame = null;
-            await HeadlessTestHelpers.WaitUntilAsync(() => (frame = view.Source?.TryClone()) is not null,
-                message: "The preview frame should be available to sample.");
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            {
+                var displayed = view.Source;
+                return ReferenceEquals(displayed, editor.Player.EditorPreviewImage.Value)
+                    && (frame = displayed?.TryClone()) is not null;
+            }, message: "The current preview frame should be displayed before sampling.");
             return frame!;
         }
 
