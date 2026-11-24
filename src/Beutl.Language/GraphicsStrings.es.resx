@@ -2240,6 +2240,9 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>Punto de malla {0}, {1}</value>
   </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>Editando los puntos de malla. La vista previa oculta los efectos posteriores.</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>Marioneta</value>
   </data>

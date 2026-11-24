@@ -2241,6 +2241,9 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>Mesh point {0}, {1}</value>
   </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>Editing mesh points. Later effects are hidden in the preview.</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>Puppet</value>
   </data>

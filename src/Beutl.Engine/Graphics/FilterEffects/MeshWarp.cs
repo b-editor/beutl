@@ -15,7 +15,7 @@ using Beutl.Serialization;
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.MeshWarp), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, IComponentInterpolator<MeshWarpGrid>
+public sealed partial class MeshWarp : FilterEffect, IEditingStageProvider, IComponentInterpolator<MeshWarpGrid>
 {
     [ThreadStatic]
     private static HashSet<MeshWarp>? s_interpolating;
@@ -166,6 +166,8 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
         Rect inputBounds = GetEditingFrame(time, default, out MediaTime evaluationTime);
         MoveEditingHandle(id, position, evaluationTime, inputBounds);
     }
+
+    string IEditingStageProvider.EditingStageHint => GraphicsStrings.MeshWarp_EditingPreviewHint;
 
     private void MoveEditingHandle(string id, Point position, MediaTime time, Rect bounds)
     {

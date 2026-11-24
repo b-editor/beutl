@@ -2240,6 +2240,9 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>网格控制点（第 {0} 行，第 {1} 列）</value>
   </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>正在编辑网格控制点。预览会暂时隐藏后续效果。</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>木偶变形</value>
   </data>
