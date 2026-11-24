@@ -27,6 +27,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -164,7 +165,6 @@ public sealed class PuppetEditingTests
             await Render();
 
             int beforeAdd = editor.HistoryManager.UndoCount;
-            var previewView = (Beutl.Controls.BitmapView)player.image;
             var firstPinPoint = new Point(70, 100);
 
             // The fixture's rectangle rotates about its center, placed at the center of the scene.
@@ -177,16 +177,20 @@ public sealed class PuppetEditingTests
             double scale = player.image.Bounds.Width / scene.FrameSize.Value.Width;
             var firstPinImage = new AvaPoint(firstPinFrame.X * scale, firstPinFrame.Y * scale);
             AvaPoint firstPinClick = player.image.TranslatePoint(firstPinImage, window)!.Value;
-            Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.Zero,
-                "the downstream transform moves the picture away from the Puppet stage's pin position");
+            using (var displayed = await ReadPreviewFrame())
+                Assert.That(AlphaAtFrame(displayed.Value, firstPinFrame), Is.Zero,
+                    "the downstream transform moves the picture away from the Puppet stage's pin position");
 
             await StartAdding(add);
-            Assert.Multiple(() =>
+            using (var displayed = await ReadPreviewFrame())
             {
-                Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.GreaterThan(200),
-                    "the displayed placement frame uses the same stage as the pin picker");
-                Assert.That(downstream.IsEnabled.Value, Is.True);
-            });
+                Assert.Multiple(() =>
+                {
+                    Assert.That(AlphaAtFrame(displayed.Value, firstPinFrame), Is.GreaterThan(200),
+                        "the displayed placement frame uses the same stage as the pin picker");
+                    Assert.That(downstream.IsEnabled.Value, Is.True);
+                });
+            }
             Assert.That(player.transformHandlesOverlay.HitTest(player.transformHandlesOverlay.PivotImage),
                 Is.EqualTo(TransformHandlesOverlay.HandleKind.None));
             Capture("puppet-placement.png");
@@ -253,8 +257,9 @@ public sealed class PuppetEditingTests
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             await HeadlessTestHelpers.WaitUntilAsync(() => PlacementEnded(add));
             Assert.That(effect.Pins, Has.Count.EqualTo(2));
-            Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.GreaterThan(200),
-                "the preview stays at the Puppet stage while existing pins can be dragged");
+            using (var displayed = await ReadPreviewFrame())
+                Assert.That(AlphaAtFrame(displayed.Value, firstPinFrame), Is.GreaterThan(200),
+                    "the preview stays at the Puppet stage while existing pins can be dragged");
             Assert.That(player.transformHandlesOverlay.HitTestEditingHandle(firstPinImage)?.Handle.Id,
                 Is.EqualTo(fixedPin.Id.Value.ToString()), "the marker sits on the same independently positioned click point");
 
@@ -354,9 +359,13 @@ public sealed class PuppetEditingTests
 
             editor.Player.IsMoveMode.Value = false;
             await HeadlessTestHelpers.WaitUntilAsync(() => !editor.Player.ShowsPuppetStage.Value && !placementHint.IsVisible);
-            Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.Zero,
-                "switching tools restores the downstream effect in the ordinary preview");
-            byte[] preview = AlphaOf(editor.Player.PreviewImage.Value!.Value);
+            byte[] preview;
+            using (var displayed = await ReadPreviewFrame())
+            {
+                Assert.That(AlphaAtFrame(displayed.Value, firstPinFrame), Is.Zero,
+                    "switching tools restores the downstream effect in the ordinary preview");
+                preview = AlphaOf(displayed.Value);
+            }
             Scene snapshot = SceneSnapshot.Create(scene);
             using (SceneRenderer renderer = ExportRendererFactory.Create(snapshot, TestShell.FontManager,
                        editor.Renderer.Value.OutputScale))
@@ -369,6 +378,18 @@ public sealed class PuppetEditingTests
             }
             editor.Player.IsMoveMode.Value = true;
             await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.ShowsPuppetStage.Value && placementHint.IsVisible);
+
+            clock.Seek(MediaTime.FromSeconds(2));
+            await Render();
+            editor.Player.ShuttleBackward();
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.IsPlaying.Value && !editor.Player.ShowsPuppetStage.Value,
+                message: "Shuttle should display the full scene during playback.");
+            await HeadlessTestHelpers.WaitUntilAsync(() => !editor.Player.IsPlaybackActive && editor.Player.ShowsPuppetStage.Value
+                && placementHint.IsVisible, message: "Natural shuttle completion should restore the Puppet stage.");
+            using (var displayed = await ReadPreviewFrame())
+                Assert.That(AlphaAtFrame(displayed.Value, firstPinFrame), Is.GreaterThan(200));
+            clock.Seek(MediaTime.Zero);
+            await Render();
 
             editor.HistoryManager.Undo();
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
@@ -551,6 +572,15 @@ public sealed class PuppetEditingTests
         {
             window.MouseDown(position, MouseButton.Left);
             window.MouseUp(position, MouseButton.Left);
+        }
+
+        async Task<Ref<Beutl.Media.Bitmap>> ReadPreviewFrame()
+        {
+            var view = (Beutl.Controls.BitmapView)player.image;
+            Ref<Beutl.Media.Bitmap>? frame = null;
+            await HeadlessTestHelpers.WaitUntilAsync(() => (frame = view.Source?.TryClone()) is not null,
+                message: "The preview frame should be available to sample.");
+            return frame!;
         }
 
         byte AlphaAtFrame(Beutl.Media.Bitmap frame, AvaPoint point)
