@@ -99,8 +99,15 @@ internal sealed class GitRepositoryCloner(
                 throw new InvalidOperationException(Strings.HostedGit_CloneRequiresLfs);
             }
 
-            await runner.RunAsync(repository, [.. GitCliVersionControlService.LfsPathFilterOverrides, .. checkoutArguments],
-                network, cancellationToken, safeProgress).ConfigureAwait(false);
+            // Materialize all media before publishing the clone, including when other Git commands skip LFS.
+            var checkoutEnvironment = new Dictionary<string, string?>(environment)
+            {
+                ["GIT_LFS_SKIP_SMUDGE"] = "0",
+                ["GIT_LFS_SKIP_DOWNLOAD_ERRORS"] = "0",
+            };
+            await runner.RunAsync(repository,
+                [.. GitCliVersionControlService.LfsPathFilterOverrides, "-c", "lfs.skipdownloaderrors=false", .. checkoutArguments],
+                network with { EnvironmentOverrides = checkoutEnvironment }, cancellationToken, safeProgress).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
             if (existedEmpty)

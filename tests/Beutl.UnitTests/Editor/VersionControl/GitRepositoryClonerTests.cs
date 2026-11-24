@@ -117,17 +117,9 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Clone_hydrates_LFS_files_with_path_filters_configured(bool detached)
+    public async Task Clone_hydrates_LFS_files_despite_inherited_skip_settings(bool detached)
     {
-        try
-        {
-            await RunGitAsync("lfs", "version");
-        }
-        catch (GitOperationException)
-        {
-            Assert.Ignore("Git LFS is required for this test.");
-        }
-
+        await RequireGitLfsAsync();
         await RunGitAsync("lfs", "install", "--local", "--skip-repo");
         await RunGitAsync("lfs", "track", "*.mp4");
         await RunGitAsync("add", "--", ".gitattributes");
@@ -137,7 +129,11 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
         string config = Path.Combine(folder, "gitconfig");
         const string filters = "[lfs]\n\tfetchinclude = *.txt\n\tfetchexclude = *.mp4\n";
         await File.WriteAllTextAsync(config, filters);
-        var environment = new Dictionary<string, string?>(IsolatedGitEnvironment) { ["GIT_CONFIG_GLOBAL"] = config };
+        var environment = new Dictionary<string, string?>(IsolatedGitEnvironment)
+        {
+            ["GIT_CONFIG_GLOBAL"] = config,
+            ["GIT_LFS_SKIP_SMUDGE"] = "1",
+        };
         var runner = new GitCliRunner(GitPath, TimeSpan.FromSeconds(15), environment);
         string destination = Path.Combine(folder, "clone-with-media");
         string? revision = detached ? (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim() : null;
@@ -154,9 +150,7 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
     {
         await CommitFileAsync("Project.bep", "project", "Initial project");
         string initial = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await CommitFileAsync(".gitattributes", "*.mp4 filter=lfs diff=lfs merge=lfs -text\n", "Set LFS attributes");
-        string pointer = $"version https://git-lfs.github.com/spec/v1\noid sha256:{new string('a', 64)}\nsize 12\n";
-        await CommitFileAsync("media.mp4", pointer, "Store an LFS pointer");
+        await CommitMissingLfsObjectAsync();
         string output = CreateTemporaryDirectory();
         string destination = Path.Combine(output, "clone");
         Directory.CreateDirectory(destination);
@@ -169,6 +163,51 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
 
         await cloner.CloneAsync(Root, destination, initial);
         Assert.That(File.Exists(Path.Combine(destination, "Project.bep")), Is.True);
+    }
+
+    [Test]
+    public async Task Clone_keeps_the_destination_empty_when_an_LFS_download_fails()
+    {
+        await RequireGitLfsAsync();
+        await CommitMissingLfsObjectAsync();
+        string output = CreateTemporaryDirectory();
+        string config = Path.Combine(output, "gitconfig");
+        const string settings = "[lfs]\n\tskipdownloaderrors = true\n";
+        await File.WriteAllTextAsync(config, settings);
+        var environment = new Dictionary<string, string?>(IsolatedGitEnvironment)
+        {
+            ["GIT_CONFIG_GLOBAL"] = config,
+            ["GIT_LFS_SKIP_DOWNLOAD_ERRORS"] = "1",
+        };
+        var runner = new GitCliRunner(GitPath, TimeSpan.FromSeconds(15), environment);
+        var cloner = new GitRepositoryCloner(CreateInstalledLocator(lfsInstalled: true), _ => runner);
+        string destination = Path.Combine(output, "clone");
+        Directory.CreateDirectory(destination);
+
+        await Assert.ThrowsAsync<GitOperationException>(() => cloner.CloneAsync(Root, destination));
+
+        Assert.That(Directory.GetFileSystemEntries(destination), Is.Empty);
+        Assert.That(Directory.EnumerateDirectories(output), Is.EqualTo(new[] { destination }));
+        Assert.That(await File.ReadAllTextAsync(config), Is.EqualTo(settings));
+    }
+
+    private async Task CommitMissingLfsObjectAsync()
+    {
+        await CommitFileAsync(".gitattributes", "*.mp4 filter=lfs diff=lfs merge=lfs -text\n", "Set LFS attributes");
+        string pointer = $"version https://git-lfs.github.com/spec/v1\noid sha256:{new string('a', 64)}\nsize 12\n";
+        await CommitFileAsync("media.mp4", pointer, "Store an LFS pointer");
+    }
+
+    private async Task RequireGitLfsAsync()
+    {
+        try
+        {
+            await RunGitAsync("lfs", "version");
+        }
+        catch (GitOperationException)
+        {
+            Assert.Ignore("Git LFS is required for this test.");
+        }
     }
 
     [Test]
