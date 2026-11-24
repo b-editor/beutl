@@ -18,11 +18,19 @@ public sealed partial class Vignette : FilterEffect
         uniform float2 inverseRadii;
         uniform float exponent;
         uniform float2 falloff;
+        uniform float bend;
         uniform float amount;
 
         float maskAt(float distance) {
             if (falloff.y > falloff.x) {
-                return smoothstep(falloff.x, falloff.y, distance);
+                if (bend == 0.0) {
+                    return smoothstep(falloff.x, falloff.y, distance);
+                }
+
+                // A band clipped at the center or the corner moves the midpoint off its middle. This bias maps the
+                // midpoint back to the middle and keeps a finite slope at both ends, so the smoothstep stays flat there.
+                float t = clamp((distance - falloff.x) / (falloff.y - falloff.x), 0.0, 1.0);
+                return smoothstep(0.0, 1.0, t / (bend * (1.0 - t) + 1.0));
             }
 
             // A collapsed band is a hard step. Keep the center clear and the outer edge at full strength.
@@ -87,9 +95,27 @@ public sealed partial class Vignette : FilterEffect
             float midpoint = ClampFinite(Midpoint, 0f, 100f, 50f) / 100f;
             float feather = ClampFinite(Feather, 0f, 100f, 50f) / 100f;
             float roundness = ClampFinite(Roundness, -100f, 100f, 0f) / 100f;
-            // Keep the band symmetric about its half-strength point and inside the center-to-corner interval.
-            float halfWidth = MathF.Min(feather * 0.5f, MathF.Min(midpoint, 1f - midpoint));
+            // The band is symmetric about its half-strength point while it fits in the center-to-corner interval.
+            float halfWidth = feather * 0.5f;
             var falloff = new Vector2(midpoint - halfWidth, midpoint + halfWidth);
+            float bend = 0f;
+            if (halfWidth > MathF.Min(midpoint, 1f - midpoint))
+            {
+                if (midpoint is > 0f and < 1f)
+                {
+                    // Clip a band that does not fit instead of narrowing it, and bend the falloff inside it so the
+                    // mask still reaches half strength at the midpoint.
+                    falloff = new Vector2(MathF.Max(falloff.X, 0f), MathF.Min(falloff.Y, 1f));
+                    float position = (midpoint - falloff.X) / (falloff.Y - falloff.X);
+                    bend = (2f * position - 1f) / (1f - position);
+                }
+                else
+                {
+                    // A midpoint at the center or the corner leaves no room on one side, so it stays a step there.
+                    falloff = new Vector2(midpoint);
+                }
+            }
+
             float exponent = 2f + 6f * MathF.Max(-roundness, 0f);
             float circularity = MathF.Max(roundness, 0f);
 
@@ -100,6 +126,7 @@ public sealed partial class Vignette : FilterEffect
                 {
                     bindings.Uniform("amount", amount);
                     bindings.Uniform("falloff", falloff);
+                    bindings.Uniform("bend", bend);
                     bindings.Uniform("exponent", exponent);
                     bindings.Uniform("center", Center, static (writer, center, execution) =>
                     {
