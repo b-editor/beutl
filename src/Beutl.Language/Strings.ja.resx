@@ -3983,6 +3983,12 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="HostedGit_OriginChanged" xml:space="preserve">
     <value>現在の origin が変更されました。ダイアログを開き直して確認してから接続してください。</value>
   </data>
+  <data name="HostedGit_OriginAlreadyConfigured" xml:space="preserve">
+    <value>origin が設定されています。公開するにはプッシュを実行してください。</value>
+  </data>
+  <data name="HostedGit_PushDestinationMismatch" xml:space="preserve">
+    <value>Git のプッシュ先が選択したリポジトリと異なります。origin のプッシュ先を確認してください。</value>
+  </data>
   <data name="HostedGit_SignIn" xml:space="preserve">
     <value>Beutl にサインイン</value>
   </data>

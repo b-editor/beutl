@@ -43,6 +43,8 @@ internal sealed partial class GitCliVersionControlService
         string url = remote.Url;
         try
         {
+            if (remote.IsHostedConnection)
+                await VerifyHostedPushDestinationAsync(repository, runner, url, cancellationToken).ConfigureAwait(false);
             if (remote.HasCredentials)
             {
                 string? helper = await remote.StoreCredentialsAsync(repository, runner, cancellationToken)
@@ -80,6 +82,38 @@ internal sealed partial class GitCliVersionControlService
         {
             if (verifyOrigin && !string.Equals(expectedOrigin, actual, StringComparison.Ordinal))
                 throw new InvalidOperationException(Strings.HostedGit_OriginChanged);
+        }
+    }
+
+    private static async Task VerifyHostedPushDestinationAsync(
+        RepositoryInfo repository, IGitCliRunner runner, string url, CancellationToken cancellationToken)
+    {
+        bool hasPushUrls = true;
+        try
+        {
+            await runner.RunAsync(repository, ["config", "--get-all", "remote.origin.pushurl"],
+                GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            hasPushUrls = false;
+        }
+
+        // Let Git apply insteadOf and pushInsteadOf. With no explicit push URLs,
+        // inspect the proposed fetch URL without changing the existing origin.
+        string probe = $"beutl-origin-{Guid.NewGuid():N}";
+        string[] arguments = hasPushUrls
+            ? ["remote", "get-url", "--push", "--all", "origin"]
+            : ["-c", $"remote.{probe}.url={url}", "remote", "get-url", "--push", "--all", probe];
+        GitCommandResult effective = await runner.RunAsync(repository, arguments,
+            GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+        string[] destinations = effective.Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        if (!HostedGitRemoteUrl.TryParse(url, url, out HostedGitRemoteUrl? target)
+            || destinations.Length == 0
+            || destinations.Any(destination => !HostedGitRemoteUrl.TryParse(destination, url, out HostedGitRemoteUrl? actual)
+                || actual.RepositoryId != target.RepositoryId))
+        {
+            throw new InvalidOperationException(Strings.HostedGit_PushDestinationMismatch);
         }
     }
 

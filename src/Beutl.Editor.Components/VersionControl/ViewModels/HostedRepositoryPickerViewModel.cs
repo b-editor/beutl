@@ -17,6 +17,7 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private CancellationTokenSource? _load;
     private IReadOnlyList<GitRepositorySummary> _all = [];
+    private string? _requestError;
     private bool _active;
     private bool _loaded;
     private bool _disposed;
@@ -66,7 +67,7 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
             return;
 
         CanSignIn.Value = false;
-        Status.Value = string.Empty;
+        SetRequestError(null);
         try
         {
             await _api.SignInAsync(_lifetime.Token);
@@ -77,7 +78,7 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
         catch (Exception)
         {
             if (!_disposed)
-                Status.Value = Strings.HostedGit_SignInFailed;
+                SetRequestError(Strings.HostedGit_SignInFailed);
         }
         finally
         {
@@ -95,7 +96,7 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
         _load?.Cancel();
         _load = load;
         IsLoading.Value = true;
-        Status.Value = string.Empty;
+        SetRequestError(null);
         try
         {
             var repositories = await Service.ListAsync(load.Token, user);
@@ -131,11 +132,11 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
         if (exception is HostedGitApiException { Error: HostedGitError.AuthenticationRequired })
         {
             NeedsSignIn.Value = true;
-            Status.Value = string.Empty;
+            SetRequestError(null);
         }
         else
         {
-            Status.Value = exception is HostedGitApiException ? exception.Message : Strings.HostedGit_RequestFailed;
+            SetRequestError(exception is HostedGitApiException ? exception.Message : Strings.HostedGit_RequestFailed);
         }
     }
 
@@ -149,6 +150,7 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
         IsLoading.Value = false;
         _loaded = false;
         _all = [];
+        _requestError = null;
         NeedsSignIn.Value = User is null;
         SelectedRepository.Value = null;
         UpdateFilter();
@@ -165,11 +167,17 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
         Repositories.Value = filtered;
         SelectedRepository.Value = filtered.FirstOrDefault(repo => repo.Id == selectionId);
 
-        Status.Value = !_loaded ? string.Empty
+        Status.Value = _requestError ?? (!_loaded ? string.Empty
             : selectionId is not null && _all.All(repo => repo.Id != selectionId) && _preferredId is not null
                 ? Strings.HostedGit_NotFound
                 : filtered.Count != 0 ? string.Empty
-                : _all.Count == 0 ? Strings.HostedGit_NoRepositories : Strings.HostedGit_NoSearchResults;
+                : _all.Count == 0 ? Strings.HostedGit_NoRepositories : Strings.HostedGit_NoSearchResults);
+    }
+
+    private void SetRequestError(string? error)
+    {
+        _requestError = error;
+        Status.Value = error ?? string.Empty;
     }
 
     public void Dispose()

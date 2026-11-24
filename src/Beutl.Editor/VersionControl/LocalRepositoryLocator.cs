@@ -11,11 +11,13 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
     {
     }
 
-    public Task<string?> FindRecentProjectAsync(ViewConfig config, Guid repositoryId, CancellationToken cancellationToken)
-        => FindProjectAsync(config.RecentProjects.ToArray(), repositoryId, cancellationToken);
+    public Task<string?> FindRecentProjectAsync(
+        ViewConfig config, Guid repositoryId, CancellationToken cancellationToken, string? revision = null)
+        => FindProjectAsync(config.RecentProjects.ToArray(), repositoryId, cancellationToken, revision);
 
-    public Task<string?> FindProjectAsync(string[] paths, Guid repositoryId, CancellationToken cancellationToken)
-        => Task.Run(() => FindProjectCoreAsync(paths, repositoryId, cancellationToken), cancellationToken);
+    public Task<string?> FindProjectAsync(
+        string[] paths, Guid repositoryId, CancellationToken cancellationToken, string? revision = null)
+        => Task.Run(() => FindProjectCoreAsync(paths, repositoryId, cancellationToken, revision), cancellationToken);
 
     public Task<Dictionary<string, Guid>> FindProjectRepositoriesAsync(
         string[] paths, IReadOnlyList<GitRepositorySummary> repositories, CancellationToken cancellationToken)
@@ -45,11 +47,12 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
             return matches;
         }, cancellationToken);
 
-    private async Task<string?> FindProjectCoreAsync(string[] paths, Guid repositoryId, CancellationToken cancellationToken)
+    private async Task<string?> FindProjectCoreAsync(
+        string[] paths, Guid repositoryId, CancellationToken cancellationToken, string? revision)
     {
         string id = repositoryId.ToString("D");
         Task<GitRepositorySummary?>? advertisement = null;
-        await foreach ((string path, string origin) in ReadOriginsAsync(paths, cancellationToken).ConfigureAwait(false))
+        await foreach ((string path, string origin) in ReadOriginsAsync(paths, cancellationToken, revision).ConfigureAwait(false))
         {
             if (HostedGitRemoteUrl.TryParse(origin, out HostedGitRemoteUrl? remote) && remote.RepositoryId == id)
                 return path;
@@ -67,7 +70,7 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
     }
 
     private async IAsyncEnumerable<(string Path, string Origin)> ReadOriginsAsync(
-        string[] paths, [EnumeratorCancellation] CancellationToken cancellationToken)
+        string[] paths, [EnumeratorCancellation] CancellationToken cancellationToken, string? revision = null)
     {
         string? gitPath = (await installation.LocateAsync(cancellationToken).ConfigureAwait(false)).GitPath;
         if (gitPath is null)
@@ -92,6 +95,13 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
                     var repository = new RepositoryInfo(root, directory);
                     url = await GitCliVersionControlService.GetOriginUrlAsync(repository, runner, cancellationToken)
                         .ConfigureAwait(false);
+                    if (revision is not null
+                        && Uri.TryCreate(url, UriKind.Absolute, out Uri? remote)
+                        && HostedGitRemoteUrl.TryGetRepositoryId(remote, out _)
+                        && !await MatchesCheckoutAsync(repository, runner, revision, cancellationToken).ConfigureAwait(false))
+                    {
+                        url = null;
+                    }
                     origins.Add(root, url);
                 }
             }
@@ -103,5 +113,40 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
             if (url is not null)
                 yield return (path, url);
         }
+    }
+
+    private static async Task<bool> MatchesCheckoutAsync(
+        RepositoryInfo repository, IGitCliRunner runner, string revision, CancellationToken cancellationToken)
+    {
+        const string heads = "refs/heads/";
+        try
+        {
+            string branchRef = revision.StartsWith(heads, StringComparison.Ordinal) ? revision : heads + revision;
+            bool fullObjectId = revision.Length is 40 or 64 && GitRevisionValidator.IsHexadecimalRevision(revision);
+            bool isBranch = revision.StartsWith(heads, StringComparison.Ordinal)
+                || !fullObjectId && revision != "HEAD" && !revision.StartsWith("refs/", StringComparison.Ordinal)
+                && (await GitCliVersionControlService.RefExistsAsync(repository, runner, branchRef, cancellationToken)
+                        .ConfigureAwait(false)
+                    || await GitCliVersionControlService.RefExistsAsync(repository, runner, $"refs/remotes/origin/{revision}",
+                            cancellationToken).ConfigureAwait(false));
+            if (isBranch)
+            {
+                string currentBranch = (await runner.RunAsync(repository, ["symbolic-ref", "--quiet", "HEAD"],
+                    GitCommandOptions.Local, cancellationToken).ConfigureAwait(false)).Stdout.TrimEnd('\r', '\n');
+                return currentBranch == branchRef;
+            }
+
+            string target = revision == "HEAD" ? "refs/remotes/origin/HEAD" : revision;
+            string requestedCommit = await ResolveCommitAsync(target).ConfigureAwait(false);
+            return requestedCommit == await ResolveCommitAsync("HEAD").ConfigureAwait(false);
+        }
+        catch (GitOperationException)
+        {
+            return false;
+        }
+
+        async Task<string> ResolveCommitAsync(string name)
+            => (await runner.RunAsync(repository, ["rev-parse", "--verify", "--end-of-options", $"{name}^{{commit}}"],
+                GitCommandOptions.Local, cancellationToken).ConfigureAwait(false)).Stdout.TrimEnd('\r', '\n');
     }
 }

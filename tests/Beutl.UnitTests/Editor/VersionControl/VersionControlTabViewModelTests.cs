@@ -3653,7 +3653,48 @@ public class VersionControlTabViewModelTests
         await vm.PublishBranchAsync();
 
         Assert.That(vm.RemoteUrl.Value, Is.EqualTo(url));
+        Assert.That(vm.StatusMessage.Value, Is.EqualTo(Strings.HostedGit_OriginAlreadyConfigured));
         coordinator.VerifyNoOtherCalls();
+    }
+
+    [Test]
+    public async Task Local_remote_and_history_are_ready_before_an_advertised_origin_lookup_finishes()
+    {
+        var repository = HostedGitRepositoryServiceTests.Repository() with
+        {
+            Url = $"https://git.example.invalid/api/v3/git/{HostedGitRepositoryServiceTests.RepositoryId}.git",
+        };
+        var reply = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var http = new HttpClient(new DelegateHttpHandler(_ => reply.Task));
+        await using BeutlApiApplication api = HostedGitRepositoryServiceTests.CreateApp(http);
+        ApiTestAuthentication.SignIn(api);
+        var context = new Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(BeutlApiApplication))).Returns(api);
+        var service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", repository.Url)]);
+        using var source = CreateServiceSource(service.Object);
+        using var vm = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), context.Object, source, null, action => action());
+        var recognized = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = vm.HostedRepositoryId.Subscribe(id =>
+        {
+            if (id is not null)
+                recognized.TrySetResult(id);
+        });
+
+        try
+        {
+            await vm.Initialization.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(vm.RemoteUrl.Value, Is.EqualTo(repository.Url));
+            Assert.That(vm.HostedRepositoryId.Value, Is.Null);
+            reply.SetResult(HostedGitRepositoryServiceTests.Json(repository));
+            Assert.That(await recognized.Task.WaitAsync(TimeSpan.FromSeconds(5)), Is.EqualTo(repository.Id));
+        }
+        finally
+        {
+            if (!reply.Task.IsCompleted)
+                reply.TrySetResult(HostedGitRepositoryServiceTests.Json(repository));
+        }
     }
 
     [TestCase(false)]
@@ -3682,7 +3723,8 @@ public class VersionControlTabViewModelTests
         else
             coordinator.Setup(x => x.PullAsync(It.IsAny<CancellationToken>())).ReturnsAsync(failure);
         coordinator.Setup(x => x.SetRemoteAsync(
-                It.Is<GitRemoteUrl>(remote => remote.Url == repository.Url && remote.HasCredentials && remote.Username == "git"),
+                It.Is<GitRemoteUrl>(remote => remote.Url == repository.Url && remote.HasCredentials
+                    && remote.Username!.StartsWith("beutl-", StringComparison.Ordinal)),
                 repository.Url, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 

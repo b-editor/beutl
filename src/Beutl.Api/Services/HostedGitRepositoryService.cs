@@ -201,7 +201,21 @@ public sealed class HostedGitRepositoryService : IBeutlApiResource
         {
             throw MapError(ex, collection);
         }
+        catch (ApiRequestException ex) when (ex.InnerException is OperationCanceledException && cancellationToken.IsCancellationRequested)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw;
+        }
+        catch (ApiRequestException ex) when (ex.InnerException is HttpRequestException
+            or OperationCanceledException { InnerException: TimeoutException })
+        {
+            throw new HostedGitApiException(HostedGitError.Unavailable, Strings.HostedGit_Unavailable);
+        }
         catch (HttpRequestException)
+        {
+            throw new HostedGitApiException(HostedGitError.Unavailable, Strings.HostedGit_Unavailable);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested && ex.InnerException is TimeoutException)
         {
             throw new HostedGitApiException(HostedGitError.Unavailable, Strings.HostedGit_Unavailable);
         }

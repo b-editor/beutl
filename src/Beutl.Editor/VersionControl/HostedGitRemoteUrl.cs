@@ -10,16 +10,13 @@ internal sealed class HostedGitRemoteUrl
     private const string GitPath = "/api/v3/git/";
     private readonly string _dashboard;
 
-    private HostedGitRemoteUrl(Guid repositoryId, string remoteUrl, Uri dashboardOrigin)
+    private HostedGitRemoteUrl(Guid repositoryId, Uri dashboardOrigin)
     {
         RepositoryId = repositoryId.ToString("D");
-        OriginUrl = remoteUrl;
         _dashboard = $"{dashboardOrigin.GetLeftPart(UriPartial.Authority)}/dashboard/repositories/{RepositoryId}";
     }
 
     public string RepositoryId { get; }
-
-    public string OriginUrl { get; }
 
     public static bool TryParse(string? remoteUrl, [NotNullWhen(true)] out HostedGitRemoteUrl? hosted)
         => TryParse(remoteUrl, BeutlApiApplication.BaseUrl, out hosted);
@@ -33,7 +30,7 @@ internal sealed class HostedGitRemoteUrl
             return false;
         }
 
-        hosted = new HostedGitRemoteUrl(id, remoteUrl!, origin);
+        hosted = new HostedGitRemoteUrl(id, origin);
         return true;
     }
 
@@ -51,16 +48,13 @@ internal sealed class HostedGitRemoteUrl
             return false;
         }
 
-        hosted = new HostedGitRemoteUrl(id, remoteUrl!, new Uri(BeutlApiApplication.BaseUrl));
+        hosted = new HostedGitRemoteUrl(id, new Uri(BeutlApiApplication.BaseUrl));
         return true;
     }
 
     internal static async Task<HostedGitRemoteUrl?> ResolveAsync(
-        string? remoteUrl, BeutlApiApplication? api, CancellationToken cancellationToken,
-        HostedGitRemoteUrl? known = null)
+        string? remoteUrl, BeutlApiApplication? api, CancellationToken cancellationToken)
     {
-        if (known is not null && string.Equals(known.OriginUrl, remoteUrl, StringComparison.Ordinal))
-            return known;
         if (TryParse(remoteUrl, out HostedGitRemoteUrl? hosted))
             return hosted;
         if (!Uri.TryCreate(remoteUrl, UriKind.Absolute, out Uri? remote) || !TryGetRepositoryId(remote, out Guid id))

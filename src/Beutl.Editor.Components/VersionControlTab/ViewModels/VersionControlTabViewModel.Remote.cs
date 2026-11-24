@@ -1,6 +1,7 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -102,6 +103,7 @@ internal partial class VersionControlTabViewModel
                 if (publish && expectedOrigin is not null)
                 {
                     SetOrigin(expectedOrigin);
+                    StatusMessage.Value = Strings.HostedGit_OriginAlreadyConfigured;
                     return false;
                 }
 
@@ -225,8 +227,6 @@ internal partial class VersionControlTabViewModel
     {
         RemoteInfo? remote = (await service.GetRemotesAsync(cancellationToken))
             .FirstOrDefault();
-        HostedGitRemoteUrl? hosted = await HostedGitRemoteUrl.ResolveAsync(remote?.Url,
-            _editorContext.GetService<BeutlApiApplication>(), cancellationToken, _hostedRemote);
         if (cancellationToken.IsCancellationRequested
             || !ReferenceEquals(service, _service)
             || serviceRevision is { } bindingRevision
@@ -239,20 +239,22 @@ internal partial class VersionControlTabViewModel
             return;
         }
 
-        SetOrigin(remote?.Url, hosted);
+        SetOrigin(remote?.Url);
     }
 
-    private void SetOrigin(string? origin, HostedGitRemoteUrl? hosted = null)
+    private readonly HostedGitRemoteLookup _hostedLookup = new();
+
+    private void SetOrigin(string? origin)
     {
         _currentOrigin = origin;
         HasRemote.Value = origin is not null;
         RemoteUrl.Value = GetRemoteUrlForPresentation(origin);
-        if (hosted is null && _hostedRemote?.OriginUrl == origin)
-            hosted = _hostedRemote;
-        if (hosted is null)
-            HostedGitRemoteUrl.TryParse(origin, out hosted);
-        _hostedRemote = hosted;
-        HostedRepositoryId.Value = _hostedRemote?.RepositoryId;
+        BeutlApiApplication? api = origin is null ? null : _editorContext.GetService<BeutlApiApplication>();
+        _hostedLookup.Update(origin, api, _serviceBindingCancellation?.Token ?? CancellationToken.None, _postToUi, hosted =>
+        {
+            _hostedRemote = hosted;
+            HostedRepositoryId.Value = hosted?.RepositoryId;
+        });
     }
 
     internal async Task OpenOnWebAsync(string? commit = null)

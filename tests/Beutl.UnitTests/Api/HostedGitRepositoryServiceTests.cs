@@ -31,6 +31,19 @@ public sealed class HostedGitRepositoryServiceTests
         => new(status) { Content = JsonContent.Create(data, data.GetType()) };
 
     [Test]
+    public async Task Maps_an_HTTP_timeout_to_unavailable()
+    {
+        using var http = new HttpClient(new DelegateHttpHandler(_ =>
+            Task.FromException<HttpResponseMessage>(new TaskCanceledException("HTTP request timed out", new TimeoutException()))));
+        await using var app = CreateApp(http);
+        ApiTestAuthentication.SignIn(app);
+        var service = app.GetResource<HostedGitRepositoryService>();
+
+        var failure = await Assert.ThrowsAsync<HostedGitApiException>(() => service.ListAsync());
+        Assert.That(failure!.Error, Is.EqualTo(HostedGitError.Unavailable));
+    }
+
+    [Test]
     public async Task Endpoints_use_authenticated_methods_and_the_web_request_contract()
     {
         Guid id = Guid.Parse(RepositoryId);

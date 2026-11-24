@@ -84,7 +84,8 @@ public sealed class HostedGitDialogsTests
         var previousCulture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
         var config = new ViewConfig();
-        using var http = new HttpClient(new RepositoryListHandler(id));
+        var handler = new RepositoryListHandler(id) { Unavailable = true };
+        using var http = new HttpClient(handler);
         await using var api = new BeutlApiApplication(http, new ExtensionProvider(new ExtensionConfig()),
             config, new UpdateConfig(), static () => new HttpClient(), persistAuthenticatedUser: _ => { });
         var request = new RepositoryOpenRequest(Guid.Parse(id), revision);
@@ -99,6 +100,13 @@ public sealed class HostedGitDialogsTests
             Assert.That(vm.Picker.NeedsSignIn.Value, Is.True);
             Assert.That(vm.CanClone.Value, Is.False);
             await api.RunInteractiveAuthenticationAsync(_ => Task.FromResult(CreateUser(api)), CancellationToken.None);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !string.IsNullOrEmpty(vm.Picker.Status.Value));
+            string requestError = vm.Picker.Status.Value;
+            vm.Picker.Search.Value = "制作";
+            Assert.That(vm.Picker.Status.Value, Is.EqualTo(requestError));
+            handler.Unavailable = false;
+            vm.Picker.Search.Value = "";
+            await vm.Picker.RefreshAsync();
             await HeadlessTestHelpers.WaitUntilAsync(() => vm.Picker.SelectedRepository.Value?.Id == id,
                 TimeSpan.FromSeconds(10), "The repository link was not preselected after sign-in.");
             await vm.CheckGitAsync();
@@ -154,9 +162,13 @@ public sealed class HostedGitDialogsTests
 
     private sealed class RepositoryListHandler(string id) : HttpMessageHandler
     {
+        public bool Unavailable { get; set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Assert.That(request.RequestUri?.AbsolutePath, Is.EqualTo("/api/v3/repos"));
+            if (Unavailable)
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable));
             DateTimeOffset date = new(2026, 11, 24, 12, 0, 0, TimeSpan.Zero);
             GitRepositorySummary first = new(id, "制作プロジェクト", $"https://example.invalid/api/v3/git/{id}.git", date, date);
             GitRepositorySummary second = new("76972d37-e697-401c-8291-6d08cdeb4d81", "別のリポジトリ", "", date, date);

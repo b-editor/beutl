@@ -82,7 +82,8 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
         string target = Path.Combine(folder, "clone");
         var progress = new RecordingProgress();
 
-        await cloner.CloneAsync(GitRemoteUrl.WithHostedCredentials(new Uri(Url), Secret), target, progress: progress);
+        GitRemoteUrl firstCredential = GitRemoteUrl.WithHostedCredentials(new Uri(Url), Secret);
+        await cloner.CloneAsync(firstCredential, target, progress: progress);
 
         var commands = recorder.Commands;
         int approve = commands.FindIndex(call => call.Arguments.Last() == "approve");
@@ -98,12 +99,44 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
         var local = new RepositoryInfo(target, target);
         Assert.That(await GetLocalAsync("remote.origin.url"), Is.EqualTo(Url));
         Assert.That(await GetLocalAsync($"credential.{Url}.useHttpPath"), Is.EqualTo("true"));
-        Assert.That(await GetLocalAsync($"credential.{Url}.username"), Is.EqualTo("git"));
+        Assert.That(await GetLocalAsync($"credential.{Url}.username"), Is.EqualTo(firstCredential.Username));
         Assert.That(await GetLocalAsync($"credential.{Url}.helper"), Is.EqualTo("libsecret"));
         Assert.That(await File.ReadAllTextAsync(Path.Combine(target, ".git", "config")), Does.Not.Contain(Secret));
 
+        GitRemoteUrl secondCredential = GitRemoteUrl.WithHostedCredentials(new Uri(Url), "another-example-token");
+        await Assert.ThrowsAsync<GitOperationException>(() =>
+            cloner.CloneAsync(secondCredential, Path.Combine(folder, "failed"), "missing-branch"));
+        Assert.That(secondCredential.Username, Is.Not.EqualTo(firstCredential.Username));
+        Assert.That(runner.Credentials[firstCredential.Username!], Is.EqualTo(Secret));
+        Assert.That(await GetLocalAsync($"credential.{Url}.username"), Is.EqualTo(firstCredential.Username));
+
         async Task<string> GetLocalAsync(string key)
             => (await Runner.RunAsync(local, ["config", "--local", "--get", key], GitCommandOptions.Local, CancellationToken.None)).Stdout.Trim();
+    }
+
+    [Test]
+    public async Task Clone_hydrates_LFS_files_without_global_filters()
+    {
+        try
+        {
+            await RunGitAsync("lfs", "version");
+        }
+        catch (GitOperationException)
+        {
+            Assert.Ignore("Git LFS is required for this test.");
+        }
+
+        await RunGitAsync("lfs", "install", "--local", "--skip-repo");
+        await RunGitAsync("lfs", "track", "*.mp4");
+        await RunGitAsync("add", "--", ".gitattributes");
+        const string media = "sample media content";
+        await CommitFileAsync("media.mp4", media, "Store an LFS object");
+        string destination = Path.Combine(CreateTemporaryDirectory(), "clone-with-media");
+        var cloner = new GitRepositoryCloner(CreateInstalledLocator(lfsInstalled: true), _ => Runner);
+
+        await cloner.CloneAsync(Root, destination);
+
+        Assert.That(await File.ReadAllTextAsync(Path.Combine(destination, "media.mp4")), Is.EqualTo(media));
     }
 
     [Test]
@@ -178,19 +211,55 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
         return bare;
     }
 
+    [Test]
+    public async Task Locator_reuses_a_local_checkout_only_for_the_requested_branch_or_commit()
+    {
+        await CommitFileAsync("Project.bep", "initial", "Initial project");
+        await RunGitAsync("branch", "another-branch");
+        string branch = (await RunGitAsync("branch", "--show-current")).Stdout.Trim();
+        string commit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await RunGitAsync("remote", "add", "origin", $"{BeutlApiApplication.BaseUrl}/api/v3/git/{RepoId}.git");
+        var locator = new LocalRepositoryLocator(CreateInstalledLocator());
+        string project = Path.Combine(Root, "Project.bep");
+
+        Assert.That(await locator.FindProjectAsync([project], Guid.Parse(RepoId), CancellationToken.None, "another-branch"),
+            Is.Null);
+        Assert.That(await locator.FindProjectAsync([project], Guid.Parse(RepoId), CancellationToken.None, branch),
+            Is.EqualTo(project));
+        Assert.That(await locator.FindProjectAsync([project], Guid.Parse(RepoId), CancellationToken.None, commit[..8]),
+            Is.EqualTo(project));
+        await CommitFileAsync("Project.bep", "new version", "Advance the project");
+        Assert.That(await locator.FindProjectAsync([project], Guid.Parse(RepoId), CancellationToken.None, commit[..8]),
+            Is.Null);
+    }
+
     private sealed class CredentialProbeRunner(IGitCliRunner inner) : DelegatingGitCliRunner(inner)
     {
+        public Dictionary<string, string> Credentials { get; } = new(StringComparer.Ordinal);
+
         public override Task<GitCommandResult> RunAsync(RepositoryInfo repo, IReadOnlyList<string> arguments,
             GitCommandOptions options, CancellationToken token, IProgress<string>? progress = null)
         {
             if (arguments.Contains("--get-urlmatch"))
-                return Task.FromResult(new GitCommandResult(0, "store\0", ""));
+                return Task.FromResult(new GitCommandResult(0, "store --file=/tmp/cache\0", ""));
             if (arguments.SequenceEqual(["help", "-a"]))
                 return Task.FromResult(new GitCommandResult(0, "credential-libsecret", ""));
             if (arguments.SequenceEqual(["--exec-path"]))
                 return Task.FromResult(new GitCommandResult(0, Path.GetTempPath(), ""));
             if (GetGitSubcommand(arguments) == "credential")
-                return Task.FromResult(new GitCommandResult(0, arguments[^1] == "fill" ? $"username=git\npassword={Secret}\n" : "", ""));
+            {
+                string usernameKey = $"credential.{Url}.username=";
+                string username = arguments.Single(arg => arg.StartsWith(usernameKey, StringComparison.Ordinal))[usernameKey.Length..];
+                if (arguments[^1] == "approve")
+                {
+                    const string passwordKey = "password=";
+                    string password = options.StandardInput!.Split('\n')
+                        .Single(line => line.StartsWith(passwordKey, StringComparison.Ordinal))[passwordKey.Length..];
+                    Credentials[username] = password;
+                }
+                string output = arguments[^1] == "fill" ? $"username={username}\npassword={Credentials[username]}\n" : "";
+                return Task.FromResult(new GitCommandResult(0, output, ""));
+            }
             if (GetGitSubcommand(arguments) == "clone")
                 progress?.Report($"Diagnostic {Secret}");
             return base.RunAsync(repo, arguments, options, token, progress);

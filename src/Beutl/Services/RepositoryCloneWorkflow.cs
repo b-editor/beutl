@@ -41,7 +41,7 @@ internal sealed class RepositoryCloneWorkflow(
         var locator = new LocalRepositoryLocator(_installation, api);
         Project? activeProject = projects.CurrentProject.Value;
         if (activeProject?.Uri is { IsFile: true } activeUri
-            && await locator.FindProjectAsync([activeUri.LocalPath], request.RepositoryId, token) is not null
+            && await locator.FindProjectAsync([activeUri.LocalPath], request.RepositoryId, token, request.Revision) is not null
             && ReferenceEquals(activeProject, projects.CurrentProject.Value))
         {
             owner.Activate();
@@ -49,7 +49,7 @@ internal sealed class RepositoryCloneWorkflow(
             return true;
         }
 
-        string? path = await locator.FindRecentProjectAsync(configuration.ViewConfig, request.RepositoryId, token);
+        string? path = await locator.FindRecentProjectAsync(configuration.ViewConfig, request.RepositoryId, token, request.Revision);
         if (path is null)
             return false;
 
@@ -66,7 +66,12 @@ internal sealed class RepositoryCloneWorkflow(
         var result = await dialog.ShowAsync(owner);
         token.ThrowIfCancellationRequested();
         if (result == FAContentDialogResult.Primary)
+        {
+            if (request.Revision is not null
+                && await locator.FindProjectAsync([path], request.RepositoryId, token, request.Revision) is null)
+                return false;
             await projects.OpenProject(path);
+        }
 
         return result != FAContentDialogResult.Secondary;
     }

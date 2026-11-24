@@ -35,6 +35,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     private bool _coordinatorGitAvailable;
     private bool _disposed;
     private bool _isFlyoutOpen;
+    private readonly HostedGitRemoteLookup _hostedLookup = new();
     private HostedGitRemoteUrl? _hostedRemote;
     private string? _currentWebRef;
 
@@ -408,7 +409,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
         WorkspaceStatus status;
         IReadOnlyList<BranchInfo>? branches = null;
-        HostedGitRemoteUrl? hostedRemote = null;
+        string? origin = null;
         int statusRevision = Volatile.Read(ref _statusRevision);
         try
         {
@@ -416,8 +417,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             if (refreshBranches && IsCurrentStatusRead(status, statusRevision))
             {
                 branches = await service.GetBranchesAsync(cancellationToken);
-                string? origin = (await service.GetRemotesAsync(cancellationToken))?.FirstOrDefault()?.Url;
-                hostedRemote = await HostedGitRemoteUrl.ResolveAsync(origin, _api, cancellationToken, _hostedRemote);
+                origin = (await service.GetRemotesAsync(cancellationToken))?.FirstOrDefault()?.Url;
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -449,8 +449,11 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             {
                 if (refreshBranches)
                 {
-                    _hostedRemote = hostedRemote;
-                    IsHostedGitRemote.Value = _hostedRemote is not null;
+                    _hostedLookup.Update(origin, _api, _serviceBindingCancellation?.Token ?? cancellationToken, _postToUi, remote =>
+                    {
+                        _hostedRemote = remote;
+                        IsHostedGitRemote.Value = remote is not null;
+                    });
                 }
                 ApplyState(status, branches);
             }
@@ -625,6 +628,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
     private void ResetRepositoryState()
     {
+        _hostedLookup.Reset();
         _hostedRemote = null;
         _currentWebRef = null;
         IsHostedGitRemote.Value = false;

@@ -30,7 +30,8 @@ internal sealed class GitRepositoryCloner(
         string parent = Path.GetDirectoryName(destination)
             ?? throw new ArgumentException(Strings.HostedGit_InvalidDestination, nameof(destination));
         bool existedEmpty = CheckDestination(destination);
-        string gitPath = (await GetAvailabilityAsync(cancellationToken).ConfigureAwait(false)).GitPath
+        GitAvailability availability = await GetAvailabilityAsync(cancellationToken).ConfigureAwait(false);
+        string gitPath = availability.GitPath
             ?? throw new InvalidOperationException(Strings.VersionControl_GitNotInstalled);
         IGitCliRunner runner = runnerFactory?.Invoke(gitPath) ?? new GitCliRunner(gitPath);
         string source = ResolveCloneSource(remote.Url);
@@ -53,17 +54,15 @@ internal sealed class GitRepositoryCloner(
             if (remote.HasCredentials)
                 remote.AddCredentialOptions(arguments, helper);
 
-            arguments.AddRange(["clone", "--progress", "--no-hardlinks"]);
+            arguments.AddRange(["clone", "--progress", "--no-hardlinks", "--no-checkout"]);
             const string headsPrefix = "refs/heads/";
             string? branch = revision?.StartsWith(headsPrefix, StringComparison.Ordinal) == true
                 ? revision[headsPrefix.Length..]
                 : revision;
-            bool hexadecimalRevision = revision is { Length: >= 4 and <= 64 } && revision.All(char.IsAsciiHexDigit);
+            bool hexadecimalRevision = GitRevisionValidator.IsHexadecimalRevision(revision);
             bool checkoutRevision = branch == revision && revision is not null
                 && (revision.StartsWith("refs/", StringComparison.Ordinal) || hexadecimalRevision);
-            if (checkoutRevision)
-                arguments.Add("--no-checkout");
-            else if (branch is not null and not "HEAD")
+            if (!checkoutRevision && branch is not null and not "HEAD")
                 arguments.Add($"--branch={branch}");
 
             arguments.AddRange(["--", source, checkout]);
@@ -77,10 +76,19 @@ internal sealed class GitRepositoryCloner(
             if (remote.HasCredentials)
                 await remote.ConfigureLocalCredentialsAsync(repository, runner, helper, cancellationToken, local)
                     .ConfigureAwait(false);
+            if (availability.LfsInstalled)
+            {
+                // A clone does not inherit the source repository's local LFS filters.
+                await runner.RunAsync(repository, ["lfs", "install", "--local", "--skip-repo"],
+                    local, cancellationToken).ConfigureAwait(false);
+            }
             if (checkoutRevision)
                 await CheckoutRevisionAsync(repository, runner, revision!,
                         preferTrackingBranch: hexadecimalRevision && revision!.Length is not (40 or 64),
                         network, safeProgress, cancellationToken)
+                    .ConfigureAwait(false);
+            else
+                await runner.RunAsync(repository, ["reset", "--hard"], network, cancellationToken, safeProgress)
                     .ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();

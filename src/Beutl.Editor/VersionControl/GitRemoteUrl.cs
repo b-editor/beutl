@@ -14,13 +14,15 @@ internal sealed class GitRemoteUrl
     private readonly bool _usernameIsSecret;
     private readonly bool _hostedCredential;
 
-    private GitRemoteUrl(string url, string? username = null, string? password = null, bool usernameIsSecret = false, bool hostedCredential = false)
+    private GitRemoteUrl(string url, string? username = null, string? password = null, bool usernameIsSecret = false,
+        bool hostedCredential = false, bool hostedConnection = false)
     {
         Url = url;
         _username = username;
         _password = password;
         _usernameIsSecret = usernameIsSecret;
         _hostedCredential = hostedCredential;
+        IsHostedConnection = hostedConnection;
     }
 
     public string Url { get; }
@@ -28,6 +30,8 @@ internal sealed class GitRemoteUrl
     public string? Username => _usernameIsSecret ? null : _username;
 
     public bool HasCredentials => _password is not null;
+
+    public bool IsHostedConnection { get; }
 
     public static GitRemoteUrl Parse(string url)
     {
@@ -106,7 +110,10 @@ internal sealed class GitRemoteUrl
         if (string.IsNullOrEmpty(token) || HasInvalidCredentialCharacters(token))
             throw new GitCredentialStorageException();
 
-        return new GitRemoteUrl(url.AbsoluteUri, "git", token, hostedCredential: true);
+        // Git helpers share entries across clones. Give each token its own key
+        // so revoking a failed setup cannot replace another checkout's token.
+        return new GitRemoteUrl(url.AbsoluteUri, $"beutl-{Guid.NewGuid():N}", token,
+            hostedCredential: true, hostedConnection: true);
     }
 
     public string RedactDiagnostics(string value)
@@ -298,10 +305,27 @@ internal sealed class GitRemoteUrl
 
     private static bool IsSecureHelper(string helper)
     {
+        helper = helper.Trim();
         if (helper.StartsWith("cache --timeout=", StringComparison.Ordinal))
             return int.TryParse(helper.AsSpan("cache --timeout=".Length), out _);
 
-        string name = Path.GetFileNameWithoutExtension(helper);
+        if (helper.Length == 0 || helper[0] == '!')
+            return false;
+        ReadOnlySpan<char> executable = helper.AsSpan();
+        if (executable[0] is '"' or '\'')
+        {
+            int end = executable[1..].IndexOf(executable[0]);
+            if (end < 0)
+                return false;
+            executable = executable.Slice(1, end);
+        }
+        else
+        {
+            int arguments = executable.IndexOfAny(' ', '\t');
+            if (arguments >= 0)
+                executable = executable[..arguments];
+        }
+        string name = Path.GetFileNameWithoutExtension(executable).ToString();
         if (name.StartsWith("git-credential-", StringComparison.Ordinal))
             name = name["git-credential-".Length..];
         return name is "manager" or "manager-core" or "osxkeychain" or "wincred" or "libsecret" or "cache";

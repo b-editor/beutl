@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Editor.VersionControl;
+using Beutl.Language;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -9,6 +10,26 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [Parallelizable(ParallelScope.Self)]
 public sealed class RemoteOperationsTests : RealGitTestRepository
 {
+    [Test]
+    public async Task Hosted_connection_checks_all_effective_push_destinations_before_changing_origin()
+    {
+        const string original = "https://example.invalid/other.git";
+        const string selected = "https://git.example.invalid/api/v3/git/a3a8927c-bcf4-4f6e-91f4-64897320378e.git";
+        await RunGitAsync("remote", "add", "origin", original);
+        await RunGitAsync("config", "--add", "remote.origin.pushurl", selected);
+        await RunGitAsync("config", "--add", "remote.origin.pushurl", original);
+        using var service = CreateService();
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SetRemoteAsync(
+            GitRemoteUrl.WithHostedCredentials(new Uri(selected), "example-token"), original, CancellationToken.None));
+        Assert.That(failure!.Message, Is.EqualTo(Strings.HostedGit_PushDestinationMismatch));
+        Assert.That((await RunGitAsync("config", "--get", "remote.origin.url")).Stdout.Trim(), Is.EqualTo(original));
+
+        await service.SetRemoteAsync("https://example.invalid/custom.git", CancellationToken.None);
+        Assert.That((await RunGitAsync("remote", "get-url", "--push", "--all", "origin")).Stdout.Split(
+            ['\r', '\n'], StringSplitOptions.RemoveEmptyEntries), Is.EqualTo(new[] { selected, original }));
+    }
+
     [Test]
     public async Task Push_only_origin_is_detected_and_protected_from_an_implicit_replacement()
     {
