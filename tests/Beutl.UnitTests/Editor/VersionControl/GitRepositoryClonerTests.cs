@@ -114,8 +114,9 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
             => (await Runner.RunAsync(local, ["config", "--local", "--get", key], GitCommandOptions.Local, CancellationToken.None)).Stdout.Trim();
     }
 
-    [Test]
-    public async Task Clone_hydrates_LFS_files_without_global_filters()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Clone_hydrates_LFS_files_with_path_filters_configured(bool detached)
     {
         try
         {
@@ -131,12 +132,20 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
         await RunGitAsync("add", "--", ".gitattributes");
         const string media = "sample media content";
         await CommitFileAsync("media.mp4", media, "Store an LFS object");
-        string destination = Path.Combine(CreateTemporaryDirectory(), "clone-with-media");
-        var cloner = new GitRepositoryCloner(CreateInstalledLocator(lfsInstalled: true), _ => Runner);
+        string folder = CreateTemporaryDirectory();
+        string config = Path.Combine(folder, "gitconfig");
+        const string filters = "[lfs]\n\tfetchinclude = *.txt\n\tfetchexclude = *.mp4\n";
+        await File.WriteAllTextAsync(config, filters);
+        var environment = new Dictionary<string, string?>(IsolatedGitEnvironment) { ["GIT_CONFIG_GLOBAL"] = config };
+        var runner = new GitCliRunner(GitPath, TimeSpan.FromSeconds(15), environment);
+        string destination = Path.Combine(folder, "clone-with-media");
+        string? revision = detached ? (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim() : null;
+        var cloner = new GitRepositoryCloner(CreateInstalledLocator(lfsInstalled: true), _ => runner);
 
-        await cloner.CloneAsync(Root, destination);
+        await cloner.CloneAsync(Root, destination, revision);
 
         Assert.That(await File.ReadAllTextAsync(Path.Combine(destination, "media.mp4")), Is.EqualTo(media));
+        Assert.That(await File.ReadAllTextAsync(config), Is.EqualTo(filters));
     }
 
     [Test]
@@ -229,8 +238,20 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
         Assert.That(await locator.FindProjectAsync([project], Guid.Parse(RepoId), CancellationToken.None, commit[..8]),
             Is.EqualTo(project));
         await CommitFileAsync("Project.bep", "new version", "Advance the project");
-        Assert.That(await locator.FindProjectAsync([project], Guid.Parse(RepoId), CancellationToken.None, commit[..8]),
+        string advanced = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string abbreviated = commit[..8];
+        await RunGitAsync("switch", "-c", abbreviated);
+        Assert.That(await locator.FindProjectAsync([project], Guid.Parse(RepoId), CancellationToken.None, abbreviated),
             Is.Null);
+        await RunGitAsync("switch", "--detach", commit);
+        Assert.That(await locator.FindProjectAsync([project], Guid.Parse(RepoId), CancellationToken.None, abbreviated),
+            Is.EqualTo(project));
+
+        string originBranch = $"refs/remotes/origin/{abbreviated}";
+        await RunGitAsync("update-ref", originBranch, advanced);
+        await RunGitAsync("switch", "-C", abbreviated, "--track", "--", originBranch);
+        Assert.That(await locator.FindProjectAsync([project], Guid.Parse(RepoId), CancellationToken.None, abbreviated),
+            Is.EqualTo(project));
     }
 
     private sealed class CredentialProbeRunner(IGitCliRunner inner) : DelegatingGitCliRunner(inner)

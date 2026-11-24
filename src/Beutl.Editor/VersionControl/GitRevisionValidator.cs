@@ -5,6 +5,9 @@ internal static class GitRevisionValidator
     public static bool IsHexadecimalRevision(string? revision)
         => revision is { Length: >= 4 and <= 64 } && revision.All(char.IsAsciiHexDigit);
 
+    public static bool IsAbbreviatedObjectId(string revision)
+        => revision.Length is not (40 or 64) && IsHexadecimalRevision(revision);
+
     // Matches the Web dashboard's isGitRevision. Pass a verified object ID to checkout.
     public static bool IsWebRevision(string? revision)
         => revision is { Length: > 0 and <= 255 }

@@ -85,7 +85,8 @@ internal sealed class GitRemoteUrl
             }
 
             string clean = remote.Uri.AbsoluteUri;
-            return new GitRemoteUrl(clean, username, password, usernameIsSecret, HostedGitRemoteUrl.TryParse(clean, out _));
+            return new GitRemoteUrl(clean, username, password, usernameIsSecret,
+                hostedCredential: HostedGitRemoteUrl.TryParse(clean, out _));
         }
 
         if (Uri.UnescapeDataString(uri.UserInfo).Contains(':'))

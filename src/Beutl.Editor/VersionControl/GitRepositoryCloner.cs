@@ -84,11 +84,12 @@ internal sealed class GitRepositoryCloner(
             }
             if (checkoutRevision)
                 await CheckoutRevisionAsync(repository, runner, revision!,
-                        preferTrackingBranch: hexadecimalRevision && revision!.Length is not (40 or 64),
+                        preferTrackingBranch: GitRevisionValidator.IsAbbreviatedObjectId(revision!),
                         network, safeProgress, cancellationToken)
                     .ConfigureAwait(false);
             else
-                await runner.RunAsync(repository, ["reset", "--hard"], network, cancellationToken, safeProgress)
+                await runner.RunAsync(repository, [.. GitCliVersionControlService.LfsPathFilterOverrides, "reset", "--hard"],
+                        network, cancellationToken, safeProgress)
                     .ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -147,17 +148,17 @@ internal sealed class GitRepositoryCloner(
             if (await GitCliVersionControlService.RefExistsAsync(repository, runner, branchRef, cancellationToken)
                     .ConfigureAwait(false))
             {
-                await runner.RunAsync(repository, ["switch", "-C", revision, "--track", "--", branchRef],
+                await runner.RunAsync(repository,
+                    [.. GitCliVersionControlService.LfsPathFilterOverrides, "switch", "-C", revision, "--track", "--", branchRef],
                     options, cancellationToken, progress).ConfigureAwait(false);
                 return;
             }
         }
 
-        string hash = (await runner.RunAsync(repository,
-            ["rev-parse", "--verify", "--end-of-options", $"{revision}^{{commit}}"], GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false)).Stdout.Trim();
+        string hash = await GitCliVersionControlService.TryResolveHostedCommitAsync(repository, runner, revision, cancellationToken)
+            .ConfigureAwait(false) ?? throw new InvalidOperationException(Strings.HostedGit_InvalidRevision);
         GitRevisionValidator.ValidateCommitId(hash, nameof(revision));
-        await runner.RunAsync(repository, ["switch", "--detach", "--", hash],
+        await runner.RunAsync(repository, [.. GitCliVersionControlService.LfsPathFilterOverrides, "switch", "--detach", "--", hash],
             options, cancellationToken, progress).ConfigureAwait(false);
     }
 

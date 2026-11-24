@@ -124,12 +124,13 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
         {
             string branchRef = revision.StartsWith(heads, StringComparison.Ordinal) ? revision : heads + revision;
             bool fullObjectId = revision.Length is 40 or 64 && GitRevisionValidator.IsHexadecimalRevision(revision);
+            bool abbreviatedObjectId = GitRevisionValidator.IsAbbreviatedObjectId(revision);
             bool isBranch = revision.StartsWith(heads, StringComparison.Ordinal)
                 || !fullObjectId && revision != "HEAD" && !revision.StartsWith("refs/", StringComparison.Ordinal)
-                && (await GitCliVersionControlService.RefExistsAsync(repository, runner, branchRef, cancellationToken)
-                        .ConfigureAwait(false)
-                    || await GitCliVersionControlService.RefExistsAsync(repository, runner, $"refs/remotes/origin/{revision}",
-                            cancellationToken).ConfigureAwait(false));
+                && (await GitCliVersionControlService.RefExistsAsync(repository, runner, $"refs/remotes/origin/{revision}",
+                        cancellationToken).ConfigureAwait(false)
+                    || !abbreviatedObjectId && await GitCliVersionControlService.RefExistsAsync(repository, runner, branchRef,
+                        cancellationToken).ConfigureAwait(false));
             if (isBranch)
             {
                 string currentBranch = (await runner.RunAsync(repository, ["symbolic-ref", "--quiet", "HEAD"],
@@ -138,16 +139,15 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
             }
 
             string target = revision == "HEAD" ? "refs/remotes/origin/HEAD" : revision;
-            string requestedCommit = await ResolveCommitAsync(target).ConfigureAwait(false);
-            return requestedCommit == await ResolveCommitAsync("HEAD").ConfigureAwait(false);
+            string? requestedCommit = await GitCliVersionControlService.TryResolveHostedCommitAsync(repository, runner, target,
+                cancellationToken).ConfigureAwait(false);
+            return requestedCommit is not null
+                && requestedCommit == await GitCliVersionControlService.TryResolveCommitAsync(repository, runner, "HEAD",
+                    cancellationToken).ConfigureAwait(false);
         }
         catch (GitOperationException)
         {
             return false;
         }
-
-        async Task<string> ResolveCommitAsync(string name)
-            => (await runner.RunAsync(repository, ["rev-parse", "--verify", "--end-of-options", $"{name}^{{commit}}"],
-                GitCommandOptions.Local, cancellationToken).ConfigureAwait(false)).Stdout.TrimEnd('\r', '\n');
     }
 }
