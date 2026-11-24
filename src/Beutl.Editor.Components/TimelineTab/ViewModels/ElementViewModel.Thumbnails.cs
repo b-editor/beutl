@@ -17,7 +17,10 @@ public sealed partial class ElementViewModel
     // Media detail requires at least this much horizontal space.
     internal const double MinimumThumbnailWidth = 25;
     private bool _timelineViewAttached;
-    private volatile bool _visibleRangeStale;
+    private int _thumbnailLayoutVersion;
+    private int _thumbnailCountVersion;
+
+    private bool HasStaleVisibleRange => Volatile.Read(ref _thumbnailCountVersion) != Volatile.Read(ref _thumbnailLayoutVersion);
 
     private bool CanGenerateThumbnails => !_isDisposed && _timelineViewAttached
         && !IsThumbnailsDisabled.Value && Width.Value >= MinimumThumbnailWidth;
@@ -120,8 +123,8 @@ public sealed partial class ElementViewModel
             .AddTo(_disposables);
 
         // Changing clip width or row height changes the video slot count, so cached slot indices no longer match.
-        // Keep _visibleRangeStale set until the rebuild reports the new count so queued old-count ranges cannot
-        // cancel the rebuild or query past the new strip length.
+        // Advance _thumbnailLayoutVersion so queued old-count ranges and in-flight old-geometry loads cannot
+        // cancel the rebuild or clear the stale state before the new layout publishes its count.
         Observable.Merge(
                 Width.Select(_ => true),
                 Timeline.LayerRowHeight.Skip(1)
@@ -131,7 +134,7 @@ public sealed partial class ElementViewModel
             .Where(_ => _timelineViewAttached)
             .Do(resetVisibleRange =>
             {
-                if (resetVisibleRange) _visibleRangeStale = true;
+                if (resetVisibleRange) Interlocked.Increment(ref _thumbnailLayoutVersion);
             })
             .Throttle(TimeSpan.FromMilliseconds(500))
             .ObserveOnUIDispatcher()
@@ -241,7 +244,7 @@ public sealed partial class ElementViewModel
     {
         CancelThumbnailsLoading();
         CancelScrollThumbnailsLoading();
-        _visibleRangeStale = false;
+        Volatile.Write(ref _thumbnailCountVersion, Volatile.Read(ref _thumbnailLayoutVersion));
         _lastVisibleStart = _lastVisibleEnd = -1;
         ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
         VideoThumbnailCount.Value = 0;
@@ -342,7 +345,7 @@ public sealed partial class ElementViewModel
 
     private async Task UpdateVisibleThumbnailsAsync(int start, int end)
     {
-        if (!CanGenerateThumbnails || _visibleRangeStale || end < start) return;
+        if (!CanGenerateThumbnails || HasStaleVisibleRange || end < start) return;
 
         var provider = _currentThumbnailsProvider;
         if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
@@ -357,6 +360,7 @@ public sealed partial class ElementViewModel
         CancelScrollThumbnailsLoading();
         _scrollThumbnailsCts = new CancellationTokenSource();
         var ct = _scrollThumbnailsCts.Token;
+        int layoutVersion = Volatile.Read(ref _thumbnailLayoutVersion);
 
         try
         {
@@ -364,7 +368,7 @@ public sealed partial class ElementViewModel
             if (width <= 0)
                 return;
 
-            await StreamVideoThumbnailsAsync(provider, (int)width, start, end, ct);
+            await StreamVideoThumbnailsAsync(provider, (int)width, start, end, layoutVersion, ct);
         }
         catch (OperationCanceledException)
         {
@@ -398,7 +402,8 @@ public sealed partial class ElementViewModel
             }
         });
 
-        bool staleRange = _visibleRangeStale;
+        int layoutVersion = Volatile.Read(ref _thumbnailLayoutVersion);
+        bool staleRange = Volatile.Read(ref _thumbnailCountVersion) != layoutVersion;
         if (staleRange)
         {
             _lastVisibleStart = _lastVisibleEnd = -1;
@@ -407,17 +412,17 @@ public sealed partial class ElementViewModel
         int startIndex = !staleRange && _lastVisibleStart >= 0 ? _lastVisibleStart : 0;
         int endIndex = !staleRange && _lastVisibleEnd >= 0 ? _lastVisibleEnd : -1;
 
-        await StreamVideoThumbnailsAsync(provider, (int)width, startIndex, endIndex, ct);
+        await StreamVideoThumbnailsAsync(provider, (int)width, startIndex, endIndex, layoutVersion, ct);
     }
 
     // Each thumbnail is disposed on the UI thread after the hand-off, or here once the request is cancelled.
-    private async Task StreamVideoThumbnailsAsync(IThumbnailsProvider provider, int width, int start, int end, CancellationToken ct)
+    private async Task StreamVideoThumbnailsAsync(IThumbnailsProvider provider, int width, int start, int end, int layoutVersion, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         int maxThumbnailHeight = Math.Max(1, (int)Math.Round(Timeline.LayerRowHeight.Value));
         await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(provider, width, maxThumbnailHeight, ct, start, end))
         {
-            if (ct.IsCancellationRequested)
+            if (ct.IsCancellationRequested || layoutVersion != Volatile.Read(ref _thumbnailLayoutVersion))
             {
                 thumbnail.Dispose();
                 break;
@@ -427,9 +432,9 @@ public sealed partial class ElementViewModel
             {
                 using (thumbnail)
                 {
-                    if (!ct.IsCancellationRequested)
+                    if (!ct.IsCancellationRequested && layoutVersion == Volatile.Read(ref _thumbnailLayoutVersion))
                     {
-                        _visibleRangeStale = false;
+                        Volatile.Write(ref _thumbnailCountVersion, layoutVersion);
                         VideoThumbnailCount.Value = count;
                         ThumbnailReady?.Invoke(index, !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null);
                     }

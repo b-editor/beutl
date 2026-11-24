@@ -722,23 +722,46 @@ public sealed class TimelineVirtualizationTests
             config.ShowTimelineThumbnailsByDefault.Value = true;
             var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(10) } };
             Element video = Clip(0, 0);
+            video.Length.Value = MediaTime.FromSeconds(3.5);
+            video.Name.Value = "Video Clip";
             Element audio = Clip(1, 0);
-            var videoSource = new CountingThumbnailSource(ThumbnailsKind.Video);
+            audio.Length.Value = MediaTime.FromSeconds(3.5);
+            audio.Name.Value = "Audio Clip";
+            var videoSource = new CountingThumbnailSource(ThumbnailsKind.Video, scaledSlots: true);
             var audioSource = new CountingThumbnailSource();
             video.Objects.Add(videoSource);
             audio.Objects.Add(audioSource);
             scene.Children.AddRange([video, audio]);
             using var host = new ViewportHost(scene);
-            await HeadlessTestHelpers.WaitUntilAsync(() => videoSource.LastRequestedHeight == 25 && audioSource.Requests > 0);
+            host.Window.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+            HeadlessTestHelpers.Render(3);
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                videoSource.LastRequestedHeight == 25
+                && host.Model.GetViewModelFor(video)!.VideoThumbnailCount.Value > 0
+                && videoSource.YieldedAtHeight(25, host.Model.GetViewModelFor(video)!.VideoThumbnailCount.Value - 1)
+                && audioSource.Requests > 0);
             int audioRequests = audioSource.Requests;
+            HeadlessTestHelpers.Render(3);
             HeadlessCapture.SaveIfRequested(host.Window, nameof(TimelineVirtualizationTests), "media-rows-small");
 
             config.TimelineLayerSize.Value = TimelineLayerSize.Medium;
             config.TimelineLayerSize.Value = TimelineLayerSize.Large;
-            await HeadlessTestHelpers.WaitUntilAsync(() => videoSource.LastRequestedHeight == 64);
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                videoSource.LastRequestedHeight == 64
+                && host.Model.GetViewModelFor(video)!.VideoThumbnailCount.Value > 0
+                && videoSource.YieldedAtHeight(64, host.Model.GetViewModelFor(video)!.VideoThumbnailCount.Value - 1));
             HeadlessTestHelpers.Render(3);
             Assert.That(audioSource.Requests, Is.EqualTo(audioRequests));
             HeadlessCapture.SaveIfRequested(host.Window, nameof(TimelineVirtualizationTests), "media-rows-large");
+
+            config.TimelineLayerSize.Value = TimelineLayerSize.Medium;
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                videoSource.LastRequestedHeight == 40
+                && host.Model.GetViewModelFor(video)!.VideoThumbnailCount.Value > 0
+                && videoSource.YieldedAtHeight(40, host.Model.GetViewModelFor(video)!.VideoThumbnailCount.Value - 1));
+            HeadlessTestHelpers.Render(3);
+            Assert.That(audioSource.Requests, Is.EqualTo(audioRequests));
+            HeadlessCapture.SaveIfRequested(host.Window, nameof(TimelineVirtualizationTests), "media-rows-medium");
         }
         finally
         {
@@ -792,8 +815,16 @@ public sealed class TimelineVirtualizationTests
                 strip.VisibleRangeChanged -= OnVisibleRangeChanged;
             }
 
+            // Keep a Small-height scroll request in flight so it delivers a stale tile during the 500 ms debounce.
+            var releaseStaleTile = new TaskCompletionSource();
+            videoSource.PauseAfterFirstTileAtHeight = (25, releaseStaleTile);
+            strip.ClearThumbnails();
+            model.OnVisibleRangeChanged(smallCount - 3, smallCount - 1);
+            await HeadlessTestHelpers.WaitUntilAsync(() => videoSource.PausedAtHeight == 25);
+
             config.TimelineLayerSize.Value = TimelineLayerSize.Large;
-            // Simulate a stale old-count visible range emitted while the rebuild is pending/in flight.
+            // Release the in-flight Small tile and emit an old-count visible range while the rebuild is pending.
+            releaseStaleTile.TrySetResult();
             model.OnVisibleRangeChanged(smallCount - 1, smallCount - 1);
             await HeadlessTestHelpers.WaitUntilAsync(() =>
                 videoSource.LastRequestedHeight == 64 && model.VideoThumbnailCount.Value < smallCount);
@@ -819,6 +850,8 @@ public sealed class TimelineVirtualizationTests
         private readonly HashSet<(int Height, int Index)> _yielded = [];
         public int Requests { get; private set; }
         public int LastRequestedHeight { get; private set; }
+        public (int Height, TaskCompletionSource Gate)? PauseAfterFirstTileAtHeight { get; set; }
+        public int PausedAtHeight { get; private set; }
         public ThumbnailsKind ThumbnailsKind => kind;
         public bool HoldRequests { get; set; }
         public CancellationToken LastRequestCancellation { get; private set; }
@@ -839,7 +872,12 @@ public sealed class TimelineVirtualizationTests
         {
             await BeginRequest(cancellationToken);
             for (int i = 0; i < chunkCount; i++)
-                yield return new WaveformChunk(i, -0.5f, 0.5f);
+            {
+                double t = chunkCount > 1 ? (double)i / (chunkCount - 1) : 0;
+                double envelope = 0.25 + 0.65 * Math.Abs(Math.Sin(t * Math.PI * 5.0));
+                float amp = (float)(envelope * (0.4 + 0.6 * Math.Abs(Math.Sin(i * 0.45))));
+                yield return new WaveformChunk(i, -amp, amp);
+            }
         }
 
         public async IAsyncEnumerable<(int Index, int Count, Beutl.Media.Bitmap Thumbnail)> GetThumbnailStripAsync(
@@ -855,13 +893,21 @@ public sealed class TimelineVirtualizationTests
                 int count = Beutl.Graphics.SourceVideo.GetVideoThumbnailCount(new Beutl.Media.PixelSize(160, 90), maxWidth, maxHeight);
                 int effectiveStart = Math.Max(0, startIndex);
                 int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
+                int tileWidth = Math.Max(4, (int)Math.Round(maxHeight * 16.0 / 9.0));
+                int tileHeight = Math.Max(4, maxHeight);
                 await Task.Yield();
                 for (int i = effectiveStart; i <= effectiveEnd; i++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    if (i == effectiveStart + 1 && PauseAfterFirstTileAtHeight is { } pause && pause.Height == maxHeight)
+                    {
+                        PauseAfterFirstTileAtHeight = null;
+                        PausedAtHeight = maxHeight;
+                        await pause.Gate.Task.WaitAsync(cancellationToken);
+                    }
+
                     _yielded.Add((maxHeight, i));
-                    var tile = new Beutl.Media.Bitmap(4, 4);
-                    yield return (i, count, tile);
+                    yield return (i, count, CreateFrameTile(tileWidth, tileHeight, i, count));
                 }
                 yield break;
             }
@@ -869,6 +915,55 @@ public sealed class TimelineVirtualizationTests
             var bitmap = new Beutl.Media.Bitmap(4, 4);
             bitmap.GetPixelSpan<Beutl.Media.Pixel.Bgra8888>().Fill(new Beutl.Media.Pixel.Bgra8888(180, 100, 40, 255));
             yield return (0, 1, bitmap);
+        }
+
+        private static Beutl.Media.Bitmap CreateFrameTile(int width, int height, int index, int count)
+        {
+            var bitmap = new Beutl.Media.Bitmap(width, height);
+            Span<Beutl.Media.Pixel.Bgra8888> pixels = bitmap.GetPixelSpan<Beutl.Media.Pixel.Bgra8888>();
+            double progress = count > 1 ? (double)index / (count - 1) : 0;
+            double sunX = width * (0.2 + 0.6 * progress);
+            double sunY = height * (0.3 + 0.15 * Math.Sin(progress * Math.PI));
+            double sunRadius = Math.Max(2.5, height * 0.18);
+
+            for (int y = 0; y < height; y++)
+            {
+                double ny = (double)y / height;
+                for (int x = 0; x < width; x++)
+                {
+                    byte r, g, b;
+                    if (x == 0)
+                    {
+                        r = 20; g = 24; b = 30;
+                    }
+                    else
+                    {
+                        double ridge = 0.62 + 0.14 * Math.Sin((x / (double)width + progress) * Math.PI * 2.0);
+                        double dx = x - sunX;
+                        double dy = y - sunY;
+                        if (dx * dx + dy * dy <= sunRadius * sunRadius)
+                        {
+                            r = 250; g = 210; b = 95;
+                        }
+                        else if (ny >= ridge)
+                        {
+                            r = (byte)(36 + 24 * progress);
+                            g = (byte)(78 - 18 * ny);
+                            b = (byte)(58 + 20 * (1 - ny));
+                        }
+                        else
+                        {
+                            r = (byte)(40 + 135 * progress * (1 - ny * 0.5));
+                            g = (byte)(85 + 75 * (1 - ny));
+                            b = (byte)(155 - 45 * progress + 40 * (1 - ny));
+                        }
+                    }
+
+                    pixels[y * width + x] = new Beutl.Media.Pixel.Bgra8888(b, g, r, 255);
+                }
+            }
+
+            return bitmap;
         }
     }
 
