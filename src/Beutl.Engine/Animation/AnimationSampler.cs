@@ -12,6 +12,8 @@ public sealed class AnimationSampler
 
     internal MediaTime PreviewStartDelta { get; init; }
 
+    internal MediaTime PreviewDurationDelta { get; init; }
+
     // Whether property changes over time, through keyframes or an expression, so that a node samples it.
     internal static bool IsAnimated(IProperty property)
         => property is IExpressionProperty { HasExpression: true } || property.GetKeyFrameAnimation() is not null;
@@ -62,7 +64,7 @@ public sealed class AnimationSampler
         where T : struct
     {
         if (property is IExpressionProperty<T> { HasExpression: true } expressionProperty)
-            return Evaluate(expressionProperty, GetAbsoluteOwnerStart(property) + time);
+            return EvaluateExpression(expressionProperty, GetAbsoluteOwnerStart(property) + time);
 
         T value = default;
         SampleBuffer(property, new TimeRange(time, MediaTime.Zero), sampleRate, new Span<T>(ref value));
@@ -74,7 +76,7 @@ public sealed class AnimationSampler
 
     internal MediaTime GetAbsoluteOwnerStart(IProperty property) => GetOwnerStart(property) + PreviewStartDelta;
 
-    private static void SampleExpression<T>(
+    private void SampleExpression<T>(
         IExpressionProperty<T> property, MediaTime start, int sampleRate, Span<T> output)
         where T : struct
     {
@@ -88,8 +90,8 @@ public sealed class AnimationSampler
             long index = (long)Math.Floor(time / ExpressionInterval);
             if (index != cell)
             {
-                from = index == cell + 1 ? to : Evaluate(property, new MediaTime(index * ExpressionInterval));
-                to = Evaluate(property, new MediaTime((index + 1) * ExpressionInterval));
+                from = index == cell + 1 ? to : EvaluateExpression(property, new MediaTime(index * ExpressionInterval));
+                to = EvaluateExpression(property, new MediaTime((index + 1) * ExpressionInterval));
                 cell = index;
             }
 
@@ -97,9 +99,18 @@ public sealed class AnimationSampler
         }
     }
 
-    private static T Evaluate<T>(IExpressionProperty<T> property, MediaTime time)
+    internal T EvaluateExpression<T>(IExpressionProperty<T> property, MediaTime time)
         where T : struct
-        => property.Evaluate(new EvaluationContext(time));
+    {
+        (CoreObject Owner, MediaTime Start, MediaTime Duration)? preview = null;
+        if ((PreviewStartDelta != MediaTime.Zero || PreviewDurationDelta != MediaTime.Zero)
+            && property.GetOwnerObject() is EngineObject owner)
+        {
+            preview = (owner, owner.Start + PreviewStartDelta, owner.Duration + PreviewDurationDelta);
+        }
+
+        return property.Evaluate(new EvaluationContext(time) { PreviewTimeRange = preview });
+    }
 
     // Linear for a float, which is what the audio graph samples; any other value holds until the next grid point.
     private static T Interpolate<T>(T from, T to, double fraction)

@@ -15,6 +15,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -138,6 +139,7 @@ public class TimelineEditModeThumbnailPreviewTests
     [TestCase(true, "speed")]
     [TestCase(false, "gain")]
     [TestCase(true, "gain")]
+    [TestCase(true, "middle gain")]
     public async Task TrimEdit_AnchorsFrontAndBackContent(bool slide, string animation)
     {
         using var config = new PreviewConfigScope();
@@ -149,7 +151,10 @@ public class TimelineEditModeThumbnailPreviewTests
         ElementViewModel front = clips[0];
         ElementViewModel back = clips[^1];
         ElementViewModel dragged = slide ? clips[1] : front;
-        var sound = back.Model.Objects.OfType<SourceSound>().Single();
+        bool resampleMiddle = animation == "middle gain";
+        bool resampleBack = animation is "speed" or "gain";
+        ElementViewModel waveformClip = resampleMiddle ? dragged : back;
+        var sound = waveformClip.Model.Objects.OfType<SourceSound>().Single();
         if (animation == "speed")
             Animate(sound.Speed, 100, 200);
         else if (animation == "gain")
@@ -157,7 +162,11 @@ public class TimelineEditModeThumbnailPreviewTests
             Animate(sound.Gain, 0, 100);
             Animate(sound.Pan, -100, 100, back.Model.Start.Value, global: true);
         }
-        bool resampled = animation != "none";
+        else if (resampleMiddle)
+        {
+            Animate(sound.Gain, 0, 100, dragged.Model.Start.Value, global: true);
+            sound.Gain.Expression = Expression.Create<float>("Value + (float)(Duration * Time * 50)");
+        }
 
         timeline.ClearSelected();
         timeline.SelectElement(dragged);
@@ -167,7 +176,7 @@ public class TimelineEditModeThumbnailPreviewTests
         WaveformChunk? observedChunk = null;
         WaveformChunk? previewChunk = null;
         int probeIndex = -1;
-        back.WaveformChunkReady += ObserveWaveform;
+        waveformClip.WaveformChunkReady += ObserveWaveform;
         try
         {
             using var view = new TimelineViewScope(dragged, width: 1400);
@@ -175,11 +184,16 @@ public class TimelineEditModeThumbnailPreviewTests
             WaveformControl backWave = view.GetWaveformFor(back);
             await WaitForWaveformReady(front, frontWave);
             await WaitForWaveformReady(back, backWave);
+            if (resampleMiddle)
+                await WaitForWaveformReady(dragged, view.Waveform);
 
             double frontWidth = frontWave.Bounds.Width;
             double backWidth = backWave.Bounds.Width;
-            int baseCount = back.WaveformChunkCount.Value;
+            int baseCount = waveformClip.WaveformChunkCount.Value;
             probeIndex = baseCount / 4;
+            WaveformChunk original = default;
+            if (resampleMiddle)
+                Assert.That(view.Waveform.TryGetChunk(probeIndex, out original), Is.True);
             MediaTime delta = MediaTime.FromSeconds(slide ? 0.5 : -0.5);
             double deltaPixels = delta.TimeToPixel(view.Scale);
             double pressX = slide ? view.Border.Bounds.Width / 2 : view.Border.Bounds.Width - 2;
@@ -193,18 +207,23 @@ public class TimelineEditModeThumbnailPreviewTests
                     Assert.That(front.ThumbnailContentOffsetX.Value, Is.Zero);
                     Assert.That(back.IsThumbnailPreviewActive.Value, Is.True);
                     Assert.That(back.ThumbnailContentWidth.Value, Is.EqualTo(backWidth));
-                    Assert.That(back.ThumbnailContentOffsetX.Value, Is.EqualTo(resampled ? 0 : -deltaPixels).Within(0.5));
+                    Assert.That(back.ThumbnailContentOffsetX.Value, Is.EqualTo(resampleBack ? 0 : -deltaPixels).Within(0.5));
                     if (slide)
-                        Assert.That(double.IsNaN(dragged.ThumbnailContentWidth.Value), Is.True);
+                        Assert.That(dragged.IsThumbnailPreviewActive.Value, Is.EqualTo(resampleMiddle));
                 });
 
-                if (resampled)
+                if (resampleBack || resampleMiddle)
                 {
-                    await HeadlessTestHelpers.WaitUntilAsync(() => observedChunk.HasValue);
+                    await HeadlessTestHelpers.WaitUntilAsync(() => observedChunk is { } chunk && (!resampleMiddle || chunk != original));
                     if (!slide)
                         await HeadlessTestHelpers.WaitUntilAsync(() => backWave.GetMissingIndices(baseCount, baseCount + 5).Count == 0);
                     previewChunk = observedChunk;
                     observedChunk = null;
+                    if (resampleMiddle)
+                    {
+                        HeadlessTestHelpers.Render(3);
+                        HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "slide-middle-preview");
+                    }
                 }
                 else if (!slide)
                 {
@@ -213,11 +232,12 @@ public class TimelineEditModeThumbnailPreviewTests
             });
 
             await HeadlessTestHelpers.WaitUntilAsync(() =>
-                double.IsNaN(front.ThumbnailContentWidth.Value) && double.IsNaN(back.ThumbnailContentWidth.Value));
+                double.IsNaN(front.ThumbnailContentWidth.Value) && double.IsNaN(back.ThumbnailContentWidth.Value)
+                && (!resampleMiddle || double.IsNaN(dragged.ThumbnailContentWidth.Value)));
             if (previewChunk is { } sample)
             {
                 await HeadlessTestHelpers.WaitUntilAsync(() => observedChunk.HasValue);
-                Assert.That(observedChunk!.Value.MaxValue, Is.EqualTo(sample.MaxValue).Within(animation == "gain" ? 0.01f : 0.05f));
+                Assert.That(observedChunk!.Value.MaxValue, Is.EqualTo(sample.MaxValue).Within(animation == "speed" ? 0.05f : 0.01f));
             }
             Assert.Multiple(() =>
             {
@@ -232,7 +252,7 @@ public class TimelineEditModeThumbnailPreviewTests
         {
             timeline.IsRollMode.Value = false;
             timeline.IsSlideMode.Value = false;
-            back.WaveformChunkReady -= ObserveWaveform;
+            waveformClip.WaveformChunkReady -= ObserveWaveform;
         }
 
         void ObserveWaveform(WaveformChunk chunk)

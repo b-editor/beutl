@@ -185,7 +185,7 @@ public class TimelineThumbnailPreviewTests
         var conditions = CompositionConditions.Default with { Decoders = decoders };
         string? originalKey = video.GetThumbnailsCacheKey();
         using var original = video.ToResource(video.CreateThumbnailContext(relativeTime, MediaTime.Zero, conditions));
-        using var previewResource = video.ToResource(video.CreateThumbnailContext(relativeTime, startDelta, conditions));
+        using var previewResource = video.ToResource(video.CreateThumbnailContext(relativeTime, startDelta, conditions, durationDelta: -startDelta));
         Assert.That(video.TryComputePreviewSourcePosition(previewResource, relativeTime, out var preview, startDelta: startDelta), Is.True);
 
         video.TimeRange.Value = new TimeRange(video.Start + startDelta, video.Duration - startDelta);

@@ -121,7 +121,8 @@ public sealed partial class ElementView
             double InitialLeft,
             double InitialWidth,
             MediaTime InitialStart,
-            SlippableMedia.Target? ResampleTarget = null);
+            SlippableMedia.Target? ResampleTarget = null,
+            bool ResampleStart = false);
 
         private record struct TrimDragContext(
             TrimDragKind Kind,
@@ -270,7 +271,8 @@ public sealed partial class ElementView
 
                     MediaTime start = ctx.ViewModel.BorderMargin.Value.Left.PixelToTime(scale)
                         .RoundToFrame(rate, MidpointRounding.AwayFromZero);
-                    ctx.ViewModel.UpdateMediaPreview(0, new ElementViewModel.MediaPreviewMapping(MediaTime.Zero, start - ctx.RecordedStartTime));
+                    MediaTime delta = start - ctx.RecordedStartTime;
+                    ctx.ViewModel.UpdateMediaPreview(0, new ElementViewModel.MediaPreviewMapping(MediaTime.Zero, delta, -delta));
                 }
 
                 double edge = viewModel.BorderMargin.Value.Left
@@ -355,13 +357,15 @@ public sealed partial class ElementView
 
             foreach (TrimSegment middle in ctx.Middles)
             {
+                if (middle.ResampleStart)
+                    middle.ViewModel.UpdateMediaPreview(0, new ElementViewModel.MediaPreviewMapping(MediaTime.Zero, delta));
                 middle.ViewModel.BorderMargin.Value = new Thickness(middle.InitialLeft + deltaPixels, 0, 0, 0);
             }
 
             foreach (TrimSegment back in ctx.Backs)
             {
                 ElementViewModel.MediaPreviewMapping? mapping = back.ResampleTarget is { } target
-                    ? new(target.SourceDelta(delta, trim: true), delta)
+                    ? new(target.SourceDelta(delta, trim: true), delta, -delta)
                     : null;
                 back.ViewModel.UpdateMediaPreview(-deltaPixels, mapping);
                 back.ViewModel.BorderMargin.Value = new Thickness(back.InitialLeft + deltaPixels, 0, 0, 0);
@@ -561,7 +565,8 @@ public sealed partial class ElementView
                 {
                     ElementViewModel? middleVm = viewModel.Timeline.GetViewModelFor(middle);
                     if (middleVm is null) return false;
-                    middles.Add(new TrimSegment(middleVm, middleVm.BorderMargin.Value.Left, middleVm.Width.Value, middleVm.Model.Start.Value));
+                    middles.Add(new TrimSegment(middleVm, middleVm.BorderMargin.Value.Left, middleVm.Width.Value, middleVm.Model.Start.Value,
+                        ResampleStart: middleVm.RequiresResampledStartPreview()));
                 }
             }
 
@@ -663,12 +668,20 @@ public sealed partial class ElementView
                 front.ViewModel.EndMediaPreview(committed);
             }
 
+            foreach (TrimSegment middle in ctx.Middles)
+            {
+                if (!middle.ResampleStart) continue;
+                MediaTime startDelta = middle.ViewModel.Model.Start.Value - middle.InitialStart;
+                middle.ViewModel.EndMediaPreview(committed,
+                    appliedMapping: new ElementViewModel.MediaPreviewMapping(MediaTime.Zero, startDelta));
+            }
+
             foreach (TrimSegment back in ctx.Backs)
             {
                 MediaTime startDelta = back.ViewModel.Model.Start.Value - back.InitialStart;
                 double? finalOffsetX = committed ? -startDelta.TimeToPixel(scale) : null;
                 ElementViewModel.MediaPreviewMapping? mapping = back.ResampleTarget is { } target
-                    ? new(target.Offset.Value - target.InitialOffset, startDelta)
+                    ? new(target.Offset.Value - target.InitialOffset, startDelta, -startDelta)
                     : null;
                 back.ViewModel.EndMediaPreview(committed, finalOffsetX, mapping);
             }

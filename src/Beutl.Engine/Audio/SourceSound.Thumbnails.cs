@@ -45,7 +45,9 @@ public sealed partial class SourceSound : IThumbnailsProvider
         string? key = ThumbnailsCacheKey.Compute(
             CoreSerializer.SerializeToJsonObject(this),
             ["Source", "ChannelMap", "OffsetPosition", "Gain", "Pan", "Speed", "Effect"]);
-        return key != null && RequiresResampledStartPreview ? $"{key}|start:{TimeRange.Value.Start.Flicks}" : key;
+        return key != null && RequiresResampledStartPreview
+            ? $"{key}|start:{TimeRange.Value.Start.Flicks}|duration:{TimeRange.Value.Duration.Flicks}"
+            : key;
     }
 
     // A slip moves the source offset while the clip's processing still runs on the same clock.
@@ -196,7 +198,8 @@ public sealed partial class SourceSound : IThumbnailsProvider
         DecoderRegistry? decoders = null,
         MediaTime offsetDelta = default,
         TimeRange? previewLayout = null,
-        MediaTime startDelta = default)
+        MediaTime startDelta = default,
+        MediaTime durationDelta = default)
     {
         if (indices.Count == 0 || baseChunkCount <= 0 || samplesPerChunk <= 0
             || !await WaveformGate.TryEnterAsync(cancellationToken))
@@ -229,7 +232,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 }
                 return (output, output?.GetFiniteSourceEndSample(sampleRate));
             }, DispatchPriority.Low, cancellationToken);
-            var sampler = new AnimationSampler { PreviewStartDelta = startDelta };
+            var sampler = new AnimationSampler { PreviewStartDelta = startDelta, PreviewDurationDelta = durationDelta };
 
             // Sparse requests have different processing history from a normal, sequential waveform.
             foreach (int index in indices)

@@ -36,7 +36,8 @@ public sealed partial class ElementViewModel
     private DispatcherTimer? _previewTimer;
     private (int Start, int End) _previewRange;
 
-    internal readonly record struct MediaPreviewMapping(MediaTime SourceOffsetDelta, MediaTime StartDelta = default);
+    internal readonly record struct MediaPreviewMapping(
+        MediaTime SourceOffsetDelta, MediaTime StartDelta = default, MediaTime DurationDelta = default);
 
     private bool CanGenerateThumbnails => !_isDisposed && _timelineViewAttached
         && !IsThumbnailsDisabled.Value && GetEffectiveThumbnailWidth() >= MinimumThumbnailWidth;
@@ -148,7 +149,9 @@ public sealed partial class ElementViewModel
     {
         MediaTime startDelta = Model.Start.Value - initialStart;
         bool changed = startDelta != MediaTime.Zero || Model.Range.End != initialEnd;
-        MediaPreviewMapping? mapping = _previewMapping is { } preview ? preview with { StartDelta = startDelta } : null;
+        MediaPreviewMapping? mapping = _previewMapping is { } preview
+            ? preview with { StartDelta = startDelta, DurationDelta = Model.Length.Value - (initialEnd - initialStart) }
+            : null;
         EndMediaPreview(changed, appliedMapping: mapping);
     }
 
@@ -649,7 +652,8 @@ public sealed partial class ElementViewModel
                 await foreach (var (index, _, thumbnail) in video.GetPreviewThumbnailStripAsync(
                                    Timeline.EditorContext.GetRequiredService<FontManager>(),
                                    count, height, indices, _thumbnailCacheService, ct, PreferProxyForThumbnails,
-                                   PreferredProxyPresetForThumbnails, decoders, parameters.SourceOffsetDelta, layout, parameters.StartDelta))
+                                   PreferredProxyPresetForThumbnails, decoders, parameters.SourceOffsetDelta, layout,
+                                   parameters.StartDelta, parameters.DurationDelta))
                 {
                     using (thumbnail)
                     {
@@ -665,7 +669,8 @@ public sealed partial class ElementViewModel
             else if (provider is Beutl.Audio.SourceSound sound)
             {
                 await foreach (var chunk in sound.GetPreviewWaveformChunksAsync(
-                                   count, MaxWaveformSamplesPerChunk, indices, ct, decoders, parameters.SourceOffsetDelta, layout, parameters.StartDelta))
+                                   count, MaxWaveformSamplesPerChunk, indices, ct, decoders, parameters.SourceOffsetDelta, layout,
+                                   parameters.StartDelta, parameters.DurationDelta))
                 {
                     if (ct.IsCancellationRequested) break;
                     await Dispatcher.UIThread.InvokeAsync(() =>

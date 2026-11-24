@@ -42,7 +42,7 @@ public class ShiftNode : AudioNode
         // for, or of the sound if that starts later.
         MediaTime ownerStart = context.AnimationSampler.GetAbsoluteOwnerStart(offset);
         MediaTime windowStart = context.OriginalTimeRange.Start;
-        MediaTime shift = offset.Evaluate(new EvaluationContext(windowStart > ownerStart ? windowStart : ownerStart));
+        MediaTime shift = context.AnimationSampler.EvaluateExpression(offset, windowStart > ownerStart ? windowStart : ownerStart);
         if (!draining)
             _liveOffset = shift;
         return shift;

@@ -87,7 +87,9 @@ public partial class SourceVideo : IThumbnailsProvider
         }
 
         string? key = ThumbnailsCacheKey.Compute(CoreSerializer.SerializeToJsonObject(this), properties);
-        return key != null && RequiresResampledStartPreview ? $"{key}|start:{TimeRange.Value.Start.Flicks}" : key;
+        return key != null && RequiresResampledStartPreview
+            ? $"{key}|start:{TimeRange.Value.Start.Flicks}|duration:{TimeRange.Value.Duration.Flicks}"
+            : key;
     }
 
     internal bool RequiresResampledStartPreview
@@ -140,9 +142,10 @@ public partial class SourceVideo : IThumbnailsProvider
         DecoderRegistry? decoders,
         MediaTime offsetDelta,
         TimeRange previewLayout,
-        MediaTime startDelta)
+        MediaTime startDelta,
+        MediaTime durationDelta)
         => GetThumbnailStripCoreAsync(fonts, 0, maxHeight, cacheService, cancellationToken, 0, -1,
-            preferProxy, preferredProxyPreset, decoders, indices, count, offsetDelta, previewLayout, startDelta);
+            preferProxy, preferredProxyPreset, decoders, indices, count, offsetDelta, previewLayout, startDelta, durationDelta);
 
     private async IAsyncEnumerable<(int Index, int Count, Bitmap? Thumbnail)> GetThumbnailStripCoreAsync(
         FontManager fonts,
@@ -159,7 +162,8 @@ public partial class SourceVideo : IThumbnailsProvider
         int previewCount = 0,
         MediaTime offsetDelta = default,
         TimeRange? previewLayout = null,
-        MediaTime startDelta = default)
+        MediaTime startDelta = default,
+        MediaTime durationDelta = default)
     {
         if (previewIndices is { Count: 0 })
             yield break;
@@ -181,7 +185,7 @@ public partial class SourceVideo : IThumbnailsProvider
             };
             // Opening the decoder can parse a large media file. Queue it with the strip's rendering work.
             resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(previewIndices != null
-                ? CreateThumbnailContext(MediaTime.Zero, startDelta, conditions)
+                ? CreateThumbnailContext(MediaTime.Zero, startDelta, conditions, durationDelta)
                 : new CompositionContext(MediaTime.Zero) { Conditions = conditions }), DispatchPriority.Low, cancellationToken);
 
             if (resource.Source is not { } source)
@@ -203,7 +207,7 @@ public partial class SourceVideo : IThumbnailsProvider
             float thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
             double interval = duration.ToSeconds() / count;
 
-            string? baseKey = offsetDelta == MediaTime.Zero && startDelta == MediaTime.Zero && cacheService != null
+            string? baseKey = offsetDelta == MediaTime.Zero && startDelta == MediaTime.Zero && durationDelta == MediaTime.Zero && cacheService != null
                 ? GetThumbnailsCacheKey()
                 : null;
             // Partition by preview-source mode: ThumbnailsInvalidated covers mode changes for one
@@ -256,7 +260,7 @@ public partial class SourceVideo : IThumbnailsProvider
                         return (false, (Bitmap?)null);
 
                     MediaTime relativeEvalTime = previewIndices != null && time < MediaTime.Zero ? MediaTime.Zero : time;
-                    var ctx = CreateThumbnailContext(relativeEvalTime, startDelta, conditions);
+                    var ctx = CreateThumbnailContext(relativeEvalTime, startDelta, conditions, durationDelta);
                     bool versionBumped = false;
                     resource.Reconcile(this, ctx, ref versionBumped);
 
@@ -301,14 +305,17 @@ public partial class SourceVideo : IThumbnailsProvider
         }
     }
 
-    internal CompositionContext CreateThumbnailContext(MediaTime relativeTime, MediaTime startDelta, CompositionConditions conditions)
+    internal CompositionContext CreateThumbnailContext(
+        MediaTime relativeTime, MediaTime startDelta, CompositionConditions conditions, MediaTime durationDelta = default)
     {
         TimeRange range = TimeRange.Value;
         MediaTime start = range.Start + startDelta;
         return new CompositionContext(start + relativeTime)
         {
             Conditions = conditions,
-            PreviewTimeRange = startDelta != MediaTime.Zero ? (this, start, range.Duration - startDelta) : null
+            PreviewTimeRange = startDelta != MediaTime.Zero || durationDelta != MediaTime.Zero
+                ? (this, start, range.Duration + durationDelta)
+                : null
         };
     }
 
