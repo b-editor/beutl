@@ -83,13 +83,20 @@ public abstract class GraphEditorViewViewModelFactory
 
     public virtual IReadOnlyList<string> ChannelNames => ["Self"];
 
-    public static GraphEditorViewViewModelFactory? GetFactory(GraphEditorViewModel parent)
+    // The value of each channel as the editor plots it, in the order of ChannelNames, or NaN for a value of another type.
+    // The timeline's inline layers draw values with them.
+    internal virtual IReadOnlyList<Func<object?, double>>? ChannelReaders => null;
+
+    public static GraphEditorViewViewModelFactory? GetFactory(GraphEditorViewModel parent) => GetFactory(parent.Animation);
+
+    // The factory of the animation's values; a separated component can be plotted otherwise than a value of its type.
+    internal static GraphEditorViewViewModelFactory? GetFactory(IKeyFrameAnimation animation)
     {
-        if (parent.Animation.HierarchicalParent is IComponentAnimation components
-            && components.Components.FirstOrDefault(p => p.GetKeyFrameAnimation() == parent.Animation) is { } component
+        if (animation.HierarchicalParent is IComponentAnimation components
+            && components.Components.FirstOrDefault(p => p.GetKeyFrameAnimation() == animation) is { } component
             && s_componentRegistry.TryGetValue((components.ValueType, component.Name), out GraphEditorViewViewModelFactory? factory))
             return factory;
-        return GetFactory(parent.Animation.ValueType);
+        return GetFactory(animation.ValueType);
     }
 
     internal static GraphEditorViewViewModelFactory? GetFactory(Type type)
@@ -154,6 +161,8 @@ public abstract class GraphEditorViewViewModelFactory
             MinValue = minValue;
             MaxValue = maxValue;
             _fields = fields;
+            ChannelReaders = Array.ConvertAll(fields,
+                item => (Func<object?, double>)(value => value is T typed ? item.Get(typed) : double.NaN));
         }
 
         public override double MaxValue { get; }
@@ -161,6 +170,8 @@ public abstract class GraphEditorViewViewModelFactory
         public override double MinValue { get; }
 
         public override IReadOnlyList<string> ChannelNames => _fields.Select(x => x.Name).ToArray();
+
+        internal override IReadOnlyList<Func<object?, double>> ChannelReaders { get; }
 
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
@@ -205,6 +216,9 @@ public abstract class GraphEditorViewViewModelFactory
 
         public override double MinValue => double.CreateTruncating(T.MinValue);
 
+        internal override IReadOnlyList<Func<object?, double>> ChannelReaders { get; } =
+            [value => value is T typed ? double.CreateTruncating(typed) : double.NaN];
+
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
         {
             return
@@ -236,6 +250,10 @@ public abstract class GraphEditorViewViewModelFactory
     {
         public override double MaxValue => 255;
         public override double MinValue => 0;
+
+        internal override IReadOnlyList<Func<object?, double>> ChannelReaders { get; } =
+            [value => value is byte component ? Media.Color.SrgbToLinear(component / 255f) * 255d : double.NaN];
+
         protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent) =>
         [
             new(parent, "Self", value => Media.Color.SrgbToLinear((byte)value! / 255f) * 255d,
@@ -250,6 +268,14 @@ public abstract class GraphEditorViewViewModelFactory
     private sealed class ColorFactory : GraphEditorViewViewModelFactory
     {
         public override IReadOnlyList<string> ChannelNames => ["Red", "Green", "Blue", "Alpha"];
+
+        internal override IReadOnlyList<Func<object?, double>> ChannelReaders { get; } =
+        [
+            value => value is Media.Color ? ConvertTo(1, value) : double.NaN,
+            value => value is Media.Color ? ConvertTo(2, value) : double.NaN,
+            value => value is Media.Color ? ConvertTo(3, value) : double.NaN,
+            value => value is Media.Color ? ConvertTo(0, value) : double.NaN
+        ];
 
         private static double OECF_sRGB(double linear)
         {

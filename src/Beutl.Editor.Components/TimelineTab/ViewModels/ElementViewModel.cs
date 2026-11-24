@@ -228,6 +228,7 @@ public sealed partial class ElementViewModel : IDisposable
         InitializeTrackMatte();
         InitializeThumbnails();
         InitializeProxyIndicator();
+        InitializeAnimationMarks();
     }
 
     private void InitializeElementGroup()
@@ -418,6 +419,7 @@ public sealed partial class ElementViewModel : IDisposable
         WaveformChunkCount.Dispose();
         ShowProxyIndicator.Dispose();
         ProxyIndicatorState.Dispose();
+        KeyFrameMarkTimes.Dispose();
 
         LayerHeader.Value = null!;
         AnimationRequested = (_, _) => Task.CompletedTask;
