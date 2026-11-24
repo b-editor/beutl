@@ -71,9 +71,7 @@ public class TimelineFlowInputWarningTests
             host.Model.ClearSelected();
             host.Window.MouseMove(new Point(5, 5));
             host.Model.Options.Value = host.Model.Options.Value with { Scale = 0.05f };
-            HeadlessTestHelpers.Render(3);
-            Assert.That(host.Timeline.Children.OfType<CompactElementLayer>(), Is.Not.Empty);
-            Assert.That(FindView(), Is.Null);
+            AssertCompactWarning(true);
             HeadlessCapture.SaveIfRequested(host.Window, nameof(TimelineFlowInputWarningTests), $"{culture}-compact");
             Rect bounds = host.Model.GetElementBounds(receiver);
             host.Window.MouseMove(host.Timeline.TranslatePoint(bounds.Center, host.Window)!.Value);
@@ -81,6 +79,7 @@ public class TimelineFlowInputWarningTests
 
             Assert.That(await editor.UndoAsync(), Is.True);
             host.Window.MouseMove(new Point(5, 5));
+            AssertCompactWarning(false);
             host.Model.Options.Value = host.Model.Options.Value with { Scale = 1 };
             AssertWarning(false);
 
@@ -97,6 +96,23 @@ public class TimelineFlowInputWarningTests
                 if (expected) Assert.That(ToolTip.GetTip(clip), Does.Contain(hint));
                 else Assert.That(ToolTip.GetTip(clip), Is.Null);
                 return clip;
+            }
+
+            void AssertCompactWarning(bool expected)
+            {
+                HeadlessTestHelpers.Render(3);
+                Assert.That(host.Timeline.Children.OfType<CompactElementLayer>(), Is.Not.Empty);
+                Assert.That(FindView(), Is.Null);
+
+                Rect clip = host.Model.GetElementBounds(receiver);
+                Point clipTop = host.Timeline.TranslatePoint(new Point(clip.Center.X, clip.Top), host.Window)!.Value;
+                double scale = host.Window.RenderScaling;
+                int x = (int)Math.Floor(clipTop.X * scale);
+                using var frame = host.Window.CaptureRenderedFrame()!;
+                // Both samples are inside the clip fill. The upper pixel is covered by the warning marker.
+                var marker = HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(x, (int)Math.Floor((clipTop.Y + 4) * scale)));
+                var fill = HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(x, (int)Math.Floor((clipTop.Y + 8) * scale)));
+                Assert.That(marker != fill, Is.EqualTo(expected), "The compact marker should be drawn while input is missing.");
             }
         }
         finally
