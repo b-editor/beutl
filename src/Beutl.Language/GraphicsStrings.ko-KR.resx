@@ -2612,4 +2612,46 @@
   <data name="LightLeakTransition_LibraryDescription" xml:space="preserve">
     <value>따뜻한 빛샘과 플레어를 화면에 지나가게 하며 전환합니다 (필름 번, 빛샘, 섬광 / film burn, light flash).</value>
   </data>
+  <data name="RangeAnimatorEffect" xml:space="preserve">
+    <value>범위 애니메이터</value>
+  </data>
+  <data name="RangeAnimatorEffect_LibraryDescription" xml:space="preserve">
+    <value>문자별로 분할한 텍스트나 부품별 분할로 나눈 이미지에서 지정한 범위에 애니메이션을 적용합니다.</value>
+  </data>
+  <data name="RangeAnimatorEffect_Start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="RangeAnimatorEffect_End" xml:space="preserve">
+    <value>끝</value>
+  </data>
+  <data name="RangeAnimatorEffect_Shape" xml:space="preserve">
+    <value>모양</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness" xml:space="preserve">
+    <value>부드러움</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness_Description" xml:space="preserve">
+    <value>사각형 모양의 경계를 부드럽게 합니다. 100%에서는 각 파트의 구간이 선택 범위와 겹치는 비율만큼 효과를 적용합니다. 0%에서는 구간의 중심이 범위 안에 있을 때만 효과를 적용합니다.</value>
+  </data>
+  <data name="RangeAnimatorEffect_ColorAmount" xml:space="preserve">
+    <value>색상 적용량</value>
+  </data>
+  <data name="RangeAnimatorShape_Square" xml:space="preserve">
+    <value>사각형</value>
+  </data>
+  <data name="RangeAnimatorShape_RampUp" xml:space="preserve">
+    <value>상승 경사</value>
+  </data>
+  <data name="RangeAnimatorShape_RampDown" xml:space="preserve">
+    <value>하강 경사</value>
+  </data>
+  <data name="RangeAnimatorShape_Triangle" xml:space="preserve">
+    <value>삼각형</value>
+  </data>
+  <data name="RangeAnimatorShape_Round" xml:space="preserve">
+    <value>반원</value>
+  </data>
+  <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
+    <value>부드러운 곡선</value>
+  </data>
 </root>

@@ -126,6 +126,27 @@ internal static class BuiltInLibraryThumbnailRecipes
 
     private static void RegisterShapes()
     {
+        LibraryThumbnailRecipes.Register<RangeAnimatorEffect>(LibraryThumbnailSample.Text, (effect, context) =>
+        {
+            if (context.Subject is { } subject)
+            {
+                var group = new FilterEffectGroup();
+                subject.FilterEffect.Value = group;
+                group.Children.Add(new PartsSplitEffect());
+                group.Children.Add(effect);
+            }
+
+            effect.Order.Value = DelayAnimationOrder.LeftToRight;
+            effect.RangeStart.Value = 20;
+            effect.RangeEnd.Value = 65;
+            effect.Position.Value = new Point(0, -context.Scale(96));
+            effect.Scale.Value = 110;
+            effect.Rotation.Value = -12;
+            effect.Color.Value = Color.FromRgb(0xFC, 0xB2, 0x4C);
+            effect.ColorAmount.Value = 70;
+            context.Animate(effect.RangeOffset, p => -70 * (1 - Wave(p)));
+        });
+
         LibraryThumbnailRecipes.Register<Clipping>((effect, context) =>
         {
             context.Animate(effect.Left, p => context.Scale(300) * Wave(p));

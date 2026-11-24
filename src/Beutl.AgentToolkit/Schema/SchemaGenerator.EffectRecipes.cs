@@ -667,6 +667,12 @@ public sealed partial class SchemaGenerator
                 delay.Delay.Value = 55;
                 delay.Effect.Value = CreateDropShadow(0, 0, 18, "#9936f0ff");
                 break;
+            case RangeAnimatorEffect range:
+                range.RangeStart.Value = 20;
+                range.RangeEnd.Value = 65;
+                range.Position.Value = new Point(0, -30);
+                range.Opacity.Value = 55;
+                break;
             case PixelSortEffect pixelSort:
                 pixelSort.Direction.Value = PixelSortDirection.Horizontal;
                 pixelSort.SortKey.Value = PixelSortKey.Hue;

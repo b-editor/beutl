@@ -18,4 +18,6 @@ internal enum CustomFilterEffectOptions
     /// content lies.
     /// </summary>
     KeepsPlacement = 4,
+    /// <summary>The callback can read existing raster placements, including their device-pixel aprons.</summary>
+    AcceptsMaterializedTargets = 8,
 }

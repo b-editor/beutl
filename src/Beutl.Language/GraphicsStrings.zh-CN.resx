@@ -2612,4 +2612,46 @@
   <data name="LightLeakTransition_LibraryDescription" xml:space="preserve">
     <value>用暖色漏光和光斑扫过切换处（胶片烧灼、漏光、闪光 / film burn, light flash）。</value>
   </data>
+  <data name="RangeAnimatorEffect" xml:space="preserve">
+    <value>范围动画器</value>
+  </data>
+  <data name="RangeAnimatorEffect_LibraryDescription" xml:space="preserve">
+    <value>为按字符分割的文本或通过“按部件分割”得到的部件中的指定范围添加动画。</value>
+  </data>
+  <data name="RangeAnimatorEffect_Start" xml:space="preserve">
+    <value>起点</value>
+  </data>
+  <data name="RangeAnimatorEffect_End" xml:space="preserve">
+    <value>终点</value>
+  </data>
+  <data name="RangeAnimatorEffect_Shape" xml:space="preserve">
+    <value>形状</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness" xml:space="preserve">
+    <value>平滑度</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness_Description" xml:space="preserve">
+    <value>柔化方形选区的边缘。100% 时，按范围覆盖每个部件区间的比例应用效果。0% 时，根据区间的中心是否在范围内决定是否应用效果。</value>
+  </data>
+  <data name="RangeAnimatorEffect_ColorAmount" xml:space="preserve">
+    <value>着色量</value>
+  </data>
+  <data name="RangeAnimatorShape_Square" xml:space="preserve">
+    <value>方形</value>
+  </data>
+  <data name="RangeAnimatorShape_RampUp" xml:space="preserve">
+    <value>上升斜坡</value>
+  </data>
+  <data name="RangeAnimatorShape_RampDown" xml:space="preserve">
+    <value>下降斜坡</value>
+  </data>
+  <data name="RangeAnimatorShape_Triangle" xml:space="preserve">
+    <value>三角形</value>
+  </data>
+  <data name="RangeAnimatorShape_Round" xml:space="preserve">
+    <value>半圆</value>
+  </data>
+  <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
+    <value>平滑曲线</value>
+  </data>
 </root>

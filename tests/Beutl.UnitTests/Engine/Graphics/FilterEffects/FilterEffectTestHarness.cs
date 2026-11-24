@@ -67,7 +67,15 @@ internal static class FilterEffectTestHarness
                 EffectiveScale.At(1),
                 new PixelRect(0, 0, size.Width, size.Height)),
         };
-        using var context = new FilterEffectContext(bounds);
+        ApplyToTargets(resource, targets);
+
+        using Bitmap afterBitmap = targets.Single().RenderTarget!.Snapshot();
+        return (before, ReadChannels(afterBitmap));
+    }
+
+    public static void ApplyToTargets(FilterEffect.Resource resource, EffectTargets targets)
+    {
+        using var context = new FilterEffectContext(targets.CalculateBounds());
         context.ApplyTransactional(resource);
         using var builder = new SKImageFilterBuilder();
         using var executor = new FilterEffectExecutor(
@@ -82,9 +90,6 @@ internal static class FilterEffectTestHarness
 
         executor.Apply(context);
         executor.Flush(false);
-
-        using Bitmap afterBitmap = targets.Single().RenderTarget!.Snapshot();
-        return (before, ReadChannels(afterBitmap));
     }
 
     /// <summary>An effect target over <paramref name="bounds"/> cleared to red.</summary>

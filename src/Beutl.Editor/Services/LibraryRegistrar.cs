@@ -252,6 +252,8 @@ internal static class LibraryRegistrar
                     GraphicsStrings.LayerEffect_LibraryDescription)
                 .AddFilterEffect<DelayAnimationEffect>(GraphicsStrings.DelayAnimationEffect,
                     GraphicsStrings.DelayAnimationEffect_LibraryDescription)
+                .AddFilterEffect<RangeAnimatorEffect>(GraphicsStrings.RangeAnimatorEffect,
+                    GraphicsStrings.RangeAnimatorEffect_LibraryDescription)
                 .AddFilterEffect<PixelSortEffect>(GraphicsStrings.PixelSortEffect,
                     GraphicsStrings.PixelSortEffect_LibraryDescription)
                 .AddFilterEffect<NodeGraphFilterEffect>(GraphicsStrings.NodeGraphFilterEffect,

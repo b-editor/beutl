@@ -22,7 +22,8 @@ public sealed partial class FilterEffectExecutor
     /// the device grid (see <see cref="AlignsToDeviceGrid"/>).
     /// </param>
     /// <returns>Where the content was laid on the device grid, or <see langword="null"/> when none of it was.</returns>
-    private AlignedPlacement? Flush(bool force, bool alignToDeviceGrid)
+    /// <param name="reuseMaterializedTargets">Whether the callback can accept the existing raster placement.</param>
+    private AlignedPlacement? Flush(bool force, bool alignToDeviceGrid, bool reuseMaterializedTargets = false)
     {
         bool hasFilter = Builder.HasFilter();
         if (!force && !hasFilter)
@@ -43,8 +44,9 @@ public sealed partial class FilterEffectExecutor
             ? stackalloc FlushTarget?[StackFlushPlanLimit]
             : new FlushTarget?[count];
         plan = plan[..count];
-        PlanFlush(plan, hasFilter, alignToDeviceGrid);
-        AlignedPlacement? placement = MaterializeFlush(plan, paint, hasFilter, alignToDeviceGrid);
+        bool reuseRasters = reuseMaterializedTargets && !hasFilter;
+        PlanFlush(plan, hasFilter, alignToDeviceGrid, reuseRasters);
+        AlignedPlacement? placement = MaterializeFlush(plan, paint, hasFilter, alignToDeviceGrid, reuseRasters);
 
         _pendingSkiaTargets = null;
         _pendingChainNeedsBoundsCoordinates = false;
@@ -62,12 +64,14 @@ public sealed partial class FilterEffectExecutor
     /// positional - slot <c>i</c> answers for the target at index <c>i</c> - which is what lets
     /// materialization read it while removing entries from the list it was measured against.
     /// </remarks>
-    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter, bool alignToDeviceGrid)
+    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter, bool alignToDeviceGrid, bool reuseRasters)
     {
         for (int i = 0; i < plan.Length; i++)
         {
             plan[i] = null;
             EffectTarget target = CurrentTargets[i];
+            if (reuseRasters && target.IsMaterialized)
+                continue;
             // Re-clamp against the physical runtime footprint. A retained raster can be wider than
             // semantic Bounds after a custom effect moves or shrinks the target.
             Rect allocationBounds = hasFilter ? target.OriginalBounds : target.Bounds;
@@ -120,7 +124,8 @@ public sealed partial class FilterEffectExecutor
         ReadOnlySpan<FlushTarget?> plan,
         SKPaint? paint,
         bool hasFilter,
-        bool alignToDeviceGrid)
+        bool alignToDeviceGrid,
+        bool reuseRasters)
     {
         // Only a flush that lays its targets on the device grid returns where it put them.
         List<TargetPlacement>? placements = null;
@@ -130,6 +135,9 @@ public sealed partial class FilterEffectExecutor
         for (int i = 0, planned = 0; i < CurrentTargets.Count; i++, planned++)
         {
             EffectTarget target = CurrentTargets[i];
+            if (reuseRasters && target.IsMaterialized)
+                continue;
+
             Rect allocationBounds = hasFilter ? target.OriginalBounds : target.Bounds;
             if (RenderScaleUtilities.IsEmptyBounds(allocationBounds))
             {

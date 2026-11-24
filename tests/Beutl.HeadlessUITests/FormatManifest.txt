@@ -145,6 +145,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:MeshWarpInterpolation>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:RangeAnimatorShape>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -238,6 +241,9 @@ Beutl.Utilities
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:MeshWarpInterpolation>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:RangeAnimatorShape>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
@@ -584,6 +590,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:RadialBlur
   sealed
   keys: Amount, Animations, Center, Expressions, Id, IsEnabled, Mode, Name, Samples
+[Beutl.Engine]Beutl.Graphics.Effects:RangeAnimatorEffect
+  sealed
+  keys: Animations, Blur, Color, ColorAmount, Expressions, Id, IsEnabled, Name, Opacity, Order, Position, RandomSeed, RangeEnd, RangeOffset, RangeStart, Rotation, Scale, Shape, Smoothness
 [Beutl.Engine]Beutl.Graphics.Effects:RepeatEffect
   sealed
   keys: Animations, Columns, Expressions, Id, IsEnabled, Mirror, Name, Offset, Rows, Spacing
