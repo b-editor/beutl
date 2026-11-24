@@ -567,12 +567,12 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
     <value>Actualizaciones de extensiones incluidas ({0})</value>
   </data>
   <data name="FlowInputMissingDrawable" xml:space="preserve">
-    <value>{0} necesita un objeto visual. Colócalo en una capa inferior de modo que los clips se solapen e incluye esa capa en la Cantidad del Portal.</value>
+    <value>{0} necesita un objeto visual. Colócalo en una capa inferior de modo que los clips se solapen. Añade o activa un Portal antes de este operador y ajusta la Cantidad del Portal para incluir esa capa.</value>
   </data>
   <data name="FlowInputMissingObject3D" xml:space="preserve">
-    <value>{0} necesita un objeto 3D. Colócalo en una capa inferior de modo que los clips se solapen e incluye esa capa en la Cantidad del Portal.</value>
+    <value>{0} necesita un objeto 3D. Colócalo en una capa inferior de modo que los clips se solapen. Añade o activa un Portal antes de este operador y ajusta la Cantidad del Portal para incluir esa capa.</value>
   </data>
   <data name="FlowInputMissingSound" xml:space="preserve">
-    <value>{0} necesita un objeto de audio. Colócalo en una capa inferior de modo que los clips se solapen e incluye esa capa en la Cantidad del Portal.</value>
+    <value>{0} necesita un objeto de audio. Colócalo en una capa inferior de modo que los clips se solapen. Añade o activa un Portal antes de este operador y ajusta la Cantidad del Portal para incluir esa capa.</value>
   </data>
 </root>

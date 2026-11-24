@@ -100,6 +100,15 @@ public class FlowInputDiagnosticsTests
             layer: 2, start: 0, duration: 2);
 
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
+
+        Element matte = AddClip(scene, new RectShape(), layer: 3, start: 0, duration: 2);
+        matte.MatteMode.Value = MatteMode.Alpha;
+        matte.MatteSourceKind.Value = MatteSourceKind.Layer;
+        matte.MatteSourceZIndex.Value = 4;
+        using var compositor = new SceneCompositor(scene, null);
+        Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<DrawableGroup.Resource>().Single().Children, Is.Empty);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
+
         firstPortal.IsEnabled.Value = false;
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
     }
@@ -132,6 +141,12 @@ public class FlowInputDiagnosticsTests
         Element source = AddClip(scene, new RectShape(), layer: 1, start: 0, duration: 2);
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
 
+        source.IsVisibleInOutput.Value = false;
+        using var compositor = new SceneCompositor(scene, null);
+        Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<DrawableGroup.Resource>().Single().Children, Is.Empty);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
+
+        source.IsVisibleInOutput.Value = true;
         source.Objects[0].IsEnabled.Value = false;
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
     }
@@ -161,6 +176,101 @@ public class FlowInputDiagnosticsTests
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
 
         input.EnterTransition.Value = new FadeTransition();
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+    }
+
+    [Test]
+    public void AnEmptyMatteClipStillSuppliesItsDrawablePresenter()
+    {
+        var scene = new Scene();
+        var group = new DrawableGroup();
+        Element receiver = AddClip(scene, group, layer: 0, start: 0, duration: 2);
+        ((PortalObject)receiver.Objects[0]).Count.Value = 1;
+        Element matte = new() { Length = { Value = MediaTime.FromSeconds(2) }, ZIndex = { Value = 1 } };
+        scene.Children.Add(matte);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
+
+        matte.MatteMode.Value = MatteMode.Alpha;
+        matte.MatteSourceKind.Value = MatteSourceKind.Layer;
+        matte.MatteSourceZIndex.Value = 2;
+        using var compositor = new SceneCompositor(scene, null);
+        Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<DrawableGroup.Resource>().Single().Children, Has.Count.EqualTo(1));
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+    }
+
+    [Test]
+    public void ASeparateMatteReadCanUseHiddenPortalInputs()
+    {
+        var scene = new Scene();
+        var group = new DrawableGroup();
+        Element receiver = AddClip(scene, group, layer: 1, start: 0, duration: 2);
+        receiver.IsVisibleInOutput.Value = false;
+        ((PortalObject)receiver.Objects[0]).Count.Value = 1;
+        Element input = AddClip(scene, new RectShape(), layer: 2, start: 0, duration: 2);
+        input.IsVisibleInOutput.Value = false;
+        Element target = AddClip(scene, new RectShape(), layer: 0, start: 0, duration: 2);
+        target.MatteMode.Value = MatteMode.Alpha;
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
+        target.MatteSourceZIndex.Value = 1;
+
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+        receiver.IsVisibleInOutput.Value = true;
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+        target.MatteMode.Value = MatteMode.None;
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
+    }
+
+    [Test]
+    public void AnOutgoingClipSuppliesInputOnlyUntilItsTransitionRetiresIt()
+    {
+        var scene = new Scene();
+        var scene3D = new Scene3D();
+        Element receiver = AddClip(scene, scene3D, layer: 0, start: 7, duration: 1);
+        ((PortalObject)receiver.Objects[0]).Count.Value = 1;
+        AddClip(scene, new Cube3D(), layer: 1, start: 0, duration: 9);
+        Element incoming = AddClip(scene, new RectShape(), layer: 1, start: 2, duration: 8);
+        incoming.EnterTransition.Value = new FadeTransition();
+        incoming.ExitTransition.Value = new FadeTransition();
+        using var compositor = new SceneCompositor(scene, null);
+        Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(7)).Objects.OfType<Scene3D.Resource>().Single().Objects, Is.Empty);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
+
+        receiver.Start.Value = MediaTime.Zero;
+        Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<Scene3D.Resource>().Single().Objects, Has.Count.EqualTo(1));
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+    }
+
+    [Test]
+    public void ATransitionPresenterDoesNotExposeItsSideAsA3DInput()
+    {
+        var scene = new Scene();
+        var scene3D = new Scene3D();
+        Element receiver = AddClip(scene, scene3D, layer: 0, start: 0, duration: 0.25);
+        ((PortalObject)receiver.Objects[0]).Count.Value = 1;
+        Element input = AddClip(scene, new Cube3D(), layer: 1, start: 0, duration: 2);
+        input.EnterTransition.Value = new FadeTransition();
+        using var compositor = new SceneCompositor(scene, null);
+        Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<Scene3D.Resource>().Single().Objects, Is.Empty);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
+
+        receiver.Start.Value = MediaTime.FromSeconds(0.5);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+    }
+
+    [Test]
+    public void ASideOfATransitionUsesTheOutputOfTheClipItsPortalReaches()
+    {
+        var scene = new Scene();
+        var scene3D = new Scene3D();
+        Element receiver = AddClip(scene, scene3D, layer: 0, start: 0, duration: 0.25);
+        ((PortalObject)receiver.Objects[0]).Count.Value = 1;
+        receiver.EnterTransition.Value = new FadeTransition();
+        Element input = AddClip(scene, new Cube3D(), layer: 1, start: 0, duration: 2);
+        var clear = new PortalObject { Clear = { Value = true } };
+        input.Objects.Add(clear);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
+
+        clear.Clear.Value = false;
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
     }
 

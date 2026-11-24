@@ -566,12 +566,12 @@ Do you want to restart the application?</value>
     <value>Extension updates included ({0})</value>
   </data>
   <data name="FlowInputMissingDrawable" xml:space="preserve">
-    <value>{0} needs a visual object. Place one on a layer below so the clips overlap, then include that layer in the Portal’s Count.</value>
+    <value>{0} needs a visual object. Place one on a layer below so the clips overlap. Add or enable a Portal before this operator, then set the Portal’s Count to include that layer.</value>
   </data>
   <data name="FlowInputMissingObject3D" xml:space="preserve">
-    <value>{0} needs a 3D object. Place one on a layer below so the clips overlap, then include that layer in the Portal’s Count.</value>
+    <value>{0} needs a 3D object. Place one on a layer below so the clips overlap. Add or enable a Portal before this operator, then set the Portal’s Count to include that layer.</value>
   </data>
   <data name="FlowInputMissingSound" xml:space="preserve">
-    <value>{0} needs an audio object. Place one on a layer below so the clips overlap, then include that layer in the Portal’s Count.</value>
+    <value>{0} needs an audio object. Place one on a layer below so the clips overlap. Add or enable a Portal before this operator, then set the Portal’s Count to include that layer.</value>
   </data>
 </root>

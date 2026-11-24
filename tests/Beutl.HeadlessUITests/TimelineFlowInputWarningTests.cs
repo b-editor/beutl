@@ -20,9 +20,9 @@ namespace Beutl.HeadlessUITests;
 public class TimelineFlowInputWarningTests
 {
     [AvaloniaTest]
-    [TestCase("en-US", false, "Portal’s Count")]
-    [TestCase("ja-JP", true, "ポータルの［個数］")]
-    public async Task WarningFollowsEditsAcrossNormalAndCompactClips(string culture, bool light, string hint)
+    [TestCase("en-US", false, "Portal’s Count", "Add or enable a Portal")]
+    [TestCase("ja-JP", true, "ポータルの［個数］", "ポータルを追加するか有効に")]
+    public async Task WarningFollowsEditsAcrossNormalAndCompactClips(string culture, bool light, string hint, string setupHint)
     {
         CultureInfo original = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
@@ -46,6 +46,11 @@ public class TimelineFlowInputWarningTests
             portal.Count.Value = 0;
             AssertWarning(true);
             portal.Count.Value = portalCount;
+            AssertWarning(false);
+
+            portal.IsEnabled.Value = false;
+            Assert.That(ToolTip.GetTip(AssertWarning(true)), Does.Contain(setupHint));
+            portal.IsEnabled.Value = true;
             AssertWarning(false);
 
             cube.Start.Value = receiver.Range.End;

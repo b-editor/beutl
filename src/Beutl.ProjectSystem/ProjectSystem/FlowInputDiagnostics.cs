@@ -42,17 +42,16 @@ internal static class FlowInputDiagnostics
             return;
         }
 
-        using var active = new PooledList<Element>();
-        var pass = new InputPass(scene, element, missing, target, active);
-        pass.Read(element);
+        HashSet<Element>? participants = graphics ? ElementTransitions.GetParticipants(scene) : null;
+        var pass = new InputPass(scene, element, missing, target, participants);
+        pass.InspectLocalInputs();
         if (!missing.Exists(obj => obj.GetCompositionTarget() == target)) return;
 
         int layer = element.ZIndex.Value;
         int lastInputLayer = GetLastInputLayer(element);
         if (lastInputLayer <= layer) return;
 
-        HashSet<Element>? participants = graphics && scene.HasTransitions ? ElementTransitions.GetParticipants(scene) : null;
-        MediaTime tolerance = participants is null ? MediaTime.Zero : ElementTransitions.AdjacencyTolerance;
+        MediaTime tolerance = graphics ? ElementTransitions.AdjacencyTolerance : MediaTime.Zero;
         SceneElementIndex index = scene.ElementIndex;
         using var found = new PooledList<Element>();
         index.Query(range.Start - tolerance, range.End + tolerance, found);
@@ -70,35 +69,24 @@ internal static class FlowInputDiagnostics
         }
         if (!hasCandidate) return;
 
-        // For constant portal settings, the set and order of inputs can only change at these boundaries.
+        // Sample the compositor's clip selection where the set of available inputs can change.
         var boundaries = new List<MediaTime> { range.Start, range.End };
-        var candidates = new List<Candidate>(found.Count);
-        var membership = new List<MembershipChange>();
         foreach (Element candidate in found)
         {
-            if (!candidate.IsEnabled.Value || (candidate.Objects.Count == 0 && participants?.Contains(candidate) != true)) continue;
-            if (candidate.ZIndex.Value > lastInputLayer && !(graphics && candidate.HasTrackMatte)) continue;
+            if (!candidate.IsEnabled.Value || candidate.ZIndex.Value > lastInputLayer && !(graphics && candidate.HasTrackMatte)) continue;
 
-            bool hasTransition = participants?.Contains(candidate) == true;
-            TimeRange enter = hasTransition ? ElementTransitions.GetBoundaryAtStart(candidate)?.Region ?? default : default;
-            TimeRange exit = hasTransition ? ElementTransitions.GetBoundaryAtEnd(candidate)?.Region ?? default : default;
-            TimeRange availability = candidate.Range.Union(enter).Union(exit).Intersect(range);
-            if (availability.IsEmpty) continue;
+            AddBoundary(candidate.Range.Start);
+            AddBoundary(candidate.Range.End);
+            if (participants?.Contains(candidate) != true) continue;
 
-            int candidateIndex = candidates.Count;
-            bool hasVariablePortal = candidate.Objects.Any(obj => obj is PortalObject { IsEnabled.Value: true, Count.HasExpression: true });
-            candidates.Add(new Candidate(candidate, enter, exit, hasVariablePortal));
-            membership.Add(new MembershipChange(availability.Start, candidateIndex, IsEntering: true));
-            membership.Add(new MembershipChange(availability.End, candidateIndex, IsEntering: false));
-            AddBoundaries(candidate.Range);
-            AddBoundaries(enter);
-            AddBoundaries(exit);
+            AddBoundary(candidate.Range.Start - tolerance);
+            AddBoundary(candidate.Range.End + tolerance);
+            AddBoundary(ElementTransitions.GetLastFrameTime(candidate));
+            if (ElementTransitions.GetBoundaryAtStart(candidate) is { } enter) AddTransition(enter);
+            if (ElementTransitions.GetBoundaryAtEnd(candidate) is { } exit) AddTransition(exit);
         }
 
         boundaries.Sort();
-        membership.Sort(static (a, b) => a.Time.CompareTo(b.Time));
-        var current = new SortedSet<int>();
-        int nextChange = 0;
         for (int i = 1; i < boundaries.Count; i++)
         {
             MediaTime start = boundaries[i - 1];
@@ -107,23 +95,19 @@ internal static class FlowInputDiagnostics
             MediaTime time = graphics ? FirstFrameAtOrAfter(start, frameRate) : start;
             if (time >= end) continue;
 
-            // Walk only the clips present in this interval, even for a portal that spans a long scene.
-            while (nextChange < membership.Count && membership[nextChange].Time <= time)
-            {
-                MembershipChange change = membership[nextChange++];
-                if (change.IsEntering) current.Add(change.CandidateIndex);
-                else current.Remove(change.CandidateIndex);
-            }
-
-            pass.InspectInterval(candidates, current, time);
+            pass.InspectInterval(time, lastInputLayer);
             if (!missing.Exists(obj => obj.GetCompositionTarget() == target)) return;
         }
 
-        void AddBoundaries(TimeRange input)
+        void AddBoundary(MediaTime time)
         {
-            if (!input.Intersects(range)) return;
-            if (range.Contains(input.Start)) boundaries.Add(input.Start);
-            if (range.Contains(input.End)) boundaries.Add(input.End);
+            if (range.Contains(time)) boundaries.Add(time);
+        }
+
+        void AddTransition(TransitionBoundary boundary)
+        {
+            AddBoundary(boundary.Region.Start);
+            AddBoundary(boundary.Region.End);
         }
     }
 
@@ -160,63 +144,106 @@ internal static class FlowInputDiagnostics
         _ => FlowInputKind.None
     };
 
-    private readonly record struct Candidate(Element Element, TimeRange Enter, TimeRange Exit, bool HasVariablePortal);
-
-    private readonly record struct MembershipChange(MediaTime Time, int CandidateIndex, bool IsEntering);
+    private readonly record struct InputScope(PooledList<Element> Elements, MediaTime Time, bool IsMatteSource,
+        bool MayShareInputs, MediaTime? FrameTime = null, MediaTime? SideTime = null);
 
     private sealed class InputPass(Scene scene, Element owner, List<EngineObject> missing,
-        CompositionTarget target, PooledList<Element> active)
+        CompositionTarget target, HashSet<Element>? participants)
     {
-        private readonly HashSet<Element> _transitioning = [];
-        private readonly Dictionary<Element, FlowInputKind> _possibleOutputs = [];
-        private bool _mayShareInputs;
-        private bool _visitedOwner;
+        private readonly HashSet<int> _matteLayers = [];
+        private readonly HashSet<Element> _evaluating = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<(Element, InputScope), FlowInputKind> _possibleOutputs = [];
+        private MediaTime _frameTime;
+        private int _lastInputLayer;
 
-        public void InspectInterval(List<Candidate> candidates, SortedSet<int> current, MediaTime time)
+        public void InspectLocalInputs()
         {
-            active.Clear();
-            _transitioning.Clear();
+            using var empty = new PooledList<Element>();
+            ReadObjects(owner, new InputScope(empty, owner.Range.Start, false, false));
+        }
+
+        public void InspectInterval(MediaTime time, int lastInputLayer)
+        {
+            _frameTime = time;
+            _lastInputLayer = lastInputLayer;
+            _matteLayers.Clear();
             _possibleOutputs.Clear();
-            _visitedOwner = false;
-            _mayShareInputs = target == CompositionTarget.Graphics && !owner.IsVisibleInOutput.Value;
-            foreach (int index in current)
-            {
-                Candidate candidate = candidates[index];
-                Element element = candidate.Element;
-                bool transition = candidate.Enter.Contains(time) || candidate.Exit.Contains(time);
-                if (!transition && !element.Range.Contains(time)) continue;
-                if (transition) _transitioning.Add(element);
-                active.Add(element);
-                // These paths can change which evaluation owns a clip's inputs. Keep the possible sources
-                // available to every portal in this interval so they cannot produce a false warning.
-                _mayShareInputs |= candidate.HasVariablePortal || transition
-                    || (target == CompositionTarget.Graphics && element.HasTrackMatte);
-            }
+            using var active = new PooledList<Element>();
+            SceneCompositor.CollectFrameElements(scene, time, active, target, participants);
+            InspectRoots(CreateScope(active, time, isMatteSource: false));
 
-            if (_mayShareInputs)
-            {
-                Read(owner);
-                return;
-            }
+            // A hidden clip can be authored as a matte source. Its inputs use their own pass.
+            if (participants != null && !owner.IsVisibleInOutput.Value) InspectMatte(owner.ZIndex.Value);
+        }
 
-            for (int i = 0; i < active.Count && !_visitedOwner; i++)
+        private InputScope CreateScope(PooledList<Element> elements, MediaTime time, bool isMatteSource)
+        {
+            // An expression-driven Count can change which Portal took a clip. Keep those possible
+            // sources available for this pass while still using the pass's visibility rules.
+            bool mayShare = elements.Any(element => element.ZIndex.Value < _lastInputLayer
+                && (participants == null || isMatteSource || element.IsVisibleInOutput.Value)
+                && HasVariablePortal(element));
+            return new InputScope(elements, time, isMatteSource, mayShare);
+        }
+
+        private void InspectRoots(InputScope scope, int? layer = null)
+        {
+            for (int i = 0; i < scope.Elements.Count; i++)
             {
-                Element element = active[i];
-                // Earlier roots can affect the owner by claiming clips through a portal.
-                if (ReferenceEquals(element, owner) || element.Objects.Any(obj => obj is PortalObject { IsEnabled.Value: true }))
-                    Read(element);
+                Element element = scope.Elements[i];
+                if (layer.HasValue && element.ZIndex.Value != layer.Value) continue;
+
+                if (ReferenceEquals(element, owner) || SceneCompositor.HasPortal(element)
+                    || (participants != null && (element.HasTrackMatte || participants.Contains(element))))
+                {
+                    Read(element, scope);
+                    if (!missing.Exists(obj => obj.GetCompositionTarget() == target)) return;
+                }
             }
         }
 
-        public FlowInputKind Read(Element element)
+        private FlowInputKind Read(Element element, InputScope scope)
+        {
+            var key = (element, scope);
+            if (scope.MayShareInputs && _possibleOutputs.TryGetValue(key, out FlowInputKind output)) return output;
+
+            output = participants?.Contains(element) == true && ElementTransitions.TryGetActive(element, scope.Time, out var boundary)
+                ? ReadTransition(boundary, scope)
+                : ReadElement(element, scope);
+            if (scope.MayShareInputs) _possibleOutputs[key] = output;
+            return output;
+        }
+
+        private FlowInputKind ReadElement(Element element, InputScope scope)
+        {
+            if (participants != null && !scope.IsMatteSource && !element.IsVisibleInOutput.Value) return FlowInputKind.None;
+            if (!_evaluating.Add(element)) return FlowInputKind.None;
+            try
+            {
+                FlowInputKind output = ReadObjects(element, scope);
+                if (participants == null || !element.HasTrackMatte) return output;
+
+                if (element.GetMatteSourceZIndex(scene, _frameTime) is { } layer) InspectMatte(layer);
+                return FlowInputKind.Drawable;
+            }
+            finally
+            {
+                _evaluating.Remove(element);
+            }
+        }
+
+        private void InspectMatte(int layer)
+        {
+            if (!_matteLayers.Add(layer)) return;
+
+            using var elements = new PooledList<Element>();
+            SceneCompositor.CollectFrameElements(scene, _frameTime, elements, target, participants);
+            InspectRoots(CreateScope(elements, _frameTime, isMatteSource: true), layer);
+        }
+
+        private FlowInputKind ReadObjects(Element element, InputScope scope)
         {
             bool isOwner = ReferenceEquals(element, owner);
-            bool transition = _transitioning.Contains(element);
-            if (!isOwner && target == CompositionTarget.Graphics && !element.IsVisibleInOutput.Value && !transition && !_mayShareInputs)
-                return FlowInputKind.None;
-            if (_mayShareInputs && _possibleOutputs.TryGetValue(element, out FlowInputKind output)) return output;
-
-            _visitedOwner |= isOwner;
             FlowInputKind flow = FlowInputKind.None;
             using var objects = new PooledList<EngineObject>();
             element.CollectObjects(target, objects);
@@ -225,7 +252,7 @@ internal static class FlowInputDiagnostics
                 if (obj is PortalObject portal)
                 {
                     if (portal.Clear.Value && !portal.Clear.HasExpression) flow = FlowInputKind.None;
-                    flow |= ReadPortal(element, portal, transition);
+                    flow |= ReadPortal(portal, scope);
                 }
                 else if (obj is IFlowInputOperator input)
                 {
@@ -243,62 +270,102 @@ internal static class FlowInputDiagnostics
                 flow |= OutputKind(obj);
             }
 
-            if (target == CompositionTarget.Graphics && element.HasTrackMatte) flow = FlowInputKind.Drawable;
-            if (transition) flow |= FlowInputKind.Drawable;
-            if (_mayShareInputs) _possibleOutputs[element] = flow;
             return flow;
         }
 
-        private FlowInputKind ReadPortal(Element owner, PortalObject portal, bool transition)
+        private FlowInputKind ReadPortal(PortalObject portal, InputScope scope)
         {
             var span = InputLayers(portal);
             FlowInputKind flow = FlowInputKind.None;
-            if (!_mayShareInputs)
+            if (!scope.MayShareInputs)
             {
                 int index = 0;
-                while (PortalObject.TakeNextInput(active, span, ref index) is { } element)
-                    flow |= Read(element);
+                while (PortalObject.TakeNextInput(scope.Elements, span, ref index) is { } element)
+                    flow |= ReadInput(element);
                 return flow;
             }
 
-            foreach (Element element in active.Span)
+            foreach (Element element in scope.Elements.Span)
             {
                 int layer = element.ZIndex.Value;
                 if (layer > span.Last) break;
-                if (layer >= span.First) flow |= Read(element);
+                if (layer >= span.First) flow |= ReadInput(element);
             }
 
-            if (transition && span.First <= span.Last) flow |= ReadHeldInputs(owner, span);
             return flow;
+
+            FlowInputKind ReadInput(Element element)
+            {
+                MediaTime time = SceneCompositor.GetPortalInputTime(element, scope.Time, scope.FrameTime, scope.SideTime);
+                return Read(element, scope with { Time = time });
+            }
         }
 
-        // A transition can run the owner at its held edge, with sources outside the current interval.
-        private FlowInputKind ReadHeldInputs(Element element, (int First, int Last) span)
+        private FlowInputKind ReadTransition(TransitionBoundary boundary, InputScope scope)
         {
-            using var candidates = new PooledList<Element>();
-            SceneElementIndex index = scene.ElementIndex;
-            var tolerance = ElementTransitions.AdjacencyTolerance;
-            index.Query(element.Range.Start - tolerance, element.Range.End + tolerance, candidates);
-            var participants = ElementTransitions.GetParticipants(scene);
-            FlowInputKind possible = FlowInputKind.None;
-            foreach (Element candidate in candidates.Span)
+            if (!scope.IsMatteSource && !boundary.HasVisibleSide) return FlowInputKind.None;
+
+            Element[] inputs = [.. scope.Elements];
+            if (boundary.Outgoing is { } outgoing)
+                ReadSide(outgoing, boundary.GetOutgoingTime(scope.Time), inputs, scope);
+            if (boundary.Incoming is { } incoming)
+                ReadSide(incoming, boundary.GetIncomingTime(scope.Time), inputs, scope);
+            return FlowInputKind.Drawable;
+        }
+
+        private void ReadSide(Element side, MediaTime time, Element[] inputs, InputScope scope)
+        {
+            if (!scope.IsMatteSource && !side.IsVisibleInOutput.Value) return;
+
+            using var sideInputs = new PooledList<Element>(inputs.Length);
+            bool usesFrameInputs = time == scope.Time || !SceneCompositor.HasPortal(side);
+            bool mayUseFrameInputs = false;
+            if (!usesFrameInputs)
             {
-                if (!candidate.IsEnabled.Value || candidate.ZIndex.Value < span.First || candidate.ZIndex.Value > span.Last) continue;
-                if (candidate.HasTrackMatte || participants.Contains(candidate)) possible |= FlowInputKind.Drawable;
-                foreach (EngineObject obj in candidate.Objects)
+                foreach (EngineObject obj in side.Objects)
                 {
-                    if (!obj.IsEnabled.Value) continue;
-                    if (obj is IFlowOperator and not IFlowInputOperator) return FlowInputKind.Any;
-                    if (obj is PortalObject portal)
-                    {
-                        var layers = InputLayers(portal);
-                        if (layers.First <= layers.Last) return FlowInputKind.Any;
-                    }
-                    possible |= OutputKind(obj) & ~FlowInputKind.Sound;
+                    if (obj is not PortalObject { IsEnabled.Value: true } portal
+                        || !SceneCompositor.ReachesSharedFlowOperator(InputLayers(portal), inputs, time, scope.Time, participants!)) continue;
+                    if (portal.Count.HasExpression) mayUseFrameInputs = true;
+                    else usesFrameInputs = true;
                 }
             }
 
-            return possible;
+            if (usesFrameInputs)
+            {
+                sideInputs.AddRange(inputs.AsSpan());
+            }
+            else
+            {
+                using var atSideTime = new PooledList<Element>();
+                SceneCompositor.CollectFrameElements(scene, time, atSideTime, target, participants);
+                SceneCompositor.CollectHeldSideInputs(scene.ElementIndex, time, scope.Time, inputs,
+                    atSideTime, participants!, sideInputs);
+
+                if (mayUseFrameInputs)
+                {
+                    foreach (Element input in inputs)
+                    {
+                        if (!sideInputs.Contains(input)) sideInputs.Add(input);
+                    }
+                    scene.ElementIndex.Sort(sideInputs);
+                }
+            }
+
+            InputScope sideScope = CreateScope(sideInputs, time, scope.IsMatteSource);
+            sideScope = sideScope with
+            {
+                MayShareInputs = sideScope.MayShareInputs || scope.MayShareInputs || HasVariablePortal(side),
+                FrameTime = scope.Time,
+                SideTime = time,
+            };
+            using var offered = new PooledList<Element>(sideInputs.Count);
+            offered.AddRange(sideInputs.Span);
+            ReadElement(side, sideScope);
+            SceneCompositor.RemoveConsumedSideInputs(scope.Elements, sideInputs, offered.Span);
         }
+
+        private static bool HasVariablePortal(Element element)
+            => element.Objects.Any(obj => obj is PortalObject { IsEnabled.Value: true, Count.HasExpression: true });
     }
 }
