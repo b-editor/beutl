@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Beutl.Controls;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Media;
@@ -12,7 +13,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 {
-    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
+    private INotificationService Notifications => ControlNotifications.FromDataContextOrDefault(this);
 
     public PathFigureListItemEditor()
     {

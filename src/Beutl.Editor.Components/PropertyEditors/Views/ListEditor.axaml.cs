@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Controls;
 using Beutl.Controls.Behaviors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
@@ -36,7 +37,7 @@ public sealed class ListEditorDragBehavior : GenericDragBehavior
 
 public partial class ListEditor : UserControl
 {
-    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
+    private INotificationService Notifications => ControlNotifications.FromDataContextOrDefault(this);
 
     public ListEditor()
     {

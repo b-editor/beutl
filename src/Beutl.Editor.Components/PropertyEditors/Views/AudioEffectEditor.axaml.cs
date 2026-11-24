@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Audio.Effects;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
@@ -14,7 +15,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class AudioEffectEditor : UserControl
 {
-    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
+    private INotificationService Notifications => ControlNotifications.FromDataContextOrDefault(this);
 
     public AudioEffectEditor()
     {
