@@ -109,6 +109,29 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
     private MediaTime CalculateVideoTime(MediaTime timeSpan, Resource resource)
         => SpeedAdjustedTime.Map(Speed, resource.Speed, resource._speedIntegrator, timeSpan);
 
+    private MediaTime CalculateRequestedPosition(MediaTime time, Resource resource, MediaTime start)
+    {
+        if (Speed.GetKeyFrameAnimation() is KeyFrameAnimation<float> animation)
+        {
+            return animation.UseGlobalClock.Value
+                ? CalculateVideoTime(time, resource) - CalculateVideoTime(start, resource)
+                : CalculateVideoTime(time - start, resource);
+        }
+
+        return new MediaTime((long)Math.Round((time - start).Flicks * (double)(resource.Speed / 100f)));
+    }
+
+    private static MediaTime NormalizeRequestedPosition(Resource resource, MediaTime requested, MediaTime offset, bool normalizeReverse)
+    {
+        // Loop boundaries are measured in source time, including the offset.
+        if (resource.IsLoop && resource.Source is { IsDisposed: false } source && source.Duration > MediaTime.Zero)
+            return SpeedAdjustedTime.WrapIntoDuration(requested + offset, source.Duration) - offset;
+
+        return normalizeReverse && requested < MediaTime.Zero
+            ? (resource.Source?.Duration ?? MediaTime.Zero) + requested
+            : requested;
+    }
+
     public MediaTime? CalculateOriginalTime(Resource resource)
     {
         if (resource.Source == null) return null;
@@ -205,20 +228,17 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
         }
 
         protected override void OnDraw(GraphicsContext2D context)
+            => DrawInternal(context);
+
+        internal void DrawInternal(GraphicsContext2D context, MediaTime? previewSourcePosition = null)
         {
             if (Source?.IsDisposed == false)
             {
-                MediaTime pos = RequestedPosition + OffsetPosition;
-                int frame = Source.GetFrameIndex(pos);
-
+                MediaTime sourcePosition = previewSourcePosition ?? RequestedPosition + OffsetPosition;
+                int frame = Source.GetFrameIndex(sourcePosition);
                 context.DrawVideoSource(Source, frame, Brushes.Resource.White, null, TransferInterpretation);
-                RenderedPosition = RequestedPosition;
+                RenderedPosition = previewSourcePosition.HasValue ? sourcePosition - OffsetPosition : RequestedPosition;
             }
-        }
-
-        internal void DrawInternal(GraphicsContext2D context)
-        {
-            OnDraw(context);
         }
 
         protected override void Dispose(bool disposing)
@@ -259,45 +279,16 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
                     BumpVersion(ref versionBumped);
             }
 
-            UpdatePosition(video, context.Time);
+            MediaTime start = context.GetPreviewTimeRange(video)?.Start ?? video.TimeRange.Value.Start;
+            UpdatePosition(video, context.Time, start);
             if (GetType() == typeof(Resource))
                 CompleteReconciliation(context);
         }
 
-        private void UpdatePosition(SourceVideo obj, MediaTime time)
+        private void UpdatePosition(SourceVideo obj, MediaTime time, MediaTime start)
         {
-            // SpeedIntegrator.Integrate は「時刻 0 から入力時刻までの累積積分」を返すため、
-            // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始 (obj.TimeRange.Start) 時点の
-            // 積分を差し引いて要素ローカルから見た累積に揃える。
-            var anm = obj.Speed.GetKeyFrameAnimation();
-            if (anm is KeyFrameAnimation<float> keyFrameAnimation)
-            {
-                if (keyFrameAnimation.UseGlobalClock.Value)
-                {
-                    RequestedPosition = obj.CalculateVideoTime(time, this)
-                                      - obj.CalculateVideoTime(obj.TimeRange.Value.Start, this);
-                }
-                else
-                {
-                    RequestedPosition = obj.CalculateVideoTime(time - obj.TimeRange.Value.Start, this);
-                }
-            }
-            else
-            {
-                RequestedPosition = new MediaTime((long)Math.Round((time - obj.TimeRange.Value.Start).Flicks * (double)(_speed / 100)));
-            }
-
-            if (IsLoop && Source?.IsDisposed == false && Source.Duration > MediaTime.Zero)
-            {
-                // A frame is read at RequestedPosition + OffsetPosition, so the loop wraps that sum; wrapping the
-                // requested position alone read past the end of the source for the last OffsetPosition of each loop.
-                RequestedPosition = SpeedAdjustedTime.WrapIntoDuration(RequestedPosition + OffsetPosition, Source.Duration)
-                                    - OffsetPosition;
-            }
-            else if (RequestedPosition < MediaTime.Zero)
-            {
-                RequestedPosition = (Source?.Duration ?? MediaTime.Zero) + RequestedPosition;
-            }
+            RequestedPosition = NormalizeRequestedPosition(this, obj.CalculateRequestedPosition(time, this, start),
+                OffsetPosition, normalizeReverse: true);
 
             if (RequestedPosition != RenderedPosition)
             {

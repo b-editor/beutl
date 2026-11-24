@@ -83,6 +83,7 @@ public sealed partial class ElementResizeService
     {
         public MediaTime Min { get; } = min;
         public MediaTime Max { get; } = max;
+        public IReadOnlyList<SlippableMedia.Target> BackTargets => backs;
 
         public MediaTime Clamp(MediaTime requested)
         {
