@@ -1,7 +1,13 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Globalization;
+using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
+using Beutl.Editor.Services;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Shapes;
 using Beutl.NodeGraph;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 
@@ -17,6 +23,67 @@ public sealed class LibraryTabRegistrationTests
 
     [TearDown]
     public void DisposeLibrary() => _library.Dispose();
+
+    [AvaloniaTest]
+    [TestCase("en-US", "adjustment", typeof(SourceBackdrop))]
+    [TestCase("en-US", "parent", typeof(DrawableGroup))]
+    [TestCase("en-US", "null", typeof(DrawableGroup))]
+    [TestCase("en-US", "mask", typeof(GeometryShape))]
+    [TestCase("en-US", "matte", typeof(GeometryShape))]
+    [TestCase("en-US", "green screen", typeof(ChromaKey))]
+    [TestCase("en-US", "pixelate", typeof(MosaicEffect))]
+    [TestCase("en-US", "precomp", typeof(SceneDrawable))]
+    [TestCase("en-US", "remap", typeof(DrawableTimeController))]
+    [TestCase("en-US", "wiggle", typeof(ShakeEffect))]
+    [TestCase("ja-JP", "調整レイヤー", typeof(SourceBackdrop))]
+    [TestCase("ja-JP", "親", typeof(DrawableGroup))]
+    [TestCase("ja-JP", "ヌル", typeof(DrawableGroup))]
+    [TestCase("ja-JP", "adjustment", typeof(SourceBackdrop))]
+    [TestCase("ja-JP", "parent", typeof(DrawableGroup))]
+    [TestCase("ja-JP", "null", typeof(DrawableGroup))]
+    [TestCase("ja-JP", "トラックマット", typeof(GeometryShape))]
+    [TestCase("ja-JP", "グリーンバック", typeof(ChromaKey))]
+    [TestCase("es", "capa de ajuste", typeof(SourceBackdrop))]
+    [TestCase("es", "adjustment", typeof(SourceBackdrop))]
+    [TestCase("ko-KR", "조정 레이어", typeof(SourceBackdrop))]
+    [TestCase("ko-KR", "adjustment", typeof(SourceBackdrop))]
+    [TestCase("zh-CN", "调整图层", typeof(SourceBackdrop))]
+    [TestCase("zh-CN", "adjustment", typeof(SourceBackdrop))]
+    public async Task Built_in_items_are_searchable_by_terms_from_other_editors(string cultureName, string query, Type expectedType)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
+            LibraryRegistrar.RegisterAll(_library);
+            using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
+
+            await viewModel.Search(query, CancellationToken.None);
+
+            IEnumerable<Type> resultTypes = viewModel.SearchResult
+                .SelectMany(item => item.TryDragDrop())
+                .Select(binding => binding.Item2);
+            Assert.That(resultTypes, Has.Member(expectedType));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    [AvaloniaTest]
+    public void Every_built_in_item_has_a_description()
+    {
+        LibraryRegistrar.RegisterAll(_library);
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
+        LibraryItemViewModel[] items = viewModel.AllItems
+            .Where(item => item.Data is SingleTypeLibraryItem or MultipleTypeLibraryItem)
+            .ToArray();
+
+        Assert.That(items, Is.Not.Empty);
+        Assert.That(items.Where(item => string.IsNullOrWhiteSpace(item.Description)).Select(item => item.FullDisplayName),
+            Is.Empty, "Built-in items missing a description");
+    }
 
     // A format of its own, so that no other part of the app picks up the item while it is registered.
     private const string LateFormat = "Beutl.HeadlessUITests.LateItem";

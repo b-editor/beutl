@@ -3895,4 +3895,7 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>클립을 붙여넣기 전에 프로젝트를 저장하세요.</value>
   </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>아래 레이어의 내용을 현재 레이어로 가져옵니다 (레이어 참조, 흐름 입력 / layer reference, flow input).</value>
+  </data>
 </root>

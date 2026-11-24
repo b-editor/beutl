@@ -311,4 +311,46 @@
   <data name="RingModulatorEffect_Mix" xml:space="preserve">
     <value>Mezcla (%)</value>
   </data>
+  <data name="SourceSound_LibraryDescription" xml:space="preserve">
+    <value>Reproduce el audio de un archivo multimedia (clip de audio, fuente de sonido / audio clip, sound source).</value>
+  </data>
+  <data name="SceneSound_LibraryDescription" xml:space="preserve">
+    <value>Reproduce la mezcla de audio de otra escena (audio anidado, audio de precomposición / nested audio, precomp audio).</value>
+  </data>
+  <data name="SoundGroup_LibraryDescription" xml:space="preserve">
+    <value>Mezcla varios sonidos para ajustarlos en conjunto (bus de audio, submezcla, grupo de audio / audio bus, submix, audio group).</value>
+  </data>
+  <data name="DelayEffect_LibraryDescription" xml:space="preserve">
+    <value>Repite el sonido después de un retardo ajustable (eco, retardo de audio / echo, audio delay).</value>
+  </data>
+  <data name="EqualizerEffect_LibraryDescription" xml:space="preserve">
+    <value>Aumenta o reduce el nivel de cada banda de frecuencias (EQ, ecualizador gráfico, control de tono / EQ, graphic equalizer, tone control).</value>
+  </data>
+  <data name="CompressorEffect_LibraryDescription" xml:space="preserve">
+    <value>Reduce el nivel de los sonidos fuertes para estrechar el rango dinámico (compresión del rango dinámico, compresor de audio / dynamic range compression, audio compressor).</value>
+  </data>
+  <data name="LimiterEffect_LibraryDescription" xml:space="preserve">
+    <value>Mantiene los picos de audio por debajo del nivel establecido (limitador de picos, limitador de techo fijo / peak limiter, brickwall limiter).</value>
+  </data>
+  <data name="GateEffect_LibraryDescription" xml:space="preserve">
+    <value>Atenúa el audio cuando cae por debajo del nivel establecido (puerta de ruido, expansor / noise gate, expander).</value>
+  </data>
+  <data name="TimeStretchEffect_LibraryDescription" xml:space="preserve">
+    <value>Cambia la velocidad de reproducción del audio sin cambiar el tono (estiramiento de tiempo, cambio de velocidad, conservar tono / time stretch, speed change, preserve pitch).</value>
+  </data>
+  <data name="NoiseReductionEffect_LibraryDescription" xml:space="preserve">
+    <value>Reduce el ruido de fondo constante, como el siseo o el zumbido (reducción de ruido, eliminación de ruido / denoise, noise removal).</value>
+  </data>
+  <data name="PitchShiftEffect_LibraryDescription" xml:space="preserve">
+    <value>Sube o baja el tono del audio por semitonos (desplazamiento de tono, transposición / pitch shifter, transpose).</value>
+  </data>
+  <data name="ResamplingEffect_LibraryDescription" xml:space="preserve">
+    <value>Convierte el audio a la frecuencia de muestreo del proyecto (conversión de frecuencia de muestreo, remuestreo / sample rate conversion, SRC).</value>
+  </data>
+  <data name="VibratoEffect_LibraryDescription" xml:space="preserve">
+    <value>Hace oscilar el tono del audio de forma regular (modulación de tono, oscilación de tono / pitch modulation, pitch wobble).</value>
+  </data>
+  <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
+    <value>Multiplica el audio por un tono para darle un sonido metálico (modulación en anillo, voz metálica / ring modulation, metallic voice).</value>
+  </data>
 </root>
