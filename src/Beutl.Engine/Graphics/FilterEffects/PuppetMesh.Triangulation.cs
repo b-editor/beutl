@@ -34,7 +34,7 @@ internal sealed partial class PuppetMesh
         {
             Point anchor = anchors[i];
             if (anchor.X is >= 0 and <= 1 && anchor.Y is >= 0 and <= 1)
-                pins[i] = ToLocal(size, anchor);
+                pins[i] = SnapAnchorToContour(ToLocal(size, anchor), size, edges, gridX);
         }
 
         Edge[] scanEdges = edges.Where(edge => edge.Top.Y < edge.Bottom.Y).OrderBy(edge => edge.Top.Y).ToArray();
@@ -140,6 +140,53 @@ internal sealed partial class PuppetMesh
             vertexIndices.Add(point, index);
             return index;
         }
+    }
+
+    private static Vector2 SnapAnchorToContour(Vector2 point, Size size, List<Edge> edges, float[] gridX)
+    {
+        // A division and multiplication in single precision can put a boundary pin just outside the outline.
+        const double tolerance = 2d / (1 << 23);
+        double toleranceX = tolerance * size.Width;
+        double toleranceY = tolerance * size.Height;
+        double bestDistance = tolerance * tolerance;
+        Vector2 best = point;
+        foreach (Edge edge in edges)
+        {
+            if (point.X < edge.MinX - toleranceX || point.X > edge.MaxX + toleranceX
+                || point.Y < edge.Top.Y - toleranceY || point.Y > edge.Bottom.Y + toleranceY)
+                continue;
+
+            double dx = edge.Bottom.X - (double)edge.Top.X;
+            double dy = edge.Bottom.Y - (double)edge.Top.Y;
+            double ux = dx / size.Width;
+            double uy = dy / size.Height;
+            double vx = (point.X - (double)edge.Top.X) / size.Width;
+            double vy = (point.Y - (double)edge.Top.Y) / size.Height;
+            double fraction = Math.Clamp((vx * ux + vy * uy) / (ux * ux + uy * uy), 0, 1);
+            float y = (float)(edge.Top.Y + fraction * dy);
+            float x = (float)(edge.Top.X + fraction * dx);
+            if (dy != 0)
+            {
+                // Use the sweep's X for the rounded Y, including its exact strip seam crossings.
+                x = (float)edge.XAt(y);
+                int index = Array.BinarySearch(gridX, x);
+                if (index < 0)
+                {
+                    int strip = Math.Clamp(~index - 1, 0, gridX.Length - 2);
+                    x = edge.ClipX(y, gridX[strip], gridX[strip + 1]);
+                }
+            }
+
+            double sx = (x - (double)point.X) / size.Width;
+            double sy = (y - (double)point.Y) / size.Height;
+            double distance = sx * sx + sy * sy;
+            if (distance > bestDistance) continue;
+
+            best = new Vector2(x, y);
+            bestDistance = distance;
+        }
+
+        return best;
     }
 
     private static Strip BuildStrip(float left, float right, float[] gridY, List<Edge> edges, Edge[] scanEdges,

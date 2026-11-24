@@ -26,22 +26,32 @@ public sealed class PuppetTests
         Assert.That(mesh.TryMapToRest(mesh.Rest, new Vector2(60, 36), out _), Is.True);
     }
 
-    [Test]
-    public void PlacementAtTheEdgeBindsToTheRestMesh()
+    [TestCase(80, 10f, 10f)]
+    [TestCase(37, 3f, 3f)]
+    [TestCase(37, 2.5f, 4.5f)]
+    public void PlacementAtTheEdgeBindsToTheRestMesh(int width, float topLeft, float bottomLeft)
     {
-        Point[][] outlines = [[new(10, 0), new(80, 0), new(80, 64), new(10, 64)]];
-        var size = new Size(80, 64);
-        var raster = new PixelSize(80, 64);
+        const int height = 64;
+        const int y = 16;
+        float edgeX = topLeft + (bottomLeft - topLeft) * y / height;
+        Point[][] outlines = [[new(topLeft, 0), new(width, 0), new(width, height), new(bottomLeft, height)]];
+        var size = new Size(width, height);
+        var raster = new PixelSize(width, height);
         var mesh = PuppetMesh.Create(outlines, size, raster, [], out _)!;
         var placement = new Puppet.PinPlacement(new Rect(size), mesh, mesh.Rest);
 
-        var pin = placement.CreatePin(new Point(MathF.BitDecrement(10), 16));
+        var pin = placement.CreatePin(new Point(MathF.BitDecrement(edgeX), y));
         Assert.That(pin, Is.Not.Null);
         Point rest = pin!.RestPosition.Value;
-        Assert.That(rest, Is.EqualTo(new Point(10 / size.Width, 16 / size.Height)));
+        Assert.That(rest.X, Is.EqualTo(edgeX / size.Width).Within(1e-7));
+        Assert.That(rest.Y, Is.EqualTo(y / size.Height).Within(1e-7));
         Assert.That(pin.Position.Value, Is.EqualTo(rest));
-        var rebuilt = PuppetMesh.Create(outlines, size, raster, [rest], out _)!;
-        Assert.That(rebuilt.PinVertices[0], Is.GreaterThanOrEqualTo(0));
+        var outside = new Point((edgeX - 1) / width, y / (float)height);
+        var rebuilt = PuppetMesh.Create(outlines, size, raster, [rest, outside], out _)!;
+        int vertex = rebuilt.PinVertices[0];
+        Assert.That(vertex, Is.GreaterThanOrEqualTo(0));
+        Assert.That(rebuilt.Rest[vertex].X, Is.EqualTo(edgeX).Within(1e-5));
+        Assert.That(rebuilt.PinVertices[1], Is.EqualTo(-1));
     }
 
     [Test]
