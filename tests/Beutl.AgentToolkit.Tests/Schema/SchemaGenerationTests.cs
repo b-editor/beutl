@@ -355,7 +355,7 @@ public sealed class SchemaGenerationTests
             Assert.That(Property(nameof(Echo.StartingIntensity)).Unit, Is.EqualTo("percent"));
             Assert.That(Property(nameof(Echo.Decay)).Default, Is.EqualTo(70f));
             Assert.That(Property(nameof(Echo.Decay)).Unit, Is.EqualTo("percent"));
-            Assert.That(Property(nameof(Echo.BlendMode)).Default, Is.EqualTo(EchoBlendMode.NewestOnTop));
+            Assert.That(Property(nameof(Echo.BlendMode)).Default, Is.EqualTo(EchoBlendMode.Add));
             Assert.That(Property(nameof(Echo.BlendMode)).EnumValues, Is.EqualTo(new[] { nameof(EchoBlendMode.NewestOnTop), nameof(EchoBlendMode.Add) }));
             Assert.That(descriptor.Properties.Where(property => property.Animatable).Select(property => property.Name),
                 Is.EquivalentTo(animatedProperties));

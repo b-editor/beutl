@@ -139,6 +139,29 @@ public class EchoTests
         Assert.That(effect.TimeSamples.Select(copy => copy.Opacity), Is.All.EqualTo(expectedOpacity));
     }
 
+    // At the default Decay of 70%, copies 29 to 63 together are fainter than half an 8-bit step over black,
+    // 0.5 / 255 / 12.92, and copies 28 to 63 are not.
+    [TestCase(EchoBlendMode.NewestOnTop)]
+    [TestCase(EchoBlendMode.Add)]
+    public void CopiesTooFaintToChangeAnEightBitOutputAreNotEvaluated(EchoBlendMode blendMode)
+    {
+        var times = new List<MediaTime>();
+        var echo = new Echo { Count = { Value = 64 }, BlendMode = { Value = blendMode } };
+        var shape = new RectShape { FilterEffect = { Value = echo } };
+        shape.Width.Expression = new TimeRecordingExpression(10, times);
+        using var resource = shape.ToResource(new CompositionContext(MediaTime.FromSeconds(10)));
+        var samples = ((Echo.Resource)resource.FilterEffect!).TimeSamples;
+        double[] evaluated = [.. times.Select(time => time.ToSeconds()).Distinct().Order()];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(samples, Has.Count.EqualTo(29));
+            Assert.That(samples[^1].Opacity, Is.EqualTo(MathF.Pow(0.7f, 28)).Within(0.01).Percent);
+            Assert.That(evaluated, Has.Length.EqualTo(29), "one evaluation time for each copy drawn, the current one included");
+            Assert.That(evaluated[0], Is.EqualTo(10 - 28 * 0.1).Within(0.001), "nothing earlier than the last copy drawn");
+        }
+    }
+
     [Test]
     public void SerializationRestoresEchoInTheEffectChain()
     {
@@ -148,7 +171,7 @@ public class EchoTests
             Count = { Value = 7 },
             StartingIntensity = { Value = 85 },
             Decay = { Value = 60 },
-            BlendMode = { Value = EchoBlendMode.Add },
+            BlendMode = { Value = EchoBlendMode.NewestOnTop },
         };
         var shape = new RectShape
         {
@@ -164,7 +187,7 @@ public class EchoTests
             Assert.That(actual.Count.Value, Is.EqualTo(7));
             Assert.That(actual.StartingIntensity.Value, Is.EqualTo(85));
             Assert.That(actual.Decay.Value, Is.EqualTo(60));
-            Assert.That(actual.BlendMode.Value, Is.EqualTo(EchoBlendMode.Add));
+            Assert.That(actual.BlendMode.Value, Is.EqualTo(EchoBlendMode.NewestOnTop));
         }
     }
 
@@ -179,5 +202,23 @@ public class EchoTests
     {
         property.SetValidator(new MultipleValidator<T>([]));
         property.Value = value;
+    }
+
+    // Records the time of every evaluation of the property it is set on.
+    private sealed class TimeRecordingExpression(float value, List<MediaTime> times) : IExpression<float>
+    {
+        public string ExpressionString => "recorded";
+
+        public float Evaluate(ExpressionContext context)
+        {
+            times.Add(context.Time);
+            return value;
+        }
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
     }
 }
