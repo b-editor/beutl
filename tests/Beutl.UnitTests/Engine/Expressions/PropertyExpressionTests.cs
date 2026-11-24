@@ -194,7 +194,7 @@ public class PropertyExpressionTests
         var element = new Element { Length = { Value = scene.Duration.Value } };
         element.Objects.Add(shape);
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager);
+        using var compositor = new SceneCompositor(scene, TestFonts.RenderServices);
 
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
 

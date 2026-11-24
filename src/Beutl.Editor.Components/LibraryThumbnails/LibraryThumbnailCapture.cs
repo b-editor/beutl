@@ -1,6 +1,7 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.LibraryThumbnails;
+using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,9 +21,8 @@ internal static class LibraryThumbnailCapture
             return null;
 
         var clock = editor.GetService(typeof(IEditorClock)) as IEditorClock;
-        var configuration = editor.GetRequiredService<GlobalConfiguration>();
         return cancellationToken => LibraryThumbnailSubject.CaptureElementAsync(
-            editor.GetRequiredService<Beutl.Media.FontManager>(), element, clock?.CurrentTime.Value ?? element.Start.Value, cancellationToken, configuration.EditorConfig, configuration.ProxyStoreConfig, ExtensionGuard.FindService<DecoderRegistry>(editor));
+            CreateRenderServices(editor), element, clock?.CurrentTime.Value ?? element.Start.Value, cancellationToken);
     }
 
     // Both sides of an element's edge.
@@ -31,7 +31,16 @@ internal static class LibraryThumbnailCapture
         if (element == null)
             return null;
 
+        return cancellationToken => LibraryThumbnailSubject.CaptureEdgeAsync(CreateRenderServices(editor), element, edge, cancellationToken);
+    }
+
+    private static SceneRenderServices CreateRenderServices(IServiceProvider editor)
+    {
         var configuration = editor.GetRequiredService<GlobalConfiguration>();
-        return cancellationToken => LibraryThumbnailSubject.CaptureEdgeAsync(editor.GetRequiredService<Beutl.Media.FontManager>(), element, edge, cancellationToken, configuration.EditorConfig, configuration.ProxyStoreConfig, ExtensionGuard.FindService<DecoderRegistry>(editor));
+        return new SceneRenderServices(
+            editor.GetRequiredService<FontManager>(),
+            ExtensionGuard.FindService<DecoderRegistry>(editor),
+            configuration.EditorConfig,
+            configuration.ProxyStoreConfig);
     }
 }

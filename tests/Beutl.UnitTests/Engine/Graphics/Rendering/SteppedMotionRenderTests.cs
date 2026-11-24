@@ -25,7 +25,7 @@ public sealed class SteppedMotionRenderTests
             var effect = new SteppedMotion { FrameRate = { Value = 2 } };
             shape.FilterEffect.Value = effect;
 
-            using var renderer = new SceneRenderer(MotionBlurTests.SceneWith(shape), TestFonts.Manager, RenderIntent.Preview);
+            using var renderer = new SceneRenderer(MotionBlurTests.SceneWith(shape), TestFonts.RenderServices, RenderIntent.Preview);
             using Bitmap atSampleTime = Render(0.5);
             using Bitmap held = Render(0.83);
             using Bitmap next = Render(1);

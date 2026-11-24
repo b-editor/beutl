@@ -24,8 +24,8 @@ public class FileBrowserTemplateThumbnailTests
     public void SetUpTemplates()
     {
         _decoders = new DecoderRegistry(new());
-        _templates = new ObjectTemplateService(TestFonts.Manager,
-            Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), Guid.NewGuid().ToString("N")), decoders: _decoders);
+        _templates = new ObjectTemplateService(new SceneRenderServices(TestFonts.Manager, _decoders),
+            Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), Guid.NewGuid().ToString("N")));
         _thumbnails = new FileThumbnailService(_decoders, _templates);
     }
 

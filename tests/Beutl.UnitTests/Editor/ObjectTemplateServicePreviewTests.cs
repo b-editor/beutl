@@ -14,7 +14,7 @@ public class ObjectTemplateServicePreviewTests
     private ObjectTemplateService _templates = null!;
 
     [SetUp]
-    public void SetUpTemplates() => _templates = new ObjectTemplateService(TestFonts.Manager,
+    public void SetUpTemplates() => _templates = new ObjectTemplateService(TestFonts.RenderServices,
         Path.Combine(Path.GetTempPath(), $"beutl-templates-{Guid.NewGuid():N}"));
 
     [TearDown]

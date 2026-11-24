@@ -108,8 +108,7 @@ public sealed partial class EditViewModel
         var channelLayout = new ReactivePropertySlim<AudioChannelLayout>(project.GetChannelLayout())
             .DisposeWith(_disposables);
         Composer = scene.FrameSize.GetObservable().CombineLatest(channelLayout)
-            .Select(t => new SceneComposer(Scene, this.GetRequiredService<Beutl.Media.FontManager>(), editorConfig: this.GetRequiredService<GlobalConfiguration>().EditorConfig,
-                proxyConfig: this.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig, decoders: this.GetRequiredService<DecoderRegistry>())
+            .Select(t => new SceneComposer(Scene, CreateRenderServices())
             {
                 SampleRate = project.GetSampleRate(),
                 ChannelLayout = t.Second
@@ -232,16 +231,23 @@ public sealed partial class EditViewModel
         }
     }
 
+    private SceneRenderServices CreateRenderServices()
+    {
+        GlobalConfiguration configuration = this.GetRequiredService<GlobalConfiguration>();
+        return new SceneRenderServices(
+            this.GetRequiredService<Beutl.Media.FontManager>(),
+            this.GetRequiredService<DecoderRegistry>(),
+            configuration.EditorConfig,
+            configuration.ProxyStoreConfig);
+    }
+
     // A renderer that draws as the preview does: the same fonts, working-scale ceiling and media, original or proxy.
     internal SceneRenderer CreatePreviewRenderer(Scene scene, float scale, bool disableResourceShare = false)
     {
-        GlobalConfiguration configuration = this.GetRequiredService<GlobalConfiguration>();
         return new SceneRenderer(
-            scene, this.GetRequiredService<Beutl.Media.FontManager>(), RenderIntent.Preview, scale,
+            scene, CreateRenderServices(), RenderIntent.Preview, scale,
             disableResourceShare: disableResourceShare,
-            maxWorkingScale: WorkingScaleCeiling.Preview(scale),
-            editorConfig: configuration.EditorConfig,
-            proxyConfig: configuration.ProxyStoreConfig, decoders: this.GetRequiredService<DecoderRegistry>());
+            maxWorkingScale: WorkingScaleCeiling.Preview(scale));
     }
 
     private IObservable<long> CreateFrameCacheMaxSize()

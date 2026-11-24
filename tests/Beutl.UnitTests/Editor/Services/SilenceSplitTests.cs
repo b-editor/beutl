@@ -146,7 +146,7 @@ public class SilenceSplitTests
         }
 
         // Normal playback still uses its silent fallback, even after analysis failed.
-        using var compositor = new SceneCompositor(h.Scene, TestFonts.Manager, decoders: _decoders);
+        using var compositor = new SceneCompositor(h.Scene, new SceneRenderServices(TestFonts.Manager, _decoders));
         using var composer = new Composer();
         using var output = composer.Compose(Range(1, 2), compositor.EvaluateAudio(Range(1, 2)));
         Assert.That(output, Is.Not.Null);

@@ -28,7 +28,7 @@ public partial class TransitionRenderTests
             var transition = (ClipTransition)Activator.CreateInstance(type)!;
             if (transition is WipeTransition wipe) wipe.Shape.Value = shape;
             (var scene, _) = CreateScene(transition, withOutgoing: true);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery);
 
             // Reuse the resource while moving both forwards and backwards through the transition.
             foreach (double progress in new[] { 0, 0.23, 0.5, 0.77, 1, 0.23 })
@@ -67,7 +67,7 @@ public partial class TransitionRenderTests
                 if (transition is WipeTransition wipe) wipe.Shape.Value = shape;
                 (var scene, var incoming) = CreateScene(transition, withOutgoing);
                 incoming.Fill.Value = new SolidColorBrush(Color.FromArgb(128, 0, 0, 255));
-                using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+                using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery);
                 renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
                 using Bitmap snapshot = renderer.Snapshot();
                 using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
@@ -171,7 +171,7 @@ public partial class TransitionRenderTests
         {
             var transition = new WipeTransition();
             (var scene, _) = CreateScene(transition, withOutgoing: true);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery);
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery);
             foreach (WipeTransitionShape shape in new[] { WipeTransitionShape.Box, WipeTransitionShape.Diamond, WipeTransitionShape.Linear, WipeTransitionShape.Box })
             {
                 transition.Shape.Value = shape;

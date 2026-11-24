@@ -184,7 +184,7 @@ public class MotionBlurTests
         scene.Children.Add(holder);
         var portalInput = Rectangle();
         scene.Children.Add(Clip(0.5, 0.5, 1, portalInput));
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders);
+        using var compositor = new SceneCompositor(scene, new SceneRenderServices(TestFonts.Manager, _decoders));
 
         foreach (bool enabled in new[] { false, true, false })
         {
@@ -215,7 +215,7 @@ public class MotionBlurTests
         var content = Rectangle();
         var child = new DrawableGroup { FilterEffect = { Value = Blur() }, Children = { content } };
         var parent = new DrawableGroup { Children = { child } };
-        using var compositor = new SceneCompositor(SceneWith(sibling, parent), TestFonts.Manager, decoders: _decoders);
+        using var compositor = new SceneCompositor(SceneWith(sibling, parent), new SceneRenderServices(TestFonts.Manager, _decoders));
         var frame = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
         var container = frame.Objects.OfType<DrawableGroup.Resource>().Single();
         var source = container.Children.OfType<DrawableGroup.Resource>().Single();
@@ -239,7 +239,7 @@ public class MotionBlurTests
             media.ReadFrom(new Uri(path));
             scene.Children.Add(Clip(i, 1, 1, new SourceVideo { Source = { Value = media } }));
         }
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(scene, new SceneRenderServices(TestFonts.Manager, _decoders)) { ForceOriginalSource = true };
         var visited = new HashSet<SourceVideo.Resource>();
         foreach (int i in Enumerable.Range(0, 10).Concat([0, 5, 9]))
         {

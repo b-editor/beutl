@@ -150,7 +150,7 @@ public class VideoSourceTests
         var application = new BeutlApplication { Project = { Value = new Project() } };
         application.Project.Value!.Items.Add(scene);
         scene.Children.Add(element);
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders)
+        using var compositor = new SceneCompositor(scene, new SceneRenderServices(TestFonts.Manager, _decoders))
         {
             DisableResourceShare = disableResourceShare,
             ForceOriginalSource = true,

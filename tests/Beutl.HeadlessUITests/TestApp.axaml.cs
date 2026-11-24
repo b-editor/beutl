@@ -31,7 +31,7 @@ public sealed class TestApp : Application
         Tutorials = new Beutl.Services.Tutorials.TutorialServiceHandler(Configuration.TutorialConfig);
         Decoders = new DecoderRegistry(Configuration.ExtensionConfig);
         Fonts = new Beutl.Media.FontManager(Configuration.FontConfig);
-        Templates = new(Fonts, Configuration.EditorConfig, Configuration.ProxyStoreConfig, Decoders);
+        Templates = new(new SceneRenderServices(Fonts, Decoders, Configuration.EditorConfig, Configuration.ProxyStoreConfig));
         Services = new Beutl.Editor.Services.EditorServiceRegistry()
             .Add(() => Configuration)
             .Add(() => Fonts)
