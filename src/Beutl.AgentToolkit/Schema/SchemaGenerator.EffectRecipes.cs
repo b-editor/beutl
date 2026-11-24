@@ -156,7 +156,7 @@ public sealed partial class SchemaGenerator
                     CreateHighContrast(8))),
             CreateEffectRecipe(
                 "organic-shader-field",
-                "SKSL shader field for organic heat, ink, glass, smoke, grain, or caustic motion that would look flat as stacked gradients alone.",
+                "SKSL shader field for organic heat, ink, glass, smoke, or caustic motion that would look flat as stacked gradients alone.",
                 ["shader", "organic", "thermal", "ink", "glass", "field", "motion"],
                 CreateFilterEffectGroup(
                     CreateOrganicShaderEffect(),
