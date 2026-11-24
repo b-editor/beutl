@@ -41,10 +41,6 @@ public sealed partial class Echo : FilterEffect
 
     public new partial class Resource
     {
-        // The copies left out may add up to this opacity, which moves an 8-bit output by under half a step even over
-        // black, where sRGB is 12.92 times steeper than linear light.
-        private const float NegligibleOpacity = 0.5f / 255f / 12.92f;
-
         private bool _drawInReverse;
 
         internal IReadOnlyList<(FilterEffectInputSample Sample, float Opacity)> TimeSamples { get; private set; } = [];
@@ -66,21 +62,13 @@ public sealed partial class Echo : FilterEffect
             if ((count == 1 || decay == 0) && opacity == 1) return false;
 
             _drawInReverse = interval < 0;
-            Span<float> opacities = stackalloc float[count];
-            for (int index = 0; index < count; index++, opacity *= decay)
-                opacities[index] = opacity;
-
-            // Whether drawn over or added to the others, a copy changes the output by at most its opacity, so the
-            // faintest copies together change it by at most the sum of theirs. Skip evaluating those.
-            float omitted = 0;
-            while (count > 0 && omitted + opacities[count - 1] < NegligibleOpacity)
-                omitted += opacities[--count];
-
+            // Keep every copy whose opacity has not reached 0: an HDR or exposed-up input can make a faint copy visible.
             var samples = new List<(FilterEffectInputSample Sample, float Opacity)>(count);
-            for (int index = 0; index < count; index++)
+            for (int index = 0; index < count && opacity > 0; index++)
             {
                 MediaTime time = input.EvaluationContext.Time + MediaTime.FromSeconds(index * interval);
-                samples.Add((input.Evaluate(time), opacities[index]));
+                samples.Add((input.Evaluate(time), opacity));
+                opacity *= decay;
             }
             TimeSamples = samples;
             return true;

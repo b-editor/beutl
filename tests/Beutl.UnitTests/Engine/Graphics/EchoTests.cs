@@ -139,11 +139,11 @@ public class EchoTests
         Assert.That(effect.TimeSamples.Select(copy => copy.Opacity), Is.All.EqualTo(expectedOpacity));
     }
 
-    // At the default Decay of 70%, copies 29 to 63 together are fainter than half an 8-bit step over black,
-    // 0.5 / 255 / 12.92, and copies 28 to 63 are not.
+    // A faint copy can still show: an HDR or exposed-up input carries values far above 1, so no copy is skipped for its
+    // opacity alone.
     [TestCase(EchoBlendMode.NewestOnTop)]
     [TestCase(EchoBlendMode.Add)]
-    public void CopiesTooFaintToChangeAnEightBitOutputAreNotEvaluated(EchoBlendMode blendMode)
+    public void FaintCopiesAreStillEvaluated(EchoBlendMode blendMode)
     {
         var times = new List<MediaTime>();
         var echo = new Echo { Count = { Value = 64 }, BlendMode = { Value = blendMode } };
@@ -151,14 +151,13 @@ public class EchoTests
         shape.Width.Expression = new TimeRecordingExpression(10, times);
         using var resource = shape.ToResource(new CompositionContext(MediaTime.FromSeconds(10)));
         var samples = ((Echo.Resource)resource.FilterEffect!).TimeSamples;
-        double[] evaluated = [.. times.Select(time => time.ToSeconds()).Distinct().Order()];
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(samples, Has.Count.EqualTo(29));
-            Assert.That(samples[^1].Opacity, Is.EqualTo(MathF.Pow(0.7f, 28)).Within(0.01).Percent);
-            Assert.That(evaluated, Has.Length.EqualTo(29), "one evaluation time for each copy drawn, the current one included");
-            Assert.That(evaluated[0], Is.EqualTo(10 - 28 * 0.1).Within(0.001), "nothing earlier than the last copy drawn");
+            Assert.That(samples, Has.Count.EqualTo(64));
+            Assert.That(samples[^1].Opacity, Is.EqualTo(MathF.Pow(0.7f, 63)).Within(0.01).Percent);
+            Assert.That(times.Select(time => time.ToSeconds()).Distinct().Count(), Is.EqualTo(64),
+                "one evaluation time for each copy, the current one included");
         }
     }
 
