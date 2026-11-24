@@ -35,11 +35,11 @@ public sealed partial class LensChromaticAberration : FilterEffect
                 // rounding where an edge falls on a pixel boundary.
                 vec2 first = ceil((source.bounds.xy - source.raster.xy) * source.pixels.z - 1.0 / 64.0);
                 vec2 last = floor((source.bounds.xy + source.bounds.zw - source.raster.xy) * source.pixels.z + 1.0 / 64.0) - 1.0;
-                // A picture narrower than a whole pixel repeats its middle.
+                // Along an axis where no source pixel lies wholly inside, each output pixel reads its own place, which
+                // carries its own coverage, so the channels do not separate along that axis.
                 narrow = lessThan(last, first);
-                vec2 middle = source.bounds.xy + source.bounds.zw * 0.5;
-                vec2 low = mix(source.raster.xy + (first + 0.5) / source.pixels.z, middle, narrow);
-                vec2 high = mix(source.raster.xy + (last + 0.5) / source.pixels.z, middle, narrow);
+                vec2 low = mix(source.raster.xy + (first + 0.5) / source.pixels.z, position, narrow);
+                vec2 high = mix(source.raster.xy + (last + 0.5) / source.pixels.z, position, narrow);
                 redAt = clamp(redAt, low, high);
                 greenAt = clamp(greenAt, low, high);
                 blueAt = clamp(blueAt, low, high);
@@ -57,8 +57,8 @@ public sealed partial class LensChromaticAberration : FilterEffect
                         * outputFrame.pixels.z,
                     0.0, 1.0);
                 covered = mix(covered, round(covered), lessThan(min(covered, 1.0 - covered), vec2(1.0 / 64.0)));
-                // Along an axis narrower than a pixel, the middle read already carries the picture's coverage, so only
-                // keep the pixels the picture touches.
+                // Along an axis narrower than a pixel, each read already carries its pixel's coverage, so only keep the
+                // pixels the picture touches.
                 covered = mix(covered, ceil(covered), narrow);
                 color *= covered.x * covered.y;
             }

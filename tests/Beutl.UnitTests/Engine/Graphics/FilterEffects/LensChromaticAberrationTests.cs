@@ -249,6 +249,28 @@ public sealed class LensChromaticAberrationTests
         });
     }
 
+    [Test]
+    public void RepeatedEdgesKeepEachColumnsCoverageOfANarrowPictureAcrossTwoPixels()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            const int surface = 1000;
+            // From x = 100.25 to 101.5: three quarters of the first column and half of the second, and no whole column.
+            var content = new Rect(100.25f, 100, 1.25f, 800);
+            using Bitmap bitmap = FilteredShapeHarness.Render(content, new LensChromaticAberration(), fullBleed: true,
+                surface, new Rect(0, 0, surface, surface));
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(PixelAt(bitmap, 100, 500).Alpha, Is.EqualTo(0.75f).Within(0.05f), "the three-quarters-covered column");
+                Assert.That(PixelAt(bitmap, 101, 500).Alpha, Is.EqualTo(0.5f).Within(0.05f), "the half-covered column");
+                Assert.That(PixelAt(bitmap, 99, 500), Is.EqualTo(default(Rgba)), "left of the picture");
+                Assert.That(PixelAt(bitmap, 102, 500), Is.EqualTo(default(Rgba)), "right of the picture");
+            }
+        });
+    }
+
     [TestCase(1.5f)]
     [TestCase(2f)]
     public void RepeatedEdgesKeepTheirColorsAtOtherDensities(float scale)
