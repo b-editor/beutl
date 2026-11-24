@@ -15,10 +15,7 @@ internal sealed class PuppetPinItemViewModel : PropertyEditorViewModel
     public PuppetPinItemViewModel(IPropertyAdapter<PuppetPin?> item) : base(item)
     {
         Position = item.GetObservable().CombineLatest(ObserveExtensionProvider())
-            .Select(pair => pair.First is { } pin
-                ? this.GetRequiredService<IPropertyEditorFactory>()
-                    .CreateListItemEditor(PropertyAdapterFactory.CreateAdapter(pin.Position, pin)) as PropertyEditorViewModel
-                : null)
+            .Select(pair => pair.First is { } pin ? CreatePositionEditor(pin) : null)
             .DisposePreviousValue()
             .Do(model => model?.Accept(new ChildVisitor(this)))
             .ToReadOnlyReactivePropertySlim()
@@ -40,5 +37,15 @@ internal sealed class PuppetPinItemViewModel : PropertyEditorViewModel
     {
         base.Dispose(disposing);
         Position.Value?.Dispose();
+    }
+
+    private PropertyEditorViewModel? CreatePositionEditor(PuppetPin pin)
+    {
+        var editor = this.GetRequiredService<IPropertyEditorFactory>()
+            .CreateListItemEditor(PropertyAdapterFactory.CreateAdapter(pin.Position, pin)) as PropertyEditorViewModel;
+        // Reset puts the pin back on the point of the picture it holds, not on the input's top-left corner.
+        if (editor is not null)
+            editor.DefaultValueOverride = () => pin.RestPosition.Value;
+        return editor;
     }
 }

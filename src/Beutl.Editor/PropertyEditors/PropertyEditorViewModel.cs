@@ -212,6 +212,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public bool CanReset => GetDefaultValue() != null;
 
+    // The value that takes the place of the property's default, for a host that knows where this one rests: a pin
+    // resets to the point of the picture it holds, not to the origin.
+    internal Func<object?>? DefaultValueOverride { get; set; }
+
     public string Header { get; }
 
     public string FormatHeader(string displayName) => _unitSymbol is null ? displayName : $"{displayName} ({_unitSymbol})";
@@ -489,7 +493,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     protected object? GetDefaultValue()
     {
-        return PropertyAdapter.GetDefaultValue();
+        return DefaultValueOverride is { } defaultValue ? defaultValue() : PropertyAdapter.GetDefaultValue();
     }
 
     protected virtual void Dispose(bool disposing)
