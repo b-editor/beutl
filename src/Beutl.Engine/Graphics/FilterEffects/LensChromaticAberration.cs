@@ -28,6 +28,7 @@ public sealed partial class LensChromaticAberration : FilterEffect
             vec2 redAt = pc.center + offset * pc.inverseScale.x;
             vec2 greenAt = position;
             vec2 blueAt = pc.center + offset * pc.inverseScale.y;
+            bvec2 narrow = bvec2(false);
             if (pc.repeatEdgePixels != 0.0) {
                 // Reads stop at the centers of the outermost source pixels that lie wholly inside its bounds, so a read
                 // past an edge repeats that edge, never a padded apron or a partly covered pixel. The tolerance absorbs
@@ -35,7 +36,7 @@ public sealed partial class LensChromaticAberration : FilterEffect
                 vec2 first = ceil((source.bounds.xy - source.raster.xy) * source.pixels.z - 1.0 / 64.0);
                 vec2 last = floor((source.bounds.xy + source.bounds.zw - source.raster.xy) * source.pixels.z + 1.0 / 64.0) - 1.0;
                 // A picture narrower than a whole pixel repeats its middle.
-                bvec2 narrow = lessThan(last, first);
+                narrow = lessThan(last, first);
                 vec2 middle = source.bounds.xy + source.bounds.zw * 0.5;
                 vec2 low = mix(source.raster.xy + (first + 0.5) / source.pixels.z, middle, narrow);
                 vec2 high = mix(source.raster.xy + (last + 0.5) / source.pixels.z, middle, narrow);
@@ -56,6 +57,9 @@ public sealed partial class LensChromaticAberration : FilterEffect
                         * outputFrame.pixels.z,
                     0.0, 1.0);
                 covered = mix(covered, round(covered), lessThan(min(covered, 1.0 - covered), vec2(1.0 / 64.0)));
+                // Along an axis narrower than a pixel, the middle read already carries the picture's coverage, so only
+                // keep the pixels the picture touches.
+                covered = mix(covered, ceil(covered), narrow);
                 color *= covered.x * covered.y;
             }
             outColor = color;
