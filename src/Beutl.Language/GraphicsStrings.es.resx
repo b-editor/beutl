@@ -2193,7 +2193,7 @@
     <value>Cadencia (fps)</value>
   </data>
   <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
-    <value>Número de muestras por segundo. Un valor menor mantiene cada fotograma durante más tiempo.</value>
+    <value>Número de muestras por segundo. Un valor menor mantiene cada fotograma durante más tiempo. Para variar la cadencia con el tiempo, use fotogramas clave: la de una expresión se aplica a todo el tiempo desde el inicio.</value>
   </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>Modo alfa</value>

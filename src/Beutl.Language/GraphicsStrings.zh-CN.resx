@@ -2193,7 +2193,7 @@
     <value>帧率 (fps)</value>
   </data>
   <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
-    <value>每秒采样次数。数值越低，每帧保持的时间越长。</value>
+    <value>每秒采样次数。数值越低，每帧保持的时间越长。若要随时间改变，请使用关键帧；表达式给出的帧率会应用于从开始起的全部时间。</value>
   </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>透明度模式</value>

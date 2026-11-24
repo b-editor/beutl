@@ -2193,7 +2193,7 @@
     <value>프레임률 (fps)</value>
   </data>
   <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
-    <value>초당 샘플 수입니다. 값이 낮을수록 각 프레임을 더 오래 유지합니다.</value>
+    <value>초당 샘플 수입니다. 값이 낮을수록 각 프레임을 더 오래 유지합니다. 시간에 따라 바꾸려면 키프레임을 사용하세요. 식으로 지정한 프레임률은 시작부터의 시간 전체에 적용됩니다.</value>
   </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>알파 모드</value>
