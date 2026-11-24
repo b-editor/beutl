@@ -41,6 +41,7 @@ internal sealed partial class GitCliVersionControlService
         string? origin = await GetOriginUrlAsync(repository, runner, cancellationToken).ConfigureAwait(false);
         VerifyOrigin(origin);
         string url = remote.Url;
+        Dictionary<string, string[]>? previousCredentials = null;
         try
         {
             if (remote.IsHostedConnection)
@@ -49,27 +50,44 @@ internal sealed partial class GitCliVersionControlService
             {
                 string? helper = await remote.StoreCredentialsAsync(repository, runner, cancellationToken)
                     .ConfigureAwait(false);
-                await remote.ConfigureLocalCredentialsAsync(repository, runner, helper, cancellationToken)
+                Dictionary<string, string[]> config = remote.GetLocalCredentialConfig(helper);
+                if (remote.IsHostedConnection)
+                {
+                    previousCredentials = await GitRemoteUrl.ReadLocalCredentialConfigAsync(repository, runner,
+                        config.Keys, cancellationToken).ConfigureAwait(false);
+                }
+                await GitRemoteUrl.WriteLocalCredentialConfigAsync(repository, runner, config, cancellationToken)
                     .ConfigureAwait(false);
             }
-            if (origin is null)
-            {
-                await runner.RunAsync(repository, ["remote", "add", "origin", "--", url],
-                    GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                if (verifyOrigin)
-                    VerifyOrigin(await GetOriginUrlAsync(repository, runner, cancellationToken).ConfigureAwait(false));
 
-                // Preserve any explicitly configured push destination, as git remote set-url does.
-                await runner.RunAsync(repository, ["config", "--local", "--replace-all", "remote.origin.url", url],
-                    GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
-            }
+            if (origin is not null && verifyOrigin)
+                VerifyOrigin(await GetOriginUrlAsync(repository, runner, cancellationToken).ConfigureAwait(false));
+
+            cancellationToken.ThrowIfCancellationRequested();
+            // The final hosted config write and token selection commit together.
+            string[] arguments = origin is null
+                ? ["remote", "add", "origin", "--", url]
+                : ["config", "--local", "--replace-all", "remote.origin.url", url];
+            await runner.RunAsync(repository, arguments, GitCommandOptions.Local,
+                remote.IsHostedConnection ? CancellationToken.None : cancellationToken).ConfigureAwait(false);
         }
-        catch (GitOperationException ex) when (remote.HasCredentials)
+        catch (Exception ex)
         {
-            throw new GitOperationException(ex.ExitCode, remote.RedactDiagnostics(ex.Stderr));
+            if (previousCredentials is not null)
+            {
+                try
+                {
+                    await GitRemoteUrl.WriteLocalCredentialConfigAsync(repository, runner, previousCredentials,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception cleanupFailure)
+                {
+                    LogWarningBestEffort(cleanupFailure, "Failed to restore local Git credential configuration.");
+                }
+            }
+            if (ex is GitOperationException gitError && remote.HasCredentials)
+                throw new GitOperationException(gitError.ExitCode, remote.RedactDiagnostics(gitError.Stderr));
+            throw;
         }
 
         await TryRaiseLfsQuotaNoticeIfNeededAsync(
@@ -104,10 +122,21 @@ internal sealed partial class GitCliVersionControlService
         string probe = $"beutl-origin-{Guid.NewGuid():N}";
         string[] arguments = hasPushUrls
             ? ["remote", "get-url", "--push", "--all", "origin"]
-            : ["-c", $"remote.{probe}.url={url}", "remote", "get-url", "--push", "--all", probe];
+            : ["-c", $"remote.{probe}.url={url}", "remote", "--verbose"];
         GitCommandResult effective = await runner.RunAsync(repository, arguments,
             GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
         string[] destinations = effective.Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        if (!hasPushUrls)
+        {
+            // Verbose listing includes remotes supplied only through command configuration.
+            string prefix = probe + "\t";
+            const string suffix = " (push)";
+            destinations = destinations
+                .Where(line => line.StartsWith(prefix, StringComparison.Ordinal) && line.EndsWith(suffix, StringComparison.Ordinal))
+                .Select(line => line[prefix.Length..^suffix.Length])
+                .ToArray();
+        }
+
         if (!HostedGitRemoteUrl.TryParse(url, url, out HostedGitRemoteUrl? target)
             || destinations.Length == 0
             || destinations.Any(destination => !HostedGitRemoteUrl.TryParse(destination, url, out HostedGitRemoteUrl? actual)

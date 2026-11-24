@@ -16,18 +16,54 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         const string original = "https://example.invalid/other.git";
         const string selected = "https://git.example.invalid/api/v3/git/a3a8927c-bcf4-4f6e-91f4-64897320378e.git";
         await RunGitAsync("remote", "add", "origin", original);
+        using var service = CreateService();
+        GitRemoteUrl remote = GitRemoteUrl.WithHostedCredentials(new Uri(selected), "example-token");
+        string rewrite = $"url.{original}.pushInsteadOf";
+        await RunGitAsync("config", "--local", rewrite, selected);
+        await AssertPushDestinationMismatchAsync();
+        await RunGitAsync("config", "--local", "--unset", rewrite);
+
         await RunGitAsync("config", "--add", "remote.origin.pushurl", selected);
         await RunGitAsync("config", "--add", "remote.origin.pushurl", original);
-        using var service = CreateService();
-
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SetRemoteAsync(
-            GitRemoteUrl.WithHostedCredentials(new Uri(selected), "example-token"), original, CancellationToken.None));
-        Assert.That(failure!.Message, Is.EqualTo(Strings.HostedGit_PushDestinationMismatch));
-        Assert.That((await RunGitAsync("config", "--get", "remote.origin.url")).Stdout.Trim(), Is.EqualTo(original));
+        await AssertPushDestinationMismatchAsync();
 
         await service.SetRemoteAsync("https://example.invalid/custom.git", CancellationToken.None);
         Assert.That((await RunGitAsync("remote", "get-url", "--push", "--all", "origin")).Stdout.Split(
             ['\r', '\n'], StringSplitOptions.RemoveEmptyEntries), Is.EqualTo(new[] { selected, original }));
+
+        async Task AssertPushDestinationMismatchAsync()
+        {
+            var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.SetRemoteAsync(remote, original, CancellationToken.None));
+            Assert.That(failure!.Message, Is.EqualTo(Strings.HostedGit_PushDestinationMismatch));
+            Assert.That((await RunGitAsync("config", "--get", "remote.origin.url")).Stdout.Trim(), Is.EqualTo(original));
+        }
+    }
+
+    [Test]
+    public async Task Canceled_hosted_reconnect_restores_the_previous_credential_configuration()
+    {
+        const string url = "https://git.example.invalid/api/v3/git/a3a8927c-bcf4-4f6e-91f4-64897320378e.git";
+        const string token = "example-reconnect-token";
+        string prefix = $"credential.{url}.";
+        await RunGitAsync("remote", "add", "origin", url);
+        await RunGitAsync("config", "--local", "--add", prefix + "username", "previous-user");
+        await RunGitAsync("config", "--local", "--add", prefix + "helper", "cache --timeout=700");
+        await RunGitAsync("config", "--local", "--add", prefix + "helper", "");
+        await RunGitAsync("config", "--local", "--add", prefix + "helper", "osxkeychain");
+
+        using var cancellation = new CancellationTokenSource();
+        GitRemoteUrl remote = GitRemoteUrl.WithHostedCredentials(new Uri(url), token);
+        using var service = CreateService(runner: new CancelHostedReconnectRunner(Runner, remote, token, cancellation));
+        await Assert.CatchAsync<OperationCanceledException>(() => service.SetRemoteAsync(remote, url, cancellation.Token));
+
+        Assert.That((await RunGitAsync("config", "--local", "--get", prefix + "username")).Stdout.Trim(), Is.EqualTo("previous-user"));
+        Assert.That((await RunGitAsync("config", "--local", "--null", "--get-all", prefix + "helper")).Stdout,
+            Is.EqualTo("cache --timeout=700\0\0osxkeychain\0"));
+        await Assert.ThrowsAsync<GitOperationException>(() => RunGitAsync("config", "--local", "--get", prefix + "useHttpPath"));
+
+        await service.SetRemoteAsync(remote, url, CancellationToken.None);
+        Assert.That((await RunGitAsync("config", "--local", "--get", prefix + "username")).Stdout.Trim(), Is.EqualTo(remote.Username));
     }
 
     [Test]
@@ -912,6 +948,25 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.That(
             result,
             Is.EqualTo(new RemoteOpResult.Failed(stderr)));
+    }
+
+    private sealed class CancelHostedReconnectRunner(
+        IGitCliRunner inner, GitRemoteUrl remote, string token, CancellationTokenSource cancellation) : DelegatingGitCliRunner(inner)
+    {
+        public override async Task<GitCommandResult> RunAsync(RepositoryInfo repository, IReadOnlyList<string> arguments,
+            GitCommandOptions options, CancellationToken cancellationToken, IProgress<string>? stderrProgress = null)
+        {
+            if (GetGitSubcommand(arguments) == "credential")
+                return new GitCommandResult(0, arguments[^1] == "fill" ? $"username={remote.Username}\npassword={token}\n" : "", "");
+
+            GitCommandResult result = await base.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
+            if (cancellationToken == cancellation.Token
+                && arguments.SequenceEqual(["config", "--local", "--add", $"credential.{remote.Url}.helper", "osxkeychain"]))
+            {
+                cancellation.Cancel();
+            }
+            return result;
+        }
     }
 
     private GitCliVersionControlService CreateService(

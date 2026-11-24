@@ -144,24 +144,76 @@ internal sealed class GitRemoteUrl
         }
     }
 
-    public async Task ConfigureLocalCredentialsAsync(
+    public Task ConfigureLocalCredentialsAsync(
         RepositoryInfo repository, IGitCliRunner runner, string? helper,
         CancellationToken cancellationToken, GitCommandOptions? options = null)
-    {
-        if (Username is { } username)
-            await SetConfigAsync("--replace-all", $"credential.{Url}.username", username).ConfigureAwait(false);
+        => WriteLocalCredentialConfigAsync(repository, runner, GetLocalCredentialConfig(helper), cancellationToken, options);
 
-        await SetConfigAsync("--replace-all", $"credential.{Url}.useHttpPath", "true").ConfigureAwait(false);
+    public Dictionary<string, string[]> GetLocalCredentialConfig(string? helper)
+    {
+        var config = new Dictionary<string, string[]>();
+        if (Username is { } username)
+            config.Add($"credential.{Url}.username", [username]);
+        config.Add($"credential.{Url}.useHttpPath", ["true"]);
         if (helper is not null)
+            config.Add($"credential.{Url}.helper", ["", helper]);
+        return config;
+    }
+
+    public static async Task<Dictionary<string, string[]>> ReadLocalCredentialConfigAsync(
+        RepositoryInfo repository, IGitCliRunner runner, IEnumerable<string> keys, CancellationToken cancellationToken)
+    {
+        var config = new Dictionary<string, string[]>();
+        foreach (string key in keys)
         {
-            string key = $"credential.{Url}.helper";
-            await SetConfigAsync("--replace-all", key, "").ConfigureAwait(false);
-            await SetConfigAsync("--add", key, helper).ConfigureAwait(false);
+            string[] arguments = key.EndsWith(".useHttpPath", StringComparison.Ordinal)
+                ? ["config", "--local", "--null", "--bool", "--get-all", key]
+                : ["config", "--local", "--null", "--get-all", key];
+            try
+            {
+                GitCommandResult result = await runner.RunAsync(repository, arguments, GitCommandOptions.Local,
+                    cancellationToken).ConfigureAwait(false);
+                if (result.StdoutTruncated)
+                    throw new GitCredentialStorageException();
+
+                // The empty helper entry resets the preceding list.
+                config.Add(key, result.Stdout.Split('\0')[..^1]);
+            }
+            catch (GitOperationException ex) when (ex.ExitCode == 1)
+            {
+                config.Add(key, []);
+            }
+        }
+        return config;
+    }
+
+    public static async Task WriteLocalCredentialConfigAsync(
+        RepositoryInfo repository, IGitCliRunner runner, IReadOnlyDictionary<string, string[]> config,
+        CancellationToken cancellationToken, GitCommandOptions? options = null)
+    {
+        foreach ((string key, string[] values) in config)
+        {
+            if (values.Length == 0)
+            {
+                try
+                {
+                    await RunAsync(["config", "--local", "--unset-all", key]).ConfigureAwait(false);
+                }
+                catch (GitOperationException ex) when (ex.ExitCode == 5)
+                {
+                    // The key is already absent.
+                }
+            }
+
+            for (int i = 0; i < values.Length; i++)
+            {
+                await RunAsync(["config", "--local", i == 0 ? "--replace-all" : "--add", key, values[i]])
+                    .ConfigureAwait(false);
+            }
         }
 
-        Task<GitCommandResult> SetConfigAsync(string action, string key, string value)
-            => runner.RunAsync(repository, ["config", "--local", action, key, value],
-                options ?? GitCommandOptions.Local, cancellationToken);
+        Task<GitCommandResult> RunAsync(string[] arguments) =>
+            runner.RunAsync(repository, arguments, options ?? GitCommandOptions.Local, cancellationToken);
     }
 
     // Returns a helper to add to this URL's local configuration, only when none is configured.
