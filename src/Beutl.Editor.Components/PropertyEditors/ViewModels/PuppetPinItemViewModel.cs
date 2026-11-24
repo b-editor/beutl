@@ -45,7 +45,11 @@ internal sealed class PuppetPinItemViewModel : PropertyEditorViewModel
             .CreateListItemEditor(PropertyAdapterFactory.CreateAdapter(pin.Position, pin)) as PropertyEditorViewModel;
         // Reset puts the pin back on the point of the picture it holds, not on the input's top-left corner.
         if (editor is not null)
-            editor.DefaultValueOverride = () => pin.RestPosition.Value;
+            editor.DefaultValueOverride = RestPosition;
         return editor;
     }
+
+    // The rest position of the pin whose Position the property is, which the editors repeating this one's edits on other
+    // elements read from their own pins.
+    private static object? RestPosition(IProperty position) => (position.GetOwnerObject() as PuppetPin)?.RestPosition.Value;
 }
