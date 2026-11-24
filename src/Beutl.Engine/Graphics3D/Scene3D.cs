@@ -16,7 +16,7 @@ namespace Beutl.Graphics3D;
 /// A Drawable that renders a 3D scene.
 /// </summary>
 [Display(Name = nameof(GraphicsStrings.Scene3D), ResourceType = typeof(GraphicsStrings))]
-public partial class Scene3D : Drawable, IFlowOperator
+public partial class Scene3D : Drawable, IFlowInputOperator
 {
     public Scene3D()
     {
@@ -45,6 +45,14 @@ public partial class Scene3D : Drawable, IFlowOperator
     [Display(Name = nameof(GraphicsStrings.Scene3D_Lights), ResourceType = typeof(GraphicsStrings))]
     [SuppressResourceClassGeneration]
     public IListProperty<Light3D> Lights { get; } = Property.CreateList<Light3D>();
+
+    FlowInputKind IFlowInputOperator.RequiredInput => FlowInputKind.Object3D;
+
+    FlowInputKind IFlowInputOperator.ConsumedInputs => FlowInputKind.Object3D | FlowInputKind.Light3D;
+
+    bool IFlowInputOperator.HasNestedInput => Objects.Count > 0;
+
+    string IFlowInputOperator.MissingInputMessage => MessageStrings.FlowInputMissingObject3D;
 
     /// <summary>
     /// Gets the ambient color of the scene.

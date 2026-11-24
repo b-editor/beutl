@@ -341,6 +341,10 @@ public sealed class RenderNodeRenderer : IDisposable
     /// The request purpose is reserved for metadata-only measurement or hit testing.
     /// </exception>
     public RenderNodeRasterization Rasterize(RenderNodeRenderRequest? requestOptions = null)
+        => Rasterize(requestOptions, executionTargetBudget: null);
+
+    internal RenderNodeRasterization Rasterize(
+        RenderNodeRenderRequest? requestOptions, BufferDimensionBudget? executionTargetBudget)
     {
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
@@ -372,6 +376,9 @@ public sealed class RenderNodeRenderer : IDisposable
                 PixelRect deviceBounds = PixelRect.FromRect(
                     request.ExecutionTargetBounds,
                     effectiveRequest.OutputScale);
+                if (executionTargetBudget is { } budget && !budget.Fits(deviceBounds.Size))
+                    throw RenderTargetPool.CreateAllocationFailure(deviceBounds.Size, budget.MaxDimension);
+
                 PixelRect selectedDeviceBounds = PixelRect.FromRect(selectedBounds, effectiveRequest.OutputScale);
                 selectedBounds = selectedDeviceBounds.ToRect(effectiveRequest.OutputScale);
                 Rect rasterBounds = deviceBounds.ToRect(effectiveRequest.OutputScale);

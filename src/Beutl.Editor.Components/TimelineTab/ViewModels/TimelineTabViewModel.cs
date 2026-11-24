@@ -98,6 +98,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         }
 
         TrackSceneElements();
+        TrackFlowInputWarnings();
 
         // SelectedElements mirrors the editor's selection, which outlives this tab.
         _selection = editorContext.GetRequiredService<IEditorSelection>();
@@ -441,6 +442,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
         _disposables.Dispose();
+        _flowInputWarnings.Clear();
         ElementViewModel[] elements = RealizedElementsSnapshot();
         foreach (ElementViewModel item in elements)
         {
