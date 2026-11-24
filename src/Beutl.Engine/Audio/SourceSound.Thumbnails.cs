@@ -1,5 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
+using Beutl.Animation;
 using Beutl.Audio.Composing;
+using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -40,10 +42,29 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
     public string? GetThumbnailsCacheKey()
     {
-        return ThumbnailsCacheKey.Compute(
+        string? key = ThumbnailsCacheKey.Compute(
             CoreSerializer.SerializeToJsonObject(this),
             ["Source", "ChannelMap", "OffsetPosition", "Gain", "Pan", "Speed", "Effect"]);
+        return key != null && RequiresResampledRangePreview(startChanges: true)
+            ? $"{key}|start:{TimeRange.Value.Start.Flicks}|duration:{TimeRange.Value.Duration.Flicks}"
+            : key;
     }
+
+    // A slip moves the source offset while the clip's processing still runs on the same clock.
+    internal bool RequiresResampledSlipPreview
+        => Properties.Any(AnimationSampler.IsAnimated) || HasEnabledEffect(Effect.Value);
+
+    internal bool RequiresResampledTrimPreview
+        => Properties.Any(property => AnimationSampler.RequiresPreviewResampling(property, keyFrameGlobalClock: false))
+            || HasEnabledEffect(Effect.Value);
+
+    internal bool RequiresResampledRangePreview(bool startChanges)
+        => Properties.Any(property => AnimationSampler.RequiresPreviewResampling(property, startChanges ? true : null))
+            || HasEnabledEffect(Effect.Value);
+
+    private static bool HasEnabledEffect(AudioEffect? effect)
+        => effect is { IsEnabled.Value: true }
+            && (effect is not AudioEffectGroup group || group.Children.Any(HasEnabledEffect));
 
     public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         FontManager fonts,
@@ -170,21 +191,107 @@ public sealed partial class SourceSound : IThumbnailsProvider
         }
     }
 
+    internal async IAsyncEnumerable<WaveformChunk> GetPreviewWaveformChunksAsync(
+        int baseChunkCount,
+        int samplesPerChunk,
+        IReadOnlyList<int> indices,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default,
+        DecoderRegistry? decoders = null,
+        MediaTime offsetDelta = default,
+        TimeRange? previewLayout = null,
+        MediaTime startDelta = default,
+        MediaTime durationDelta = default)
+    {
+        if (indices.Count == 0 || baseChunkCount <= 0 || samplesPerChunk <= 0
+            || !await WaveformGate.TryEnterAsync(cancellationToken))
+            yield break;
+
+        try
+        {
+            using var resource = await ComposeThread.Dispatcher.InvokeAsync(
+                () => ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders }),
+                DispatchPriority.Low, cancellationToken);
+            if (resource.Source is not { SampleRate: > 0 } source || source.Duration <= MediaTime.Zero)
+                yield break;
+
+            TimeRange clipRange = TimeRange.Value;
+            TimeRange layout = previewLayout ?? new TimeRange(MediaTime.Zero, clipRange.Duration);
+            if (layout.Duration <= MediaTime.Zero)
+                yield break;
+
+            int sampleRate = source.SampleRate;
+            long totalSamples = layout.Duration.ToSamples(sampleRate, MidpointRounding.ToZero);
+            long origin = layout.Start.ToSamples(sampleRate, MidpointRounding.ToZero);
+            using var audioContext = new AudioContext(sampleRate, AudioChannelLayout.Stereo);
+            var (output, finiteEndSample) = await ComposeThread.Dispatcher.InvokeAsync(() =>
+            {
+                var output = ComposeForWaveformPreview(audioContext, resource, offsetDelta);
+                if (startDelta != MediaTime.Zero)
+                {
+                    foreach (IAudioTimeMappingNode node in audioContext.Nodes.OfType<IAudioTimeMappingNode>())
+                        node.SetPreviewStartDelta(startDelta);
+                }
+                return (output, output?.GetFiniteSourceEndSample(sampleRate));
+            }, DispatchPriority.Low, cancellationToken);
+            var sampler = new AnimationSampler { PreviewStartDelta = startDelta, PreviewDurationDelta = durationDelta };
+
+            // Sparse requests have different processing history from a normal, sequential waveform.
+            foreach (int index in indices)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                long start = GetSamplePosition(index);
+                int count = (int)Math.Min(GetSamplePosition(index + 1) - start, samplesPerChunk);
+                start += origin;
+                if (count <= 0 || output == null || finiteEndSample is { } end && start >= end)
+                {
+                    yield return new WaveformChunk(index, 0, 0);
+                    continue;
+                }
+
+                var range = new TimeRange(
+                    MediaTime.FromSamples(start, sampleRate),
+                    AudioProcessContext.GetDurationForSampleCount(count, sampleRate));
+                yield return await ComposeThread.Dispatcher.InvokeAsync(() =>
+                {
+                    using var buffer = output.Process(new AudioProcessContext(
+                        range, sampleRate, sampler, range.AddStart(clipRange.Start + startDelta)));
+                    for (int ch = 0; ch < buffer.ChannelCount; ch++)
+                    {
+                        var data = buffer.GetChannelData(ch);
+                        AudioMath.ApplyLimiter(data);
+                        AudioMath.ClampToFullScale(data);
+                    }
+
+                    var (min, max) = MeasureMonoRange(buffer, count);
+                    return new WaveformChunk(index, min, max);
+                }, DispatchPriority.Low, cancellationToken);
+            }
+
+            long GetSamplePosition(int index)
+                => index >= 0 && index <= baseChunkCount
+                    ? GetWaveformChunkSamplePosition(index, totalSamples, baseChunkCount)
+                    : (long)Math.Floor((double)index * totalSamples / baseChunkCount);
+        }
+        finally
+        {
+            WaveformGate.Release();
+        }
+    }
+
     // The extremes of the left/right average over at most sampleCount samples.
     private static (float Min, float Max) MeasureMonoRange(AudioBuffer buffer, int sampleCount)
     {
-        var firstChannel = buffer.GetChannelData(0);
-        var secondChannel = buffer.GetChannelData(1);
+        int count = Math.Min(sampleCount, buffer.SampleCount);
+        if (count <= 0)
+            return (0f, 0f);
 
+        var firstChannel = buffer.GetChannelData(0);
+        var secondChannel = buffer.GetChannelData(buffer.ChannelCount > 1 ? 1 : 0);
         float minValue = float.MaxValue;
         float maxValue = float.MinValue;
-
-        for (int i = 0; i < Math.Min(sampleCount, buffer.SampleCount); i++)
+        for (int i = 0; i < count; i++)
         {
-            float left = firstChannel[i];
-            float right = secondChannel[i];
-
-            float monoValue = (left + right) * 0.5f;
+            float monoValue = (firstChannel[i] + secondChannel[i]) * 0.5f;
             minValue = Math.Min(minValue, monoValue);
             maxValue = Math.Max(maxValue, monoValue);
         }

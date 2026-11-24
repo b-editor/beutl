@@ -9,7 +9,7 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class ThumbnailStripControl : Control
 {
-    private readonly Dictionary<int, WriteableBitmap?> _thumbnails = new();
+    private readonly TimelineMediaSlots<WriteableBitmap?> _thumbnails = new(static bitmap => bitmap?.Dispose());
     private ScrollViewer? _scrollViewer;
     private int _lastNotifiedStart = -1;
     private int _lastNotifiedEnd = -1;
@@ -18,35 +18,52 @@ public sealed partial class ThumbnailStripControl : Control
 
     static ThumbnailStripControl()
     {
-        AffectsRender<ThumbnailStripControl>(ThumbnailCountProperty);
+        AffectsRender<ThumbnailStripControl>(
+            ThumbnailCountProperty,
+            ContentWidthProperty,
+            ContentOffsetXProperty,
+            IsPreviewActiveProperty);
     }
 
     [GeneratedStyledProperty]
     public partial int ThumbnailCount { get; set; }
 
+    [GeneratedStyledProperty(DefaultValue = double.NaN)]
+    public partial double ContentWidth { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial double ContentOffsetX { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial bool IsPreviewActive { get; set; }
+
+    private bool HasCustomLayout => IsPreviewActive || !double.IsNaN(ContentWidth) || ContentOffsetX != 0;
+
     public void SetThumbnail(int index, WriteableBitmap? thumbnail)
     {
-        if (_thumbnails.TryGetValue(index, out var old))
-        {
-            old?.Dispose();
-        }
-
-        _thumbnails[index] = thumbnail;
+        _thumbnails.Set(index, thumbnail, IsPreviewActive);
 
         InvalidateVisual();
     }
 
     public void ClearThumbnails()
     {
-        foreach (var kvp in _thumbnails)
-        {
-            kvp.Value?.Dispose();
-        }
-
         _thumbnails.Clear();
+        _lastNotifiedStart = -1;
+        _lastNotifiedEnd = -1;
 
         InvalidateVisual();
     }
+
+    internal void ClearPreview()
+    {
+        _thumbnails.ClearPreview();
+        _lastNotifiedStart = -1;
+        _lastNotifiedEnd = -1;
+        InvalidateVisual();
+    }
+
+    internal void CommitPreview() => _thumbnails.CommitPreview();
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -57,21 +74,31 @@ public sealed partial class ThumbnailStripControl : Control
             ClearThumbnails();
             NotifyVisibleRangeIfChanged();
         }
-    }
-
-    private (int Start, int End) ComputeVisibleRange()
-        => TimelineSlotRange.Compute(this, _scrollViewer, ThumbnailCount, buffer: 2);
-
-    public List<int> GetMissingIndices(int start, int end)
-    {
-        var missing = new List<int>();
-        for (int i = start; i <= end; i++)
+        else if (change.Property == ContentOffsetXProperty
+            || change.Property == ContentWidthProperty
+            || change.Property == IsPreviewActiveProperty
+            || change.Property == BoundsProperty)
         {
-            if (!_thumbnails.ContainsKey(i))
-                missing.Add(i);
+            NotifyVisibleRangeIfChanged();
         }
-        return missing;
     }
+
+    internal (int Start, int End) GetVisibleRange() => ComputeVisibleRange();
+
+    private (int Start, int End) ComputeVisibleRange(bool? allowOutOfRange = null)
+        => TimelineSlotRange.Compute(
+            this,
+            _scrollViewer,
+            ThumbnailCount,
+            buffer: 2,
+            ContentWidth,
+            ContentOffsetX,
+            allowOutOfRange ?? IsPreviewActive);
+
+    public List<int> GetMissingIndices(int start, int end) => _thumbnails.GetMissingIndices(start, end);
+
+    internal bool TryGetThumbnail(int index, out WriteableBitmap? thumbnail)
+        => _thumbnails.TryGetValue(index, out thumbnail);
 
     private void NotifyVisibleRangeIfChanged()
     {
@@ -99,18 +126,42 @@ public sealed partial class ThumbnailStripControl : Control
         if (count <= 0)
             return;
 
-        double slotWidth = width / count;
-        var (startIndex, endIndex) = ComputeVisibleRange();
+        double contentWidth = !double.IsNaN(ContentWidth) && ContentWidth > 0 ? ContentWidth : width;
+        double slotWidth = contentWidth / count;
+        if (slotWidth <= 0)
+            return;
 
-        foreach (var kvp in _thumbnails)
+        double contentOffsetX = ContentOffsetX;
+        bool customLayout = HasCustomLayout;
+        var (startIndex, endIndex) = ComputeVisibleRange(allowOutOfRange: customLayout);
+
+        if (customLayout)
         {
-            int i = kvp.Key;
-            var img = kvp.Value;
+            using (context.PushClip(new Rect(0, 0, width, height)))
+            {
+                DrawThumbnails(context, startIndex, endIndex, slotWidth, contentOffsetX, height);
+            }
+        }
+        else
+        {
+            DrawThumbnails(context, startIndex, endIndex, slotWidth, contentOffsetX, height);
+        }
+    }
 
-            if (img == null || i < startIndex || i > endIndex)
+    private void DrawThumbnails(
+        DrawingContext context,
+        int startIndex,
+        int endIndex,
+        double slotWidth,
+        double contentOffsetX,
+        double height)
+    {
+        for (int i = startIndex; i <= endIndex; i++)
+        {
+            if (!TryGetThumbnail(i, out var img) || img == null)
                 continue;
 
-            double slotX = i * slotWidth;
+            double slotX = contentOffsetX + i * slotWidth;
 
             // 背景が見えてしまうので微調整
             var dstSize = new Size(slotWidth + 1, height);

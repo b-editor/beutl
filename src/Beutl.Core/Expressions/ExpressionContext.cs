@@ -23,7 +23,10 @@ public class ExpressionContext : EvaluationContext
 
     public ExpressionContext WithTime(MediaTime time)
     {
-        return new ExpressionContext(time, CurrentProperty, PropertyLookup, _evaluationStack);
+        return new ExpressionContext(time, CurrentProperty, PropertyLookup, _evaluationStack)
+        {
+            PreviewTimeRange = PreviewTimeRange
+        };
     }
 
     public bool TryGetPropertyValue<T>(string path, out T? value)

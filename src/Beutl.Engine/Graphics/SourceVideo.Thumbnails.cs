@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -78,16 +79,26 @@ public partial class SourceVideo : IThumbnailsProvider
 
     public string? GetThumbnailsCacheKey()
     {
-        var json = CoreSerializer.SerializeToJsonObject(this);
-        if (GetDeinterlaceOptions() == VideoDeinterlaceOptions.Default)
+        string[] properties = [nameof(Source), nameof(OffsetPosition), nameof(Speed), nameof(IsLoop), nameof(TransferInterpretation)];
+        if (GetDeinterlaceOptions() != VideoDeinterlaceOptions.Default)
         {
-            return ThumbnailsCacheKey.Compute(json,
-                [nameof(Source), nameof(OffsetPosition), nameof(Speed), nameof(IsLoop), nameof(TransferInterpretation)]);
+            properties = [.. properties, nameof(DeinterlaceMode), nameof(DeinterlaceFieldOrder), nameof(DeinterlaceMethod),
+                nameof(DeinterlaceFrameRateMode)];
         }
 
-        return ThumbnailsCacheKey.Compute(json,
-            [nameof(Source), nameof(OffsetPosition), nameof(Speed), nameof(IsLoop), nameof(TransferInterpretation),
-                nameof(DeinterlaceMode), nameof(DeinterlaceFieldOrder), nameof(DeinterlaceMethod), nameof(DeinterlaceFrameRateMode)]);
+        string? key = ThumbnailsCacheKey.Compute(CoreSerializer.SerializeToJsonObject(this), properties);
+        return key != null && RequiresResampledRangePreview(startChanges: true)
+            ? $"{key}|start:{TimeRange.Value.Start.Flicks}|duration:{TimeRange.Value.Duration.Flicks}"
+            : key;
+    }
+
+    internal bool RequiresResampledRangePreview(bool startChanges)
+    {
+        bool? keyFrameGlobalClock = startChanges ? true : null;
+        return AnimationSampler.RequiresPreviewResampling(Speed, keyFrameGlobalClock)
+            || AnimationSampler.RequiresPreviewResampling(OffsetPosition, keyFrameGlobalClock)
+            || AnimationSampler.RequiresPreviewResampling(Source, keyFrameGlobalClock)
+            || AnimationSampler.RequiresPreviewResampling(IsLoop, keyFrameGlobalClock);
     }
 
     public IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
@@ -113,6 +124,53 @@ public partial class SourceVideo : IThumbnailsProvider
         bool preferProxy,
         ProxyPreset preferredProxyPreset = ProxyPreset.Quarter, DecoderRegistry? decoders = null)
     {
+        await foreach (var (index, count, thumbnail) in GetThumbnailStripCoreAsync(
+                           fonts, maxWidth, maxHeight, cacheService, cancellationToken, startIndex, endIndex,
+                           preferProxy, preferredProxyPreset, decoders))
+        {
+            if (thumbnail != null)
+                yield return (index, count, thumbnail);
+        }
+    }
+
+    internal IAsyncEnumerable<(int Index, int Count, Bitmap? Thumbnail)> GetPreviewThumbnailStripAsync(
+        FontManager fonts,
+        int count,
+        int maxHeight,
+        IReadOnlyList<int> indices,
+        IThumbnailCacheService? cacheService,
+        CancellationToken cancellationToken,
+        bool preferProxy,
+        ProxyPreset preferredProxyPreset,
+        DecoderRegistry? decoders,
+        MediaTime offsetDelta,
+        TimeRange previewLayout,
+        MediaTime startDelta,
+        MediaTime durationDelta)
+        => GetThumbnailStripCoreAsync(fonts, 0, maxHeight, cacheService, cancellationToken, 0, -1,
+            preferProxy, preferredProxyPreset, decoders, indices, count, offsetDelta, previewLayout, startDelta, durationDelta);
+
+    private async IAsyncEnumerable<(int Index, int Count, Bitmap? Thumbnail)> GetThumbnailStripCoreAsync(
+        FontManager fonts,
+        int maxWidth,
+        int maxHeight,
+        IThumbnailCacheService? cacheService,
+        [EnumeratorCancellation] CancellationToken cancellationToken,
+        int startIndex,
+        int endIndex,
+        bool preferProxy,
+        ProxyPreset preferredProxyPreset,
+        DecoderRegistry? decoders,
+        IReadOnlyList<int>? previewIndices = null,
+        int previewCount = 0,
+        MediaTime offsetDelta = default,
+        TimeRange? previewLayout = null,
+        MediaTime startDelta = default,
+        MediaTime durationDelta = default)
+    {
+        if (previewIndices is { Count: 0 })
+            yield break;
+
         if (!await StripGate.TryEnterAsync(cancellationToken))
             yield break;
 
@@ -121,37 +179,34 @@ public partial class SourceVideo : IThumbnailsProvider
         RenderNodeRenderer? renderer = null;
         try
         {
-            // Opening the decoder can parse a large media file. Queue it with the strip's rendering
-            // work so enumeration from a timeline view never performs that I/O on the UI thread.
-            resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(new CompositionContext(MediaTime.Zero)
+            var conditions = CompositionConditions.Default with
             {
                 Fonts = fonts,
                 Decoders = decoders,
                 PreferProxy = preferProxy,
                 PreferredProxyPreset = preferredProxyPreset,
-            }), DispatchPriority.Low, cancellationToken);
+            };
+            // Opening the decoder can parse a large media file. Queue it with the strip's rendering work.
+            resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(previewIndices != null
+                ? CreateThumbnailContext(MediaTime.Zero, startDelta, conditions, durationDelta)
+                : new CompositionContext(MediaTime.Zero) { Conditions = conditions }), DispatchPriority.Low, cancellationToken);
 
-            if (resource.Source is not { } source)
-                yield break;
-
-            if (source.Duration <= MediaTime.Zero)
-                yield break;
-            var duration = TimeRange.Value.Duration;
+            var duration = previewLayout?.Duration ?? TimeRange.Value.Duration;
 
             // Rendering draws the video into LogicalFrameSize; sizing the strip from the (possibly
-            // smaller) proxy decode size would clip the frame. LogicalFrameSize equals FrameSize when
-            // no proxy is active, so the non-proxy path stays byte-identical.
-            var frameSize = source.LogicalFrameSize;
-            int count = GetVideoThumbnailCount(frameSize, maxWidth, maxHeight);
-            // A degenerate frame size (e.g. corrupt metadata with Height == 0) makes the division below
-            // produce Infinity, which then overflows TimeSpan.FromSeconds. Bail out instead.
-            if (count <= 0)
+            // smaller) proxy decode size would clip the frame. A preview already has its slot count.
+            PixelSize frameSize = resource.Source is { } source && source.Duration > MediaTime.Zero
+                ? source.LogicalFrameSize
+                : default;
+            int count = previewIndices != null ? previewCount : GetVideoThumbnailCount(frameSize, maxWidth, maxHeight);
+            if (count <= 0 || maxHeight <= 0)
                 yield break;
-            // count > 0 implies frameSize dimensions and maxHeight are positive, so this is finite.
-            float thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
+            float thumbWidth = 0;
             double interval = duration.ToSeconds() / count;
 
-            string? baseKey = cacheService != null ? GetThumbnailsCacheKey() : null;
+            string? baseKey = offsetDelta == MediaTime.Zero && startDelta == MediaTime.Zero && durationDelta == MediaTime.Zero && cacheService != null
+                ? GetThumbnailsCacheKey()
+                : null;
             // Partition by preview-source mode: ThumbnailsInvalidated covers mode changes for one
             // view, but two same-source views in different modes (or a fresh view after a prior proxy
             // render) would otherwise collide on the mode-agnostic base key.
@@ -163,23 +218,14 @@ public partial class SourceVideo : IThumbnailsProvider
             int effectiveStart = Math.Max(0, startIndex);
             int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
 
-            node = new DrawableRenderNode(resource);
-            renderer = new RenderNodeRenderer(
-                node,
-                new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
-                    OutputScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                });
-
-            for (int i = effectiveStart; i <= effectiveEnd; i++)
+            IEnumerable<int> indices = (IEnumerable<int>?)previewIndices ?? Enumerable.Range(
+                effectiveStart, Math.Max(0, effectiveEnd - effectiveStart + 1));
+            foreach (int i in indices)
             {
                 if (cancellationToken.IsCancellationRequested)
                     yield break;
 
-                var time = MediaTime.FromSeconds(i * interval);
+                var time = MediaTime.FromSeconds(i * interval) + (previewLayout?.Start ?? MediaTime.Zero);
 
                 if (cacheKey != null
                     && cacheService!.TryGet(cacheKey, time, cacheThreshold, out var cached)
@@ -194,39 +240,61 @@ public partial class SourceVideo : IThumbnailsProvider
                     cached.Dispose();
                 }
 
-                var thumbnail = await RenderThread.Dispatcher.InvokeAsync(() =>
+                var (hasFrame, thumbnail) = await RenderThread.Dispatcher.InvokeAsync(() =>
                 {
                     if (cancellationToken.IsCancellationRequested)
-                        return null;
+                        return (false, (Bitmap?)null);
 
-                    var ctx = new CompositionContext(time + TimeRange.Value.Start)
-                    {
-                        Fonts = fonts,
-                        Decoders = decoders,
-                        PreferProxy = preferProxy,
-                        PreferredProxyPreset = preferredProxyPreset,
-                    };
+                    MediaTime relativeEvalTime = previewIndices != null && time < MediaTime.Zero ? MediaTime.Zero : time;
+                    var ctx = CreateThumbnailContext(relativeEvalTime, startDelta, conditions, durationDelta);
                     bool versionBumped = false;
                     resource.Reconcile(this, ctx, ref versionBumped);
 
-                    using (var gctx = new GraphicsContext2D(node, new Size((int)thumbWidth, maxHeight)))
+                    MediaTime? previewPosition = null;
+                    if (previewIndices != null)
+                    {
+                        if (!TryComputePreviewSourcePosition(resource, time, out MediaTime sourcePosition, offsetDelta, startDelta))
+                            return (false, (Bitmap?)null);
+
+                        previewPosition = sourcePosition;
+                    }
+
+                    if (renderer == null)
+                    {
+                        // An animated source can first become available partway through the requested slots.
+                        if (frameSize.Width <= 0 || frameSize.Height <= 0)
+                            frameSize = resource.Source?.LogicalFrameSize ?? default;
+                        if (frameSize.Width <= 0 || frameSize.Height <= 0)
+                            return (false, (Bitmap?)null);
+
+                        thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
+                        node = new DrawableRenderNode(resource);
+                        renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+                        {
+                            Intent = RenderIntent.Preview,
+                            TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
+                            OutputScale = 1,
+                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                        });
+                    }
+
+                    using (var gctx = new GraphicsContext2D(node!, new Size((int)thumbWidth, maxHeight)))
                     using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width,
                                (float)maxHeight / frameSize.Height)))
                     {
-                        resource.DrawInternal(gctx);
+                        resource.DrawInternal(gctx, previewPosition);
                     }
 
                     using RenderNodeRasterization rasterization = renderer.Rasterize();
-                    return rasterization.Bitmap?.Clone();
+                    return (true, rasterization.Bitmap?.Clone());
                 }, DispatchPriority.Low, cancellationToken);
 
-                if (thumbnail != null)
-                {
-                    if (cacheKey != null)
-                        cacheService!.Save(cacheKey, time, thumbnail);
+                if (thumbnail != null && cacheKey != null)
+                    cacheService!.Save(cacheKey, time, thumbnail);
 
+                // A null preview result marks a slot outside the source as resolved.
+                if (thumbnail != null || !hasFrame && previewIndices != null)
                     yield return (i, count, thumbnail);
-                }
             }
         }
         finally
@@ -240,6 +308,55 @@ public partial class SourceVideo : IThumbnailsProvider
                 StripGate.Release();
             }
         }
+    }
+
+    internal CompositionContext CreateThumbnailContext(
+        MediaTime relativeTime, MediaTime startDelta, CompositionConditions conditions, MediaTime durationDelta = default)
+    {
+        TimeRange range = TimeRange.Value;
+        MediaTime start = range.Start + startDelta;
+        return new CompositionContext(start + relativeTime)
+        {
+            Conditions = conditions,
+            PreviewTimeRange = startDelta != MediaTime.Zero || durationDelta != MediaTime.Zero
+                ? (this, start, range.Duration + durationDelta)
+                : null
+        };
+    }
+
+    internal bool TryComputePreviewSourcePosition(
+        Resource resource,
+        MediaTime relativeTime,
+        out MediaTime sourcePosition,
+        MediaTime offsetDelta = default,
+        MediaTime startDelta = default)
+    {
+        sourcePosition = MediaTime.Zero;
+        if (resource.Source is not { IsDisposed: false } source || source.Duration <= MediaTime.Zero)
+            return false;
+
+        MediaTime start = TimeRange.Value.Start + startDelta;
+        MediaTime requested;
+        if (relativeTime < MediaTime.Zero && Speed.GetKeyFrameAnimation() is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } animation)
+        {
+            // Extrapolate before the clip using its starting rate.
+            float startSpeed = animation.Interpolate(animation.UseGlobalClock.Value ? start : MediaTime.Zero);
+            requested = new MediaTime((long)Math.Round(relativeTime.Flicks * (double)(startSpeed / 100f)));
+        }
+        else
+        {
+            requested = CalculateRequestedPosition(start + relativeTime, resource, start);
+        }
+
+        // Playback can move backwards after the in-point. Extending before it can also expose empty media space.
+        MediaTime offset = resource.OffsetPosition + offsetDelta;
+        MediaTime position = NormalizeRequestedPosition(resource, requested, offset, normalizeReverse: relativeTime >= MediaTime.Zero) + offset;
+
+        if (position < MediaTime.Zero || position >= source.Duration)
+            return false;
+
+        sourcePosition = position;
+        return true;
     }
 
     internal static Task DisposeThumbnailRenderResourcesAsync(params IDisposable?[] resources)

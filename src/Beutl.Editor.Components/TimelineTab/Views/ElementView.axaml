@@ -222,6 +222,9 @@
                     <v:ThumbnailStripControl x:Name="thumbnailStrip"
                                              HorizontalAlignment="Stretch"
                                              VerticalAlignment="Stretch"
+                                             ContentOffsetX="{Binding ThumbnailContentOffsetX.Value}"
+                                             ContentWidth="{Binding ThumbnailContentWidth.Value}"
+                                             IsPreviewActive="{Binding IsThumbnailPreviewActive.Value}"
                                              IsVisible="{Binding IsThumbnailsKindVideo.Value}"
                                              ThumbnailCount="{Binding VideoThumbnailCount.Value}" />
 
@@ -229,6 +232,9 @@
                                        HorizontalAlignment="Stretch"
                                        VerticalAlignment="Stretch"
                                        ChunkCount="{Binding WaveformChunkCount.Value}"
+                                       ContentOffsetX="{Binding ThumbnailContentOffsetX.Value}"
+                                       ContentWidth="{Binding ThumbnailContentWidth.Value}"
+                                       IsPreviewActive="{Binding IsThumbnailPreviewActive.Value}"
                                        IsVisible="{Binding IsThumbnailsKindAudio.Value}"
                                        WaveformBrush="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}" />
                 </Panel>

@@ -78,10 +78,16 @@ public abstract partial class Sound : EngineObject
     public IExpressionProperty<AudioEffect?> Effect { get; } = Property.CreateExpression<AudioEffect?>();
 
     public virtual void Compose(AudioContext context, Resource resource)
+        => ComposeCore(context, resource, previewOffset: null);
+
+    internal AudioNode? ComposeForWaveformPreview(AudioContext context, Resource resource, MediaTime offsetDelta)
+        => ComposeCore(context, resource, offsetDelta);
+
+    private AudioNode? ComposeCore(AudioContext context, Resource resource, MediaTime? previewOffset)
     {
         if (!IsEnabled.Value)
         {
-            return;
+            return null;
         }
 
         var soundSource = resource.GetSoundSource();
@@ -89,27 +95,31 @@ public abstract partial class Sound : EngineObject
         // ResampleNode at zero rate would throw, so emit silence instead.
         if (soundSource == null || soundSource.SampleRate <= 0)
         {
-            AudioReadScope.AddUnavailableSource(context, TimeRange.Value);
-            return;
+            if (!previewOffset.HasValue)
+                AudioReadScope.AddUnavailableSource(context, TimeRange.Value);
+            return null;
         }
 
         var sourceNode = context.CreateSourceNode(soundSource, resource.GetChannelMap());
         var clipLayout = sourceNode.ClipLayout;
 
-        var shiftNode = context.CreateShiftNode(OffsetPosition);
+        var shiftNode = previewOffset is { } offsetDelta && offsetDelta != MediaTime.Zero
+            ? context.CreateShiftNode(OffsetPosition.Value + offsetDelta)
+            : context.CreateShiftNode(OffsetPosition);
         context.Connect(sourceNode, shiftNode);
 
         var speedNode = context.CreateSpeedNode(Speed, clipLayout.ChannelCount);
         context.Connect(shiftNode, speedNode);
 
-        ComposeOutputStages(context, speedNode, clipLayout, soundSource.SampleRate);
+        return ComposeOutputStages(context, speedNode, clipLayout, soundSource.SampleRate, includeClipNode: !previewOffset.HasValue);
     }
 
     // What every kind of sound ends with, after input delivers its audio in inputLayout. Input at a source's own rate
     // keeps it through the effects, so that a ResamplingEffect can convert it the way it is asked to, and whatever is
     // left at the source's rate is converted after them.
-    private protected void ComposeOutputStages(
-        AudioContext context, AudioNode input, AudioChannelLayout inputLayout, int? sourceSampleRate = null)
+    private protected AudioNode ComposeOutputStages(
+        AudioContext context, AudioNode input, AudioChannelLayout inputLayout, int? sourceSampleRate = null,
+        bool includeClipNode = true)
     {
         context.ChainSampleRate = sourceSampleRate ?? context.SampleRate;
         var pannerNode = context.CreatePannerNode(Pan, SurroundPan, CenterLevel, LfeLevel, inputLayout);
@@ -134,10 +144,16 @@ public abstract partial class Sound : EngineObject
             context.ChainSampleRate = context.SampleRate;
         }
 
-        // ClipNodeを作成（EffectがローカルTimeRangeを前提としているため）
-        var clipNode = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
-        context.Connect(currentNode, clipNode);
-        context.MarkAsOutput(clipNode);
+        if (includeClipNode)
+        {
+            // ClipNodeを作成（EffectがローカルTimeRangeを前提としているため）
+            var clipNode = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
+            context.Connect(currentNode, clipNode);
+            currentNode = clipNode;
+        }
+
+        context.MarkAsOutput(currentNode);
+        return currentNode;
     }
 
     public partial class Resource

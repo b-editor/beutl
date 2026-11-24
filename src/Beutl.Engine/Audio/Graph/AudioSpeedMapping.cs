@@ -32,6 +32,7 @@ internal sealed class AudioSpeedMapping : IDisposable
     }
 
     public IProperty<float>? Speed { get; set; }
+    public MediaTime PreviewStartDelta { get; set; }
     public bool IsInvalidated { get; private set; }
     public float StaticSpeed => Normalize(CurrentPercent) / 100f;
 
@@ -100,7 +101,8 @@ internal sealed class AudioSpeedMapping : IDisposable
             : null;
     }
 
-    private MediaTime GetOwnerStart() => AnimationSampler.GetOwnerStart(Speed!);
+    private MediaTime GetOwnerStart(KeyFrameAnimation<float> animation)
+        => AnimationSampler.GetOwnerStart(Speed!) + (animation.UseGlobalClock.Value ? PreviewStartDelta : MediaTime.Zero);
 
     public void AcknowledgeChanges() => IsInvalidated = false;
     private float Normalize(float percent) => _normalize?.Invoke(percent) ?? percent;
@@ -113,7 +115,7 @@ internal sealed class AudioSpeedMapping : IDisposable
             return MediaTime.FromSeconds(time.ToSeconds() * factor);
         }
 
-        var ownerStart = GetOwnerStart();
+        var ownerStart = GetOwnerStart(animation);
         return animation.UseGlobalClock.Value
             ? _integrator.Integrate(time + ownerStart, animation) - _integrator.Integrate(ownerStart, animation)
             : _integrator.Integrate(time, animation);
@@ -133,7 +135,7 @@ internal sealed class AudioSpeedMapping : IDisposable
             return end / minimumSpeed;
 
         Configure(sampleRate);
-        var ownerStart = GetOwnerStart();
+        var ownerStart = GetOwnerStart(animation);
         var key = new FiniteEndKey(animation, _integrator.CacheVersion, sampleRate, end,
             ownerStart, animation.UseGlobalClock.Value);
         if (_finiteEndKey == key)
@@ -259,7 +261,7 @@ internal sealed class AudioSpeedMapping : IDisposable
         }
 
         var animation = KeyFrames!;
-        var ownerStart = GetOwnerStart();
+        var ownerStart = GetOwnerStart(animation);
         long startInSamples = context.TimeRange.Start.ToSamples(
             context.SampleRate, roundSampleClock ? MidpointRounding.AwayFromZero : MidpointRounding.ToZero);
         for (int i = 0; i < speeds.Length; i++)
@@ -282,5 +284,7 @@ internal sealed class AudioSpeedMapping : IDisposable
 // Used by tail accounting to convert sample budgets through any speed-based node.
 internal interface IAudioTimeMappingNode
 {
+    void SetPreviewStartDelta(MediaTime delta);
+
     bool TryGetDrainSpeedFactor(int sampleRate, out double speed);
 }

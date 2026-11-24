@@ -290,10 +290,17 @@ public sealed partial class ElementView : UserControl
         obj.GetClickedTime = null;
 
         obj.GetMissingThumbnailIndices = null;
+        obj.GetMissingWaveformIndices = null;
+        obj.GetVisibleThumbnailRange = null;
+        obj.GetVisibleWaveformRange = null;
+        obj.GetMediaViewportWidth = null;
         thumbnailStrip.VisibleRangeChanged -= obj.OnVisibleRangeChanged;
+        waveformControl.VisibleRangeChanged -= obj.OnWaveformVisibleRangeChanged;
 
         obj.ThumbnailReady -= OnThumbnailReady;
         obj.ThumbnailsClear -= OnThumbnailsClear;
+        obj.MediaPreviewClear -= OnMediaPreviewClear;
+        obj.MediaPreviewCommitted -= OnMediaPreviewCommitted;
         obj.WaveformChunkReady -= OnWaveformChunkReady;
         obj.WaveformClear -= OnWaveformClear;
 
@@ -332,7 +339,12 @@ public sealed partial class ElementView : UserControl
         obj.GetClickedTime = () => _pointerPosition;
 
         obj.GetMissingThumbnailIndices = thumbnailStrip.GetMissingIndices;
+        obj.GetMissingWaveformIndices = waveformControl.GetMissingIndices;
+        obj.GetVisibleThumbnailRange = thumbnailStrip.GetVisibleRange;
+        obj.GetVisibleWaveformRange = waveformControl.GetVisibleRange;
+        obj.GetMediaViewportWidth = () => mediaClip.Bounds.Width;
         thumbnailStrip.VisibleRangeChanged += obj.OnVisibleRangeChanged;
+        waveformControl.VisibleRangeChanged += obj.OnWaveformVisibleRangeChanged;
 
         obj.IsSelected
             .ObserveOnUIDispatcher()
@@ -345,6 +357,8 @@ public sealed partial class ElementView : UserControl
 
         obj.ThumbnailReady += OnThumbnailReady;
         obj.ThumbnailsClear += OnThumbnailsClear;
+        obj.MediaPreviewClear += OnMediaPreviewClear;
+        obj.MediaPreviewCommitted += OnMediaPreviewCommitted;
         obj.WaveformChunkReady += OnWaveformChunkReady;
         obj.WaveformClear += OnWaveformClear;
         obj.SetTimelineViewAttached(true);
@@ -358,6 +372,18 @@ public sealed partial class ElementView : UserControl
     private void OnThumbnailsClear()
     {
         thumbnailStrip.ClearThumbnails();
+    }
+
+    private void OnMediaPreviewClear()
+    {
+        thumbnailStrip.ClearPreview();
+        waveformControl.ClearPreview();
+    }
+
+    private void OnMediaPreviewCommitted()
+    {
+        thumbnailStrip.CommitPreview();
+        waveformControl.CommitPreview();
     }
 
     private void OnWaveformChunkReady(WaveformChunk chunk)

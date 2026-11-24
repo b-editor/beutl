@@ -32,6 +32,8 @@ public sealed partial class SpeedNode : AudioNode, IAudioTimeMappingNode
     bool IAudioTimeMappingNode.TryGetDrainSpeedFactor(int sampleRate, out double speed)
         => _mapping.TryGetDrainSpeedFactor(sampleRate, out speed);
 
+    void IAudioTimeMappingNode.SetPreviewStartDelta(MediaTime delta) => _mapping.PreviewStartDelta = delta;
+
     public override AudioBuffer Process(AudioProcessContext context)
         => RecordProcessedOutput(_processing.Process(context, ChannelCount, draining: false));
 
