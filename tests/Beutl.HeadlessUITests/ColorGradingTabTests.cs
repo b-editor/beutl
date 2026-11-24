@@ -771,12 +771,73 @@ public sealed class ColorGradingTabTests
     }
 
     [AvaloniaTest]
+    [TestCase(600, 280, 1)]
+    [TestCase(480, 240, 0)]
+    public async Task The_lower_wheel_fields_can_be_reached_by_scrolling(int width, int height, int mode)
+    {
+        using TabHost host = await TabHost.OpenAsync($"grading-overflow-{mode}", width, height, mode);
+        ColorWheelsPanel wheels = host.Wheels;
+        var lastField = wheels.Children[^1].GetVisualDescendants().OfType<TextBox>().Last();
+        var toolbar = host.View.FindControl<Control>("ToolBar")!;
+        var contentScroller = host.View.FindControl<ScrollViewer>("ContentScroller")!;
+        var adjustmentsScroller = host.View.FindControl<ScrollViewer>("AdjustmentsScroller")!;
+        AvaPoint? toolbarPosition = toolbar.TranslatePoint(default, host.Window);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(contentScroller.Extent.Height, Is.GreaterThan(contentScroller.Viewport.Height));
+            Assert.That(adjustmentsScroller.Extent.Height, Is.LessThanOrEqualTo(adjustmentsScroller.Viewport.Height));
+        });
+        HeadlessCapture.SaveIfRequested(host.View, nameof(ColorGradingTabTests), $"overflow-{mode}-top");
+        host.Window.MouseWheel(FieldCenter(NumberField("TemperatureEditor")), new Vector(0, -10));
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(host.View, nameof(ColorGradingTabTests), $"overflow-{mode}-bottom");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(contentScroller.Offset.Y, Is.EqualTo(contentScroller.Extent.Height - contentScroller.Viewport.Height));
+            AssertReachable(lastField, "The last wheel's RGB field");
+            AssertReachable(NumberField("HueEditor"), "The last adjustment field");
+            Assert.That(toolbar.TranslatePoint(default, host.Window), Is.EqualTo(toolbarPosition));
+
+            if (mode == 0)
+            {
+                foreach (string name in new[] { "LowRangeEditor", "HighRangeEditor" })
+                    AssertReachable(NumberField(name), name);
+            }
+        });
+
+        host.Window.Width = 1080;
+        host.Window.Height = 360;
+        HeadlessTestHelpers.Render(3);
+        Assert.Multiple(() =>
+        {
+            Assert.That(contentScroller.Extent.Height, Is.LessThanOrEqualTo(contentScroller.Viewport.Height));
+            Assert.That(contentScroller.Offset.Y, Is.Zero);
+        });
+
+        TextBox NumberField(string name)
+            => host.View.FindControl<StringEditorBase>(name)!.GetVisualDescendants().OfType<TextBox>().Single();
+
+        AvaPoint FieldCenter(TextBox field)
+            => field.TranslatePoint(new Rect(field.Bounds.Size).Center, host.Window)!.Value;
+
+        void AssertReachable(TextBox field, string description)
+        {
+            AvaPoint center = FieldCenter(field);
+            Assert.That(host.Window.InputHitTest(center) is Visual hit && (hit == field || field.IsVisualAncestorOf(hit)),
+                Is.True, $"{description} at {center} should be reachable.");
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(420, 560)]
     [TestCase(550, 674)]
     public async Task The_wrapped_tonal_range_leaves_room_for_the_pads_after_redocking(int width, int height)
     {
         using TabHost host = await TabHost.OpenAsync("grading-wrapped-range", width, height, mode: 0);
         var scroller = host.View.FindControl<ScrollViewer>("AdjustmentsScroller")!;
+        var contentScroller = host.View.FindControl<ScrollViewer>("ContentScroller")!;
         var range = host.View.FindControl<Grid>("TonalRangeRow")!;
         var boxes = host.View.FindControl<WrapPanel>("TonalRangeEditors")!;
         AssertWrappedLayout();
@@ -800,6 +861,7 @@ public sealed class ColorGradingTabTests
             Assert.That(host.View.CurrentPlacement, Is.EqualTo(ColorGradingTabView.AdjustmentsPlacement.Above));
             Assert.That(Grid.GetRow(boxes), Is.EqualTo(1));
             Assert.That(scroller.Extent.Height, Is.GreaterThan(scroller.Viewport.Height));
+            Assert.That(contentScroller.Extent.Height, Is.LessThanOrEqualTo(contentScroller.Viewport.Height));
             Assert.That(host.Wheels.PadSize, Is.GreaterThanOrEqualTo(95.5));
             foreach (ColorGradingWheel wheel in host.Wheels.Children.OfType<ColorGradingWheel>())
             {

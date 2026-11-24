@@ -20,6 +20,17 @@ internal sealed class GradingContentPanel : Panel
     private ColorWheelsPanel? Wheels => Children.OfType<ColorWheelsPanel>().FirstOrDefault(w => w.IsVisible);
     private Control RangeRow => Children[^1];
 
+    internal double ViewportHeight
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            InvalidateMeasure();
+        }
+    } = double.PositiveInfinity;
+
     internal Control[] SliderRows { get; set; } = [];
     internal AdjustmentsPlacement CurrentPlacement { get; private set; }
     internal AdjustmentsPlacement? Placement
@@ -36,7 +47,7 @@ internal sealed class GradingContentPanel : Panel
     protected override Size MeasureOverride(Size availableSize)
     {
         double width = availableSize.Width;
-        double height = availableSize.Height;
+        double height = Math.Min(availableSize.Height, ViewportHeight);
         ColorWheelsPanel? wheels = Wheels;
         var placement = Placement ?? (width >= BesideMinWidth && width >= height * BesideAspectRatio
             ? AdjustmentsPlacement.Beside : AdjustmentsPlacement.Above);
@@ -58,22 +69,34 @@ internal sealed class GradingContentPanel : Panel
         }
 
         CurrentPlacement = placement;
-        if (placement != AdjustmentsPlacement.Above)
+        bool above = placement == AdjustmentsPlacement.Above;
+        double scrollerWidth = width;
+        if (!above)
         {
             SetCompact(placement == AdjustmentsPlacement.Compact);
-            double column = placement == AdjustmentsPlacement.Beside ? Math.Min(width, ColumnWidth) : double.PositiveInfinity;
-            Scroller.Measure(new Size(column, height));
+            scrollerWidth = placement == AdjustmentsPlacement.Beside ? Math.Min(width, ColumnWidth) : double.PositiveInfinity;
+            Scroller.Measure(new Size(scrollerWidth, height));
         }
 
-        bool above = placement == AdjustmentsPlacement.Above;
         double side = above ? 0 : ScrollerExtent(width);
         double top = above ? ScrollerExtent(height) : 0;
         double wheelWidth = Math.Max(0, width - side);
         RangeRow.Measure(new Size(wheelWidth, double.PositiveInfinity));
-        wheels?.Measure(new Size(wheelWidth, Math.Max(0, height - top - RangeHeight)));
+        if (wheels != null)
+        {
+            wheels.ViewportHeight = Math.Max(0, height - top - RangeHeight);
+            wheels.Measure(new Size(wheelWidth, double.PositiveInfinity));
+        }
         Size wheelSize = wheels?.DesiredSize ?? default;
         double contentWidth = Math.Max(wheelSize.Width, RangeRow.DesiredSize.Width);
         double contentHeight = wheelSize.Height + RangeHeight;
+        if (Scroller.IsVisible && top + contentHeight > height)
+        {
+            // Give the adjustments their full height when the outer viewport needs to scroll.
+            Scroller.Measure(new Size(scrollerWidth, double.PositiveInfinity));
+            top = above ? ScrollerExtent(double.PositiveInfinity) : 0;
+        }
+
         Size scrollerSize = Scroller.IsVisible ? Scroller.DesiredSize : default;
         return above
             ? new Size(Math.Max(contentWidth, scrollerSize.Width), top + contentHeight)
@@ -85,17 +108,18 @@ internal sealed class GradingContentPanel : Panel
         bool above = CurrentPlacement == AdjustmentsPlacement.Above;
         double extent = ScrollerExtent(above ? finalSize.Height : finalSize.Width);
         double width = above ? finalSize.Width : finalSize.Width - extent;
-        double height = above ? finalSize.Height - extent : finalSize.Height;
         if (Scroller.IsVisible)
         {
             Scroller.Arrange(above
                 ? new Rect(0, 0, width, Math.Max(0, extent - AboveGap))
-                : new Rect(width + BesideGap, 0, Math.Max(0, extent - BesideGap), height));
+                : new Rect(width + BesideGap, 0, Math.Max(0, extent - BesideGap), finalSize.Height));
         }
 
         ColorWheelsPanel? wheels = Wheels;
-        double wheelHeight = Math.Min(wheels?.DesiredSize.Height ?? 0, Math.Max(0, height - RangeHeight));
-        double y = (above ? extent : 0) + Math.Max(0, (height - wheelHeight - RangeHeight) / 2);
+        double wheelHeight = wheels?.DesiredSize.Height ?? 0;
+        double top = above ? extent : 0;
+        double visibleWheelHeight = Math.Min(finalSize.Height, ViewportHeight) - top;
+        double y = top + Math.Max(0, (visibleWheelHeight - wheelHeight - RangeHeight) / 2);
         wheels?.Arrange(new Rect(0, y, width, wheelHeight));
         if (RangeRow.IsVisible)
             RangeRow.Arrange(new Rect(0, y + wheelHeight + AboveGap, width, RangeRow.DesiredSize.Height));
