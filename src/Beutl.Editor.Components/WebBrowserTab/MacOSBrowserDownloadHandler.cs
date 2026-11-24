@@ -58,6 +58,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         _onHistoryChanged = onHistoryChanged;
         _onNewWindowRequested = onNewWindowRequested;
         _onWindowOpened = onWindowOpened;
+        InstallReferrerPolicyScript(webView);
         _originalDelegate = Send(Send(webView, Selector("navigationDelegate")), Selector("retain"));
         _delegate = Send(s_delegateClass, Selector("new"));
         s_handlers.Add(_delegate, this);
@@ -83,6 +84,27 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         return webView == 0 ? null
             : new MacOSBrowserDownloadHandler(webView, onDownload, onGeneratedDownload, onNavigationCommitted, onNavigationStarted,
                 onNavigationFailed, onHistoryChanged, onNewWindowRequested, onWindowOpened);
+    }
+
+    private static void InstallReferrerPolicyScript(nint webView)
+    {
+        nint configuration = Send(webView, Selector("configuration"));
+        nint controller = Send(configuration, Selector("userContentController"));
+        // WKUserContentController only removes scripts as a group. Leave the script owned by the
+        // controller alongside Avalonia's bridge, and reuse it if this WebView is attached again.
+        nint source = AutoreleasedString(BrowserReferrerPolicyScript.Source);
+        nint scripts = Send(controller, Selector("userScripts"));
+        nint count = Send(scripts, Selector("count"));
+        for (nint i = 0; i < count; i++)
+        {
+            nint existing = Send(scripts, Selector("objectAtIndex:"), i);
+            if (SendBool(Send(existing, Selector("source")), Selector("isEqualToString:"), source)) return;
+        }
+        const nint atDocumentStart = 0; // WKUserScriptInjectionTimeAtDocumentStart
+        nint script = InitUserScript(Send(GetClass("WKUserScript"), Selector("alloc")),
+            Selector("initWithSource:injectionTime:forMainFrameOnly:"), source, atDocumentStart, 1);
+        try { SendVoid(controller, Selector("addUserScript:"), script); }
+        finally { SendVoid(script, Selector("release")); }
     }
 
     public void Dispose()
@@ -549,6 +571,9 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
 
     [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
     private static partial void AddObserver(nint receiver, nint selector, nint observer, nint keyPath, nuint options, nint context);
+
+    [LibraryImport(LibObjC, EntryPoint = "objc_msgSend")]
+    private static partial nint InitUserScript(nint receiver, nint selector, nint source, nint injectionTime, byte mainFrameOnly);
 
     [LibraryImport(LibObjC)]
     private static partial void objc_registerClassPair(nint type);

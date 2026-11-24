@@ -381,6 +381,64 @@ public class BrowserNewTabReferrerTests
     }
 
     [AvaloniaTest]
+    public async Task RebindingToBlankReplacesTheHeldAdapterAddress()
+    {
+        using var temporary = new TemporaryDirectory();
+        using var filters = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
+        BrowserProfile profile = await CreateAdBlockingProfileAsync(temporary.Path, filters);
+        var context = new BrowserEditorContext();
+        using var first = new WebBrowserTabViewModel(context, s_page, profile);
+        using var second = new WebBrowserTabViewModel(context, WebBrowserTabViewModel.BlankPage, profile);
+        var native = new NativeWebView();
+        using var view = new WebBrowserTabView(uri =>
+        {
+            native.Source = uri;
+            return native;
+        }, () => (true, null, false))
+        { DataContext = first };
+        view.OnAdapterDestroyed(native, new WebViewAdapterEventArgs(Mock.Of<IWindowsWebView2PlatformHandle>()));
+        Assert.That(native.Source, Is.EqualTo(second.CurrentUri));
+
+        view.DataContext = second;
+        view.OnAdapterCreated(native, new WebViewAdapterEventArgs(null));
+        BrowserAdBlockSession session = AdBlockSessionOf(view);
+        session.Attach(s_unknownWebView);
+        await HeadlessTestHelpers.WaitUntilAsync(() => !session.IsPreparing);
+
+        Assert.That(native.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
+    }
+
+    [AvaloniaTest]
+    public void WebView2AllowsOnlyTheDataUrlForItsPendingHtmlNavigation()
+    {
+        string payload = Convert.ToBase64String("<title>Direct HTML</title>"u8);
+        var browser = new NativeWebView();
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext());
+        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false), navigationStartedIncludesSubframes: false)
+        { DataContext = vm };
+        // Simulate the payload recorded when the WebView2 adapter issues the HTML load.
+        typeof(WebBrowserTabView).GetField("_expectedWebView2HtmlPayload", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(view, payload);
+
+        var placeholder = new WebViewNavigationStartingEventArgs { Request = WebBrowserTabViewModel.BlankPage };
+        var otherData = new WebViewNavigationStartingEventArgs { Request = new Uri($"data:text/html;,other,{payload}") };
+        var html = new WebViewNavigationStartingEventArgs { Request = new Uri($"data:text/html;charset=utf-8;base64,{payload}") };
+        view.OnNavigationStarted(browser, placeholder);
+        view.OnNavigationStarted(browser, otherData);
+        view.OnNavigationStarted(browser, html);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(placeholder.Cancel, Is.False);
+            Assert.That(otherData.Cancel, Is.True);
+            Assert.That(html.Cancel, Is.False);
+            Assert.That(vm.CurrentUri, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
+        });
+        view.OnNavigationStarted(browser, html);
+        Assert.That(html.Cancel, Is.True, "The data URL can be accepted once for the app's HTML load.");
+    }
+
+    [AvaloniaTest]
     public async Task AnotherHeldNavigationGoesOutThroughTheSource()
     {
         using var temporary = new TemporaryDirectory();

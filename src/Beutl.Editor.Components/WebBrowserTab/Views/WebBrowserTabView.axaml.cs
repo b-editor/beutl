@@ -149,6 +149,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _adBlockSession = null;
         _nativeNewWindow = null;
         _openerNavigation = null;
+        _pendingHtmlNavigation = null;
+        _expectedWebView2HtmlPayload = null;
         _downloadCancellation?.Cancel();
         ClearDeferredNativeDownloads();
         ResetPageDownloadRequests();
@@ -181,14 +183,15 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         if (_webView is { } webView)
         {
-            _adBlockSession = CreateAdBlockSession(webView, viewModel.Profile, viewModel.CurrentUri);
-        }
-
-        if (_webView != null && _webView.Source != viewModel.CurrentUri)
-        {
-            InvalidatePageDownloadRequests(navigationStarted: true);
-            viewModel.BeginNavigation(viewModel.CurrentUri);
-            if (!HoldWindowsAddress(viewModel.CurrentUri)) _webView.Source = viewModel.CurrentUri;
+            Uri uri = viewModel.CurrentUri;
+            _adBlockSession = CreateAdBlockSession(webView, viewModel.Profile, uri);
+            bool held = HoldAdapterAddress(uri);
+            if (webView.Source != uri)
+            {
+                InvalidatePageDownloadRequests(navigationStarted: true);
+                viewModel.BeginNavigation(uri);
+                if (!held) webView.Source = uri;
+            }
         }
 
         EnsureWebView();
@@ -255,29 +258,43 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         new(webView, profile, initialUri, ShowToolStatus,
             navigate: uri => ResumeNavigation(webView, uri), getPage: () => AdBlockPage(webView));
 
-    // NativeWebView issues its last address before AdapterCreated. WebView2 observes responses only
-    // for requests started after registration, including the document that supplies the initial policy.
-    private Uri? _pendingWindowsAddress;
+    // NativeWebView issues its last address before AdapterCreated. Hold the first document until the
+    // native handlers can observe its response and install the script that runs at document start.
+    private Uri? _pendingAdapterAddress;
+    private (string Html, Uri? BaseUri)? _pendingHtmlNavigation;
 
     private void OnEnvironmentRequested(object? sender, WebViewEnvironmentRequestedEventArgs e)
     {
         BrowserWebViewEnvironment.Configure(sender, e);
-        if (e is WindowsWebView2EnvironmentRequestedEventArgs && sender is NativeWebView webView)
-            PrepareWindowsAdapter(webView);
+        if (sender is NativeWebView webView && e is WindowsWebView2EnvironmentRequestedEventArgs
+            or AppleWKWebViewEnvironmentRequestedEventArgs or GtkWebViewEnvironmentRequestedEventArgs
+            or LinuxWpeWebViewEnvironmentRequestedEventArgs)
+            PrepareNativeAdapter(webView);
     }
 
-    private void PrepareWindowsAdapter(NativeWebView webView)
+    private void PrepareNativeAdapter(NativeWebView webView)
     {
         if (_viewModel == null) return;
-        _pendingWindowsAddress = _viewModel.CurrentUri;
+        _pendingAdapterAddress = _viewModel.CurrentUri;
+        _expectedWebView2HtmlPayload = null;
         webView.Navigate(WebBrowserTabViewModel.BlankPage);
     }
 
-    private bool HoldWindowsAddress(Uri uri)
+    private bool HoldAdapterAddress(Uri uri)
     {
-        if (_pendingWindowsAddress == null) return false;
-        _pendingWindowsAddress = uri;
+        _pendingHtmlNavigation = null;
+        _expectedWebView2HtmlPayload = null;
+        if (_pendingAdapterAddress == null) return false;
+        _pendingAdapterAddress = uri;
         return true;
+    }
+
+    private void SupersedeHeldAdapterAddress(Uri? request)
+    {
+        if (_pendingAdapterAddress == null || request == null || !BrowserMediaDownload.IsHttpUri(request)) return;
+        // Keep holding address bar requests until setup finishes, without replaying the previous address.
+        _pendingAdapterAddress = WebBrowserTabViewModel.BlankPage;
+        _openerNavigation = null;
     }
 
     internal async void OnAdapterCreated(object? sender, WebViewAdapterEventArgs e)
@@ -287,8 +304,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
-        UpdateHistoryState();
         int handlerVersion = InvalidateNativeDownloads();
+        UpdateHistoryState();
+        IPlatformHandle? handle = e.TryGetPlatformHandle();
         NativeWebView webView = _webView;
         if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeBrowserHandler?.Dispose();
@@ -318,13 +336,13 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
         if (OperatingSystem.IsMacOS())
         {
-            _nativeBrowserHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
+            _nativeBrowserHandler = MacOSBrowserDownloadHandler.TryAttach(handle, OnDownload,
                 OnGeneratedDownload, OnNativeNavigationCommitted, OnNativeNavigationStarted, OnNativeNavigationFailed,
                 OnNativeHistoryChanged, OnNativeNewWindowRequested, OnWindowOpened);
         }
         else if (OperatingSystem.IsWindows())
         {
-            var windows = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
+            var windows = WindowsBrowserDownloadHandler.TryAttach(handle, OnDownload,
                 OnGeneratedDownload, (uri, source, policy) => IsCurrent() && OpenWindow(uri, source, policy),
                 (request, success) =>
                 {
@@ -342,7 +360,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
         else if (OperatingSystem.IsLinux())
         {
-            IPlatformHandle? handle = e.TryGetPlatformHandle();
             var pageLoad = LinuxWebKit.ObservePageLoad(handle, loading =>
             {
                 if (!IsCurrent() || _adBlockSession?.IsPreparing == true) return;
@@ -351,7 +368,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
                 // requested still awaits its own completion (the adapter can start on about:blank).
                 else if (_viewModel is { IsLoadingRequestedAddress: false } vm) vm.EndLoading();
             });
-            IDisposable? downloads = LinuxBrowserDownloadHandler.TryAttach(handle, (uri, name) =>
+            LinuxBrowserDownloadHandler? downloads = LinuxBrowserDownloadHandler.TryAttach(handle, (uri, name) =>
             {
                 if (IsCurrent()) OnNavigationResponseNotShown(uri, name);
             }, OnGeneratedDownload, OnNativeNewWindowRequested, OnWindowOpened);
@@ -361,14 +378,23 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             });
             _nativeBrowserHandler = new CompositeDisposable(
                 pageLoad ?? Disposable.Empty,
-                downloads ?? Disposable.Empty,
+                (IDisposable?)downloads ?? Disposable.Empty,
                 focus ?? Disposable.Empty);
+            if (downloads != null)
+            {
+                await downloads.InstallAsync();
+                if (!IsCurrent()) return;
+            }
         }
         // The download handler is in place first, so a response of this navigation can become a download.
         // With ad blocking on, the session starts it once its rules are in place.
-        Uri? pending = _pendingWindowsAddress;
-        _pendingWindowsAddress = null;
-        if (_openerNavigation == null && pending != null && BrowserMediaDownload.IsHttpUri(pending))
+        Uri? pending = _pendingAdapterAddress;
+        _pendingAdapterAddress = null;
+        if (_pendingHtmlNavigation != null)
+        {
+            ResumeHtmlNavigation(webView);
+        }
+        else if (_openerNavigation == null && pending != null && BrowserMediaDownload.IsHttpUri(pending))
         {
             if (_adBlockSession?.IsPreparing == true) _adBlockSession.HoldNavigation(pending, replacePending: true);
             else webView.Navigate(pending);
@@ -387,8 +413,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeBrowserHandler?.Dispose();
         _nativeBrowserHandler = null;
-        if (!_disposed && sender is NativeWebView windowsView && e.TryGetPlatformHandle() is IWindowsWebView2PlatformHandle)
-            PrepareWindowsAdapter(windowsView);
+        if (!_disposed && sender is NativeWebView nativeView && e.TryGetPlatformHandle() is
+            IWindowsWebView2PlatformHandle or IAppleWKWebViewPlatformHandle or IGtkWebViewPlatformHandle or ILinuxWpePlatformHandle)
+            PrepareNativeAdapter(nativeView);
         // NativeWebView never saw the first navigation's address, so a new adapter would stay blank without it.
         _openerNavigationIssued = false;
     }
@@ -563,7 +590,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
-        _pendingWindowsAddress = null;
+        _pendingAdapterAddress = null;
+        _pendingHtmlNavigation = null;
+        _expectedWebView2HtmlPayload = null;
         _webView.EnvironmentRequested -= OnEnvironmentRequested;
         _webView.AdapterCreated -= LinuxWebKitCookies.PersistCookies;
         _webView.AdapterCreated -= OnAdapterCreated;
