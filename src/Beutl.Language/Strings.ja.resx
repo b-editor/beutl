@@ -438,6 +438,9 @@
   <data name="RecentProjects" xml:space="preserve">
     <value>最近使ったプロジェクト</value>
   </data>
+  <data name="StartupProjects" xml:space="preserve">
+    <value>プロジェクト</value>
+  </data>
   <data name="Editors" xml:space="preserve">
     <value>エディター</value>
   </data>
@@ -460,7 +463,7 @@
     <value>アニメーションはありません</value>
   </data>
   <data name="RecentProjectsEmpty" xml:space="preserve">
-    <value>開いたプロジェクトがここに表示されます。</value>
+    <value>プロジェクトはまだありません。</value>
   </data>
   <data name="AddOutputProfile" xml:space="preserve">
     <value>プロファイルを追加</value>
@@ -3898,5 +3901,173 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="Portal_LibraryDescription" xml:space="preserve">
     <value>下にあるレイヤーの内容を現在のレイヤーに取り込みます（レイヤー参照、グループ制御、フロー入力 / layer reference, flow input）。</value>
+  </data>
+  <data name="HostedGit_AuthenticationRequired" xml:space="preserve">
+    <value>リポジトリにアクセスするには Beutl にサインインしてください。</value>
+  </data>
+  <data name="HostedGit_Unavailable" xml:space="preserve">
+    <value>Beutl リポジトリを利用できません。時間をおいて再試行してください。</value>
+  </data>
+  <data name="HostedGit_NotFound" xml:space="preserve">
+    <value>この Beutl アカウントにリポジトリが見つかりませんでした。</value>
+  </data>
+  <data name="HostedGit_RepositoryLimit" xml:space="preserve">
+    <value>Beutl リポジトリが上限に達しました。既存のリポジトリに接続するか、Web でリポジトリを管理してください。</value>
+  </data>
+  <data name="HostedGit_TokenLimit" xml:space="preserve">
+    <value>このリポジトリのアクセストークンが上限に達しました。Web で未使用のトークンを失効させてから再試行してください。</value>
+  </data>
+  <data name="HostedGit_AccountChanged" xml:space="preserve">
+    <value>サインイン中のアカウントが切り替わりました。元のアカウントに戻して再試行してください。</value>
+  </data>
+  <data name="HostedGit_Conflict" xml:space="preserve">
+    <value>既存のリポジトリと競合したため保存できませんでした。一覧を更新して再試行してください。</value>
+  </data>
+  <data name="HostedGit_RequestFailed" xml:space="preserve">
+    <value>Beutl リポジトリの操作に失敗しました。再試行してください。</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryName" xml:space="preserve">
+    <value>スラッシュ、バックスラッシュ、制御文字を含まない 80 文字以内のリポジトリ名を入力してください。</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryId" xml:space="preserve">
+    <value>リポジトリまたはアクセストークンの ID が無効です。</value>
+  </data>
+  <data name="HostedGit_InvalidTokenName" xml:space="preserve">
+    <value>制御文字を含まない 80 文字以内のアクセストークン名を入力してください。</value>
+  </data>
+  <data name="HostedGit_InvalidTokenScope" xml:space="preserve">
+    <value>アクセストークンの権限に読み取りまたは書き込みを指定してください。</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryUrl" xml:space="preserve">
+    <value>Beutl から返されたリポジトリの Git URL が無効です。</value>
+  </data>
+  <data name="HostedGit_InvalidRevision" xml:space="preserve">
+    <value>リンクに無効な Git リビジョンが含まれています。</value>
+  </data>
+  <data name="HostedGit_InvalidDestination" xml:space="preserve">
+    <value>有効な親フォルダーを選び、フォルダー名を入力してください。</value>
+  </data>
+  <data name="HostedGit_DestinationExists" xml:space="preserve">
+    <value>空のフォルダー、または存在しないフォルダーを保存先に指定してください。</value>
+  </data>
+  <data name="HostedGit_ConnectRemote" xml:space="preserve">
+    <value>Git リモートに接続</value>
+  </data>
+  <data name="HostedGit_CreateRepository" xml:space="preserve">
+    <value>Beutl で作成</value>
+  </data>
+  <data name="HostedGit_ConnectExisting" xml:space="preserve">
+    <value>既存から選択</value>
+  </data>
+  <data name="HostedGit_CustomUrl" xml:space="preserve">
+    <value>Git URL</value>
+  </data>
+  <data name="HostedGit_RepositoryName" xml:space="preserve">
+    <value>リポジトリ名</value>
+  </data>
+  <data name="HostedGit_Connect" xml:space="preserve">
+    <value>接続</value>
+  </data>
+  <data name="HostedGit_ConnectAndPublish" xml:space="preserve">
+    <value>接続して公開</value>
+  </data>
+  <data name="HostedGit_CreateAndConnect" xml:space="preserve">
+    <value>作成して接続</value>
+  </data>
+  <data name="HostedGit_CreateAndPublish" xml:space="preserve">
+    <value>作成して公開</value>
+  </data>
+  <data name="HostedGit_ReplaceOrigin" xml:space="preserve">
+    <value>現在の origin が置き換わります。</value>
+  </data>
+  <data name="HostedGit_OriginChanged" xml:space="preserve">
+    <value>現在の origin が変更されました。ダイアログを開き直して確認してから接続してください。</value>
+  </data>
+  <data name="HostedGit_SignIn" xml:space="preserve">
+    <value>Beutl にサインイン</value>
+  </data>
+  <data name="HostedGit_SignInFailed" xml:space="preserve">
+    <value>サインインに失敗しました。もう一度サインインしてください。</value>
+  </data>
+  <data name="HostedGit_NoRepositories" xml:space="preserve">
+    <value>このアカウントに Beutl リポジトリはありません。</value>
+  </data>
+  <data name="HostedGit_NoSearchResults" xml:space="preserve">
+    <value>検索条件に一致するリポジトリはありません。</value>
+  </data>
+  <data name="HostedGit_Reconnect" xml:space="preserve">
+    <value>Beutl リモートに再接続</value>
+  </data>
+  <data name="HostedGit_ReconnectHint" xml:space="preserve">
+    <value>再接続して新しいアクセストークンを発行した後、Git 操作を再試行してください。</value>
+  </data>
+  <data name="HostedGit_Reconnected" xml:space="preserve">
+    <value>Beutl リモートに再接続しました。</value>
+  </data>
+  <data name="HostedGit_OpenOnWeb" xml:space="preserve">
+    <value>Web で開く</value>
+  </data>
+  <data name="HostedGit_OpenCommitOnWeb" xml:space="preserve">
+    <value>Web でこのコミットを表示</value>
+  </data>
+  <data name="HostedGit_CloneRepository" xml:space="preserve">
+    <value>リポジトリからクローン</value>
+  </data>
+  <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
+    <value>リポジトリからクローン…</value>
+  </data>
+  <data name="HostedGit_BeutlRepositories" xml:space="preserve">
+    <value>Beutl リポジトリ</value>
+  </data>
+  <data name="HostedGit_CloneFromUrl" xml:space="preserve">
+    <value>URL からクローン</value>
+  </data>
+  <data name="HostedGit_Clone" xml:space="preserve">
+    <value>クローン</value>
+  </data>
+  <data name="HostedGit_ClonedProject" xml:space="preserve">
+    <value>ローカルコピー</value>
+  </data>
+  <data name="HostedGit_CloudProject" xml:space="preserve">
+    <value>クラウド</value>
+  </data>
+  <data name="HostedGit_FolderName" xml:space="preserve">
+    <value>フォルダー名</value>
+  </data>
+  <data name="HostedGit_ParentFolder" xml:space="preserve">
+    <value>親フォルダー</value>
+  </data>
+  <data name="HostedGit_Cloning" xml:space="preserve">
+    <value>リポジトリをクローンしています…</value>
+  </data>
+  <data name="HostedGit_Canceling" xml:space="preserve">
+    <value>クローンを中止しています…</value>
+  </data>
+  <data name="HostedGit_CloneFailed" xml:space="preserve">
+    <value>リポジトリのクローンに失敗しました。</value>
+  </data>
+  <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
+    <value>開くプロジェクトを選択</value>
+  </data>
+  <data name="HostedGit_NoProjectFound" xml:space="preserve">
+    <value>クローンしたリポジトリに Beutl プロジェクトファイルがありません。</value>
+  </data>
+  <data name="HostedGit_OpenFolder" xml:space="preserve">
+    <value>フォルダーを開く</value>
+  </data>
+  <data name="HostedGit_ProjectAlreadyOpen" xml:space="preserve">
+    <value>このリポジトリは Beutl ですでに開いています。</value>
+  </data>
+  <data name="HostedGit_ExistingCloneFound" xml:space="preserve">
+    <value>このリポジトリのプロジェクトがこのコンピューターにあります。</value>
+  </data>
+  <data name="HostedGit_OpenLocalProject" xml:space="preserve">
+    <value>ローカルを開く</value>
+  </data>
+  <data name="HostedGit_CloneNewCopy" xml:space="preserve">
+    <value>新しくクローン</value>
+  </data>
+  <data name="HostedGit_RevisionFormat" xml:space="preserve">
+    <value>リビジョン {0}</value>
   </data>
 </root>

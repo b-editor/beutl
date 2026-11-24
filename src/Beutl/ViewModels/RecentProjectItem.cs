@@ -1,6 +1,8 @@
 ﻿using Avalonia.Media.Imaging;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.Language;
 using Beutl.Services;
+using FluentIcons.Common;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -18,11 +20,34 @@ public sealed class RecentProjectItem : IDisposable
         DirectoryName = Path.GetDirectoryName(fullName);
     }
 
+    internal RecentProjectItem(Guid repositoryId, string name, DateTimeOffset updatedAt)
+    {
+        FullName = string.Empty;
+        Name = name;
+        UnclonedRepositoryId = repositoryId;
+        RepositoryLabel.Value = Strings.HostedGit_CloudProject;
+        Status.Value = RelativeTimeText.Format(updatedAt, DateTimeOffset.Now);
+    }
+
     public string FullName { get; }
 
     public string Name { get; }
 
     public string? DirectoryName { get; }
+
+    internal Guid? UnclonedRepositoryId { get; }
+
+    internal bool IsRemoteOnly => UnclonedRepositoryId.HasValue;
+
+    internal string OpeningKey => UnclonedRepositoryId is { } id ? $"beutl://repo/open?id={id:D}" : FullName;
+
+    internal string ToolTipText => IsRemoteOnly ? Name : FullName;
+
+    internal Icon RepositoryIcon => IsRemoteOnly ? Icon.Cloud : Icon.HardDrive;
+
+    internal string OpenLabel => IsRemoteOnly ? Strings.HostedGit_Clone : Strings.Open;
+
+    internal ReactivePropertySlim<string?> RepositoryLabel { get; } = new();
 
     public ReactivePropertySlim<Bitmap?> Thumbnail { get; } = new();
 

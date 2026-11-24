@@ -489,20 +489,42 @@ internal sealed partial class GitCliVersionControlService
     {
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        string? url = await GetOriginUrlAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+        return url is null ? [] : [new RemoteInfo("origin", url)];
+    }
+
+    internal static async Task<string?> GetOriginUrlAsync(
+        RepositoryInfo repository, IGitCliRunner runner, CancellationToken cancellationToken)
+    {
         try
         {
-            GitCommandResult result = await runner.RunAsync(
-                repository,
-                ["remote", "get-url", "origin"],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            string url = result.Stdout.Trim();
-            return string.IsNullOrEmpty(url) ? [] : [new RemoteInfo("origin", url)];
+            string url = await ReadUrlAsync(["remote", "get-url", "origin"]).ConfigureAwait(false);
+            if (url.Length == 0)
+                return null;
+            if (url != "origin")
+                return url;
+
+            // A push-only origin has no fetch URL. Git reports the literal remote name
+            // for get-url in that case, which is also a valid relative URL if explicit.
+            try
+            {
+                if ((await ReadUrlAsync(["config", "--get", "remote.origin.url"]).ConfigureAwait(false)).Length > 0)
+                    return url;
+            }
+            catch (GitOperationException ex) when (ex.ExitCode == 1)
+            {
+            }
+
+            return await ReadUrlAsync(["remote", "get-url", "--push", "origin"]).ConfigureAwait(false);
         }
         catch (GitOperationException ex) when (IsMissingRemoteFailure(ex))
         {
-            return [];
+            return null;
         }
+
+        async Task<string> ReadUrlAsync(string[] arguments)
+            => (await runner.RunAsync(repository, arguments, GitCommandOptions.Local, cancellationToken)
+                .ConfigureAwait(false)).Stdout.Trim();
     }
 
     private static SnapshotKind ParseSnapshotKind(string trailer)

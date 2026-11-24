@@ -38,6 +38,19 @@ public partial class MainView
         }).AddTo(_disposables);
 
         viewModel.MenuBar.OpenProject.Subscribe(OnOpenProject).AddTo(_disposables);
+        viewModel.MenuBar.CloneRepository.Subscribe(async () =>
+        {
+            if (TopLevel.GetTopLevel(this) is not Window owner)
+                return;
+            try
+            {
+                await viewModel.RepositoryClone.OpenAsync(owner);
+            }
+            catch (Exception ex)
+            {
+                await ex.Handle(Notifications);
+            }
+        }).AddTo(_disposables);
         viewModel.MenuBar.OpenFile.Subscribe(OnOpenFile).AddTo(_disposables);
         viewModel.MenuBar.EnableVersionControl.Subscribe(
             () => EnableVersionControlAsync(viewModel)).AddTo(_disposables);

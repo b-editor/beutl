@@ -97,6 +97,7 @@ public sealed partial class MainViewModel : BasePageViewModel
             CaptionPresentationDefaults.ElementFactory);
         _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider, Configuration.ViewConfig, Configuration.UpdateConfig, AppServices);
+        _editorService.ApiApplication = _beutlClients;
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestKeyMap(Path.Combine(
@@ -132,6 +133,7 @@ public sealed partial class MainViewModel : BasePageViewModel
             OpenAiJobCenter,
             appServices.GetRequiredService<INotificationService>());
 
+        RepositoryClone = new RepositoryCloneWorkflow(_beutlClients, _projectService, _versionControlCoordinator, Configuration);
         MenuBar = new MenuBarViewModel(_projectService, _editorService, _versionControlCoordinator);
         ProjectDiskDeletion = new ProjectDiskDeletion(_projectService, _editorService);
 
@@ -224,6 +226,8 @@ public sealed partial class MainViewModel : BasePageViewModel
     internal EditorService EditorService => _editorService;
 
     internal VersionControlCoordinator VersionControlCoordinator => _versionControlCoordinator;
+
+    internal RepositoryCloneWorkflow RepositoryClone { get; }
 
     internal ExtensionProvider ExtensionProvider => _extensionProvider;
 

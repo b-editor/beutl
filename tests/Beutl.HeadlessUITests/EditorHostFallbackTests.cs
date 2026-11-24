@@ -371,6 +371,7 @@ public class EditorHostFallbackTests
                 Assert.That(Shown(view), Is.EqualTo(files));
                 Assert.That(Row(list, files[0]).GetVisualDescendants().OfType<WideFramePanel>(), Is.Empty);
                 Assert.That(Row(list, files[0]).Bounds.Width, Is.EqualTo(list.Bounds.Width).Within(8));
+                Assert.That(Row(list, files[0]).TranslatePoint(default, list)!.Value.Y, Is.LessThan(16));
             });
 
             var next = new EditorHostFallback { DataContext = TestShell.MainViewModel };

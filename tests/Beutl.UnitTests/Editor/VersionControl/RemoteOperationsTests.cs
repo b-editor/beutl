@@ -10,6 +10,20 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 public sealed class RemoteOperationsTests : RealGitTestRepository
 {
     [Test]
+    public async Task Push_only_origin_is_detected_and_protected_from_an_implicit_replacement()
+    {
+        const string original = "https://example.invalid/push.git";
+        await RunGitAsync("config", "remote.origin.pushurl", original);
+        using var service = new GitCliVersionControlService(CreateInstalledLocator(), Repository, watcher: null, _ => Runner);
+
+        Assert.That(await service.GetRemotesAsync(CancellationToken.None), Is.EqualTo(new[] { new RemoteInfo("origin", original) }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SetRemoteAsync(
+            GitRemoteUrl.Parse("https://example.invalid/other.git"), expectedOrigin: null, CancellationToken.None));
+        Assert.That((await RunGitAsync("config", "--get", "remote.origin.pushurl")).Stdout.Trim(), Is.EqualTo(original));
+        await Assert.ThrowsAsync<GitOperationException>(() => RunGitAsync("config", "--get", "remote.origin.url"));
+    }
+
+    [Test]
     public async Task SetRemote_and_push_publish_head_with_progress_and_upstream()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");

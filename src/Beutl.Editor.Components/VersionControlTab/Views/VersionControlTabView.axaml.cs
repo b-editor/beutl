@@ -3,12 +3,17 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Beutl.Api;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
+using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.VersionControlTab.Views;
 
@@ -57,7 +62,7 @@ internal sealed partial class VersionControlTabView : UserControl
         {
             viewModel.RequestEnableVersionControlAsync = ExecuteEnableVersionControlAsync;
             viewModel.RequestBranchNameAsync = RequestBranchNameAsync;
-            viewModel.RequestRemoteUrlAsync = RequestRemoteUrlAsync;
+            viewModel.RequestRemoteConnectionAsync = ShowConnectRemoteDialogAsync;
             viewModel.LaunchUriAsync = LaunchUriAsync;
         }
 
@@ -135,16 +140,27 @@ internal sealed partial class VersionControlTabView : UserControl
             $"restore-{commit.ShortSha}");
     }
 
-    private Task<string?> RequestRemoteUrlAsync(
-        string? currentRemoteUrl,
+    private async Task<bool> ShowConnectRemoteDialogAsync(
+        ConnectRemoteContext context, Func<GitRemoteUrl, CancellationToken, Task> apply,
         CancellationToken cancellationToken)
     {
         PrimaryActionSplitButton.Flyout?.Hide();
-        return PromptFlyout.ShowTextInputAsync(
-            PrimaryActionSplitButton,
-            Strings.VersionControl_SetRemoteTitle,
-            Strings.VersionControl_RemoteUrl,
-            currentRemoteUrl,
-            cancellationToken);
+        if (DataContext is not VersionControlTabViewModel viewModel
+            || TopLevel.GetTopLevel(this) is not { } owner
+            || cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        using var model = new ConnectRemoteDialogViewModel(
+            viewModel.GetService<BeutlApiApplication>(), context, viewModel.RepositoryCreationIds, apply, cancellationToken);
+        var dialog = new ConnectRemoteDialog { DataContext = model };
+        using CancellationTokenRegistration registration = cancellationToken.Register(
+            () => Dispatcher.UIThread.Post(() =>
+            {
+                if (dialog.IsAttachedToVisualTree())
+                    dialog.Hide();
+            }));
+        return await dialog.ShowAsync(owner) == FAContentDialogResult.Primary;
     }
 }

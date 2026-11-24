@@ -5,10 +5,8 @@ using NuGet.Versioning;
 
 namespace Beutl.Services;
 
-internal sealed record PackageInstallRequest(string PackageName, string? Version)
+internal sealed record PackageInstallRequest(string PackageName, string? Version) : BeutlLinkRequest
 {
-    internal const int MaxUriLength = 2048;
-
     public static bool TryParse(string? value, [NotNullWhen(true)] out PackageInstallRequest? request)
     {
         request = null;

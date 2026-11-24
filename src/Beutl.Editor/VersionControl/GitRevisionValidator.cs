@@ -2,6 +2,16 @@
 
 internal static class GitRevisionValidator
 {
+    // Matches the Web dashboard's isGitRevision. Pass a verified object ID to checkout.
+    public static bool IsWebRevision(string? revision)
+        => revision is { Length: > 0 and <= 255 }
+            && !revision.Any(static c => char.IsControl(c) || char.IsWhiteSpace(c) || c == '\uFEFF')
+            && revision.IndexOfAny(['~', '^', ':', '?', '*', '[', '\\', ']', '|']) < 0
+            && !revision.StartsWith('/') && !revision.EndsWith('/')
+            && !revision.EndsWith(".lock", StringComparison.Ordinal)
+            && !revision.Contains("..", StringComparison.Ordinal)
+            && !revision.Contains("@{", StringComparison.Ordinal);
+
     public static void ValidateCommitId(string revision, string paramName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(revision, paramName);

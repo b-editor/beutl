@@ -429,6 +429,15 @@ internal sealed partial class GitCliVersionControlService :
             cancellationToken);
     }
 
+    public Task SetRemoteAsync(
+        GitRemoteUrl remote, string? expectedOrigin, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            () => SetRemoteCoreAsync(remote, cancellationToken, verifyOrigin: true, expectedOrigin),
+            cancellationToken);
+    }
+
     public Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken)

@@ -96,8 +96,9 @@ internal partial class VersionControlTabViewModel
         HasMoreHistory.Value = isTracked;
         IsHistoryEmpty.Value = true;
         CommitMessage.Value = string.Empty;
-        RemoteUrl.Value = string.Empty;
-        HasRemote.Value = false;
+        SetOrigin(null);
+        _currentBranch = null;
+        RepositoryCreationIds.Clear();
         RemoteProgress.Value = string.Empty;
         IsNestedRepository.Value = _service?.Repository?.IsNestedInForeignRepo == true;
         RepositoryScopeText.Value = GetRepositoryScopeText(_service);
@@ -455,6 +456,7 @@ internal partial class VersionControlTabViewModel
     {
         _lastStatusSequence = Math.Max(_lastStatusSequence, status.NotificationSequence);
         _lastStatusHead = status.HeadCommit;
+        _currentBranch = status.IsDetachedHead ? null : status.Branch;
         IsTracked.Value = _service?.Repository is not null;
         IsConflicted.Value = status.HasConflicts;
         IsDetachedHead.Value = status.IsDetachedHead;

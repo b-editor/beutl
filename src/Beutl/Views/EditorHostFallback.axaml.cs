@@ -10,6 +10,7 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Beutl.Api.Clients;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab.Services;
@@ -56,6 +57,7 @@ public partial class EditorHostFallback : UserControl
     private RecentProjectItem? _pressedItem;
     private ViewConfig? _configuration;
     private bool _bindingConfiguration;
+    private bool _projectsAttached;
 
     // "Show in Finder", "Show in Explorer" or "Open in File Manager", as the platform calls it.
     public static string FileManagerMenuHeader => FileManagerLauncher.MenuHeader;
@@ -87,14 +89,17 @@ public partial class EditorHostFallback : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _projectsAttached = true;
         BindConfiguration();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _projectsAttached = false;
         base.OnDetachedFromVisualTree(e);
         if (_configuration != null)
             _configuration.RecentProjects.CollectionChanged -= OnRecentProjectsChanged;
+        BindHostedProjects();
         SyncRecentItems();
     }
 
@@ -121,8 +126,9 @@ public partial class EditorHostFallback : UserControl
         {
             _bindingConfiguration = false;
         }
-        if (_configuration != null && this.IsAttachedToVisualTree())
+        if (_configuration != null && _projectsAttached)
             _configuration.RecentProjects.CollectionChanged += OnRecentProjectsChanged;
+        BindHostedProjects();
         SyncRecentItems();
     }
 
@@ -135,6 +141,7 @@ public partial class EditorHostFallback : UserControl
         }
         else if (change.Property == IsVisibleProperty)
         {
+            BindHostedProjects();
             SyncRecentItems();
         }
     }
@@ -185,6 +192,11 @@ public partial class EditorHostFallback : UserControl
         await ExecuteMainViewModelCommandAsync(vm => vm.MenuBar.OpenProject.ExecuteAsync(null!));
     }
 
+    private async void CloneRepository_Click(object? sender, RoutedEventArgs e)
+    {
+        await ExecuteMainViewModelCommandAsync(vm => vm.MenuBar.CloneRepository.ExecuteAsync(null!));
+    }
+
     private async Task ExecuteMainViewModelCommandAsync(Func<MainViewModel, Task> action)
     {
         if (this.FindAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel })
@@ -202,7 +214,7 @@ public partial class EditorHostFallback : UserControl
 
     private void DeleteRecentItem_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is FAMenuFlyoutItem { DataContext: RecentProjectItem item })
+        if (sender is FAMenuFlyoutItem { DataContext: RecentProjectItem { IsRemoteOnly: false } item })
         {
             if (_configuration is not { } viewConfig) return;
 
@@ -213,7 +225,7 @@ public partial class EditorHostFallback : UserControl
 
     private async void DeleteRecentProjectFromDisk_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is FAMenuFlyoutItem { DataContext: RecentProjectItem item })
+        if (sender is FAMenuFlyoutItem { DataContext: RecentProjectItem { IsRemoteOnly: false } item })
         {
             await ExecuteMainViewModelCommandAsync(vm => vm.ProjectDiskDeletion.DeleteAsync(item.FullName));
         }
@@ -223,14 +235,14 @@ public partial class EditorHostFallback : UserControl
     {
         if (sender is FAMenuFlyoutItem { DataContext: RecentProjectItem item })
         {
-            await OpenRecentProjectAsync(item.FullName);
+            await OpenRecentProjectAsync(item);
         }
     }
 
     // Selects the project file in the platform's file manager, or opens its folder where it cannot select a file.
     private async void ShowRecentItemInFileManager_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is not FAMenuFlyoutItem { DataContext: RecentProjectItem item })
+        if (sender is not FAMenuFlyoutItem { DataContext: RecentProjectItem { IsRemoteOnly: false } item })
             return;
 
         // A project on a disconnected drive can take a while to answer.
@@ -258,7 +270,7 @@ public partial class EditorHostFallback : UserControl
             && e.InitialPressMouseButton == MouseButton.Left
             && ReferenceEquals(FindRecentItem(recentList.InputHitTest(e.GetPosition(recentList))), pressed))
         {
-            await OpenRecentProjectAsync(pressed.FullName);
+            await OpenRecentProjectAsync(pressed);
         }
     }
 
@@ -272,11 +284,11 @@ public partial class EditorHostFallback : UserControl
         if (e.Key == Key.Enter && recentList.SelectedItem is RecentProjectItem item)
         {
             e.Handled = true;
-            await OpenRecentProjectAsync(item.FullName);
+            await OpenRecentProjectAsync(item);
         }
     }
 
-    private async Task OpenRecentProjectAsync(string fileName)
+    private async Task OpenRecentProjectAsync(RecentProjectItem item)
     {
         if (OpeningFile != null)
         {
@@ -286,12 +298,20 @@ public partial class EditorHostFallback : UserControl
         await ExecuteMainViewModelCommandAsync(async viewModel =>
         {
             using Activity? activity = Telemetry.StartActivity("EditPageFallback.OpenRecentFile");
-            OpeningFile = fileName;
+            OpeningFile = item.OpeningKey;
             try
             {
                 // Let the row render its progress ring before project deserialization starts.
                 await Dispatcher.Yield(DispatcherPriority.Background);
-                await viewModel.MenuBar.OpenRecentProject.ExecuteAsync(fileName);
+                if (item.UnclonedRepositoryId is { } repositoryId)
+                {
+                    if (TopLevel.GetTopLevel(this) is Window owner)
+                        await viewModel.RepositoryClone.OpenAsync(owner, new RepositoryOpenRequest(repositoryId, null));
+                }
+                else
+                {
+                    await viewModel.MenuBar.OpenRecentProject.ExecuteAsync(item.FullName);
+                }
             }
             finally
             {
@@ -319,58 +339,93 @@ public partial class EditorHostFallback : UserControl
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            SyncRecentItems();
+            SyncAfterRecentProjectsChanged();
         }
         else
         {
-            Dispatcher.UIThread.Post(SyncRecentItems);
+            Dispatcher.UIThread.Post(SyncAfterRecentProjectsChanged);
         }
+    }
+
+    private void SyncAfterRecentProjectsChanged()
+    {
+        SyncRecentItems();
+        RefreshHostedProjects();
     }
 
     // Holds what the recent projects list asks for, most recent first, and nothing unless the page is on screen: the
     // pictures would only sit in memory behind the editor, and the next showing reads the ones the close just wrote.
     private void SyncRecentItems()
     {
-        string[] files = this.IsAttachedToVisualTree() && IsVisible && _configuration != null
-            ? [.. _configuration.RecentProjects.Distinct().Take(MaxShownProjects)]
+        string[] allRecentFiles = IsShowingProjects && _configuration != null
+            ? [.. _configuration.RecentProjects.Distinct(StringComparer.Ordinal)]
             : [];
+        var clonedIds = new HashSet<Guid>();
+        var files = new List<string>();
+        for (int i = 0; i < allRecentFiles.Length; i++)
+        {
+            string path = allRecentFiles[i];
+            bool firstCopy = _localRepositories.TryGetValue(path, out Guid id) && clonedIds.Add(id);
+            if (i < MaxShownProjects || firstCopy)
+                files.Add(path);
+        }
+
+        var hosted = new Dictionary<Guid, GitRepositorySummary>();
+        foreach (GitRepositorySummary repository in _hostedRepositories.OrderByDescending(repo => repo.UpdatedAt))
+        {
+            if (Guid.TryParseExact(repository.Id, "D", out Guid id) && id != Guid.Empty && !clonedIds.Contains(id))
+                hosted.TryAdd(id, repository);
+        }
+
+        var localPaths = files.ToHashSet(StringComparer.Ordinal);
 
         for (int i = _recentItems.Count - 1; i >= 0; i--)
         {
             RecentProjectItem item = _recentItems[i];
-            if (!files.Contains(item.FullName))
+            bool keep = item.UnclonedRepositoryId is { } id
+                ? hosted.TryGetValue(id, out GitRepositorySummary? repo) && item.Name == repo.Name
+                : localPaths.Contains(item.FullName);
+            if (!keep)
             {
                 _recentItems.RemoveAt(i);
                 item.Dispose();
             }
         }
 
-        for (int i = 0; i < files.Length; i++)
+        for (int i = 0; i < files.Count; i++)
         {
-            if (i < _recentItems.Count && _recentItems[i].FullName == files[i])
+            string path = files[i];
+            int current = IndexOfRecentItem(item => item.FullName == path && !item.IsRemoteOnly);
+            if (current < 0)
             {
-                continue;
-            }
-
-            int current = IndexOfRecentItem(files[i]);
-            if (current >= 0)
-            {
-                _recentItems.Move(current, i);
-            }
-            else
-            {
-                var item = new RecentProjectItem(files[i]);
+                var item = new RecentProjectItem(path);
                 _recentItems.Insert(i, item);
                 _ = item.LoadAsync();
             }
+            else if (current != i)
+            {
+                _recentItems.Move(current, i);
+            }
+            _recentItems[i].RepositoryLabel.Value = _localRepositories.ContainsKey(path) ? Strings.HostedGit_ClonedProject : null;
+        }
+
+        int position = files.Count;
+        foreach ((Guid id, GitRepositorySummary repository) in hosted)
+        {
+            int current = IndexOfRecentItem(item => item.UnclonedRepositoryId == id);
+            if (current < 0)
+                _recentItems.Insert(position, new RecentProjectItem(id, repository.Name, repository.UpdatedAt));
+            else if (current != position)
+                _recentItems.Move(current, position);
+            position++;
         }
     }
 
-    private int IndexOfRecentItem(string file)
+    private int IndexOfRecentItem(Func<RecentProjectItem, bool> match)
     {
         for (int i = 0; i < _recentItems.Count; i++)
         {
-            if (_recentItems[i].FullName == file)
+            if (match(_recentItems[i]))
             {
                 return i;
             }

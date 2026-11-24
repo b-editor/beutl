@@ -259,6 +259,14 @@ internal sealed partial class VersionControlCoordinator :
         });
     }
 
+    public Task SetRemoteAsync(
+        GitRemoteUrl remote, string? expectedOrigin, CancellationToken cancellationToken)
+        => RunOnUiThreadAsync(async () =>
+        {
+            using OperationLease operation = await BeginOperationAsync(cancellationToken);
+            await GetTrackedBackend().SetRemoteAsync(remote, expectedOrigin, operation.CancellationToken);
+        });
+
     public Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken = default)

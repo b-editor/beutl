@@ -12,13 +12,15 @@ internal sealed class GitRemoteUrl
     private readonly string? _username;
     private readonly string? _password;
     private readonly bool _usernameIsSecret;
+    private readonly bool _hostedCredential;
 
-    private GitRemoteUrl(string url, string? username = null, string? password = null, bool usernameIsSecret = false)
+    private GitRemoteUrl(string url, string? username = null, string? password = null, bool usernameIsSecret = false, bool hostedCredential = false)
     {
         Url = url;
         _username = username;
         _password = password;
         _usernameIsSecret = usernameIsSecret;
+        _hostedCredential = hostedCredential;
     }
 
     public string Url { get; }
@@ -78,7 +80,8 @@ internal sealed class GitRemoteUrl
                 usernameIsSecret = false;
             }
 
-            return new GitRemoteUrl(remote.Uri.AbsoluteUri, username, password, usernameIsSecret);
+            string clean = remote.Uri.AbsoluteUri;
+            return new GitRemoteUrl(clean, username, password, usernameIsSecret, HostedGitRemoteUrl.TryParse(clean, out _));
         }
 
         if (Uri.UnescapeDataString(uri.UserInfo).Contains(':'))
@@ -98,11 +101,65 @@ internal sealed class GitRemoteUrl
         return new GitRemoteUrl(url);
     }
 
+    public static GitRemoteUrl WithHostedCredentials(Uri url, string token)
+    {
+        if (string.IsNullOrEmpty(token) || HasInvalidCredentialCharacters(token))
+            throw new GitCredentialStorageException();
+
+        return new GitRemoteUrl(url.AbsoluteUri, "git", token, hostedCredential: true);
+    }
+
+    public string RedactDiagnostics(string value)
+    {
+        if (_password is { Length: > 0 } password)
+            value = value.Replace(password, "***", StringComparison.Ordinal);
+        if (_usernameIsSecret && _username is { Length: > 0 } username)
+            value = value.Replace(username, "***", StringComparison.Ordinal);
+        if (_username is not null && _password is not null)
+        {
+            string basic = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{_username}:{_password}"));
+            value = value.Replace(basic, "***", StringComparison.Ordinal);
+        }
+        return GitDiagnosticSanitizer.RedactCredentials(value);
+    }
+
+    public void AddCredentialOptions(List<string> arguments, string? helper)
+    {
+        arguments.AddRange(["-c", $"credential.{Url}.useHttpPath=true"]);
+        if (Username is { } username)
+            arguments.AddRange(["-c", $"credential.{Url}.username={username}"]);
+        if (helper is not null)
+        {
+            arguments.AddRange(["-c", $"credential.{Url}.helper=", "-c", $"credential.{Url}.helper={helper}"]);
+        }
+    }
+
+    public async Task ConfigureLocalCredentialsAsync(
+        RepositoryInfo repository, IGitCliRunner runner, string? helper,
+        CancellationToken cancellationToken, GitCommandOptions? options = null)
+    {
+        if (Username is { } username)
+            await SetConfigAsync("--replace-all", $"credential.{Url}.username", username).ConfigureAwait(false);
+
+        await SetConfigAsync("--replace-all", $"credential.{Url}.useHttpPath", "true").ConfigureAwait(false);
+        if (helper is not null)
+        {
+            string key = $"credential.{Url}.helper";
+            await SetConfigAsync("--replace-all", key, "").ConfigureAwait(false);
+            await SetConfigAsync("--add", key, helper).ConfigureAwait(false);
+        }
+
+        Task<GitCommandResult> SetConfigAsync(string action, string key, string value)
+            => runner.RunAsync(repository, ["config", "--local", action, key, value],
+                options ?? GitCommandOptions.Local, cancellationToken);
+    }
+
     // Returns a helper to add to this URL's local configuration, only when none is configured.
     public async Task<string?> StoreCredentialsAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        GitCommandOptions? context = null)
     {
         if (!HasCredentials)
         {
@@ -111,13 +168,13 @@ internal sealed class GitRemoteUrl
 
         try
         {
-            IReadOnlyList<string?> helpers = await FindCredentialHelpersAsync(repository, runner, cancellationToken)
+            IReadOnlyList<string?> helpers = await FindCredentialHelpersAsync(repository, runner, context ?? GitCommandOptions.Local, cancellationToken)
                 .ConfigureAwait(false);
             foreach (string? helper in helpers)
             {
                 try
                 {
-                    await StoreCredentialsWithHelperAsync(repository, runner, helper, cancellationToken)
+                    await StoreCredentialsWithHelperAsync(repository, runner, helper, context ?? GitCommandOptions.Local, cancellationToken)
                         .ConfigureAwait(false);
                     return helper;
                 }
@@ -142,33 +199,24 @@ internal sealed class GitRemoteUrl
         RepositoryInfo repository,
         IGitCliRunner runner,
         string? helper,
+        GitCommandOptions context,
         CancellationToken cancellationToken)
     {
-        List<string> arguments =
-        [
-            "-c", "credential.interactive=false",
-            "-c", "core.askpass=",
-            // Use the account that will be saved in this URL's local configuration, even when
-            // a global or URL-specific default names another account.
-            "-c", $"credential.{Url}.useHttpPath=true",
-        ];
-        if (Username is { } username)
-        {
-            arguments.AddRange(["-c", $"credential.{Url}.username={username}"]);
-        }
+        List<string> arguments = ["-c", "credential.interactive=false", "-c", "core.askpass="];
+        AddCredentialOptions(arguments, helper: null);
         if (helper is not null)
         {
             arguments.AddRange(["-c", "credential.helper=", "-c", $"credential.helper={helper}"]);
         }
-
         arguments.AddRange(["credential", "approve"]);
-        GitCommandOptions options = GitCommandOptions.Local with
+        var environment = context.EnvironmentOverrides is null
+            ? new Dictionary<string, string?>()
+            : new Dictionary<string, string?>(context.EnvironmentOverrides);
+        environment["GIT_ASKPASS"] = "";
+        environment["SSH_ASKPASS"] = "";
+        GitCommandOptions options = context with
         {
-            EnvironmentOverrides = new Dictionary<string, string?>
-            {
-                ["GIT_ASKPASS"] = string.Empty,
-                ["SSH_ASKPASS"] = string.Empty,
-            },
+            EnvironmentOverrides = environment,
             // Passwords go through stdin, never through arguments or repository configuration.
             StandardInput = $"url={Url}\nusername={_username}\npassword={_password}\n\n",
             MaxStdoutBytes = 64 * 1024,
@@ -196,6 +244,7 @@ internal sealed class GitRemoteUrl
     private async Task<IReadOnlyList<string?>> FindCredentialHelpersAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
+        GitCommandOptions context,
         CancellationToken cancellationToken)
     {
         try
@@ -203,11 +252,18 @@ internal sealed class GitRemoteUrl
             GitCommandResult configured = await runner.RunAsync(
                 repository,
                 ["config", "--null", "--get-urlmatch", "credential.helper", Url],
-                GitCommandOptions.Local,
+                context,
                 cancellationToken).ConfigureAwait(false);
-            if (configured.Stdout.TrimEnd('\0').Length > 0)
+            string configuredHelper = configured.Stdout.TrimEnd('\0');
+            if (configuredHelper.Length > 0)
             {
-                return [null];
+                if (!_hostedCredential)
+                    return [null];
+
+                // The configured chain may also include Git's plaintext "store". Deliberately
+                // select the secure helper alone for a token issued by Beutl.
+                if (IsSecureHelper(configuredHelper))
+                    return [configuredHelper];
             }
         }
         catch (GitOperationException ex) when (ex.ExitCode == 1)
@@ -215,11 +271,11 @@ internal sealed class GitRemoteUrl
         }
 
         GitCommandResult available = await runner.RunAsync(
-            repository, ["help", "-a"], GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+            repository, ["help", "-a"], context, cancellationToken).ConfigureAwait(false);
         var commands = available.Stdout.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
             .ToHashSet(StringComparer.Ordinal);
         GitCommandResult execPath = await runner.RunAsync(
-            repository, ["--exec-path"], GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+            repository, ["--exec-path"], context, cancellationToken).ConfigureAwait(false);
         string helperDirectory = execPath.Stdout.Trim();
         List<string?> helpers = [];
         foreach (string helper in new[] { "manager", "manager-core", "osxkeychain", "wincred", "libsecret" })
@@ -238,6 +294,17 @@ internal sealed class GitRemoteUrl
         }
 
         return helpers;
+    }
+
+    private static bool IsSecureHelper(string helper)
+    {
+        if (helper.StartsWith("cache --timeout=", StringComparison.Ordinal))
+            return int.TryParse(helper.AsSpan("cache --timeout=".Length), out _);
+
+        string name = Path.GetFileNameWithoutExtension(helper);
+        if (name.StartsWith("git-credential-", StringComparison.Ordinal))
+            name = name["git-credential-".Length..];
+        return name is "manager" or "manager-core" or "osxkeychain" or "wincred" or "libsecret" or "cache";
     }
 
     private static bool HasInvalidCredentialCharacters(string value)

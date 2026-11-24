@@ -33,6 +33,8 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     private bool _coordinatorGitAvailable;
     private bool _disposed;
     private bool _isFlyoutOpen;
+    private HostedGitRemoteUrl? _hostedRemote;
+    private string? _currentWebRef;
 
     internal TitleBarBranchViewModel(INotificationService notifications,
         IReadOnlyReactiveProperty<IProjectVersionControlService?> serviceSource,
@@ -87,6 +89,11 @@ internal sealed class TitleBarBranchViewModel : IDisposable
                 _logger,
                 nameof(CreateBranchCommand)))
             .DisposeWith(_disposables);
+        IsHostedGitRemote = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
+        OpenOnWebCommand = new AsyncReactiveCommand(IsHostedGitRemote.AsObservable())
+            .WithSubscribe(() => VersionControlCommandBoundary.RunAsync(_notifications,
+                OpenOnWebAsync, _logger, nameof(OpenOnWebCommand)))
+            .DisposeWith(_disposables);
         RequestNewBranchNameAsync = static () => Task.FromResult<string?>(null);
 
         Initialization = RebindServiceAsync(serviceSource.Value);
@@ -119,6 +126,18 @@ internal sealed class TitleBarBranchViewModel : IDisposable
     internal ReactivePropertySlim<bool> HasBehind { get; }
 
     internal AsyncReactiveCommand CreateBranchCommand { get; }
+
+    public ReactivePropertySlim<bool> IsHostedGitRemote { get; }
+
+    public AsyncReactiveCommand OpenOnWebCommand { get; }
+
+    internal Func<Uri, Task<bool>> LaunchUriAsync { get; set; } = static _ => Task.FromResult(false);
+
+    internal async Task OpenOnWebAsync()
+    {
+        if (_hostedRemote is { } remote)
+            await LaunchUriAsync(remote.GetRepositoryUri(_currentWebRef));
+    }
 
     internal Func<Task<string?>> RequestNewBranchNameAsync { get; set; }
 
@@ -383,6 +402,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
         WorkspaceStatus status;
         IReadOnlyList<BranchInfo>? branches = null;
+        string? origin = null;
         int statusRevision = Volatile.Read(ref _statusRevision);
         try
         {
@@ -390,6 +410,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             if (refreshBranches && IsCurrentStatusRead(status, statusRevision))
             {
                 branches = await service.GetBranchesAsync(cancellationToken);
+                origin = (await service.GetRemotesAsync(cancellationToken))?.FirstOrDefault()?.Url;
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -419,6 +440,11 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             }
             if (IsCurrentStatusRead(status, statusRevision))
             {
+                if (refreshBranches)
+                {
+                    HostedGitRemoteUrl.TryParse(origin, out _hostedRemote);
+                    IsHostedGitRemote.Value = _hostedRemote is not null;
+                }
                 ApplyState(status, branches);
             }
             else if (refreshBranches)
@@ -462,6 +488,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         string branchName = status.Branch
                             ?? branches?.FirstOrDefault(branch => branch.IsCurrent)?.Name
                             ?? "—";
+        _currentWebRef = status.IsDetachedHead ? null : status.Branch;
         _gitAvailable = true;
         IsVisible.Value = true;
         ApplyBranchSummary(branchName, status.Ahead, status.Behind);
@@ -504,6 +531,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             _lastStatusSequence = Math.Max(_lastStatusSequence, status.NotificationSequence);
 
             Interlocked.Increment(ref _statusRevision);
+            _currentWebRef = status.IsDetachedHead ? null : status.Branch;
             string branchName = status.Branch ?? "—";
             IsVisible.Value =
                 _gitAvailable
@@ -590,6 +618,9 @@ internal sealed class TitleBarBranchViewModel : IDisposable
 
     private void ResetRepositoryState()
     {
+        _hostedRemote = null;
+        _currentWebRef = null;
+        IsHostedGitRemote.Value = false;
         IsVisible.Value = false;
         DisplayText.Value = string.Empty;
         CurrentBranchName.Value = string.Empty;

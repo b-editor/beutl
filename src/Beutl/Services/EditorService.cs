@@ -67,6 +67,7 @@ public sealed partial class EditorService
     internal Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost? BrowserSettingsHost { get; set; }
     internal Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry? StorageProviders { get; set; }
     internal Beutl.Editor.Components.AiWorkspaceTab.IAiWorkspaceHost? AiWorkspaceHost { get; set; }
+    internal Beutl.Api.BeutlApiApplication? ApiApplication { get; set; }
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ILogger _logger = Log.CreateLogger<EditorService>();
     private readonly ExtensionProvider _extensionProvider;

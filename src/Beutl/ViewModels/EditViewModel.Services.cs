@@ -38,7 +38,7 @@ public partial class EditViewModel
         .Add<ObjectTemplateService>(() => EditorService.AppServices.GetRequiredService<ObjectTemplateService>())
         .Add<Beutl.Services.Tutorials.ITutorialService>(() => EditorService.AppServices.GetRequiredService<Beutl.Services.Tutorials.ITutorialService>())
         .Add<Beutl.Controls.PropertyEditors.ColorPaletteService>(() => EditorService.AppServices.GetRequiredService<Beutl.Controls.PropertyEditors.ColorPaletteService>())
-        .Add<Beutl.Api.BeutlApiApplication>(() => MainViewModel.TryGetCurrent(out MainViewModel? main) ? main._beutlClients : null)
+        .Add<Beutl.Api.BeutlApiApplication>(() => EditorService.ApiApplication)
         .Add<IEditorFileUsage>(() => EditorService)
         .Add<Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost>(() => EditorService.BrowserSettingsHost)
         .Add<Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry>(() => EditorService.StorageProviders)
