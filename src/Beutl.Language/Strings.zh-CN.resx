@@ -3904,4 +3904,181 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Portal_LibraryDescription" xml:space="preserve">
     <value>将下方图层的内容引入当前图层（图层引用、流程输入 / layer reference, flow input）。</value>
   </data>
+  <data name="StartupProjects" xml:space="preserve">
+    <value>项目</value>
+  </data>
+  <data name="HostedGit_AuthenticationRequired" xml:space="preserve">
+    <value>请登录 Beutl 以访问你的仓库。</value>
+  </data>
+  <data name="HostedGit_Unavailable" xml:space="preserve">
+    <value>Beutl 仓库暂时不可用。请稍后重试。</value>
+  </data>
+  <data name="HostedGit_NotFound" xml:space="preserve">
+    <value>在你的 Beutl 账户中找不到此仓库。</value>
+  </data>
+  <data name="HostedGit_RepositoryLimit" xml:space="preserve">
+    <value>已达到 Beutl 仓库数量上限。请连接现有仓库，或在网页中管理仓库。</value>
+  </data>
+  <data name="HostedGit_TokenLimit" xml:space="preserve">
+    <value>此仓库的访问令牌数量已达到上限。请在网页中撤销一个未使用的令牌后重试。</value>
+  </data>
+  <data name="HostedGit_AccountChanged" xml:space="preserve">
+    <value>当前登录账户已切换。请切回原账户后重试。</value>
+  </data>
+  <data name="HostedGit_Conflict" xml:space="preserve">
+    <value>与现有仓库冲突，无法保存。请刷新仓库列表后重试。</value>
+  </data>
+  <data name="HostedGit_RequestFailed" xml:space="preserve">
+    <value>Beutl 仓库操作失败。请重试。</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryName" xml:space="preserve">
+    <value>请输入不超过 80 个字符的仓库名称，名称不能包含斜杠、反斜杠或控制字符。</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryId" xml:space="preserve">
+    <value>仓库或访问令牌的 ID 无效。</value>
+  </data>
+  <data name="HostedGit_InvalidTokenName" xml:space="preserve">
+    <value>请输入不超过 80 个字符且不含控制字符的访问令牌名称。</value>
+  </data>
+  <data name="HostedGit_InvalidTokenScope" xml:space="preserve">
+    <value>请选择令牌的读取或写入权限。</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryUrl" xml:space="preserve">
+    <value>Beutl 返回的此仓库 Git URL 无效。</value>
+  </data>
+  <data name="HostedGit_InvalidRevision" xml:space="preserve">
+    <value>链接中的 Git 修订版本无效。</value>
+  </data>
+  <data name="HostedGit_InvalidDestination" xml:space="preserve">
+    <value>请选择有效的上级文件夹并输入文件夹名称。</value>
+  </data>
+  <data name="HostedGit_DestinationExists" xml:space="preserve">
+    <value>请选择空文件夹或尚不存在的文件夹作为目标位置。</value>
+  </data>
+  <data name="HostedGit_ConnectRemote" xml:space="preserve">
+    <value>连接 Git 远程</value>
+  </data>
+  <data name="HostedGit_CreateRepository" xml:space="preserve">
+    <value>在 Beutl 中创建</value>
+  </data>
+  <data name="HostedGit_ConnectExisting" xml:space="preserve">
+    <value>现有仓库</value>
+  </data>
+  <data name="HostedGit_CustomUrl" xml:space="preserve">
+    <value>Git URL</value>
+  </data>
+  <data name="HostedGit_RepositoryName" xml:space="preserve">
+    <value>仓库名称</value>
+  </data>
+  <data name="HostedGit_Connect" xml:space="preserve">
+    <value>连接</value>
+  </data>
+  <data name="HostedGit_ConnectAndPublish" xml:space="preserve">
+    <value>连接并发布</value>
+  </data>
+  <data name="HostedGit_CreateAndConnect" xml:space="preserve">
+    <value>创建并连接</value>
+  </data>
+  <data name="HostedGit_CreateAndPublish" xml:space="preserve">
+    <value>创建并发布</value>
+  </data>
+  <data name="HostedGit_ReplaceOrigin" xml:space="preserve">
+    <value>将替换当前的 origin。</value>
+  </data>
+  <data name="HostedGit_OriginChanged" xml:space="preserve">
+    <value>当前的 origin 已更改。请重新打开对话框，确认后再连接。</value>
+  </data>
+  <data name="HostedGit_OriginAlreadyConfigured" xml:space="preserve">
+    <value>已配置 origin。请使用“推送”发布到该远程。</value>
+  </data>
+  <data name="HostedGit_PushDestinationMismatch" xml:space="preserve">
+    <value>Git 将推送到其他仓库。请在连接前检查 origin 的推送 URL。</value>
+  </data>
+  <data name="HostedGit_SignIn" xml:space="preserve">
+    <value>登录 Beutl</value>
+  </data>
+  <data name="HostedGit_SignInFailed" xml:space="preserve">
+    <value>登录失败。请重新登录。</value>
+  </data>
+  <data name="HostedGit_NoRepositories" xml:space="preserve">
+    <value>此账户下没有 Beutl 仓库。</value>
+  </data>
+  <data name="HostedGit_NoSearchResults" xml:space="preserve">
+    <value>没有符合搜索条件的仓库。</value>
+  </data>
+  <data name="HostedGit_Reconnect" xml:space="preserve">
+    <value>重新连接 Beutl 远程</value>
+  </data>
+  <data name="HostedGit_ReconnectHint" xml:space="preserve">
+    <value>请重新连接以签发新的访问令牌，然后重试 Git 操作。</value>
+  </data>
+  <data name="HostedGit_Reconnected" xml:space="preserve">
+    <value>已重新连接 Beutl 远程。</value>
+  </data>
+  <data name="HostedGit_OpenOnWeb" xml:space="preserve">
+    <value>在网页中打开</value>
+  </data>
+  <data name="HostedGit_OpenCommitOnWeb" xml:space="preserve">
+    <value>在网页中查看提交</value>
+  </data>
+  <data name="HostedGit_CloneRepository" xml:space="preserve">
+    <value>克隆仓库</value>
+  </data>
+  <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
+    <value>克隆仓库…</value>
+  </data>
+  <data name="HostedGit_BeutlRepositories" xml:space="preserve">
+    <value>Beutl 仓库</value>
+  </data>
+  <data name="HostedGit_CloneFromUrl" xml:space="preserve">
+    <value>从 URL 克隆</value>
+  </data>
+  <data name="HostedGit_Clone" xml:space="preserve">
+    <value>克隆</value>
+  </data>
+  <data name="HostedGit_ClonedProject" xml:space="preserve">
+    <value>本地副本</value>
+  </data>
+  <data name="HostedGit_CloudProject" xml:space="preserve">
+    <value>云端</value>
+  </data>
+  <data name="HostedGit_FolderName" xml:space="preserve">
+    <value>文件夹名称</value>
+  </data>
+  <data name="HostedGit_ParentFolder" xml:space="preserve">
+    <value>上级文件夹</value>
+  </data>
+  <data name="HostedGit_Cloning" xml:space="preserve">
+    <value>正在克隆仓库…</value>
+  </data>
+  <data name="HostedGit_Canceling" xml:space="preserve">
+    <value>正在取消克隆…</value>
+  </data>
+  <data name="HostedGit_CloneFailed" xml:space="preserve">
+    <value>无法克隆仓库。</value>
+  </data>
+  <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
+    <value>选择要打开的项目</value>
+  </data>
+  <data name="HostedGit_NoProjectFound" xml:space="preserve">
+    <value>仓库已克隆，但其中没有 Beutl 项目文件。</value>
+  </data>
+  <data name="HostedGit_OpenFolder" xml:space="preserve">
+    <value>打开文件夹</value>
+  </data>
+  <data name="HostedGit_ProjectAlreadyOpen" xml:space="preserve">
+    <value>此仓库已在 Beutl 中打开。</value>
+  </data>
+  <data name="HostedGit_ExistingCloneFound" xml:space="preserve">
+    <value>此计算机上已有来自此仓库的项目。</value>
+  </data>
+  <data name="HostedGit_OpenLocalProject" xml:space="preserve">
+    <value>打开本地副本</value>
+  </data>
+  <data name="HostedGit_CloneNewCopy" xml:space="preserve">
+    <value>克隆新副本</value>
+  </data>
+  <data name="HostedGit_RevisionFormat" xml:space="preserve">
+    <value>修订版本 {0}</value>
+  </data>
 </root>

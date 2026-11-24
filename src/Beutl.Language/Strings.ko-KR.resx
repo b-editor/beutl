@@ -3904,4 +3904,181 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="Portal_LibraryDescription" xml:space="preserve">
     <value>아래 레이어의 내용을 현재 레이어로 가져옵니다 (레이어 참조, 흐름 입력 / layer reference, flow input).</value>
   </data>
+  <data name="StartupProjects" xml:space="preserve">
+    <value>프로젝트</value>
+  </data>
+  <data name="HostedGit_AuthenticationRequired" xml:space="preserve">
+    <value>저장소에 액세스하려면 Beutl에 로그인하세요.</value>
+  </data>
+  <data name="HostedGit_Unavailable" xml:space="preserve">
+    <value>Beutl 저장소를 사용할 수 없습니다. 나중에 다시 시도하세요.</value>
+  </data>
+  <data name="HostedGit_NotFound" xml:space="preserve">
+    <value>Beutl 계정에서 이 저장소를 찾을 수 없습니다.</value>
+  </data>
+  <data name="HostedGit_RepositoryLimit" xml:space="preserve">
+    <value>Beutl 저장소 수가 한도에 도달했습니다. 기존 저장소에 연결하거나 웹에서 저장소를 관리하세요.</value>
+  </data>
+  <data name="HostedGit_TokenLimit" xml:space="preserve">
+    <value>이 저장소의 액세스 토큰 수가 한도에 도달했습니다. 웹에서 사용하지 않는 토큰을 취소한 후 다시 시도하세요.</value>
+  </data>
+  <data name="HostedGit_AccountChanged" xml:space="preserve">
+    <value>로그인한 계정이 변경되었습니다. 이전 계정으로 전환한 후 다시 시도하세요.</value>
+  </data>
+  <data name="HostedGit_Conflict" xml:space="preserve">
+    <value>기존 저장소와 충돌하여 저장하지 못했습니다. 저장소 목록을 새로 고친 후 다시 시도하세요.</value>
+  </data>
+  <data name="HostedGit_RequestFailed" xml:space="preserve">
+    <value>Beutl 저장소 작업을 완료하지 못했습니다. 다시 시도하세요.</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryName" xml:space="preserve">
+    <value>슬래시, 역슬래시, 제어 문자를 포함하지 않는 80자 이내의 저장소 이름을 입력하세요.</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryId" xml:space="preserve">
+    <value>저장소 또는 액세스 토큰의 ID가 올바르지 않습니다.</value>
+  </data>
+  <data name="HostedGit_InvalidTokenName" xml:space="preserve">
+    <value>제어 문자를 포함하지 않는 80자 이내의 액세스 토큰 이름을 입력하세요.</value>
+  </data>
+  <data name="HostedGit_InvalidTokenScope" xml:space="preserve">
+    <value>토큰의 읽기 또는 쓰기 권한을 선택하세요.</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryUrl" xml:space="preserve">
+    <value>Beutl에서 반환한 저장소의 Git URL이 올바르지 않습니다.</value>
+  </data>
+  <data name="HostedGit_InvalidRevision" xml:space="preserve">
+    <value>링크에 올바르지 않은 Git 리비전이 포함되어 있습니다.</value>
+  </data>
+  <data name="HostedGit_InvalidDestination" xml:space="preserve">
+    <value>올바른 상위 폴더를 선택하고 폴더 이름을 입력하세요.</value>
+  </data>
+  <data name="HostedGit_DestinationExists" xml:space="preserve">
+    <value>비어 있거나 아직 존재하지 않는 폴더를 대상으로 선택하세요.</value>
+  </data>
+  <data name="HostedGit_ConnectRemote" xml:space="preserve">
+    <value>Git 원격에 연결</value>
+  </data>
+  <data name="HostedGit_CreateRepository" xml:space="preserve">
+    <value>Beutl에서 만들기</value>
+  </data>
+  <data name="HostedGit_ConnectExisting" xml:space="preserve">
+    <value>기존 저장소</value>
+  </data>
+  <data name="HostedGit_CustomUrl" xml:space="preserve">
+    <value>Git URL</value>
+  </data>
+  <data name="HostedGit_RepositoryName" xml:space="preserve">
+    <value>저장소 이름</value>
+  </data>
+  <data name="HostedGit_Connect" xml:space="preserve">
+    <value>연결</value>
+  </data>
+  <data name="HostedGit_ConnectAndPublish" xml:space="preserve">
+    <value>연결하고 게시</value>
+  </data>
+  <data name="HostedGit_CreateAndConnect" xml:space="preserve">
+    <value>만들고 연결</value>
+  </data>
+  <data name="HostedGit_CreateAndPublish" xml:space="preserve">
+    <value>만들고 게시</value>
+  </data>
+  <data name="HostedGit_ReplaceOrigin" xml:space="preserve">
+    <value>현재 origin이 교체됩니다.</value>
+  </data>
+  <data name="HostedGit_OriginChanged" xml:space="preserve">
+    <value>현재 origin이 변경되었습니다. 대화 상자를 다시 열어 확인한 후 연결하세요.</value>
+  </data>
+  <data name="HostedGit_OriginAlreadyConfigured" xml:space="preserve">
+    <value>origin이 이미 설정되어 있습니다. 게시하려면 푸시하세요.</value>
+  </data>
+  <data name="HostedGit_PushDestinationMismatch" xml:space="preserve">
+    <value>Git이 다른 저장소로 푸시하게 됩니다. 연결하기 전에 origin의 푸시 URL을 확인하세요.</value>
+  </data>
+  <data name="HostedGit_SignIn" xml:space="preserve">
+    <value>Beutl에 로그인</value>
+  </data>
+  <data name="HostedGit_SignInFailed" xml:space="preserve">
+    <value>로그인하지 못했습니다. 다시 로그인하세요.</value>
+  </data>
+  <data name="HostedGit_NoRepositories" xml:space="preserve">
+    <value>이 계정에 Beutl 저장소가 없습니다.</value>
+  </data>
+  <data name="HostedGit_NoSearchResults" xml:space="preserve">
+    <value>검색 조건에 맞는 저장소가 없습니다.</value>
+  </data>
+  <data name="HostedGit_Reconnect" xml:space="preserve">
+    <value>Beutl 원격에 다시 연결</value>
+  </data>
+  <data name="HostedGit_ReconnectHint" xml:space="preserve">
+    <value>다시 연결하여 새 액세스 토큰을 발급받은 후 Git 작업을 다시 시도하세요.</value>
+  </data>
+  <data name="HostedGit_Reconnected" xml:space="preserve">
+    <value>Beutl 원격에 다시 연결했습니다.</value>
+  </data>
+  <data name="HostedGit_OpenOnWeb" xml:space="preserve">
+    <value>웹에서 열기</value>
+  </data>
+  <data name="HostedGit_OpenCommitOnWeb" xml:space="preserve">
+    <value>웹에서 커밋 보기</value>
+  </data>
+  <data name="HostedGit_CloneRepository" xml:space="preserve">
+    <value>저장소 복제</value>
+  </data>
+  <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
+    <value>저장소 복제…</value>
+  </data>
+  <data name="HostedGit_BeutlRepositories" xml:space="preserve">
+    <value>Beutl 저장소</value>
+  </data>
+  <data name="HostedGit_CloneFromUrl" xml:space="preserve">
+    <value>URL에서 복제</value>
+  </data>
+  <data name="HostedGit_Clone" xml:space="preserve">
+    <value>복제</value>
+  </data>
+  <data name="HostedGit_ClonedProject" xml:space="preserve">
+    <value>로컬 복사본</value>
+  </data>
+  <data name="HostedGit_CloudProject" xml:space="preserve">
+    <value>클라우드</value>
+  </data>
+  <data name="HostedGit_FolderName" xml:space="preserve">
+    <value>폴더 이름</value>
+  </data>
+  <data name="HostedGit_ParentFolder" xml:space="preserve">
+    <value>상위 폴더</value>
+  </data>
+  <data name="HostedGit_Cloning" xml:space="preserve">
+    <value>저장소를 복제하는 중…</value>
+  </data>
+  <data name="HostedGit_Canceling" xml:space="preserve">
+    <value>복제를 취소하는 중…</value>
+  </data>
+  <data name="HostedGit_CloneFailed" xml:space="preserve">
+    <value>저장소를 복제하지 못했습니다.</value>
+  </data>
+  <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
+    <value>열 프로젝트 선택</value>
+  </data>
+  <data name="HostedGit_NoProjectFound" xml:space="preserve">
+    <value>저장소를 복제했지만 Beutl 프로젝트 파일이 없습니다.</value>
+  </data>
+  <data name="HostedGit_OpenFolder" xml:space="preserve">
+    <value>폴더 열기</value>
+  </data>
+  <data name="HostedGit_ProjectAlreadyOpen" xml:space="preserve">
+    <value>이 저장소는 Beutl에서 이미 열려 있습니다.</value>
+  </data>
+  <data name="HostedGit_ExistingCloneFound" xml:space="preserve">
+    <value>이 컴퓨터에 이 저장소의 프로젝트가 이미 있습니다.</value>
+  </data>
+  <data name="HostedGit_OpenLocalProject" xml:space="preserve">
+    <value>로컬 복사본 열기</value>
+  </data>
+  <data name="HostedGit_CloneNewCopy" xml:space="preserve">
+    <value>새 복사본 만들기</value>
+  </data>
+  <data name="HostedGit_RevisionFormat" xml:space="preserve">
+    <value>리비전 {0}</value>
+  </data>
 </root>
