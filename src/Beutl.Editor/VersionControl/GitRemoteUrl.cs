@@ -309,6 +309,8 @@ internal sealed class GitRemoteUrl
         GitCommandOptions context,
         CancellationToken cancellationToken)
     {
+        bool allowManager = !_hostedCredential
+            || !await UsesPlaintextManagerStoreAsync(repository, runner, context, cancellationToken).ConfigureAwait(false);
         try
         {
             GitCommandResult configured = await runner.RunAsync(
@@ -324,7 +326,7 @@ internal sealed class GitRemoteUrl
 
                 // The configured chain may also include Git's plaintext "store". Deliberately
                 // select the secure helper alone for a token issued by Beutl.
-                if (IsSecureHelper(configuredHelper))
+                if (IsSecureHelper(configuredHelper, allowManager))
                     return [configuredHelper];
             }
         }
@@ -344,7 +346,8 @@ internal sealed class GitRemoteUrl
         {
             string executable = $"git-credential-{helper}{(OperatingSystem.IsWindows() ? ".exe" : "")}";
             // Apple's Git installs osxkeychain here without listing it in `git help -a`.
-            if (commands.Contains($"credential-{helper}") || File.Exists(Path.Combine(helperDirectory, executable)))
+            if (IsSecureHelper(helper, allowManager)
+                && (commands.Contains($"credential-{helper}") || File.Exists(Path.Combine(helperDirectory, executable))))
             {
                 helpers.Add(helper);
             }
@@ -358,7 +361,69 @@ internal sealed class GitRemoteUrl
         return helpers;
     }
 
-    private static bool IsSecureHelper(string helper)
+    private async Task<bool> UsesPlaintextManagerStoreAsync(
+        RepositoryInfo repository, IGitCliRunner runner, GitCommandOptions context, CancellationToken cancellationToken)
+    {
+        const string variable = "GCM_CREDENTIAL_STORE";
+        string? store = context.EnvironmentOverrides?.TryGetValue(variable, out string? configured) == true
+            ? configured
+            : Environment.GetEnvironmentVariable(variable);
+        if (store is not null)
+            return IsPlaintext(store);
+
+        const string property = "credentialstore";
+        var settings = new Dictionary<string, string>(StringComparer.Ordinal);
+        try
+        {
+            GitCommandResult result = await runner.RunAsync(repository,
+                ["config", "--null", "--get-regexp", "^credential(\\..+)?\\.credentialstore$"],
+                context, cancellationToken).ConfigureAwait(false);
+            if (result.StdoutTruncated)
+                throw new GitCredentialStorageException();
+            foreach (string entry in GitCliRunner.SplitNullSeparated(result.Stdout))
+            {
+                int separator = entry.IndexOf('\n');
+                if (separator >= 0)
+                    settings[entry[..separator]] = entry[(separator + 1)..];
+            }
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return false;
+        }
+
+        // GCM also matches scheme-less scopes and parent domains.
+        var uri = new Uri(Url);
+        string port = uri.IsDefaultPort ? "" : $":{uri.Port}";
+        for (string path = uri.AbsolutePath.Trim('/'); path.Length > 0;)
+        {
+            if (TryGetScopedStore($"{uri.Host}{port}/{path}", out store))
+                return IsPlaintext(store);
+            int separator = path.LastIndexOf('/');
+            path = separator < 0 ? "" : path[..separator];
+        }
+
+        for (string host = uri.Host; host.Length > 0;)
+        {
+            if (TryGetScopedStore(host + port, out store))
+                return IsPlaintext(store);
+            int separator = host.IndexOf('.');
+            if (separator < 0 || host.IndexOf('.', separator + 1) < 0)
+                break;
+            host = host[(separator + 1)..];
+        }
+
+        return IsPlaintext(settings.GetValueOrDefault($"credential.{property}"));
+
+        bool TryGetScopedStore(string scope, out string? value)
+            => settings.TryGetValue($"credential.{uri.Scheme}://{scope}.{property}", out value)
+                || settings.TryGetValue($"credential.{scope}.{property}", out value);
+
+        static bool IsPlaintext(string? value)
+            => string.Equals(value, "plaintext", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSecureHelper(string helper, bool allowManager)
     {
         helper = helper.Trim();
         if (helper.StartsWith("cache --timeout=", StringComparison.Ordinal))
@@ -383,7 +448,8 @@ internal sealed class GitRemoteUrl
         string name = Path.GetFileNameWithoutExtension(executable).ToString();
         if (name.StartsWith("git-credential-", StringComparison.Ordinal))
             name = name["git-credential-".Length..];
-        return name is "manager" or "manager-core" or "osxkeychain" or "wincred" or "libsecret" or "cache";
+        return name is "osxkeychain" or "wincred" or "libsecret" or "cache"
+            || allowManager && name is ("manager" or "manager-core");
     }
 
     private static bool HasInvalidCredentialCharacters(string value)

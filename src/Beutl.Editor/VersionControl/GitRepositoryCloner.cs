@@ -54,7 +54,7 @@ internal sealed class GitRepositoryCloner(
             if (remote.HasCredentials)
                 remote.AddCredentialOptions(arguments, helper);
 
-            arguments.AddRange(["clone", "--progress", "--no-hardlinks", "--no-checkout"]);
+            arguments.AddRange(["clone", "--origin=origin", "--progress", "--no-hardlinks", "--no-checkout"]);
             const string headsPrefix = "refs/heads/";
             bool explicitBranch = revision?.StartsWith(headsPrefix, StringComparison.Ordinal) == true;
             string? branch = explicitBranch ? revision![headsPrefix.Length..] : revision;

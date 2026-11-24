@@ -44,6 +44,7 @@ internal sealed class RepositoryCloneWorkflow(
             && await locator.FindProjectAsync([activeUri.LocalPath], request.RepositoryId, token, request.Revision) is not null
             && ReferenceEquals(activeProject, projects.CurrentProject.Value))
         {
+            token.ThrowIfCancellationRequested();
             owner.Activate();
             projects.Notifications.ShowInformation(Strings.Project, Strings.HostedGit_ProjectAlreadyOpen);
             return true;
@@ -53,7 +54,6 @@ internal sealed class RepositoryCloneWorkflow(
         if (path is null)
             return false;
 
-        token.ThrowIfCancellationRequested();
         var dialog = new RepositoryCloneResultDialog
         {
             Title = Strings.HostedGit_ExistingCloneFound,
@@ -63,13 +63,13 @@ internal sealed class RepositoryCloneWorkflow(
             CloseButtonText = Strings.Cancel,
             DefaultButton = FAContentDialogButton.Primary,
         };
-        var result = await dialog.ShowAsync(owner);
-        token.ThrowIfCancellationRequested();
+        var result = await ShowDialogAsync(dialog, owner, token);
         if (result == FAContentDialogResult.Primary)
         {
             if (request.Revision is not null
                 && await locator.FindProjectAsync([path], request.RepositoryId, token, request.Revision) is null)
                 return false;
+            token.ThrowIfCancellationRequested();
             await projects.OpenProject(path);
         }
 
@@ -83,30 +83,26 @@ internal sealed class RepositoryCloneWorkflow(
             new GitRepositoryCloner(_installation), request, token);
         var dialog = new CloneRepositoryDialog { DataContext = model };
         _ = model.CheckGitAsync();
-        using var registration = token.Register(() => Dispatcher.UIThread.Post(() =>
-        {
-            if (dialog.IsAttachedToVisualTree())
-                dialog.Hide();
-        }));
-        if (await dialog.ShowAsync(owner) != FAContentDialogResult.Primary || model.ClonedPath is not { } destination)
+        if (await ShowDialogAsync(dialog, owner, token) != FAContentDialogResult.Primary || model.ClonedPath is not { } destination)
             return;
 
         string[] files = await Task.Run(() => GitRepositoryCloner.FindProjectFiles(destination, token).ToArray(), token);
+        token.ThrowIfCancellationRequested();
         if (files.Length == 1)
         {
             await projects.OpenProject(files[0]);
         }
         else if (files.Length > 1)
         {
-            await PickProjectAsync(owner, destination, files);
+            await PickProjectAsync(owner, destination, files, token);
         }
         else
         {
-            await ShowEmptyRepositoryActionsAsync(owner, destination);
+            await ShowEmptyRepositoryActionsAsync(owner, destination, token);
         }
     }
 
-    private async Task PickProjectAsync(Window owner, string destination, string[] files)
+    private async Task PickProjectAsync(Window owner, string destination, string[] files, CancellationToken token)
     {
         var list = new ListBox
         {
@@ -123,12 +119,12 @@ internal sealed class RepositoryCloneWorkflow(
             CloseButtonText = Strings.Cancel,
             DefaultButton = FAContentDialogButton.Primary,
         };
-        if (await dialog.ShowAsync(owner) == FAContentDialogResult.Primary
+        if (await ShowDialogAsync(dialog, owner, token) == FAContentDialogResult.Primary
             && list.SelectedIndex >= 0 && list.SelectedIndex < files.Length)
             await projects.OpenProject(files[list.SelectedIndex]);
     }
 
-    private async Task ShowEmptyRepositoryActionsAsync(Window owner, string destination)
+    private async Task ShowEmptyRepositoryActionsAsync(Window owner, string destination, CancellationToken token)
     {
         var dialog = new RepositoryCloneResultDialog
         {
@@ -145,18 +141,32 @@ internal sealed class RepositoryCloneWorkflow(
             DefaultButton = FAContentDialogButton.Primary,
         };
 
-        switch (await dialog.ShowAsync(owner))
+        switch (await ShowDialogAsync(dialog, owner, token))
         {
             case FAContentDialogResult.Primary:
-                await new CreateNewProject
+                await ShowDialogAsync(new CreateNewProject
                 {
                     DataContext = new CreateNewProjectViewModel(projects, versionControl, configuration, destination)
-                }.ShowAsync(owner);
+                }, owner, token);
                 break;
             case FAContentDialogResult.Secondary:
                 await FileManagerLauncher.RevealAsync(projects.Notifications, destination, isDirectory: true,
                     FileManagerLauncher.LaunchAsync, s_logger);
                 break;
         }
+    }
+
+    internal static async Task<FAContentDialogResult> ShowDialogAsync(FAContentDialog dialog, Window owner, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        Task<FAContentDialogResult> shown = dialog.ShowAsync(owner);
+        using var registration = token.Register(() => Dispatcher.UIThread.Post(() =>
+        {
+            if (dialog.IsAttachedToVisualTree())
+                dialog.Hide();
+        }));
+        FAContentDialogResult result = await shown;
+        token.ThrowIfCancellationRequested();
+        return result;
     }
 }

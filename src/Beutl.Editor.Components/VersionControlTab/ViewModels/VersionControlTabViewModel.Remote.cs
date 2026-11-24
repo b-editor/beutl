@@ -515,7 +515,7 @@ internal partial class VersionControlTabViewModel
         {
             _editorContext.GetRequiredService<INotificationService>().ShowError(
                 Strings.VersionControl_ErrorTitle,
-                $"{authFailed.Guidance} {Strings.HostedGit_ReconnectHint}",
+                WithStderr($"{authFailed.Guidance} {Strings.HostedGit_ReconnectHint}", authFailed.Stderr),
                 actions: [new NotificationAction(Strings.HostedGit_Reconnect,
                     () => _ = ReconnectHostedRemoteAsync(service, id, owner))]);
             return Task.CompletedTask;

@@ -3732,6 +3732,7 @@ public class VersionControlTabViewModelTests
         using var vm = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), context.Object, source, coordinator.Object, action => action());
         await vm.Initialization;
         await (push ? vm.PushAsync() : vm.PullAsync());
+        Assert.That(shown?.Message, Does.Contain(failure.Stderr));
         var action = shown?.Actions?.Single();
         Assert.That(action?.Text, Is.EqualTo(Strings.HostedGit_Reconnect));
         action!.Callback();

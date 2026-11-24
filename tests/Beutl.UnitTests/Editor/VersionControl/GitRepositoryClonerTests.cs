@@ -100,7 +100,7 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
         string config = Path.Combine(folder, "gitconfig");
         // Git sees the clean HTTPS origin, while the transport reads a real local bare repo.
         string fileUrl = new Uri(remote + Path.DirectorySeparatorChar).AbsoluteUri.TrimEnd('/');
-        await File.WriteAllTextAsync(config, $"[url \"{fileUrl}\"]\n\tinsteadOf = {Url}\n");
+        await File.WriteAllTextAsync(config, $"[url \"{fileUrl}\"]\n\tinsteadOf = {Url}\n[clone]\n\tdefaultRemoteName = upstream\n");
         var environment = new Dictionary<string, string?>(IsolatedGitEnvironment) { ["GIT_CONFIG_GLOBAL"] = config };
         var runner = new CredentialProbeRunner(new GitCliRunner(GitPath, TimeSpan.FromSeconds(15), environment));
         var recorder = new RecordingGitCliRunner(runner);

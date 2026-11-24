@@ -77,6 +77,30 @@ public sealed class HostedGitDialogsTests
     }
 
     [AvaloniaTest]
+    public async Task Repository_result_dialog_closes_when_its_operation_is_canceled()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var window = new Window { Width = 480, Height = 560 };
+        var dialog = new RepositoryCloneResultDialog { Title = "Choose a project", PrimaryButtonText = "Open" };
+        window.Show();
+        Task<FAContentDialogResult> result = RepositoryCloneWorkflow.ShowDialogAsync(dialog, window, cancellation.Token);
+        try
+        {
+            HeadlessTestHelpers.Render(4);
+            Assert.That(dialog.IsAttachedToVisualTree(), Is.True);
+            cancellation.Cancel();
+            await HeadlessTestHelpers.WaitUntilAsync(() => result.IsCompleted);
+            Assert.That(result.IsCanceled, Is.True);
+        }
+        finally
+        {
+            if (!result.IsCompleted)
+                dialog.Hide();
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Clone_dialog_reselects_a_linked_repository_and_shows_the_revision_in_Japanese()
     {
         const string id = "a3a8927c-bcf4-4f6e-91f4-64897320378e";
