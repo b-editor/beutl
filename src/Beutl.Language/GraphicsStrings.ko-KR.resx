@@ -2240,6 +2240,9 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>메시 제어점({0}행, {1}열)</value>
   </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>메시 제어점 편집 중입니다. 미리 보기에서 이후 효과를 일시적으로 숨깁니다.</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>퍼펫</value>
   </data>

@@ -11,7 +11,7 @@ using Beutl.Serialization;
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.Puppet), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class Puppet : FilterEffect, IEditingHandleProvider
+public sealed partial class Puppet : FilterEffect, IEditingStageProvider
 {
     [ThreadStatic]
     private static PlacementCapture? s_placementCapture;
@@ -73,6 +73,8 @@ public sealed partial class Puppet : FilterEffect, IEditingHandleProvider
     public Action<Point> BeginEditingHandleDrag(string id, MediaTime time) => BeginEditingHandleDrag(id, time, default);
 
     public void MoveEditingHandle(string id, Point position, MediaTime time) => BeginEditingHandleDrag(id, time)(position);
+
+    string IEditingStageProvider.EditingStageHint => GraphicsStrings.Puppet_EditingPreviewHint;
 
     private static void SetValueAt<T>(IExpressionProperty<T> property, T value, MediaTime evaluationTime)
     {

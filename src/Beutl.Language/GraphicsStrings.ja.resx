@@ -2236,6 +2236,9 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>メッシュの制御点（{0} 行、{1} 列）</value>
   </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>メッシュの制御点を編集中。プレビューでは後続のエフェクトを一時的に非表示にしています。</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>パペット</value>
   </data>
