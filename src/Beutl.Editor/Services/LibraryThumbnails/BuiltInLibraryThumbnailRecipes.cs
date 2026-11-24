@@ -58,6 +58,14 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Subject?.Transform.Value = move;
         });
 
+        LibraryThumbnailRecipes.Register<PosterizeTime>(LibraryThumbnailSample.Object, (effect, context) =>
+        {
+            effect.FrameRate.Value = 4;
+            var move = new TranslateTransform();
+            context.Animate(move.X, p => context.Scale(420) * MathF.Sin(p * MathF.Tau));
+            context.Subject?.Transform.Value = move;
+        });
+
         LibraryThumbnailRecipes.Register<Bokeh>(LibraryThumbnailSample.NightLights, (effect, context) =>
         {
             effect.Highlight.Value = 1;

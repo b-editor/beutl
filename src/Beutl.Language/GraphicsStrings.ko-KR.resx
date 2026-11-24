@@ -2108,6 +2108,18 @@
   <data name="EchoBlendMode_Add" xml:space="preserve">
     <value>더하기</value>
   </data>
+  <data name="PosterizeTime" xml:space="preserve">
+    <value>시간 포스터화</value>
+  </data>
+  <data name="PosterizeTime_Description" xml:space="preserve">
+    <value>클립 시작 시점부터 일정한 간격으로 입력을 샘플링하여 유지합니다.</value>
+  </data>
+  <data name="PosterizeTime_FrameRate" xml:space="preserve">
+    <value>프레임률 (fps)</value>
+  </data>
+  <data name="PosterizeTime_FrameRate_Description" xml:space="preserve">
+    <value>초당 샘플 수입니다. 값이 낮을수록 각 프레임을 더 오래 유지합니다.</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>알파 모드</value>
   </data>
@@ -2260,6 +2272,9 @@
   </data>
   <data name="Echo_LibraryDescription" xml:space="preserve">
     <value>이전 또는 이후 시점의 복사본을 점점 투명하게 현재 프레임 위에 겹쳐 그립니다 (잔상, 고스트 트레일 / afterimage, ghost trail, motion trails).</value>
+  </data>
+  <data name="PosterizeTime_LibraryDescription" xml:space="preserve">
+    <value>프레임을 일정 간격으로 유지하여 스톱 모션처럼 보이게 합니다 (저프레임 레이트 / frame hold, stop motion).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>렌즈 조리개 모양으로 이미지를 흐리게 합니다 (렌즈 흐림, 디포커스 / lens blur, defocus).</value>

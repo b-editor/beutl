@@ -156,6 +156,7 @@ public class LibraryThumbnailTests
     // A temporal effect draws its input again at other times, so its independent sessions must open the picture too.
     [TestCase(typeof(MotionBlur))]
     [TestCase(typeof(Echo))]
+    [TestCase(typeof(PosterizeTime))]
     public async Task A_temporal_effect_draws_the_picture_it_samples_again(Type effectType)
     {
         TestGpu.RequireAnyDevice();
