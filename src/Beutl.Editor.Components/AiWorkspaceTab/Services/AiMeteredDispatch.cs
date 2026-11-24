@@ -14,38 +14,28 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
 internal static class AiMeteredDispatch
 {
     public static async Task<T> SendAsync<T>(
-        AiRequestKey requestKey,
+        AiAccountJobScope account,
         AiRequestName name,
         Func<CancellationToken, Task<bool>> checkAvailability,
         Func<CancellationToken, Task<T>> send,
         Action<AiRequestName> withdraw,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(requestKey);
-        ArgumentNullException.ThrowIfNull(checkAvailability);
-        ArgumentNullException.ThrowIfNull(send);
-        ArgumentNullException.ThrowIfNull(withdraw);
-
-        // Before it goes out. A name that ends here reached nothing.
+        bool sent = false;
         try
         {
             // Not for a repeat: the server looks up the job this name already
             // made before it looks at the balance, so refusing here would
             // refuse to collect something already paid for.
-            if (!name.IsRepeat && !await checkAvailability(cancellationToken))
+            if (!name.IsRepeat && !await account.SendAsync(checkAvailability, cancellationToken))
                 throw new AiUsageLimitExceededException();
-        }
-        catch
-        {
-            withdraw(name);
-            throw;
-        }
 
-        try
-        {
+            using IDisposable scope = account.Enter(cancellationToken);
+            sent = true;
             return await send(cancellationToken);
         }
-        catch (Exception ex) when (AiRequestOutcome.CanWithdraw(name, ex))
+        catch (Exception ex) when ((!sent && !name.IsRepeat)
+            || (!account.AccountChanged && AiRequestOutcome.CanWithdraw(name, ex)))
         {
             withdraw(name);
             throw;

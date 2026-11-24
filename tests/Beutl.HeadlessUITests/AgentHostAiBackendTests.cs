@@ -7,6 +7,7 @@ using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Audio;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -86,7 +87,7 @@ public sealed class AgentHostAiBackendTests
         var executor = new StubExecutor();
         Scene? seen = null;
         var backend = new AgentHostAiBackend(
-            () => null, new StubEntitlements(), new StubAvailability(), new StubTranscription(),
+            CreateRecoveryContext(() => null), new StubEntitlements(), new StubAvailability(), new StubTranscription(),
             () => catalog, scene =>
             {
                 seen = scene;
@@ -131,6 +132,36 @@ public sealed class AgentHostAiBackendTests
                 Is.EqualTo(new[] { (1d, "part 1"), (601d, "part 2") }), "the second part is offset by the first's ten minutes");
             Assert.That(transcript.Words!.Select(word => word.Start), Is.EqualTo(new[] { 1d, 601d }));
             Assert.That(progress.Values, Does.Contain("Transcribing part 2 of 2"));
+        });
+    }
+
+    [TestCase("account-b")]
+    [TestCase(null)]
+    public async Task IdentityChangeAfterTheFirstPartStopsTranscription(string? nextAccount)
+    {
+        const int sampleRate = 8_000;
+        string path = WriteSource("long" + Extension);
+        _decoders.Register(new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 602L)));
+        using var identity = new ReactivePropertySlim<AiAuthenticatedRequestIdentity?>(new("account-a", User: null));
+        using var recovery = new AiRequestRecoveryContext(
+            new FileAiRequestKeyMap(_directory), () => identity.Value, identity);
+        var availability = new StubAvailability();
+        var transcription = new StubTranscription
+        {
+            OnRequest = () =>
+            {
+                Assert.That(AiAuthenticatedRequestScope.Identity?.AccountId, Is.EqualTo("account-a"));
+                identity.Value = nextAccount is null ? null : new(nextAccount, User: null);
+            },
+        };
+        AgentAiException? error = await CatchAsync(
+            CreateBackend(availability: availability, transcription: transcription, recoveryContext: recovery), path);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
+            Assert.That(availability.Requests, Has.Count.EqualTo(1));
+            Assert.That(transcription.Requests, Has.Count.EqualTo(1));
         });
     }
 
@@ -286,15 +317,21 @@ public sealed class AgentHostAiBackendTests
         Func<AuthenticatedUser?>? user = null,
         IAiEntitlementService? entitlements = null,
         IAiOperationAvailabilityService? availability = null,
-        IAiTranscriptionService? transcription = null)
+        IAiTranscriptionService? transcription = null,
+        AiRequestRecoveryContext? recoveryContext = null)
         => new(
-            user ?? (() => null),
+            recoveryContext ?? (user is null
+                ? CreateRecoveryContext(() => new("test-user", User: null))
+                : CreateRecoveryContext(() => user() is { } current ? new(current.Profile.Id, current) : null)),
             entitlements ?? new StubEntitlements(),
             availability ?? new StubAvailability(),
             transcription ?? new StubTranscription(),
             () => new StubCatalog([]),
             _ => new StubExecutor(),
             new StubModelCatalog(), _decoders);
+
+    private AiRequestRecoveryContext CreateRecoveryContext(Func<AiAuthenticatedRequestIdentity?> identity)
+        => new(new FileAiRequestKeyMap(_directory), identity);
 
     private static AiEntitlements Entitlements(bool canUseAi)
         => new(
@@ -342,6 +379,8 @@ public sealed class AgentHostAiBackendTests
 
         public AiTranscriptionSegment[]? Segments { get; init; }
 
+        public Action? OnRequest { get; init; }
+
         public List<AiTranscriptionRequest> Requests { get; } = [];
 
         public Task<AiTranscriptionResponse> TranscribeAsync(AiTranscriptionRequest request, CancellationToken cancellationToken)
@@ -349,6 +388,7 @@ public sealed class AgentHostAiBackendTests
             if (Error is { } error)
                 return Task.FromException<AiTranscriptionResponse>(error);
             Requests.Add(request);
+            OnRequest?.Invoke();
             string text = $"part {Requests.Count}";
             return Task.FromResult(new AiTranscriptionResponse(
                 null,

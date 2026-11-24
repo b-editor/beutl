@@ -3895,4 +3895,7 @@ when history recording is enabled.</value>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>Save the project before pasting elements.</value>
   </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>Feeds the contents of layers below into the current layer (layer reference, flow input).</value>
+  </data>
 </root>

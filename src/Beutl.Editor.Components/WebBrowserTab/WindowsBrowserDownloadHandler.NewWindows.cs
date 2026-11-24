@@ -280,81 +280,14 @@ internal sealed partial class WindowsBrowserDownloadHandler
 
     // WebView2 omits Referer from NewWindowRequested. Carry the decision in the native request's
     // target name when safe, or post it before a name that might belong to an existing frame is used.
-    private static string WindowScript(string target) => $$"""
+    private static string WindowScript(string target) => BrowserReferrerPolicyScript.Source + "\n" + $$"""
         (() => {
             if (!['https:', 'http:'].includes(location.protocol) || self.origin === 'null') return;
             const allowed = '{{target}}';
-            const policyValue = document.createElement('a');
-            let documentPolicy = '';
-            const observedMetas = new WeakSet();
-            function* metasIn(nodes) {
-                for (const node of nodes) {
-                    if (node instanceof HTMLMetaElement) yield node;
-                    if (node.firstElementChild) {
-                        for (const meta of node.getElementsByTagName('meta')) {
-                            if (meta instanceof HTMLMetaElement) yield meta;
-                        }
-                    }
-                }
-            }
-            const legacy = { never: 'no-referrer', always: 'unsafe-url', default: 'strict-origin-when-cross-origin',
-                'origin-when-crossorigin': 'origin-when-cross-origin' };
-
-            // A removed or invalid meta leaves the last applied policy in effect. Several attributes can change
-            // in the same script, so replay the values at each mutation, including before a synchronous popup.
-            function applyChanges(records) {
-                if (!records.length) return;
-                const states = new Map();
-                const updates = new Map();
-                const renamedReferrers = new Set();
-                for (let i = records.length - 1; i >= 0; i--) {
-                    const record = records[i], meta = record.target;
-                    if (record.type !== 'attributes' || !(meta instanceof HTMLMetaElement)) continue;
-                    if (record.attributeName === 'name' && record.oldValue?.toLowerCase() === 'referrer') renamedReferrers.add(meta);
-                    const state = states.get(meta) ?? { name: meta.name, content: meta.content };
-                    updates.set(record, state);
-                    states.set(meta, { ...state, [record.attributeName]: record.oldValue ?? '' });
-                }
-                function applyMeta(meta) {
-                    const state = states.get(meta) ?? meta;
-                    if (state.name.toLowerCase() !== 'referrer') return;
-                    const value = state.content.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '').toLowerCase();
-                    policyValue.referrerPolicy = Object.hasOwn(legacy, value) ? legacy[value] : value;
-                    if (policyValue.referrerPolicy) documentPolicy = document.contains(meta) ? policyValue.referrerPolicy : 'no-referrer';
-                }
-                for (const record of records) {
-                    if (updates.has(record)) {
-                        states.set(record.target, updates.get(record));
-                        applyMeta(record.target);
-                    } else {
-                        for (const meta of metasIn(record.removedNodes)) {
-                            // An inserted wrapper may already have lost this meta when its addition is replayed.
-                            if (!observedMetas.delete(meta) && (meta.name.toLowerCase() === 'referrer' || renamedReferrers.has(meta)))
-                                documentPolicy = 'no-referrer';
-                        }
-                        for (const meta of metasIn(record.addedNodes)) {
-                            // The observer can still report additions inside a removed subtree until delivery.
-                            if (document.contains(meta)) observedMetas.add(meta);
-                            else observedMetas.delete(meta);
-                            applyMeta(meta);
-                        }
-                    }
-                }
-            }
-            const observer = new MutationObserver(applyChanges);
-            observer.observe(document, {subtree:true, childList:true, attributes:true, attributeOldValue:true, attributeFilter:['name','content']});
-            // Download links need the applied meta policy, even after its element is removed.
-            Object.defineProperty(window, '__beutlReferrerPolicy', {
-                value: () => {
-                    applyChanges(observer.takeRecords());
-                    return documentPolicy;
-                }
-            });
 
             function windowTarget(url, link) {
                 if (!['https:', 'http:'].includes(url.protocol) || link?.rel.toLowerCase().split(/\s+/).includes('noreferrer')) return null;
-                applyChanges(observer.takeRecords());
-                const policy = link?.referrerPolicy || documentPolicy;
+                const policy = link?.referrerPolicy || window.__beutlReferrerPolicy();
                 if (!policy) return self === top ? allowed + '-document' : null;
                 if (policy === 'same-origin') return url.origin === self.origin ? allowed + '-same-origin' : null;
                 return policy === 'no-referrer' ? null : allowed;

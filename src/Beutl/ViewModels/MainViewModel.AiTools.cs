@@ -42,7 +42,8 @@ public partial class MainViewModel : IAiWorkspaceHost
             CreateGenerativePromptLibrary(),
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAiVideoService>(),
-            _beutlClients.GetResource<IAiJobKindRegistry>(), AppServices.GetRequiredService<DecoderRegistry>());
+            _beutlClients.GetResource<IAiJobKindRegistry>(), AppServices.GetRequiredService<DecoderRegistry>(),
+            _aiRequestRecoveryContext);
 
     internal Beutl.NodeGraph.Generative.IGenerativePromptLibrary CreateGenerativePromptLibrary()
         => new AiGenerativePromptLibrary(PromptLibraryProvider.For(_aiRequestRecoveryContext));
@@ -78,7 +79,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             _captionCatalog,
             CaptionDraftStoreProvider.Current,
             CreateCaptionDraftScopes(editViewModel),
-            editViewModel, Configuration.EditorConfig, Configuration.ProxyStoreConfig);
+            editViewModel, Configuration.EditorConfig, Configuration.ProxyStoreConfig, _aiRequestRecoveryContext);
     }
 
     private IObservable<CaptionDraftScope?> CreateCaptionDraftScopes(EditViewModel? editViewModel)

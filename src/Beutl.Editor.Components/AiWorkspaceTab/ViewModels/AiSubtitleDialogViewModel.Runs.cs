@@ -18,19 +18,21 @@ public sealed partial class AiSubtitleDialogViewModel
         AiRequestName name,
         Func<AiOperationAvailabilityRequest> availability,
         Func<TOperation, CaptionDraftOutcome> publish,
-        Action<TOperation, AiRequestName> withdraw)
+        Action<TOperation, AiRequestName> withdraw,
+        AiAccountJobScope account,
+        CancellationToken cancellationToken)
         where TOperation : CaptionRunOperation
     {
         try
         {
-            if (!name.IsRepeat)
-            {
-                await EnsureAvailableAsync(availability());
-            }
+            if (!name.IsRepeat && !await account.SendAsync(
+                    token => _availability.CheckAsync(availability(), token), cancellationToken))
+                throw new AiUsageLimitExceededException();
 
+            account.ThrowIfInvalid(cancellationToken);
             return CanRunContinue(publish(operation));
         }
-        catch
+        catch when (!account.AccountChanged)
         {
             withdraw(operation, name);
             throw;
@@ -45,17 +47,20 @@ public sealed partial class AiSubtitleDialogViewModel
     private async Task<(bool Settled, TResponse Response)> SendRunPieceAsync<TOperation, TResponse>(
         TOperation operation,
         AiRequestName name,
-        Func<Task<TResponse>> send,
+        Func<CancellationToken, Task<TResponse>> send,
         Func<TOperation, CaptionDraftOutcome> publish,
-        Action<TOperation, AiRequestName> withdraw)
+        Action<TOperation, AiRequestName> withdraw,
+        AiAccountJobScope account,
+        CancellationToken cancellationToken)
         where TOperation : CaptionRunOperation
     {
         TResponse response;
         try
         {
-            response = await send();
+            response = await account.SendAsync(send, cancellationToken);
+            account.ThrowIfInvalid(cancellationToken);
         }
-        catch (AiProviderErrorException)
+        catch (AiProviderErrorException) when (!account.AccountChanged)
         {
             if (operation.RequestKey.Retire())
             {
@@ -64,7 +69,7 @@ public sealed partial class AiSubtitleDialogViewModel
             }
             throw;
         }
-        catch (Exception ex) when (AiRequestOutcome.CanWithdraw(name, ex))
+        catch (Exception ex) when (!account.AccountChanged && AiRequestOutcome.CanWithdraw(name, ex))
         {
             withdraw(operation, name);
             throw;

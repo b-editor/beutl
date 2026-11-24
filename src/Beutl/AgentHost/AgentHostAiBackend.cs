@@ -1,8 +1,8 @@
-﻿using Beutl.Api.Objects;
-using Beutl.Api.Services;
+﻿using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services.AI;
+using Beutl.Language;
 using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
@@ -11,7 +11,7 @@ namespace Beutl.AgentHost;
 
 /// <summary>The signed-in application's AI services, for the agent host's AI tools.</summary>
 internal sealed class AgentHostAiBackend(
-    Func<AuthenticatedUser?> user,
+    AiRequestRecoveryContext recoveryContext,
     IAiEntitlementService entitlements,
     IAiOperationAvailabilityService availability,
     IAiTranscriptionService transcription,
@@ -22,9 +22,11 @@ internal sealed class AgentHostAiBackend(
     // The longest piece of audio sent at once: ten minutes of 16 kHz mono stays under the upload limit.
     private static readonly TimeSpan s_chunkDuration = TimeSpan.FromMinutes(10);
 
+    public AiRequestRecoveryContext RecoveryContext => recoveryContext;
+
     public async Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken)
     {
-        if (user() is null)
+        if (recoveryContext.GetCurrentIdentity() is null)
             return "Sign in to Beutl in the running app to use AI generation.";
 
         AiEntitlements? current = entitlements.Entitlements.Value;
@@ -76,6 +78,34 @@ internal sealed class AgentHostAiBackend(
         IProgress<string> progress,
         CancellationToken cancellationToken)
     {
+        AiAccountJobScope? account = null;
+        try
+        {
+            using var job = account = new AiAccountJobScope(recoveryContext);
+            using CancellationTokenSource cancellation = job.Link(cancellationToken);
+            return await TranscribeCoreAsync(path, language, modelId, progress, job, cancellation.Token)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is AuthenticationRequiredException || account?.AccountChanged == true)
+        {
+            throw new AgentAiException(
+                AgentAiException.CodeFor(new AuthenticationRequiredException()), Strings.AiAuthenticationRequired);
+        }
+        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
+        {
+            throw new AgentAiException(AgentAiException.CodeFor(ex), failure.Message);
+        }
+    }
+
+    private async Task<AgentTranscript> TranscribeCoreAsync(
+        string path,
+        string? language,
+        string? modelId,
+        IProgress<string> progress,
+        AiAccountJobScope account,
+        CancellationToken cancellationToken)
+    {
+        account.ThrowIfInvalid(cancellationToken);
         AiModelId? model = string.IsNullOrWhiteSpace(modelId) ? null : new AiModelId(modelId.Trim());
         MediaReader opened;
         try
@@ -128,7 +158,7 @@ internal sealed class AgentHostAiBackend(
         int maxParts = estimatedParts * 2;
         while (start < totalSamples && part < maxParts)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            account.ThrowIfInvalid(cancellationToken);
             long partStart = start;
             int length = checked((int)Math.Min(chunkSamples, totalSamples - partStart));
             part++;
@@ -174,21 +204,14 @@ internal sealed class AgentHostAiBackend(
                     tail = true;
                 }
 
-                bool covered;
-                try
-                {
-                    covered = await availability.CheckAsync(
+                bool covered = await account.SendAsync(
+                    token => availability.CheckAsync(
                         new AiOperationAvailabilityRequest.Transcription(
                             AiOperations.Transcription,
                             chunk.UploadedDuration.TotalSeconds,
                             model),
-                        cancellationToken).ConfigureAwait(false);
-                }
-                // The check itself can refuse, when the session or credits changed since the call.
-                catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
-                {
-                    throw new AgentAiException(AgentAiException.CodeFor(ex), failure.Message);
-                }
+                        token),
+                    cancellationToken).ConfigureAwait(false);
 
                 if (!covered)
                 {
@@ -197,21 +220,16 @@ internal sealed class AgentHostAiBackend(
                         "The account's AI usage does not cover this transcription.");
                 }
 
-                AiTranscriptionResponse response;
-                try
-                {
-                    response = await transcription.TranscribeAsync(
+                AiTranscriptionResponse response = await account.SendAsync(
+                    token => transcription.TranscribeAsync(
                         new AiTranscriptionRequest(
                             AiUploadSource.FromFile(wave, "audio.wav"),
                             language,
                             model,
                             Guid.NewGuid().ToString("N")),
-                        cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
-                {
-                    throw new AgentAiException(AgentAiException.CodeFor(ex), failure.Message);
-                }
+                        token),
+                    cancellationToken).ConfigureAwait(false);
+                account.ThrowIfInvalid(cancellationToken);
 
                 // Checked as the subtitle flow checks a part before accepting it: times inside the part,
                 // in order, so offsetting them cannot overlap the next part.
@@ -278,6 +296,7 @@ internal sealed class AgentHostAiBackend(
         if (!reachedEnd && start < totalSamples)
             throw IncompleteRead(start, sampleRate);
 
+        account.ThrowIfInvalid(cancellationToken);
         return new AgentTranscript(detected ?? language, segments, hasWords ? words : null);
     }
 

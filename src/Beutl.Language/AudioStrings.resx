@@ -312,4 +312,46 @@
   <data name="RingModulatorEffect_Mix" xml:space="preserve">
     <value>Mix (%)</value>
   </data>
+  <data name="SourceSound_LibraryDescription" xml:space="preserve">
+    <value>Plays audio from a media file (audio clip, sound source).</value>
+  </data>
+  <data name="SceneSound_LibraryDescription" xml:space="preserve">
+    <value>Plays the audio mix of another scene (nested audio, precomp audio).</value>
+  </data>
+  <data name="SoundGroup_LibraryDescription" xml:space="preserve">
+    <value>Mixes several sounds so they can be adjusted together (audio bus, submix, audio group).</value>
+  </data>
+  <data name="DelayEffect_LibraryDescription" xml:space="preserve">
+    <value>Repeats the sound after an adjustable delay (echo, audio delay).</value>
+  </data>
+  <data name="EqualizerEffect_LibraryDescription" xml:space="preserve">
+    <value>Boosts or cuts the level of individual frequency bands (EQ, graphic equalizer, tone control).</value>
+  </data>
+  <data name="CompressorEffect_LibraryDescription" xml:space="preserve">
+    <value>Reduces the level of loud sounds to narrow the dynamic range (dynamic range compression, audio compressor).</value>
+  </data>
+  <data name="LimiterEffect_LibraryDescription" xml:space="preserve">
+    <value>Keeps audio peaks below a set level (peak limiter, brickwall limiter).</value>
+  </data>
+  <data name="GateEffect_LibraryDescription" xml:space="preserve">
+    <value>Attenuates audio when it falls below a set level (noise gate, expander).</value>
+  </data>
+  <data name="TimeStretchEffect_LibraryDescription" xml:space="preserve">
+    <value>Changes audio playback speed while preserving pitch (time stretch, speed change, preserve pitch).</value>
+  </data>
+  <data name="NoiseReductionEffect_LibraryDescription" xml:space="preserve">
+    <value>Reduces steady background noise such as hiss or hum (denoise, noise removal).</value>
+  </data>
+  <data name="PitchShiftEffect_LibraryDescription" xml:space="preserve">
+    <value>Raises or lowers the pitch of audio in semitone steps (pitch shifter, transpose).</value>
+  </data>
+  <data name="ResamplingEffect_LibraryDescription" xml:space="preserve">
+    <value>Converts audio to the project's sample rate (sample rate conversion, SRC).</value>
+  </data>
+  <data name="VibratoEffect_LibraryDescription" xml:space="preserve">
+    <value>Varies the pitch of audio up and down in a regular pattern (pitch modulation, pitch wobble).</value>
+  </data>
+  <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
+    <value>Multiplies the audio by a tone to give it a metallic sound (ring modulation, metallic voice).</value>
+  </data>
 </root>

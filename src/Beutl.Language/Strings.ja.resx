@@ -3890,4 +3890,7 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>要素を貼り付ける前にプロジェクトを保存してください。</value>
   </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>下にあるレイヤーの内容を現在のレイヤーに取り込みます（レイヤー参照、グループ制御、フロー入力 / layer reference, flow input）。</value>
+  </data>
 </root>
