@@ -318,6 +318,9 @@ internal sealed class MultiElementMirror : IPropertyEditorMirror, IDisposable
             }
 
             found.DefersCommit = true;
+            // A default the host gave the editor shown, such as a pin's rest position, reads the property it is the
+            // default of, so the target's editor takes it too and finds the target's own.
+            found.DefaultValueOverride = editor.DefaultValueOverride;
             return new TargetEditor(target, found, shift, contexts, clock);
         }
 

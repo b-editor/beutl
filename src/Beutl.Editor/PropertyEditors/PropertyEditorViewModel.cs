@@ -212,6 +212,27 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public bool CanReset => GetDefaultValue() != null;
 
+    // The value that takes the place of the property's default, for a host that knows where this one rests: a pin
+    // resets to the point of the picture it holds, not to the origin. It reads the property it gives the default of, so
+    // that the editor of another element's property that repeats this one's edits takes it too and finds its own.
+    internal Func<IProperty, object?>? DefaultValueOverride { get; set; }
+
+    // The DefaultValueOverride of the editor of one of this editor's separated components: that component of the default
+    // this editor's override gives, split as separating the property splits its value. It finds the property from the
+    // component, so another element's editor of the same component finds its own. Null while this editor has the
+    // property's own default, which the components' defaults already follow.
+    internal Func<IProperty, object?>? ComponentDefaultValueOverride
+    {
+        get
+        {
+            if (DefaultValueOverride is not { } whole) return null;
+
+            return component => ComponentAnimations.GetSeparatedProperty(component) is { } property
+                ? ComponentAnimations.GetComponentValue(component, whole(property))
+                : null;
+        }
+    }
+
     public string Header { get; }
 
     public string FormatHeader(string displayName) => _unitSymbol is null ? displayName : $"{displayName} ({_unitSymbol})";
@@ -489,6 +510,12 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     protected object? GetDefaultValue()
     {
+        if (DefaultValueOverride is { } defaultValue && PropertyAdapter.GetEngineProperty() is { } property
+            && defaultValue(property) is { } value)
+        {
+            return value;
+        }
+
         return PropertyAdapter.GetDefaultValue();
     }
 

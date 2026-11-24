@@ -148,6 +148,17 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
     public sealed override void Reset()
     {
         if (!IsElementEditable) return;
+        // Every element goes back to the default of its own editor, which can differ from the one shown, as the rest
+        // positions of pins do, and they all take it as one edit.
+        if (MirrorsValue((editor, own) =>
+            {
+                if (editor.GetDefaultValue() is { } value)
+                    editor.SetValue(editor.GetEditingValue(), own ? (TValue?)value : CopyForOtherElement((TValue?)value));
+            }))
+        {
+            return;
+        }
+
         if (GetDefaultValue() is { } defaultValue)
         {
             SetValue(GetEditingValue(), (TValue?)defaultValue);
