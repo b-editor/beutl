@@ -22,7 +22,7 @@ public sealed partial class ElementView
 {
     private sealed class _MoveBehavior : Behavior<ElementView>
     {
-        private readonly record struct SlipPreviewEntry(ElementViewModel ViewModel, SlippableMedia.Target? VariableSpeedTarget);
+        private readonly record struct SlipPreviewEntry(ElementViewModel ViewModel, SlippableMedia.Target? ResampleTarget);
 
         private bool _pressed;
         private bool _duplicateMode;
@@ -141,7 +141,7 @@ public sealed partial class ElementView
                     double offsetX = -previewDelta.TimeToPixel(scale);
                     foreach (SlipPreviewEntry entry in _slipPreviewElements)
                     {
-                        entry.ViewModel.UpdateMediaPreview(offsetX, entry.VariableSpeedTarget?.SourceDelta(previewDelta, trim: false));
+                        entry.ViewModel.UpdateMediaPreview(offsetX, entry.ResampleTarget?.SourceDelta(previewDelta, trim: false));
                     }
 
                     view.UpdateSnapFeedback(slipSnap.DidSnap && previewDelta == requestedDelta ? slipSnap.Time : null, scale, e.Timestamp);
@@ -276,8 +276,7 @@ public sealed partial class ElementView
                 mediaTargets.AddRange(collected);
                 if (viewModel.Timeline.GetViewModelFor(element) is { } vm)
                 {
-                    SlippableMedia.Target? variableTarget = vm.FindResampledThumbnailTarget(collected, trim: false);
-                    previewElements.Add(new SlipPreviewEntry(vm, variableTarget));
+                    previewElements.Add(new SlipPreviewEntry(vm, vm.FindResampledThumbnailTarget(collected, trim: false)));
                 }
             }
 

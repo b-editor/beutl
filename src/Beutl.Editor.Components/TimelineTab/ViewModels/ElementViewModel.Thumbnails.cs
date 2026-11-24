@@ -469,9 +469,12 @@ public sealed partial class ElementViewModel
 
         var animation = speed.GetKeyFrameAnimation();
         // A trim keeps the global clock at the same absolute times, while the local clock restarts at the new in-point.
-        bool resample = trim
-            ? animation is { KeyFrames.Count: > 0, UseGlobalClock.Value: false }
-            : speed.HasExpression || animation is { KeyFrames.Count: > 0 };
+        bool resample = provider switch
+        {
+            _ when trim => animation is { KeyFrames.Count: > 0, UseGlobalClock.Value: false },
+            Beutl.Audio.SourceSound sound => sound.RequiresResampledSlipPreview,
+            _ => speed.HasExpression || animation is { KeyFrames.Count: > 0 }
+        };
         return resample ? targets.FirstOrDefault(t => ReferenceEquals(t.Offset, source.OffsetPosition)) : null;
     }
 

@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Animation;
 using Beutl.Audio.Composing;
+using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -45,6 +46,14 @@ public sealed partial class SourceSound : IThumbnailsProvider
             CoreSerializer.SerializeToJsonObject(this),
             ["Source", "ChannelMap", "OffsetPosition", "Gain", "Pan", "Speed", "Effect"]);
     }
+
+    // A slip moves the source offset while the clip's processing still runs on the same clock.
+    internal bool RequiresResampledSlipPreview
+        => Properties.Any(AnimationSampler.IsAnimated) || HasEnabledEffect(Effect.Value);
+
+    private static bool HasEnabledEffect(AudioEffect? effect)
+        => effect is { IsEnabled.Value: true }
+            && (effect is not AudioEffectGroup group || group.Children.Any(HasEnabledEffect));
 
     public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         FontManager fonts,
