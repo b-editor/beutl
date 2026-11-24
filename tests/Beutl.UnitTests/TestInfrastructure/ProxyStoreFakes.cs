@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Proxy;
+﻿using Beutl.Media.Decoding;
+using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.TestInfrastructure;
 
@@ -7,18 +8,18 @@ public class DelegatingProxyStore(IProxyStore inner) : IProxyStore
 {
     public virtual string StoreRootPath => inner.StoreRootPath;
 
-    public virtual ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => inner.TryGet(source, preset);
+    public virtual ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => inner.TryGet(source, preset, deinterlace);
 
     public virtual IReadOnlyList<ProxyEntry> Enumerate() => inner.Enumerate();
 
     public virtual void Register(ProxyEntry entry) => inner.Register(entry);
 
-    public virtual bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
-        => inner.TryTransition(source, preset, newState, failureReason);
+    public virtual bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null, VideoDeinterlaceOptions deinterlace = default)
+        => inner.TryTransition(source, preset, newState, failureReason, deinterlace);
 
-    public virtual bool Delete(ProxyFingerprint source, ProxyPreset preset) => inner.Delete(source, preset);
+    public virtual bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => inner.Delete(source, preset, deinterlace);
 
-    public virtual void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc) => inner.Touch(source, preset, nowUtc);
+    public virtual void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc, VideoDeinterlaceOptions deinterlace = default) => inner.Touch(source, preset, nowUtc, deinterlace);
 
     public virtual long GetTotalBytes() => inner.GetTotalBytes();
 
@@ -40,7 +41,7 @@ public class StubProxyStore(string storeRootPath) : IProxyStore
 {
     public virtual string StoreRootPath => storeRootPath;
 
-    public virtual ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
+    public virtual ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => null;
 
     public virtual IReadOnlyList<ProxyEntry> Enumerate() => [];
 
@@ -48,12 +49,12 @@ public class StubProxyStore(string storeRootPath) : IProxyStore
     {
     }
 
-    public virtual bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+    public virtual bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null, VideoDeinterlaceOptions deinterlace = default)
         => false;
 
-    public virtual bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+    public virtual bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => false;
 
-    public virtual void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+    public virtual void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc, VideoDeinterlaceOptions deinterlace = default)
     {
     }
 
@@ -85,8 +86,8 @@ public sealed class CountingStore(string root, int failuresBeforeSuccess) : Stub
 
     public void Seed(ProxyEntry entry) => LastRegistered = entry;
 
-    public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset)
-        => LastRegistered is { } entry && entry.Source == source && entry.Preset == preset ? entry : null;
+    public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
+        => LastRegistered is { } entry && entry.Source == source && entry.Preset == preset && entry.Deinterlace == deinterlace.Normalize() ? entry : null;
 
     public override void Register(ProxyEntry entry)
     {
@@ -102,9 +103,9 @@ public sealed class CountingStore(string root, int failuresBeforeSuccess) : Stub
         LastRegistered = entry;
     }
 
-    public override bool Delete(ProxyFingerprint source, ProxyPreset preset)
+    public override bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
     {
-        if (TryGet(source, preset) is null)
+        if (TryGet(source, preset, deinterlace) is null)
             return false;
         if (FailRollback)
             throw new IOException("rollback deletion failed");
@@ -117,15 +118,15 @@ public sealed class CountingStore(string root, int failuresBeforeSuccess) : Stub
 // violation where the index entry is removed yet File.Delete could not remove the file.
 public sealed class RestoreFileOnDeleteStore(IProxyStore inner) : DelegatingProxyStore(inner)
 {
-    public override bool Delete(ProxyFingerprint source, ProxyPreset preset)
+    public override bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
     {
-        ProxyEntry? entry = TryGet(source, preset);
+        ProxyEntry? entry = TryGet(source, preset, deinterlace);
         string? path = entry is null
             ? null
             : Path.Combine(StoreRootPath, entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
         byte[]? bytes = path is not null && File.Exists(path) ? File.ReadAllBytes(path) : null;
 
-        bool result = base.Delete(source, preset);
+        bool result = base.Delete(source, preset, deinterlace);
 
         if (bytes is not null && path is not null)
             File.WriteAllBytes(path, bytes);

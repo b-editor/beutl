@@ -48,6 +48,11 @@ public partial class SourceVideo : IThumbnailsProvider
         base.OnAttachedToHierarchy(args);
         _thumbnailHandler = (_, _) => ThumbnailsInvalidated?.Invoke(this, EventArgs.Empty);
         Source.Edited += _thumbnailHandler;
+        TransferInterpretation.Edited += _thumbnailHandler;
+        DeinterlaceMode.Edited += _thumbnailHandler;
+        DeinterlaceFieldOrder.Edited += _thumbnailHandler;
+        DeinterlaceMethod.Edited += _thumbnailHandler;
+        DeinterlaceFrameRateMode.Edited += _thumbnailHandler;
         OffsetPosition.Edited += _thumbnailHandler;
         Speed.Edited += _thumbnailHandler;
         IsLoop.Edited += _thumbnailHandler;
@@ -59,6 +64,11 @@ public partial class SourceVideo : IThumbnailsProvider
         if (_thumbnailHandler != null)
         {
             Source.Edited -= _thumbnailHandler;
+            TransferInterpretation.Edited -= _thumbnailHandler;
+            DeinterlaceMode.Edited -= _thumbnailHandler;
+            DeinterlaceFieldOrder.Edited -= _thumbnailHandler;
+            DeinterlaceMethod.Edited -= _thumbnailHandler;
+            DeinterlaceFrameRateMode.Edited -= _thumbnailHandler;
             OffsetPosition.Edited -= _thumbnailHandler;
             Speed.Edited -= _thumbnailHandler;
             IsLoop.Edited -= _thumbnailHandler;
@@ -68,9 +78,16 @@ public partial class SourceVideo : IThumbnailsProvider
 
     public string? GetThumbnailsCacheKey()
     {
-        return ThumbnailsCacheKey.Compute(
-            CoreSerializer.SerializeToJsonObject(this),
-            ["Source", "OffsetPosition", "Speed", "IsLoop"]);
+        var json = CoreSerializer.SerializeToJsonObject(this);
+        if (GetDeinterlaceOptions() == VideoDeinterlaceOptions.Default)
+        {
+            return ThumbnailsCacheKey.Compute(json,
+                [nameof(Source), nameof(OffsetPosition), nameof(Speed), nameof(IsLoop), nameof(TransferInterpretation)]);
+        }
+
+        return ThumbnailsCacheKey.Compute(json,
+            [nameof(Source), nameof(OffsetPosition), nameof(Speed), nameof(IsLoop), nameof(TransferInterpretation),
+                nameof(DeinterlaceMode), nameof(DeinterlaceFieldOrder), nameof(DeinterlaceMethod), nameof(DeinterlaceFrameRateMode)]);
     }
 
     public IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(

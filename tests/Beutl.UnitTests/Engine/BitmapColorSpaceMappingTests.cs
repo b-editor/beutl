@@ -6,6 +6,15 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class BitmapColorSpaceMappingTests
 {
+    [Test]
+    public void Bt1886_IsPureGammaTwoPointFour()
+    {
+        BitmapColorSpaceTransferFn curve = BitmapColorSpaceTransferFn.Bt1886;
+        Assert.That(curve, Is.EqualTo(new BitmapColorSpaceTransferFn { G = 2.4f, A = 1f }));
+        Assert.That(curve.ToString(), Is.EqualTo("BT.1886"));
+        Assert.That(curve.Transform(0.5f), Is.EqualTo(MathF.Pow(0.5f, 2.4f)).Within(0.0001f));
+    }
+
     [TestCase(BitmapColorTransfer.Pq, true)]
     [TestCase(BitmapColorTransfer.Hlg, true)]
     [TestCase(BitmapColorTransfer.Srgb, false)]

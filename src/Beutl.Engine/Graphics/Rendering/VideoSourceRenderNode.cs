@@ -8,16 +8,28 @@ public sealed class VideoSourceRenderNode(
     VideoSource.Resource source,
     int frame,
     Brush.Resource? fill,
-    Pen.Resource? pen)
+    Pen.Resource? pen,
+    VideoTransferInterpretation interpretation)
     : BrushRenderNode(fill, pen)
 {
+    public VideoSourceRenderNode(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+        : this(source, frame, fill, pen, VideoTransferInterpretation.Auto)
+    {
+    }
+
     public (VideoSource.Resource Resource, int Version)? Source { get; private set; } = source.Capture();
 
     public int Frame { get; private set; } = frame;
 
+    public VideoTransferInterpretation TransferInterpretation { get; private set; } = interpretation;
+
     public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.LogicalFrameSize.ToSize(1)), pen);
 
     public bool Update(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+        => Update(source, frame, fill, pen, VideoTransferInterpretation.Auto);
+
+    public bool Update(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen,
+        VideoTransferInterpretation interpretation)
     {
         bool changed = Update(fill, pen);
         if (!source.Compare(Source))
@@ -34,6 +46,12 @@ public sealed class VideoSourceRenderNode(
         if (Frame != frame)
         {
             Frame = frame;
+            changed = true;
+        }
+
+        if (TransferInterpretation != interpretation)
+        {
+            TransferInterpretation = interpretation;
             changed = true;
         }
 
@@ -62,9 +80,9 @@ public sealed class VideoSourceRenderNode(
         RenderResource<VideoSource.Resource> sourceResource = context.Borrow(source);
 
         context.Publish(context.PaintedSource(
-            state: (source, frame),
+            state: (source, frame, interpretation: TransferInterpretation),
             draw: static (canvas, fill, pen, state) =>
-                canvas.DrawVideoSource(state.source, state.frame, fill, pen),
+                canvas.DrawVideoSource(state.source, state.frame, fill, pen, state.interpretation),
             fill: fill,
             pen: pen,
             outputBounds: bounds,

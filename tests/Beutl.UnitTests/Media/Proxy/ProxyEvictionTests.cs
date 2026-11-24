@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
@@ -88,7 +89,7 @@ public class ProxyEvictionTests
         IDisposable? latePin = null;
         int generationChecks = 0;
         var service = new ProxyEvictionService(store, resolver, maxTotalBytes: 7,
-            isGenerationActive: (source, _) =>
+            isGenerationActive: (source, _, _) =>
             {
                 // The second probe runs after the final pin check, just before Delete.
                 if (source == old.Source && ++generationChecks == 2)
@@ -246,7 +247,7 @@ public class ProxyEvictionTests
             store,
             resolver: null,
             maxTotalBytes: 7,
-            isGenerationActive: (source, preset) => (source, preset) == (generating.Source, generating.Preset));
+            isGenerationActive: (source, preset, _) => (source, preset) == (generating.Source, generating.Preset));
 
         ProxyEvictionResult result = service.Sweep();
 
@@ -273,7 +274,7 @@ public class ProxyEvictionTests
             store,
             resolver: null,
             maxTotalBytes: 0,
-            isGenerationActive: (source, preset) =>
+            isGenerationActive: (source, preset, _) =>
                 store.TryGet(first.Source, first.Preset) is null
                 && (source, preset) == (second.Source, second.Preset));
 
@@ -536,12 +537,12 @@ public class ProxyEvictionTests
     {
         public int DeleteCalls { get; private set; }
 
-        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => regenerated;
+        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => regenerated;
 
-        public override bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        public override bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
         {
             DeleteCalls++;
-            return base.Delete(source, preset);
+            return base.Delete(source, preset, deinterlace);
         }
     }
 

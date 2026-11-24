@@ -57,18 +57,21 @@ public sealed class AVFReader : MediaReader
         {
             BeutlAVFException.ThrowIfFailed(
                 BeutlAVFNative.beutl_avf_reader_get_video_info(_handle, out var vi));
+            var transfer = (BitmapColorTransfer)vi.TransferFunction;
+            var primaries = (BitmapColorPrimaries)vi.ColorPrimaries;
             VideoInfo = new VideoStreamInfo(
                 BeutlAVFNative.FourCCToString(vi.CodecFourCC),
                 vi.NominalFrameCount,
                 new PixelSize(vi.Width, vi.Height),
-                new Rational(vi.FrameRateNum, vi.FrameRateDen));
+                new Rational(vi.FrameRateNum, vi.FrameRateDen))
+            {
+                ColorTags = new VideoColorTags(transfer, primaries, VideoColorMatrix.Unknown, VideoColorRange.Unknown),
+                DeinterlaceStatus = options.Deinterlace.GetFallbackStatus(VideoFieldOrder.Unknown),
+            };
 
             bool isHdr = vi.IsHdr != 0;
             _videoColorType = isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
-            _videoColorSpace = ColorSpaceMapper.BuildColorSpace(
-                isHdr,
-                (BitmapColorTransfer)vi.TransferFunction,
-                (BitmapColorPrimaries)vi.ColorPrimaries);
+            _videoColorSpace = ColorSpaceMapper.BuildColorSpace(isHdr, transfer, primaries);
             _logger.LogInformation(
                 "Video color space: {ColorSpace} ({Hdr})",
                 _videoColorSpace, isHdr ? "HDR" : "SDR");

@@ -46,6 +46,36 @@ public class FFmpegReaderProxySuspendContractTests
     }
 
     [Test]
+    public void SuspendedDeinterlacingReaderReopensWithTheSameFieldOutput()
+    {
+        var deinterlace = new VideoDeinterlaceOptions(DeinterlaceMode.Auto, DeinterlaceFieldOrder.Auto,
+            DeinterlaceMethod.Yadif, DeinterlaceFrameRateMode.Field);
+        using var reader = OpenFixture(Path.Combine(AppContext.BaseDirectory, "Fixtures", "deinterlace-bff.mp4"),
+            deinterlace: deinterlace);
+        var original = reader.VideoInfo;
+        int last = checked((int)original.NumFrames - 1);
+        byte[] firstField = ReadFramePixels(reader, last - 1);
+        byte[] lastField = ReadFramePixels(reader, last);
+        var suspendable = (IIdleSuspendableReader)reader;
+        int readerId = reader.ReaderId;
+        Assert.That(suspendable.TrySuspend(suspendable.LastAccessTicks), Is.True);
+        AssertWorkerReaderClosed(readerId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(original.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.Applied));
+            Assert.That(original.DetectedFieldOrder, Is.EqualTo(VideoFieldOrder.BottomFieldFirst));
+            Assert.That(original.FrameRate, Is.EqualTo(new Rational(60000, 1001)));
+            Assert.That(firstField.AsSpan().SequenceEqual(lastField), Is.False);
+            Assert.That(ReadFramePixels(reader, last), Is.EqualTo(lastField));
+            Assert.That(ReadFramePixels(reader, last - 1), Is.EqualTo(firstField));
+            Assert.That(reader.ReaderId, Is.Not.EqualTo(readerId));
+            Assert.That(reader.IsSuspended, Is.False);
+            Assert.That(reader.ReadVideo(last + 1, out _), Is.False);
+        });
+    }
+
+    [Test]
     public void ReopenFailure_ReturnsFalse_AndRetriesOnTheNextRead()
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-ffmpeg-suspend-{Guid.NewGuid():N}.flv");
@@ -163,11 +193,11 @@ public class FFmpegReaderProxySuspendContractTests
         }
     }
 
-    private static FFmpegReaderProxy OpenFixture(string? path = null, bool background = false)
+    private static FFmpegReaderProxy OpenFixture(string? path = null, bool background = false, VideoDeinterlaceOptions deinterlace = default)
     {
         var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
         MediaReader? reader = decoderInfo.Open(
-            path ?? FixturePath, new MediaOptions(MediaMode.Video) { IsBackground = background });
+            path ?? FixturePath, new MediaOptions(MediaMode.Video) { IsBackground = background, Deinterlace = deinterlace });
         Assert.That(reader, Is.TypeOf<FFmpegReaderProxy>());
         return (FFmpegReaderProxy)reader!;
     }

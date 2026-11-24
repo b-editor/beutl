@@ -2748,6 +2748,21 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>Pushing versions…</value>
   </data>
+  <data name="VersionControl_FetchingLfs" xml:space="preserve">
+    <value>Downloading Git LFS files…</value>
+  </data>
+  <data name="VersionControl_ApplyingPull" xml:space="preserve">
+    <value>Applying remote changes…</value>
+  </data>
+  <data name="VersionControl_Committing" xml:space="preserve">
+    <value>Creating commit…</value>
+  </data>
+  <data name="VersionControl_Restoring" xml:space="preserve">
+    <value>Restoring version…</value>
+  </data>
+  <data name="VersionControl_SwitchingBranch" xml:space="preserve">
+    <value>Switching branch…</value>
+  </data>
   <data name="VersionControl_Pulling" xml:space="preserve">
     <value>Pulling versions…</value>
   </data>

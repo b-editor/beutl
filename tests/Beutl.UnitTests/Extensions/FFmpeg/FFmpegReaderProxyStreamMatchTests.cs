@@ -1,6 +1,8 @@
 ﻿using Beutl.Audio;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.FFmpegIpc.Protocol.Messages;
+using Beutl.Media;
+using Beutl.Media.Decoding;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
@@ -23,6 +25,13 @@ public class FFmpegReaderProxyStreamMatchTests
         ("Duration", r => r.DurationNum = 20),
         ("NumFrames", r => r.VideoNumFrames = 600),
         ("VideoCodec", r => r.VideoCodecName = "hevc"),
+        ("VideoTransfer", r => r.VideoColorTags = r.VideoColorTags with { Transfer = BitmapColorTransfer.Pq }),
+        ("VideoPrimaries", r => r.VideoColorTags = r.VideoColorTags with { Primaries = BitmapColorPrimaries.Rec2020 }),
+        ("VideoMatrix", r => r.VideoColorTags = r.VideoColorTags with { Matrix = VideoColorMatrix.Bt601 }),
+        ("VideoRange", r => r.VideoColorTags = r.VideoColorTags with { Range = VideoColorRange.Full }),
+        ("VideoIccProfile", r => r.VideoHasIccProfile = true),
+        ("DetectedFieldOrder", r => r.DetectedFieldOrder = VideoFieldOrder.BottomFieldFirst),
+        ("DeinterlaceStatus", r => r.DeinterlaceStatus = DeinterlaceApplicationStatus.UnsupportedByBackend),
         ("SampleRate", r => r.AudioSampleRate = 44100),
         ("Channels", r => r.AudioNumChannels = 6),
         ("SpeakerMask", r => r.AudioSpeakerMask = (uint)(AudioSpeakers.SideLeft | AudioSpeakers.SideRight)),
@@ -67,6 +76,9 @@ public class FFmpegReaderProxyStreamMatchTests
         FrameRateDen = 1,
         DurationNum = 10,
         DurationDen = 1,
+        VideoColorTags = new VideoColorTags(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709, VideoColorMatrix.Bt709, VideoColorRange.Limited),
+        DetectedFieldOrder = VideoFieldOrder.TopFieldFirst,
+        DeinterlaceStatus = DeinterlaceApplicationStatus.Applied,
         AudioCodecName = "aac",
         AudioSampleRate = 48000,
         AudioNumChannels = 2,

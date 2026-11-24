@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -76,18 +77,18 @@ public sealed partial class ProxiesTabViewModel
 
     private void Refresh() => RunOnUIIfLive(() =>
     {
-        // Only an explicit user choice survives a rebuild; key on Source.AbsolutePath so the same file
-        // spelled differently keeps its state.
-        Dictionary<string, (ProxyPreset Preset, bool Explicit)> priorChoiceByKey = Clips.ToDictionary(
-            static clip => clip.Source.AbsolutePath,
+        // Only an explicit user choice survives a rebuild; key on normalized path and deinterlacing so
+        // each variant of a file keeps its state.
+        Dictionary<(string, VideoDeinterlaceOptions), (ProxyPreset Preset, bool Explicit)> priorChoiceByKey = Clips.ToDictionary(
+            static clip => (clip.Source.AbsolutePath, clip.Deinterlace),
             static clip => (clip.Preset.Value, clip.IsExplicitlyChosen));
-        HashSet<string> selectedKeys =
-            [.. Clips.Where(static clip => clip.IsSelected.Value).Select(static clip => clip.Source.AbsolutePath)];
+        HashSet<(string, VideoDeinterlaceOptions)> selectedKeys =
+            [.. Clips.Where(static clip => clip.IsSelected.Value).Select(static clip => (clip.Source.AbsolutePath, clip.Deinterlace))];
 
         ClearClips();
-        foreach ((string path, ProxyFingerprint fingerprint) in EnumerateProjectVideoSources())
+        foreach (var (path, fingerprint, deinterlace) in EnumerateProjectVideoSources())
         {
-            string key = fingerprint.AbsolutePath;
+            var key = (fingerprint.AbsolutePath, deinterlace);
             ProxyPreset preset;
             bool followingDefault;
             bool explicitlyChosen;
@@ -99,12 +100,12 @@ public sealed partial class ProxiesTabViewModel
             }
             else
             {
-                (preset, followingDefault) = ResolveInitialPreset(fingerprint);
+                (preset, followingDefault) = ResolveInitialPreset(fingerprint, deinterlace);
                 explicitlyChosen = false;
             }
 
-            ProxyEntry? entry = FindEntry(fingerprint, preset);
-            var clip = new ProxyClipViewModel(this, path, fingerprint, preset, entry, followingDefault, explicitlyChosen);
+            ProxyEntry? entry = FindEntry(fingerprint, preset, deinterlace);
+            var clip = new ProxyClipViewModel(this, path, fingerprint, preset, entry, followingDefault, explicitlyChosen, deinterlace);
             if (selectedKeys.Contains(key))
                 clip.IsSelected.Value = true;
             Clips.Add(clip);
@@ -150,13 +151,12 @@ public sealed partial class ProxiesTabViewModel
     /// Enumerates the project's video sources; usage totals and delete-all both rely on it, so any
     /// element type holding a <see cref="VideoSource"/> must be walked here.
     /// </summary>
-    private IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateProjectVideoSources()
+    private IEnumerable<(string Path, ProxyFingerprint Fingerprint, VideoDeinterlaceOptions Deinterlace)> EnumerateProjectVideoSources()
     {
-        HashSet<string> seenPaths = new(StringComparer.Ordinal);
+        HashSet<(string Path, VideoDeinterlaceOptions Deinterlace)> seenPaths = [];
         HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance);
         HashSet<(Scene, CompositionTarget?)> visitedRefScenes = [];
         ProxyEntry[] storeEntries = [.. _store?.Enumerate() ?? []];
-        ProxyPreset preferredPreset = ToPreset(_config.DefaultPreset.Value);
 
         // The totals and the delete action are labelled project-wide, so scan every scene in the
         // open project (not just the edited one); a clip used only by another scene must count too.
@@ -167,10 +167,10 @@ public sealed partial class ProxiesTabViewModel
 
             foreach (Element element in scene.Children)
             {
-                foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element, visitedRefScenes))
+                foreach (var (source, deinterlace) in ProxySourceEnumerator.EnumerateVideoSourceUses(element, visitedRefScenes))
                 {
-                    if (ProxyClipSourceResolver.TryGetVideoSource(source, storeEntries, seenPaths, preferredPreset, out var item))
-                        yield return item;
+                    if (ProxyClipSourceResolver.TryGetVideoSource(source, deinterlace, storeEntries, seenPaths, out var item))
+                        yield return (item.Path, item.Fingerprint, deinterlace);
                 }
             }
         }
@@ -235,31 +235,31 @@ public sealed partial class ProxiesTabViewModel
             : string.Format(CultureInfo.CurrentCulture, Strings.ProxySelectedPlural, selected);
     }
 
-    private ProxyEntry? FindEntry(ProxyFingerprint source, ProxyPreset preset)
+    private ProxyEntry? FindEntry(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace)
     {
         if (_store == null)
             return null;
 
-        if (_store.TryGet(source, preset) is { } exact)
+        if (_store.TryGet(source, preset, deinterlace) is { } exact)
             return exact;
 
         return _store.Enumerate()
-            .Where(entry => entry.Preset == preset)
+            .Where(entry => entry.Preset == preset && entry.Deinterlace == deinterlace)
             .FirstOrDefault(entry => entry.Source.AbsolutePath == source.AbsolutePath);
     }
 
     // The preset a freshly listed row starts on, and whether that row tracks the global default. A row
     // pinned to an already-generated proxy (at the default preset or any other) does not follow the
     // default; only a row that fell through to the default with no generated proxy does.
-    private (ProxyPreset Preset, bool FollowingDefault) ResolveInitialPreset(ProxyFingerprint source)
+    private (ProxyPreset Preset, bool FollowingDefault) ResolveInitialPreset(ProxyFingerprint source, VideoDeinterlaceOptions deinterlace)
     {
         ProxyPreset defaultPreset = ToPreset(_config.DefaultPreset.Value);
-        if (IsGenerated(FindEntry(source, defaultPreset)))
+        if (IsGenerated(FindEntry(source, defaultPreset, deinterlace)))
             return (defaultPreset, false);
 
         foreach (ProxyPreset preset in s_presetOrder)
         {
-            if (IsGenerated(FindEntry(source, preset)))
+            if (IsGenerated(FindEntry(source, preset, deinterlace)))
                 return (preset, false);
         }
 
@@ -301,5 +301,5 @@ public sealed partial class ProxiesTabViewModel
     }
 
     private static bool IsMatchingJob(ProxyJob job, ProxyClipViewModel clip)
-        => job.Preset == clip.Preset.Value && job.Source.Equals(clip.Source);
+        => job.Preset == clip.Preset.Value && job.Source == clip.Source && job.Deinterlace == clip.Deinterlace;
 }

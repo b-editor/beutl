@@ -13,4 +13,6 @@ public record MediaOptions(
     public bool IsBackground { get; init; }
 
     public ProxyPreset PreferredProxyPreset { get; init; } = ProxyPreset.Quarter;
+
+    public VideoDeinterlaceOptions Deinterlace { get; init; }
 }

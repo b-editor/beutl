@@ -3,6 +3,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
 using SharpGen.Runtime;
 using Vortice.MediaFoundation;
@@ -337,6 +338,15 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         using (IMFMediaType nativeType = sourceReader.GetNativeMediaType(_mediaInfo.VideoStreamIndex, 0))
         {
             _mediaInfo.Color = MFColorTags.Read(nativeType);
+            var interlaceMode = (VideoInterlaceMode)MediaFactory.MFGetAttributeUInt32(nativeType, MediaTypeAttributeKeys.InterlaceMode, 0);
+            _mediaInfo.DetectedFieldOrder = interlaceMode switch
+            {
+                VideoInterlaceMode.Progressive => VideoFieldOrder.Progressive,
+                VideoInterlaceMode.FieldInterleavedUpperFirst or VideoInterlaceMode.FieldSingleUpper => VideoFieldOrder.TopFieldFirst,
+                VideoInterlaceMode.FieldInterleavedLowerFirst or VideoInterlaceMode.FieldSingleLower => VideoFieldOrder.BottomFieldFirst,
+                VideoInterlaceMode.MixedInterlaceOrProgressive => VideoFieldOrder.Mixed,
+                _ => VideoFieldOrder.Unknown,
+            };
         }
 
         _logger.LogInformation("ChechMediaInfo: \n{MediaInfo}", _mediaInfo.GetMediaInfoText());

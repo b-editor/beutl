@@ -92,18 +92,110 @@ public sealed class DecoderRegistry
         // The original decode can only succeed if the file is present; when a PreferProxy open reached
         // here because the original was moved/deleted and no proxy resolved, skip it so the caller gets
         // a clean null (FileNotFound) instead of a decoder-specific open failure.
-        if (File.Exists(file))
+        return File.Exists(file) ? OpenOriginal(file, options) : null;
+    }
+
+    private MediaReader? OpenOriginal(string file, MediaOptions options)
+    {
+        var decoders = GuessDecoder(file);
+        var deinterlace = options.StreamsToLoad.HasFlag(MediaMode.Video)
+            ? options.Deinterlace.Normalize()
+            : VideoDeinterlaceOptions.Default;
+        if (deinterlace == VideoDeinterlaceOptions.Default)
         {
-            foreach (IDecoderInfo decoder in GuessDecoder(file))
+            if (options.Deinterlace != deinterlace)
+                options = options with { Deinterlace = deinterlace };
+            foreach (IDecoderInfo decoder in decoders)
             {
                 if (decoder.Open(file, options) is { } reader)
+                    return reader;
+            }
+            return null;
+        }
+
+        // Native metadata can describe the opening frames of mixed footage. Prefer a decoder that
+        // can honor the selected mode throughout the stream.
+        bool force = deinterlace.Mode == DeinterlaceMode.On;
+        var candidates = decoders.OrderByDescending(decoder => decoder.Capabilities.Supports(deinterlace));
+        MediaReader? fallback = null;
+        foreach (IDecoderInfo decoder in candidates)
+        {
+            bool capable = decoder.Capabilities.Supports(deinterlace);
+            if (!capable && fallback is { HasVideo: true })
+                continue;
+            if (TryOpenDecoder(decoder, file, options) is not { } reader)
+                continue;
+
+            if (capable && reader.HasVideo)
+            {
+                var info = reader.VideoInfo;
+                if (info.DeinterlaceStatus == DeinterlaceApplicationStatus.Applied
+                    || (!force && info.DeinterlaceStatus == DeinterlaceApplicationStatus.NotNeededProgressive))
                 {
+                    fallback?.Dispose();
                     return reader;
                 }
+
+                // Try the next decoder when the requested processing could not be configured.
+                reader.Dispose();
+                continue;
+            }
+
+            if (fallback == null || (reader.HasVideo && !fallback.HasVideo))
+            {
+                fallback?.Dispose();
+                fallback = reader;
+            }
+            else
+            {
+                reader.Dispose();
             }
         }
 
-        return null;
+        if (fallback is { HasVideo: true })
+            return WithFallbackStatus(fallback, deinterlace);
+
+        // A filter can fail to initialize for a file that the same decoder can play unfiltered.
+        var unfiltered = options with { Deinterlace = VideoDeinterlaceOptions.Default };
+        foreach (IDecoderInfo decoder in decoders)
+        {
+            if (!decoder.Capabilities.Supports(deinterlace) || TryOpenDecoder(decoder, file, unfiltered) is not { } reader)
+                continue;
+            if (reader.HasVideo)
+            {
+                fallback?.Dispose();
+                return WithFallbackStatus(reader, deinterlace);
+            }
+            if (fallback is null)
+                fallback = reader;
+            else
+                reader.Dispose();
+        }
+
+        return fallback;
+    }
+
+    private static MediaReader? TryOpenDecoder(IDecoderInfo decoder, string file, MediaOptions options)
+    {
+        try
+        {
+            return decoder.Open(file, options);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "{Decoder} failed to open '{File}'.", decoder.Name, file);
+            return null;
+        }
+    }
+
+    private static MediaReader WithFallbackStatus(MediaReader reader, VideoDeinterlaceOptions options)
+    {
+        if (!reader.HasVideo) return reader;
+        var info = reader.VideoInfo;
+        var status = options.GetFallbackStatus(info.DetectedFieldOrder);
+        return info.DeinterlaceStatus == status
+            ? reader
+            : new VideoStreamInfoReader(reader, info with { DeinterlaceStatus = status });
     }
 
     // Returns null, with the pin released, when no proxy resolves or opens; a proxy-side fault is logged
@@ -114,10 +206,16 @@ public sealed class DecoderRegistry
         try
         {
             var sourceUri = ToFileUri(file);
-            if (resolver.Resolve(sourceUri, options.PreferredProxyPreset) is { } resolution)
+            var deinterlace = options.Deinterlace.Normalize();
+            if (resolver.Resolve(sourceUri, options.PreferredProxyPreset, deinterlace) is { } resolution
+                && resolution.Deinterlace == deinterlace
+                && (deinterlace.Mode == DeinterlaceMode.Off
+                    || resolution.DeinterlaceStatus == DeinterlaceApplicationStatus.Applied
+                    || deinterlace.Mode == DeinterlaceMode.Auto
+                    && resolution.DeinterlaceStatus == DeinterlaceApplicationStatus.NotNeededProgressive))
             {
                 pin = resolver.Pin(resolution);
-                var proxyOptions = options with { PreferProxy = false };
+                var proxyOptions = options with { PreferProxy = false, Deinterlace = VideoDeinterlaceOptions.Default };
                 foreach (IDecoderInfo decoder in GuessDecoder(resolution.AbsoluteProxyFilePath))
                 {
                     if (decoder.Open(resolution.AbsoluteProxyFilePath, proxyOptions) is { } reader)

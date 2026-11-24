@@ -22,7 +22,7 @@ internal sealed partial class DecodingHandler : IDisposable
         var settings = new FFmpegDecodingSettings();
         ApplySettings(settings, request.ThreadCount, request.Acceleration);
 
-        var options = new MediaOptions((MediaMode)request.StreamsToLoad);
+        var options = new MediaOptions((MediaMode)request.StreamsToLoad) { Deinterlace = request.Deinterlace };
         var reader = new FFmpegReader(request.FilePath, options, settings);
         int id = Interlocked.Increment(ref _nextReaderId);
 
@@ -107,6 +107,10 @@ internal sealed partial class DecodingHandler : IDisposable
             response.FrameRateDen = vi.FrameRate.Denominator;
             response.DurationNum = vi.Duration.Numerator;
             response.DurationDen = vi.Duration.Denominator;
+            response.VideoColorTags = vi.ColorTags;
+            response.VideoHasIccProfile = vi.HasIccProfile;
+            response.DetectedFieldOrder = vi.DetectedFieldOrder;
+            response.DeinterlaceStatus = vi.DeinterlaceStatus;
         }
 
         if (reader.HasAudio)

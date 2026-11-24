@@ -324,16 +324,60 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await PublishAsync(service, remoteRoot);
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
+        var progress = new RecordingProgress();
 
-        RemoteOpResult pull = await PullAsync(service);
+        RemoteOpResult pull = await PullAsync(service, progress);
 
         Assert.Multiple(() =>
         {
             Assert.That(pull, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(progress.Messages, Has.Some.Contains("Counting objects:"));
             Assert.That(
                 File.ReadAllText(Path.Combine(Root, "project.bep")),
                 Is.EqualTo("from peer\n"));
         });
+    }
+
+    [Test]
+    public async Task Lfs_upload_and_prefetch_report_progress_with_redirected_output()
+    {
+        try
+        {
+            await RunGitAsync("lfs", "version");
+        }
+        catch (GitOperationException)
+        {
+            Assert.Ignore("Git LFS is not installed");
+        }
+
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await PublishAsync(service, remoteRoot);
+        RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+
+        await RunGitAsync("lfs", "install", "--local");
+        await RunGitAsync("lfs", "track", "*.mp4");
+        await RunGitAsync("add", "--", ".gitattributes");
+        await CommitFileAsync("media.mp4", "media bytes\n", "add LFS media");
+        var uploadProgress = new RecordingProgress();
+        RemoteOpResult push = await service.PushAsync(uploadProgress, CancellationToken.None);
+        Assert.That(push, Is.TypeOf<RemoteOpResult.Success>());
+        Assert.That(uploadProgress.Messages, Has.Some.StartsWith("Uploading LFS objects:"));
+
+        using var peerService = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true), peer, watcher: null, _ => CreateRunner());
+        var downloadProgress = new RecordingProgress();
+        await peerService.ExecuteExclusiveAsync(async transaction =>
+        {
+            CheckedOutBranchTip tip = await transaction.GetCheckedOutBranchTipAsync(CancellationToken.None);
+            PullPreflightResult preflight = await transaction.PreflightPullAsync(tip, CancellationToken.None);
+            Assert.That(preflight.UpstreamCommit, Is.Not.Null);
+            await transaction.PrefetchCommitLfsObjectsAsync(
+                preflight.UpstreamCommit!, LfsPrefetchScope.RepositoryWide, CancellationToken.None, downloadProgress);
+        }, CancellationToken.None);
+
+        Assert.That(downloadProgress.Messages, Has.Some.StartsWith("Downloading LFS objects:"));
     }
 
     [Test]
@@ -891,7 +935,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
     // Pulls the way the coordinator does: the preflight fetches and checks for a fast-forward, and
     // the pull then merges the commit the preflight fetched.
-    private static Task<RemoteOpResult> PullAsync(GitCliVersionControlService service)
+    private static Task<RemoteOpResult> PullAsync(GitCliVersionControlService service, IProgress<string>? progress = null)
     {
         return service.ExecuteExclusiveAsync(
             async transaction =>
@@ -900,7 +944,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                     CancellationToken.None);
                 PullPreflightResult preflight = await transaction.PreflightPullAsync(
                     tip,
-                    CancellationToken.None);
+                    CancellationToken.None,
+                    progress);
                 return preflight.UpstreamCommit is { } upstreamCommit
                     ? await transaction.PullFastForwardAsync(upstreamCommit, CancellationToken.None)
                     : preflight.Result;

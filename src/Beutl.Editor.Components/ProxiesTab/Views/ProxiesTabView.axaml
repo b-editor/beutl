@@ -149,11 +149,16 @@
                                 <Border Classes="proxyItem" Classes.selected="{Binding IsSelected.Value}" Tapped="OnProxyItemTapped">
                                     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
                                         <CheckBox x:Name="SelectClipCheckBox" Grid.RowSpan="2" VerticalAlignment="Top"
-                                                  AutomationProperties.Name="{Binding FileName}"
+                                                  AutomationProperties.Name="{Binding DisplayName}"
                                                   IsChecked="{Binding IsSelected.Value}" />
                                         <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                            <TextBlock x:Name="FileNameText" VerticalAlignment="Center"
-                                                       Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock x:Name="FileNameText" Text="{Binding FileName}"
+                                                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                                                <TextBlock x:Name="DeinterlaceSummaryText" Classes="secondary" FontSize="12"
+                                                           IsVisible="{Binding HasDeinterlaceSettings}" Text="{Binding DeinterlaceSummary}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
                                             <controls:StatusLabel Grid.Column="1" MaxWidth="110" FontSize="12"
                                                                   Classes.failed="{Binding IsFailed.Value}"
                                                                   Classes.ready="{Binding IsReady.Value}"

@@ -1,4 +1,5 @@
 ﻿using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Reactive.Bindings;
 
@@ -18,11 +19,12 @@ public sealed class ProxyClipViewModel : IDisposable
         ProxyPreset preset,
         ProxyEntry? entry,
         bool followingDefault,
-        bool explicitlyChosen)
+        bool explicitlyChosen, VideoDeinterlaceOptions deinterlace = default)
     {
         _owner = owner;
         Path = path;
         Source = source;
+        Deinterlace = deinterlace.Normalize();
         IsFollowingDefault = followingDefault;
         IsExplicitlyChosen = explicitlyChosen;
         Preset = new ReactiveProperty<ProxyPreset>(preset)
@@ -125,6 +127,30 @@ public sealed class ProxyClipViewModel : IDisposable
     }
 
     public string FileName => System.IO.Path.GetFileName(Path);
+
+    public string DisplayName => DeinterlaceSummary is { } summary ? $"{FileName} ({summary})" : FileName;
+
+    public bool HasDeinterlaceSettings => Deinterlace.Mode != DeinterlaceMode.Off;
+
+    public string? DeinterlaceSummary
+    {
+        get
+        {
+            if (!HasDeinterlaceSettings) return null;
+            string mode = Deinterlace.Mode == DeinterlaceMode.Auto ? GraphicsStrings.VideoDeinterlace_Auto : GraphicsStrings.VideoDeinterlace_On;
+            string method = Deinterlace.Method == DeinterlaceMethod.Bwdif ? GraphicsStrings.VideoDeinterlace_Bwdif : GraphicsStrings.VideoDeinterlace_Yadif;
+            string rate = Deinterlace.FrameRateMode == DeinterlaceFrameRateMode.Field ? "2×" : "1×";
+            string parity = Deinterlace.FieldOrder switch
+            {
+                DeinterlaceFieldOrder.TopFieldFirst => " TFF",
+                DeinterlaceFieldOrder.BottomFieldFirst => " BFF",
+                _ => "",
+            };
+            return $"{mode} · {method} {rate}{parity}";
+        }
+    }
+
+    public VideoDeinterlaceOptions Deinterlace { get; }
 
     public string Path { get; }
 

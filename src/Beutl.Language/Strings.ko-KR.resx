@@ -2961,6 +2961,21 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>버전을 푸시하는 중…</value>
   </data>
+  <data name="VersionControl_FetchingLfs" xml:space="preserve">
+    <value>Git LFS 파일 다운로드 중…</value>
+  </data>
+  <data name="VersionControl_ApplyingPull" xml:space="preserve">
+    <value>원격 변경 사항 적용 중…</value>
+  </data>
+  <data name="VersionControl_Committing" xml:space="preserve">
+    <value>커밋 생성 중…</value>
+  </data>
+  <data name="VersionControl_Restoring" xml:space="preserve">
+    <value>버전 복원 중…</value>
+  </data>
+  <data name="VersionControl_SwitchingBranch" xml:space="preserve">
+    <value>브랜치 전환 중…</value>
+  </data>
   <data name="VersionControl_Pulling" xml:space="preserve">
     <value>버전을 풀하는 중…</value>
   </data>

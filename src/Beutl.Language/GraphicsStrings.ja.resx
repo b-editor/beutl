@@ -868,6 +868,81 @@
   <data name="SourceVideo_IsLoop" xml:space="preserve">
     <value>ループ</value>
   </data>
+  <data name="SourceVideo_Deinterlace" xml:space="preserve">
+    <value>インターレース解除</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFieldOrder" xml:space="preserve">
+    <value>フィールド順序</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceMethod" xml:space="preserve">
+    <value>解除方式</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFrameRate" xml:space="preserve">
+    <value>フレームレート</value>
+  </data>
+  <data name="VideoDeinterlace_Off" xml:space="preserve">
+    <value>無効</value>
+  </data>
+  <data name="VideoDeinterlace_Auto" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="VideoDeinterlace_On" xml:space="preserve">
+    <value>有効</value>
+  </data>
+  <data name="VideoDeinterlace_TopFieldFirst" xml:space="preserve">
+    <value>上位フィールド優先（TFF）</value>
+  </data>
+  <data name="VideoDeinterlace_BottomFieldFirst" xml:space="preserve">
+    <value>下位フィールド優先（BFF）</value>
+  </data>
+  <data name="VideoDeinterlace_Bwdif" xml:space="preserve">
+    <value>BWDIF</value>
+  </data>
+  <data name="VideoDeinterlace_Yadif" xml:space="preserve">
+    <value>YADIF</value>
+  </data>
+  <data name="VideoDeinterlace_Frame" xml:space="preserve">
+    <value>フレーム（1倍）</value>
+  </data>
+  <data name="VideoDeinterlace_Field" xml:space="preserve">
+    <value>フィールド（2倍）</value>
+  </data>
+  <data name="VideoDeinterlace_Progressive" xml:space="preserve">
+    <value>プログレッシブ</value>
+  </data>
+  <data name="VideoDeinterlace_Mixed" xml:space="preserve">
+    <value>混在</value>
+  </data>
+  <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
+    <value>プログレッシブのため解除不要</value>
+  </data>
+  <data name="VideoDeinterlace_Automatic" xml:space="preserve">
+    <value>フレームごとに自動判定</value>
+  </data>
+  <data name="VideoDeinterlace_Applied" xml:space="preserve">
+    <value>インターレース解除を適用</value>
+  </data>
+  <data name="VideoDeinterlace_Unsupported" xml:space="preserve">
+    <value>デコーダーがインターレース解除に非対応</value>
+  </data>
+  <data name="SourceVideo_TransferInterpretation" xml:space="preserve">
+    <value>伝達曲線</value>
+  </data>
+  <data name="VideoTransfer_Auto" xml:space="preserve">
+    <value>自動（タグに従う）</value>
+  </data>
+  <data name="VideoTransfer_QuickTime" xml:space="preserve">
+    <value>QuickTime</value>
+  </data>
+  <data name="VideoTransfer_Bt1886" xml:space="preserve">
+    <value>BT.1886</value>
+  </data>
+  <data name="VideoTransfer_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="VideoTransfer_Bt709Scene" xml:space="preserve">
+    <value>BT.709（撮影基準）</value>
+  </data>
   <data name="SourceVideo_OffsetPosition" xml:space="preserve">
     <value>オフセット位置</value>
   </data>

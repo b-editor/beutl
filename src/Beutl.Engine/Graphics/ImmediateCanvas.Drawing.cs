@@ -57,6 +57,14 @@ public partial class ImmediateCanvas
     }
 
     public void DrawBitmap(Bitmap bmp, Brush.Resource? fill, Pen.Resource? pen)
+        => DrawBitmapCore(bmp, fill, pen);
+
+    // Draw a bitmap into a logical destination rect (Mitchell resample).
+    public void DrawBitmapScaled(Bitmap bmp, Rect dest, Brush.Resource? fill)
+        => DrawBitmapCore(bmp, fill, pen: null, dest);
+
+    private void DrawBitmapCore(Bitmap bmp, Brush.Resource? fill, Pen.Resource? pen,
+        Rect? destination = null, BitmapColorSpace? colorSpaceOverride = null)
     {
         ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
 
@@ -67,34 +75,26 @@ public partial class ImmediateCanvas
         VerifyCallbackResource(bmp, nameof(bmp));
         VerifyCallbackResource(fill, nameof(fill));
         VerifyCallbackResource(pen, nameof(pen));
-        var size = new Size(bmp.Width, bmp.Height);
+        Size size = destination?.Size ?? new Size(bmp.Width, bmp.Height);
         ConfigureFillPaint(new(size), fill);
 
-        using var img = SKImage.FromBitmap(bmp.SKBitmap);
+        using var img = colorSpaceOverride is null
+            ? SKImage.FromBitmap(bmp.SKBitmap)
+            : bmp.CreateImageWithoutCopy(colorSpaceOverride);
+        if (img is null)
+            return;
+
+        if (destination is { } dest)
+        {
+            var src = SKRect.Create(bmp.Width, bmp.Height);
+            Canvas.DrawImage(img, src, dest.ToSKRect(), s_bitmapSampling, _sharedFillPaint);
+            return;
+        }
 
         SKSamplingOptions sampling = RenderScaleUtilities.IsExactIntegerReduction(SurfaceDensity)
             ? s_compositeSampling
             : s_bitmapSampling;
         Canvas.DrawImage(img, 0, 0, sampling, _sharedFillPaint);
-    }
-
-    // Draw a bitmap into a logical destination rect (Mitchell resample).
-    public void DrawBitmapScaled(Bitmap bmp, Rect dest, Brush.Resource? fill)
-    {
-        ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
-
-        if (bmp.ByteCount <= 0)
-            return;
-
-        VerifyPixelOperation();
-        VerifyCallbackResource(bmp, nameof(bmp));
-        VerifyCallbackResource(fill, nameof(fill));
-        ConfigureFillPaint(new(dest.Size), fill);
-
-        using var img = SKImage.FromBitmap(bmp.SKBitmap);
-        var src = SKRect.Create(bmp.Width, bmp.Height);
-
-        Canvas.DrawImage(img, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
     }
 
     /// <summary>
@@ -143,31 +143,64 @@ public partial class ImmediateCanvas
     }
 
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+        => DrawVideoSource(source, frame, fill, pen, VideoTransferInterpretation.Auto);
+
+    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen,
+        VideoTransferInterpretation interpretation)
     {
         VerifySourceOperation(source);
         if (source.Read(frame, out var bitmapRef))
         {
             using (bitmapRef)
             {
-                void DrawFrame()
-                {
-                    if (source.ProxyResolution == null)
-                    {
-                        DrawBitmap(bitmapRef.Value, fill, pen);
-                    }
-                    else
-                    {
-                        var dest = new Rect(default, source.LogicalFrameSize.ToSize(1));
-                        DrawBitmapScaled(bitmapRef.Value, dest, fill);
-                    }
-                }
+                using Bitmap? recovered = RecoverVideoCodeValues(source, bitmapRef.Value, interpretation, out var colorSpaceOverride);
+                Bitmap bitmap = recovered ?? bitmapRef.Value;
+                Rect? destination = source.ProxyResolution is null ? null : new Rect(source.LogicalFrameSize.ToSize(1));
+
+                // The retagged image borrows the pixels until the draw returns. Both the decoded frame's lease
+                // and any converted buffer outlive the image, including inside a render execution callback.
+                void DrawFrame() => DrawBitmapCore(bitmap, fill, destination is null ? pen : null, destination, colorSpaceOverride);
 
                 if (_executionToken is null)
                     DrawFrame();
                 else
-                    _executionToken.AuthorizeResource(bitmapRef.Value, DrawFrame);
+                    _executionToken.AuthorizeResource(bitmap, DrawFrame);
             }
         }
+    }
+
+    private static Bitmap? RecoverVideoCodeValues(VideoSource.Resource source, Bitmap bitmap,
+        VideoTransferInterpretation interpretation, out BitmapColorSpace? colorSpaceOverride)
+    {
+        colorSpaceOverride = null;
+        BitmapColorSpaceTransferFn? transfer = interpretation switch
+        {
+            VideoTransferInterpretation.QuickTime => BitmapColorSpaceTransferFn.CoreMedia709,
+            VideoTransferInterpretation.Bt1886 => BitmapColorSpaceTransferFn.Bt1886,
+            VideoTransferInterpretation.Srgb => BitmapColorSpaceTransferFn.Srgb,
+            VideoTransferInterpretation.Bt709Scene => BitmapColorSpaceTransferFn.Bt709,
+            _ => null,
+        };
+        if (transfer is not { } chosen || source.IsOffline)
+            return null;
+
+        VideoColorTags tags = source.OriginalColorTags;
+        if (BitmapColorSpaceMapping.IsHdrTransfer(tags.Transfer))
+            return null;
+
+        BitmapColorSpace original = BitmapColorSpaceMapping.BuildTargetColorSpace(tags.Transfer, tags.Primaries);
+        BitmapColorSpace target = BitmapColorSpaceMapping.BuildTargetColorSpace(chosen, tags.Primaries);
+        if (bitmap.ColorSpace == original)
+        {
+            if (original != target)
+                colorSpaceOverride = target;
+            return null;
+        }
+
+        // Proxies and ICC-profiled frames can arrive in another space. Convert back to the original tag's
+        // code values at half-float precision before applying the chosen curve to those values.
+        colorSpaceOverride = target;
+        return bitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, original);
     }
 
     public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)

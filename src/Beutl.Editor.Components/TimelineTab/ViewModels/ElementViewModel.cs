@@ -53,8 +53,8 @@ public sealed partial class ElementViewModel : IDisposable
     private readonly Subject<(int Start, int End)> _visibleRangeSubject = new();
     private readonly IProxyStore? _proxyStore;
     private readonly IProxyJobQueue? _proxyJobQueue;
-    private string? _proxySourceKey;
-    private IReadOnlyList<ProxyFingerprint> _proxyFingerprints = [];
+    private IReadOnlyList<(Uri Uri, VideoDeinterlaceOptions Deinterlace)>? _proxySourceKey;
+    private IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions Deinterlace)> _proxyFingerprints = [];
 
     public Func<int, int, List<int>>? GetMissingThumbnailIndices;
 

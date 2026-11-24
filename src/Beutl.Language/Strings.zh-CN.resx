@@ -2961,6 +2961,21 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>正在推送版本…</value>
   </data>
+  <data name="VersionControl_FetchingLfs" xml:space="preserve">
+    <value>正在下载 Git LFS 文件…</value>
+  </data>
+  <data name="VersionControl_ApplyingPull" xml:space="preserve">
+    <value>正在应用远程更改…</value>
+  </data>
+  <data name="VersionControl_Committing" xml:space="preserve">
+    <value>正在创建提交…</value>
+  </data>
+  <data name="VersionControl_Restoring" xml:space="preserve">
+    <value>正在还原版本…</value>
+  </data>
+  <data name="VersionControl_SwitchingBranch" xml:space="preserve">
+    <value>正在切换分支…</value>
+  </data>
   <data name="VersionControl_Pulling" xml:space="preserve">
     <value>正在拉取版本…</value>
   </data>

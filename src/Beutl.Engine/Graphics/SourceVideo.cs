@@ -11,11 +11,13 @@ using Beutl.Media.Source;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(GraphicsStrings.SourceVideo), ResourceType = typeof(GraphicsStrings))]
+[SuppressResourceClassGeneration]
 public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMappedSource
 {
     public SourceVideo()
     {
         ScanProperties<SourceVideo>();
+        HideProperties(TransferInterpretation, DeinterlaceMode, DeinterlaceFieldOrder, DeinterlaceMethod, DeinterlaceFrameRateMode);
     }
 
     [Display(Name = nameof(GraphicsStrings.SourceVideo_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
@@ -28,8 +30,43 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<VideoSource?> Source { get; } = Property.CreateAnimatable<VideoSource?>();
 
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_TransferInterpretation), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<VideoTransferInterpretation> TransferInterpretation { get; } = Property.CreateValue(VideoTransferInterpretation.Auto);
+
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_Deinterlace), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<DeinterlaceMode> DeinterlaceMode { get; } = Property.CreateValue(Media.Decoding.DeinterlaceMode.Off);
+
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_DeinterlaceFieldOrder), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<DeinterlaceFieldOrder> DeinterlaceFieldOrder { get; } = Property.CreateValue(Media.Decoding.DeinterlaceFieldOrder.Auto);
+
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_DeinterlaceMethod), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<DeinterlaceMethod> DeinterlaceMethod { get; } = Property.CreateValue(Media.Decoding.DeinterlaceMethod.Bwdif);
+
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_DeinterlaceFrameRate), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<DeinterlaceFrameRateMode> DeinterlaceFrameRateMode { get; } = Property.CreateValue(Media.Decoding.DeinterlaceFrameRateMode.Frame);
+
     [Display(Name = nameof(GraphicsStrings.SourceVideo_IsLoop), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
+
+    public VideoDeinterlaceOptions GetDeinterlaceOptions()
+        => new VideoDeinterlaceOptions(DeinterlaceMode.Value, DeinterlaceFieldOrder.Value,
+            DeinterlaceMethod.Value, DeinterlaceFrameRateMode.Value).Normalize();
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool versionBumped = true;
+        try
+        {
+            resource.Reconcile(this, context, ref versionBumped);
+            return resource;
+        }
+        catch
+        {
+            resource.Dispose();
+            throw;
+        }
+    }
 
     public bool HasOriginalDuration()
     {
@@ -62,7 +99,8 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
 
     MediaTime? ITimeMappedSource.GetSourceDuration(DecoderRegistry? decoders)
     {
-        using var resource = Source.Value?.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = decoders });
+        using var resource = Source.Value?.ToResource(
+            new CompositionContext(MediaTime.Zero) { Decoders = decoders }, GetDeinterlaceOptions());
         // An offline reader reports a zero duration; treat it as unknown so a placeholder clip keeps
         // the length the user asked for and stays resizable.
         return resource is { Duration: var duration } && duration > MediaTime.Zero ? duration : null;
@@ -128,9 +166,27 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
         return new MediaTime(low.Flicks + (high.Flicks - low.Flicks) / 2);
     }
 
-    public partial class Resource
+    public new partial class Resource : Drawable.Resource
     {
         internal readonly SpeedIntegrator _speedIntegrator = new(60);
+        private MediaTime _offsetPosition;
+        private float _speed;
+        private VideoTransferInterpretation _transferInterpretation;
+        private bool _isLoop;
+
+        public MediaTime OffsetPosition { get => _offsetPosition; set => _offsetPosition = value; }
+
+        public float Speed { get => _speed; set => _speed = value; }
+
+        public VideoSource.Resource? Source { get; set; }
+
+        public VideoTransferInterpretation TransferInterpretation { get => _transferInterpretation; set => _transferInterpretation = value; }
+
+        public bool IsLoop { get => _isLoop; set => _isLoop = value; }
+
+        public new SourceVideo? GetOriginal() => (SourceVideo?)base.GetOriginal();
+
+        public new SourceVideo RequireOriginal() => (SourceVideo)base.RequireOriginal();
 
         public MediaTime RenderedPosition { get; internal set; }
 
@@ -155,7 +211,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
                 MediaTime pos = RequestedPosition + OffsetPosition;
                 int frame = Source.GetFrameIndex(pos);
 
-                context.DrawVideoSource(Source, frame, Brushes.Resource.White, null);
+                context.DrawVideoSource(Source, frame, Brushes.Resource.White, null, TransferInterpretation);
                 RenderedPosition = RequestedPosition;
             }
         }
@@ -165,14 +221,51 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
             OnDraw(context);
         }
 
-        partial void PostDispose(bool disposing)
+        protected override void Dispose(bool disposing)
         {
+            if (disposing)
+            {
+                Source?.Dispose();
+                Source = null;
+            }
+
             _speedIntegrator.Dispose();
+            base.Dispose(disposing);
         }
 
-        partial void PostReconcile(SourceVideo obj, CompositionContext context)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            var time = context.Time;
+            base.Reconcile(obj, context, ref versionBumped);
+            var video = (SourceVideo)obj;
+            ResourceReconciler.ReconcileValue(this, context, video.OffsetPosition, ref _offsetPosition, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, video.Speed, ref _speed, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, video.TransferInterpretation, ref _transferInterpretation, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, video.IsLoop, ref _isLoop, ref versionBumped);
+
+            var source = context.Get(video.Source);
+            VideoDeinterlaceOptions deinterlace = video.GetDeinterlaceOptions();
+            if (source == null ? Source != null : source != Source?.GetOriginal())
+            {
+                var previous = Source;
+                Source = source?.ToResource(context, deinterlace);
+                previous?.Dispose();
+                BumpVersion(ref versionBumped);
+            }
+            else if (source != null && Source is { } resource)
+            {
+                bool sourceChanged = false;
+                resource.Reconcile(source, context, deinterlace, ref sourceChanged);
+                if (sourceChanged)
+                    BumpVersion(ref versionBumped);
+            }
+
+            UpdatePosition(video, context.Time);
+            if (GetType() == typeof(Resource))
+                CompleteReconciliation(context);
+        }
+
+        private void UpdatePosition(SourceVideo obj, MediaTime time)
+        {
             // SpeedIntegrator.Integrate は「時刻 0 から入力時刻までの累積積分」を返すため、
             // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始 (obj.TimeRange.Start) 時点の
             // 積分を差し引いて要素ローカルから見た累積に揃える。

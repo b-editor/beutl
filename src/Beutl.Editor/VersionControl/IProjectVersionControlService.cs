@@ -123,7 +123,8 @@ internal interface IProjectVersionControlTransaction
 
     Task<PullPreflightResult> PreflightPullAsync(
         CheckedOutBranchTip expectedCurrent,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IProgress<string>? progress = null);
 
     /// <summary>
     /// Replaces the project's files with their state at <paramref name="sourceCommit"/> and records
@@ -172,7 +173,8 @@ internal interface IProjectVersionControlTransaction
     Task PrefetchCommitLfsObjectsAsync(
         string sha,
         LfsPrefetchScope scope,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IProgress<string>? progress = null);
 
     Task SwitchBranchAsync(string name, CancellationToken cancellationToken);
 

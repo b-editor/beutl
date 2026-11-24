@@ -99,7 +99,7 @@ internal partial class VersionControlTabViewModel
         SetOrigin(null);
         _currentBranch = null;
         RepositoryCreationIds.Clear();
-        RemoteProgress.Value = string.Empty;
+        RemoteProgress.Value = new(string.Empty);
         IsNestedRepository.Value = _service?.Repository?.IsNestedInForeignRepo == true;
         RepositoryScopeText.Value = GetRepositoryScopeText(_service);
         UpdatePrimaryAction();

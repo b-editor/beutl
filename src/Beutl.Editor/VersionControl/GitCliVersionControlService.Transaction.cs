@@ -23,8 +23,9 @@ internal sealed partial class GitCliVersionControlService
 
         public Task<PullPreflightResult> PreflightPullAsync(
             CheckedOutBranchTip expectedCurrent,
-            CancellationToken cancellationToken)
-            => _service.PreflightPullCoreAsync(expectedCurrent, cancellationToken);
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+            => _service.PreflightPullCoreAsync(expectedCurrent, cancellationToken, progress);
 
         public Task<CommitResult> RestoreProjectTreeAsync(
             string sourceCommit,
@@ -70,8 +71,9 @@ internal sealed partial class GitCliVersionControlService
         public Task PrefetchCommitLfsObjectsAsync(
             string sha,
             LfsPrefetchScope scope,
-            CancellationToken cancellationToken)
-            => _service.PrefetchCommitLfsObjectsCoreAsync(sha, scope, cancellationToken);
+            CancellationToken cancellationToken,
+            IProgress<string>? progress)
+            => _service.PrefetchCommitLfsObjectsCoreAsync(sha, scope, cancellationToken, progress);
 
         public Task SwitchBranchAsync(string name, CancellationToken cancellationToken)
             => _service.SwitchBranchCoreAsync(name, cancellationToken);

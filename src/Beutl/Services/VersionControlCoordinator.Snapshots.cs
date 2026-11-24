@@ -62,7 +62,7 @@ internal partial class VersionControlCoordinator
         // save until Git and its message hooks publish the commit, so visible edits cannot land
         // after the captured tree. An identity prompt runs between helper calls with editors
         // enabled; the retry therefore acquires a fresh suspension and saves again.
-        using IDisposable editorSuspension = _editorService.SuspendEditors();
+        using IDisposable editorSuspension = SuspendEditorsBehindActivity(ProjectLifecycleActivity.CommittingVersion);
         if (_projectService.CurrentProject.Value is { } project
             && !await TrySaveOpenProjectAsync(project, cancellationToken))
         {
