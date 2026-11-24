@@ -640,7 +640,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
 
         public override IReadOnlyList<ProxyEntry> Enumerate() => Entries;
 
-        public override bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+        public override bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null, VideoDeinterlaceOptions deinterlace = default)
         {
             Transitions.Add((source, preset, newState));
             return true;

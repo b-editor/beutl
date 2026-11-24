@@ -158,7 +158,7 @@ public class EchoRenderTests
     }
 
     private SceneRenderer CreateRenderer(Drawable drawable)
-        => new(MotionBlurTests.SceneWith(drawable), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
+        => new(MotionBlurTests.SceneWith(drawable), new SceneRenderServices(TestFonts.Manager, _decoders), RenderIntent.Delivery);
 
     private static Rgba ReadCenter(SceneRenderer renderer, double time)
     {

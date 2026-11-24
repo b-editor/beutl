@@ -108,12 +108,12 @@ public sealed class Scene3DGizmoStateTests
             var scene = new Scene(160, 120, string.Empty);
             scene.Children.Add(element);
 
-            string previewWithout = RenderAndHash(new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview));
+            string previewWithout = RenderAndHash(new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview));
             string exportWithout = RenderAndHash(ExportRendererFactory.Create(scene, TestFonts.Manager));
 
             scene3D.GizmoTarget.Value = cube.Id.Value;
             scene3D.GizmoMode.Value = GizmoMode.Translate;
-            string previewWith = RenderAndHash(new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview));
+            string previewWith = RenderAndHash(new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview));
             string exportWith = RenderAndHash(ExportRendererFactory.Create(scene, TestFonts.Manager));
 
             Assert.Multiple(() =>
@@ -162,7 +162,7 @@ public sealed class Scene3DGizmoStateTests
                     Fill = { Value = new SolidColorBrush(Colors.Red) },
                 });
                 scene.Children.Add(twoD);
-                using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview);
+                using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
                 renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
                 using Bitmap preview = renderer.Snapshot();
                 using Bitmap clean = renderer.SnapshotWithoutGizmos()!;
@@ -216,7 +216,7 @@ public sealed class Scene3DGizmoStateTests
                 FilterEffect = { Value = new Blur { Sigma = { Value = new Size(2, 2) } } },
             }, 1);
 
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Enabled };
+            using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Enabled };
             for (int pass = 0; pass < 2; pass++)
             {
                 foreach (int second in new[] { 0, 1 })

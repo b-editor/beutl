@@ -50,7 +50,7 @@ public sealed class DrawableDecoratorReplayTests
 
     private static SceneRenderer CreateRenderer(Scene scene, float outputScale)
     {
-        return new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Delivery, outputScale, disableResourceShare: true)
+        return new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery, outputScale, disableResourceShare: true)
         {
             CacheOptions = RenderCacheOptions.Disabled,
         };

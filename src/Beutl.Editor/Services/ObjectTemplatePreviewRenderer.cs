@@ -2,7 +2,6 @@
 using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Composition;
-using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -11,7 +10,6 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -47,15 +45,15 @@ public static class ObjectTemplatePreviewRenderer
     /// The live object is only ever read; anything that has to be re-parented is cloned first.
     /// </remarks>
     public static async ValueTask<byte[]?> RenderPngAsync(
-        FontManager fonts, ICoreSerializable instance, CancellationToken cancellationToken = default,
-        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+        SceneRenderServices services, ICoreSerializable instance, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(instance);
 
         try
         {
             byte[]? png = await RenderThread.Dispatcher.InvokeAsync(
-                () => Render(fonts, instance, editorConfig, proxyConfig, decoders), ct: cancellationToken).ConfigureAwait(false);
+                () => Render(services, instance), ct: cancellationToken).ConfigureAwait(false);
 
             if (png is { Length: > MaxPreviewBytes })
             {
@@ -83,18 +81,19 @@ public static class ObjectTemplatePreviewRenderer
     /// to keep callers from allocating an unbounded render target.
     /// </summary>
     internal static async ValueTask<byte[]?> RenderElementsPngAsync(
-        FontManager fonts, IReadOnlyList<Element> elements,
+        SceneRenderServices services, IReadOnlyList<Element> elements,
         PixelSize frameSize,
         PixelSize outputSize,
-        CancellationToken cancellationToken = default,
-        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(services);
+
         if (elements.Count == 0) return null;
         ValidateOutputSize(outputSize);
         try
         {
             return await RenderThread.Dispatcher.InvokeAsync(
-                () => RenderElements(fonts, elements, frameSize, outputSize, cancellationToken, editorConfig, proxyConfig, decoders), ct: cancellationToken)
+                () => RenderElements(services, elements, frameSize, outputSize, cancellationToken), ct: cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
@@ -105,40 +104,39 @@ public static class ObjectTemplatePreviewRenderer
         }
     }
 
-    private static byte[]? Render(FontManager fonts, ICoreSerializable instance, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig, DecoderRegistry? decoders)
+    private static byte[]? Render(SceneRenderServices services, ICoreSerializable instance)
     {
         return instance switch
         {
-            Element element => RenderElement(fonts, element, editorConfig, proxyConfig, decoders),
-            ElementSet set => RenderElementSet(fonts, set, editorConfig, proxyConfig, decoders),
+            Element element => RenderElement(services, element),
+            ElementSet set => RenderElementSet(services, set),
             Sound or AudioEffect => null,
-            Drawable drawable => RenderDrawable(fonts, decoders, drawable),
-            _ => RenderNonDrawable(fonts, decoders, instance)
+            Drawable drawable => RenderDrawable(services, drawable),
+            _ => RenderNonDrawable(services, instance)
         };
     }
 
-    private static byte[]? RenderElement(FontManager fonts, Element element, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig, DecoderRegistry? decoders)
+    private static byte[]? RenderElement(SceneRenderServices services, Element element)
     {
-        return RenderElements(fonts, [element], default, new PixelSize(PreviewWidth, PreviewHeight), editorConfig: editorConfig, proxyConfig: proxyConfig, decoders: decoders);
+        return RenderElements(services, [element], default, new PixelSize(PreviewWidth, PreviewHeight));
     }
 
     // Every element shows at once, as a caption's cues do, in the frame the set was saved from: its copies left
     // their scene, so the frame cannot be read from them.
-    private static byte[]? RenderElementSet(FontManager fonts, ElementSet set, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig, DecoderRegistry? decoders)
+    private static byte[]? RenderElementSet(SceneRenderServices services, ElementSet set)
     {
         return set.Elements.Count == 0
             ? null
-            : RenderElements(fonts, [.. set.Elements], set.FrameSize.Value, new PixelSize(PreviewWidth, PreviewHeight), editorConfig: editorConfig, proxyConfig: proxyConfig, decoders: decoders);
+            : RenderElements(services, [.. set.Elements], set.FrameSize.Value, new PixelSize(PreviewWidth, PreviewHeight));
     }
 
     // The elements belong to the edited scene, so the throwaway scene gets clones. Start is
     // rebased because SceneCompositor only collects elements whose Range contains the time.
     private static byte[]? RenderElements(
-        FontManager fonts, IReadOnlyList<Element> elements,
+        SceneRenderServices services, IReadOnlyList<Element> elements,
         PixelSize requestedFrameSize,
         PixelSize outputSize,
-        CancellationToken cancellationToken = default,
-        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+        CancellationToken cancellationToken = default)
     {
         var copies = new List<Element>(elements.Count);
         foreach (Element element in elements)
@@ -181,7 +179,7 @@ public static class ObjectTemplatePreviewRenderer
         // The compositor, not a hand-rolled walk, is what resolves the flow operators an element
         // may carry (DrawableGroup / DrawableDecorator populate their children from the flow).
         // Its resources are owned by it, so nothing here disposes them.
-        using var compositor = new SceneCompositor(scene, fonts, editorConfig, proxyConfig, decoders) { DisableResourceShare = true };
+        using var compositor = new SceneCompositor(scene, services) { DisableResourceShare = true };
         CompositionFrame frame = compositor.EvaluateGraphics(scene.FromWindowTime(time));
 
         return RenderResources(
@@ -198,18 +196,18 @@ public static class ObjectTemplatePreviewRenderer
         return frameSize.Width > 0 && frameSize.Height > 0 ? frameSize : DefaultFrameSize;
     }
 
-    private static byte[]? RenderNonDrawable(FontManager fonts, DecoderRegistry? decoders, ICoreSerializable instance)
+    private static byte[]? RenderNonDrawable(SceneRenderServices services, ICoreSerializable instance)
     {
         if (instance is IHierarchical hierarchical
             && hierarchical.FindHierarchicalParent<Drawable>() is { } owner)
         {
-            return RenderDrawable(fonts, decoders, owner);
+            return RenderDrawable(services, owner);
         }
 
-        return BuildSampleShape(instance) is { } sample ? RenderDrawable(fonts, decoders, sample) : null;
+        return BuildSampleShape(instance) is { } sample ? RenderDrawable(services, sample) : null;
     }
 
-    private static byte[]? RenderDrawable(FontManager fonts, DecoderRegistry? decoders, Drawable drawable)
+    private static byte[]? RenderDrawable(SceneRenderServices services, Drawable drawable)
     {
         Size availableSize = AvailableSize;
 
@@ -218,8 +216,8 @@ public static class ObjectTemplatePreviewRenderer
         // The domain is the same preview frame the measurement and the render pass compose against.
         var context = new CompositionContext(MediaTime.Zero)
         {
-            Fonts = fonts,
-            Decoders = decoders,
+            Fonts = services.Fonts,
+            Decoders = services.Decoders,
             TargetDomain = new Rect(default, availableSize)
         };
         using var resource = drawable.ToResource(context);

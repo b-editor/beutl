@@ -4,7 +4,6 @@ using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Collections;
-using Beutl.Configuration;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Models;
@@ -59,8 +58,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private readonly OnceAsyncDisposal _disposal;
 
     internal AiSubtitleDialogViewModel(INotificationService notifications,
-        Beutl.Media.FontManager fonts,
-        DecoderRegistry decoders,
+        SceneRenderServices renderServices,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
         IAiModelCatalogService modelCatalog,
@@ -70,9 +68,12 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         CaptionCatalog captionCatalog,
         ICaptionDraftStore captionDraftStore,
         IObservable<CaptionDraftScope?> captionDraftScopes,
-        IAiJobResultEditorContext? editor = null, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null,
+        IAiJobResultEditorContext? editor = null,
         AiRequestRecoveryContext? requestRecoveryContext = null)
     {
+        ArgumentNullException.ThrowIfNull(renderServices);
+        _decoders = renderServices.Decoders ?? throw new ArgumentNullException(nameof(renderServices), "A decoder registry is required.");
+
         _notifications = notifications;
         _disposal = new OnceAsyncDisposal(_disposeGate);
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
@@ -84,8 +85,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         _translation = translation ?? throw new ArgumentNullException(nameof(translation));
         ArgumentNullException.ThrowIfNull(captionCatalog);
         _editor = editor;
-        _decoders = decoders;
-        TemplatePreviewRenderer = (elements, frameSize, token) => RenderTemplatePreviewAsync(fonts, elements, frameSize, token, editorConfig, proxyConfig);
+        TemplatePreviewRenderer = (elements, frameSize, token) => RenderTemplatePreviewAsync(renderServices, elements, frameSize, token);
         _captionDraftStore = captionDraftStore
             ?? throw new ArgumentNullException(nameof(captionDraftStore));
         _captionDraftScopes = captionDraftScopes

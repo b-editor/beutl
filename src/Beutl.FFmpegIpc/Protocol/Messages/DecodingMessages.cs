@@ -1,4 +1,7 @@
-﻿namespace Beutl.FFmpegIpc.Protocol.Messages;
+﻿using Beutl.Media;
+using Beutl.Media.Decoding;
+
+namespace Beutl.FFmpegIpc.Protocol.Messages;
 
 public sealed class OpenFileRequest
 {
@@ -6,6 +9,7 @@ public sealed class OpenFileRequest
     public int StreamsToLoad { get; set; } // MediaMode flags
     public int ThreadCount { get; set; } = -1;
     public int Acceleration { get; set; }
+    public VideoDeinterlaceOptions Deinterlace { get; set; }
 }
 
 public sealed class OpenFileResponse
@@ -27,6 +31,10 @@ public sealed class OpenFileResponse
     public long FrameRateDen { get; set; }
     public long DurationNum { get; set; }
     public long DurationDen { get; set; }
+    public VideoColorTags VideoColorTags { get; set; }
+    public bool VideoHasIccProfile { get; set; }
+    public VideoFieldOrder DetectedFieldOrder { get; set; }
+    public DeinterlaceApplicationStatus DeinterlaceStatus { get; set; }
 
     // Audio stream info
     public string? AudioCodecName { get; set; }

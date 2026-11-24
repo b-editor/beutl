@@ -33,7 +33,7 @@ internal static class SceneRenderHarness
         element.AddObject(drawable);
         scene.Children.Add(element);
 
-        using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, outputScale, false, maxWorkingScale)
+        using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview, outputScale, false, maxWorkingScale)
         {
             CacheOptions = RenderCacheOptions.Disabled,
         };

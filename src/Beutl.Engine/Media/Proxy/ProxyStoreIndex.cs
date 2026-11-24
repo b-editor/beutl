@@ -6,7 +6,9 @@ public sealed record ProxyStoreIndex
     // 4: BT.709-family video decodes and encodes with QuickTime's curve, so proxies written with the BT.709 OETF would
     //    read back with different shadows.
     // 5: Media Foundation read non-square-pixel frames at their display size, so older proxies can contain distorted rows.
-    public const int CurrentVersion = 5;
+    // 6: Transfer interpretation uses the original color tags. Proxy entries also carry the deinterlace
+    //    settings they were generated with, the original scan order and duration, and the effective processing status.
+    public const int CurrentVersion = 6;
 
     public int Version { get; init; } = CurrentVersion;
 
@@ -17,8 +19,8 @@ public sealed record ProxyStoreIndex
 
 public sealed record ProxySourceMetadata
 {
-    // Match the index version when decoded pixels change so recovery skips the same stale proxies.
-    public const int CurrentVersion = 5;
+    // Recovery requires the same original stream metadata as the index.
+    public const int CurrentVersion = ProxyStoreIndex.CurrentVersion;
 
     public int Version { get; init; } = CurrentVersion;
 

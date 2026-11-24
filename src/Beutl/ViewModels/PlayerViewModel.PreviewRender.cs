@@ -1,4 +1,6 @@
-﻿using Beutl.Configuration;
+﻿using Beutl.Composition;
+using Beutl.Configuration;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -15,7 +17,8 @@ namespace Beutl.ViewModels;
 public partial class PlayerViewModel
 {
     // Both displayed images retain their own reference; the caller still owns the supplied frames.
-    private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource, MediaTime time, long playbackId = 0)
+    private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource, MediaTime time, long playbackId = 0,
+        bool showsPuppetStage = false)
     {
         lock (_cleanPreviewLock)
         {
@@ -25,6 +28,7 @@ public partial class PlayerViewModel
         }
 
         ReplaceImage(PreviewImage, source);
+        ShowsPuppetStage.Value = showsPuppetStage;
 
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
@@ -205,11 +209,13 @@ public partial class PlayerViewModel
         float onionNextOpacity = editorConfig.OnionSkinNextOpacity.Value;
         // The path editor draws the shape it edits, and the selection's boundary would only cover its points.
         bool drawBoundaries = !PathEditor.IsVisible.Value;
+        IReadOnlySet<EngineObject>? disabledEffects = IsPlaybackActive
+            ? null : GetPuppetStageDisabledEffects(_puppetEditingEffect.Value);
 
         RenderThread.Dispatcher.Dispatch(
             () => RenderPreviewFrame(
                 token, onionEnabled, onionPrevCount, onionNextCount, onionPrevOpacity, onionNextOpacity,
-                drawBoundaries),
+                drawBoundaries, disabledEffects),
             ct: token);
     }
 
@@ -221,7 +227,8 @@ public partial class PlayerViewModel
         int onionNextCount,
         float onionPrevOpacity,
         float onionNextOpacity,
-        bool drawBoundaries)
+        bool drawBoundaries,
+        IReadOnlySet<EngineObject>? disabledEffects)
     {
         int frame = 0;
         bool useOnionSkin = false;
@@ -271,13 +278,14 @@ public partial class PlayerViewModel
                 }
             }
 
-            using Ref<Bitmap> bitmapRef = GetPreviewFrame(renderer, cacheManager, time, frame, useCache: !useOnionSkin);
+            using Ref<Bitmap> bitmapRef = GetPreviewFrame(renderer, cacheManager, time, frame, disabledEffects,
+                useCache: !useOnionSkin && disabledEffects is null);
             Bitmap bitmap = bitmapRef.Value;
             using Ref<Bitmap>? cleanFrame = CopyCleanFrame(renderer, bitmap);
             using (var canvas = new SKCanvas(bitmap.SKBitmap))
             {
                 if (useOnionSkin)
-                    DrawOnionSkin(renderer, canvas, time, frame, onionSamples, token);
+                    DrawOnionSkin(renderer, canvas, time, frame, onionSamples, disabledEffects, token);
                 if (drawBoundaries)
                     DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height));
             }
@@ -285,7 +293,7 @@ public partial class PlayerViewModel
             if (token.IsCancellationRequested)
                 return;
 
-            UpdateImage(bitmapRef, cleanFrame, time);
+            UpdateImage(bitmapRef, cleanFrame, time, showsPuppetStage: disabledEffects is not null);
 
             // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
             if (!token.IsCancellationRequested)
@@ -308,10 +316,30 @@ public partial class PlayerViewModel
         }
     }
 
-    private static Ref<Bitmap> GetPreviewFrame(
-        SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame, bool useCache)
+    private static CompositionFrame EvaluatePreviewFrame(
+        SceneRenderer renderer, MediaTime time, IReadOnlySet<EngineObject>? disabledEffects)
     {
-        var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
+        SceneCompositor compositor = renderer.Compositor;
+        if (disabledEffects is null)
+            return compositor.EvaluateGraphics(time);
+
+        IReadOnlySet<EngineObject>? previous = compositor.DisabledObjects;
+        try
+        {
+            compositor.DisabledObjects = disabledEffects;
+            return compositor.EvaluateGraphics(time);
+        }
+        finally
+        {
+            compositor.DisabledObjects = previous;
+        }
+    }
+
+    private static Ref<Bitmap> GetPreviewFrame(
+        SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame,
+        IReadOnlySet<EngineObject>? disabledEffects, bool useCache)
+    {
+        CompositionFrame compositionFrame = EvaluatePreviewFrame(renderer, time, disabledEffects);
         if (useCache && cacheManager.TryGet(frame, out var cache))
         {
             using (cache)
@@ -324,7 +352,7 @@ public partial class PlayerViewModel
 
         renderer.Render(compositionFrame);
         using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
-        // Onion skin bypasses the frame cache, which must contain only the current frame.
+        // Onion skin and the isolated Puppet stage bypass the normal frame cache.
         if (useCache && cacheManager.IsEnabled)
         {
             cacheManager.Add(frame, bitmap);
@@ -339,6 +367,7 @@ public partial class PlayerViewModel
         MediaTime time,
         int frame,
         IReadOnlyList<OnionSkinSample> onionSamples,
+        IReadOnlySet<EngineObject>? disabledEffects,
         CancellationToken token)
     {
         Bitmap? onionScratch = null;
@@ -351,7 +380,7 @@ public partial class PlayerViewModel
                 if (token.IsCancellationRequested)
                     break;
 
-                var compFrame = renderer.Compositor.EvaluateGraphics(sample.Time);
+                var compFrame = EvaluatePreviewFrame(renderer, sample.Time, disabledEffects);
                 renderer.Render(compFrame);
 
                 // Reuse one scratch bitmap across all onion samples (up to 20).
@@ -369,7 +398,7 @@ public partial class PlayerViewModel
             }
 
             // Selection bounds and subsequent queries must use the current frame's geometry.
-            renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
+            renderer.UpdateFrame(EvaluatePreviewFrame(renderer, time, disabledEffects));
         }
         catch
         {
@@ -378,7 +407,7 @@ public partial class PlayerViewModel
             // sample. Guard the restore so it can't mask the original exception.
             try
             {
-                renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
+                renderer.UpdateFrame(EvaluatePreviewFrame(renderer, time, disabledEffects));
             }
             catch (Exception restoreEx)
             {

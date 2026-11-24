@@ -188,7 +188,7 @@ internal static class AiTestSupport
         IAiOperationAvailabilityService? availabilityService = null,
         CaptionCatalog? captionCatalog = null,
         AiRequestRecoveryContext? recoveryContext = null)
-        => new(TestShell.Notifications, TestShell.FontManager, TestShell.Decoders,
+        => new(TestShell.Notifications, new SceneRenderServices(TestShell.FontManager, TestShell.Decoders),
             clients.GetResource<IAiEntitlementService>(),
             availabilityService ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),

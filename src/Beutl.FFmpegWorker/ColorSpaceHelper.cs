@@ -19,10 +19,29 @@ internal static class ColorSpaceHelper
         AVColorTransferCharacteristic trc, AVColorPrimaries primaries)
         => BitmapColorSpaceMapping.BuildHdrColorSpace(ToTransfer(trc), ToPrimaries(primaries));
 
+    public static unsafe VideoColorTags ReadTags(AVCodecParameters* codec) => new(
+        ToTransfer(codec->color_trc),
+        ToPrimaries(codec->color_primaries),
+        codec->color_space switch
+        {
+            AVColorSpace.AVCOL_SPC_RGB => VideoColorMatrix.Identity,
+            AVColorSpace.AVCOL_SPC_BT709 => VideoColorMatrix.Bt709,
+            AVColorSpace.AVCOL_SPC_BT470BG or AVColorSpace.AVCOL_SPC_SMPTE170M => VideoColorMatrix.Bt601,
+            AVColorSpace.AVCOL_SPC_BT2020_NCL or AVColorSpace.AVCOL_SPC_BT2020_CL => VideoColorMatrix.Bt2020,
+            _ => VideoColorMatrix.Unknown,
+        },
+        codec->color_range switch
+        {
+            AVColorRange.AVCOL_RANGE_MPEG => VideoColorRange.Limited,
+            AVColorRange.AVCOL_RANGE_JPEG => VideoColorRange.Full,
+            _ => VideoColorRange.Unknown,
+        });
+
     private static BitmapColorTransfer ToTransfer(AVColorTransferCharacteristic trc)
     {
         return trc switch
         {
+            AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1 => BitmapColorTransfer.Srgb,
             AVColorTransferCharacteristic.AVCOL_TRC_LINEAR => BitmapColorTransfer.Linear,
             AVColorTransferCharacteristic.AVCOL_TRC_GAMMA22 => BitmapColorTransfer.TwoDotTwo,
             AVColorTransferCharacteristic.AVCOL_TRC_BT2020_10 or

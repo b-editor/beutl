@@ -1,5 +1,4 @@
 ﻿using Avalonia.Threading;
-using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
@@ -25,18 +24,17 @@ public sealed partial class AiSubtitleDialogViewModel
         Task<byte[]?>> TemplatePreviewRenderer
     { get; set; } = null!;
 
-    private Task<byte[]?> RenderTemplatePreviewAsync(Beutl.Media.FontManager fonts, IReadOnlyList<Element> elements, Beutl.Media.PixelSize frameSize, CancellationToken cancellationToken, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig)
+    private static Task<byte[]?> RenderTemplatePreviewAsync(SceneRenderServices renderServices, IReadOnlyList<Element> elements, Beutl.Media.PixelSize frameSize, CancellationToken cancellationToken)
         =>
             frameSize.Width <= 0 || frameSize.Height <= 0
                 ? Task.FromResult<byte[]?>(null)
                 // Render captions at 4x the object-template thumbnail density. The UI scales this bitmap
                 // down to its display size, preserving glyph detail that would otherwise be lost at 256x144.
                 : ObjectTemplatePreviewRenderer.RenderElementsPngAsync(
-                    fonts, elements,
+                    renderServices, elements,
                     frameSize,
                     new Beutl.Media.PixelSize(1024, 576),
-                    cancellationToken,
-                    editorConfig, proxyConfig, _decoders).AsTask();
+                    cancellationToken).AsTask();
 
     private void RefreshTemplatePreview()
     {

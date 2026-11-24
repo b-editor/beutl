@@ -890,6 +890,81 @@
   <data name="SourceVideo_IsLoop" xml:space="preserve">
     <value>반복</value>
   </data>
+  <data name="SourceVideo_Deinterlace" xml:space="preserve">
+    <value>디인터레이스</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFieldOrder" xml:space="preserve">
+    <value>필드 순서</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceMethod" xml:space="preserve">
+    <value>처리 방식</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFrameRate" xml:space="preserve">
+    <value>프레임 레이트</value>
+  </data>
+  <data name="VideoDeinterlace_Off" xml:space="preserve">
+    <value>끄기</value>
+  </data>
+  <data name="VideoDeinterlace_Auto" xml:space="preserve">
+    <value>자동</value>
+  </data>
+  <data name="VideoDeinterlace_On" xml:space="preserve">
+    <value>켜기</value>
+  </data>
+  <data name="VideoDeinterlace_TopFieldFirst" xml:space="preserve">
+    <value>상위 필드 우선 (TFF)</value>
+  </data>
+  <data name="VideoDeinterlace_BottomFieldFirst" xml:space="preserve">
+    <value>하위 필드 우선 (BFF)</value>
+  </data>
+  <data name="VideoDeinterlace_Bwdif" xml:space="preserve">
+    <value>BWDIF</value>
+  </data>
+  <data name="VideoDeinterlace_Yadif" xml:space="preserve">
+    <value>YADIF</value>
+  </data>
+  <data name="VideoDeinterlace_Frame" xml:space="preserve">
+    <value>프레임 (1배)</value>
+  </data>
+  <data name="VideoDeinterlace_Field" xml:space="preserve">
+    <value>필드 (2배)</value>
+  </data>
+  <data name="VideoDeinterlace_Progressive" xml:space="preserve">
+    <value>프로그레시브</value>
+  </data>
+  <data name="VideoDeinterlace_Mixed" xml:space="preserve">
+    <value>혼합 주사</value>
+  </data>
+  <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
+    <value>프로그레시브 · 디인터레이스 불필요</value>
+  </data>
+  <data name="VideoDeinterlace_Automatic" xml:space="preserve">
+    <value>프레임별 자동 감지</value>
+  </data>
+  <data name="VideoDeinterlace_Applied" xml:space="preserve">
+    <value>디인터레이스 적용됨</value>
+  </data>
+  <data name="VideoDeinterlace_Unsupported" xml:space="preserve">
+    <value>디코더가 디인터레이스를 지원하지 않음</value>
+  </data>
+  <data name="SourceVideo_TransferInterpretation" xml:space="preserve">
+    <value>전달 곡선</value>
+  </data>
+  <data name="VideoTransfer_Auto" xml:space="preserve">
+    <value>자동(태그 따르기)</value>
+  </data>
+  <data name="VideoTransfer_QuickTime" xml:space="preserve">
+    <value>QuickTime</value>
+  </data>
+  <data name="VideoTransfer_Bt1886" xml:space="preserve">
+    <value>BT.1886</value>
+  </data>
+  <data name="VideoTransfer_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="VideoTransfer_Bt709Scene" xml:space="preserve">
+    <value>BT.709(장면 기준)</value>
+  </data>
   <data name="SourceVideo_OffsetPosition" xml:space="preserve">
     <value>오프셋 위치</value>
   </data>
@@ -2164,6 +2239,42 @@
   </data>
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>메시 제어점({0}행, {1}열)</value>
+  </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>퍼펫</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>핀</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>핀</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>핀 추가</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>배치 끝내기</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>이미지를 클릭해 핀을 배치하세요. Esc로 종료합니다.</value>
+  </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>퍼펫 핀 편집 중입니다. 미리 보기에서 이후 효과를 일시적으로 숨깁니다.</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>핀 배치 준비 중…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>이 프레임에 핀을 배치할 수 있는 이미지가 없습니다.</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>선택한 핀 삭제</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>이미지를 기준으로 한 상대 좌표입니다. 왼쪽 위는 (0, 0), 오른쪽 아래는 (1, 1)입니다.</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>이미지에 핀을 놓고 움직여 변형합니다.</value>
   </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>마스크로도 쓸 수 있는 원이나 타원을 그립니다 (타원, 도형, 솔리드, 마스크, 트랙 매트 / ellipse, shape, solid, mask, track matte).</value>

@@ -414,7 +414,7 @@ public class TimelineMediaDurationTests
                 Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)), "Preview must not mutate the element.");
             });
         });
-        using var compositor = new SceneCompositor(model.Scene, TestShell.FontManager, decoders: TestShell.Decoders) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(model.Scene, new SceneRenderServices(TestShell.FontManager, TestShell.Decoders)) { DisableResourceShare = true, ForceOriginalSource = true };
         var video = compositor.EvaluateGraphics(model.Model.Range.End - OneFrameAt30).Objects.OfType<SourceVideo.Resource>().Single();
         Assert.Multiple(() =>
         {

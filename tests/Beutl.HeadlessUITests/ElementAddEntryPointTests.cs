@@ -112,7 +112,7 @@ public class ElementAddEntryPointTests
         Scene3D scene3D = sceneElement.Objects.OfType<Scene3D>().Single();
         Cube3D cube = cubeElement.Objects.OfType<Cube3D>().Single();
 
-        using var compositor = new SceneCompositor(editor.Scene, TestShell.FontManager) { DisableResourceShare = true };
+        using var compositor = new SceneCompositor(editor.Scene, new SceneRenderServices(TestShell.FontManager)) { DisableResourceShare = true };
         CompositionFrame frame = compositor.EvaluateGraphics(start);
         Scene3D.Resource sceneResource = frame.Objects.OfType<Scene3D.Resource>().Single();
         var cubeResource = (Cube3D.Resource)sceneResource.Objects.Single();

@@ -75,7 +75,7 @@ public sealed class App : Application
         _appUpdateController = new AppUpdateController(configuration.UpdateConfig, _notifications);
         _decoders = new DecoderRegistry(configuration.ExtensionConfig);
         _fonts = new Media.FontManager(configuration.FontConfig);
-        _objectTemplateService = new(_fonts, configuration.EditorConfig, configuration.ProxyStoreConfig, _decoders);
+        _objectTemplateService = new ObjectTemplateService(new SceneRenderServices(_fonts, _decoders, configuration.EditorConfig, configuration.ProxyStoreConfig));
         _sessionId = sessionId;
         _appServices = new EditorServiceRegistry()
             .Add(() => _configuration)

@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+                    xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
@@ -238,12 +239,14 @@
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{TemplateBinding CornerRadius}">
-                        <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
                             <Border Name="PART_ReorderHandle"
                                     Margin="4,0,0,0"
+                                    Background="Transparent"
                                     Theme="{StaticResource PropertyEditorReorderHandle}" />
 
                             <DataValidationErrors Grid.Column="1">
@@ -287,8 +290,30 @@
                                 </Grid>
                             </DataValidationErrors>
 
+                            <StackPanel Name="LeftRightButtons"
+                                        Grid.Column="2"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        AutomationProperties.Name="{x:Static lang:Strings.PreviousKeyFrame}"
+                                        Classes="left"
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}"
+                                        ToolTip.Tip="{x:Static lang:Strings.PreviousKeyFrame}" />
+
+                                <Button Name="PART_RightButton"
+                                        AutomationProperties.Name="{x:Static lang:Strings.NextKeyFrame}"
+                                        Classes="right"
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}"
+                                        ToolTip.Tip="{x:Static lang:Strings.NextKeyFrame}" />
+                            </StackPanel>
+
+                            <ContentPresenter Grid.Column="3"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+
                             <Button Name="PART_DeleteButton"
-                                    Grid.Column="2"
+                                    Grid.Column="4"
                                     Margin="0,0,4,0"
                                     Padding="0"
                                     Classes="size-24x24"
@@ -299,6 +324,38 @@
                     </Border>
                 </ControlTemplate>
             </Setter>
+        </Style>
+
+        <Style Selector="^:list-item.numbered-list-item">
+            <Setter Property="Background" Value="Transparent" />
+
+            <Style Selector="^ /template/ Border#PART_ReorderHandle">
+                <Setter Property="Child">
+                    <Template>
+                        <TextBlock HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding Header, RelativeSource={RelativeSource AncestorType={x:Type local:Vector2Editor}}}"
+                                   ToolTip.Tip="{Binding HeaderTooltip, RelativeSource={RelativeSource AncestorType={x:Type local:Vector2Editor}}}" />
+                    </Template>
+                </Setter>
+            </Style>
+
+            <Style Selector="^ /template/ Button#PART_DeleteButton">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+
+            <Style Selector="^ /template/ TextBox">
+                <Setter Property="Padding" Value="2,0,4,0" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:list-item.selected">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+            <Style Selector="^ /template/ Border#PART_ReorderHandle">
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+            </Style>
         </Style>
 
         <Style Selector="^:settings">
@@ -347,7 +404,7 @@
             </Setter>
         </Style>
 
-        <Style Selector="^:uniform">
+        <Style Selector="^:uniform:not(:list-item)">
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Padding="{TemplateBinding Padding}"

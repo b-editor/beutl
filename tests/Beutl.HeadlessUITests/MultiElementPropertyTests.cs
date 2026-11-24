@@ -18,6 +18,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
@@ -34,6 +35,78 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class MultiElementPropertyTests
 {
+    [AvaloniaTest]
+    public async Task DeinterlaceMenuAppliesMixedModesInOneHistoryStep()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new SourceVideo(), () => new SourceVideo());
+        SourceVideo[] videos = Shapes<SourceVideo>(elements);
+        videos[1].DeinterlaceMode.Value = DeinterlaceMode.On;
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        var model = (VideoSourceEditorViewModel)Editor(tab, Copy<SourceVideo>(tab).Source);
+        int before = editor.HistoryManager.UndoCount;
+
+        Assert.That(PropertyEditorHost.TryCreateControl(model, PropertyEditorSurface.Panel, out Control? control), Is.True);
+        control!.DataContext = model;
+        var window = VideoSourceDeinterlaceMenuTests.CreateWindow(control);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var menu = VideoSourceDeinterlaceMenuTests.DeinterlaceSubmenu(
+                VideoSourceDeinterlaceMenuTests.OpenMenu(VideoSourceDeinterlaceMenuTests.MenuButton(control)));
+            Assert.That(menu.Items.OfType<FARadioMenuFlyoutItem>().Any(item => item.IsChecked), Is.False);
+            Assert.That(menu.Items.OfType<FAMenuFlyoutSubItem>().Select(item => item.IsEnabled), Is.All.True);
+            VideoSourceDeinterlaceMenuTests.OpenSubmenu(menu);
+            VideoSourceDeinterlaceMenuTests.ClickRadio(menu, DeinterlaceMode.Auto);
+            HeadlessTestHelpers.Settle();
+            Assert.That(videos.Select(video => video.DeinterlaceMode.Value), Is.All.EqualTo(DeinterlaceMode.Auto));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+
+            editor.HistoryManager.Undo();
+            HeadlessTestHelpers.Settle();
+            Assert.That(videos.Select(video => video.DeinterlaceMode.Value),
+                Is.EqualTo(new[] { DeinterlaceMode.Off, DeinterlaceMode.On }));
+            editor.HistoryManager.Redo();
+            HeadlessTestHelpers.Settle();
+            Assert.That(videos.Select(video => video.DeinterlaceMode.Value), Is.All.EqualTo(DeinterlaceMode.Auto));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task VideoTransferInterpretationEditsMixedValuesInOneUndoStep()
+    {
+        (EditViewModel editor, Element[] elements) = await OpenElements(() => new SourceVideo(), () => new SourceVideo());
+        SourceVideo[] videos = Shapes<SourceVideo>(elements);
+        videos[1].TransferInterpretation.Value = VideoTransferInterpretation.Bt1886;
+        editor.HistoryManager.Commit("test setup");
+        using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
+        var source = (VideoSourceEditorViewModel)Editor(tab, Copy<SourceVideo>(tab).Source);
+        int before = editor.HistoryManager.UndoCount;
+
+        Assert.That(source.SelectedTransferInterpretation, Is.Null);
+        source.SetTransferInterpretation(VideoTransferInterpretation.Auto);
+        HeadlessTestHelpers.Settle();
+        Assert.That(videos.Select(video => video.TransferInterpretation.Value), Is.All.EqualTo(VideoTransferInterpretation.Auto));
+        Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+
+        editor.HistoryManager.Undo();
+        HeadlessTestHelpers.Settle();
+        Assert.That(videos.Select(video => video.TransferInterpretation.Value), Is.EqualTo(
+            new[] { VideoTransferInterpretation.Auto, VideoTransferInterpretation.Bt1886 }));
+        source = (VideoSourceEditorViewModel)Editor(tab, Copy<SourceVideo>(tab).Source);
+        Assert.That(source.SelectedTransferInterpretation, Is.Null);
+
+        editor.HistoryManager.Redo();
+        HeadlessTestHelpers.Settle();
+        source = (VideoSourceEditorViewModel)Editor(tab, Copy<SourceVideo>(tab).Source);
+        Assert.That(source.SelectedTransferInterpretation, Is.EqualTo(VideoTransferInterpretation.Auto));
+    }
+
     [AvaloniaTest]
     public async Task ValueEditsReachEveryElementInOneUndoStep()
     {

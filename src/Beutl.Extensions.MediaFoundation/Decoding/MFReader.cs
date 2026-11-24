@@ -71,7 +71,12 @@ public class MFReader : MediaReader
                         info.VideoFormatName ?? "Unknown",
                         info.TotalFrameCount,
                         info.DisplaySize,
-                        new Rational(info.Fps.Numerator, info.Fps.Denominator));
+                        new Rational(info.Fps.Numerator, info.Fps.Denominator))
+                    {
+                        ColorTags = info.Color,
+                        DetectedFieldOrder = info.DetectedFieldOrder,
+                        DeinterlaceStatus = options.Deinterlace.GetFallbackStatus(info.DetectedFieldOrder),
+                    };
                     _colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(info.Color.Transfer, info.Color.Primaries);
                     HasVideo = true;
                 }

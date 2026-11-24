@@ -2,6 +2,7 @@
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using BtlPoint = Beutl.Graphics.Point;
@@ -41,6 +42,10 @@ public partial class PlayerView
             _time = clock.CurrentTime.Value;
             _start = Local(e);
             _appliedDelta = default;
+            if (provider is Puppet puppet && Guid.TryParse(handle.Id, out Guid pinId)
+                && puppet.Pins.FirstOrDefault(pin => pin?.Id.Value == pinId) is { } pin)
+                model.SelectPuppetPin(puppet, pin);
+
             if (handle.Property is { } property)
             {
                 _keyFrames = FindKeyFramePair(property, clock, model.EditViewModel.Scene);

@@ -29,7 +29,7 @@ public class PackageManagerExtensionLifecycleTests
     {
         using var library = new Beutl.Services.LibraryService();
         string directory = Path.Combine(Path.GetTempPath(), $"extension-templates-{Guid.NewGuid():N}");
-        using var templates = new ObjectTemplateService(TestFonts.Manager, directory);
+        using var templates = new ObjectTemplateService(TestFonts.RenderServices, directory);
         using var services = new EditorServiceRegistry().AddOwned<Beutl.Services.INotificationService>(() => new Beutl.Services.NotificationService()).Add<Beutl.Media.FontManager>(() => TestFonts.Manager).AddOwned(() => new Beutl.Media.Decoding.DecoderRegistry(new()))
             .Add(() => library)
             .Add(() => templates);
@@ -64,8 +64,8 @@ public class PackageManagerExtensionLifecycleTests
             string firstDirectory = directory.CreateSubdirectory("first").FullName;
             var template = ObjectTemplateItem.CreateFromInstance(new Element(), "Clip");
             File.WriteAllText(Path.Combine(firstDirectory, "Clip.json"), ObjectTemplateItem.ToJson(template).ToJsonString());
-            using var firstTemplates = new ObjectTemplateService(TestFonts.Manager, firstDirectory);
-            using var secondTemplates = new ObjectTemplateService(TestFonts.Manager, directory.CreateSubdirectory("second").FullName);
+            using var firstTemplates = new ObjectTemplateService(TestFonts.RenderServices, firstDirectory);
+            using var secondTemplates = new ObjectTemplateService(TestFonts.RenderServices, directory.CreateSubdirectory("second").FullName);
             var firstEditor = CreateEditor(firstTemplates);
             var secondEditor = CreateEditor(secondTemplates);
             PackageManager first = CreatePackageManager(out _, out _, firstEditor);

@@ -1,8 +1,5 @@
-﻿using Beutl.Configuration;
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
-using Beutl.Media;
-using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl;
@@ -14,18 +11,18 @@ public sealed class SceneRenderer : Renderer
     /// <inheritdoc cref="Renderer(int, int, RenderIntent, float, float, RenderCacheOptions)" path="/param[@name='intent']"/>
     public SceneRenderer(
         Scene scene,
-        FontManager? fonts,
+        SceneRenderServices services,
         RenderIntent intent,
         float renderScale = 1f,
         bool disableResourceShare = false,
         float maxWorkingScale = float.PositiveInfinity,
-        bool forceOriginalSource = false,
-        EditorConfig? editorConfig = null,
-        ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+        bool forceOriginalSource = false)
         : base(scene.FrameSize.Value.Width, scene.FrameSize.Value.Height, intent, renderScale, maxWorkingScale,
-            editorConfig == null ? RenderCacheOptions.Default : RenderCacheOptions.CreateFromConfiguration(editorConfig))
+            (services ?? throw new ArgumentNullException(nameof(services))).EditorConfig is { } editorConfig
+                ? RenderCacheOptions.CreateFromConfiguration(editorConfig)
+                : RenderCacheOptions.Default)
     {
-        _compositor = new SceneCompositor(scene, fonts, editorConfig, proxyConfig, decoders)
+        _compositor = new SceneCompositor(scene, services)
         {
             DisableResourceShare = disableResourceShare,
             ForceOriginalSource = forceOriginalSource,

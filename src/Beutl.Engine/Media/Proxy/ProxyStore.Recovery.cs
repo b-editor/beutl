@@ -2,7 +2,7 @@
 
 using Microsoft.Extensions.Logging;
 
-using ProxyKey = (Beutl.Media.Proxy.ProxyFingerprint Source, Beutl.Media.Proxy.ProxyPreset Preset);
+using ProxyKey = (Beutl.Media.Proxy.ProxyFingerprint Source, Beutl.Media.Proxy.ProxyPreset Preset, Beutl.Media.Decoding.VideoDeinterlaceOptions Deinterlace);
 
 namespace Beutl.Media.Proxy;
 
@@ -128,7 +128,7 @@ public sealed partial class ProxyStore
             HashSet<ProxyKey> removedKeys = [];
             foreach (ProxyEntry entry in missing)
             {
-                var key = (entry.Source, entry.Preset);
+                var key = GetKey(entry);
                 // Act only on entries unchanged since the unlocked scan; a concurrent
                 // Register/TryTransition/Touch supersedes our now-stale decision.
                 if (_entries.TryGetValue(key, out ProxyEntry? current) && current == entry)
@@ -141,7 +141,7 @@ public sealed partial class ProxyStore
 
             foreach (ProxyEntry entry in changed)
             {
-                var key = (entry.Source, entry.Preset);
+                var key = GetKey(entry);
                 if (_entries.TryGetValue(key, out ProxyEntry? current) && current == entry)
                 {
                     _entries[key] = entry with
@@ -170,12 +170,12 @@ public sealed partial class ProxyStore
     {
         foreach (ProxyEntry entry in removedEntries)
         {
-            OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Deleted);
+            OnChanged(entry.Source, entry.Preset, entry.Deinterlace, ProxyStoreChangeKind.Deleted);
         }
 
         foreach (ProxyEntry entry in changedEntries)
         {
-            OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.StateChanged);
+            OnChanged(entry.Source, entry.Preset, entry.Deinterlace, ProxyStoreChangeKind.StateChanged);
         }
 
         // Notify for sidecars adopted after services were exposed, so a tab/preview that already
@@ -183,14 +183,14 @@ public sealed partial class ProxyStore
         // marked stale — those already fired their own notification.
         var supersededKeys = new HashSet<ProxyKey>();
         foreach (ProxyEntry entry in removedEntries)
-            supersededKeys.Add((entry.Source, entry.Preset));
+            supersededKeys.Add(GetKey(entry));
         foreach (ProxyEntry entry in changedEntries)
-            supersededKeys.Add((entry.Source, entry.Preset));
+            supersededKeys.Add(GetKey(entry));
 
-        foreach ((ProxyFingerprint source, ProxyPreset preset) in adoptedKeys)
+        foreach (ProxyKey key in adoptedKeys)
         {
-            if (!supersededKeys.Contains((source, preset)))
-                OnChanged(source, preset, ProxyStoreChangeKind.Registered);
+            if (!supersededKeys.Contains(key))
+                OnChanged(key.Source, key.Preset, key.Deinterlace, ProxyStoreChangeKind.Registered);
         }
     }
 
@@ -212,7 +212,7 @@ public sealed partial class ProxyStore
             foreach (ProxyEntry entry in index.Entries)
             {
                 if (TryValidateEntry(entry))
-                    _entries[(entry.Source, entry.Preset)] = entry;
+                    _entries[GetKey(entry)] = entry;
             }
         }
         catch
@@ -268,7 +268,7 @@ public sealed partial class ProxyStore
         HashSet<ProxyKey> adoptedKeys = [];
         foreach (ProxyEntry entry in candidates)
         {
-            var key = (entry.Source, entry.Preset);
+            var key = GetKey(entry);
             if (!_entries.TryGetValue(key, out ProxyEntry? existing)
                 || ShouldAdoptSidecar(entry, existing))
             {
@@ -363,7 +363,7 @@ public sealed partial class ProxyStore
 
             ProxyEntry[] entries =
             [
-                .. metadata.Entries.Where(entry => entry.Source != removed.Source || entry.Preset != removed.Preset
+                .. metadata.Entries.Where(entry => GetKey(entry) != GetKey(removed)
                     || entry.ProxyFileRelative != removed.ProxyFileRelative)
             ];
 

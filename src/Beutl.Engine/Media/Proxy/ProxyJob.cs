@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media.Proxy;
+﻿using Beutl.Media.Decoding;
+
+namespace Beutl.Media.Proxy;
 
 public sealed class ProxyJob
 {
@@ -7,10 +9,11 @@ public sealed class ProxyJob
         ProxyPreset preset,
         IProgress<ProxyJobProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        int priority = 0)
+        int priority = 0, VideoDeinterlaceOptions deinterlace = default)
     {
         Source = source;
         Preset = preset;
+        Deinterlace = deinterlace.Normalize();
         Progress = progress;
         CancellationToken = cancellationToken;
         Priority = priority;
@@ -21,6 +24,8 @@ public sealed class ProxyJob
     public ProxyFingerprint Source { get; }
 
     public ProxyPreset Preset { get; }
+
+    public VideoDeinterlaceOptions Deinterlace { get; }
 
     public IProgress<ProxyJobProgress>? Progress { get; }
 

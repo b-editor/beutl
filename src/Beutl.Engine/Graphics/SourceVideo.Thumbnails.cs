@@ -49,6 +49,11 @@ public partial class SourceVideo : IThumbnailsProvider
         base.OnAttachedToHierarchy(args);
         _thumbnailHandler = (_, _) => ThumbnailsInvalidated?.Invoke(this, EventArgs.Empty);
         Source.Edited += _thumbnailHandler;
+        TransferInterpretation.Edited += _thumbnailHandler;
+        DeinterlaceMode.Edited += _thumbnailHandler;
+        DeinterlaceFieldOrder.Edited += _thumbnailHandler;
+        DeinterlaceMethod.Edited += _thumbnailHandler;
+        DeinterlaceFrameRateMode.Edited += _thumbnailHandler;
         OffsetPosition.Edited += _thumbnailHandler;
         Speed.Edited += _thumbnailHandler;
         IsLoop.Edited += _thumbnailHandler;
@@ -60,6 +65,11 @@ public partial class SourceVideo : IThumbnailsProvider
         if (_thumbnailHandler != null)
         {
             Source.Edited -= _thumbnailHandler;
+            TransferInterpretation.Edited -= _thumbnailHandler;
+            DeinterlaceMode.Edited -= _thumbnailHandler;
+            DeinterlaceFieldOrder.Edited -= _thumbnailHandler;
+            DeinterlaceMethod.Edited -= _thumbnailHandler;
+            DeinterlaceFrameRateMode.Edited -= _thumbnailHandler;
             OffsetPosition.Edited -= _thumbnailHandler;
             Speed.Edited -= _thumbnailHandler;
             IsLoop.Edited -= _thumbnailHandler;
@@ -69,9 +79,14 @@ public partial class SourceVideo : IThumbnailsProvider
 
     public string? GetThumbnailsCacheKey()
     {
-        string? key = ThumbnailsCacheKey.Compute(
-            CoreSerializer.SerializeToJsonObject(this),
-            ["Source", "OffsetPosition", "Speed", "IsLoop"]);
+        string[] properties = [nameof(Source), nameof(OffsetPosition), nameof(Speed), nameof(IsLoop), nameof(TransferInterpretation)];
+        if (GetDeinterlaceOptions() != VideoDeinterlaceOptions.Default)
+        {
+            properties = [.. properties, nameof(DeinterlaceMode), nameof(DeinterlaceFieldOrder), nameof(DeinterlaceMethod),
+                nameof(DeinterlaceFrameRateMode)];
+        }
+
+        string? key = ThumbnailsCacheKey.Compute(CoreSerializer.SerializeToJsonObject(this), properties);
         return key != null && HasGlobalSpeedAnimation ? $"{key}|start:{TimeRange.Value.Start.Flicks}" : key;
     }
 

@@ -1,12 +1,10 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Composition;
-using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -111,11 +109,12 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     /// It reads its media through the readers the preview has open, so nothing is opened again for it.
     /// </remarks>
     public static async Task<LibraryThumbnailSubject?> CaptureElementAsync(
-        FontManager fonts, Element element, MediaTime time, CancellationToken cancellationToken = default,
-        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+        SceneRenderServices services, Element element, MediaTime time, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(services);
+
         // The live element is read here, on the thread that edits it; the copy is drawn on the render thread.
-        if (CopyAlone(fonts, element, time, editorConfig, proxyConfig, decoders) is not { } copy)
+        if (CopyAlone(services, element, time) is not { } copy)
             return null;
 
         return await RenderThread.Dispatcher.InvokeAsync(
@@ -133,14 +132,15 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     /// what a picker for the transition there shows transitions between. A side with no element is empty.
     /// </summary>
     public static async Task<LibraryThumbnailSubject?> CaptureEdgeAsync(
-        FontManager fonts, Element element, ElementEdge edge, CancellationToken cancellationToken = default,
-        EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+        SceneRenderServices services, Element element, ElementEdge edge, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(services);
+
         Element? outgoing = edge == ElementEdge.Start ? ElementTransitions.FindPrevious(element) : element;
         Element? incoming = edge == ElementEdge.Start ? element : ElementTransitions.FindNext(element);
         // The outgoing side shows its last moment and the incoming side its first.
-        Copy? from = outgoing == null ? null : CopyAlone(fonts, outgoing, outgoing.Range.End - EdgeInset, editorConfig, proxyConfig, decoders);
-        Copy? to = incoming == null ? null : CopyAlone(fonts, incoming, incoming.Start.Value, editorConfig, proxyConfig, decoders);
+        Copy? from = outgoing == null ? null : CopyAlone(services, outgoing, outgoing.Range.End - EdgeInset);
+        Copy? to = incoming == null ? null : CopyAlone(services, incoming, incoming.Start.Value);
 
         (Picture? From, Picture? To) sides = await RenderThread.Dispatcher.InvokeAsync(
             () => (CaptureFrame(from), CaptureFrame(to)),
@@ -219,7 +219,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     // copy keeps the live element out of a second scene. It drops the element's transitions, which would fade it in or
     // out at the edge it is drawn at, and keeps its times, so an animation on the scene's clock reads the time the
     // project shows.
-    private static Copy? CopyAlone(FontManager fonts, Element element, MediaTime time, EditorConfig? editorConfig, ProxyStoreConfig? proxyConfig, DecoderRegistry? decoders)
+    private static Copy? CopyAlone(SceneRenderServices services, Element element, MediaTime time)
     {
         try
         {
@@ -242,7 +242,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
 
             Scene scene = LibraryThumbnailRenderer.CreateScene(
                 frameSize, end > MediaTime.Zero ? end : MediaTime.FromSeconds(1), copy);
-            return new Copy(fonts, scene, at, editorConfig, proxyConfig, decoders);
+            return new Copy(services, scene, at);
         }
         catch (Exception ex)
         {
@@ -257,7 +257,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
     {
         try
         {
-            using SceneRenderer renderer = LibraryThumbnailRenderer.CreateRenderer(copy.Scene, copy.Fonts, scale, copy.EditorConfig, copy.ProxyConfig, copy.Decoders);
+            using SceneRenderer renderer = LibraryThumbnailRenderer.CreateRenderer(copy.Scene, copy.Services, scale);
             renderer.Render(renderer.Compositor.EvaluateGraphics(copy.Time));
             using Bitmap snapshot = renderer.Snapshot();
             return snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
@@ -274,7 +274,7 @@ internal sealed class LibraryThumbnailSubject : IDisposable
         bitmap = null;
         try
         {
-            using var compositor = new SceneCompositor(copy.Scene, copy.Fonts, copy.EditorConfig, copy.ProxyConfig, copy.Decoders);
+            using var compositor = new SceneCompositor(copy.Scene, copy.Services);
             using RenderNodeRasterization rasterization = RasterizeObject(compositor.EvaluateGraphics(copy.Time), scale);
             bitmap = rasterization.Bitmap?.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
             return true;
@@ -468,5 +468,5 @@ internal sealed class LibraryThumbnailSubject : IDisposable
         }
     }
 
-    private sealed record Copy(FontManager Fonts, Scene Scene, MediaTime Time, EditorConfig? EditorConfig, ProxyStoreConfig? ProxyConfig, DecoderRegistry? Decoders);
+    private sealed record Copy(SceneRenderServices Services, Scene Scene, MediaTime Time);
 }

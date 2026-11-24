@@ -1,12 +1,19 @@
 ﻿using System.Security.Cryptography;
 
+using Beutl.Media.Decoding;
+
 namespace Beutl.Media.Proxy;
 
 internal static class ProxyPathUtilities
 {
-    public static string BuildRelativePath(ProxyFingerprint fingerprint, ProxyPreset preset, Guid? generation = null)
+    public static string BuildRelativePath(ProxyFingerprint fingerprint, ProxyPreset preset, Guid? generation = null,
+        VideoDeinterlaceOptions deinterlace = default)
     {
         string key = $"{fingerprint.AbsolutePath}|{fingerprint.FileSizeBytes}|{fingerprint.MtimeUtc:O}";
+        deinterlace = deinterlace.Normalize();
+        if (deinterlace != VideoDeinterlaceOptions.Default)
+            key += FormattableString.Invariant($"|{(int)deinterlace.Mode}|{(int)deinterlace.FieldOrder}|{(int)deinterlace.Method}|{(int)deinterlace.FrameRateMode}");
+
         byte[] hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key));
         string dir = Convert.ToHexString(hash).ToLowerInvariant();
         string name = preset.ToString().ToLowerInvariant();

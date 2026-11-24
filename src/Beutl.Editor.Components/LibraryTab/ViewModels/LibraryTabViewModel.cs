@@ -46,7 +46,8 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         _editor = editor;
         _lifetimeToken = _lifetimeCancellation.Token;
         _preview = LibraryPreviewCapture.Create(editor);
-        Thumbnails = new LibraryThumbnailSet(fonts, _preview == null ? null : _preview.CaptureAsync, ExtensionGuard.FindService<DecoderRegistry>(editor));
+        DecoderRegistry? decoders = ExtensionGuard.FindService<DecoderRegistry>(editor);
+        Thumbnails = new LibraryThumbnailSet(new SceneRenderServices(fonts, decoders), _preview == null ? null : _preview.CaptureAsync);
         _disposables.Add(Thumbnails);
         ObservePreview();
 

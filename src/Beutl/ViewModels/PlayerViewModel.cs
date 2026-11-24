@@ -102,8 +102,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .ObserveOnUIDispatcher()
             .Subscribe(playing =>
             {
-                _ = _playbackTask.ContinueWith(
-                    _ => Avalonia.Threading.Dispatcher.UIThread.Post(UpdatePreviewSurfaceSize),
+                _ = Volatile.Read(ref _playbackTask).ContinueWith(
+                    completed => Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshPreviewAfterPlayback(completed)),
                     CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
             })
             .DisposeWith(_disposables);
@@ -228,6 +228,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
+        InitializePuppetPinEditor();
 
         // The frame shows no boundary while the path editor is open (RenderOnRenderThread), so a paused frame is drawn
         // again when it opens or closes.
@@ -713,6 +714,17 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         return false;
     }
 
+    private void RefreshPreviewAfterPlayback(Task completed)
+    {
+        if (_isDisposing || IsPlaybackActive || !ReferenceEquals(completed, Volatile.Read(ref _playbackTask)))
+            return;
+
+        UpdatePreviewSurfaceSize();
+        // IsPlaying changes before the playback task ends, while Puppet stage renders are still suppressed.
+        if (_puppetEditingEffect.Value is not null)
+            QueueRender();
+    }
+
     // Return the editor to a consistent stopped state: clear IsPlaying, reset the playback-only
     // buffer/frame-cache state, and re-attach the preview subscriptions a playback task detached on
     // entry. Idempotent (dispose-then-resubscribe, remove-then-add) so it stays correct even when
@@ -893,6 +905,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // never disposed under the request holding its token. Pause then drains the compose and render
         // dispatchers, so the render thread cannot call OnNext on the subjects disposed below.
         renderCts?.Cancel();
+        StopPuppetPinPlacement();
+        SetSelectedPuppetPin(null);
         Disposing?.Invoke(this, EventArgs.Empty);
         UpdateCleanPreviewConsumers(0);
         await Pause();

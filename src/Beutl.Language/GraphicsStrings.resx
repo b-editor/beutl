@@ -891,6 +891,81 @@
   <data name="SourceVideo_IsLoop" xml:space="preserve">
     <value>Loop</value>
   </data>
+  <data name="SourceVideo_Deinterlace" xml:space="preserve">
+    <value>Deinterlace</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFieldOrder" xml:space="preserve">
+    <value>Field Order</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceMethod" xml:space="preserve">
+    <value>Method</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFrameRate" xml:space="preserve">
+    <value>Frame Rate</value>
+  </data>
+  <data name="VideoDeinterlace_Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="VideoDeinterlace_Auto" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="VideoDeinterlace_On" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="VideoDeinterlace_TopFieldFirst" xml:space="preserve">
+    <value>Top Field First (TFF)</value>
+  </data>
+  <data name="VideoDeinterlace_BottomFieldFirst" xml:space="preserve">
+    <value>Bottom Field First (BFF)</value>
+  </data>
+  <data name="VideoDeinterlace_Bwdif" xml:space="preserve">
+    <value>BWDIF</value>
+  </data>
+  <data name="VideoDeinterlace_Yadif" xml:space="preserve">
+    <value>YADIF</value>
+  </data>
+  <data name="VideoDeinterlace_Frame" xml:space="preserve">
+    <value>Frame (1×)</value>
+  </data>
+  <data name="VideoDeinterlace_Field" xml:space="preserve">
+    <value>Field (2×)</value>
+  </data>
+  <data name="VideoDeinterlace_Progressive" xml:space="preserve">
+    <value>Progressive</value>
+  </data>
+  <data name="VideoDeinterlace_Mixed" xml:space="preserve">
+    <value>Mixed scan</value>
+  </data>
+  <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
+    <value>Progressive · No deinterlacing needed</value>
+  </data>
+  <data name="VideoDeinterlace_Automatic" xml:space="preserve">
+    <value>Checking each frame</value>
+  </data>
+  <data name="VideoDeinterlace_Applied" xml:space="preserve">
+    <value>Deinterlacing applied</value>
+  </data>
+  <data name="VideoDeinterlace_Unsupported" xml:space="preserve">
+    <value>Decoder does not support deinterlacing</value>
+  </data>
+  <data name="SourceVideo_TransferInterpretation" xml:space="preserve">
+    <value>Transfer Curve</value>
+  </data>
+  <data name="VideoTransfer_Auto" xml:space="preserve">
+    <value>Auto (Follow Tags)</value>
+  </data>
+  <data name="VideoTransfer_QuickTime" xml:space="preserve">
+    <value>QuickTime</value>
+  </data>
+  <data name="VideoTransfer_Bt1886" xml:space="preserve">
+    <value>BT.1886</value>
+  </data>
+  <data name="VideoTransfer_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="VideoTransfer_Bt709Scene" xml:space="preserve">
+    <value>BT.709 (Scene)</value>
+  </data>
   <data name="SourceVideo_OffsetPosition" xml:space="preserve">
     <value>Offset Position</value>
   </data>
@@ -2165,6 +2240,42 @@
   </data>
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>Mesh point {0}, {1}</value>
+  </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>Puppet</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>Pins</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>Pin</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>Add pin</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>Finish placing</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>Click the image to place pins. Esc to finish.</value>
+  </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>Editing Puppet pins. Later effects are hidden in the preview.</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>Preparing pin placement…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>There is no visible image to place pins on in this frame.</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>Remove selected pin</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>Image-relative coordinates. The upper-left corner is (0, 0) and the lower-right corner is (1, 1).</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>Bend an image by placing and moving pins.</value>
   </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>Draws a circle or ellipse that can also serve as a matte (ellipse, shape, solid, mask, track matte).</value>

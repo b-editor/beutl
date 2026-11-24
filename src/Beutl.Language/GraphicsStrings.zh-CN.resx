@@ -890,6 +890,81 @@
   <data name="SourceVideo_IsLoop" xml:space="preserve">
     <value>循环</value>
   </data>
+  <data name="SourceVideo_Deinterlace" xml:space="preserve">
+    <value>去交错</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFieldOrder" xml:space="preserve">
+    <value>场顺序</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceMethod" xml:space="preserve">
+    <value>处理方式</value>
+  </data>
+  <data name="SourceVideo_DeinterlaceFrameRate" xml:space="preserve">
+    <value>帧率</value>
+  </data>
+  <data name="VideoDeinterlace_Off" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="VideoDeinterlace_Auto" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="VideoDeinterlace_On" xml:space="preserve">
+    <value>开启</value>
+  </data>
+  <data name="VideoDeinterlace_TopFieldFirst" xml:space="preserve">
+    <value>顶场优先（TFF）</value>
+  </data>
+  <data name="VideoDeinterlace_BottomFieldFirst" xml:space="preserve">
+    <value>底场优先（BFF）</value>
+  </data>
+  <data name="VideoDeinterlace_Bwdif" xml:space="preserve">
+    <value>BWDIF</value>
+  </data>
+  <data name="VideoDeinterlace_Yadif" xml:space="preserve">
+    <value>YADIF</value>
+  </data>
+  <data name="VideoDeinterlace_Frame" xml:space="preserve">
+    <value>帧（1 倍）</value>
+  </data>
+  <data name="VideoDeinterlace_Field" xml:space="preserve">
+    <value>场（2 倍）</value>
+  </data>
+  <data name="VideoDeinterlace_Progressive" xml:space="preserve">
+    <value>逐行扫描</value>
+  </data>
+  <data name="VideoDeinterlace_Mixed" xml:space="preserve">
+    <value>混合扫描</value>
+  </data>
+  <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
+    <value>逐行扫描 · 无需去交错</value>
+  </data>
+  <data name="VideoDeinterlace_Automatic" xml:space="preserve">
+    <value>逐帧自动检测</value>
+  </data>
+  <data name="VideoDeinterlace_Applied" xml:space="preserve">
+    <value>已应用去交错</value>
+  </data>
+  <data name="VideoDeinterlace_Unsupported" xml:space="preserve">
+    <value>解码器不支持去交错</value>
+  </data>
+  <data name="SourceVideo_TransferInterpretation" xml:space="preserve">
+    <value>传递曲线</value>
+  </data>
+  <data name="VideoTransfer_Auto" xml:space="preserve">
+    <value>自动（遵循标签）</value>
+  </data>
+  <data name="VideoTransfer_QuickTime" xml:space="preserve">
+    <value>QuickTime</value>
+  </data>
+  <data name="VideoTransfer_Bt1886" xml:space="preserve">
+    <value>BT.1886</value>
+  </data>
+  <data name="VideoTransfer_Srgb" xml:space="preserve">
+    <value>sRGB</value>
+  </data>
+  <data name="VideoTransfer_Bt709Scene" xml:space="preserve">
+    <value>BT.709（场景参考）</value>
+  </data>
   <data name="SourceVideo_OffsetPosition" xml:space="preserve">
     <value>偏移位置</value>
   </data>
@@ -2164,6 +2239,42 @@
   </data>
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>网格控制点（第 {0} 行，第 {1} 列）</value>
+  </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>木偶变形</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>图钉</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>图钉</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>添加图钉</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>结束放置</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>点击图像放置图钉。按 Esc 结束。</value>
+  </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>正在编辑木偶图钉。预览会暂时隐藏后续效果。</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>正在准备放置图钉…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>此帧中没有可放置图钉的可见图像。</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>删除所选图钉</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>相对于图像的坐标。左上角是 (0, 0)，右下角是 (1, 1)。</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>放置并移动图钉来弯曲图像。</value>
   </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>绘制可用作遮罩的圆形或椭圆（椭圆、形状、纯色层、蒙版、轨道遮罩 / ellipse, shape, solid, mask, track matte）。</value>

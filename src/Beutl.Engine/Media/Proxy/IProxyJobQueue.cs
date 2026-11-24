@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media.Proxy;
+﻿using Beutl.Media.Decoding;
+
+namespace Beutl.Media.Proxy;
 
 public interface IProxyJobQueue : IAsyncDisposable
 {
@@ -13,7 +15,8 @@ public interface IProxyJobQueue : IAsyncDisposable
         ProxyFingerprint source,
         ProxyPreset preset,
         int priority = 0,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        VideoDeinterlaceOptions deinterlace = default);
 
     IReadOnlyList<ProxyJob> Pending();
 

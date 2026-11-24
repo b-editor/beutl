@@ -63,7 +63,11 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                 new PixelSize(vi.VideoWidth, vi.VideoHeight),
                 new Rational(vi.FrameRateNum, vi.FrameRateDen))
             {
-                Duration = new Rational(vi.DurationNum, vi.DurationDen)
+                Duration = new Rational(vi.DurationNum, vi.DurationDen),
+                ColorTags = vi.VideoColorTags,
+                HasIccProfile = vi.VideoHasIccProfile,
+                DetectedFieldOrder = vi.DetectedFieldOrder,
+                DeinterlaceStatus = vi.DeinterlaceStatus,
             };
 
             // リングバッファ情報
@@ -521,7 +525,11 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                 || original.FrameRateNum != reopened.FrameRateNum
                 || original.FrameRateDen != reopened.FrameRateDen
                 || original.DurationNum != reopened.DurationNum
-                || original.DurationDen != reopened.DurationDen))
+                || original.DurationDen != reopened.DurationDen
+                || original.VideoColorTags != reopened.VideoColorTags
+                || original.VideoHasIccProfile != reopened.VideoHasIccProfile
+                || original.DetectedFieldOrder != reopened.DetectedFieldOrder
+                || original.DeinterlaceStatus != reopened.DeinterlaceStatus))
         {
             return false;
         }

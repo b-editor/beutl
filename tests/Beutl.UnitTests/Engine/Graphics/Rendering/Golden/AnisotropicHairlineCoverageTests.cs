@@ -139,7 +139,7 @@ public class AnisotropicHairlineCoverageTests
         element.AddObject(rectangle);
         scene.Children.Add(element);
 
-        using var renderer = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, outputScale, false, outputScale * 2f)
+        using var renderer = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview, outputScale, false, outputScale * 2f)
         {
             CacheOptions = RenderCacheOptions.Disabled,
         };

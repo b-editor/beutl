@@ -27,8 +27,8 @@ public sealed class DecoderRegistryIsolationTests
             scene.Children.Add(element);
             VulkanTestEnvironment.InvokeOnRenderThread(() =>
             {
-                using var a = new SceneRenderer(scene, null, RenderIntent.Preview, decoders: CreateRegistry(40));
-                using var b = new SceneRenderer(scene, null, RenderIntent.Preview, decoders: CreateRegistry(80));
+                using var a = new SceneRenderer(scene, new SceneRenderServices(Decoders: CreateRegistry(40)), RenderIntent.Preview);
+                using var b = new SceneRenderer(scene, new SceneRenderServices(Decoders: CreateRegistry(80)), RenderIntent.Preview);
                 Assert.That(Render(a), Is.EqualTo(40));
                 Assert.That(Render(b), Is.EqualTo(80));
                 Assert.That(Render(a), Is.EqualTo(40));
@@ -61,7 +61,7 @@ public sealed class DecoderRegistryIsolationTests
     [Test]
     public void OnlyOpeningAMediaSourceRequiresTheRegistry()
     {
-        using var compositor = new SceneCompositor(new Scene(), null);
+        using var compositor = new SceneCompositor(new Scene(), SceneRenderServices.Empty);
         Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects, Is.Empty);
         var context = CompositionContext.Default;
         using var emptyVideo = new VideoSource().ToResource(context);

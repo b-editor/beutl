@@ -1,4 +1,5 @@
 ﻿using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -497,7 +498,7 @@ public class ProxyResolverTests
 
     private sealed class UnsafeStore(string root, ProxyEntry entry) : StubProxyStore(root)
     {
-        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset)
+        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
         {
             return source == entry.Source && preset == entry.Preset ? entry : null;
         }

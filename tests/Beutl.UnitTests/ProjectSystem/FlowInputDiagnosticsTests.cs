@@ -102,7 +102,7 @@ public class FlowInputDiagnosticsTests
 
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
 
-        using var compositor = new SceneCompositor(scene, null);
+        using var compositor = new SceneCompositor(scene, SceneRenderServices.Empty);
         secondPortal.Count.Value = 2;
         Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<DrawableGroup.Resource>().Single().Children, Is.Empty);
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
@@ -151,7 +151,7 @@ public class FlowInputDiagnosticsTests
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
 
         source.IsVisibleInOutput.Value = false;
-        using var compositor = new SceneCompositor(scene, null);
+        using var compositor = new SceneCompositor(scene, SceneRenderServices.Empty);
         Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<DrawableGroup.Resource>().Single().Children, Is.Empty);
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
 
@@ -178,7 +178,7 @@ public class FlowInputDiagnosticsTests
         nested.Objects.Add(clear);
         AddClip(scene, new Cube3D(), layer: 2, start: 0, duration: 2);
 
-        using var compositor = new SceneCompositor(scene, null);
+        using var compositor = new SceneCompositor(scene, SceneRenderServices.Empty);
         Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<Scene3D.Resource>().Single().Objects, Is.Empty);
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
 
@@ -228,7 +228,7 @@ public class FlowInputDiagnosticsTests
         matte.MatteMode.Value = MatteMode.Alpha;
         matte.MatteSourceKind.Value = MatteSourceKind.Layer;
         matte.MatteSourceZIndex.Value = 2;
-        using var compositor = new SceneCompositor(scene, null);
+        using var compositor = new SceneCompositor(scene, SceneRenderServices.Empty);
         Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<DrawableGroup.Resource>().Single().Children, Has.Count.EqualTo(1));
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
     }
@@ -244,7 +244,7 @@ public class FlowInputDiagnosticsTests
         Element input = AddClip(scene, new RectShape(), layer: 2, start: 0, duration: 2);
         input.IsVisibleInOutput.Value = false;
 
-        using var compositor = new SceneCompositor(scene, null);
+        using var compositor = new SceneCompositor(scene, SceneRenderServices.Empty);
         Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects, Is.Empty);
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
 
@@ -271,7 +271,7 @@ public class FlowInputDiagnosticsTests
         Element incoming = AddClip(scene, new RectShape(), layer: 1, start: 2, duration: 8);
         incoming.EnterTransition.Value = new FadeTransition();
         incoming.ExitTransition.Value = new FadeTransition();
-        using var compositor = new SceneCompositor(scene, null);
+        using var compositor = new SceneCompositor(scene, SceneRenderServices.Empty);
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(7)).Objects.OfType<Scene3D.Resource>().Single().Objects, Is.Empty);
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
 
@@ -289,7 +289,7 @@ public class FlowInputDiagnosticsTests
         ((PortalObject)receiver.Objects[0]).Count.Value = 1;
         Element input = AddClip(scene, new Cube3D(), layer: 1, start: 0, duration: 2);
         input.EnterTransition.Value = new FadeTransition();
-        using var compositor = new SceneCompositor(scene, null);
+        using var compositor = new SceneCompositor(scene, SceneRenderServices.Empty);
         Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects.OfType<Scene3D.Resource>().Single().Objects, Is.Empty);
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
 

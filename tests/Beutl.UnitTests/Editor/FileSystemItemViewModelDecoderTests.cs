@@ -19,7 +19,7 @@ public class FileSystemItemViewModelDecoderTests
     {
         _root = Path.Combine(Path.GetTempPath(), $"beutl-fsitem-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_root);
-        _templates = new ObjectTemplateService(TestFonts.Manager, Path.Combine(_root, "templates"));
+        _templates = new ObjectTemplateService(TestFonts.RenderServices, Path.Combine(_root, "templates"));
         _thumbnails = new FileThumbnailService(new DecoderRegistry(new()), _templates);
     }
 

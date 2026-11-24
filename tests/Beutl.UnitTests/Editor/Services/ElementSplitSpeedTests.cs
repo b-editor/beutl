@@ -382,7 +382,7 @@ public sealed class ElementSplitSpeedTests
 
         float[] Play(TimeRange range)
         {
-            using var compositor = new SceneCompositor(_harness.Scene, TestFonts.Manager, decoders: _decoders);
+            using var compositor = new SceneCompositor(_harness.Scene, new SceneRenderServices(TestFonts.Manager, _decoders));
             using var composer = new Composer { SampleRate = rate };
             using AudioBuffer? buffer = composer.Compose(range, compositor.EvaluateAudio(range));
             return buffer!.GetChannelData(0).ToArray();

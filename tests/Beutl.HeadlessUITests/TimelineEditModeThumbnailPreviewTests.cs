@@ -292,6 +292,11 @@ public class TimelineEditModeThumbnailPreviewTests
                 Assert.That(clip.VideoThumbnailCount.Value, Is.EqualTo(baseCount));
                 Assert.That(clip.ThumbnailContentWidth.Value, Is.EqualTo(baseWidth));
             });
+            if (HeadlessCapture.IsRequested)
+            {
+                var (_, end) = strip.GetVisibleRange();
+                await HeadlessTestHelpers.WaitUntilAsync(() => strip.GetMissingIndices(baseCount, end).Count == 0);
+            }
             HeadlessTestHelpers.Render(3);
             HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), $"{captureName}-drag");
             view.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
