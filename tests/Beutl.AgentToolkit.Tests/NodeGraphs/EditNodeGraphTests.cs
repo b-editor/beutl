@@ -81,6 +81,42 @@ public sealed class EditNodeGraphTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Empty_operations_return_without_graph_diagnostics_or_history(bool validateOnly)
+    {
+        using var scene = new NodeGraphTestScene();
+        int undoCount = scene.Session.History.UndoCount;
+
+        ToolResult<EditNodeGraphResponse> result = scene.Tools.EditNodeGraph(scene.GraphId, [], validateOnly);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        EditNodeGraphResponse response = result.Value!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.Applied, Is.False);
+            Assert.That(response.Valid, Is.True);
+            Assert.That(response.GraphId, Is.EqualTo(scene.GraphId));
+            Assert.That(response.Created, Is.Empty);
+            // Evaluating the empty effect graph would warn about its missing input and output.
+            Assert.That(response.Diagnostics, Is.Empty);
+            Assert.That(response.Ports, Is.Empty);
+            Assert.That(response.Hint, Does.Contain("No operations").And.Not.Contain("validateOnly"));
+            Assert.That(scene.Session.History.UndoCount, Is.EqualTo(undoCount));
+        });
+    }
+
+    [TestCase("invalid", ErrorCode.ValidationRejected)]
+    [TestCase("00000000-0000-0000-0000-000000000001", ErrorCode.StaleHandle)]
+    public void Empty_operations_still_require_an_existing_graph(string graphId, string error)
+    {
+        using var scene = new NodeGraphTestScene();
+
+        ToolResult<EditNodeGraphResponse> result = scene.Tools.EditNodeGraph(graphId, []);
+
+        Assert.That(result.Error?.Code, Is.EqualTo(error));
+    }
+
     [Test]
     public void Code_that_does_not_compile_is_refused_with_its_stage_and_line()
     {
@@ -316,6 +352,35 @@ public sealed class EditNodeGraphTests
         {
             Assert.That(((IAnimatablePropertyAdapter)Member(pass, "In.params.amount").Property!).Animation, Is.Null);
             Assert.That(Value(pass, "In.params.amount"), Is.EqualTo(0.25f));
+        });
+    }
+
+    [TestCase("[[1, 1], [0, 0]]", "[[0, 0], [1, 1]]", 1f)]
+    [TestCase("[[1, 1], [0, 0], [1, 0.25]]", "[[0, 0], [1, 1], [1, 0.25]]", 0.25f)]
+    public void Keyframes_are_sorted_by_time_and_keep_equal_times_in_input_order(string input, string expected, float finalValue)
+    {
+        using var scene = new NodeGraphTestScene();
+        const string memberName = "In.params.amount";
+
+        ToolResult<EditNodeGraphResponse> edit = scene.Edit(OnePass(TintCode, new JsonObject
+        {
+            [memberName] = new JsonObject { ["$kf"] = JsonNode.Parse(input) }
+        }));
+
+        Assert.That(edit.IsSuccess, Is.True, edit.Error?.Message);
+        Assert.That(edit.Value!.Applied, Is.True);
+        string pass = edit.Value.Created.Single(node => node.Ref == "pass").Id;
+        ToolResult<ReadNodeGraphResponse> read = scene.Tools.ReadNodeGraph(scene.GraphId);
+        Assert.That(read.IsSuccess, Is.True, read.Error?.Message);
+        JsonNode? keyFrames = read.Value!.Nodes!.Single(node => node.Id == pass)
+            .Members.Single(member => member.Name == memberName).Value?["$kf"];
+        var animation = (KeyFrameAnimation<float>)((IAnimatablePropertyAdapter)Member(scene.Node(pass), memberName).Property!).Animation!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(JsonNode.DeepEquals(keyFrames, JsonNode.Parse(expected)), Is.True, $"Read $kf: {keyFrames}");
+            Assert.That(animation.Interpolate(MediaTime.FromSeconds(0.5)), Is.EqualTo(0.5f));
+            Assert.That(animation.Interpolate(MediaTime.FromSeconds(1.5)), Is.EqualTo(finalValue));
         });
     }
 
