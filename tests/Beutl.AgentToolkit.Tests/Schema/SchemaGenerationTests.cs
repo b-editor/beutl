@@ -331,6 +331,41 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
+    public void Echo_IsListedWithItsTemporalSettings()
+    {
+        var generator = new SchemaGenerator(_library);
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(Echo));
+        TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(Echo).FullName);
+        EffectSummary summary = generator.ListEffects(intent: "trail").Single(effect => effect.Name == nameof(Echo));
+        string[] animatedProperties = [nameof(Echo.Interval), nameof(Echo.StartingIntensity), nameof(Echo.Decay)];
+        string[] properties = [.. animatedProperties, nameof(Echo.Count), nameof(Echo.BlendMode)];
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(summary.PropertyNames, Is.EquivalentTo(properties));
+            Assert.That(summary.IntentTags, Is.SupersetOf(new[] { "echo", "trail", "temporal", "motion", "ghost" }));
+            Assert.That(summary.Notes, Has.Some.Contains("Negative values sample earlier times"));
+            Assert.That(summary.Notes, Has.Some.Contains("rendering time and memory"));
+            Assert.That(descriptor.Properties.Select(property => property.Name), Is.EquivalentTo(properties));
+            Assert.That(Property(nameof(Echo.Interval)).Default, Is.EqualTo(-0.1f));
+            Assert.That(Property(nameof(Echo.Interval)).Range, Is.EqualTo(new RangeDescriptor(-60, 60)));
+            Assert.That(Property(nameof(Echo.Count)).Default, Is.EqualTo(4));
+            Assert.That(Property(nameof(Echo.Count)).Range, Is.EqualTo(new RangeDescriptor(1, 64)));
+            Assert.That(Property(nameof(Echo.StartingIntensity)).Default, Is.EqualTo(100f));
+            Assert.That(Property(nameof(Echo.StartingIntensity)).Unit, Is.EqualTo("percent"));
+            Assert.That(Property(nameof(Echo.Decay)).Default, Is.EqualTo(70f));
+            Assert.That(Property(nameof(Echo.Decay)).Unit, Is.EqualTo("percent"));
+            Assert.That(Property(nameof(Echo.BlendMode)).Default, Is.EqualTo(EchoBlendMode.NewestOnTop));
+            Assert.That(Property(nameof(Echo.BlendMode)).EnumValues, Is.EqualTo(new[] { nameof(EchoBlendMode.NewestOnTop), nameof(EchoBlendMode.Add) }));
+            Assert.That(descriptor.Properties.Where(property => property.Animatable).Select(property => property.Name),
+                Is.EquivalentTo(animatedProperties));
+            Assert.That(descriptor.Properties, Has.All.Matches<PropertyDescriptor>(property => property.SupportsExpression));
+        }
+
+        PropertyDescriptor Property(string name) => descriptor.Properties.Single(property => property.Name == name);
+    }
+
+    [Test]
     public void Base_fields_exclude_non_serialized_scalars_but_keep_explicit_lists()
     {
         var generator = new SchemaGenerator(_library);

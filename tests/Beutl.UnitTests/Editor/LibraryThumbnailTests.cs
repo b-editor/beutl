@@ -153,15 +153,15 @@ public class LibraryThumbnailTests
         });
     }
 
-    // A motion blur draws its input again at other times, in sessions that share no resources, so the picture opens
-    // there too: the thumbnail shows the frame rather than the placeholder of media that cannot be read.
-    [Test]
-    public async Task A_motion_blur_draws_the_picture_it_samples_again()
+    // A temporal effect draws its input again at other times, so its independent sessions must open the picture too.
+    [TestCase(typeof(MotionBlur))]
+    [TestCase(typeof(Echo))]
+    public async Task A_temporal_effect_draws_the_picture_it_samples_again(Type effectType)
     {
         TestGpu.RequireAnyDevice();
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.FromFrameAsync(
             Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Blue)), new PixelSize(1920, 1080));
-        using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager, typeof(MotionBlur), subject, stillOnly: true))!;
+        using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager, effectType, subject, stillOnly: true))!;
         Bgra8888 center = Read(still.Bitmap, 160, 90);
 
         Assert.Multiple(() =>
