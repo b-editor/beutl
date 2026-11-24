@@ -18,11 +18,22 @@ public sealed partial class Vignette : FilterEffect
         uniform float2 inverseRadii;
         uniform float exponent;
         uniform float2 falloff;
+        uniform float midpointPosition;
         uniform float amount;
 
         float maskAt(float distance) {
             if (falloff.y > falloff.x) {
-                return smoothstep(falloff.x, falloff.y, distance);
+                if (midpointPosition == 0.5) {
+                    return smoothstep(falloff.x, falloff.y, distance);
+                }
+
+                // A band clipped at the center or the corner moves the midpoint off its middle, to p. This bias maps p
+                // back to the middle with a finite slope at both ends, so the smoothstep stays flat there:
+                // t (1 - p) / (t (1 - 2p) + p) is 0 at t = 0, 1 at t = 1 and 0.5 at t = p, and its denominator stays
+                // positive for p in (0, 1).
+                float t = clamp((distance - falloff.x) / (falloff.y - falloff.x), 0.0, 1.0);
+                float p = midpointPosition;
+                return smoothstep(0.0, 1.0, t * (1.0 - p) / (t * (1.0 - 2.0 * p) + p));
             }
 
             // A collapsed band is a hard step. Keep the center clear and the outer edge at full strength.
@@ -87,9 +98,28 @@ public sealed partial class Vignette : FilterEffect
             float midpoint = ClampFinite(Midpoint, 0f, 100f, 50f) / 100f;
             float feather = ClampFinite(Feather, 0f, 100f, 50f) / 100f;
             float roundness = ClampFinite(Roundness, -100f, 100f, 0f) / 100f;
-            // Keep the band symmetric about its half-strength point and inside the center-to-corner interval.
-            float halfWidth = MathF.Min(feather * 0.5f, MathF.Min(midpoint, 1f - midpoint));
+            // The band is symmetric about its half-strength point while it fits in the center-to-corner interval.
+            float halfWidth = feather * 0.5f;
             var falloff = new Vector2(midpoint - halfWidth, midpoint + halfWidth);
+            // Where the midpoint sits in the band; 0.5 while the band is symmetric about it.
+            float midpointPosition = 0.5f;
+            if (halfWidth > MathF.Min(midpoint, 1f - midpoint))
+            {
+                if (midpoint is > 0f and < 1f)
+                {
+                    // Clip a band that does not fit instead of narrowing it, and bend the falloff inside it so the
+                    // mask still reaches half strength at the midpoint. Keeping the position away from 0 and 1 keeps
+                    // it a normal float on the GPU, where the shader divides by it at the band's start.
+                    falloff = new Vector2(MathF.Max(falloff.X, 0f), MathF.Min(falloff.Y, 1f));
+                    midpointPosition = Math.Clamp((midpoint - falloff.X) / (falloff.Y - falloff.X), 1e-6f, 1f - 1e-6f);
+                }
+                else
+                {
+                    // A midpoint at the center or the corner leaves no room on one side, so it stays a step there.
+                    falloff = new Vector2(midpoint);
+                }
+            }
+
             float exponent = 2f + 6f * MathF.Max(-roundness, 0f);
             float circularity = MathF.Max(roundness, 0f);
 
@@ -100,6 +130,7 @@ public sealed partial class Vignette : FilterEffect
                 {
                     bindings.Uniform("amount", amount);
                     bindings.Uniform("falloff", falloff);
+                    bindings.Uniform("midpointPosition", midpointPosition);
                     bindings.Uniform("exponent", exponent);
                     bindings.Uniform("center", Center, static (writer, center, execution) =>
                     {

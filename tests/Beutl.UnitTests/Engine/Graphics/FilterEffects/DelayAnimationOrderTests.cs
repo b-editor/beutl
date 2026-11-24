@@ -58,6 +58,69 @@ public sealed class DelayAnimationOrderTests
         });
     }
 
+    [Test]
+    public void RandomOrderStartsWithEveryPartAboutEquallyOften()
+    {
+        const int seeds = 2000;
+        Assert.Multiple(() =>
+        {
+            for (int count = 2; count <= 16; count++)
+            {
+                int[] starts = CountFirstParts(count, seeds);
+                double expected = (double)seeds / count;
+                double chiSquare = starts.Sum(observed => (observed - expected) * (observed - expected) / expected);
+                Assert.That(chiSquare, Is.LessThan(ChiSquareUpperBound(count - 1)), $"{count} parts start first {string.Join(", ", starts)} times");
+            }
+        });
+    }
+
+    // Seeds that people type are small. Part 0's key used to be the seed's hash alone, which is small for small seeds.
+    [Test]
+    public void SmallSeedsDoNotFavourTheFirstPart()
+    {
+        const int seeds = 32;
+        Assert.Multiple(() =>
+        {
+            for (int count = 3; count <= 16; count++)
+            {
+                double share = 1.0 / count;
+                double bound = seeds * share + 2.5 * Math.Sqrt(seeds * share * (1 - share));
+                Assert.That(CountFirstParts(count, seeds)[0], Is.LessThanOrEqualTo(bound), $"{count} parts");
+            }
+        });
+    }
+
+    [TestCase(3)]
+    [TestCase(4)]
+    public void TheDefaultSeedDoesNotKeepTheForwardOrder(int count)
+    {
+        var ranks = new float[count];
+        DelayAnimationOrdering.ComputeRanks(DelayAnimationOrder.Random, 0, [], ranks);
+
+        Assert.That(ranks, Is.Not.EqualTo(Enumerable.Range(0, count).Select(i => (float)i)));
+    }
+
+    // How many of the seeds 0 to seeds - 1 start the Random order with each part.
+    private static int[] CountFirstParts(int count, int seeds)
+    {
+        var starts = new int[count];
+        var ranks = new float[count];
+        for (int seed = 0; seed < seeds; seed++)
+        {
+            DelayAnimationOrdering.ComputeRanks(DelayAnimationOrder.Random, seed, [], ranks);
+            starts[Array.IndexOf(ranks, 0f)]++;
+        }
+
+        return starts;
+    }
+
+    // The Wilson-Hilferty approximation of the chi-square distribution's 99.9th percentile.
+    private static double ChiSquareUpperBound(int degreesOfFreedom)
+    {
+        double variance = 2.0 / (9 * degreesOfFreedom);
+        return degreesOfFreedom * Math.Pow(1 - variance + 3.09 * Math.Sqrt(variance), 3);
+    }
+
     [TestCase(DelayAnimationOrder.TopToBottom, new float[] { 0, 0, 0, 0, 40f / 30f, 40f / 30f, 40f / 30f })]
     [TestCase(DelayAnimationOrder.BottomToTop, new float[] { 40f / 30f, 40f / 30f, 40f / 30f, 0, 0, 0, 0 })]
     [TestCase(DelayAnimationOrder.LeftToRight, new float[] { 0, 1, 2, 0, 0, 1, 2 })]

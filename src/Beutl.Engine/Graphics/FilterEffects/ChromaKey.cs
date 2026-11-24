@@ -19,6 +19,8 @@ public partial class ChromaKey : FilterEffect
         uniform float boundary;
         uniform float spillSuppression;
         uniform float3 spillAxis;
+        uniform float secondaryWeight;
+        uniform float3 weakAxis;
 
         // Match in linear light, where 8-bit quantization error is uniform, plus the half-storage error.
         const float kLinearQuantum = 0.5 / 255.0;
@@ -105,6 +107,11 @@ public partial class ChromaKey : FilterEffect
             float channel = dot(premulRgb, spillAxis);
             float limit = dot(premulRgb, float3(1.0) - spillAxis) * 0.5;
             float3 despilled = mix(premulRgb, float3(min(channel, limit)), spillAxis * amount);
+            if (secondaryWeight > 0.0) {
+                // A secondary key spills into its two strong channels, so limit both to its weak one.
+                float3 limited = min(premulRgb, float3(dot(premulRgb, weakAxis)));
+                despilled = mix(despilled, mix(premulRgb, limited, amount), secondaryWeight);
+            }
             return half4(half3(despilled), alpha) * mask;
         }
         """;
@@ -147,6 +154,7 @@ public partial class ChromaKey : FilterEffect
                         ? Vector3.UnitY
                         : keyColorLinear.Z >= keyColorLinear.X ? Vector3.UnitZ : Vector3.UnitX;
                     float spillSuppression = float.IsNaN(SpillSuppression) ? 0f : Math.Clamp(SpillSuppression / 100f, 0f, 1f);
+                    (float secondaryWeight, Vector3 weakAxis) = GetSecondarySpill(keyColorLinear);
 
                     bindings.Uniform(
                         "keyColor",
@@ -160,7 +168,23 @@ public partial class ChromaKey : FilterEffect
                     bindings.Uniform("boundary", Boundary / 100f);
                     bindings.Uniform("spillSuppression", spillSuppression);
                     bindings.Uniform("spillAxis", spillAxis);
+                    bindings.Uniform("secondaryWeight", secondaryWeight);
+                    bindings.Uniform("weakAxis", weakAxis);
                 }));
+        }
+
+        // How far the key is from a primary toward a secondary color, by the middle channel's share of its chroma,
+        // and the key's weakest channel. The weight stays exactly 0 for green and blue screens, which sit near a primary.
+        private static (float Weight, Vector3 WeakAxis) GetSecondarySpill(Vector3 key)
+        {
+            float max = MathF.Max(key.X, MathF.Max(key.Y, key.Z));
+            float min = MathF.Min(key.X, MathF.Min(key.Y, key.Z));
+            if (!(max > min)) return (0f, Vector3.Zero);
+
+            float middle = key.X + key.Y + key.Z - max - min;
+            float t = Math.Clamp(((middle - min) / (max - min) - 0.25f) / 0.5f, 0f, 1f);
+            Vector3 weakAxis = key.X == min ? Vector3.UnitX : key.Y == min ? Vector3.UnitY : Vector3.UnitZ;
+            return (t * t * (3f - 2f * t), weakAxis);
         }
     }
 }

@@ -24,6 +24,7 @@ public sealed partial class FilmGrain : FilterEffect
         uniform float amount;
         uniform float softness;
         uniform float chroma;
+        uniform float chromaGain;
         uniform float3 noiseKey;
 
         const float PERIOD = {{CellPeriod}}.0;
@@ -54,7 +55,8 @@ public sealed partial class FilmGrain : FilterEffect
             float3 color = float3(gaussian(x, p.y, noiseKey.z + 3191.0),
                                   gaussian(x, p.y, noiseKey.z + 7481.0),
                                   gaussian(x, p.y, noiseKey.z + 11551.0));
-            return mix(float3(mono), color, chroma);
+            // The two noises are independent, so a mix of them is weaker than either alone; the gain restores it.
+            return mix(float3(mono), color, chroma) * chromaGain;
         }
 
         float3 grain(float2 fragCoord) {
@@ -169,7 +171,11 @@ public sealed partial class FilmGrain : FilterEffect
                             MathF.Min(size * execution.OutputPlacement.Scale.Value, float.MaxValue)));
                     bindings.Uniform("amount", amount);
                     bindings.Uniform("softness", Math.Clamp(Softness / 100f, 0f, 1f));
-                    bindings.Uniform("chroma", Math.Clamp(Color / 100f, 0f, 1f));
+                    float chroma = Math.Clamp(Color / 100f, 0f, 1f);
+                    bindings.Uniform("chroma", chroma);
+                    // Mixing two independent noises by chroma scales their deviation by sqrt((1 - chroma)^2 + chroma^2),
+                    // which is exactly 1 at either end.
+                    bindings.Uniform("chromaGain", 1f / MathF.Sqrt((1f - chroma) * (1f - chroma) + chroma * chroma));
                     bindings.Uniform("noiseKey", CreateNoiseKey(Seed, Animate ? _frameIndex : 0));
                 },
                 SKShaderTileMode.Decal));
