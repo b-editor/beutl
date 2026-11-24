@@ -142,7 +142,10 @@ public sealed class WarpEdgeAntialiasingTests
                     problems.Add($"({x}, {y}) inside has alpha {alphas[x]}");
             }
 
-            if (!alphas.Any(alpha => alpha is > PartlyCovered and < 1 - PartlyCovered))
+            // Only near the slanted edge, so a partly covered pixel at the left side cannot stand in for it.
+            int near = Math.Max(0, (int)MathF.Floor(edge - 1.5f));
+            int far = Math.Min(Surface - 1, (int)MathF.Ceiling(edge + 1.5f));
+            if (!alphas[near..(far + 1)].Any(alpha => alpha is > PartlyCovered and < 1 - PartlyCovered))
                 problems.Add($"row {y} has no partly covered pixel at its slanted outer edge");
         }
 
