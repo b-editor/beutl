@@ -2739,6 +2739,21 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>バージョンをプッシュしています…</value>
   </data>
+  <data name="VersionControl_FetchingLfs" xml:space="preserve">
+    <value>Git LFS ファイルをダウンロード中…</value>
+  </data>
+  <data name="VersionControl_ApplyingPull" xml:space="preserve">
+    <value>リモートの変更を適用中…</value>
+  </data>
+  <data name="VersionControl_Committing" xml:space="preserve">
+    <value>コミットを作成中…</value>
+  </data>
+  <data name="VersionControl_Restoring" xml:space="preserve">
+    <value>バージョンを復元中…</value>
+  </data>
+  <data name="VersionControl_SwitchingBranch" xml:space="preserve">
+    <value>ブランチを切り替え中…</value>
+  </data>
   <data name="VersionControl_Pulling" xml:space="preserve">
     <value>バージョンをプルしています…</value>
   </data>

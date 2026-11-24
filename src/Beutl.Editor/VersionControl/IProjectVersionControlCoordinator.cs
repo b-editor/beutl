@@ -31,5 +31,7 @@ internal interface IProjectVersionControlCoordinator
         IProgress<string>? progress,
         CancellationToken cancellationToken);
 
-    Task<RemoteOpResult> PullAsync(CancellationToken cancellationToken);
+    Task<RemoteOpResult> PullAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken);
 }

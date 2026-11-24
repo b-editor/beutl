@@ -2345,7 +2345,7 @@ public class VersionControlTabViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(shownResult, Is.TypeOf<RemoteOpResult.Offline>());
-            Assert.That(viewModel.RemoteProgress.Value, Is.EqualTo("Writing objects: 50%"));
+            Assert.That(viewModel.RemoteProgress.Value, Is.EqualTo(new VersionControlRemoteProgress("Writing objects", 50)));
             Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
         });
     }
@@ -2490,7 +2490,7 @@ public class VersionControlTabViewModelTests
         await secondPush;
         queuedUiActions[0]();
 
-        Assert.That(viewModel.RemoteProgress.Value, Is.EqualTo("new"));
+        Assert.That(viewModel.RemoteProgress.Value.Text, Is.EqualTo("new"));
     }
 
     [Test]
@@ -2500,7 +2500,7 @@ public class VersionControlTabViewModelTests
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.Setup(x => x.PullAsync(It.IsAny<CancellationToken>()))
+        coordinator.Setup(x => x.PullAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new VersionControlConflictedException(Strings.VersionControl_ConflictGuidance));
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
@@ -2524,7 +2524,7 @@ public class VersionControlTabViewModelTests
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.Setup(x => x.PullAsync(It.IsAny<CancellationToken>()))
+        coordinator.Setup(x => x.PullAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("backend fault"));
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
@@ -3433,8 +3433,8 @@ public class VersionControlTabViewModelTests
         var pullStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.Setup(x => x.PullAsync(It.IsAny<CancellationToken>()))
-            .Returns<CancellationToken>(async cancellationToken =>
+        coordinator.Setup(x => x.PullAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
+            .Returns<IProgress<string>, CancellationToken>(async (_, cancellationToken) =>
             {
                 pullStarted.TrySetResult();
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);

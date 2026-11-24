@@ -13,6 +13,11 @@ internal sealed partial class GitCliVersionControlService :
     private static readonly IReadOnlyList<string> s_lfsUploadAgentOverrides =
         HostedGitLfsTransferAgent.GitConfigArguments(Environment.ProcessPath, Assembly.GetEntryAssembly()?.Location);
 
+    private static readonly GitCommandOptions s_lfsNetworkProgress = GitCommandOptions.Network with
+    {
+        EnvironmentOverrides = new Dictionary<string, string?> { ["GIT_LFS_FORCE_PROGRESS"] = "1" },
+    };
+
     // A repository can restrict which LFS paths are hydrated (lfs.fetchinclude / lfs.fetchexclude).
     // A pull, restore or branch switch has to reopen the project on its real media, so the Git
     // command that rewrites the files clears those filters: an excluded pointer is copied through

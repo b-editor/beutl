@@ -32,7 +32,8 @@ internal sealed class MockedVersionControlTab : IDisposable
         IReadOnlyList<FileChange> files,
         string diff,
         WorkspaceStatus? status = null,
-        IProjectVersionControlCoordinator? coordinator = null)
+        IProjectVersionControlCoordinator? coordinator = null,
+        RemoteInfo? remote = null)
     {
         var service = new Mock<IProjectVersionControlService>();
         service.SetupGet(x => x.Repository).Returns(new RepositoryInfo(root, root));
@@ -40,7 +41,7 @@ internal sealed class MockedVersionControlTab : IDisposable
             .ReturnsAsync(new GitAvailability(GitAvailabilityState.Installed, "git", new Version(2, 50), false));
         service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(status ?? new WorkspaceStatus("main", 0, 0, [], false));
-        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(remote is null ? [] : [remote]);
         service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(commits);
         service.Setup(x => x.GetCommitFilesAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(files);

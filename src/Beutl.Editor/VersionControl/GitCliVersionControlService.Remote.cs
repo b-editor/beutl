@@ -136,7 +136,7 @@ internal sealed partial class GitCliVersionControlService
             await runner.RunAsync(
                 repository,
                 arguments,
-                GitCommandOptions.Network,
+                progress is null ? GitCommandOptions.Network : s_lfsNetworkProgress with { StdoutProgress = progress },
                 cancellationToken,
                 progress).ConfigureAwait(false);
             await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -192,7 +192,8 @@ internal sealed partial class GitCliVersionControlService
 
     private async Task<PullPreflightResult> PreflightPullCoreAsync(
         CheckedOutBranchTip expectedCurrent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<string>? progress)
     {
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
@@ -216,7 +217,8 @@ internal sealed partial class GitCliVersionControlService
                 repository,
                 runner,
                 expectedCurrent,
-                cancellationToken)
+                cancellationToken,
+                progress)
             .ConfigureAwait(false);
         if (upstream.Failure is not null)
         {
@@ -409,7 +411,8 @@ internal sealed partial class GitCliVersionControlService
         RepositoryInfo repository,
         IGitCliRunner runner,
         CheckedOutBranchTip expectedCurrent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<string>? progress)
     {
         bool hasOrigin = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count > 0;
         PullFetchTarget fetchTarget = await ResolvePullFetchTargetAsync(
@@ -428,9 +431,12 @@ internal sealed partial class GitCliVersionControlService
         {
             await runner.RunAsync(
                 repository,
-                fetchTarget.Arguments,
+                progress is null
+                    ? ["fetch", .. fetchTarget.Arguments]
+                    : ["fetch", "--progress", .. fetchTarget.Arguments],
                 GitCommandOptions.Network,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                progress).ConfigureAwait(false);
         }
         catch (GitOperationException ex)
         {
@@ -492,7 +498,7 @@ internal sealed partial class GitCliVersionControlService
 
         if (!hasOrigin)
         {
-            return new PullFetchTarget(["fetch"], "@{upstream}");
+            return new PullFetchTarget([], "@{upstream}");
         }
 
         if (configuredUpstream is not null
@@ -504,7 +510,6 @@ internal sealed partial class GitCliVersionControlService
 
         return new PullFetchTarget(
             [
-                "fetch",
                 "origin",
                 $"+refs/heads/{branchName}:{upstreamRef}",
             ],

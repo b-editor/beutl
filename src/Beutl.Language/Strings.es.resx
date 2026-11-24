@@ -2961,6 +2961,21 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>Enviando versiones…</value>
   </data>
+  <data name="VersionControl_FetchingLfs" xml:space="preserve">
+    <value>Descargando archivos de Git LFS…</value>
+  </data>
+  <data name="VersionControl_ApplyingPull" xml:space="preserve">
+    <value>Aplicando los cambios remotos…</value>
+  </data>
+  <data name="VersionControl_Committing" xml:space="preserve">
+    <value>Creando confirmación…</value>
+  </data>
+  <data name="VersionControl_Restoring" xml:space="preserve">
+    <value>Restaurando versión…</value>
+  </data>
+  <data name="VersionControl_SwitchingBranch" xml:space="preserve">
+    <value>Cambiando de rama…</value>
+  </data>
   <data name="VersionControl_Pulling" xml:space="preserve">
     <value>Obteniendo versiones…</value>
   </data>

@@ -15,10 +15,29 @@ internal sealed partial class GitCliRunner
     private const string OmittedProgressRecord =
         "[progress record omitted because it exceeded the retention limit]";
 
+    private static async Task<(string Output, byte[]? OutputBytes, bool Truncated)> StreamStandardOutputProgressAsync(
+        TextReader reader,
+        IProgress<string> progress,
+        CancellationToken cancellationToken)
+    {
+        // Git LFS writes its meter to stdout. Use the same bounded, redacted record reader as stderr.
+        (_, bool truncated) = await ReadOutputRecordsAsync(reader, progress, cancellationToken).ConfigureAwait(false);
+        return (string.Empty, null, truncated);
+    }
+
     internal static async Task<string> ReadStandardErrorAsync(
         TextReader reader,
         IProgress<string>? progress,
         CancellationToken cancellationToken = default)
+    {
+        (string output, _) = await ReadOutputRecordsAsync(reader, progress, cancellationToken).ConfigureAwait(false);
+        return output;
+    }
+
+    private static async Task<(string Output, bool Truncated)> ReadOutputRecordsAsync(
+        TextReader reader,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
     {
         var retainedRecords = new Queue<string>();
         int retainedLength = 0;
@@ -147,7 +166,7 @@ internal sealed partial class GitCliRunner
             CompleteProgressRecord();
         }
 
-        return string.Concat(retainedRecords);
+        return (string.Concat(retainedRecords), count < 0);
     }
 
     private static void RetainCompleteStandardErrorRecord(
