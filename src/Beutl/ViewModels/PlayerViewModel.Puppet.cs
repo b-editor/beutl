@@ -19,11 +19,8 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
 {
     private CancellationTokenSource? _puppetPlacement;
     private readonly ReactivePropertySlim<Ref<Bitmap>?> _puppetPlacementImage = new();
-    private ReadOnlyReactivePropertySlim<Puppet?> _puppetEditingEffect = null!;
 
     internal ReactivePropertySlim<Puppet?> PuppetPlacementEffect { get; } = new();
-
-    internal ReactivePropertySlim<bool> ShowsPuppetStage { get; } = new();
 
     internal ReadOnlyReactivePropertySlim<Ref<Bitmap>?> EditorPreviewImage { get; private set; } = null!;
 
@@ -37,16 +34,6 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         _puppetPlacementImage.DisposeWith(_disposables);
-        _puppetEditingEffect = _editorSelection.SelectedObject
-            .CombineLatest(IsMoveMode, IsPlaying, PathEditor.IsVisible,
-                static (selected, move, playing, path) => move && !playing && !path ? selected as Puppet : null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        _puppetEditingEffect.Skip(1).Subscribe(_ =>
-        {
-            if (!IsPlaybackActive)
-                QueueRender();
-        }).DisposeWith(_disposables);
         _editorSelection.SelectedObject.Subscribe(selected =>
         {
             if (SelectedPuppetPin.Value is { } pin && !ReferenceEquals(pin.FindHierarchicalParent<Puppet>(), selected))
@@ -54,11 +41,7 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
         }).DisposeWith(_disposables);
         SelectedPuppetPin.DisposeWith(_disposables);
         PuppetPlacementEffect.DisposeWith(_disposables);
-        ShowsPuppetStage.DisposeWith(_disposables);
     }
-
-    private static IReadOnlySet<EngineObject>? GetPuppetStageDisabledEffects(Puppet? effect)
-        => effect is not null && FilterEffectOrder.After(effect) is { Count: > 0 } after ? after : null;
 
     void IPreviewPuppetPinEditor.SelectPin(Puppet effect, PuppetPin pin)
     {
@@ -153,7 +136,7 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
             while (!request.IsCancellationRequested)
             {
                 int revision = Volatile.Read(ref sceneRevision);
-                IReadOnlySet<EngineObject>? after = GetPuppetStageDisabledEffects(effect);
+                IReadOnlySet<EngineObject>? after = GetEditingStageDisabledEffects(effect);
                 var capture = await RenderThread.Dispatcher.InvokeAsync(() =>
                 {
                     using SceneRenderer renderer = EditViewModel.CreatePreviewRenderer(scene, scale, disableResourceShare: true);

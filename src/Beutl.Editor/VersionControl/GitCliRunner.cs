@@ -338,6 +338,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         GitProcessEnvironment.ConfigureToolSearchPath(startInfo);
 
         startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+        startInfo.Environment["GIT_TRACE_REDACT"] = "1";
+        startInfo.Environment["GCM_TRACE_SECRETS"] = "0";
         startInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";
         startInfo.Environment["GIT_LITERAL_PATHSPECS"] = useLiteralPathspecs ? "1" : "0";
         startInfo.Environment["LC_ALL"] = "C";

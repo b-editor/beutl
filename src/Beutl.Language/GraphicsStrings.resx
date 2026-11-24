@@ -384,6 +384,12 @@
   <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
     <value>Scales the red channel by (1 + Amount/100) and the blue channel by (1 - Amount/100) around the center. The green channel stays in place. Negative values swap the fringe colors.</value>
   </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels" xml:space="preserve">
+    <value>Repeat edge pixels</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels_Description" xml:space="preserve">
+    <value>Where a channel reads past the picture's edge, it repeats the edge pixels, so the edges keep their colors and the result stays within the picture. When off, the fringes spread past the picture, which suits an object on a transparent background.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>Curves</value>
   </data>
@@ -2194,7 +2200,7 @@
     <value>Rate (fps)</value>
   </data>
   <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
-    <value>The number of samples per second. Lower values hold each frame for longer.</value>
+    <value>The number of samples per second. Lower values hold each frame for longer. To change the rate over time, use keyframes: a rate from an expression applies to the whole time since the start.</value>
   </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>Alpha Mode</value>
@@ -2241,6 +2247,9 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>Mesh point {0}, {1}</value>
   </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>Editing mesh points. Later effects are hidden in the preview.</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>Puppet</value>
   </data>
@@ -2275,7 +2284,7 @@
     <value>Image-relative coordinates. The upper-left corner is (0, 0) and the lower-right corner is (1, 1).</value>
   </data>
   <data name="Puppet_LibraryDescription" xml:space="preserve">
-    <value>Bend an image by placing and moving pins.</value>
+    <value>Bends an image by placing and moving pins (puppet pin, puppet tool, deform).</value>
   </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>Draws a circle or ellipse that can also serve as a matte (ellipse, shape, solid, mask, track matte).</value>
@@ -2386,7 +2395,7 @@
     <value>Draws fading copies from earlier or later moments over the current frame (afterimage, ghost trail, motion trails).</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>Holds frames at a lower rate for a stop-motion look (frame hold, stop motion, low frame rate).</value>
+    <value>Holds frames at a lower rate for a stop-motion look (frame hold, stop motion, low frame rate, posterize time).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>Softens the image using the shape of a lens aperture (lens blur, defocus).</value>
@@ -2452,7 +2461,7 @@
     <value>Lightens or darkens the whole image (brighten, darken).</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>Changes how much of the image is visible (alpha, transparency).</value>
+    <value>Changes how much of the image is visible (alpha, transparency, fade).</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>Lightens or darkens midtones to adjust tonal balance (gamma correction, midtones).</value>
@@ -2467,7 +2476,7 @@
     <value>Adds a fine noise pattern that looks like film grain (noise, grain).</value>
   </data>
   <data name="Vignette_LibraryDescription" xml:space="preserve">
-    <value>Darkens the edges of the image around a chosen center (lens vignette, edge darkening).</value>
+    <value>Darkens the edges of the image around a chosen center, or lightens them with a negative amount (lens vignette, edge darkening).</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
     <value>Reverses the colors of an image (negative, invert colors).</value>
@@ -2482,7 +2491,7 @@
     <value>Reverses image colors with separate red, green and blue adjustments (negative, invert colors).</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
-    <value>Removes a background by its hue and saturation (green screen, blue screen, keylight).</value>
+    <value>Removes a background by its hue and saturation and suppresses the key color spilling onto the subject (green screen, blue screen, keylight, despill, spill suppressor).</value>
   </data>
   <data name="ColorKey_LibraryDescription" xml:space="preserve">
     <value>Makes pixels close to a chosen color transparent (keying, color key, color matte).</value>
@@ -2527,7 +2536,7 @@
     <value>Combines separate effect outputs into a single image (flatten, merge layers).</value>
   </data>
   <data name="DelayAnimationEffect_LibraryDescription" xml:space="preserve">
-    <value>Staggers an animated effect across copies or pieces (stagger, time offset).</value>
+    <value>Staggers an animated effect across copies, pieces or text characters so they animate one after another (stagger, time offset, text animator).</value>
   </data>
   <data name="PixelSortEffect_LibraryDescription" xml:space="preserve">
     <value>Sorts runs of pixels by brightness or color to create streaks (pixel sorting, streak glitch).</value>

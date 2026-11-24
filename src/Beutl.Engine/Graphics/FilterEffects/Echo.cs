@@ -37,7 +37,7 @@ public sealed partial class Echo : FilterEffect
 
     [Display(Name = nameof(GraphicsStrings.Echo_BlendMode), Description = nameof(GraphicsStrings.Echo_BlendMode_Description),
         ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<EchoBlendMode> BlendMode { get; } = Property.CreateExpression(EchoBlendMode.NewestOnTop);
+    public IExpressionProperty<EchoBlendMode> BlendMode { get; } = Property.CreateExpression(EchoBlendMode.Add);
 
     public new partial class Resource
     {
@@ -62,6 +62,7 @@ public sealed partial class Echo : FilterEffect
             if ((count == 1 || decay == 0) && opacity == 1) return false;
 
             _drawInReverse = interval < 0;
+            // Keep every copy whose opacity has not reached 0: an HDR or exposed-up input can make a faint copy visible.
             var samples = new List<(FilterEffectInputSample Sample, float Opacity)>(count);
             for (int index = 0; index < count && opacity > 0; index++)
             {

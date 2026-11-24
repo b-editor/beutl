@@ -1,8 +1,10 @@
 ﻿using System.Globalization;
+using Beutl.Api;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.UnitTests.Api;
 using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
@@ -3576,6 +3578,203 @@ public class VersionControlTabViewModelTests
             Assert.That(viewModel.HasRemote.Value, Is.False);
             Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
         });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Hosted_origin_opens_the_branch_and_commit_on_the_web(bool detached)
+    {
+        var (service, commit, _) = CreatePreviewService();
+        const string branch = "feature/fix";
+        string origin = HostedGitRepositoryServiceTests.Repository().Url;
+        string dashboard = $"{BeutlApiApplication.BaseUrl}/dashboard/repositories/{HostedGitRepositoryServiceTests.RepositoryId}";
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([new RemoteInfo("origin", origin)]);
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus(detached ? null : branch, 0, 0, [], false, IsDetachedHead: detached));
+        using var vm = CreateViewModel(service.Object);
+        var opened = new List<Uri>();
+        vm.LaunchUriAsync = uri =>
+        {
+            opened.Add(uri);
+            return Task.FromResult(true);
+        };
+        await vm.Initialization;
+        Assert.That(vm.HostedRepositoryId.Value, Is.EqualTo(HostedGitRepositoryServiceTests.RepositoryId));
+        Assert.That(vm.IsHostedGitRemote.Value, Is.True);
+
+        await vm.OpenOnWebCommand.ExecuteAsync();
+        if (!detached)
+            await vm.Commits.Single().OpenOnWebCommand.ExecuteAsync();
+        Assert.That(opened.Select(uri => uri.AbsoluteUri), Is.EqualTo(detached
+            ? new[] { dashboard }
+            : new[] { $"{dashboard}?ref=feature%2Ffix", $"{dashboard}?ref={commit.Sha}" }));
+    }
+
+    [Test]
+    public async Task Publish_connects_the_selected_hosted_remote_then_pushes_once()
+    {
+        var service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>(MockBehavior.Strict);
+        var repository = HostedGitRepositoryServiceTests.Repository();
+        var configured = GitRemoteUrl.WithHostedCredentials(new Uri(repository.Url), HostedGitRepositoryServiceTests.AccessToken);
+        coordinator.Setup(x => x.SetRemoteAsync(configured, null, It.IsAny<CancellationToken>()))
+            .Callback(() => service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync([new RemoteInfo("origin", repository.Url)]))
+            .Returns(Task.CompletedTask);
+        coordinator.Setup(x => x.PushAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteOpResult.Success());
+        using var vm = CreateViewModel(service.Object, coordinator.Object);
+        await vm.Initialization;
+        vm.RequestRemoteConnectionAsync = async (context, apply, token) =>
+        {
+            Assert.That(context.Publish, Is.True);
+            Assert.That(context.HasOrigin, Is.False);
+            await apply(configured, token);
+            return true;
+        };
+
+        await vm.PublishBranchAsync();
+
+        coordinator.Verify(x => x.PushAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(vm.HostedRepositoryId.Value, Is.EqualTo(repository.Id));
+    }
+
+    [Test]
+    public async Task Publish_cannot_replace_an_origin_added_since_the_last_refresh()
+    {
+        var service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>(MockBehavior.Strict);
+        using var vm = CreateViewModel(service.Object, coordinator.Object);
+        await vm.Initialization;
+        string url = HostedGitRepositoryServiceTests.Repository().Url;
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([new RemoteInfo("origin", url)]);
+        vm.RequestRemoteConnectionAsync = (_, _, _) => throw new AssertionException("Unexpected connect prompt");
+
+        await vm.PublishBranchAsync();
+
+        Assert.That(vm.RemoteUrl.Value, Is.EqualTo(url));
+        Assert.That(vm.StatusMessage.Value, Is.EqualTo(Strings.HostedGit_OriginAlreadyConfigured));
+        coordinator.VerifyNoOtherCalls();
+    }
+
+    [Test]
+    public async Task Local_remote_and_history_are_ready_before_an_advertised_origin_lookup_finishes()
+    {
+        var repository = HostedGitRepositoryServiceTests.Repository() with
+        {
+            Url = $"https://git.example.invalid/api/v3/git/{HostedGitRepositoryServiceTests.RepositoryId}.git",
+        };
+        var reply = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var http = new HttpClient(new DelegateHttpHandler(_ => reply.Task));
+        await using BeutlApiApplication api = HostedGitRepositoryServiceTests.CreateApp(http);
+        ApiTestAuthentication.SignIn(api);
+        var context = new Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(BeutlApiApplication))).Returns(api);
+        var service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", repository.Url)]);
+        using var source = CreateServiceSource(service.Object);
+        using var vm = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), context.Object, source, null, action => action());
+        var recognized = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = vm.HostedRepositoryId.Subscribe(id =>
+        {
+            if (id is not null)
+                recognized.TrySetResult(id);
+        });
+
+        try
+        {
+            await vm.Initialization.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(vm.RemoteUrl.Value, Is.EqualTo(repository.Url));
+            Assert.That(vm.HostedRepositoryId.Value, Is.Null);
+            reply.SetResult(HostedGitRepositoryServiceTests.Json(repository));
+            Assert.That(await recognized.Task.WaitAsync(TimeSpan.FromSeconds(5)), Is.EqualTo(repository.Id));
+        }
+        finally
+        {
+            if (!reply.Task.IsCompleted)
+                reply.TrySetResult(HostedGitRepositoryServiceTests.Json(repository));
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Hosted_auth_failure_offers_reconnect_for_both_push_and_pull(bool push)
+    {
+        var repository = HostedGitRepositoryServiceTests.Repository();
+        using var http = new HttpClient(new DelegateHttpHandler(request => request.Method == HttpMethod.Get
+            ? HostedGitRepositoryServiceTests.Json(repository)
+            : HostedGitRepositoryServiceTests.Json(HostedGitRepositoryServiceTests.Token(), System.Net.HttpStatusCode.Created)));
+        await using BeutlApiApplication api = HostedGitRepositoryServiceTests.CreateApp(http);
+        ApiTestAuthentication.SignIn(api);
+        var notification = new Mock<Beutl.Services.INotificationService>();
+        Beutl.Services.Notification? shown = null;
+        notification.Setup(x => x.Show(It.IsAny<Beutl.Services.Notification>())).Callback<Beutl.Services.Notification>(n => shown = n);
+        var context = new Mock<IEditorContext>();
+        context.Setup(x => x.GetService(typeof(BeutlApiApplication))).Returns(api);
+        context.Setup(x => x.GetService(typeof(Beutl.Services.INotificationService))).Returns(notification.Object);
+        var service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", repository.Url)]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>(MockBehavior.Strict);
+        var failure = new RemoteOpResult.AuthFailed("Authentication failed", "Sign in");
+        if (push)
+            coordinator.Setup(x => x.PushAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(failure);
+        else
+            coordinator.Setup(x => x.PullAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(failure);
+        coordinator.Setup(x => x.SetRemoteAsync(
+                It.Is<GitRemoteUrl>(remote => remote.Url == repository.Url && remote.HasCredentials
+                    && remote.Username!.StartsWith("beutl-", StringComparison.Ordinal)),
+                repository.Url, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        using var source = CreateServiceSource(service.Object);
+        using var vm = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), context.Object, source, coordinator.Object, action => action());
+        await vm.Initialization;
+        await (push ? vm.PushAsync() : vm.PullAsync());
+        Assert.That(shown?.Message, Does.Contain(failure.Stderr));
+        var action = shown?.Actions?.Single();
+        Assert.That(action?.Text, Is.EqualTo(Strings.HostedGit_Reconnect));
+        action!.Callback();
+        await vm.ConfigureRemoteCompletion;
+        coordinator.Verify(x => x.SetRemoteAsync(It.IsAny<GitRemoteUrl>(), repository.Url, It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(vm.StatusMessage.Value, Is.EqualTo(Strings.HostedGit_Reconnected));
+    }
+
+    [Test]
+    public async Task Create_retry_reuses_the_creation_identifier_and_revokes_the_first_token()
+    {
+        var created = HostedGitRepositoryServiceTests.Repository();
+        var ids = new List<string?>();
+        int revocations = 0;
+        using var http = new HttpClient(new DelegateHttpHandler(async request =>
+        {
+            if (request.Method == HttpMethod.Delete)
+            {
+                revocations++;
+                return new HttpResponseMessage(System.Net.HttpStatusCode.NoContent);
+            }
+            if (request.RequestUri!.AbsolutePath == "/api/v3/repos")
+            {
+                using var input = System.Text.Json.JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+                ids.Add(input.RootElement.GetProperty("creationId").GetString());
+                return HostedGitRepositoryServiceTests.Json(created, System.Net.HttpStatusCode.Created);
+            }
+            return HostedGitRepositoryServiceTests.Json(HostedGitRepositoryServiceTests.Token(), System.Net.HttpStatusCode.Created);
+        }));
+        await using BeutlApiApplication api = HostedGitRepositoryServiceTests.CreateApp(http);
+        ApiTestAuthentication.SignIn(api);
+        int setups = 0;
+        using var vm = new ConnectRemoteDialogViewModel(api, new ConnectRemoteContext("Sample", false, "", true),
+            [], (_, _) => ++setups == 1 ? Task.FromException(new GitCredentialStorageException()) : Task.CompletedTask,
+            CancellationToken.None);
+
+        Assert.That(await vm.ConnectAsync(), Is.False);
+        Assert.That(await vm.ConnectAsync(), Is.True);
+        Assert.That(ids, Has.Count.EqualTo(2));
+        Assert.That(Guid.TryParse(ids[0], out _), Is.True);
+        Assert.That(ids[1], Is.EqualTo(ids[0]));
+        Assert.That(revocations, Is.EqualTo(1));
     }
 
     private static async Task WaitForCommandReadyAsync(AsyncReactiveCommand command)

@@ -49,6 +49,7 @@ public sealed partial class MainViewModel
                         new(Strings.File) { Command = MenuBar.OpenFile, GestureCommand = "main.openFile" },
                     ]
                 },
+                new(Strings.HostedGit_CloneRepositoryMenu) { Command = MenuBar.CloneRepository },
                 MainMenuItem.Separator,
                 new(Strings.CloseTab) { Command = MenuBar.CloseTab, GestureCommand = MainViewExtension.CloseTabCommandId },
                 new(Strings.Close) { Command = MenuBar.CloseFile },

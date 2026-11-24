@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
+using Beutl.UnitTests.Api;
 using Beutl.UnitTests.TestInfrastructure;
 using Moq;
 using Reactive.Bindings;
@@ -10,6 +11,35 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [TestFixture]
 public class TitleBarBranchViewModelTests
 {
+    [Test]
+    public async Task Web_action_follows_the_current_branch_and_disappears_for_custom_remotes()
+    {
+        var service = CreateServiceMock();
+        var remote = HostedGitRepositoryServiceTests.Repository();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", remote.Url)]);
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("work/story", 1, 0, [], false));
+        using var vm = CreateViewModel(service.Object);
+        await vm.Initialization;
+        Uri? opened = null;
+        vm.LaunchUriAsync = url =>
+        {
+            opened = url;
+            return Task.FromResult(true);
+        };
+
+        Assert.That(vm.IsHostedGitRemote.Value, Is.True);
+        await vm.OpenOnWebCommand.ExecuteAsync();
+        Assert.That(opened?.PathAndQuery, Is.EqualTo($"/dashboard/repositories/{remote.Id}?ref=work%2Fstory"));
+
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/other.git")]);
+        await vm.PrepareFlyoutAsync();
+        Assert.That(vm.IsHostedGitRemote.Value, Is.False);
+        Assert.That(vm.OpenOnWebCommand.CanExecute(), Is.False);
+    }
+
     [TestCase(RepositoryChangeKind.Metadata)]
     [TestCase(RepositoryChangeKind.All)]
     public async Task Open_flyout_refreshes_external_branch_changes_after_preparation(RepositoryChangeKind kind)

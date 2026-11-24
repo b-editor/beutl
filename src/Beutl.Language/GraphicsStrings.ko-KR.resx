@@ -383,6 +383,12 @@
   <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
     <value>중심을 기준으로 빨간색 채널의 배율은 (1 + 양/100), 파란색 채널의 배율은 (1 - 양/100)입니다. 녹색 채널의 위치는 그대로 유지됩니다. 음수 값을 사용하면 색 번짐의 빨간색과 파란색이 서로 바뀝니다.</value>
   </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels" xml:space="preserve">
+    <value>가장자리 픽셀 반복</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels_Description" xml:space="preserve">
+    <value>채널이 이미지 가장자리 바깥을 읽을 때 가장자리 픽셀을 반복합니다. 가장자리의 색이 유지되고 결과가 이미지 안에 머뭅니다. 끄면 색 번짐이 이미지 바깥까지 퍼지므로 투명한 배경 위의 개체에 적합합니다.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>곡선</value>
   </data>
@@ -2193,7 +2199,7 @@
     <value>프레임률 (fps)</value>
   </data>
   <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
-    <value>초당 샘플 수입니다. 값이 낮을수록 각 프레임을 더 오래 유지합니다.</value>
+    <value>초당 샘플 수입니다. 값이 낮을수록 각 프레임을 더 오래 유지합니다. 시간에 따라 바꾸려면 키프레임을 사용하세요. 식으로 지정한 프레임률은 시작부터의 시간 전체에 적용됩니다.</value>
   </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>알파 모드</value>
@@ -2240,6 +2246,9 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>메시 제어점({0}행, {1}열)</value>
   </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>메시 제어점 편집 중입니다. 미리 보기에서 이후 효과를 일시적으로 숨깁니다.</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>퍼펫</value>
   </data>
@@ -2274,7 +2283,7 @@
     <value>이미지를 기준으로 한 상대 좌표입니다. 왼쪽 위는 (0, 0), 오른쪽 아래는 (1, 1)입니다.</value>
   </data>
   <data name="Puppet_LibraryDescription" xml:space="preserve">
-    <value>이미지에 핀을 놓고 움직여 변형합니다.</value>
+    <value>이미지에 핀을 놓고 움직여 변형합니다 (퍼펫 핀, 퍼펫 도구 / puppet pin, puppet tool, deform).</value>
   </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>마스크로도 쓸 수 있는 원이나 타원을 그립니다 (타원, 도형, 솔리드, 마스크, 트랙 매트 / ellipse, shape, solid, mask, track matte).</value>
@@ -2385,7 +2394,7 @@
     <value>이전 또는 이후 시점의 복사본을 점점 투명하게 현재 프레임 위에 겹쳐 그립니다 (잔상, 고스트 트레일 / afterimage, ghost trail, motion trails).</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>프레임을 일정 간격으로 유지하여 스톱 모션처럼 보이게 합니다 (저프레임 레이트 / frame hold, stop motion).</value>
+    <value>프레임을 일정 간격으로 유지하여 스톱 모션처럼 보이게 합니다 (저프레임 레이트 / frame hold, stop motion, posterize time).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>렌즈 조리개 모양으로 이미지를 흐리게 합니다 (렌즈 흐림, 디포커스 / lens blur, defocus).</value>
@@ -2451,7 +2460,7 @@
     <value>이미지 전체를 밝게 하거나 어둡게 합니다 (밝게 하기, 어둡게 하기 / brighten, darken).</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>이미지가 얼마나 투명하게 보일지 조절합니다 (알파, 투명도 / alpha, transparency).</value>
+    <value>이미지가 얼마나 투명하게 보일지 조절합니다 (알파, 투명도, 페이드 / alpha, transparency, fade).</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>중간톤을 밝게 하거나 어둡게 하여 톤 균형을 조절합니다 (감마 보정, 중간톤 / gamma correction, midtones).</value>
@@ -2466,7 +2475,7 @@
     <value>필름 입자와 비슷한 미세한 노이즈를 추가합니다 (노이즈, 그레인, 필름 입자 / noise, grain).</value>
   </data>
   <data name="Vignette_LibraryDescription" xml:space="preserve">
-    <value>지정한 중심에서 멀어질수록 이미지를 어둡게 합니다 (비네팅, 가장자리 어둡게 / lens vignette, edge darkening).</value>
+    <value>지정한 중심에서 멀어질수록 이미지를 어둡게 하고, 양을 음수로 하면 밝게 합니다 (비네팅, 가장자리 어둡게 / lens vignette, edge darkening).</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
     <value>이미지의 색을 반전합니다 (색상 반전, 네거티브 / negative, invert colors).</value>
@@ -2481,7 +2490,7 @@
     <value>빨강, 초록, 파랑을 각각 조절하며 이미지의 색을 반전합니다 (색상 반전, 네거티브 / negative, invert colors).</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
-    <value>색조와 채도로 배경을 골라 투명하게 만듭니다 (그린 스크린, 블루 스크린, 크로마 키, 키잉 / green screen, blue screen, keylight).</value>
+    <value>색조와 채도로 배경을 골라 투명하게 만들고 피사체에 번진 배경색을 억제합니다 (그린 스크린, 블루 스크린, 크로마 키, 키잉, 스필 억제 / green screen, blue screen, keylight, despill, spill suppressor).</value>
   </data>
   <data name="ColorKey_LibraryDescription" xml:space="preserve">
     <value>지정한 색과 비슷한 픽셀을 투명하게 만듭니다 (키잉, 색상 키, 색상 매트 / keying, color key, color matte).</value>
@@ -2526,7 +2535,7 @@
     <value>분리된 효과 출력을 한 이미지로 합칩니다 (레이어 병합, 병합 / flatten, merge layers).</value>
   </data>
   <data name="DelayAnimationEffect_LibraryDescription" xml:space="preserve">
-    <value>복사본이나 조각마다 효과 애니메이션의 타이밍을 다르게 적용합니다 (시차 애니메이션, 시간 오프셋 / stagger, time offset).</value>
+    <value>복사본이나 조각, 텍스트의 문자마다 효과 애니메이션의 타이밍을 다르게 적용하여 차례로 움직이게 합니다 (시차 애니메이션, 시간 오프셋, 텍스트 애니메이션 / stagger, time offset, text animator).</value>
   </data>
   <data name="PixelSortEffect_LibraryDescription" xml:space="preserve">
     <value>연속된 픽셀을 밝기나 색으로 정렬해 줄무늬를 만듭니다 (픽셀 정렬, 줄무늬 글리치 / pixel sorting, streak glitch).</value>

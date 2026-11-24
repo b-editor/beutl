@@ -107,6 +107,107 @@ public sealed class ChromaKeySpillSuppressionTests
         }
         """;
 
+    // ChromaKey's shader as it shipped in preview.15 with spill suppression, frozen so that primary keys and green
+    // and blue screens are held to the pixels existing projects already render rather than to the current shader.
+    private const string ShippedShaderSource =
+        """
+        uniform float3 keyColor;
+        uniform float3 keyColorLinear;
+        uniform float hueRange;
+        uniform float saturationRange;
+        uniform float boundary;
+        uniform float spillSuppression;
+        uniform float3 spillAxis;
+
+        // Match in linear light, where 8-bit quantization error is uniform, plus the half-storage error.
+        const float kLinearQuantum = 0.5 / 255.0;
+        const float kHalfStorageUlp = 1.0 / 2048.0;
+
+        // Quantization can manufacture one code of chroma, so a key below one code has no dependable hue;
+        // only the key is measured, and withholding the hue term votes to remove.
+        const half kHueChromaFloor = 1.0 / 255.0;
+
+        // Slack around the key colour, and the narrowest smoothstep: equal edges are undefined.
+        const half kEdgeTolerance = 1.0 / 255.0;
+
+        half3 rgb2hsv(half3 value) {
+            half r = value.r;
+            half g = value.g;
+            half b = value.b;
+            half maxc = max(r, max(g, b));
+            half minc = min(r, min(g, b));
+            half delta = maxc - minc;
+            half h = 0.0;
+
+            if (delta > 0.00001) {
+                if (maxc == r) {
+                    h = mod((g - b) / delta, 6.0);
+                } else if (maxc == g) {
+                    h = (b - r) / delta + 2.0;
+                } else {
+                    h = (r - g) / delta + 4.0;
+                }
+                h = h / 6.0;
+            }
+
+            half s = (maxc <= 0.0) ? 0.0 : (delta / maxc);
+            half v = maxc;
+            return half3(h, s, v);
+        }
+
+        half3 linearToSrgb(half3 value) {
+            half3 lo = value * 12.92;
+            half3 hi = 1.055 * pow(max(value, half3(0.0)), half3(1.0 / 2.4)) - 0.055;
+            return mix(lo, hi, step(half3(0.0031308), value));
+        }
+
+        half chroma(half3 value) {
+            return max(value.r, max(value.g, value.b)) - min(value.r, min(value.g, value.b));
+        }
+
+        half4 apply(half4 color) {
+            half alpha = color.a;
+            if (alpha <= 0.0001) return half4(0.0);
+            half3 rgb = color.rgb / alpha;
+
+            float3 keyPremul = keyColorLinear * float(alpha);
+            float3 excess = abs(float3(color.rgb) - keyPremul)
+                - (kLinearQuantum + (kHalfStorageUlp * keyPremul));
+            half onKeyColor = max(excess.r, max(excess.g, excess.b)) <= 0.0 ? 1.0 : 0.0;
+
+            half3 hsv = rgb2hsv(linearToSrgb(rgb));
+            half3 keyHSV = rgb2hsv(keyColor);
+
+            half hueDiff = abs(hsv.x - keyHSV.x);
+            hueDiff = min(hueDiff, 1.0 - hueDiff);
+
+            half satDiff = abs(hsv.y - keyHSV.y);
+
+            half width = max(boundary, kEdgeTolerance);
+            half hueEdge0 = hueRange + kEdgeTolerance;
+            half satEdge0 = saturationRange + kEdgeTolerance;
+            half hueSignal = smoothstep(
+                kHueChromaFloor,
+                2.0 * kHueChromaFloor,
+                chroma(half3(keyColorLinear)));
+            half maskHue = smoothstep(hueEdge0, hueEdge0 + width, hueDiff) * hueSignal;
+            half maskSat = smoothstep(satEdge0, satEdge0 + width, satDiff);
+            half mask = max(maskHue, maskSat) * (1.0 - onKeyColor);
+
+            // Preserve the original premultiplied channels when there is no suppression.
+            float amount = spillSuppression * float(hueSignal);
+            if (amount <= 0.0 || mask == 0.0) return color * mask;
+
+            // The limit is a min of averages, which scales with alpha, so despill the premultiplied
+            // channels directly and leave the other two untouched by an unpremultiply round trip.
+            float3 premulRgb = float3(color.rgb);
+            float channel = dot(premulRgb, spillAxis);
+            float limit = dot(premulRgb, float3(1.0) - spillAxis) * 0.5;
+            float3 despilled = mix(premulRgb, float3(min(channel, limit)), spillAxis * amount);
+            return half4(half3(despilled), alpha) * mask;
+        }
+        """;
+
     [TestCaseSource(nameof(ZeroSuppressionCases))]
     public void ZeroSuppression_RendersLikeThePreSpillShader(Color fill, Color key, float hueRange, float saturationRange, float boundary)
     {
@@ -234,6 +335,93 @@ public sealed class ChromaKeySpillSuppressionTests
             using Bitmap rendered = Render(Colors.Lime, Colors.Lime, 100f);
             Assert.That(ReadCenter(rendered), Is.EqualTo(default(Rgba)));
         });
+    }
+
+    [TestCaseSource(nameof(ShippedSpillCases))]
+    public void PrimaryKeysAndScreens_SuppressSpillLikeTheShippedShader(Color fill, Color key, float spillSuppression)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var effect = new ChromaKey { Color = { Value = key }, SpillSuppression = { Value = spillSuppression } };
+            var reference = new EffectItemSuffixCallbackFilterEffect((context, _) =>
+                context.Shader(ShaderDescription.CurrentPixel(
+                    ShippedShaderSource,
+                    bindings =>
+                    {
+                        Vector3 keyColorLinear = key.ToLinear().AsVector3();
+                        bindings.Uniform("keyColor", new Vector3(key.R / 255f, key.G / 255f, key.B / 255f));
+                        bindings.Uniform("keyColorLinear", keyColorLinear);
+                        bindings.Uniform("hueRange", 0f);
+                        bindings.Uniform("saturationRange", 0f);
+                        bindings.Uniform("boundary", 2f / 100f);
+                        bindings.Uniform("spillSuppression", spillSuppression / 100f);
+                        bindings.Uniform("spillAxis", keyColorLinear.Y >= MathF.Max(keyColorLinear.X, keyColorLinear.Z)
+                            ? Vector3.UnitY
+                            : keyColorLinear.Z >= keyColorLinear.X ? Vector3.UnitZ : Vector3.UnitX);
+                    })));
+
+            using Bitmap expected = RenderEffect(fill, reference);
+            using Bitmap actual = RenderEffect(fill, effect);
+            GoldenImageHarness.AssertByteIdentical(
+                expected,
+                actual,
+                $"rgba({fill.R},{fill.G},{fill.B},{fill.A}) keyed by rgb({key.R},{key.G},{key.B}) at {spillSuppression}%",
+                requireVisibleContent: true);
+        });
+    }
+
+    private static IEnumerable<object[]> ShippedSpillCases()
+    {
+        var bluishFill = Color.FromArgb(160, 80, 160, 170);
+        var reddishFill = Color.FromArgb(160, 200, 120, 110);
+        // The last two are green and blue screens off the primaries, sRGB (0.1, 0.8, 0.3) and (0.1, 0.3, 0.9).
+        (Color Fill, Color Key)[] pairs =
+        [
+            (s_greenishFill, Colors.Lime),
+            (bluishFill, Colors.Blue),
+            (reddishFill, Colors.Red),
+            (s_greenishFill, Color.FromRgb(26, 204, 77)),
+            (bluishFill, Color.FromRgb(26, 77, 230)),
+        ];
+        foreach ((Color fill, Color key) in pairs)
+        {
+            foreach (float spillSuppression in new[] { 25f, 50f, 100f })
+                yield return [fill, key, spillSuppression];
+        }
+    }
+
+    // The fill is a grey with the key's spill: 0.3 in linear light where the key has no light and 0.4 where it has.
+    [TestCase(0, 255, 255)]
+    [TestCase(255, 255, 0)]
+    [TestCase(255, 0, 255)]
+    public void SecondaryKey_LimitsBothSpilledChannelsToTheWeakOne(byte red, byte green, byte blue)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var key = Color.FromRgb(red, green, blue);
+            var fill = Color.FromArgb(160, Spilled(red), Spilled(green), Spilled(blue));
+            using Bitmap baseline = Render(fill, key);
+            using Bitmap half = Render(fill, key, 50f);
+            using Bitmap full = Render(fill, key, 100f);
+
+            Rgba original = ReadCenter(baseline);
+            float[] before = Channels(original);
+            float[] halfway = Channels(ReadCenter(half));
+            float[] after = Channels(ReadCenter(full));
+            float weak = before[red == 0 ? 0 : green == 0 ? 1 : 2];
+            Assert.Multiple(() =>
+            {
+                Assert.That(before.Max(), Is.GreaterThan(weak + 0.03f), "the fill carries the key's spill");
+                Assert.That(after, Is.All.EqualTo(weak).Within(Tolerance), "a neutral grey at 100%");
+                Assert.That(halfway, Is.EqualTo(before.Select(channel => (channel + weak) * 0.5f)).Within(Tolerance));
+                Assert.That(ReadCenter(full).Alpha, Is.EqualTo(original.Alpha));
+            });
+        });
+
+        static byte Spilled(byte keyChannel) => keyChannel == 0 ? (byte)149 : (byte)170;
+        static float[] Channels(Rgba pixel) => [pixel.Red, pixel.Green, pixel.Blue];
     }
 
     private static Bitmap Render(Color fill, Color key, float? spillSuppression = null)

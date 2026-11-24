@@ -24,6 +24,8 @@ public sealed partial class SteppedMotion : FilterEffect
 
     public new partial class Resource
     {
+        private KeyframedRate? _keyframedRate;
+
         internal FilterEffectInputSample? Sample { get; private set; }
 
         public override bool UsesInputEvaluation => true;
@@ -34,10 +36,22 @@ public sealed partial class SteppedMotion : FilterEffect
         {
             if (!float.IsFinite(FrameRate) || FrameRate <= 0) return false;
 
-            Rational rate = ToRate(Math.Clamp(FrameRate, (float)MinimumRate, MaximumRate));
             MediaTime start = input.InputStart;
-            MediaTime elapsed = input.EvaluationContext.Time - start;
-            MediaTime heldTime = start + elapsed.RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
+            MediaTime time = input.EvaluationContext.Time;
+            MediaTime heldTime;
+            if (GetOriginal() is SteppedMotion { FrameRate: var property }
+                && (_keyframedRate ??= new KeyframedRate()).Follows(property))
+            {
+                heldTime = _keyframedRate.HeldTime(start, time);
+            }
+            else
+            {
+                // A fixed rate, or an expression's: only evaluating an expression tells its rate, so the current one
+                // applies to the whole time since the start.
+                Rational rate = ToRate(Math.Clamp(FrameRate, (float)MinimumRate, MaximumRate));
+                heldTime = start + (time - start).RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
+            }
+
             Sample = input.Evaluate(heldTime);
             return true;
         }
@@ -47,7 +61,11 @@ public sealed partial class SteppedMotion : FilterEffect
 
         partial void PostReconcile(SteppedMotion obj, CompositionContext context) => Sample = null;
 
-        partial void PostDispose(bool disposing) => Sample = null;
+        partial void PostDispose(bool disposing)
+        {
+            Sample = null;
+            _keyframedRate = null;
+        }
 
         private static Rational ToRate(float value)
         {

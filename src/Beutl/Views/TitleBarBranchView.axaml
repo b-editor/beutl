@@ -115,6 +115,12 @@
                                               Icon="Add" />
                         </Grid>
                     </Button>
+                    <Button HorizontalAlignment="Stretch"
+                            IsVisible="{Binding IsHostedGitRemote.Value}"
+                            Command="{Binding OpenOnWebCommand}"
+                            Theme="{StaticResource CompactFlyoutItemButtonTheme}">
+                        <TextBlock Text="{x:Static lang:Strings.HostedGit_OpenOnWeb}" />
+                    </Button>
                 </StackPanel>
             </Flyout>
         </Button.Flyout>

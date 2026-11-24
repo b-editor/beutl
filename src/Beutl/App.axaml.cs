@@ -61,7 +61,7 @@ public sealed class App : Application
     private ProxyMediaServices? _proxyMediaServices;
     private Startup? _startUp;
     private LoadSideloadExtensionTask? _sideloadExtensionTask;
-    private readonly SemaphoreSlim _packageLinkGate = new(1, 1);
+    private readonly SemaphoreSlim _beutlLinkGate = new(1, 1);
     private readonly CancellationTokenSource _activationCts = new();
 
     public App() : this(new GlobalConfiguration(), string.Empty)
@@ -201,13 +201,13 @@ public sealed class App : Application
     {
         MacOSKeyBindings.Install(this);
         ShowSettingsGestureInApplicationMenu();
-        Program.ActivationBroker?.SetHandler(HandlePackageLink);
+        Program.ActivationBroker?.SetHandler(HandleBeutlLink);
         if (this.TryGetFeature<IActivatableLifetime>() is { } activatableLifetime)
         {
             activatableLifetime.Activated += (_, args) =>
             {
                 if (args is ProtocolActivatedEventArgs protocol)
-                    HandlePackageLink(protocol.Uri.OriginalString);
+                    HandleBeutlLink(protocol.Uri.OriginalString);
             };
         }
 
@@ -233,25 +233,25 @@ public sealed class App : Application
                 _libraryService.Dispose();
             };
             foreach (string argument in desktop.Args ?? [])
-                HandlePackageLink(argument);
+                HandleBeutlLink(argument);
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    internal void HandlePackageLink(string value)
+    internal void HandleBeutlLink(string value)
     {
-        if (PackageInstallRequest.TryParse(value, out PackageInstallRequest? request))
-            Dispatcher.UIThread.Post(() => OpenPackageAsync(request));
+        if (BeutlLinkRequest.TryParse(value, out BeutlLinkRequest? request))
+            Dispatcher.UIThread.Post(() => OpenBeutlLinkAsync(request));
     }
 
-    private async void OpenPackageAsync(PackageInstallRequest request)
+    private async void OpenBeutlLinkAsync(BeutlLinkRequest request)
     {
         CancellationToken token = _activationCts.Token;
         bool entered = false;
         try
         {
-            await _packageLinkGate.WaitAsync(token);
+            await _beutlLinkGate.WaitAsync(token);
             entered = true;
             await _windowOpenTcs.Task.WaitAsync(token);
             // Authentication and extension registration must finish before creating the store models.
@@ -265,40 +265,49 @@ public sealed class App : Application
             mainWindow.Activate();
 
             MainViewModel main = GetMainViewModel();
-            var package = await main._beutlClients.GetResource<DiscoverService>()
-                .GetPackage(request.PackageName, token);
-            token.ThrowIfCancellationRequested();
-
-            ExtensionsPage? page = desktop.Windows.OfType<ExtensionsPage>().FirstOrDefault();
-            if (page == null)
-            {
-                var viewModel = new ExtensionsPageViewModel(main._beutlClients, main.EditorService, main.ProjectService);
-                page = new ExtensionsPage { DataContext = viewModel };
-                HostServices.SetFrom(page, _appServices);
-                page.Closed += (_, _) => viewModel.Dispose();
-                page.OpenPackage(package, request.Version);
-                _ = page.ShowDialog(mainWindow);
-            }
-            else
-            {
-                page.OpenPackage(package, request.Version);
-                if (page.WindowState == WindowState.Minimized)
-                    page.WindowState = WindowState.Normal;
-                page.Activate();
-            }
+            if (request is RepositoryOpenRequest repository)
+                await main.RepositoryClone.OpenAsync(mainWindow, repository, token);
+            else if (request is PackageInstallRequest package)
+                await OpenPackageAsync(package, desktop, mainWindow, main, token);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
         }
         catch (Exception e)
         {
-            s_logger.LogError(e, "Failed to open package {PackageName} from the web store.", request.PackageName);
+            s_logger.LogError(e, "Failed to open a Beutl protocol link.");
             await e.Handle(_notifications);
         }
         finally
         {
             if (entered)
-                _packageLinkGate.Release();
+                _beutlLinkGate.Release();
+        }
+    }
+
+    private async Task OpenPackageAsync(PackageInstallRequest request,
+        IClassicDesktopStyleApplicationLifetime desktop, Window mainWindow, MainViewModel main, CancellationToken token)
+    {
+        var package = await main._beutlClients.GetResource<DiscoverService>()
+            .GetPackage(request.PackageName, token);
+        token.ThrowIfCancellationRequested();
+
+        ExtensionsPage? page = desktop.Windows.OfType<ExtensionsPage>().FirstOrDefault();
+        if (page == null)
+        {
+            var viewModel = new ExtensionsPageViewModel(main._beutlClients, main.EditorService, main.ProjectService);
+            page = new ExtensionsPage { DataContext = viewModel };
+            HostServices.SetFrom(page, _appServices);
+            page.Closed += (_, _) => viewModel.Dispose();
+            page.OpenPackage(package, request.Version);
+            _ = page.ShowDialog(mainWindow);
+        }
+        else
+        {
+            page.OpenPackage(package, request.Version);
+            if (page.WindowState == WindowState.Minimized)
+                page.WindowState = WindowState.Normal;
+            page.Activate();
         }
     }
 

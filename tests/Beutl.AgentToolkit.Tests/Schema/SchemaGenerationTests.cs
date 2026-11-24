@@ -308,8 +308,15 @@ public sealed class SchemaGenerationTests
         TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(LensChromaticAberration).FullName);
         PropertyDescriptor amount = descriptor.Properties.Single(property => property.Name == nameof(LensChromaticAberration.Amount));
         PropertyDescriptor center = descriptor.Properties.Single(property => property.Name == nameof(LensChromaticAberration.Center));
+        PropertyDescriptor repeatEdgePixels = descriptor.Properties.Single(
+            property => property.Name == nameof(LensChromaticAberration.RepeatEdgePixels));
         EffectSummary summary = generator.ListEffects(intent: "lens").Single(effect => effect.Name == nameof(LensChromaticAberration));
-        string[] properties = [nameof(LensChromaticAberration.Amount), nameof(LensChromaticAberration.Center)];
+        string[] properties =
+        [
+            nameof(LensChromaticAberration.Amount),
+            nameof(LensChromaticAberration.Center),
+            nameof(LensChromaticAberration.RepeatEdgePixels),
+        ];
 
         using (Assert.EnterMultipleScope())
         {
@@ -317,11 +324,13 @@ public sealed class SchemaGenerationTests
             Assert.That(summary.IntentTags, Is.SupersetOf(new[] { "chromatic", "aberration", "lens", "stylize" }));
             Assert.That(summary.Notes, Has.Some.Contains("percentage change in scale"));
             Assert.That(summary.Notes, Has.Some.Contains("relative to the input bounds"));
+            Assert.That(summary.Notes, Has.Some.Contains("RepeatEdgePixels (default true)"));
             Assert.That(descriptor.Properties.Select(property => property.Name), Is.EquivalentTo(properties));
             Assert.That(amount.Default, Is.EqualTo(1f));
             Assert.That(amount.Range, Is.EqualTo(new RangeDescriptor(-10, 10)));
             Assert.That(amount.Unit, Is.EqualTo("percent"));
             Assert.That(center.Default, Is.EqualTo(RelativePoint.Center));
+            Assert.That(repeatEdgePixels.Default, Is.EqualTo(true));
             foreach (PropertyDescriptor property in descriptor.Properties)
             {
                 Assert.That(property.Animatable, Is.True, property.Name);
@@ -355,7 +364,7 @@ public sealed class SchemaGenerationTests
             Assert.That(Property(nameof(Echo.StartingIntensity)).Unit, Is.EqualTo("percent"));
             Assert.That(Property(nameof(Echo.Decay)).Default, Is.EqualTo(70f));
             Assert.That(Property(nameof(Echo.Decay)).Unit, Is.EqualTo("percent"));
-            Assert.That(Property(nameof(Echo.BlendMode)).Default, Is.EqualTo(EchoBlendMode.NewestOnTop));
+            Assert.That(Property(nameof(Echo.BlendMode)).Default, Is.EqualTo(EchoBlendMode.Add));
             Assert.That(Property(nameof(Echo.BlendMode)).EnumValues, Is.EqualTo(new[] { nameof(EchoBlendMode.NewestOnTop), nameof(EchoBlendMode.Add) }));
             Assert.That(descriptor.Properties.Where(property => property.Animatable).Select(property => property.Name),
                 Is.EquivalentTo(animatedProperties));
@@ -363,6 +372,63 @@ public sealed class SchemaGenerationTests
         }
 
         PropertyDescriptor Property(string name) => descriptor.Properties.Single(property => property.Name == name);
+    }
+
+    [Test]
+    public void SteppedMotion_IsTaggedAsPosterizeTimeAndSaysWhichEffectsStep()
+    {
+        var generator = new SchemaGenerator(_library);
+        EffectSummary summary = generator.ListEffects().Single(effect => effect.Name == nameof(SteppedMotion));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(summary.IntentTags, Is.SupersetOf(new[] { "posterize", "time", "stepped", "frame-hold", "stop-motion", "choppy" }));
+            Assert.That(summary.Notes, Has.Some.Contains("Posterize Time"));
+            Assert.That(summary.Notes.Any(note =>
+                note.Contains("effects before it in the effect list", StringComparison.Ordinal)
+                && note.Contains("Effects after it", StringComparison.Ordinal)
+                && note.Contains("stay smooth", StringComparison.Ordinal)), Is.True);
+        }
+    }
+
+    [Test]
+    public void Puppet_IsListedWithNotesOnItsPins()
+    {
+        var generator = new SchemaGenerator(_library);
+        EffectSummary summary = generator.ListEffects().Single(effect => effect.Name == nameof(Puppet));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(summary.IntentTags, Is.SupersetOf(new[] { "puppet", "pin", "bend", "deform" }));
+            Assert.That(summary.Notes.Any(note =>
+                note.Contains(nameof(PuppetPin), StringComparison.Ordinal)
+                && note.Contains(nameof(PuppetPin.RestPosition), StringComparison.Ordinal)
+                && note.Contains("keyframe Position", StringComparison.Ordinal)
+                && note.Contains("normalized to the effect's input bounds", StringComparison.Ordinal)), Is.True);
+            Assert.That(summary.Notes, Has.Some.Contains("over a transparent part of the input is ignored"));
+            Assert.That(summary.Notes, Has.Some.Contains("at least two pins are needed to rotate or bend"));
+        }
+    }
+
+    [Test]
+    public void MeshWarp_and_Puppet_recipes_deform_the_picture()
+    {
+        var generator = new SchemaGenerator(_library);
+        var meshWarp = (MeshWarp)CoreSerializer.DeserializeFromJsonObject(
+            FindRequiredEffectObject(generator.GetEffectRecipe("effect-mesh-warp").Patch, typeof(MeshWarp)), typeof(MeshWarp));
+        var puppet = (Puppet)CoreSerializer.DeserializeFromJsonObject(
+            FindRequiredEffectObject(generator.GetEffectRecipe("effect-puppet").Patch, typeof(Puppet)), typeof(Puppet));
+
+        // Each effect passes its input through with an identity mesh or with every pin at its rest position.
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(meshWarp.Strength.Value, Is.Not.Zero);
+            Assert.That(meshWarp.Mesh.Value.IsIdentity(), Is.False);
+            Assert.That(puppet.Pins, Has.Count.GreaterThanOrEqualTo(2));
+            Assert.That(puppet.Pins.Select(pin => pin.RestPosition.Value),
+                Has.All.Matches<Point>(rest => rest.X is >= 0 and <= 1 && rest.Y is >= 0 and <= 1));
+            Assert.That(puppet.Pins.Where(pin => pin.Position.Value != pin.RestPosition.Value), Is.Not.Empty);
+        }
     }
 
     [Test]
@@ -679,17 +745,18 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
-    public void Grain_and_organic_effect_recipes_use_distinct_shader_scripts()
+    public void Grain_recipe_uses_the_film_grain_effect_instead_of_a_shader()
     {
         var generator = new SchemaGenerator(_library);
-        string grain = generator.GetEffectRecipe("fine-film-grain-field").Patch.ToJsonString();
+        EffectRecipe grain = generator.GetEffectRecipe("fine-film-grain-field");
         string organic = generator.GetEffectRecipe("organic-shader-field").Patch.ToJsonString();
 
         Assert.Multiple(() =>
         {
-            Assert.That(grain, Is.Not.EqualTo(organic));
-            Assert.That(grain, Does.Contain("43758.5453"));
-            Assert.That(grain, Does.Not.Contain("sin(uv.x * 14.0"));
+            Assert.That(grain.EffectNames, Does.Contain(nameof(FilmGrain)));
+            Assert.That(grain.EffectNames, Does.Not.Contain(nameof(SKSLScriptEffect)));
+            Assert.That(ContainsDiscriminator(grain.Patch, IdentityHelper.WriteDiscriminator(typeof(FilmGrain))), Is.True);
+            Assert.That(ContainsDiscriminator(grain.Patch, IdentityHelper.WriteDiscriminator(typeof(SKSLScriptEffect))), Is.False);
             Assert.That(organic, Does.Contain("sin(uv.x * 14.0"));
         });
     }
@@ -738,8 +805,10 @@ public sealed class SchemaGenerationTests
             Assert.That(builder.Children.Contains("src"), Is.True);
             Assert.That(scaffoldRecipe.Description, Does.Contain("blank pass-through scaffold"));
             Assert.That(scaffoldRecipe.Description, Does.Contain("organic-shader-field"));
-            Assert.That(scaffoldRecipe.Description, Does.Contain("fine-film-grain-field"));
-            Assert.That(scaffoldRecipe.Notes, Has.Some.Contains("blank pass-through SKSL scaffold"));
+            Assert.That(scaffoldRecipe.Description, Does.Contain(nameof(FilmGrain)));
+            Assert.That(scaffoldRecipe.Notes.Any(note =>
+                note.Contains("blank pass-through SKSL scaffold", StringComparison.Ordinal)
+                && note.Contains(nameof(FilmGrain), StringComparison.Ordinal)), Is.True);
             Assert.That(scaffoldRecipe.Notes, Has.Some.Contains("compile error makes the effect a no-op"));
             Assert.That(scaffoldRecipe.IntentTags, Does.Not.Contain("organic"));
             Assert.That(generator.GetEffectRecipe(intent: "organic shader").Name, Is.EqualTo("organic-shader-field"));
@@ -820,7 +889,8 @@ public sealed class SchemaGenerationTests
         var generator = new SchemaGenerator(_library);
         string bloomJson = generator.GetEffectRecipe("additive-bloom").Patch.ToJsonString();
         string screenJson = generator.GetEffectRecipe("screen-light-leak").Patch.ToJsonString();
-        string multiplyJson = generator.GetEffectRecipe("multiply-contrast-glaze").Patch.ToJsonString();
+        EffectRecipe multiply = generator.GetEffectRecipe("multiply-contrast-glaze");
+        string multiplyJson = multiply.Patch.ToJsonString();
         EffectRecipe chromatic = generator.GetEffectRecipe("chromatic-aberration-lite");
         string chromaticJson = chromatic.Patch.ToJsonString();
 
@@ -830,6 +900,7 @@ public sealed class SchemaGenerationTests
             Assert.That(screenJson, Does.Contain("\"Opacity\":50"));
             Assert.That(multiplyJson, Does.Contain("\"BlendMode\":24"));
             Assert.That(multiplyJson, Does.Contain("\"Opacity\":50"));
+            Assert.That(multiply.Notes, Has.Some.Contains($"add the {nameof(Vignette)} effect"));
             Assert.That(chromatic.EffectNames, Is.EqualTo(new[] { nameof(LensChromaticAberration) }));
             Assert.That(ContainsDiscriminator(chromatic.Patch, IdentityHelper.WriteDiscriminator(typeof(LensChromaticAberration))), Is.True);
             Assert.That(chromaticJson, Does.Not.Contain("BlendMode"));

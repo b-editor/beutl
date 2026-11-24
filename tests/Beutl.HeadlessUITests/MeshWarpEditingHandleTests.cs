@@ -18,6 +18,8 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -272,6 +274,127 @@ public sealed class MeshWarpEditingHandleTests
     }
 
     [AvaloniaTest]
+    public async Task WhileSelectedTheWarpHidesTheEffectsAfterItSoItsHandlesSitOnThePicture()
+    {
+        var effect = new MeshWarp { Rows = { Value = 1 }, Columns = { Value = 1 } };
+        var shift = new TransformEffect { Transform = { Value = new TranslateTransform(80, 0) } };
+        using var preview = await Open(effect, afterWarp: shift);
+        IEditorSelection selection = preview.Editor.GetRequiredService<IEditorSelection>();
+        Element element = preview.Editor.Scene.Children.Single();
+        var hint = preview.Player.FindControl<Border>("puppetPlacementHint")!;
+        var message = preview.Player.FindControl<Avalonia.Controls.TextBlock>("puppetPlacementMessage")!;
+        // Nothing here changes the drawable's own transform, so its local points keep their frame pixels.
+        var toFrame = preview.Player.transformHandlesOverlay.UserMatrix;
+        // The shift moves the picture off the first point and onto the second.
+        Point[] probes = [Frame(new(20, Height / 2f)), Frame(new(Width + 40, Height / 2f))];
+        await AssertStage();
+
+        // Deselecting the warp renders the shift again. The stage neither reads the frame cache nor fills it.
+        var cache = preview.Editor.FrameCacheManager.Value;
+        cache.IsEnabled = true;
+        selection.Select(element);
+        await preview.Render();
+        await AssertFullChain();
+        selection.Select(effect);
+        await preview.Render();
+        await AssertStage();
+        Assert.That(cache.TryGet(0, out var cached), Is.True, "the full chain fills the frame cache");
+        using (cached)
+        {
+            byte[] alpha = preview.AlphaAt(cached!.Value, probes);
+            Assert.Multiple(() =>
+            {
+                Assert.That(alpha[0], Is.Zero, "the frame cache keeps the full chain");
+                Assert.That(alpha[1], Is.GreaterThan(200), "the frame cache keeps the full chain");
+            });
+        }
+
+        selection.Select(element);
+        await preview.Render();
+        await AssertFullChain();
+
+        // A corner dragged to the pointer brings the shown picture's corner under it.
+        selection.Select(effect);
+        await preview.Render();
+        Point from = effect.GetEditingHandles(MediaTime.Zero)[0].Position;
+        AssertPoint(from, new Point(0, 0));
+        var to = new Point(-40, -30);
+        preview.Press(from);
+        preview.Move((from + to) * 0.5f);
+        preview.Move(to);
+        preview.Release(to);
+        AssertPoint(effect.Mesh.Value.Points[0], new Point(-40f / Width, -30f / Height));
+        await preview.Render();
+        byte[] corner = await preview.ShownAlpha(Frame(to + new Point(10, 10)), Frame(to - new Point(8, 8)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(corner[0], Is.GreaterThan(200), "the picture reaches the pointer");
+            Assert.That(corner[1], Is.Zero, "the picture ends at the pointer");
+            Assert.That(preview.Player.transformHandlesOverlay.HitTestEditingHandle(preview.ToPreview(to))?.Handle.Id,
+                Is.EqualTo("0"));
+        });
+
+        Point Frame(Point local) => toFrame.Transform(local);
+
+        async Task AssertStage()
+        {
+            byte[] alpha = await preview.ShownAlpha(probes);
+            Assert.Multiple(() =>
+            {
+                Assert.That(preview.Editor.Player.ShownEditingStage.Value, Is.SameAs(effect));
+                Assert.That(alpha[0], Is.GreaterThan(200), "the picture stays where the warp leaves it");
+                Assert.That(alpha[1], Is.Zero, "the shift after the warp is hidden");
+                Assert.That(hint.IsVisible, Is.True);
+                Assert.That(message.Text, Is.EqualTo(GraphicsStrings.MeshWarp_EditingPreviewHint));
+                Assert.That(shift.IsEnabled.Value, Is.True);
+            });
+        }
+
+        async Task AssertFullChain()
+        {
+            byte[] alpha = await preview.ShownAlpha(probes);
+            Assert.Multiple(() =>
+            {
+                Assert.That(preview.Editor.Player.ShownEditingStage.Value, Is.Null);
+                Assert.That(alpha[0], Is.Zero, "the shift moves the picture off the first point");
+                Assert.That(alpha[1], Is.GreaterThan(200), "the shift moves the picture onto the second point");
+                Assert.That(hint.IsVisible, Is.False);
+            });
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OnionSkinSamplesAlsoHideTheEffectsAfterTheSelectedWarp()
+    {
+        var config = TestShell.Configuration.EditorConfig;
+        var saved = (config.IsOnionSkinEnabled.Value, config.OnionSkinPrevCount.Value, config.OnionSkinNextCount.Value,
+            config.OnionSkinPrevOpacity.Value);
+        config.IsOnionSkinEnabled.Value = true;
+        config.OnionSkinPrevCount.Value = 1;
+        config.OnionSkinNextCount.Value = 0;
+        config.OnionSkinPrevOpacity.Value = 0.5f;
+        try
+        {
+            var effect = new MeshWarp { Rows = { Value = 1 }, Columns = { Value = 1 } };
+            var shift = new TransformEffect { Transform = { Value = new TranslateTransform(80, 0) } };
+            using var preview = await Open(effect, afterWarp: shift, time: MediaTime.FromFrames(1, new Rational(24)));
+            var toFrame = preview.Player.transformHandlesOverlay.UserMatrix;
+            // Only the shifted picture covers this point, so the previous frame drawn with the shift would show on it.
+            byte[] alpha = await preview.ShownAlpha(toFrame.Transform(new Point(Width + 40, Height / 2f)));
+            Assert.Multiple(() =>
+            {
+                Assert.That(preview.Editor.Player.ShownEditingStage.Value, Is.SameAs(effect));
+                Assert.That(alpha[0], Is.Zero);
+            });
+        }
+        finally
+        {
+            (config.IsOnionSkinEnabled.Value, config.OnionSkinPrevCount.Value, config.OnionSkinNextCount.Value,
+                config.OnionSkinPrevOpacity.Value) = saved;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task SeekingBackToEarlierFrameKeepsItsOwnCapturedInputBounds()
     {
         TestGpu.RequireAnyDevice();
@@ -410,7 +533,7 @@ public sealed class MeshWarpEditingHandleTests
     }
 
     private static async Task<Preview> Open(MeshWarp effect, bool showInspector = false, bool rotate = false,
-        FilterEffect? beforeWarp = null, MediaTime start = default, MediaTime time = default)
+        FilterEffect? beforeWarp = null, MediaTime start = default, MediaTime time = default, FilterEffect? afterWarp = null)
     {
         TestGpu.RequireAnyDevice();
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("mesh-warp", frameRate: 24);
@@ -418,6 +541,7 @@ public sealed class MeshWarpEditingHandleTests
         var effects = (FilterEffectGroup)shape.FilterEffect.Value!;
         if (beforeWarp is not null) effects.Children.Add(beforeWarp);
         effects.Children.Add(effect);
+        if (afterWarp is not null) effects.Children.Add(afterWarp);
         if (rotate)
         {
             var transforms = (TransformGroup)shape.Transform.Value!;
@@ -511,6 +635,32 @@ public sealed class MeshWarpEditingHandleTests
         }
 
         public AvaPoint ToWindow(Point local) => Player.image.TranslatePoint(ToPreview(local), Window)!.Value;
+
+        // The alpha of the shown preview frame at each point in frame pixels, once the player shows its latest frame.
+        public async Task<byte[]> ShownAlpha(params Point[] framePoints)
+        {
+            var view = (Beutl.Controls.BitmapView)Player.image;
+            Ref<Beutl.Media.Bitmap>? frame = null;
+            await HeadlessTestHelpers.WaitUntilAsync(() => ReferenceEquals(view.Source, Editor.Player.EditorPreviewImage.Value)
+                && (frame = view.Source?.TryClone()) is not null, message: "The latest preview frame should be shown.");
+            using (frame)
+                return AlphaAt(frame!.Value, framePoints);
+        }
+
+        public byte[] AlphaAt(Beutl.Media.Bitmap frame, params Point[] framePoints)
+        {
+            using Beutl.Media.Bitmap alpha = frame.Convert(Beutl.Media.BitmapColorType.Alpha8);
+            var size = Editor.Scene.FrameSize.Value;
+            var values = new byte[framePoints.Length];
+            for (int i = 0; i < values.Length; i++)
+            {
+                int x = (int)(framePoints[i].X * alpha.Width / size.Width);
+                int y = (int)(framePoints[i].Y * alpha.Height / size.Height);
+                values[i] = alpha.GetPixelSpan()[y * alpha.RowBytes + x];
+            }
+
+            return values;
+        }
 
         public void Press(Point point) => Window.MouseDown(ToWindow(point), MouseButton.Left);
 

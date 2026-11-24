@@ -12,6 +12,7 @@ public static class ComponentAnimations
     private static readonly Dictionary<Type, object> s_offsets = [];
     private static readonly Dictionary<Type, object> s_replacements = [];
     private static readonly Dictionary<Type, object> s_maskedReplacements = [];
+    private static readonly Dictionary<Type, Func<object, int, object?>> s_componentValues = [];
 
     static ComponentAnimations()
     {
@@ -138,6 +139,7 @@ public static class ComponentAnimations
             }
             return value;
         });
+        s_componentValues[typeof(T)] = (value, index) => value is T whole ? components[index].Get(whole) : (object?)null;
         s_operations[typeof(T)] = (property => ComponentAnimation<T, TComponent>.Create((IProperty<T>)property), (property, time) =>
         {
             // Capture the component tracks' value, including component expressions and interpolation, without baking any
@@ -232,6 +234,31 @@ public static class ComponentAnimations
     {
         if (property.GetPropertyAnimation() is IComponentAnimation)
             s_operations[property.ValueType].Unseparate(property, time);
+    }
+
+    // The property that component is one of the separated components of, or null when it is no such component.
+    internal static IProperty? GetSeparatedProperty(IProperty component)
+        => component.GetOwnerObject() is IComponentAnimation { HierarchicalParent: CoreObject holder } animation
+            ? holder.Properties.FirstOrDefault(property => ReferenceEquals(property.GetPropertyAnimation(), animation))
+            : null;
+
+    // The value component takes from a whole value of the property it is a separated component of, as separating the
+    // property splits its value; null when it is no such component.
+    internal static object? GetComponentValue(IProperty component, object? value)
+    {
+        if (value is null || component.GetOwnerObject() is not IComponentAnimation animation
+            || !s_componentValues.TryGetValue(animation.ValueType, out Func<object, int, object?>? get))
+        {
+            return null;
+        }
+
+        for (int i = 0; i < animation.Components.Count; i++)
+        {
+            if (ReferenceEquals(animation.Components[i], component))
+                return get(value, i);
+        }
+
+        return null;
     }
 }
 

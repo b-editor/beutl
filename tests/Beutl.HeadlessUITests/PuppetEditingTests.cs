@@ -358,7 +358,7 @@ public sealed class PuppetEditingTests
             }
 
             editor.Player.IsMoveMode.Value = false;
-            await HeadlessTestHelpers.WaitUntilAsync(() => !editor.Player.ShowsPuppetStage.Value && !placementHint.IsVisible);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.ShownEditingStage.Value is null && !placementHint.IsVisible);
             byte[] preview;
             using (var displayed = await ReadPreviewFrame())
             {
@@ -377,15 +377,16 @@ public sealed class PuppetEditingTests
                 Assert.That(AlphaOf(exported!), Is.EqualTo(preview), "preview and the saved project's export frame");
             }
             editor.Player.IsMoveMode.Value = true;
-            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.ShowsPuppetStage.Value && placementHint.IsVisible);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.ShownEditingStage.Value is not null && placementHint.IsVisible);
 
             clock.Seek(MediaTime.FromSeconds(2));
             await Render();
             editor.Player.ShuttleBackward();
-            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.IsPlaying.Value && !editor.Player.ShowsPuppetStage.Value,
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.IsPlaying.Value && editor.Player.ShownEditingStage.Value is null,
                 message: "Shuttle should display the full scene during playback.");
-            await HeadlessTestHelpers.WaitUntilAsync(() => !editor.Player.IsPlaybackActive && editor.Player.ShowsPuppetStage.Value
-                && placementHint.IsVisible, message: "Natural shuttle completion should restore the Puppet stage.");
+            await HeadlessTestHelpers.WaitUntilAsync(() => !editor.Player.IsPlaybackActive
+                && editor.Player.ShownEditingStage.Value is not null && placementHint.IsVisible,
+                message: "Natural shuttle completion should restore the Puppet stage.");
             using (var displayed = await ReadPreviewFrame())
                 Assert.That(AlphaAtFrame(displayed.Value, firstPinFrame), Is.GreaterThan(200));
             clock.Seek(MediaTime.Zero);
@@ -472,7 +473,7 @@ public sealed class PuppetEditingTests
 
             bool PlacementEnded(Button button) => AutomationProperties.GetName(button) == GraphicsStrings.Puppet_AddPin
                 && editor.Player.PuppetPlacementEffect.Value is null
-                && (editor.Player.ShowsPuppetStage.Value
+                && (editor.Player.ShownEditingStage.Value is not null
                     ? placementMessage.Text == GraphicsStrings.Puppet_EditingPreviewHint
                     : !placementHint.IsVisible);
         }
