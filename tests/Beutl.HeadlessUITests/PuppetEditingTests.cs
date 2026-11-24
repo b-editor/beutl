@@ -69,12 +69,15 @@ public sealed class PuppetEditingTests
         var effect = new Puppet();
         var initialPosition = new Point(0.35f, 0.45f);
         effect.Pins.Add(new PuppetPin { Position = { Value = initialPosition }, RestPosition = { Value = initialPosition } });
-        var shape = new RectShape { Width = { Value = 320 }, Height = { Value = 210 } };
+        const float width = 320;
+        const float height = 210;
+        const float rotationDegrees = 17;
+        var shape = new RectShape { Width = { Value = width }, Height = { Value = height } };
         var effects = (FilterEffectGroup)shape.FilterEffect.Value!;
         effects.Children.Add(effect);
         var downstream = new TransformEffect { Transform = { Value = new TranslateTransform(220, 0) } };
         effects.Children.Add(downstream);
-        ((TransformGroup)shape.Transform.Value!).Children.Add(new RotationTransform(17));
+        ((TransformGroup)shape.Transform.Value!).Children.Add(new RotationTransform(rotationDegrees));
         await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(4));
         Element element = scene.Children.Single();
         var remapped = MediaTime.FromFrames(25, new Rational(48)); // Source frame 12.5 at 24 fps.
@@ -163,11 +166,21 @@ public sealed class PuppetEditingTests
             await StartAdding(add);
             var previewView = (Beutl.Controls.BitmapView)player.image;
             var firstPinPoint = new Point(70, 100);
+
+            // The fixture's rectangle rotates about its center, placed at the center of the scene.
+            var (sin, cos) = Math.SinCos(rotationDegrees * Math.PI / 180);
+            double localX = firstPinPoint.X - width / 2;
+            double localY = firstPinPoint.Y - height / 2;
+            var firstPinFrame = new AvaPoint(
+                scene.FrameSize.Value.Width / 2d + localX * cos - localY * sin,
+                scene.FrameSize.Value.Height / 2d + localX * sin + localY * cos);
+            double scale = player.image.Bounds.Width / scene.FrameSize.Value.Width;
+            AvaPoint firstPinClick = player.image.TranslatePoint(new AvaPoint(firstPinFrame.X * scale, firstPinFrame.Y * scale), window)!.Value;
             Assert.Multiple(() =>
             {
-                Assert.That(AlphaAtLocal(editor.Player.PreviewImage.Value!.Value, firstPinPoint), Is.Zero,
+                Assert.That(AlphaAtFrame(editor.Player.PreviewImage.Value!.Value, firstPinFrame), Is.Zero,
                     "the downstream transform moves the picture away from the Puppet stage's pin position");
-                Assert.That(AlphaAtLocal(previewView.Source!.Value, firstPinPoint), Is.GreaterThan(200),
+                Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.GreaterThan(200),
                     "the displayed placement frame uses the same stage as the pin picker");
                 Assert.That(downstream.IsEnabled.Value, Is.True);
             });
@@ -177,9 +190,15 @@ public sealed class PuppetEditingTests
             ClickLocal(new Point(-20, 95));
             Assert.That(effect.Pins, Is.Empty);
             Assert.That(editor.Player.PointPick.Value, Is.Not.Null);
-            ClickLocal(firstPinPoint);
+            ClickAt(firstPinClick);
             await WaitForSelectedRow(1, 0);
-            Assert.That(effect.Pins[0].Position.Value, Is.EqualTo(effect.Pins[0].RestPosition.Value));
+            Point firstPosition = effect.Pins[0].Position.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstPosition.X, Is.EqualTo(firstPinPoint.X / width).Within(0.001));
+                Assert.That(firstPosition.Y, Is.EqualTo(firstPinPoint.Y / height).Within(0.001));
+                Assert.That(firstPosition, Is.EqualTo(effect.Pins[0].RestPosition.Value));
+            });
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(beforeAdd + 1));
 
             await WaitForPlacement();
@@ -189,7 +208,7 @@ public sealed class PuppetEditingTests
             Assert.That(element.Objects.OfType<DrawableTimeController>().Single(), Is.SameAs(timeController));
             await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.PointPick.Value is { } pick
                 && !ReferenceEquals(pick, beforeUndo));
-            ClickLocal(firstPinPoint);
+            ClickAt(firstPinClick);
             await WaitForSelectedRow(1, 0);
             Assert.That(editor.Player.PuppetPlacementEffect.Value, Is.SameAs(effect),
                 "Undo refreshes the frame while keeping placement active");
@@ -231,7 +250,7 @@ public sealed class PuppetEditingTests
             window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             await HeadlessTestHelpers.WaitUntilAsync(() => PlacementEnded(add));
             Assert.That(effect.Pins, Has.Count.EqualTo(2));
-            Assert.That(AlphaAtLocal(previewView.Source!.Value, firstPinPoint), Is.Zero,
+            Assert.That(AlphaAtFrame(previewView.Source!.Value, firstPinFrame), Is.Zero,
                 "the ordinary preview shows the downstream effect again after placement");
             effects.Children.Remove(downstream);
             editor.HistoryManager.Commit("Remove downstream test transform");
@@ -311,8 +330,8 @@ public sealed class PuppetEditingTests
                     Is.EqualTo(new[] { MediaTime.Zero, remapped, MediaTime.FromSeconds(1) }));
                 var written = (Point)animation.KeyFrames[1].Value!;
                 Assert.That(moving.Position.Evaluate(new EvaluationContext(remapped)), Is.EqualTo(written));
-                Assert.That(written.X, Is.EqualTo(original.X + 24 / 320f).Within(0.01));
-                Assert.That(written.Y, Is.EqualTo(original.Y - 54 / 210f).Within(0.01));
+                Assert.That(written.X, Is.EqualTo(original.X + 24 / width).Within(0.01));
+                Assert.That(written.Y, Is.EqualTo(original.Y - 54 / height).Within(0.01));
                 Assert.That(fixedPin.Position.GetKeyFrameAnimation(), Is.Null);
                 Assert.That(fixedPin.Position.Value, Is.EqualTo(fixedPin.RestPosition.Value));
             });
@@ -510,16 +529,16 @@ public sealed class PuppetEditingTests
             HeadlessTestHelpers.Render(3);
         }
 
-        void ClickLocal(Point point)
+        void ClickLocal(Point point) => ClickAt(ToWindow(point));
+
+        void ClickAt(AvaPoint position)
         {
-            AvaPoint position = ToWindow(point);
             window.MouseDown(position, MouseButton.Left);
             window.MouseUp(position, MouseButton.Left);
         }
 
-        byte AlphaAtLocal(Beutl.Media.Bitmap frame, Point local)
+        byte AlphaAtFrame(Beutl.Media.Bitmap frame, AvaPoint point)
         {
-            Point point = player.transformHandlesOverlay.UserMatrix.Transform(local);
             using Beutl.Media.Bitmap alpha = frame.Convert(BitmapColorType.Alpha8);
             int x = (int)(point.X * frame.Width / scene.FrameSize.Value.Width);
             int y = (int)(point.Y * frame.Height / scene.FrameSize.Value.Height);
