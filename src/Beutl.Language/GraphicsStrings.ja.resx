@@ -379,6 +379,12 @@
   <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
     <value>中心を基準に、赤チャンネルを (1 + 量/100) 倍、青チャンネルを (1 - 量/100) 倍に拡大・縮小します。緑チャンネルの位置は変わりません。負の値を指定すると、色のにじみの赤と青が入れ替わります。</value>
   </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels" xml:space="preserve">
+    <value>端のピクセルを繰り返す</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels_Description" xml:space="preserve">
+    <value>チャンネルが画像の端より外側を読むとき、端のピクセルを繰り返します。端の色が保たれ、結果は画像の範囲内に収まります。オフにすると色のにじみが画像の外側まで広がり、透明な背景の上のオブジェクトに向きます。</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>カーブ</value>
   </data>
@@ -2235,6 +2241,9 @@
   </data>
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>メッシュの制御点（{0} 行、{1} 列）</value>
+  </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>メッシュの制御点を編集中。プレビューでは後続のエフェクトを一時的に非表示にしています。</value>
   </data>
   <data name="Puppet" xml:space="preserve">
     <value>パペット</value>

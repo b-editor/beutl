@@ -383,6 +383,12 @@
   <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
     <value>Aplica al canal rojo un factor de escala de (1 + Cantidad/100) y al canal azul un factor de (1 - Cantidad/100) respecto al centro. El canal verde conserva su posición. Los valores negativos intercambian los colores de los bordes.</value>
   </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels" xml:space="preserve">
+    <value>Repetir píxeles del borde</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels_Description" xml:space="preserve">
+    <value>Cuando un canal lee más allá del borde de la imagen, repite los píxeles del borde, de modo que los bordes conservan su color y el resultado queda dentro de la imagen. Si está desactivado, las franjas de color se extienden más allá de la imagen, lo que conviene a un objeto sobre un fondo transparente.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>Curvas</value>
   </data>
@@ -2239,6 +2245,9 @@
   </data>
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>Punto de malla {0}, {1}</value>
+  </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>Editando los puntos de malla. La vista previa oculta los efectos posteriores.</value>
   </data>
   <data name="Puppet" xml:space="preserve">
     <value>Marioneta</value>

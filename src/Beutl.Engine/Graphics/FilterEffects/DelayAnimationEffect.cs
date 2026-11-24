@@ -280,29 +280,33 @@ internal static class DelayAnimationOrdering
         }
     }
 
+    private const ulong SplitMixIncrement = 0x9E3779B97F4A7C15UL;
+
     private static void ComputeRandomRanks(int seed, Span<float> ranks)
     {
-        Span<(uint Hash, int Index)> keys = ranks.Length <= 128
-            ? stackalloc (uint, int)[ranks.Length]
-            : new (uint, int)[ranks.Length];
+        Span<(ulong Key, int Index)> keys = ranks.Length <= 128
+            ? stackalloc (ulong, int)[ranks.Length]
+            : new (ulong, int)[ranks.Length];
+        // Part i takes the i-th value of a SplitMix64 stream that starts from the seed's own mixed value. Mixing the
+        // seed alone first keeps small seeds, 0 included, from giving the first parts the smallest keys.
+        ulong stream = Mix((uint)seed);
         for (int i = 0; i < keys.Length; i++)
-            keys[i] = (Hash(seed, i), i);
+            keys[i] = (Mix(unchecked(stream + (ulong)i * SplitMixIncrement)), i);
 
         keys.Sort();
         for (int rank = 0; rank < keys.Length; rank++)
             ranks[keys[rank].Index] = rank;
     }
 
-    private static uint Hash(int seed, int index)
+    // One SplitMix64 step: advance the state and finalize it.
+    private static ulong Mix(ulong value)
     {
         unchecked
         {
-            uint hash = (uint)seed * 0x9E3779B9u ^ (uint)index * 0x85EBCA6Bu;
-            hash ^= hash >> 16;
-            hash *= 0x7FEB352Du;
-            hash ^= hash >> 15;
-            hash *= 0x846CA68Bu;
-            return hash ^ (hash >> 16);
+            value += SplitMixIncrement;
+            value = (value ^ (value >> 30)) * 0xBF58476D1CE4E5B9UL;
+            value = (value ^ (value >> 27)) * 0x94D049BB133111EBUL;
+            return value ^ (value >> 31);
         }
     }
 

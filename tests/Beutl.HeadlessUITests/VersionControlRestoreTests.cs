@@ -8145,6 +8145,9 @@ public class VersionControlRestoreTests
             return Task.FromResult(true);
         }
 
+        public Task SetRemoteAsync(GitRemoteUrl remote, string? expectedOrigin, CancellationToken cancellationToken)
+            => SetRemoteAsync(remote.Url, cancellationToken);
+
         public Task SetRemoteAsync(string url, CancellationToken cancellationToken)
         {
             RecordBackendCall();

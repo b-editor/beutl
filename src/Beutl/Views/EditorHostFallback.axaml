@@ -64,10 +64,23 @@
             </Setter>
         </ControlTheme>
 
+        <DataTemplate x:Key="RepositorySourceTemplate" x:DataType="vm:RecentProjectItem">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <icons:FluentIcon FontSize="13"
+                                  VerticalAlignment="Center"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Icon="{CompiledBinding RepositoryIcon}" />
+                <TextBlock VerticalAlignment="Center"
+                           FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{CompiledBinding RepositoryLabel.Value}" />
+            </StackPanel>
+        </DataTemplate>
+
         <DataTemplate x:Key="RecentGridItemTemplate" x:DataType="vm:RecentProjectItem">
             <StackPanel Classes.missing="{CompiledBinding IsMissing.Value}"
                         Spacing="8"
-                        ToolTip.Tip="{CompiledBinding FullName}">
+                        ToolTip.Tip="{CompiledBinding ToolTipText}">
                 <local:WideFramePanel>
                     <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}"
                             ClipToBounds="True"
@@ -80,6 +93,11 @@
                                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                   Icon="VideoClip" />
                             </ContentControl>
+                            <Border Background="{DynamicResource AccentFillColorDefaultBrush}" Opacity="0.10"
+                                    IsVisible="{CompiledBinding IsRemoteOnly}" />
+                            <icons:FluentIcon FontSize="32" Icon="CloudArrowDown"
+                                              Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                              IsVisible="{CompiledBinding IsRemoteOnly}" />
                             <Image Classes="recent-thumb" RenderOptions.BitmapInterpolationMode="HighQuality" Source="{CompiledBinding Thumbnail.Value}" />
                             <Border Background="{DynamicResource ControlOnImageFillColorDefaultBrush}" IsVisible="{Binding #openingRing.IsVisible}" />
                             <ui:FAProgressRing x:Name="openingRing"
@@ -88,7 +106,7 @@
                                                IsIndeterminate="{CompiledBinding $self.IsVisible}">
                                 <ui:FAProgressRing.IsVisible>
                                     <MultiBinding Converter="{x:Static ObjectConverters.AreAllEqual}">
-                                        <xaml:CompiledBindingExtension Path="FullName" />
+                                        <xaml:CompiledBindingExtension Path="OpeningKey" />
                                         <xaml:CompiledBindingExtension Path="$parent[local:EditorHostFallback].OpeningFile" />
                                     </MultiBinding>
                                 </ui:FAProgressRing.IsVisible>
@@ -103,11 +121,16 @@
                     <TextBlock Text="{CompiledBinding Name}"
                                TextTrimming="CharacterEllipsis"
                                TextWrapping="NoWrap" />
-                    <TextBlock FontSize="12"
-                               Text="{CompiledBinding Status.Value}"
-                               TextTrimming="CharacterEllipsis"
-                               TextWrapping="NoWrap"
-                               Theme="{StaticResource LabelTextBlockStyle}" />
+                    <DockPanel>
+                        <ContentControl DockPanel.Dock="Left"
+                                        Margin="0,0,10,0"
+                                        Content="{CompiledBinding}"
+                                        ContentTemplate="{StaticResource RepositorySourceTemplate}"
+                                        IsVisible="{CompiledBinding RepositoryLabel.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <TextBlock VerticalAlignment="Center" FontSize="12"
+                                   Text="{CompiledBinding Status.Value}" TextTrimming="CharacterEllipsis"
+                                   Theme="{StaticResource LabelTextBlockStyle}" />
+                    </DockPanel>
                 </StackPanel>
             </StackPanel>
         </DataTemplate>
@@ -117,7 +140,7 @@
                   Classes.missing="{CompiledBinding IsMissing.Value}"
                   ColumnDefinitions="Auto,*,Auto"
                   ColumnSpacing="12"
-                  ToolTip.Tip="{CompiledBinding FullName}">
+                  ToolTip.Tip="{CompiledBinding ToolTipText}">
                 <Border Width="64"
                         Height="36"
                         VerticalAlignment="Center"
@@ -129,6 +152,11 @@
                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                           Icon="VideoClip"
                                           IsVisible="{CompiledBinding HasNoThumbnail.Value}" />
+                        <Border Background="{DynamicResource AccentFillColorDefaultBrush}" Opacity="0.10"
+                                IsVisible="{CompiledBinding IsRemoteOnly}" />
+                        <icons:FluentIcon FontSize="18" Icon="CloudArrowDown"
+                                          Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                          IsVisible="{CompiledBinding IsRemoteOnly}" />
                         <Image RenderOptions.BitmapInterpolationMode="HighQuality" Source="{CompiledBinding Thumbnail.Value}" />
                     </Panel>
                 </Border>
@@ -136,19 +164,24 @@
                     <TextBlock Text="{CompiledBinding Name}"
                                TextTrimming="CharacterEllipsis"
                                TextWrapping="NoWrap" />
-                    <TextBlock FontSize="12"
-                               Text="{CompiledBinding DirectoryName}"
-                               TextTrimming="PathSegmentEllipsis"
-                               TextWrapping="NoWrap"
-                               Theme="{StaticResource LabelTextBlockStyle}" />
+                    <DockPanel>
+                        <ContentControl DockPanel.Dock="Left"
+                                        Margin="0,0,10,0"
+                                        Content="{CompiledBinding}"
+                                        ContentTemplate="{StaticResource RepositorySourceTemplate}"
+                                        IsVisible="{CompiledBinding RepositoryLabel.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <TextBlock VerticalAlignment="Center"
+                                   FontSize="12"
+                                   Text="{CompiledBinding DirectoryName}"
+                                   TextTrimming="PathSegmentEllipsis"
+                                   TextWrapping="NoWrap"
+                                   Theme="{StaticResource LabelTextBlockStyle}" />
+                    </DockPanel>
                 </StackPanel>
                 <Panel Grid.Column="2" VerticalAlignment="Center">
-                    <TextBlock MaxWidth="160"
-                               FontSize="12"
+                    <TextBlock MaxWidth="104" VerticalAlignment="Center" FontSize="12"
                                IsVisible="{Binding !#openingRing.IsVisible}"
-                               Text="{CompiledBinding Status.Value}"
-                               TextTrimming="CharacterEllipsis"
-                               TextWrapping="NoWrap"
+                               Text="{CompiledBinding Status.Value}" TextTrimming="CharacterEllipsis"
                                Theme="{StaticResource LabelTextBlockStyle}" />
                     <ui:FAProgressRing x:Name="openingRing"
                                        Width="20"
@@ -157,7 +190,7 @@
                                        IsIndeterminate="{CompiledBinding $self.IsVisible}">
                         <ui:FAProgressRing.IsVisible>
                             <MultiBinding Converter="{x:Static ObjectConverters.AreAllEqual}">
-                                <xaml:CompiledBindingExtension Path="FullName" />
+                                <xaml:CompiledBindingExtension Path="OpeningKey" />
                                 <xaml:CompiledBindingExtension Path="$parent[local:EditorHostFallback].OpeningFile" />
                             </MultiBinding>
                         </ui:FAProgressRing.IsVisible>
@@ -354,6 +387,16 @@
                             </Grid>
                         </Button>
                         <Button Classes="action"
+                                Click="CloneRepository_Click"
+                                Theme="{StaticResource TransparentButton}">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <icons:FluentIcon Icon="ArrowDownload" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{x:Static lang:Strings.HostedGit_CloneRepository}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </Button>
+                        <Button Classes="action"
                                 Click="StartTutorial_Click"
                                 Theme="{StaticResource TransparentButton}">
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -371,7 +414,7 @@
             <Grid x:Name="sheet" RowDefinitions="Auto,*">
                 <Grid Margin="24,22,24,12" ColumnDefinitions="*,Auto">
                     <TextBlock VerticalAlignment="Center"
-                               Text="{x:Static lang:Strings.RecentProjects}"
+                               Text="{x:Static lang:Strings.StartupProjects}"
                                TextTrimming="CharacterEllipsis"
                                Theme="{StaticResource SubtitleTextBlockStyle}" />
                     <TabStrip x:Name="layoutTabs"
@@ -387,18 +430,22 @@
                     </TabStrip>
                 </Grid>
 
-                <ListBox x:Name="recentList" Grid.Row="1">
+                <ListBox x:Name="recentList" Grid.Row="1" controls:UiMotion.Slides="False">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
                             <Setter Property="AutomationProperties.Name" Value="{ReflectionBinding Name}" />
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Setter Property="ContextFlyout">
-                                <ui:FAMenuFlyout>
-                                    <ui:FAMenuFlyoutItem Click="OpenRecentItem_Click" Text="{x:Static lang:Strings.Open}" />
-                                    <ui:FAMenuFlyoutItem Click="ShowRecentItemInFileManager_Click" Text="{x:Static local:EditorHostFallback.FileManagerMenuHeader}" />
-                                    <ui:FAMenuFlyoutItem Click="DeleteRecentItem_Click" Text="{x:Static lang:Strings.Remove}" />
-                                    <ui:FAMenuFlyoutSeparator />
-                                    <ui:FAMenuFlyoutItem Click="DeleteRecentProjectFromDisk_Click" Text="{x:Static lang:Strings.DeleteFromDisk}" />
+                                <ui:FAMenuFlyout x:DataType="vm:RecentProjectItem">
+                                    <ui:FAMenuFlyoutItem Click="OpenRecentItem_Click" Text="{CompiledBinding OpenLabel}" />
+                                    <ui:FAMenuFlyoutItem Click="ShowRecentItemInFileManager_Click"
+                                                         IsVisible="{CompiledBinding !IsRemoteOnly}"
+                                                         Text="{x:Static local:EditorHostFallback.FileManagerMenuHeader}" />
+                                    <ui:FAMenuFlyoutItem Click="DeleteRecentItem_Click" IsVisible="{CompiledBinding !IsRemoteOnly}"
+                                                         Text="{x:Static lang:Strings.Remove}" />
+                                    <ui:FAMenuFlyoutSeparator IsVisible="{CompiledBinding !IsRemoteOnly}" />
+                                    <ui:FAMenuFlyoutItem Click="DeleteRecentProjectFromDisk_Click"
+                                                         IsVisible="{CompiledBinding !IsRemoteOnly}" Text="{x:Static lang:Strings.DeleteFromDisk}" />
                                 </ui:FAMenuFlyout>
                             </Setter>
                         </Style>

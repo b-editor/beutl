@@ -1,0 +1,82 @@
+<ui:FAContentDialog xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:repo="using:Beutl.Editor.Components.VersionControl.Views"
+                    xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
+                    x:Class="Beutl.Editor.Components.VersionControlTab.Views.ConnectRemoteDialog"
+                    x:DataType="vm:ConnectRemoteDialogViewModel"
+                    x:CompileBindings="True"
+                    Title="{x:Static lang:Strings.HostedGit_ConnectRemote}"
+                    PrimaryButtonText="{Binding ButtonText.Value}"
+                    IsPrimaryButtonEnabled="{Binding CanConnect.Value}"
+                    CloseButtonText="{x:Static lang:Strings.Cancel}"
+                    DefaultButton="Primary">
+    <ScrollViewer MaxHeight="410" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MinWidth="280" MaxWidth="440" Spacing="12">
+            <StackPanel IsEnabled="{Binding !IsBusy.Value}" Spacing="12">
+                <TabStrip Theme="{DynamicResource SegmentedTabStrip}"
+                          SelectedIndex="{Binding Mode.Value, Mode=TwoWay}">
+                    <TabStrip.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="1" />
+                        </ItemsPanelTemplate>
+                    </TabStrip.ItemsPanel>
+                    <TabStrip.Styles>
+                        <Style Selector="TabStripItem">
+                            <Setter Property="Padding" Value="4,6" />
+                            <Setter Property="FontSize" Value="12" />
+                        </Style>
+                    </TabStrip.Styles>
+                    <TabStripItem x:Name="CreateMode" Content="{x:Static lang:Strings.HostedGit_CreateRepository}" />
+                    <TabStripItem x:Name="ExistingMode" Content="{x:Static lang:Strings.HostedGit_ConnectExisting}" />
+                    <TabStripItem x:Name="UrlMode" Content="{x:Static lang:Strings.HostedGit_CustomUrl}" />
+                </TabStrip>
+                <StackPanel IsVisible="{Binding #CreateMode.IsSelected}" Spacing="8">
+                    <StackPanel Spacing="8" IsVisible="{Binding Picker.NeedsSignIn.Value}">
+                        <TextBlock Text="{x:Static lang:Strings.HostedGit_AuthenticationRequired}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <Button Content="{x:Static lang:Strings.HostedGit_SignIn}"
+                                IsEnabled="{Binding Picker.CanSignIn.Value}" Click="SignIn_Click" />
+                        <TextBlock Text="{Binding Picker.Status.Value}" TextWrapping="Wrap"
+                                   IsVisible="{Binding Picker.Status.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                    <StackPanel Spacing="4" IsVisible="{Binding !Picker.NeedsSignIn.Value}">
+                        <TextBlock FontWeight="SemiBold" Text="{x:Static lang:Strings.HostedGit_RepositoryName}" />
+                        <TextBox Text="{Binding Name.Value, Mode=TwoWay}"
+                                 AutomationProperties.Name="{x:Static lang:Strings.HostedGit_RepositoryName}" />
+                        <TextBlock Text="{x:Static lang:Strings.HostedGit_InvalidRepositoryName}" TextWrapping="Wrap"
+                                   IsVisible="{Binding !IsNameValid.Value}"
+                                   Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                    </StackPanel>
+                </StackPanel>
+                <Panel IsVisible="{Binding #ExistingMode.IsSelected}">
+                    <repo:HostedRepositoryPicker DataContext="{Binding Picker}" />
+                </Panel>
+                <StackPanel IsVisible="{Binding #UrlMode.IsSelected}" Spacing="4">
+                    <TextBlock FontWeight="SemiBold" Text="{x:Static lang:Strings.VersionControl_RemoteUrl}" />
+                    <TextBox Text="{Binding Url.Value, Mode=TwoWay}"
+                             AutomationProperties.Name="{x:Static lang:Strings.VersionControl_RemoteUrl}" />
+                </StackPanel>
+            </StackPanel>
+            <Border IsVisible="{Binding Context.HasOrigin}" Padding="10,8" CornerRadius="6"
+                    Background="{DynamicResource SystemFillColorCautionBackgroundBrush}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <icons:FluentIcon Icon="Warning" FontSize="16"
+                                      Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+                    <StackPanel Grid.Column="1" Spacing="3">
+                        <TextBlock Text="{x:Static lang:Strings.HostedGit_ReplaceOrigin}"
+                                   FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <SelectableTextBlock Text="{Binding Context.CurrentUrl}" TextWrapping="Wrap" FontSize="12"
+                                             Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <ui:FAProgressRing Width="20" Height="20" IsVisible="{Binding IsBusy.Value}" IsActive="{Binding IsBusy.Value}" />
+            <TextBlock Text="{Binding Error.Value}" TextWrapping="Wrap"
+                       IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+        </StackPanel>
+    </ScrollViewer>
+</ui:FAContentDialog>

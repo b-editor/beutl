@@ -81,6 +81,8 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand OpenFile { get; } = new();
 
+    public AsyncReactiveCommand CloneRepository { get; } = new();
+
     public ReactiveCommandSlim CloseFile { get; private set; }
 
     public AsyncReactiveCommand CloseProject { get; private set; }

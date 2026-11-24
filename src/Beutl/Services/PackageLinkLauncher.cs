@@ -14,7 +14,7 @@ internal static class PackageLinkLauncher
     public static async Task<PackageLinkLaunchResult> PrepareAsync(
         string[] arguments, string? pipeName = null, TimeSpan? forwardingTimeout = null)
     {
-        if (arguments.Length == 0 || !arguments.All(argument => PackageInstallRequest.TryParse(argument, out _)))
+        if (arguments.Length == 0 || !arguments.All(argument => BeutlLinkRequest.TryParse(argument, out _)))
             return new(PackageLinkLaunchAction.StartApplication, PackageLinkBroker.TryCreate(pipeName), arguments);
 
         using var timeout = new CancellationTokenSource(forwardingTimeout ?? TimeSpan.FromSeconds(10));

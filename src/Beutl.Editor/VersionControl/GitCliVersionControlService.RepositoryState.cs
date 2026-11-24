@@ -113,7 +113,7 @@ internal sealed partial class GitCliVersionControlService
         return refName[Prefix.Length..];
     }
 
-    private static async Task<string?> TryResolveCommitAsync(
+    internal static async Task<string?> TryResolveCommitAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         string revision,
@@ -123,7 +123,7 @@ internal sealed partial class GitCliVersionControlService
         {
             GitCommandResult result = await runner.RunAsync(
                 repository,
-                ["rev-parse", "--verify", "--quiet", $"{revision}^{{commit}}"],
+                ["rev-parse", "--verify", "--quiet", "--end-of-options", $"{revision}^{{commit}}"],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
             string commit = result.Stdout.Trim();
@@ -134,6 +134,34 @@ internal sealed partial class GitCliVersionControlService
         {
             return null;
         }
+    }
+
+    // A hosted link can name a hexadecimal tag or an abbreviated object. Resolve
+    // exact tags first, then inspect objects without considering local-only refs.
+    internal static async Task<string?> TryResolveHostedCommitAsync(
+        RepositoryInfo repository, IGitCliRunner runner, string revision, CancellationToken cancellationToken)
+    {
+        if (!GitRevisionValidator.IsAbbreviatedObjectId(revision))
+            return await TryResolveCommitAsync(repository, runner, revision, cancellationToken).ConfigureAwait(false);
+
+        string tagRef = $"refs/tags/{revision}";
+        if (await RefExistsAsync(repository, runner, tagRef, cancellationToken).ConfigureAwait(false))
+            return await TryResolveCommitAsync(repository, runner, tagRef, cancellationToken).ConfigureAwait(false);
+
+        GitCommandResult candidates = await runner.RunAsync(repository, ["rev-parse", $"--disambiguate={revision}"],
+            GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
+        string? commit = null;
+        foreach (string candidate in candidates.Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            string? resolved = await TryResolveCommitAsync(repository, runner, candidate, cancellationToken)
+                .ConfigureAwait(false);
+            if (resolved is null)
+                continue;
+            if (commit is not null)
+                return null;
+            commit = resolved;
+        }
+        return commit;
     }
 
     private static async Task<string> ResolveTreeAsync(

@@ -18,7 +18,7 @@ public partial class PlayerViewModel
 {
     // Both displayed images retain their own reference; the caller still owns the supplied frames.
     private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource, MediaTime time, long playbackId = 0,
-        bool showsPuppetStage = false)
+        IEditingStageProvider? editingStage = null)
     {
         lock (_cleanPreviewLock)
         {
@@ -28,7 +28,7 @@ public partial class PlayerViewModel
         }
 
         ReplaceImage(PreviewImage, source);
-        ShowsPuppetStage.Value = showsPuppetStage;
+        ShownEditingStage.Value = editingStage;
 
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
@@ -209,13 +209,15 @@ public partial class PlayerViewModel
         float onionNextOpacity = editorConfig.OnionSkinNextOpacity.Value;
         // The path editor draws the shape it edits, and the selection's boundary would only cover its points.
         bool drawBoundaries = !PathEditor.IsVisible.Value;
-        IReadOnlySet<EngineObject>? disabledEffects = IsPlaybackActive
-            ? null : GetPuppetStageDisabledEffects(_puppetEditingEffect.Value);
+        IEditingStageProvider? stage = IsPlaybackActive ? null : _editingStageEffect.Value;
+        IReadOnlySet<EngineObject>? disabledEffects = GetEditingStageDisabledEffects(stage);
+        if (disabledEffects is null)
+            stage = null;
 
         RenderThread.Dispatcher.Dispatch(
             () => RenderPreviewFrame(
                 token, onionEnabled, onionPrevCount, onionNextCount, onionPrevOpacity, onionNextOpacity,
-                drawBoundaries, disabledEffects),
+                drawBoundaries, stage, disabledEffects),
             ct: token);
     }
 
@@ -228,6 +230,7 @@ public partial class PlayerViewModel
         float onionPrevOpacity,
         float onionNextOpacity,
         bool drawBoundaries,
+        IEditingStageProvider? stage,
         IReadOnlySet<EngineObject>? disabledEffects)
     {
         int frame = 0;
@@ -293,7 +296,7 @@ public partial class PlayerViewModel
             if (token.IsCancellationRequested)
                 return;
 
-            UpdateImage(bitmapRef, cleanFrame, time, showsPuppetStage: disabledEffects is not null);
+            UpdateImage(bitmapRef, cleanFrame, time, editingStage: stage);
 
             // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
             if (!token.IsCancellationRequested)
@@ -352,7 +355,7 @@ public partial class PlayerViewModel
 
         renderer.Render(compositionFrame);
         using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
-        // Onion skin and the isolated Puppet stage bypass the normal frame cache.
+        // Onion skin and an editing stage bypass the normal frame cache.
         if (useCache && cacheManager.IsEnabled)
         {
             cacheManager.Add(frame, bitmap);

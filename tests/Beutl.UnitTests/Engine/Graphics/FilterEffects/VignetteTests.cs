@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.Numerics;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -7,6 +8,8 @@ using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Serialization;
+using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 using SkiaSharp;
 
@@ -16,6 +19,47 @@ namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 public sealed class VignetteTests
 {
     private static readonly PixelSize s_square = new(65, 65);
+    private static readonly Rect s_picture = new(0, 0, 400, 300);
+
+    // Vignette's shader as it shipped in preview.15, frozen so that a band that fits between the center and the
+    // corner is held to the pixels existing projects already render rather than to the current shader itself.
+    private static readonly SkslSource s_shippedShader = new(
+        """
+        uniform shader src;
+        uniform float2 center;
+        uniform float2 inverseRadii;
+        uniform float exponent;
+        uniform float2 falloff;
+        uniform float amount;
+
+        float maskAt(float distance) {
+            if (falloff.y > falloff.x) {
+                return smoothstep(falloff.x, falloff.y, distance);
+            }
+
+            // A collapsed band is a hard step. Keep the center clear and the outer edge at full strength.
+            if (distance <= 0.0 || distance >= 1.0) {
+                return clamp(distance, 0.0, 1.0);
+            }
+            return distance < falloff.x ? 0.0 : (distance > falloff.x ? 1.0 : 0.5);
+        }
+
+        half4 main(float2 coord) {
+            float2 offset = min(abs(coord - center) * inverseRadii, float2(1.0));
+            float distance = exponent == 2.0
+                ? length(offset)
+                : pow(pow(offset.x, exponent) + pow(offset.y, exponent), 1.0 / exponent);
+            float strength = abs(amount) * maskAt(distance);
+            float4 color = src.eval(coord);
+            if (amount > 0.0) {
+                color.rgb *= 1.0 - strength;
+            } else {
+                color.rgb += (float3(color.a) - color.rgb) * strength;
+            }
+            return half4(color);
+        }
+        """,
+        ShaderDescriptionKind.WholeSource);
 
     [Test]
     public void ZeroAmountPreservesRenderedPixels()
@@ -197,6 +241,109 @@ public sealed class VignetteTests
         });
     }
 
+    // Only a band that runs past the center or the corner changes. One that fits, and the steps at either end, do not.
+    [TestCaseSource(nameof(ShippedBands))]
+    public void UnclippedBandsRenderAsTheShippedShader(float amount, float midpoint, float roundness, float feather)
+    {
+        var effect = new Vignette
+        {
+            Amount = { Value = amount },
+            Midpoint = { Value = midpoint },
+            Roundness = { Value = roundness },
+            Feather = { Value = feather },
+        };
+        FilterEffect shipped = ShippedVignette(amount, midpoint, roundness, feather);
+        // Neither black nor white, so that both darkening and lightening change it.
+        var color = Color.FromRgb(70, 140, 200);
+
+        Assert.That(
+            FilterEffectTestHarness.RunOnSolidTarget(effect, new SKColor(color.R, color.G, color.B), s_square).After,
+            Is.EqualTo(FilterEffectTestHarness.RunOnSolidTarget(shipped, new SKColor(color.R, color.G, color.B), s_square).After),
+            "the raster backend");
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using SolidColorBrush.Resource fill = color.ToBrushResource();
+            using Bitmap expected = RenderPicture(shipped, fill);
+            using Bitmap actual = RenderPicture(effect, fill);
+            GoldenImageHarness.AssertByteIdentical(expected, actual, "the Vulkan backend", requireVisibleContent: true);
+        });
+    }
+
+    private static IEnumerable<TestCaseData> ShippedBands()
+    {
+        // Amount, Midpoint, Roundness and Feather, in percent.
+        yield return new TestCaseData(50f, 50f, 0f, 50f).SetArgDisplayNames("the defaults");
+        yield return new TestCaseData(100f, 40f, 0f, 10f).SetArgDisplayNames("a narrow band");
+        yield return new TestCaseData(100f, 40f, 0f, 80f).SetArgDisplayNames("a band from the center");
+        yield return new TestCaseData(-60f, 30f, 60f, 60f).SetArgDisplayNames("a lightening band from the center");
+        yield return new TestCaseData(100f, 70f, -40f, 60f).SetArgDisplayNames("a band to the corner");
+        yield return new TestCaseData(100f, 50f, 0f, 100f).SetArgDisplayNames("the whole interval");
+        yield return new TestCaseData(100f, 25f, 0f, 0f).SetArgDisplayNames("a hard step");
+        yield return new TestCaseData(100f, 0f, 0f, 100f).SetArgDisplayNames("a midpoint at the center");
+        yield return new TestCaseData(100f, 100f, 0f, 60f).SetArgDisplayNames("a midpoint at the corner");
+    }
+
+    // The red readings below are in linear light from the center of a white 400 x 300 picture to its top-left corner,
+    // at 0%, 10%, ..., 100% of the way. The default Amount of 50 leaves half the red at full strength.
+    [Test]
+    public void AWideFeatherAroundASmallMidpointKeepsDarkeningPastIt()
+    {
+        float[] red = RedFromCenterToCorner(new Vignette { Midpoint = { Value = 10f }, Feather = { Value = 100f } });
+
+        // The band reaches 60% of the way. Narrowed to stay symmetric, it used to end at 20%.
+        Assert.Multiple(() =>
+        {
+            Assert.That(red[0], Is.EqualTo(1f).Within(0.002f));
+            Assert.That(red[1], Is.EqualTo(0.75f).Within(0.02f), "half strength at the midpoint");
+            for (int step = 1; step <= 5; step++)
+                Assert.That(red[step], Is.LessThan(red[step - 1]), $"darker at {step * 10}% than at {step * 10 - 10}%");
+            Assert.That(red[4], Is.GreaterThan(0.505f), "short of full strength at 40%");
+            Assert.That(red[6..], Is.All.EqualTo(0.5f).Within(0.002f));
+        });
+    }
+
+    [Test]
+    public void AWideFeatherAroundALargeMidpointStartsWellBeforeTheLastTenth()
+    {
+        float[] red = RedFromCenterToCorner(new Vignette { Midpoint = { Value = 90f }, Feather = { Value = 100f } });
+
+        // The band starts at 40% of the way. Narrowed to stay symmetric, it used to start at 80%.
+        Assert.Multiple(() =>
+        {
+            Assert.That(red[..5], Is.All.EqualTo(1f).Within(0.002f));
+            for (int step = 6; step <= 10; step++)
+                Assert.That(red[step], Is.LessThan(red[step - 1]), $"darker at {step * 10}% than at {step * 10 - 10}%");
+            Assert.That(red[7], Is.LessThan(0.98f));
+            Assert.That(red[8], Is.LessThan(0.95f));
+            Assert.That(red[9], Is.EqualTo(0.75f).Within(0.02f), "half strength at the midpoint");
+            Assert.That(red[10], Is.EqualTo(0.5f).Within(0.005f));
+        });
+    }
+
+    [Test]
+    public void AMidpointAtTheCenterStaysAUniformDarkening()
+    {
+        float[] red = RedFromCenterToCorner(new Vignette { Midpoint = { Value = 0f }, Feather = { Value = 100f } });
+
+        Assert.That(red, Is.All.EqualTo(0.5f).Within(0.002f));
+    }
+
+    [Test]
+    public void AMidpointJustAboveTheCenterStaysFinite()
+    {
+        // A tiny positive Midpoint must not divide 0 by 0 where the band starts. The 65 x 65 picture puts the center
+        // on a pixel's center, at distance 0.
+        float[] pixels = RenderWhite(new Vignette { Midpoint = { Value = 1e-7f }, Feather = { Value = 100f } }, s_square);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pixels, Is.All.Matches<float>(float.IsFinite));
+            Assert.That(ChannelAt(pixels, s_square, 32, 32), Is.EqualTo(1f).Within(0.002f), "the center");
+            Assert.That(ChannelAt(pixels, s_square, 0, 0), Is.EqualTo(0.5f).Within(0.002f), "the corner");
+        });
+    }
+
     [Test]
     public void DetachedValuesUseRangesAndFiniteDefaults()
     {
@@ -304,6 +451,66 @@ public sealed class VignetteTests
 
     private static float[] RenderWhite(Vignette effect, PixelSize size)
         => FilterEffectTestHarness.RunOnSolidTarget(effect, SKColors.White, size).After;
+
+    private static Bitmap RenderPicture(FilterEffect effect, Brush.Resource? fill = null)
+        => FilteredShapeHarness.Render(s_picture, effect, fullBleed: true, surface: 400, targetDomain: s_picture, fill: fill);
+
+    private static float[] RedFromCenterToCorner(Vignette effect)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        return VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap bitmap = RenderPicture(effect);
+            return Enumerable.Range(0, 11)
+                .Select(step => ImageMetrics.ReadPixel(bitmap, 200 - 20 * step, 150 - 15 * step).Red)
+                .ToArray();
+        });
+    }
+
+    // Records Vignette as it shipped in preview.15 for settings within the properties' ranges.
+    private static EffectItemSuffixCallbackFilterEffect ShippedVignette(
+        float amountPercent, float midpointPercent, float roundnessPercent, float featherPercent)
+        => new((context, _) =>
+        {
+            float amount = amountPercent / 100f;
+            float midpoint = midpointPercent / 100f;
+            float feather = featherPercent / 100f;
+            float roundness = roundnessPercent / 100f;
+            float halfWidth = MathF.Min(feather * 0.5f, MathF.Min(midpoint, 1f - midpoint));
+            var falloff = new Vector2(midpoint - halfWidth, midpoint + halfWidth);
+            float exponent = 2f + 6f * MathF.Max(-roundness, 0f);
+            float circularity = MathF.Max(roundness, 0f);
+
+            context.Shader(ShaderDescription.WholeSource(
+                s_shippedShader,
+                RenderBoundsContract.Identity,
+                bindings =>
+                {
+                    bindings.Uniform("amount", amount);
+                    bindings.Uniform("falloff", falloff);
+                    bindings.Uniform("exponent", exponent);
+                    bindings.Uniform("center", RelativePoint.Center, static (writer, center, execution) =>
+                    {
+                        Rect bounds = execution.OutputBounds;
+                        writer.Set(RasterShaderMapping.ToStagePixels(
+                            execution, bounds.Position + center.ToPixels(bounds.Size)));
+                    });
+                    bindings.Uniform("inverseRadii", (Circularity: circularity, Exponent: exponent), static (writer, shape, execution) =>
+                    {
+                        Rect bounds = execution.OutputBounds;
+                        var halfSize = Vector2.Max(new Vector2(bounds.Width, bounds.Height) * 0.5f, new Vector2(1e-6f));
+                        var circle = new Vector2(MathF.Max(halfSize.X, halfSize.Y));
+                        Vector2 axes = Vector2.Lerp(halfSize, circle, shape.Circularity);
+                        Vector2 corner = halfSize / axes;
+                        float cornerDistance = shape.Exponent == 2f
+                            ? corner.Length()
+                            : MathF.Pow(2f, 1f / shape.Exponent);
+                        writer.Set(new Vector2(1f) / (axes * (cornerDistance * execution.OutputPlacement.Scale.Value)));
+                    });
+                },
+                SKShaderTileMode.Decal,
+                hitTest: RenderHitTestContract.AnyInput));
+        });
 
     private static float ChannelAt(float[] pixels, PixelSize size, int x, int y, int channel = 0)
         => pixels[(y * size.Width + x) * 4 + channel];

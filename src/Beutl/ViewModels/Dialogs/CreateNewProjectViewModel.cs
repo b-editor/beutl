@@ -19,12 +19,12 @@ public sealed class CreateNewProjectViewModel
 
     internal CreateNewProjectViewModel(
         ProjectService projectService,
-        IProjectVersionControlInitializer versionControlInitializer, GlobalConfiguration configuration)
+        IProjectVersionControlInitializer versionControlInitializer, GlobalConfiguration configuration, string? initialLocation = null)
     {
         _configuration = configuration;
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _versionControlInitializer = versionControlInitializer;
-        Location.Value = GetDefaultLocation();
+        Location.Value = initialLocation ?? GetDefaultLocation(configuration.ViewConfig);
         Name.Value = NewDocumentValidation.UniqueName(Location.Value, "Project");
         _ = DetectGitAsync();
 
@@ -145,19 +145,13 @@ public sealed class CreateNewProjectViewModel
         }
     }
 
-    private string GetDefaultLocation()
+    internal static string GetDefaultLocation(ViewConfig config)
     {
-        ViewConfig config = _configuration.ViewConfig;
-        try
+        if (config.RecentProjects.FirstOrDefault() is { } last
+            && Path.GetDirectoryName(last) is { } projectFolder
+            && Path.GetDirectoryName(projectFolder) is { Length: > 0 } directory)
         {
-            if (config.RecentProjects.FirstOrDefault() is { } last)
-            {
-                ReadOnlySpan<char> span = last.AsSpan();
-                return new string(Path.GetDirectoryName(Path.GetDirectoryName(span)));
-            }
-        }
-        catch
-        {
+            return directory;
         }
 
         return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);

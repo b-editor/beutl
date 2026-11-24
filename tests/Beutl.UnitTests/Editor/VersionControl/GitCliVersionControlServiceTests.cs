@@ -4809,6 +4809,32 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.That(runner.ApprovedCredentials, Is.Null);
     }
 
+    [TestCase(null, null, "plaintext", "libsecret")]
+    [TestCase(null, "example.invalid", "plaintext", "libsecret")]
+    [TestCase("plaintext", null, "keychain", "libsecret")]
+    [TestCase("keychain", null, "plaintext", "manager")]
+    public async Task Hosted_credentials_use_a_protected_helper(
+        string? environmentStore, string? configScope, string configuredStore, string helper)
+    {
+        const string url = "https://git.example.invalid/api/v3/git/a3a8927c-bcf4-4f6e-91f4-64897320378e.git";
+        await RunGitAsync("config", $"credential.{url}.helper", "manager");
+        await RunGitAsync("config", $"credential.{configScope ?? url}.credentialStore", configuredStore);
+        var runner = new CredentialHelperRunner(CreateRunner())
+        {
+            AvailableHelpers = "credential-manager credential-libsecret",
+            SimulateStorage = true,
+        };
+        var options = GitCommandOptions.Local with
+        {
+            EnvironmentOverrides = new Dictionary<string, string?> { ["GCM_CREDENTIAL_STORE"] = environmentStore },
+        };
+
+        GitRemoteUrl remote = GitRemoteUrl.WithHostedCredentials(new Uri(url), "example-token");
+        await remote.StoreCredentialsAsync(Repository, runner, CancellationToken.None, options);
+
+        Assert.That(runner.ApprovedHelpers, Is.EqualTo(new[] { helper }));
+    }
+
     [Test]
     public async Task SetRemoteAsync_preserves_configuration_when_a_helper_silently_fails_to_store_credentials()
     {

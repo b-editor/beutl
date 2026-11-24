@@ -22,6 +22,8 @@ internal sealed class VersionControlCommitViewModel : IDisposable
             commit.AuthorName,
             relativeTimeFormatter.Format(commit.AuthorDate));
         AbsoluteLocalDate = relativeTimeFormatter.FormatAbsoluteLocal(commit.AuthorDate);
+        OpenOnWebCommand = new AsyncReactiveCommand(IsHostedGitRemote.AsObservable())
+            .WithSubscribe(() => _owner.RunCommandAsync(() => _owner.OpenOnWebAsync(Commit.Sha), nameof(OpenOnWebCommand)));
         RestoreCommand = new AsyncReactiveCommand()
             .WithSubscribe(() => _owner.RunCommandAsync(
                 () => _owner.RestoreAsync(Commit),
@@ -46,12 +48,17 @@ internal sealed class VersionControlCommitViewModel : IDisposable
 
     public string AbsoluteLocalDate { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> IsHostedGitRemote => _owner.IsHostedGitRemote;
+
+    public AsyncReactiveCommand OpenOnWebCommand { get; }
+
     public AsyncReactiveCommand RestoreCommand { get; }
 
     public AsyncReactiveCommand RestoreToNewBranchCommand { get; }
 
     public void Dispose()
     {
+        OpenOnWebCommand.Dispose();
         RestoreCommand.Dispose();
         RestoreToNewBranchCommand.Dispose();
     }

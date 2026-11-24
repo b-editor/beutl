@@ -139,6 +139,28 @@ public class EchoTests
         Assert.That(effect.TimeSamples.Select(copy => copy.Opacity), Is.All.EqualTo(expectedOpacity));
     }
 
+    // A faint copy can still show: an HDR or exposed-up input carries values far above 1, so no copy is skipped for its
+    // opacity alone.
+    [TestCase(EchoBlendMode.NewestOnTop)]
+    [TestCase(EchoBlendMode.Add)]
+    public void FaintCopiesAreStillEvaluated(EchoBlendMode blendMode)
+    {
+        var times = new List<MediaTime>();
+        var echo = new Echo { Count = { Value = 64 }, BlendMode = { Value = blendMode } };
+        var shape = new RectShape { FilterEffect = { Value = echo } };
+        shape.Width.Expression = new TimeRecordingExpression(10, times);
+        using var resource = shape.ToResource(new CompositionContext(MediaTime.FromSeconds(10)));
+        var samples = ((Echo.Resource)resource.FilterEffect!).TimeSamples;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(samples, Has.Count.EqualTo(64));
+            Assert.That(samples[^1].Opacity, Is.EqualTo(MathF.Pow(0.7f, 63)).Within(0.01).Percent);
+            Assert.That(times.Select(time => time.ToSeconds()).Distinct().Count(), Is.EqualTo(64),
+                "one evaluation time for each copy, the current one included");
+        }
+    }
+
     [Test]
     public void SerializationRestoresEchoInTheEffectChain()
     {
@@ -148,7 +170,7 @@ public class EchoTests
             Count = { Value = 7 },
             StartingIntensity = { Value = 85 },
             Decay = { Value = 60 },
-            BlendMode = { Value = EchoBlendMode.Add },
+            BlendMode = { Value = EchoBlendMode.NewestOnTop },
         };
         var shape = new RectShape
         {
@@ -164,7 +186,7 @@ public class EchoTests
             Assert.That(actual.Count.Value, Is.EqualTo(7));
             Assert.That(actual.StartingIntensity.Value, Is.EqualTo(85));
             Assert.That(actual.Decay.Value, Is.EqualTo(60));
-            Assert.That(actual.BlendMode.Value, Is.EqualTo(EchoBlendMode.Add));
+            Assert.That(actual.BlendMode.Value, Is.EqualTo(EchoBlendMode.NewestOnTop));
         }
     }
 
@@ -179,5 +201,23 @@ public class EchoTests
     {
         property.SetValidator(new MultipleValidator<T>([]));
         property.Value = value;
+    }
+
+    // Records the time of every evaluation of the property it is set on.
+    private sealed class TimeRecordingExpression(float value, List<MediaTime> times) : IExpression<float>
+    {
+        public string ExpressionString => "recorded";
+
+        public float Evaluate(ExpressionContext context)
+        {
+            times.Add(context.Time);
+            return value;
+        }
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
     }
 }

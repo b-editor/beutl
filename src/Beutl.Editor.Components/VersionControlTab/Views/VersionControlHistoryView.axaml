@@ -39,6 +39,9 @@
                                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="VersionControl.RestoreToNewBranchCommand"
                                                          Command="{Binding RestoreToNewBranchCommand}"
                                                          Text="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
+                                <ui:FAMenuFlyoutItem Command="{Binding OpenOnWebCommand}"
+                                                         Text="{x:Static lang:Strings.HostedGit_OpenCommitOnWeb}"
+                                                         IsVisible="{Binding IsHostedGitRemote.Value}" />
                                 </ui:FAMenuFlyout>
                             </Border.ContextFlyout>
                             <Grid ColumnDefinitions="*,Auto"

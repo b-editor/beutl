@@ -9,12 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The linked package-link parser uses WebUtilities from the shared framework. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Moq" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
   </ItemGroup>
 
   <ItemGroup>
@@ -50,6 +51,10 @@
     <Compile Include="..\..\src\Beutl\Helpers\ExportSupersampling.cs" Link="Editor\Linked\ExportSupersampling.cs" />
     <Compile Include="..\..\src\Beutl\Helpers\CancellationTokenSourceHelper.cs" Link="Helpers\Linked\CancellationTokenSourceHelper.cs" />
     <Compile Include="..\..\src\Beutl\Helpers\HistoryMutationPlaybackGuard.cs" Link="Helpers\Linked\HistoryMutationPlaybackGuard.cs" />
+    <Compile Include="..\..\src\Beutl\Services\BeutlLinkRequest.cs" Link="Services\Linked\BeutlLinkRequest.cs" />
+    <Compile Include="..\..\src\Beutl\Services\PackageInstallRequest.cs" Link="Services\Linked\PackageInstallRequest.cs" />
+    <Compile Include="..\..\src\Beutl\Services\PackageLinkBroker.cs" Link="Services\Linked\PackageLinkBroker.cs" />
+    <Compile Include="..\..\src\Beutl\Services\PackageLinkLauncher.cs" Link="Services\Linked\PackageLinkLauncher.cs" />
     <Compile Include="..\..\src\Beutl\Models\BufferedPlayerWaitGate.cs" Link="Models\Linked\BufferedPlayerWaitGate.cs" />
   </ItemGroup>
 

@@ -383,6 +383,12 @@
   <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
     <value>以中心为基准，将红色通道缩放为 (1 + 数量/100) 倍，将蓝色通道缩放为 (1 - 数量/100) 倍。绿色通道的位置保持不变。负值会交换边缘的红蓝颜色。</value>
   </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels" xml:space="preserve">
+    <value>重复边缘像素</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels_Description" xml:space="preserve">
+    <value>当通道读取到图像边缘之外时，重复使用边缘像素，使边缘保持原有颜色，结果也保持在图像范围内。关闭后，色边会扩散到图像之外，适合透明背景上的对象。</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>曲线</value>
   </data>
@@ -2239,6 +2245,9 @@
   </data>
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>网格控制点（第 {0} 行，第 {1} 列）</value>
+  </data>
+  <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
+    <value>正在编辑网格控制点。预览会暂时隐藏后续效果。</value>
   </data>
   <data name="Puppet" xml:space="preserve">
     <value>木偶变形</value>
