@@ -3,29 +3,24 @@ using Beutl.Animation;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
-// The keyframes and expressions of an element's objects, nested objects, separated components and node ports included,
-// found by walking that element alone.
+// Keyframes of an element's objects, including nested objects, separated components, and node ports.
 internal static class ElementAnimations
 {
-    // The keyframe times from the element's start, sorted and each once, and whether any property follows an
-    // expression. watch hears of every animation, also one whose last key was removed, so that its first key is heard
-    // of again.
-    internal static ElementAnimationMarks ReadMarks(Element element, Action<IKeyFrameAnimation>? watch = null)
+    // The distinct keyframe times relative to the element's start, in order. Watch empty animations too so the
+    // marks update when their first key is added.
+    internal static IReadOnlyList<MediaTime> ReadMarkTimes(Element element, Action<IKeyFrameAnimation> watch)
     {
         MediaTime start = element.Start.Value;
         var times = new List<MediaTime>();
-        bool hasKeyFrames = false;
         var walker = new Walker(animation =>
         {
-            watch?.Invoke(animation);
-            hasKeyFrames |= HasKeys(animation);
+            watch(animation);
             MediaTime origin = AnimationOperations.GetTimeOrigin(animation);
             foreach (IKeyFrame key in animation.KeyFrames)
             {
@@ -46,33 +41,31 @@ internal static class ElementAnimations
         }
 
         times.RemoveRange(count, times.Count - count);
-        return new ElementAnimationMarks(hasKeyFrames, walker.HasExpression, [.. times]);
+        return [.. times];
     }
 
-    // The rows of the clip's "Animation" menu: the element's objects, and below each the properties with keyframes, nested
-    // as the graph editor's tree nests them. A property that holds an object has that object's properties directly
-    // below it, two properties that stand as one are one row, and an object or property without keyframes below it has
-    // no row.
+    // The animation menu lists each property with keyframes in property-editor order, with its object and property
+    // path in the label. A joined property pair shares a row.
     internal static List<AnimationMenuItem> ReadMenu(Element element)
     {
-        var roots = new List<AnimationMenuItem>();
         var builder = new MenuBuilder();
         foreach (EngineObject obj in element.Objects)
         {
-            builder.AppendValue(obj, roots);
+            builder.AppendValue(obj, "");
         }
 
-        return roots;
+        return builder.Items;
     }
 
     private sealed class MenuBuilder
     {
         private readonly HashSet<object> _ancestors = new(ReferenceEqualityComparer.Instance);
-        // A property can be reached on two paths, such as a node's nested port and the object its parent port holds;
-        // it has a toggle on the first only.
+        // A node's nested port and the object its parent port holds can lead to the same property.
         private readonly HashSet<object> _listed = new(ReferenceEqualityComparer.Instance);
 
-        public void AppendValue(object? value, List<AnimationMenuItem> result)
+        public List<AnimationMenuItem> Items { get; } = [];
+
+        public void AppendValue(object? value, string parentPath)
         {
             value = ChildObjects.Unwrap(value);
             if (value is null or string or IKeyFrameAnimation || !_ancestors.Add(value)) return;
@@ -81,26 +74,24 @@ internal static class ElementAnimations
             {
                 switch (value)
                 {
-                    // A node's port is a property's row too, over the value its adapter holds.
                     case INodeMember { Property: { } adapter }:
-                        AddIfAnimated(result, ValueItem(adapter.DisplayName,
+                        AppendProperty(AppendPath(parentPath, adapter.DisplayName),
                             adapter is IAnimatablePropertyAdapter animated && HasKeys(animated.Animation) ? animated : null,
-                            adapter.GetEngineProperty(), adapter.GetValue()));
+                            adapter.GetEngineProperty(), adapter.GetValue());
                         break;
                     case EngineObject obj:
-                        var item = new AnimationMenuItem(string.IsNullOrWhiteSpace(obj.Name.Value)
+                        string name = string.IsNullOrWhiteSpace(obj.Name.Value)
                             ? TypeDisplayHelpers.GetLocalizedName(obj.GetType())
-                            : obj.Name.Value);
-                        AppendObjectChildren(obj, item.Children);
-                        AddIfAnimated(result, item);
+                            : obj.Name.Value;
+                        AppendObjectChildren(obj, AppendPath(parentPath, name));
                         break;
                     case CoreObject core:
-                        AppendCoreChildren(core, result);
+                        AppendCoreChildren(core, parentPath);
                         break;
                     case IEnumerable list:
                         foreach (object? child in list)
                         {
-                            AppendValue(child, result);
+                            AppendValue(child, parentPath);
                         }
 
                         break;
@@ -112,76 +103,70 @@ internal static class ElementAnimations
             }
         }
 
-        private void AppendObjectChildren(EngineObject obj, List<AnimationMenuItem> result)
+        private void AppendObjectChildren(EngineObject obj, string path)
         {
             foreach (IProperty property in obj.GetDisplayProperties())
             {
                 // The items of a group stand in its place.
                 if (property is IListProperty { Name: "Children" } list && typeof(EngineObject).IsAssignableFrom(list.ElementType))
                 {
-                    AppendValue(list, result);
+                    AppendValue(list, path);
                     continue;
                 }
 
                 if (PropertyPair.Find(property) is { } pair)
                 {
-                    // The row of the first property stands for both.
                     if (ReferenceEquals(property, pair.Properties[0]))
-                        AddIfAnimated(result, PairItem(pair));
+                        AppendPair(path, pair);
                     continue;
                 }
 
-                AddIfAnimated(result, ValueItem(Property.GetLocalizedName(property),
+                AppendProperty(AppendPath(path, Property.GetLocalizedName(property)),
                     HasKeys(property.GetKeyFrameAnimation())
                         ? PropertyAdapterFactory.CreateAdapter(property, obj) as IAnimatablePropertyAdapter
                         : null,
-                    property, property.Value));
+                    property, property.Value);
             }
 
-            AppendCoreChildren(obj, result);
+            AppendCoreChildren(obj, path);
         }
 
-        private void AppendCoreChildren(CoreObject obj, List<AnimationMenuItem> result)
+        private void AppendCoreChildren(CoreObject obj, string path)
         {
             foreach (IProperty field in obj.Properties.Where(obj.IsBaseField))
             {
                 if (field.ValueType.IsValueType || field.ValueType == typeof(string)) continue;
-                AppendValue(field.Value, result);
+                AppendValue(field.Value, path);
             }
         }
 
-        // The row of a property or a node's port: its toggle while it has keyframes, the toggles of its separated
-        // components, and the rows of the object it holds.
-        private AnimationMenuItem ValueItem(string label, IAnimatablePropertyAdapter? toggle, IProperty? property, object? value)
+        private void AppendProperty(string path, IAnimatablePropertyAdapter? toggle, IProperty? property, object? value)
         {
-            var item = new AnimationMenuItem(label, Listed(toggle));
+            AddItem(path, toggle);
 
-            // Each separated component has keyframes of its own.
             if (property?.GetPropertyAnimation() is IComponentAnimation components and CoreObject holder)
             {
                 foreach (IProperty component in components.Components)
                 {
                     if (HasKeys(component.GetKeyFrameAnimation())
-                        && Listed(PropertyAdapterFactory.CreateAdapter(component, holder) as IAnimatablePropertyAdapter)
-                            is { } adapter)
+                        && PropertyAdapterFactory.CreateAdapter(component, holder) is IAnimatablePropertyAdapter adapter)
                     {
-                        item.Children.Add(new AnimationMenuItem(adapter.DisplayName, adapter));
+                        AddItem(AppendPath(path, adapter.DisplayName), adapter);
                     }
                 }
 
-                return item;
+                return;
             }
 
             // A reference holds another object, whose keyframes are not this element's.
-            if (property is IExpressionProperty { IsReference: true }) return item;
+            if (property is IExpressionProperty { IsReference: true }) return;
 
             value = ChildObjects.Unwrap(value);
             if (value is EngineObject nested and not INodeMember && _ancestors.Add(nested))
             {
                 try
                 {
-                    // A property that holds an object (a fill, a transform) is that object's row.
-                    AppendObjectChildren(nested, item.Children);
+                    AppendObjectChildren(nested, path);
                 }
                 finally
                 {
@@ -190,56 +175,36 @@ internal static class ElementAnimations
             }
             else
             {
-                AppendValue(value, item.Children);
+                AppendValue(value, path);
             }
-
-            return item;
         }
 
-        // One row while the properties stand as one, and a row for each with keyframes below the pair's row otherwise.
-        private AnimationMenuItem PairItem(PropertyPair pair)
+        private void AppendPair(string parentPath, PropertyPair pair)
         {
+            string path = AppendPath(parentPath, pair.DisplayName);
             if (!pair.IsSeparated.Value)
-                return new AnimationMenuItem(pair.DisplayName, HasKeys(pair.Animation) ? Listed(pair) : null);
+            {
+                if (HasKeys(pair.Animation)) AddItem(path, pair);
+                return;
+            }
 
-            var item = new AnimationMenuItem(pair.DisplayName);
             foreach (IAnimatablePropertyAdapter adapter in pair.Adapters)
             {
-                if (HasKeys(adapter.Animation) && Listed(adapter) is { } member)
-                    item.Children.Add(new AnimationMenuItem(member.DisplayName, member));
+                if (HasKeys(adapter.Animation)) AddItem(AppendPath(path, adapter.DisplayName), adapter);
             }
-
-            return item;
         }
 
-        // The property's toggle, or null when another row already has one for it.
-        private IAnimatablePropertyAdapter? Listed(IAnimatablePropertyAdapter? adapter)
-            => adapter != null && _listed.Add(adapter.GetEngineProperty() ?? (object)adapter) ? adapter : null;
-
-        private static void AddIfAnimated(List<AnimationMenuItem> result, AnimationMenuItem item)
+        private void AddItem(string path, IAnimatablePropertyAdapter? adapter)
         {
-            if (item.Adapter != null || item.Children.Count > 0)
-                result.Add(item);
+            if (adapter != null && _listed.Add(adapter.GetEngineProperty() ?? (object)adapter))
+                Items.Add(new AnimationMenuItem(path, adapter));
         }
+
+        private static string AppendPath(string path, string name) => path.Length == 0 ? name : $"{path} › {name}";
     }
 
     // Removing the last key leaves the animation in place, which neither marks nor the menu count.
     private static bool HasKeys(IKeyFrameAnimation? animation) => animation is { KeyFrames.Count: > 0 };
-
-    // An expression the user wrote, which the value follows over time. A reference to another object and a node's
-    // connection are not one.
-    private static bool HasUserExpression(IExpressionProperty property)
-    {
-        if (property.IsReference) return false;
-
-        for (IExpression? expression = property.Expression; expression != null; expression = expression.Replaced)
-        {
-            if (expression is IPropertyAnimation) return false;
-            if (expression is not (INodePortExpression or IReferenceExpression)) return true;
-        }
-
-        return false;
-    }
 
     // Goes below each object along ChildObjects once, through an engine object's properties in the order its panel
     // shows them, then the rest, and calls found for each animation once, with keys or without. Keyframes are not
@@ -248,8 +213,6 @@ internal static class ElementAnimations
     {
         private readonly HashSet<object> _visited = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<IKeyFrameAnimation> _animations = new(ReferenceEqualityComparer.Instance);
-
-        public bool HasExpression { get; private set; }
 
         public void Visit(object obj)
         {
@@ -260,8 +223,6 @@ internal static class ElementAnimations
                 case IExpressionProperty property:
                     if (property.GetKeyFrameAnimation() is { } animation && _animations.Add(animation))
                         found(animation);
-
-                    HasExpression |= HasUserExpression(property);
                     break;
                 // A node's port keeps its keyframes in its adapter rather than in a property.
                 case IAnimatablePropertyAdapter { Animation: { } adapterAnimation } when _animations.Add(adapterAnimation):
@@ -285,46 +246,4 @@ internal static class ElementAnimations
     }
 }
 
-// A row of a clip's "Animation" menu: a property whose inline layer it opens, an object or property whose rows are
-// below it, or both.
-internal sealed class AnimationMenuItem(string label, IAnimatablePropertyAdapter? adapter = null)
-{
-    public string Label { get; } = label;
-
-    // The property whose inline layer the row opens, or null for a row that only holds others.
-    public IAnimatablePropertyAdapter? Adapter { get; } = adapter;
-
-    public List<AnimationMenuItem> Children { get; } = [];
-
-    // The properties of this row and every row below it.
-    public IEnumerable<IAnimatablePropertyAdapter> Adapters
-        => Children.SelectMany(child => child.Adapters).Prepend(Adapter).OfType<IAnimatablePropertyAdapter>();
-}
-
-// What a clip shows of its objects' animations.
-public sealed class ElementAnimationMarks(bool hasKeyFrames, bool hasExpression, MediaTime[] times)
-    : IEquatable<ElementAnimationMarks>
-{
-    public static ElementAnimationMarks None { get; } = new(false, false, []);
-
-    // Whether a property has keyframes.
-    public bool HasKeyFrames { get; } = hasKeyFrames;
-
-    // Whether a property follows an expression the user wrote.
-    public bool HasExpression { get; } = hasExpression;
-
-    public bool HasAny => HasKeyFrames || HasExpression;
-
-    // The keyframe times from the element's start, sorted and each once.
-    public IReadOnlyList<MediaTime> Times { get; } = times;
-
-    public bool Equals(ElementAnimationMarks? other)
-        => other is not null
-           && HasKeyFrames == other.HasKeyFrames
-           && HasExpression == other.HasExpression
-           && Times.SequenceEqual(other.Times);
-
-    public override bool Equals(object? obj) => Equals(obj as ElementAnimationMarks);
-
-    public override int GetHashCode() => HashCode.Combine(HasKeyFrames, HasExpression, Times.Count);
-}
+internal sealed record AnimationMenuItem(string Label, IAnimatablePropertyAdapter Adapter);

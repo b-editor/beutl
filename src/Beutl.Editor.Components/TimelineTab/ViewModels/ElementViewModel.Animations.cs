@@ -16,7 +16,7 @@ public sealed partial class ElementViewModel
     private bool _animationMarksStale = true;
     private bool _animationMarksQueued;
 
-    public ReactivePropertySlim<ElementAnimationMarks> AnimationMarks { get; } = new(ElementAnimationMarks.None);
+    public ReactivePropertySlim<IReadOnlyList<MediaTime>> KeyFrameMarkTimes { get; } = new([]);
 
     // How many times the marks were read, for tests that check that an edit reads only its own element's.
     internal int AnimationMarksReadCount { get; private set; }
@@ -59,7 +59,7 @@ public sealed partial class ElementViewModel
         _animationMarksStale = false;
         AnimationMarksReadCount++;
         var found = new HashSet<IKeyFrameAnimation>(ReferenceEqualityComparer.Instance);
-        ElementAnimationMarks marks = ElementAnimations.ReadMarks(Model, animation => found.Add(animation));
+        IReadOnlyList<MediaTime> times = ElementAnimations.ReadMarkTimes(Model, animation => found.Add(animation));
 
         foreach (IKeyFrameAnimation animation in _watchedAnimations.Keys.Where(item => !found.Contains(item)).ToArray())
         {
@@ -76,8 +76,8 @@ public sealed partial class ElementViewModel
             _watchedAnimations.Add(animation, handler);
         }
 
-        if (!marks.Equals(AnimationMarks.Value))
-            AnimationMarks.Value = marks;
+        if (!times.SequenceEqual(KeyFrameMarkTimes.Value))
+            KeyFrameMarkTimes.Value = times;
     }
 
     private void UnwatchAnimations()

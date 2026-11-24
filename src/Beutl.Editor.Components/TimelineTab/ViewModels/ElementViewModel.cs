@@ -419,7 +419,7 @@ public sealed partial class ElementViewModel : IDisposable
         WaveformChunkCount.Dispose();
         ShowProxyIndicator.Dispose();
         ProxyIndicatorState.Dispose();
-        AnimationMarks.Dispose();
+        KeyFrameMarkTimes.Dispose();
 
         LayerHeader.Value = null!;
         AnimationRequested = (_, _) => Task.CompletedTask;

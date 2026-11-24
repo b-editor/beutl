@@ -268,10 +268,10 @@
                                     Fill="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
                                     Scale="{Binding Timeline.Scale^}"
                                     Stroke="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
-                                    Times="{Binding AnimationMarks.Value.Times}" />
+                                    Times="{Binding KeyFrameMarkTimes.Value}" />
             <!-- The lock and recovery (part of the clip could not be loaded) glyphs own columns; the label clears them.
                  None of them takes pointer input, so a long name does not cover the transition handles. -->
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*" IsHitTestVisible="False">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*" IsHitTestVisible="False">
                 <icons:FluentIcon x:Name="lockIcon"
                                   Grid.Column="0"
                                   Margin="6,0,0,0"
@@ -295,28 +295,8 @@
                            Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
                            Text="{Binding MatteIndicator.Value}"
                            IsVisible="{Binding MatteIndicator.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                <!--  A property of the element's objects has keyframes or an expression, as its menu button in the
-                      property tab shows with the same glyphs.  -->
-                <StackPanel x:Name="animationGlyphs"
-                            Grid.Column="3"
-                            Margin="6,0,0,0"
-                            VerticalAlignment="Center"
-                            IsVisible="{Binding AnimationMarks.Value.HasAny}"
-                            Orientation="Horizontal"
-                            Spacing="2">
-                    <icons:FluentIcon x:Name="keyFrameGlyph"
-                                      FontSize="12"
-                                      Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
-                                      IsVisible="{Binding AnimationMarks.Value.HasKeyFrames}"
-                                      Icon="Diamond" />
-                    <icons:FluentIcon x:Name="expressionGlyph"
-                                      FontSize="12"
-                                      Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
-                                      IsVisible="{Binding AnimationMarks.Value.HasExpression}"
-                                      Icon="MathFormula" />
-                </StackPanel>
                 <TextBlock x:Name="textBlock"
-                           Grid.Column="4"
+                           Grid.Column="3"
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            ClipToBounds="True"

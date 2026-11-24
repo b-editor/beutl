@@ -32,8 +32,7 @@ using GraphicsPoint = Beutl.Graphics.Point;
 
 namespace Beutl.HeadlessUITests;
 
-// The clip's marks of its objects' keyframes and expressions, its "Animation" menu that opens their inline layers, and
-// the values an inline layer draws.
+// Keyframe marks on clips, the animation menu that opens their inline layers, and the values the layers draw.
 [TestFixture]
 public class TimelineAnimationMarksTests
 {
@@ -86,26 +85,6 @@ public class TimelineAnimationMarksTests
         => host.View.GetVisualDescendants().OfType<ElementView>()
             .Single(view => view.DataContext is ElementViewModel model && model.Model == element);
 
-    // Each property's toggle in a menu, with the submenus above it as "Object/Property".
-    private static List<(string Path, FAToggleMenuFlyoutItem Item)> Toggles(System.Collections.IEnumerable items, string prefix = "")
-    {
-        var toggles = new List<(string Path, FAToggleMenuFlyoutItem Item)>();
-        foreach (object? item in items)
-        {
-            switch (item)
-            {
-                case FAToggleMenuFlyoutItem toggle:
-                    toggles.Add((prefix + toggle.Text, toggle));
-                    break;
-                case FAMenuFlyoutSubItem submenu:
-                    toggles.AddRange(Toggles(submenu.Items, $"{prefix}{submenu.Text}/"));
-                    break;
-            }
-        }
-
-        return toggles;
-    }
-
     [AvaloniaTest]
     public async Task The_marks_hold_each_key_time_of_the_objects_from_the_clip_start_once()
     {
@@ -116,26 +95,25 @@ public class TimelineAnimationMarksTests
         ElementViewModel model = host.Model.FindViewModelFor(element)!;
         ElementView view = ViewOf(host, element);
 
-        ElementAnimationMarks marks = model.AnimationMarks.Value;
+        IReadOnlyList<MediaTime> times = model.KeyFrameMarkTimes.Value;
         var keyFrameMarks = view.FindControl<ElementKeyFrameMarks>("keyFrameMarks")!;
         Border clip = view.FindControl<Border>("border")!;
+        var name = view.FindControl<TextBlock>("textBlock")!;
         Assert.Multiple(() =>
         {
-            Assert.That(marks.HasKeyFrames, Is.True);
-            Assert.That(marks.HasExpression, Is.False);
             // The two keys of the position are at one time, and the fill's key on the scene's clock is 1.75 s into the clip.
-            Assert.That(marks.Times, Is.EqualTo(Seconds(0.5, 1, 1.5, 1.75)));
-            Assert.That(keyFrameMarks.Times, Is.SameAs(marks.Times));
+            Assert.That(times, Is.EqualTo(Seconds(0.5, 1, 1.5, 1.75)));
+            Assert.That(keyFrameMarks.Times, Is.SameAs(times));
             // The marks span the clip's border too, so a time is at the x it has on the clip, the clip's end included.
             Assert.That(keyFrameMarks.Bounds.Width, Is.EqualTo(clip.Bounds.Width).Within(0.01));
             Assert.That(keyFrameMarks.TranslatePoint(default, clip)!.Value.X, Is.EqualTo(0).Within(0.01));
-            Assert.That(view.FindControl<Control>("keyFrameGlyph")!.IsVisible, Is.True);
-            Assert.That(view.FindControl<Control>("expressionGlyph")!.IsVisible, Is.False);
+            Assert.That(name.TranslatePoint(default, clip)!.Value.X,
+                Is.EqualTo(clip.BorderThickness.Left + name.Margin.Left).Within(0.01));
         });
     }
 
     [AvaloniaTest]
-    public async Task The_marks_follow_keys_added_moved_and_removed_and_expressions()
+    public async Task The_marks_follow_keys_added_moved_and_removed_including_keys_under_expressions()
     {
         RectShape? shape = null;
         using TimelineTestHost host = await TimelineTestHost.CreateAsync(
@@ -143,7 +121,6 @@ public class TimelineAnimationMarksTests
         HeadlessTestHelpers.Render(5);
         Element element = host.Scene.Children.Single();
         ElementViewModel model = host.Model.FindViewModelFor(element)!;
-        ElementView view = ViewOf(host, element);
         HistoryManager history = History(host);
         var width = (KeyFrameAnimation<float>)shape!.Width.GetKeyFrameAnimation()!;
 
@@ -154,31 +131,27 @@ public class TimelineAnimationMarksTests
             Value = { Value = 10 }
         }), "add");
         HeadlessTestHelpers.Settle();
-        Assert.That(model.AnimationMarks.Value.Times, Is.EqualTo(Seconds(0.5, 1, 1.5, 1.75, 3)));
+        Assert.That(model.KeyFrameMarkTimes.Value, Is.EqualTo(Seconds(0.5, 1, 1.5, 1.75, 3)));
 
         history.ExecuteInTransaction(() => width.KeyFrames[0].KeyTime.Value = MediaTime.FromSeconds(0.25), "move");
         HeadlessTestHelpers.Settle();
-        Assert.That(model.AnimationMarks.Value.Times, Is.EqualTo(Seconds(0.25, 1, 1.5, 1.75, 3)));
+        Assert.That(model.KeyFrameMarkTimes.Value, Is.EqualTo(Seconds(0.25, 1, 1.5, 1.75, 3)));
 
         history.ExecuteInTransaction(() => width.KeyFrames.RemoveAt(2), "remove a key");
         HeadlessTestHelpers.Settle();
-        Assert.That(model.AnimationMarks.Value.Times, Is.EqualTo(Seconds(0.25, 1, 1.5, 1.75)));
+        Assert.That(model.KeyFrameMarkTimes.Value, Is.EqualTo(Seconds(0.25, 1, 1.5, 1.75)));
 
         // Moving the clip moves keys on its own clock with it, and leaves a key on the scene's clock where it is.
         history.ExecuteInTransaction(() => element.Start.Value = MediaTime.FromSeconds(2), "move the clip");
         HeadlessTestHelpers.Settle();
-        Assert.That(model.AnimationMarks.Value.Times, Is.EqualTo(Seconds(0.25, 0.75, 1, 1.5)));
+        Assert.That(model.KeyFrameMarkTimes.Value, Is.EqualTo(Seconds(0.25, 0.75, 1, 1.5)));
 
         history.ExecuteInTransaction(() => shape.Width.SetKeyFrameAnimation(null), "remove the animation");
         history.ExecuteInTransaction(() => ((TranslateTransform)shape.Transform.Value!).X.SetKeyFrameAnimation(null), "x");
         history.ExecuteInTransaction(() => ((TranslateTransform)shape.Transform.Value!).Y.SetKeyFrameAnimation(null), "y");
         history.ExecuteInTransaction(() => ((SolidColorBrush)shape.Fill.Value!).Opacity.SetKeyFrameAnimation(null), "fill");
         HeadlessTestHelpers.Settle();
-        Assert.Multiple(() =>
-        {
-            Assert.That(model.AnimationMarks.Value, Is.EqualTo(ElementAnimationMarks.None));
-            Assert.That(view.FindControl<Control>("animationGlyphs")!.IsVisible, Is.False);
-        });
+        Assert.That(model.KeyFrameMarkTimes.Value, Is.Empty);
 
         // Removing the last key leaves the animation in place, which counts for nothing until a key comes back.
         var empty = new KeyFrameAnimation<float>();
@@ -186,7 +159,7 @@ public class TimelineAnimationMarksTests
         HeadlessTestHelpers.Settle();
         Assert.Multiple(() =>
         {
-            Assert.That(model.AnimationMarks.Value, Is.EqualTo(ElementAnimationMarks.None));
+            Assert.That(model.KeyFrameMarkTimes.Value, Is.Empty);
             Assert.That(model.GetAnimationMenu(), Is.Empty);
         });
         history.ExecuteInTransaction(() => empty.KeyFrames.Add(new KeyFrame<float>
@@ -197,9 +170,8 @@ public class TimelineAnimationMarksTests
         HeadlessTestHelpers.Settle();
         Assert.Multiple(() =>
         {
-            Assert.That(model.AnimationMarks.Value.HasKeyFrames, Is.True);
-            Assert.That(model.AnimationMarks.Value.Times, Is.EqualTo(Seconds(0.5)));
-            Assert.That(model.GetAnimationMenu().SelectMany(row => row.Adapters).Select(row => row.GetEngineProperty()),
+            Assert.That(model.KeyFrameMarkTimes.Value, Is.EqualTo(Seconds(0.5)));
+            Assert.That(model.GetAnimationMenu().Select(row => row.Adapter.GetEngineProperty()),
                 Is.EqualTo(new[] { shape.Width }));
         });
         history.ExecuteInTransaction(() => shape.Width.SetKeyFrameAnimation(null), "remove it again");
@@ -207,21 +179,16 @@ public class TimelineAnimationMarksTests
 
         history.ExecuteInTransaction(() => shape.Opacity.Expression = Expression.Create<float>("50"), "expression");
         HeadlessTestHelpers.Settle();
-        Assert.Multiple(() =>
-        {
-            Assert.That(model.AnimationMarks.Value.HasExpression, Is.True);
-            Assert.That(model.AnimationMarks.Value.HasKeyFrames, Is.False);
-            Assert.That(view.FindControl<Control>("expressionGlyph")!.IsVisible, Is.True);
-            Assert.That(view.FindControl<Control>("keyFrameGlyph")!.IsVisible, Is.False);
-        });
+        Assert.That(model.KeyFrameMarkTimes.Value, Is.Empty);
 
         // Keys added under the expression (#4458) show as keys too.
         history.ExecuteInTransaction(() => shape.Opacity.SetKeyFrameAnimation(Animation((2.0, 0f))), "keys under it");
         HeadlessTestHelpers.Settle();
         Assert.Multiple(() =>
         {
-            Assert.That(model.AnimationMarks.Value.HasExpression, Is.True);
-            Assert.That(model.AnimationMarks.Value.Times, Is.EqualTo(Seconds(2)));
+            Assert.That(model.KeyFrameMarkTimes.Value, Is.EqualTo(Seconds(2)));
+            Assert.That(model.GetAnimationMenu().Select(row => row.Adapter.GetEngineProperty()),
+                Is.EqualTo(new[] { shape.Opacity }));
         });
     }
 
@@ -255,7 +222,7 @@ public class TimelineAnimationMarksTests
         {
             Assert.That(firstReads, Is.GreaterThan(0));
             Assert.That(firstModel.AnimationMarksReadCount, Is.EqualTo(firstReads + 1));
-            Assert.That(firstModel.AnimationMarks.Value.Times[0], Is.EqualTo(MediaTime.FromSeconds(0.25)));
+            Assert.That(firstModel.KeyFrameMarkTimes.Value[0], Is.EqualTo(MediaTime.FromSeconds(0.25)));
             Assert.That(secondModel.AnimationMarksReadCount, Is.EqualTo(secondReads));
             Assert.That(farModel.AnimationMarksReadCount, Is.Zero);
         });
@@ -276,14 +243,15 @@ public class TimelineAnimationMarksTests
         var widthAdapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Width, shape);
         var opacityAdapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)fill.Opacity, fill);
 
-        (FAMenuFlyoutItem ShowAll, List<(string Path, FAToggleMenuFlyoutItem Item)> Toggles) Open()
+        (FAMenuFlyoutItem ShowAll, FAToggleMenuFlyoutItem[] Toggles) Open()
         {
             var flyout = (FAMenuFlyout)view.FindControl<Border>("border")!.ContextFlyout!;
             flyout.Hide();
             flyout.ShowAt(view);
             HeadlessTestHelpers.Render(3);
             var menu = view.FindControl<FAMenuFlyoutSubItem>("animationMenu")!;
-            return (menu.Items.OfType<FAMenuFlyoutItem>().First(), Toggles(menu.Items));
+            Assert.That(menu.Items.OfType<FAMenuFlyoutSubItem>(), Is.Empty);
+            return (menu.Items.OfType<FAMenuFlyoutItem>().First(), menu.Items.OfType<FAToggleMenuFlyoutItem>().ToArray());
         }
 
         void Click(FAMenuFlyoutItem item)
@@ -293,30 +261,26 @@ public class TimelineAnimationMarksTests
         }
 
         string rect = TypeDisplayHelpers.GetLocalizedName(typeof(RectShape));
-        // The width and height are a pair that stands apart while only the width has keys, so the width is a row of
-        // the size's, as in the graph editor.
-        string width = $"{rect}/{PropertyPair.Find(shape.Width)!.DisplayName}/{widthAdapter.DisplayName}";
-        string fillRow = $"{rect}/{Property.GetLocalizedName(shape.Fill)}";
-        string transformRow = $"{rect}/{Property.GetLocalizedName(shape.Transform)}";
+        string width = $"{rect} › {PropertyPair.Find(shape.Width)!.DisplayName} › {widthAdapter.DisplayName}";
+        string fillPath = $"{rect} › {Property.GetLocalizedName(shape.Fill)}";
+        string transformPath = $"{rect} › {Property.GetLocalizedName(shape.Transform)}";
         try
         {
-            (FAMenuFlyoutItem showAll, List<(string Path, FAToggleMenuFlyoutItem Item)> toggles) = Open();
+            (FAMenuFlyoutItem showAll, FAToggleMenuFlyoutItem[] toggles) = Open();
             Assert.Multiple(() =>
             {
                 Assert.That(showAll.Text, Is.EqualTo(Strings.ShowAllAnimations));
                 Assert.That(showAll.IsEnabled, Is.True);
-                // The rectangle's submenu holds its own properties, then a submenu for the fill and one for the
-                // transform, as the property tab and the graph editor order and nest them.
-                Assert.That(toggles.Select(item => item.Path), Is.EqualTo(new[]
+                Assert.That(toggles.Select(item => item.Text), Is.EqualTo(new[]
                 {
                     width,
-                    $"{fillRow}/{opacityAdapter.DisplayName}",
-                    $"{transformRow}/{pair.DisplayName}",
+                    $"{fillPath} › {opacityAdapter.DisplayName}",
+                    $"{transformPath} › {pair.DisplayName}",
                 }));
-                Assert.That(toggles.Select(item => item.Item.IsChecked), Is.All.False);
+                Assert.That(toggles.Select(item => item.IsChecked), Is.All.False);
             });
 
-            Click(toggles[0].Item);
+            Click(toggles[0]);
             InlineAnimationLayerViewModel widthLayer = host.Model.Inlines.Single();
             Assert.That(widthLayer.Property.GetEngineProperty(), Is.SameAs(shape.Width));
             // The property tab's menu makes an adapter of its own, which must find the layer already open.
@@ -324,7 +288,7 @@ public class TimelineAnimationMarksTests
             Assert.That(host.Model.Inlines, Has.Count.EqualTo(1));
 
             (showAll, toggles) = Open();
-            Assert.That(toggles.Select(item => item.Item.IsChecked), Is.EqualTo(new[] { true, false, false }));
+            Assert.That(toggles.Select(item => item.IsChecked), Is.EqualTo(new[] { true, false, false }));
             Click(showAll);
             Assert.Multiple(() =>
             {
@@ -341,26 +305,26 @@ public class TimelineAnimationMarksTests
             Assert.Multiple(() =>
             {
                 Assert.That(showAll.IsEnabled, Is.False, "every layer is open");
-                Assert.That(toggles.Select(item => item.Item.IsChecked), Is.All.True);
+                Assert.That(toggles.Select(item => item.IsChecked), Is.All.True);
             });
-            Click(toggles[0].Item);
+            Click(toggles[0]);
             Assert.That(host.Model.Inlines.Select(layer => layer.Property.GetEngineProperty()), Has.None.SameAs(shape.Width));
             Assert.That(host.Model.Inlines, Has.Count.EqualTo(2));
 
-            // Separated, the position's row holds a row for each of its properties, whose layers replace the pair's.
+            // Separating the position replaces the pair's row and layer with one per property.
             pair.SetKeepsSeparated(true);
             HeadlessTestHelpers.Settle();
             (_, toggles) = Open();
             Assert.Multiple(() =>
             {
-                Assert.That(toggles.Select(item => item.Path), Is.EqualTo(new[]
+                Assert.That(toggles.Select(item => item.Text), Is.EqualTo(new[]
                 {
                     width,
-                    $"{fillRow}/{opacityAdapter.DisplayName}",
-                    $"{transformRow}/{pair.DisplayName}/{pair.Adapters[0].DisplayName}",
-                    $"{transformRow}/{pair.DisplayName}/{pair.Adapters[1].DisplayName}",
+                    $"{fillPath} › {opacityAdapter.DisplayName}",
+                    $"{transformPath} › {pair.DisplayName} › {pair.Adapters[0].DisplayName}",
+                    $"{transformPath} › {pair.DisplayName} › {pair.Adapters[1].DisplayName}",
                 }));
-                Assert.That(toggles.Select(item => item.Item.IsChecked), Is.EqualTo(new[] { false, true, true, true }));
+                Assert.That(toggles.Select(item => item.IsChecked), Is.EqualTo(new[] { false, true, true, true }));
             });
 
             // A locked clip lists them, but opens none.
@@ -370,7 +334,7 @@ public class TimelineAnimationMarksTests
             Assert.Multiple(() =>
             {
                 Assert.That(showAll.IsEnabled, Is.False);
-                Assert.That(toggles.Select(item => item.Item.IsEnabled), Is.All.False);
+                Assert.That(toggles.Select(item => item.IsEnabled), Is.All.False);
             });
         }
         finally
@@ -504,14 +468,14 @@ public class TimelineAnimationMarksTests
         HeadlessTestHelpers.Render(5);
         ElementViewModel model = host.Model.FindViewModelFor(host.Scene.Children.Single())!;
         var channels = (IComponentAnimation)brush!.Color.GetPropertyAnimation()!;
-        IAnimatablePropertyAdapter[] toggles = [.. model.GetAnimationMenu().SelectMany(row => row.Adapters)];
+        IAnimatablePropertyAdapter[] toggles = [.. model.GetAnimationMenu().Select(row => row.Adapter)];
         try
         {
             Assert.Multiple(() =>
             {
-                Assert.That(model.AnimationMarks.Value.HasKeyFrames, Is.True);
+                Assert.That(model.KeyFrameMarkTimes.Value, Is.EqualTo(Seconds(0, 1)));
                 Assert.That(toggles.Select(adapter => adapter.GetEngineProperty()), Is.EquivalentTo(channels.Components),
-                    "a toggle for each channel of the color, below the node's fill port");
+                    "a toggle for each channel of the color held by the node's fill port");
             });
             model.ShowAllInlines(toggles);
             Assert.That(host.Model.Inlines, Has.Count.EqualTo(channels.Components.Count));
@@ -594,7 +558,7 @@ public class TimelineAnimationMarksTests
             theme: theme == "light" ? ThemeVariant.Light : ThemeVariant.Dark);
         Element element = (Element)shape!.HierarchicalParent!;
         ElementViewModel model = host.Model.FindViewModelFor(element)!;
-        model.ShowAllInlines(model.GetAnimationMenu().SelectMany(row => row.Adapters));
+        model.ShowAllInlines(model.GetAnimationMenu().Select(row => row.Adapter));
         HeadlessTestHelpers.Render(8);
         await Task.Delay(500);
         HeadlessTestHelpers.Render(3);
@@ -618,15 +582,15 @@ public class TimelineAnimationMarksTests
             flyout.ShowAt(view);
             HeadlessTestHelpers.Render(3);
             Assert.That(flyout.IsOpen, Is.True);
-            // The Animation menu, the rectangle's submenu in it, and the fill's submenu in that.
             var menu = view.FindControl<FAMenuFlyoutSubItem>("animationMenu")!;
-            OpenSubmenu(menu);
-            FAMenuFlyoutSubItem rectangle = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
-            OpenSubmenu(rectangle);
-            FAMenuFlyoutSubItem fill = rectangle.Items.OfType<FAMenuFlyoutSubItem>()
-                .Single(item => item.Text == Property.GetLocalizedName(shape.Fill));
-            OpenSubmenu(fill);
-            HeadlessCapture.SaveIfRequested(fill.Items.OfType<Control>().First(), nameof(TimelineAnimationMarksTests),
+            Assert.That(menu.Focus(), Is.True);
+            TopLevel popup = TopLevel.GetTopLevel(menu)!;
+            popup.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.None, null);
+            popup.KeyRelease(Key.Right, RawInputModifiers.None, PhysicalKey.None, null);
+            HeadlessTestHelpers.Render(3);
+            Control firstItem = menu.Items.OfType<Control>().First();
+            Assert.That(firstItem.Bounds.Height, Is.GreaterThan(0));
+            HeadlessCapture.SaveIfRequested(firstItem, nameof(TimelineAnimationMarksTests),
                 $"menu-{theme}");
             flyout.Hide();
             host.Window.Height = 420;
@@ -642,16 +606,6 @@ public class TimelineAnimationMarksTests
         {
             foreach (InlineAnimationLayerViewModel layer in host.Model.Inlines.ToArray())
                 host.Model.DetachInline(layer);
-        }
-
-        static void OpenSubmenu(FAMenuFlyoutSubItem submenu)
-        {
-            Assert.That(submenu.Focus(), Is.True, $"{submenu.Text} can take the focus");
-            TopLevel popup = TopLevel.GetTopLevel(submenu)!;
-            popup.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.None, null);
-            popup.KeyRelease(Key.Right, RawInputModifiers.None, PhysicalKey.None, null);
-            HeadlessTestHelpers.Render(3);
-            Assert.That(submenu.Items.OfType<Control>().First().Bounds.Height, Is.GreaterThan(0), $"{submenu.Text} opened");
         }
     }
 }
