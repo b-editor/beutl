@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -591,6 +592,7 @@ public class TimelineEditModeThumbnailPreviewTests
         {
             using var view = new TimelineViewScope(clip, width: 1200);
             await WaitForWaveformReady(clip, view.Waveform);
+            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "slip-speed-before");
 
             float scale = view.Scale;
             Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width / 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
@@ -606,11 +608,14 @@ public class TimelineEditModeThumbnailPreviewTests
                     Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
                 });
                 bool waveformArrived = false;
+                bool endChunkReady = false;
                 clip.WaveformChunkReady += ObserveWaveform;
                 try
                 {
+                    TimeSpan timeout = TimeSpan.FromSeconds(10);
+                    var elapsed = Stopwatch.StartNew();
                     // Keep sending different source deltas more often than the preview sampling interval.
-                    for (int i = 0; i < 80 && !waveformArrived; i++)
+                    for (int i = 0; !waveformArrived && elapsed.Elapsed < timeout; i++)
                     {
                         view.Window.MouseMove(release.WithX(release.X + (i % 8) * 5),
                             RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
@@ -619,13 +624,25 @@ public class TimelineEditModeThumbnailPreviewTests
                     }
 
                     Assert.That(waveformArrived, Is.True, "Preview must stream while the pointer is still moving.");
+
+                    if (HeadlessCapture.IsRequested)
+                    {
+                        await HeadlessTestHelpers.WaitUntilAsync(() => endChunkReady);
+                        HeadlessTestHelpers.Render(3);
+                        HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "slip-speed-streaming");
+                    }
                 }
                 finally
                 {
                     clip.WaveformChunkReady -= ObserveWaveform;
                 }
 
-                void ObserveWaveform(WaveformChunk _) => waveformArrived = true;
+                void ObserveWaveform(WaveformChunk chunk)
+                {
+                    waveformArrived = true;
+                    if (chunk.Index == clip.WaveformChunkCount.Value - 1)
+                        endChunkReady = true;
+                }
             });
 
             await HeadlessTestHelpers.WaitUntilAsync(() => double.IsNaN(clip.ThumbnailContentWidth.Value));
