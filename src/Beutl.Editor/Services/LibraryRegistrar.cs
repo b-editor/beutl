@@ -25,245 +25,302 @@ internal static class LibraryRegistrar
     public static void RegisterAll(LibraryService library)
     {
         library
-            .AddMultiple(GraphicsStrings.EllipseShape, m => m
+            .AddMultiple(GraphicsStrings.EllipseShape, GraphicsStrings.EllipseShape_LibraryDescription, m => m
                 .BindDrawable<Graphics.Shapes.EllipseShape>()
                 .BindGeometry<EllipseGeometry>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.RectShape, m => m
+            .AddMultiple(GraphicsStrings.RectShape, GraphicsStrings.RectShape_LibraryDescription, m => m
                 .BindDrawable<Graphics.Shapes.RectShape>()
                 .BindGeometry<RectGeometry>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.RoundedRectShape, m => m
+            .AddMultiple(GraphicsStrings.RoundedRectShape, GraphicsStrings.RoundedRectShape_LibraryDescription, m => m
                 .BindDrawable<Graphics.Shapes.RoundedRectShape>()
                 .BindGeometry<RoundedRectGeometry>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.GeometryShape, m => m
+            .AddMultiple(GraphicsStrings.GeometryShape, GraphicsStrings.GeometryShape_LibraryDescription, m => m
                 .BindDrawable<Graphics.Shapes.GeometryShape>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.TextBlock, m => m
+            .AddMultiple(GraphicsStrings.TextBlock, GraphicsStrings.TextBlock_LibraryDescription, m => m
                 .BindDrawable<Graphics.Shapes.TextBlock>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.SourceVideo, m => m
+            .AddMultiple(GraphicsStrings.SourceVideo, GraphicsStrings.SourceVideo_LibraryDescription, m => m
                 .BindDrawable<SourceVideo>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.SourceImage, m => m
+            .AddMultiple(GraphicsStrings.SourceImage, GraphicsStrings.SourceImage_LibraryDescription, m => m
                 .BindDrawable<SourceImage>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.SourceBackdrop, m => m
+            .AddMultiple(GraphicsStrings.SourceBackdrop, GraphicsStrings.SourceBackdrop_LibraryDescription, m => m
                 .BindDrawable<SourceBackdrop>()
             );
 
         library
-            .AddMultiple(AudioStrings.SourceSound, m => m
+            .AddMultiple(AudioStrings.SourceSound, AudioStrings.SourceSound_LibraryDescription, m => m
                 .BindSound<SourceSound>()
             );
 
         library.RegisterGroup($"3D ({Strings.Experimental})", g => g
-            .AddMultiple(GraphicsStrings.Scene3D, m => m
+            .AddMultiple(GraphicsStrings.Scene3D, GraphicsStrings.Scene3D_LibraryDescription, m => m
                 .BindDrawable<Scene3D>()
             )
-            .AddMultiple(GraphicsStrings.Cube3D, m => m
+            .AddMultiple(GraphicsStrings.Cube3D, GraphicsStrings.Cube3D_LibraryDescription, m => m
                 .BindEngineObject<Cube3D>()
             )
-            .AddMultiple(GraphicsStrings.Sphere3D, m => m
+            .AddMultiple(GraphicsStrings.Sphere3D, GraphicsStrings.Sphere3D_LibraryDescription, m => m
                 .BindEngineObject<Sphere3D>()
             )
-            .AddMultiple(GraphicsStrings.Plane3D, m => m
+            .AddMultiple(GraphicsStrings.Plane3D, GraphicsStrings.Plane3D_LibraryDescription, m => m
                 .BindEngineObject<Plane3D>()
             )
-            .AddMultiple(GraphicsStrings.Model3D, m => m
+            .AddMultiple(GraphicsStrings.Model3D, GraphicsStrings.Model3D_LibraryDescription, m => m
                 .BindEngineObject<Model3D>()
             )
-            .AddMultiple(GraphicsStrings.DrawableObject3D, m => m
+            .AddMultiple(GraphicsStrings.DrawableObject3D, GraphicsStrings.DrawableObject3D_LibraryDescription, m => m
                 .BindEngineObject<DrawableObject3D>()
             )
             // Lights
-            .AddMultiple(GraphicsStrings.DirectionalLight3D, m => m
+            .AddMultiple(GraphicsStrings.DirectionalLight3D,
+                GraphicsStrings.DirectionalLight3D_LibraryDescription, m => m
                 .BindEngineObject<DirectionalLight3D>()
             )
-            .AddMultiple(GraphicsStrings.PointLight3D, m => m
+            .AddMultiple(GraphicsStrings.PointLight3D, GraphicsStrings.PointLight3D_LibraryDescription, m => m
                 .BindEngineObject<PointLight3D>()
             )
-            .AddMultiple(GraphicsStrings.SpotLight3D, m => m
+            .AddMultiple(GraphicsStrings.SpotLight3D, GraphicsStrings.SpotLight3D_LibraryDescription, m => m
                 .BindEngineObject<SpotLight3D>()
             )
         );
 
         library
-            .AddMultiple(GraphicsStrings.ParticleEmitter, m => m
+            .AddMultiple(GraphicsStrings.ParticleEmitter, GraphicsStrings.ParticleEmitter_LibraryDescription, m => m
                 .BindDrawable<ParticleEmitter>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.NodeGraphDrawable, m => m
+            .AddMultiple(GraphicsStrings.NodeGraphDrawable, GraphicsStrings.NodeGraphDrawable_LibraryDescription, m => m
                 .BindDrawable<NodeGraphDrawable>()
             );
 
         library
-            .AddMultiple(Strings.Portal, m => m
+            .AddMultiple(Strings.Portal, Strings.Portal_LibraryDescription, m => m
                 .BindEngineObject<PortalObject>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.SceneDrawable, m => m
+            .AddMultiple(GraphicsStrings.SceneDrawable, GraphicsStrings.SceneDrawable_LibraryDescription, m => m
                 .BindDrawable<SceneDrawable>()
             );
 
         library
-            .AddMultiple(AudioStrings.SceneSound, m => m
+            .AddMultiple(AudioStrings.SceneSound, AudioStrings.SceneSound_LibraryDescription, m => m
                 .BindSound<SceneSound>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.DrawableDecorator, m => m
+            .AddMultiple(GraphicsStrings.DrawableDecorator, GraphicsStrings.DrawableDecorator_LibraryDescription, m => m
                 .BindDrawable<DrawableDecorator>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.Group, m => m
+            .AddMultiple(GraphicsStrings.Group, GraphicsStrings.DrawableGroup_LibraryDescription, m => m
                 .BindDrawable<DrawableGroup>()
             );
 
         library
-            .AddMultiple(AudioStrings.SoundGroup, m => m
+            .AddMultiple(AudioStrings.SoundGroup, AudioStrings.SoundGroup_LibraryDescription, m => m
                 .BindSound<SoundGroup>()
             );
 
         library
-            .AddMultiple(GraphicsStrings.DrawableTimeController, m => m
+            .AddMultiple(GraphicsStrings.DrawableTimeController,
+                GraphicsStrings.DrawableTimeController_LibraryDescription, m => m
                 .BindDrawable<DrawableTimeController>()
             );
 
         library.RegisterGroup(GraphicsStrings.AudioVisualizer, g => g
-            .AddMultiple(GraphicsStrings.AudioWaveform, m => m
+            .AddMultiple(GraphicsStrings.AudioWaveform, GraphicsStrings.AudioWaveformDrawable_LibraryDescription, m => m
                 .BindDrawable<AudioWaveformDrawable>()
             )
-            .AddMultiple(GraphicsStrings.AudioSpectrum, m => m
+            .AddMultiple(GraphicsStrings.AudioSpectrum, GraphicsStrings.AudioSpectrumDrawable_LibraryDescription, m => m
                 .BindDrawable<AudioSpectrumDrawable>()
             )
-            .AddMultiple(GraphicsStrings.AudioSpectrogram, m => m
+            .AddMultiple(GraphicsStrings.AudioSpectrogram,
+                GraphicsStrings.AudioSpectrogramDrawable_LibraryDescription, m => m
                 .BindDrawable<AudioSpectrogramDrawable>()
             )
         );
 
         library
             .RegisterGroup(GraphicsStrings.Transform, g => g
-                .AddTransform<TranslateTransform>(GraphicsStrings.TranslateTransform)
-                .AddTransform<SkewTransform>(GraphicsStrings.SkewTransform)
-                .AddTransform<ScaleTransform>(GraphicsStrings.Scale)
-                .AddTransform<RotationTransform>(GraphicsStrings.Rotation)
-                .AddTransform<Rotation3DTransform>(GraphicsStrings.Rotation3DTransform)
+                .AddTransform<TranslateTransform>(GraphicsStrings.TranslateTransform,
+                    GraphicsStrings.TranslateTransform_LibraryDescription)
+                .AddTransform<SkewTransform>(GraphicsStrings.SkewTransform,
+                    GraphicsStrings.SkewTransform_LibraryDescription)
+                .AddTransform<ScaleTransform>(GraphicsStrings.Scale, GraphicsStrings.ScaleTransform_LibraryDescription)
+                .AddTransform<RotationTransform>(GraphicsStrings.Rotation,
+                    GraphicsStrings.RotationTransform_LibraryDescription)
+                .AddTransform<Rotation3DTransform>(GraphicsStrings.Rotation3DTransform,
+                    GraphicsStrings.Rotation3DTransform_LibraryDescription)
             );
 
         library
             .RegisterGroup(GraphicsStrings.FilterEffect, g => g
-                .AddFilterEffect<Blur>(GraphicsStrings.Blur)
-                .AddFilterEffect<Sharpen>(GraphicsStrings.Sharpen)
-                .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur)
-                .AddFilterEffect<MotionBlur>(GraphicsStrings.MotionBlur)
-                .AddFilterEffect<Bokeh>(GraphicsStrings.Bokeh)
-                .AddFilterEffect<Bloom>(GraphicsStrings.Bloom)
-                .AddFilterEffect<LightRays>(GraphicsStrings.LightRays)
-                .AddFilterEffect<WaveRefraction>(GraphicsStrings.WaveRefraction)
-                .AddFilterEffect<PolarCoordinates>(GraphicsStrings.PolarCoordinates)
-                .AddFilterEffect<DropShadow>(GraphicsStrings.DropShadow)
-                .AddFilterEffect<InnerShadow>(GraphicsStrings.InnerShadow)
-                .AddFilterEffect<FlatShadow>(GraphicsStrings.FlatShadow)
-                .AddFilterEffect<StrokeEffect>(GraphicsStrings.Stroke)
-                .AddFilterEffect<Clipping>(GraphicsStrings.Clipping)
-                .AddFilterEffect<DiagonalClipping>(GraphicsStrings.DiagonalClipping)
-                .AddFilterEffect<Dilate>(GraphicsStrings.Dilate)
-                .AddFilterEffect<Erode>(GraphicsStrings.Erode)
-                .AddFilterEffect<HighContrast>(GraphicsStrings.HighContrast)
-                .AddFilterEffect<HueRotate>(GraphicsStrings.HueRotate)
-                .AddFilterEffect<Lighting>(GraphicsStrings.Lighting)
-                .AddFilterEffect<LumaColor>(GraphicsStrings.LumaColor)
-                .AddFilterEffect<Saturate>(GraphicsStrings.Saturate)
-                .AddFilterEffect<Threshold>(GraphicsStrings.Threshold)
-                .AddFilterEffect<EdgeDetection>(GraphicsStrings.EdgeDetection)
-                .AddFilterEffect<Brightness>(GraphicsStrings.Brightness)
-                .AddFilterEffect<OpacityEffect>(GraphicsStrings.OpacityEffect)
-                .AddFilterEffect<Gamma>(GraphicsStrings.Gamma)
-                .AddFilterEffect<ColorGrading>(GraphicsStrings.ColorGrading)
-                .AddFilterEffect<Curves>(GraphicsStrings.Curves)
-                .AddFilterEffect<FilmGrain>(GraphicsStrings.FilmGrain)
-                .AddFilterEffect<Vignette>(GraphicsStrings.Vignette)
-                .AddFilterEffect<Invert>(GraphicsStrings.Invert)
-                .AddFilterEffect<LutEffect>(GraphicsStrings.LutEffect)
-                .AddFilterEffect<BlendEffect>(GraphicsStrings.BlendEffect)
-                .AddFilterEffect<Negaposi>(GraphicsStrings.Negaposi)
-                .AddFilterEffect<ChromaKey>(GraphicsStrings.ChromaKey)
-                .AddFilterEffect<ColorKey>(GraphicsStrings.ColorKey)
-                .AddFilterEffect<LumaKey>(GraphicsStrings.LumaKey)
-                .AddFilterEffect<SplitEffect>(GraphicsStrings.SplitEffect)
-                .AddFilterEffect<PartsSplitEffect>(GraphicsStrings.PartsSplitEffect)
-                .AddFilterEffect<RepeatEffect>(GraphicsStrings.RepeatEffect)
-                .AddFilterEffect<TransformEffect>(GraphicsStrings.Transform)
-                .AddFilterEffect<MosaicEffect>(GraphicsStrings.MosaicEffect)
-                .AddFilterEffect<ColorShift>(GraphicsStrings.ColorShift)
-                .AddFilterEffect<LensChromaticAberration>(GraphicsStrings.LensChromaticAberration)
-                .AddFilterEffect<ShakeEffect>(GraphicsStrings.ShakeEffect)
-                .AddFilterEffect<DisplacementMapEffect>(GraphicsStrings.DisplacementMapEffect)
-                .AddFilterEffect<MeshWarp>(GraphicsStrings.MeshWarp)
-                .AddFilterEffect<PathFollowEffect>(GraphicsStrings.PathFollowEffect)
-                .AddFilterEffect<LayerEffect>(GraphicsStrings.LayerEffect)
-                .AddFilterEffect<DelayAnimationEffect>(GraphicsStrings.DelayAnimationEffect)
-                .AddFilterEffect<PixelSortEffect>(GraphicsStrings.PixelSortEffect)
-                .AddFilterEffect<NodeGraphFilterEffect>(GraphicsStrings.NodeGraphFilterEffect)
+                .AddFilterEffect<Blur>(GraphicsStrings.Blur, GraphicsStrings.Blur_LibraryDescription)
+                .AddFilterEffect<Sharpen>(GraphicsStrings.Sharpen, GraphicsStrings.Sharpen_LibraryDescription)
+                .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur, GraphicsStrings.RadialBlur_LibraryDescription)
+                .AddFilterEffect<MotionBlur>(GraphicsStrings.MotionBlur, GraphicsStrings.MotionBlur_LibraryDescription)
+                .AddFilterEffect<Bokeh>(GraphicsStrings.Bokeh, GraphicsStrings.Bokeh_LibraryDescription)
+                .AddFilterEffect<Bloom>(GraphicsStrings.Bloom, GraphicsStrings.Bloom_LibraryDescription)
+                .AddFilterEffect<LightRays>(GraphicsStrings.LightRays, GraphicsStrings.LightRays_LibraryDescription)
+                .AddFilterEffect<WaveRefraction>(GraphicsStrings.WaveRefraction,
+                    GraphicsStrings.WaveRefraction_LibraryDescription)
+                .AddFilterEffect<PolarCoordinates>(GraphicsStrings.PolarCoordinates,
+                    GraphicsStrings.PolarCoordinates_LibraryDescription)
+                .AddFilterEffect<DropShadow>(GraphicsStrings.DropShadow, GraphicsStrings.DropShadow_LibraryDescription)
+                .AddFilterEffect<InnerShadow>(GraphicsStrings.InnerShadow,
+                    GraphicsStrings.InnerShadow_LibraryDescription)
+                .AddFilterEffect<FlatShadow>(GraphicsStrings.FlatShadow, GraphicsStrings.FlatShadow_LibraryDescription)
+                .AddFilterEffect<StrokeEffect>(GraphicsStrings.Stroke, GraphicsStrings.StrokeEffect_LibraryDescription)
+                .AddFilterEffect<Clipping>(GraphicsStrings.Clipping, GraphicsStrings.Clipping_LibraryDescription)
+                .AddFilterEffect<DiagonalClipping>(GraphicsStrings.DiagonalClipping,
+                    GraphicsStrings.DiagonalClipping_LibraryDescription)
+                .AddFilterEffect<Dilate>(GraphicsStrings.Dilate, GraphicsStrings.Dilate_LibraryDescription)
+                .AddFilterEffect<Erode>(GraphicsStrings.Erode, GraphicsStrings.Erode_LibraryDescription)
+                .AddFilterEffect<HighContrast>(GraphicsStrings.HighContrast,
+                    GraphicsStrings.HighContrast_LibraryDescription)
+                .AddFilterEffect<HueRotate>(GraphicsStrings.HueRotate, GraphicsStrings.HueRotate_LibraryDescription)
+                .AddFilterEffect<Lighting>(GraphicsStrings.Lighting, GraphicsStrings.Lighting_LibraryDescription)
+                .AddFilterEffect<LumaColor>(GraphicsStrings.LumaColor, GraphicsStrings.LumaColor_LibraryDescription)
+                .AddFilterEffect<Saturate>(GraphicsStrings.Saturate, GraphicsStrings.Saturate_LibraryDescription)
+                .AddFilterEffect<Threshold>(GraphicsStrings.Threshold, GraphicsStrings.Threshold_LibraryDescription)
+                .AddFilterEffect<EdgeDetection>(GraphicsStrings.EdgeDetection,
+                    GraphicsStrings.EdgeDetection_LibraryDescription)
+                .AddFilterEffect<Brightness>(GraphicsStrings.Brightness, GraphicsStrings.Brightness_LibraryDescription)
+                .AddFilterEffect<OpacityEffect>(GraphicsStrings.OpacityEffect,
+                    GraphicsStrings.OpacityEffect_LibraryDescription)
+                .AddFilterEffect<Gamma>(GraphicsStrings.Gamma, GraphicsStrings.Gamma_LibraryDescription)
+                .AddFilterEffect<ColorGrading>(GraphicsStrings.ColorGrading,
+                    GraphicsStrings.ColorGrading_LibraryDescription)
+                .AddFilterEffect<Curves>(GraphicsStrings.Curves, GraphicsStrings.Curves_LibraryDescription)
+                .AddFilterEffect<FilmGrain>(GraphicsStrings.FilmGrain, GraphicsStrings.FilmGrain_LibraryDescription)
+                .AddFilterEffect<Vignette>(GraphicsStrings.Vignette, GraphicsStrings.Vignette_LibraryDescription)
+                .AddFilterEffect<Invert>(GraphicsStrings.Invert, GraphicsStrings.Invert_LibraryDescription)
+                .AddFilterEffect<LutEffect>(GraphicsStrings.LutEffect, GraphicsStrings.LutEffect_LibraryDescription)
+                .AddFilterEffect<BlendEffect>(GraphicsStrings.BlendEffect,
+                    GraphicsStrings.BlendEffect_LibraryDescription)
+                .AddFilterEffect<Negaposi>(GraphicsStrings.Negaposi, GraphicsStrings.Negaposi_LibraryDescription)
+                .AddFilterEffect<ChromaKey>(GraphicsStrings.ChromaKey, GraphicsStrings.ChromaKey_LibraryDescription)
+                .AddFilterEffect<ColorKey>(GraphicsStrings.ColorKey, GraphicsStrings.ColorKey_LibraryDescription)
+                .AddFilterEffect<LumaKey>(GraphicsStrings.LumaKey, GraphicsStrings.LumaKey_LibraryDescription)
+                .AddFilterEffect<SplitEffect>(GraphicsStrings.SplitEffect,
+                    GraphicsStrings.SplitEffect_LibraryDescription)
+                .AddFilterEffect<PartsSplitEffect>(GraphicsStrings.PartsSplitEffect,
+                    GraphicsStrings.PartsSplitEffect_LibraryDescription)
+                .AddFilterEffect<RepeatEffect>(GraphicsStrings.RepeatEffect,
+                    GraphicsStrings.RepeatEffect_LibraryDescription)
+                .AddFilterEffect<TransformEffect>(GraphicsStrings.Transform,
+                    GraphicsStrings.TransformEffect_LibraryDescription)
+                .AddFilterEffect<MosaicEffect>(GraphicsStrings.MosaicEffect,
+                    GraphicsStrings.MosaicEffect_LibraryDescription)
+                .AddFilterEffect<ColorShift>(GraphicsStrings.ColorShift, GraphicsStrings.ColorShift_LibraryDescription)
+                .AddFilterEffect<LensChromaticAberration>(GraphicsStrings.LensChromaticAberration,
+                    GraphicsStrings.LensChromaticAberration_LibraryDescription)
+                .AddFilterEffect<ShakeEffect>(GraphicsStrings.ShakeEffect,
+                    GraphicsStrings.ShakeEffect_LibraryDescription)
+                .AddFilterEffect<DisplacementMapEffect>(GraphicsStrings.DisplacementMapEffect,
+                    GraphicsStrings.DisplacementMapEffect_LibraryDescription)
+                .AddFilterEffect<MeshWarp>(GraphicsStrings.MeshWarp, GraphicsStrings.MeshWarp_LibraryDescription)
+                .AddFilterEffect<PathFollowEffect>(GraphicsStrings.PathFollowEffect,
+                    GraphicsStrings.PathFollowEffect_LibraryDescription)
+                .AddFilterEffect<LayerEffect>(GraphicsStrings.LayerEffect,
+                    GraphicsStrings.LayerEffect_LibraryDescription)
+                .AddFilterEffect<DelayAnimationEffect>(GraphicsStrings.DelayAnimationEffect,
+                    GraphicsStrings.DelayAnimationEffect_LibraryDescription)
+                .AddFilterEffect<PixelSortEffect>(GraphicsStrings.PixelSortEffect,
+                    GraphicsStrings.PixelSortEffect_LibraryDescription)
+                .AddFilterEffect<NodeGraphFilterEffect>(GraphicsStrings.NodeGraphFilterEffect,
+                    GraphicsStrings.NodeGraphFilterEffect_LibraryDescription)
                 .AddGroup(GraphicsStrings.Script, gg => gg
-                    .AddFilterEffect<CSharpScriptEffect>(GraphicsStrings.CSharpScriptEffect)
-                    .AddFilterEffect<SKSLScriptEffect>(GraphicsStrings.SKSLScriptEffect)
-                    .AddFilterEffect<GLSLScriptEffect>(GraphicsStrings.GLSLScriptEffect)
+                    .AddFilterEffect<CSharpScriptEffect>(GraphicsStrings.CSharpScriptEffect,
+                        GraphicsStrings.CSharpScriptEffect_LibraryDescription)
+                    .AddFilterEffect<SKSLScriptEffect>(GraphicsStrings.SKSLScriptEffect,
+                        GraphicsStrings.SKSLScriptEffect_LibraryDescription)
+                    .AddFilterEffect<GLSLScriptEffect>(GraphicsStrings.GLSLScriptEffect,
+                        GraphicsStrings.GLSLScriptEffect_LibraryDescription)
                 )
             );
 
         library
             .RegisterGroup(GraphicsStrings.ClipTransition, g => g
-                .AddClipTransition<CrossDissolveTransition>(GraphicsStrings.CrossDissolveTransition)
-                .AddClipTransition<FadeTransition>(GraphicsStrings.FadeTransition)
-                .AddClipTransition<WipeTransition>(GraphicsStrings.WipeTransition)
-                .AddClipTransition<DipToColorTransition>(GraphicsStrings.DipToColorTransition)
-                .AddClipTransition<DipToWhiteTransition>(GraphicsStrings.DipToWhiteTransition)
-                .AddClipTransition<PushTransition>(GraphicsStrings.PushTransition)
-                .AddClipTransition<SlideTransition>(GraphicsStrings.SlideTransition)
-                .AddClipTransition<ZoomTransition>(GraphicsStrings.ZoomTransition)
-                .AddClipTransition<IrisTransition>(GraphicsStrings.IrisTransition)
-                .AddClipTransition<SplitTransition>(GraphicsStrings.SplitTransition)
-                .AddClipTransition<BlindsTransition>(GraphicsStrings.BlindsTransition)
-                .AddClipTransition<CheckerboardTransition>(GraphicsStrings.CheckerboardTransition)
-                .AddClipTransition<ZoomBlurTransition>(GraphicsStrings.ZoomBlurTransition)
-                .AddClipTransition<WhipPanTransition>(GraphicsStrings.WhipPanTransition)
-                .AddClipTransition<GlitchTransition>(GraphicsStrings.GlitchTransition)
-                .AddClipTransition<LightLeakTransition>(GraphicsStrings.LightLeakTransition)
+                .AddClipTransition<CrossDissolveTransition>(GraphicsStrings.CrossDissolveTransition,
+                    GraphicsStrings.CrossDissolveTransition_LibraryDescription)
+                .AddClipTransition<FadeTransition>(GraphicsStrings.FadeTransition,
+                    GraphicsStrings.FadeTransition_LibraryDescription)
+                .AddClipTransition<WipeTransition>(GraphicsStrings.WipeTransition,
+                    GraphicsStrings.WipeTransition_LibraryDescription)
+                .AddClipTransition<DipToColorTransition>(GraphicsStrings.DipToColorTransition,
+                    GraphicsStrings.DipToColorTransition_LibraryDescription)
+                .AddClipTransition<DipToWhiteTransition>(GraphicsStrings.DipToWhiteTransition,
+                    GraphicsStrings.DipToWhiteTransition_LibraryDescription)
+                .AddClipTransition<PushTransition>(GraphicsStrings.PushTransition,
+                    GraphicsStrings.PushTransition_LibraryDescription)
+                .AddClipTransition<SlideTransition>(GraphicsStrings.SlideTransition,
+                    GraphicsStrings.SlideTransition_LibraryDescription)
+                .AddClipTransition<ZoomTransition>(GraphicsStrings.ZoomTransition,
+                    GraphicsStrings.ZoomTransition_LibraryDescription)
+                .AddClipTransition<IrisTransition>(GraphicsStrings.IrisTransition,
+                    GraphicsStrings.IrisTransition_LibraryDescription)
+                .AddClipTransition<SplitTransition>(GraphicsStrings.SplitTransition,
+                    GraphicsStrings.SplitTransition_LibraryDescription)
+                .AddClipTransition<BlindsTransition>(GraphicsStrings.BlindsTransition,
+                    GraphicsStrings.BlindsTransition_LibraryDescription)
+                .AddClipTransition<CheckerboardTransition>(GraphicsStrings.CheckerboardTransition,
+                    GraphicsStrings.CheckerboardTransition_LibraryDescription)
+                .AddClipTransition<ZoomBlurTransition>(GraphicsStrings.ZoomBlurTransition,
+                    GraphicsStrings.ZoomBlurTransition_LibraryDescription)
+                .AddClipTransition<WhipPanTransition>(GraphicsStrings.WhipPanTransition,
+                    GraphicsStrings.WhipPanTransition_LibraryDescription)
+                .AddClipTransition<GlitchTransition>(GraphicsStrings.GlitchTransition,
+                    GraphicsStrings.GlitchTransition_LibraryDescription)
+                .AddClipTransition<LightLeakTransition>(GraphicsStrings.LightLeakTransition,
+                    GraphicsStrings.LightLeakTransition_LibraryDescription)
             );
 
         library
             .RegisterGroup(AudioStrings.AudioEffect, g => g
-                .AddAudioEffect<DelayEffect>(AudioStrings.DelayEffect)
-                .AddAudioEffect<EqualizerEffect>(AudioStrings.Equalizer)
-                .AddAudioEffect<CompressorEffect>(AudioStrings.CompressorEffect)
-                .AddAudioEffect<LimiterEffect>(AudioStrings.LimiterEffect)
-                .AddAudioEffect<GateEffect>(AudioStrings.GateEffect)
-                .AddAudioEffect<TimeStretchEffect>(AudioStrings.TimeStretchEffect)
-                .AddAudioEffect<NoiseReductionEffect>(AudioStrings.NoiseReductionEffect)
-                .AddAudioEffect<PitchShiftEffect>(AudioStrings.PitchShiftEffect)
-                .AddAudioEffect<ResamplingEffect>(AudioStrings.ResamplingEffect)
-                .AddAudioEffect<VibratoEffect>(AudioStrings.VibratoEffect)
-                .AddAudioEffect<RingModulatorEffect>(AudioStrings.RingModulatorEffect)
+                .AddAudioEffect<DelayEffect>(AudioStrings.DelayEffect, AudioStrings.DelayEffect_LibraryDescription)
+                .AddAudioEffect<EqualizerEffect>(AudioStrings.Equalizer,
+                    AudioStrings.EqualizerEffect_LibraryDescription)
+                .AddAudioEffect<CompressorEffect>(AudioStrings.CompressorEffect,
+                    AudioStrings.CompressorEffect_LibraryDescription)
+                .AddAudioEffect<LimiterEffect>(AudioStrings.LimiterEffect,
+                    AudioStrings.LimiterEffect_LibraryDescription)
+                .AddAudioEffect<GateEffect>(AudioStrings.GateEffect, AudioStrings.GateEffect_LibraryDescription)
+                .AddAudioEffect<TimeStretchEffect>(AudioStrings.TimeStretchEffect,
+                    AudioStrings.TimeStretchEffect_LibraryDescription)
+                .AddAudioEffect<NoiseReductionEffect>(AudioStrings.NoiseReductionEffect,
+                    AudioStrings.NoiseReductionEffect_LibraryDescription)
+                .AddAudioEffect<PitchShiftEffect>(AudioStrings.PitchShiftEffect,
+                    AudioStrings.PitchShiftEffect_LibraryDescription)
+                .AddAudioEffect<ResamplingEffect>(AudioStrings.ResamplingEffect,
+                    AudioStrings.ResamplingEffect_LibraryDescription)
+                .AddAudioEffect<VibratoEffect>(AudioStrings.VibratoEffect,
+                    AudioStrings.VibratoEffect_LibraryDescription)
+                .AddAudioEffect<RingModulatorEffect>(AudioStrings.RingModulatorEffect,
+                    AudioStrings.RingModulatorEffect_LibraryDescription)
             );
 
         BuiltInLibraryThumbnailRecipes.Register();

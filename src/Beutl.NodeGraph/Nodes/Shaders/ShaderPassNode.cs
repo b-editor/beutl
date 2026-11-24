@@ -196,7 +196,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
         private ImmutableArray<SpecializationConstant> _constants = [];
         private ShaderPassReflection? _specialized;
 
-        /// <summary>What the rest of the node's outputs read from, or null while the code does not compile.</summary>
+        /// <summary>What the node's outputs read, including any failure found in this evaluation.</summary>
         private protected ShaderGraphValue<ShaderPassResult>? Result { get; private set; }
 
         public override void Update(GraphCompositionContext context)
@@ -221,7 +221,7 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
             {
                 string error = failure!;
                 if (ReadsCurrentCode(node)) node.ReportError(error);
-                Result = new(_ => throw new InvalidOperationException(error));
+                Result = new(_ => throw new ShaderPassFailureException(error));
             }
             else
             {
@@ -233,10 +233,15 @@ public abstract partial class ShaderPassNode : ShaderDynamicNode, IShaderPicture
                         if (ReadsCurrentCode(node)) node.ReportError(null);
                         return result;
                     }
+                    catch (ShaderPassFailureException)
+                    {
+                        if (ReadsCurrentCode(node)) node.ReportError(null);
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         if (ReadsCurrentCode(node)) node.ReportError(ex.Message);
-                        throw;
+                        throw new ShaderPassFailureException(ex.Message, ex);
                     }
                 });
             }

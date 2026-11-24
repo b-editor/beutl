@@ -423,7 +423,7 @@ public sealed class UpdateDownloadTests
         using var client = new HttpClient(handler);
         string staging = Path.Combine(_root, "tmp", "update");
         string app = mac ? Path.Combine(staging, "Beutl.app", "Contents", "MacOS")
-            : UpdateDialogViewModel.GetZipStagingDirectory(AppContext.BaseDirectory, staging);
+            : UpdateFolders.GetZipStagingDirectory(AppContext.BaseDirectory, staging);
         string dll = Path.Combine(app, "Beutl.dll");
         string stale = Path.Combine(app, "stale.txt");
 

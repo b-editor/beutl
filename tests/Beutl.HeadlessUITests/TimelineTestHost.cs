@@ -31,7 +31,8 @@ internal sealed class TimelineTestHost : IDisposable
         TimelineTabViewModel model,
         Func<PointerWheelEventArgs, bool>? scrollDetector,
         double width,
-        ThemeVariant? theme)
+        ThemeVariant? theme,
+        bool show)
     {
         Scene = scene;
         Model = model;
@@ -43,12 +44,15 @@ internal sealed class TimelineTestHost : IDisposable
             Window.RequestedThemeVariant = theme;
         }
 
-        Window.Show();
-        HeadlessTestHelpers.Render();
         Content = View.FindControl<ScrollViewer>("ContentScroll")!;
         Timeline = View.FindControl<Panel>("TimelinePanel")!;
         Ruler = View.FindControl<TimelineScale>("Scale")!;
         RulerBar = View.FindControl<Border>("RulerBar")!;
+        if (show)
+        {
+            Window.Show();
+            HeadlessTestHelpers.Render();
+        }
     }
 
     public static RawInputModifiers CommandModifier { get; } =
@@ -76,7 +80,8 @@ internal sealed class TimelineTestHost : IDisposable
         IReadOnlyList<ElementDescription>? clips = null,
         Func<PointerWheelEventArgs, bool>? scrollDetector = null,
         double width = 960,
-        ThemeVariant? theme = null)
+        ThemeVariant? theme = null,
+        bool show = true)
     {
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(name);
         scene.Duration.Value = duration;
@@ -88,7 +93,7 @@ internal sealed class TimelineTestHost : IDisposable
 
         TimelineTabViewModel model = editor.FindToolTab<TimelineTabViewModel>()!;
         model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
-        return new TimelineTestHost(scene, model, scrollDetector, width, theme);
+        return new TimelineTestHost(scene, model, scrollDetector, width, theme, show);
     }
 
     public void Dispose()

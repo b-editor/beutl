@@ -152,6 +152,9 @@ public partial class GraphEditorView : UserControl
 
     private void OnDataContextAttached(GraphEditorViewModel obj)
     {
+        scroll.GetObservable(ScrollViewer.ViewportProperty)
+            .Subscribe(viewport => obj.ViewportWidth.Value = viewport.Width)
+            .DisposeWith(_disposables);
         obj.SetClipboardViewContext(() => ReferenceEquals(DataContext, obj) && IsEffectivelyVisible
             && TopLevel.GetTopLevel(this)?.PlatformImpl != null);
         AttachGraphInteractions(obj);

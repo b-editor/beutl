@@ -216,6 +216,120 @@ public sealed class AiPendingRequestRecoveryTests
     }
 
     [AvaloniaTest]
+    public async Task AnOutstandingImageEditOnlyHoldsTheModelForItsStartingAccount()
+    {
+        const string accountA = "test-user";
+        const string accountB = "account-b";
+        var upscale = new AiOperationId("image.edit.upscale");
+        var modelA = new AiModelId("current-edit");
+        var modelB = new AiModelId("other-edit");
+        var submitted = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new StubHandler(async (request, cancellationToken) =>
+        {
+            string path = request.RequestUri!.AbsolutePath;
+            switch (path)
+            {
+                case "/api/v3/ai/images/edit":
+                    submitted.SetResult(IdempotencyKeyOf(request)!);
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                    throw new AssertionException("The edit should have been cancelled after switching accounts.");
+                case "/api/v3/ai/jobs/by-idempotency-key":
+                    return JsonResponse(HttpStatusCode.OK, JobJson("image", "running"));
+                case "/api/v3/ai/capabilities" when request.Headers.Authorization?.Parameter == $"token-{accountB}":
+                    return JsonResponse(HttpStatusCode.OK, RecoveryCapabilitiesJson().Replace(modelA.Value, modelB.Value));
+                default:
+                    return RecoveryCatalog(path) ?? NotFoundResponse();
+            }
+        });
+        await using BeutlApiApplication app = CreateApp(handler);
+        var store = new FileAiRequestKeyMap(Path.Combine(_root, "recovery"));
+        using var recovery = TrackAccount(app, store);
+        await using var dialog = CreateImageEditDialog(app, context: recovery);
+        string sourcePath = Path.Combine(_root, "source.png");
+        await File.WriteAllBytesAsync(sourcePath, s_png);
+        dialog.SelectedTask.Value = dialog.Tasks.Single(task => task.Value == "upscale");
+        dialog.SourceFilePath.Value = sourcePath;
+        await WaitUntilAsync(() => dialog.CanEdit.Value && dialog.ModelPicker.SelectedModel == modelA);
+
+        Task edit = dialog.Edit.ExecuteAsync();
+        string key = await submitted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(dialog.HoldsRequestName.Value, Is.True);
+
+        SetAuthenticatedUser(app, accountB);
+        await edit.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dialog.HoldsRequestName.Value, Is.False);
+            Assert.That(dialog.ModelPicker.CanReload!(upscale), Is.True);
+            Assert.That(dialog.ModelPicker.KeepOffered!(upscale), Is.Empty);
+            Assert.That(dialog.RecoveryAttempts.Value, Is.Empty);
+            Assert.That(store.PendingFor(accountA, upscale.Value).Single().Key, Is.EqualTo(key));
+        });
+        dialog.RefreshModels();
+        await WaitUntilAsync(() => dialog.ModelPicker.SelectedModel == modelB);
+
+        SetAuthenticatedUser(app, accountA);
+        await WaitUntilAsync(() => dialog.Error.Value == Strings.AiRequestInProgress && !dialog.IsEditing.Value);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dialog.HoldsRequestName.Value, Is.True);
+            Assert.That(dialog.ModelPicker.CanReload!(upscale), Is.False);
+            Assert.That(dialog.ModelPicker.KeepOffered!(upscale), Is.EqualTo(new[] { modelA }));
+            Assert.That(dialog.RecoveryAttempts.Value.Single().Key, Is.EqualTo(key));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase("account-b")]
+    [TestCase(null)]
+    public async Task IdentityChangeBetweenVideoPollsKeepsTheSubmittedKey(string? nextAccount)
+    {
+        string? key = null;
+        int polls = 0;
+        using var handler = new StubHandler(request =>
+        {
+            string path = request.RequestUri?.AbsolutePath ?? string.Empty;
+            if (RecoveryCatalog(path) is { } catalog)
+                return catalog;
+            if (path == "/api/v3/ai/videos")
+            {
+                key = IdempotencyKeyOf(request);
+                return JsonResponse(HttpStatusCode.OK, """{"jobId":"video","status":"queued"}""");
+            }
+            if (path == "/api/v3/ai/videos/video")
+            {
+                polls++;
+                return JsonResponse(HttpStatusCode.OK, """{"jobId":"video","status":"queued"}""");
+            }
+            return NotFoundResponse();
+        });
+        await using BeutlApiApplication app = CreateApp(handler);
+        var store = new FileAiRequestKeyMap(_root);
+        using var recovery = TrackAccount(app, store);
+        await using var dialog = CreateVideoGenerationDialog(app, context: recovery);
+        dialog.PollDelayAsync = (_, _) =>
+        {
+            SetAuthenticatedUser(app, nextAccount);
+            return Task.CompletedTask;
+        };
+        await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value && dialog.ModelPicker.IsLoaded.Value);
+        dialog.Prompt.Value = "a lighthouse";
+        await WaitUntilAsync(() => dialog.CanGenerate.Value);
+
+        await dialog.Generate.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(polls, Is.EqualTo(1));
+            Assert.That(key, Is.Not.Null);
+            Assert.That(store.PendingFor("test-user", "video.generate").Single().Key, Is.EqualTo(key));
+            Assert.That(dialog.ResultVideoPath.Value, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
     public async Task AccountSwitchRejectsLateNonCooperativeImageResult()
     {
         string root = Path.Combine(

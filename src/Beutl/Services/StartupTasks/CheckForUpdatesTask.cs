@@ -5,7 +5,6 @@ using Beutl.Api.Clients;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
-using Beutl.ViewModels.Dialogs;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -106,7 +105,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                 {
                     // The update takes the claim when it can, so that no other Beutl starts one unasked. One that
                     // unpacks stops before downloading while another Beutl holds it, says why, and can be retried.
-                    _ = UpdateDialogViewModel.ClaimUpdateFolders();
+                    _ = UpdateFolders.Claim();
                     controller.StartInBackground(update);
                 }), releaseNotes]
                 : [releaseNotes]);

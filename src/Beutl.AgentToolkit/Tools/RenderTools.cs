@@ -88,7 +88,7 @@ public sealed partial class RenderTools(
     }
 
     [McpServerTool(Name = "render_storyboard")]
-    [Description("Renders a storyboard contact sheet from explicit sample times, explicit shots, or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet into outputDirectory. Pass timeSeconds for continuous single-shot pieces where Element-boundary shot detection would collapse the arc. Pass subdivisionLevel:1..3 to insert binary in-between frames between adjacent anchors for transition review. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. Pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
+    [Description("Renders a storyboard contact sheet from explicit sample times, explicit shots, or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet into outputDirectory. Its warnings name each node graph node that failed while frames drew. Pass timeSeconds for continuous single-shot pieces where Element-boundary shot detection would collapse the arc. Pass subdivisionLevel:1..3 to insert binary in-between frames between adjacent anchors for transition review. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. Pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
     public ValueTask<CallToolResult> RenderStoryboard(
         [Description("Absolute output directory. Existing files require confirmOverwrite.")]
         string outputDirectory,
@@ -230,7 +230,7 @@ public sealed partial class RenderTools(
     }
 
     [McpServerTool(Name = "export_video")]
-    [Description("Exports the current scene through a registered headless encoder to an absolute output path. Omitted frame and audio sample rates use the project settings (30 fps / 44100 Hz without a project rate). Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. Pass background:true to run as a job and poll read_render_job(jobId).")]
+    [Description("Exports the current scene through a registered headless encoder to an absolute output path. Omitted frame and audio sample rates use the project settings (30 fps / 44100 Hz without a project rate). Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. The warnings also name each node graph node that failed while frames drew. Pass background:true to run as a job and poll read_render_job(jobId).")]
     public ValueTask<ToolResult<ExportVideoResult>> ExportVideo(
         [Description("Absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Existing files require confirmOverwrite.")]
         string outputPath,

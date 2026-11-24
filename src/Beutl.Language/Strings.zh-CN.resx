@@ -638,6 +638,12 @@
   <data name="RippleEdit" xml:space="preserve">
     <value>波纹编辑</value>
   </data>
+  <data name="RippleEdit_Description" xml:space="preserve">
+    <value>切换波纹编辑。开启时，删除或剪切剪辑会移动同一图层上其后的剪辑，修剪边缘会移动该侧的剪辑。</value>
+  </data>
+  <data name="TimelineSnap_Description" xml:space="preserve">
+    <value>切换吸附。拖动时按住 Alt / Option 键可忽略吸附。</value>
+  </data>
   <data name="UseGlobalClock" xml:space="preserve">
     <value>使用全局时钟</value>
   </data>
@@ -3888,5 +3894,8 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>粘贴剪辑之前请先保存项目。</value>
+  </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>将下方图层的内容引入当前图层（图层引用、流程输入 / layer reference, flow input）。</value>
   </data>
 </root>

@@ -29,24 +29,40 @@ internal sealed class AiGenerativeNodeExecutor(
     IGenerativePromptLibrary promptLibrary,
     IAiImageEditingService editing,
     IAiVideoService videos,
-    IAiJobKindRegistry jobKinds, DecoderRegistry decoders) : IGenerativeNodeExecutor
+    IAiJobKindRegistry jobKinds,
+    DecoderRegistry decoders,
+    AiRequestRecoveryContext? recoveryContext = null) : IGenerativeNodeExecutor
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AiGenerativeNodeExecutor>();
 
-    public Task<GenerativeExecutionResult> ExecuteAsync(
+    public async Task<GenerativeExecutionResult> ExecuteAsync(
         GenerativeRequest request,
         IProgress<GenerativeProgress> progress,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return request switch
+        AiAccountJobScope? account = null;
+        try
         {
-            AiImageGenerationNodeRequest image => GenerateImageAsync(image, progress, cancellationToken),
-            AiImageEditNodeRequest edit => EditImageAsync(edit, progress, cancellationToken),
-            AiVideoGenerationNodeRequest video => GenerateVideoAsync(video, progress, cancellationToken),
-            AiVideoEditNodeRequest edit => EditVideoAsync(edit, progress, cancellationToken),
-            _ => throw new NotSupportedException($"{request.Operation} is not supported."),
-        };
+            using var job = account = new AiAccountJobScope(recoveryContext);
+            using CancellationTokenSource cancellation = job.Link(cancellationToken);
+            CancellationToken token = cancellation.Token;
+            return await (request switch
+            {
+                AiImageGenerationNodeRequest image => GenerateImageAsync(image, progress, job, token),
+                AiImageEditNodeRequest edit => EditImageAsync(edit, progress, job, token),
+                AiVideoGenerationNodeRequest video => GenerateVideoAsync(video, progress, job, token),
+                AiVideoEditNodeRequest edit => EditVideoAsync(edit, progress, job, token),
+                _ => throw new NotSupportedException($"{request.Operation} is not supported."),
+            });
+        }
+        catch (Exception ex) when (ex is AuthenticationRequiredException || account?.AccountChanged == true)
+        {
+            throw new GenerativeExecutionException(
+                Strings.AiAuthenticationRequired,
+                ex as AuthenticationRequiredException
+                    ?? new AuthenticationRequiredException(currentAttemptReservationIsKnownAbsent: false, ex));
+        }
     }
 
     public async Task<GenerativeRefusal?> ValidateAsync(GenerativeRequest request, CancellationToken cancellationToken)
@@ -149,10 +165,11 @@ internal sealed class AiGenerativeNodeExecutor(
     private async Task<GenerativeExecutionResult> GenerateImageAsync(
         AiImageGenerationNodeRequest request,
         IProgress<GenerativeProgress> progress,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
         (AiModelCatalog catalog, IReadOnlyList<GenerativeModelInfo> offered) =
-            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
+            await models.LoadAsync(request.CatalogOperationId, cancellationToken, account);
         (AiModelId? model, int? seed, AiImageReferenceLimits referenceLimits) =
             PrepareImageGeneration(request, catalog, offered);
         string prompt = request.Prompt;
@@ -190,10 +207,11 @@ internal sealed class AiGenerativeNodeExecutor(
                     referenceLimits: referenceLimits),
                 new Progress<AiImagePreview>(preview => ReportPreview(preview, progress)),
                 token),
+            request.Operation,
+            prompt,
             progress,
+            account,
             cancellationToken);
-        // As the dialog does once a picture is in hand.
-        promptLibrary.Record(request.Operation, prompt);
         return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, seed);
     }
 
@@ -242,11 +260,12 @@ internal sealed class AiGenerativeNodeExecutor(
     private async Task<GenerativeExecutionResult> EditImageAsync(
         AiImageEditNodeRequest request,
         IProgress<GenerativeProgress> progress,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
         string task = request.Task.ToId();
         (AiModelCatalog catalog, IReadOnlyList<GenerativeModelInfo> offered) =
-            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
+            await models.LoadAsync(request.CatalogOperationId, cancellationToken, account);
         (AiModelId? model, bool requiresPrompt, string uploadName, byte[] uploadBytes, string? prompt) =
             PrepareImageEdit(request, catalog, offered);
 
@@ -266,10 +285,11 @@ internal sealed class AiGenerativeNodeExecutor(
                     model,
                     key),
                 token),
+            request.Operation,
+            requiresPrompt ? request.Prompt : null,
             progress,
+            account,
             cancellationToken);
-        if (requiresPrompt && request.Prompt is { } typed)
-            promptLibrary.Record(request.Operation, typed);
         return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, null);
     }
 
@@ -281,10 +301,11 @@ internal sealed class AiGenerativeNodeExecutor(
     private async Task<GenerativeExecutionResult> GenerateVideoAsync(
         AiVideoGenerationNodeRequest request,
         IProgress<GenerativeProgress> progress,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
         (_, IReadOnlyList<GenerativeModelInfo> offered) =
-            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
+            await models.LoadAsync(request.CatalogOperationId, cancellationToken, account);
         (GenerativeVideoCapabilities limits, AiModelId? model, List<(string Role, AiUploadSource Upload, byte[] Bytes)> references) =
             PrepareVideoGeneration(request, offered);
         string prompt = request.Prompt;
@@ -325,11 +346,12 @@ internal sealed class AiGenerativeNodeExecutor(
             async (response, requestKey, name) =>
             {
                 // Past here the clip has been reserved and paid for; the key is the way back.
-                string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
-                promptLibrary.Record(request.Operation, prompt);
+                string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, account, cancellationToken);
+                CompleteResult(path, request.Operation, prompt, requestKey, name, account, cancellationToken);
                 return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, seed, IsVideo: true);
             },
             progress,
+            account,
             cancellationToken);
     }
 
@@ -494,10 +516,11 @@ internal sealed class AiGenerativeNodeExecutor(
     private async Task<GenerativeExecutionResult> EditVideoAsync(
         AiVideoEditNodeRequest request,
         IProgress<GenerativeProgress> progress,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
         (_, IReadOnlyList<GenerativeModelInfo> offered) =
-            await models.LoadAsync(request.CatalogOperationId, cancellationToken);
+            await models.LoadAsync(request.CatalogOperationId, cancellationToken, account);
         (AiModelId? model, AiUploadSource sourceUpload, AiUploadSource? characterUpload, int durationSeconds) =
             PrepareVideoEdit(request, offered, VideoDurationReader);
         (AiSourceVideoMode mode, AiOperationId operation) = request.Mode switch
@@ -565,11 +588,12 @@ internal sealed class AiGenerativeNodeExecutor(
                 token),
             async (response, requestKey, name) =>
             {
-                string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
-                promptLibrary.Record(request.Operation, prompt);
+                string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, account, cancellationToken);
+                CompleteResult(path, request.Operation, prompt, requestKey, name, account, cancellationToken);
                 return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, null, IsVideo: true);
             },
             progress,
+            account,
             cancellationToken);
     }
 
@@ -651,6 +675,7 @@ internal sealed class AiGenerativeNodeExecutor(
         AiRequestKey requestKey,
         AiRequestName name,
         IProgress<GenerativeProgress> progress,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
         (AiVideoJob job, AiJobStatusSemantics status) = await AiVideoJobWaiter.WaitAsync(
@@ -661,6 +686,7 @@ internal sealed class AiGenerativeNodeExecutor(
             PollInterval,
             MaximumTransientPollDelay,
             Task.Delay,
+            account,
             cancellationToken);
         if (status.Outcome == AiJobOutcomes.Succeeded)
         {
@@ -668,15 +694,16 @@ internal sealed class AiGenerativeNodeExecutor(
                 throw new InvalidOperationException("A successful video job did not provide content.");
 
             progress.Report(new GenerativeProgress(Beutl.Language.NodeGraphStrings.Generative_Loading));
-            string downloaded = await AiVideoResultDownload.DownloadAsync(
-                content, contentUri, job.ContentMetadata, cancellationToken);
+            string downloaded = await account.SendAsync(
+                token => AiVideoResultDownload.DownloadAsync(content, contentUri, job.ContentMetadata, token),
+                cancellationToken);
             try
             {
+                account.ThrowIfInvalid(cancellationToken);
                 string directory = AiResultImporter.GetResourceDirectory(scene);
                 Directory.CreateDirectory(directory);
                 string destination = Path.Combine(directory, $"{Guid.NewGuid():N}{Path.GetExtension(downloaded)}");
                 File.Move(downloaded, destination);
-                requestKey.Retire(name);
                 return destination;
             }
             catch
@@ -690,6 +717,7 @@ internal sealed class AiGenerativeNodeExecutor(
         if (status.IsTerminal)
         {
             // Settled and refunded: the name would only ever answer with this failure.
+            account.ThrowIfInvalid(cancellationToken);
             requestKey.Retire(name);
             throw new GenerativeExecutionException(AiErrorMessage.Localize(job.Error) ?? Strings.AiProviderError)
             {
@@ -726,7 +754,10 @@ internal sealed class AiGenerativeNodeExecutor(
         string?[] parts,
         Func<CancellationToken, Task<bool>> checkAvailability,
         Func<string, CancellationToken, Task<AiImageResult>> send,
+        GenerativeOperation operation,
+        string? prompt,
         IProgress<GenerativeProgress> progress,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
         return DispatchAsync(
@@ -740,16 +771,42 @@ internal sealed class AiGenerativeNodeExecutor(
             {
                 // Past here the picture has been paid for; the key stays the way back to it.
                 progress.Report(new GenerativeProgress(Beutl.Language.NodeGraphStrings.Generative_Loading));
-                byte[] encoded = await AiImageResultDownload.DownloadEncodedAsync(
-                    content,
-                    response.ContentUri,
+                byte[] encoded = await account.SendAsync(
+                    token => AiImageResultDownload.DownloadEncodedAsync(content, response.ContentUri, token),
                     cancellationToken);
                 string path = await SaveAsync(encoded, ".png", cancellationToken);
-                requestKey.Retire(name);
+                CompleteResult(path, operation, prompt, requestKey, name, account, cancellationToken);
                 return path;
             },
             progress,
+            account,
             cancellationToken);
+    }
+
+    private void CompleteResult(
+        string path,
+        GenerativeOperation operation,
+        string? prompt,
+        AiRequestKey requestKey,
+        AiRequestName name,
+        AiAccountJobScope account,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using (account.Enter(cancellationToken))
+            {
+                if (prompt is not null)
+                    promptLibrary.Record(operation, prompt);
+            }
+            account.ThrowIfInvalid(cancellationToken);
+            requestKey.Retire(name);
+        }
+        catch
+        {
+            File.Delete(path);
+            throw;
+        }
     }
 
     /// <summary>
@@ -767,15 +824,18 @@ internal sealed class AiGenerativeNodeExecutor(
         Func<string, CancellationToken, Task<TResponse>> send,
         Func<TResponse, AiRequestKey, AiRequestName, Task<TResult>> complete,
         IProgress<GenerativeProgress> progress,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
-        using var requestKey = new AiRequestKey(seed: keySeed, operation: keyOperation);
-        AiRequestName name = requestKey.NameFor(parts);
+        using var requestKey = new AiRequestKey(seed: keySeed, recoveryContext: recoveryContext, operation: keyOperation);
+        AiRequestName name = default;
         try
         {
+            using (account.Enter(cancellationToken))
+                name = requestKey.NameFor(parts);
             progress.Report(new GenerativeProgress(submittingStatus));
             TResponse response = await AiMeteredDispatch.SendAsync(
-                requestKey,
+                account,
                 name,
                 checkAvailability,
                 token => send(name.Key, token),
@@ -788,7 +848,8 @@ internal sealed class AiGenerativeNodeExecutor(
         {
             throw;
         }
-        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
+        catch (Exception ex) when (ex is not AuthenticationRequiredException
+            && !account.AccountChanged && AiRequestFailure.Classify(ex) is { } failure)
         {
             if (failure.RetiresName)
                 requestKey.Retire(name);
@@ -796,7 +857,8 @@ internal sealed class AiGenerativeNodeExecutor(
                 s_logger.LogError(ex, "Failed to download the AI result.");
             throw new GenerativeExecutionException(failure.Message, ex) { SettledRequest = failure.RetiresName };
         }
-        catch (Exception ex) when (ex is not GenerativeExecutionException)
+        catch (Exception ex) when (ex is not (GenerativeExecutionException or AuthenticationRequiredException)
+            && !account.AccountChanged)
         {
             s_logger.LogError(ex, "Failed to run a generative node.");
             throw new GenerativeExecutionException(Strings.AiUnexpectedError, ex);

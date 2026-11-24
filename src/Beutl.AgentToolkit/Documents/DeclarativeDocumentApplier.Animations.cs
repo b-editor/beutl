@@ -171,7 +171,7 @@ internal sealed partial class DeclarativeDocumentApplier
             // CoreSerializer appends keyframes in JSON order, but GetPreviousAndNextKeyFrame walks collection order.
             if (animation is IKeyFrameAnimation keyFrameAnimation)
             {
-                SortKeyFramesByKeyTime(keyFrameAnimation.KeyFrames);
+                KeyFrameShorthand.SortKeyFramesByKeyTime(keyFrameAnimation.KeyFrames);
             }
 
             property.SetPropertyAnimation(animation);
@@ -190,7 +190,7 @@ internal sealed partial class DeclarativeDocumentApplier
             foreach (IProperty component in components.Components)
             {
                 if (component.GetKeyFrameAnimation() is { } track)
-                    SortKeyFramesByKeyTime(track.KeyFrames);
+                    KeyFrameShorthand.SortKeyFramesByKeyTime(track.KeyFrames);
                 RevalidateKeyFrameValues(component, null);
             }
             return;
@@ -363,24 +363,7 @@ internal sealed partial class DeclarativeDocumentApplier
             }
         }
 
-        SortKeyFramesByKeyTime(list);
-    }
-
-    // GetPreviousAndNextKeyFrame walks collection order, so a KeyTime edit on an existing frame that
-    // now crosses a neighbour must re-sort the list or interpolation picks the wrong prev/next frames.
-    private static void SortKeyFramesByKeyTime(ICoreList<IKeyFrame> list)
-    {
-        List<IKeyFrame> sorted = list.OrderBy(frame => frame.KeyTime.Value).ToList();
-        for (int target = 0; target < sorted.Count; target++)
-        {
-            // A frame already in place, as nearly all are, needs no search.
-            if (ReferenceEquals(list[target], sorted[target]))
-            {
-                continue;
-            }
-
-            Move(list, list.IndexOf(sorted[target]), target);
-        }
+        KeyFrameShorthand.SortKeyFramesByKeyTime(list);
     }
 
     private static Easing DeserializeEasing(JsonNode node)

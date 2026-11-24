@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Controls;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Logging;
 using Beutl.Media;
@@ -13,7 +14,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class GeometryEditor : UserControl
 {
-    private INotificationService Notifications => CopyPasteMenuHelper.NotificationsOf(this);
+    private INotificationService Notifications => ControlNotifications.FromDataContextOrDefault(this);
 
     private readonly ILogger _logger = Log.CreateLogger<GeometryEditor>();
 

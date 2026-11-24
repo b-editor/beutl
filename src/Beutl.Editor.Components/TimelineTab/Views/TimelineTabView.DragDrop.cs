@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -18,8 +19,7 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
-    private INotificationService Notifications => (DataContext as IServiceProvider)?.GetService<INotificationService>()
-        ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
+    private INotificationService Notifications => ControlNotifications.FromDataContextOrDefault(this);
 
     private CaptionTemplateId? _captionTemplateId;
 

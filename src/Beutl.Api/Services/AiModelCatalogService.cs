@@ -36,6 +36,7 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
     public async Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        cancellationToken.ThrowIfCancellationRequested();
         if (TryGetFresh(out AiModelCatalog? cached))
             return cached!;
 
@@ -52,7 +53,8 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
             using Activity? activity = _application.ActivitySource.StartActivity(
                 "AiModelCatalogService.Get",
                 ActivityKind.Client);
-            AuthenticatedUser? authenticatedUser = _application.AuthenticatedUser.Value;
+            AuthenticatedUser? authenticatedUser = AiAuthenticatedRequestScope.RequireExpectedUser(
+                _application.AuthenticatedUser.Value);
             if (authenticatedUser is null)
                 return AiModelCatalog.Empty;
 
@@ -127,7 +129,8 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
         {
             catalog = _catalog;
             return catalog is not null
-                && ReferenceEquals(_catalogOwner, _application.AuthenticatedUser.Value)
+                && ReferenceEquals(_catalogOwner, AiAuthenticatedRequestScope.RequireExpectedUser(
+                    _application.AuthenticatedUser.Value))
                 && _timeProvider.GetElapsedTime(_fetchedAt) < s_freshness;
         }
     }

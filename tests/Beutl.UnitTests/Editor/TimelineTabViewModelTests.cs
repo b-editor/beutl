@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using System.Reactive.Linq;
 using Beutl.Collections;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -395,6 +396,23 @@ public class TimelineTabViewModelTests
         model.Options.Value = model.Options.Value with { Scale = 0.5f };
         model.Options.Value = model.Options.Value with { Offset = Vector2.Zero };
         Assert.That(values, Is.EqualTo(new[] { 1f, 0.5f }));
+    }
+
+    [Test]
+    public void PanelWidth_UsesTheViewportWidthAtAnyScale_WithAMinimumOf500Pixels()
+    {
+        MediaTime end = MediaTime.FromSeconds(30);
+        using TimelineTabViewModel model = CreateViewModel(new Scene { Duration = { Value = end } });
+        Assert.That(model.PanelWidth.Value, Is.EqualTo(end.TimeToPixel(1) + 500));
+
+        model.ViewportWidth.Value = 1600;
+        Assert.That(model.PanelWidth.Value, Is.EqualTo(end.TimeToPixel(1) + 1600));
+
+        model.Options.Value = model.Options.Value with { Scale = TimelineOptions.MaxScale };
+        Assert.That(model.PanelWidth.Value, Is.EqualTo(end.TimeToPixel(TimelineOptions.MaxScale) + 1600));
+
+        model.ViewportWidth.Value = 480;
+        Assert.That(model.PanelWidth.Value, Is.EqualTo(end.TimeToPixel(TimelineOptions.MaxScale) + 500));
     }
 
     [Test]

@@ -5,9 +5,12 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Extensibility;
+using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Shaders;
+using Beutl.NodeGraph.Nodes.Utilities;
 using static Beutl.AgentToolkit.Tests.NodeGraphs.NodeGraphTestScene;
 
 namespace Beutl.AgentToolkit.Tests.NodeGraphs;
@@ -78,6 +81,42 @@ public sealed class EditNodeGraphTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Empty_operations_return_without_graph_diagnostics_or_history(bool validateOnly)
+    {
+        using var scene = new NodeGraphTestScene();
+        int undoCount = scene.Session.History.UndoCount;
+
+        ToolResult<EditNodeGraphResponse> result = scene.Tools.EditNodeGraph(scene.GraphId, [], validateOnly);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        EditNodeGraphResponse response = result.Value!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.Applied, Is.False);
+            Assert.That(response.Valid, Is.True);
+            Assert.That(response.GraphId, Is.EqualTo(scene.GraphId));
+            Assert.That(response.Created, Is.Empty);
+            // Evaluating the empty effect graph would warn about its missing input and output.
+            Assert.That(response.Diagnostics, Is.Empty);
+            Assert.That(response.Ports, Is.Empty);
+            Assert.That(response.Hint, Does.Contain("No operations").And.Not.Contain("validateOnly"));
+            Assert.That(scene.Session.History.UndoCount, Is.EqualTo(undoCount));
+        });
+    }
+
+    [TestCase("invalid", ErrorCode.ValidationRejected)]
+    [TestCase("00000000-0000-0000-0000-000000000001", ErrorCode.StaleHandle)]
+    public void Empty_operations_still_require_an_existing_graph(string graphId, string error)
+    {
+        using var scene = new NodeGraphTestScene();
+
+        ToolResult<EditNodeGraphResponse> result = scene.Tools.EditNodeGraph(graphId, []);
+
+        Assert.That(result.Error?.Code, Is.EqualTo(error));
+    }
+
     [Test]
     public void Code_that_does_not_compile_is_refused_with_its_stage_and_line()
     {
@@ -99,6 +138,62 @@ public sealed class EditNodeGraphTests
             Assert.That(error.Lines[0].Message, Does.Contain("undeclaredThing"));
             Assert.That(scene.Capture(), Is.EqualTo(before));
         });
+    }
+
+    [Test]
+    public void An_upstream_shader_error_is_attributed_once_in_edits_and_reads()
+    {
+        using var scene = new NodeGraphTestScene();
+        ToolResult<EditNodeGraphResponse> create = scene.Edit(
+            Add("input", nameof(FilterEffectInputNode)),
+            Add("first", nameof(ShaderFullscreenPassNode)),
+            Add("middle", nameof(ShaderFullscreenPassNode)),
+            Add("last", nameof(ShaderFullscreenPassNode)),
+            Add("output", nameof(OutputNode)),
+            Connect("input.Output", "first.In.source"),
+            Connect("first.Out.color", "middle.In.source"),
+            Connect("middle.Out.color", "last.In.source"),
+            Connect("last.Out.color", "output.Output"));
+        Assert.That(create.Value?.Applied, Is.True, create.Error?.Message ?? create.Value?.Hint);
+        string firstId = create.Value!.Created.Single(node => node.Ref == "first").Id;
+        string outputId = create.Value.Created.Single(node => node.Ref == "output").Id;
+        var first = (ShaderFullscreenPassNode)scene.Node(firstId);
+        string originalCode = first.Code.Value;
+        var editCode = new NodeGraphOperation { Op = "update", Node = firstId, Values = new JsonObject { ["Code"] = BrokenCode } };
+
+        ToolResult<EditNodeGraphResponse> edit = scene.Edit(editCode);
+        Assert.That(edit.IsSuccess, Is.True, edit.Error?.Message);
+        Assert.That(edit.Value!.Applied, Is.False);
+        Assert.That(first.Code.Value, Is.EqualTo(originalCode));
+        AssertUpstreamFailure(edit.Value.Diagnostics, firstId, outputId);
+
+        first.Code.Value = BrokenCode;
+        ToolResult<ReadNodeGraphResponse> read = scene.Tools.ReadNodeGraph(scene.GraphId);
+        Assert.That(read.IsSuccess, Is.True, read.Error?.Message);
+        AssertUpstreamFailure(read.Value!.Diagnostics!, firstId, outputId);
+        Assert.That(read.Value.Connections!.Single(wire => wire.To == $"{outputId}.Output").Status, Is.EqualTo("error"));
+        Assert.That(read.Value.Nodes!.Where(node => node.Type == nameof(ShaderFullscreenPassNode) && node.Id != firstId)
+            .Select(node => node.Members.Single(member => member.Name == "Error").Value), Is.All.Null);
+
+        ToolResult<EditNodeGraphResponse> repair = scene.Edit(editCode with { Values = new JsonObject { ["Code"] = originalCode } });
+        Assert.That(repair.Value?.Applied, Is.True, repair.Error?.Message ?? repair.Value?.Hint);
+        Assert.That(repair.Value!.Diagnostics.Where(diagnostic => diagnostic.Severity == "error"), Is.Empty);
+    }
+
+    private static void AssertUpstreamFailure(IReadOnlyList<NodeGraphDiagnostic> diagnostics, string firstId, string outputId)
+    {
+        NodeGraphDiagnostic[] errors = [.. diagnostics.Where(diagnostic => diagnostic.Severity == "error")];
+        Assert.That(errors.Select(error => error.Node), Is.EquivalentTo(new[] { firstId, outputId }));
+        NodeGraphDiagnostic pass = errors.Single(error => error.Node == firstId);
+        NodeGraphDiagnostic output = errors.Single(error => error.Node == outputId);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(pass.Lines, Has.Some.Matches<ShaderCompilerMessage>(line =>
+                line is { Stage: "frag", Line: 4 } && line.Message.Contains("undeclaredThing", StringComparison.Ordinal)));
+            Assert.That(output.Connection, Is.Not.Null);
+            Assert.That(output.Lines, Is.Null);
+            Assert.That(output.Message, Does.Contain("shader graph could not produce a picture"));
+        }
     }
 
     [Test]
@@ -246,6 +341,41 @@ public sealed class EditNodeGraphTests
     }
 
     [Test]
+    public void Replace_checks_input_availability_and_cycles_after_disconnecting()
+    {
+        var graph = new GraphModel();
+        var original = new TimeNode();
+        var replacement = new SwitchNode();
+        var target = new GeometryShapeNode();
+        var brush = new SolidColorBrush();
+        var fill = (NodePropertyAdapter<Brush?>)target.Fill.Property!;
+        fill.SetValue(brush);
+        graph.Nodes.AddRange([original, replacement, target]);
+        INestedInputPort input = target.NestedInputPorts.Single(port => ReferenceEquals(port.Property!.GetEngineProperty(), brush.Opacity));
+        graph.Connect(input, original.Progress);
+        Connection returnWire = graph.Connect(replacement.True, target.Output);
+        fill.Animation = new KeyFrameAnimation<Brush?>();
+        Assert.That(target.CanConnectInput(input), Is.False);
+
+        // Disconnecting can change both the port's availability and the graph's topology synchronously.
+        input.Connection.ValueChanged += (_, _) =>
+        {
+            if (!input.Connection.Value.IsNull) return;
+            fill.Animation = null;
+            graph.Disconnect(returnWire);
+        };
+
+        var editor = new NodeGraphEditor(graph, frameRate: null);
+        editor.Apply([Connect($"{replacement.Id.Value}.Output", $"{target.Id.Value}.Fill.Opacity", replace: true)], [Guid.Empty]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(input.Connection.Value.Value?.Output.Value.Value, Is.SameAs(replacement.Output));
+            Assert.That(graph.AllConnections, Is.EqualTo(new[] { input.Connection.Value.Value }));
+        });
+    }
+
+    [Test]
     public void Keyframes_animate_a_member_and_a_plain_value_replaces_them()
     {
         using var scene = new NodeGraphTestScene();
@@ -278,6 +408,35 @@ public sealed class EditNodeGraphTests
         {
             Assert.That(((IAnimatablePropertyAdapter)Member(pass, "In.params.amount").Property!).Animation, Is.Null);
             Assert.That(Value(pass, "In.params.amount"), Is.EqualTo(0.25f));
+        });
+    }
+
+    [TestCase("[[1, 1], [0, 0]]", "[[0, 0], [1, 1]]", 1f)]
+    [TestCase("[[1, 1], [0, 0], [1, 0.25]]", "[[0, 0], [1, 1], [1, 0.25]]", 0.25f)]
+    public void Keyframes_are_sorted_by_time_and_keep_equal_times_in_input_order(string input, string expected, float finalValue)
+    {
+        using var scene = new NodeGraphTestScene();
+        const string memberName = "In.params.amount";
+
+        ToolResult<EditNodeGraphResponse> edit = scene.Edit(OnePass(TintCode, new JsonObject
+        {
+            [memberName] = new JsonObject { ["$kf"] = JsonNode.Parse(input) }
+        }));
+
+        Assert.That(edit.IsSuccess, Is.True, edit.Error?.Message);
+        Assert.That(edit.Value!.Applied, Is.True);
+        string pass = edit.Value.Created.Single(node => node.Ref == "pass").Id;
+        ToolResult<ReadNodeGraphResponse> read = scene.Tools.ReadNodeGraph(scene.GraphId);
+        Assert.That(read.IsSuccess, Is.True, read.Error?.Message);
+        JsonNode? keyFrames = read.Value!.Nodes!.Single(node => node.Id == pass)
+            .Members.Single(member => member.Name == memberName).Value?["$kf"];
+        var animation = (KeyFrameAnimation<float>)((IAnimatablePropertyAdapter)Member(scene.Node(pass), memberName).Property!).Animation!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(JsonNode.DeepEquals(keyFrames, JsonNode.Parse(expected)), Is.True, $"Read $kf: {keyFrames}");
+            Assert.That(animation.Interpolate(MediaTime.FromSeconds(0.5)), Is.EqualTo(0.5f));
+            Assert.That(animation.Interpolate(MediaTime.FromSeconds(1.5)), Is.EqualTo(finalValue));
         });
     }
 

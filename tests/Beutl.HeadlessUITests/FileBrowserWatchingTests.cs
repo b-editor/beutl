@@ -206,9 +206,121 @@ public class FileBrowserWatchingTests
     }
 
     [AvaloniaTest]
-    [TestCase(FileBrowserViewMode.Icon)]
-    [TestCase(FileBrowserViewMode.Tree)]
-    public async Task Removing_the_root_during_startup_clears_the_listing_and_selection(FileBrowserViewMode mode)
+    [TestCase(FileBrowserViewMode.Icon, "added.txt")]
+    [TestCase(FileBrowserViewMode.List, "added.txt")]
+    [TestCase(FileBrowserViewMode.Tree, "added.txt")]
+    [TestCase(FileBrowserViewMode.Icon, "added.belm")]
+    [TestCase(FileBrowserViewMode.Tree, "added.belm")]
+    public async Task Watcher_notifications_reconcile_visible_entries(FileBrowserViewMode mode, string addedName)
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-browser-reconcile-").FullName;
+        bool tree = mode == FileBrowserViewMode.Tree;
+        string directory = tree ? Directory.CreateDirectory(Path.Combine(root, "assets")).FullName : root;
+        string kept = Path.Combine(directory, "keep.png");
+        string removed = Path.Combine(directory, "removed.txt");
+        string added = Path.Combine(directory, addedName);
+        WriteImage(kept, SKColors.Red);
+        File.WriteAllText(removed, "remove me");
+        using var startup = new PausedWatcher(enableNativeWatcher: false);
+        using var browser = new FileBrowserTabViewModel(TestShell.CreateEditorContextMock().Object, null, startup.Service);
+        try
+        {
+            browser.ViewMode.Value = mode;
+            browser.RootPath.Value = root;
+            await startup.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var folder = tree ? browser.TreeRootItems.Single() : null;
+            if (folder is not null) folder.IsExpanded.Value = true;
+            var items = folder?.Children ?? browser.Items;
+            var keptItem = items.Single(item => item.FullPath == kept);
+            await HeadlessTestHelpers.WaitUntilAsync(() => keptItem.Thumbnail.Value is not null
+                && keptItem.MediaInfoText.Value is not null);
+            var thumbnail = keptItem.Thumbnail.Value;
+            var details = keptItem.MediaInfoText.Value;
+            browser.SelectedItems.Add(keptItem);
+            browser.SelectedItems.Add(items.Single(item => item.FullPath == removed));
+
+            File.Delete(removed);
+            File.WriteAllText(added, "new entry before the selection");
+            // Deliver a watcher notification while startup catch-up and native events are paused.
+            startup.Service.NotifyPathChanged(added);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(items.Select(item => item.FullPath), Is.EqualTo(new[] { added, kept }));
+            Assert.That(items[1], Is.SameAs(keptItem));
+            Assert.That(keptItem.Thumbnail.Value, Is.SameAs(thumbnail));
+            Assert.That(keptItem.MediaInfoText.Value, Is.EqualTo(details));
+            Assert.That(browser.SelectedItems, Is.EqualTo(new[] { keptItem }));
+            if (folder is not null)
+            {
+                Assert.That(browser.TreeRootItems.Single(), Is.SameAs(folder));
+                Assert.That(folder.IsExpanded.Value, Is.True);
+            }
+        }
+        finally { browser.Dispose(); Directory.Delete(root, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("removed")]
+    [TestCase("removed.belm")]
+    public async Task Home_watcher_notifications_reconcile_favorites_project_entries_and_media(string removedName)
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-browser-home-reconcile-").FullName;
+        string kept = Path.Combine(root, "keep.png");
+        string added = Path.Combine(root, "added.png");
+        string removedDirectory = Directory.CreateDirectory(Path.Combine(root, removedName)).FullName;
+        string removedMedia = Path.Combine(removedDirectory, "removed.png");
+        WriteImage(kept, SKColors.Red);
+        WriteImage(removedMedia, SKColors.Blue);
+        var context = TestShell.CreateEditorContextMock();
+        context.Setup(x => x.GetService(typeof(Scene))).Returns(new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) });
+        using var startup = new PausedWatcher(enableNativeWatcher: false);
+        using var browser = new FileBrowserTabViewModel(context.Object, null, startup.Service);
+        browser.AddPathsToFavorites([kept, removedDirectory]);
+        try
+        {
+            await startup.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !browser.IsLoadingMediaFiles.Value);
+            var collections = new[] { browser.FavoriteItems, browser.ProjectDirectoryItems, browser.MediaFileItems };
+            var retained = collections.Select(items => items.Single(item => item.FullPath == kept)).ToArray();
+            await HeadlessTestHelpers.WaitUntilAsync(() => retained.All(item => item.Thumbnail.Value is not null));
+            var thumbnails = retained.Select(item => item.Thumbnail.Value).ToArray();
+            foreach (var item in retained.Concat(collections.SelectMany(items => items
+                         .Where(item => item.FullPath == removedDirectory || item.FullPath == removedMedia))))
+            {
+                browser.SelectedItems.Add(item);
+            }
+
+            Directory.Delete(removedDirectory, recursive: true);
+            WriteImage(added, SKColors.Green);
+            startup.Service.NotifyPathChanged(removedDirectory);
+            HeadlessTestHelpers.Settle();
+            await HeadlessTestHelpers.WaitUntilAsync(() => !browser.IsLoadingMediaFiles.Value);
+
+            Assert.That(browser.ProjectDirectoryItems.Select(item => item.FullPath), Is.EqualTo(new[] { added, kept }));
+            Assert.That(browser.MediaFileItems.Select(item => item.FullPath), Is.EquivalentTo(new[] { added, kept }));
+            Assert.That(browser.FavoriteItems.All(item => item.FullPath != removedDirectory), Is.True);
+            for (int i = 0; i < collections.Length; i++)
+            {
+                Assert.That(collections[i].Single(item => item.FullPath == kept), Is.SameAs(retained[i]));
+                Assert.That(retained[i].Thumbnail.Value, Is.SameAs(thumbnails[i]));
+            }
+            Assert.That(browser.SelectedItems, Is.EqualTo(retained));
+        }
+        finally
+        {
+            browser.Dispose();
+            browser.ToggleFavorite(kept);
+            browser.ToggleFavorite(removedDirectory);
+            Directory.Delete(root, true);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(FileBrowserViewMode.Icon, false)]
+    [TestCase(FileBrowserViewMode.Tree, false)]
+    [TestCase(FileBrowserViewMode.Icon, true)]
+    [TestCase(FileBrowserViewMode.Tree, true)]
+    public async Task Removing_the_watched_root_clears_the_listing_and_selection(FileBrowserViewMode mode, bool notifyWatcher)
     {
         string scratch = Directory.CreateTempSubdirectory("beutl-browser-deleted-root-").FullName;
         string root = Directory.CreateDirectory(Path.Combine(scratch, "watched")).FullName;
@@ -220,13 +332,24 @@ public class FileBrowserWatchingTests
         {
             browser.ViewMode.Value = mode;
             browser.RootPath.Value = root;
-            await startup.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var watcher = await startup.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var items = mode == FileBrowserViewMode.Tree ? browser.TreeRootItems : browser.Items;
             browser.SelectedItems.Add(items.Single());
             window.Show();
             HeadlessTestHelpers.Render();
             Directory.Delete(root, recursive: true);
-            startup.Resume();
+            if (notifyWatcher)
+            {
+                var delivered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                startup.Service.Changed += () => delivered.SetResult();
+                startup.Service.OnWatcherError(watcher, new ErrorEventArgs(new DirectoryNotFoundException(root)));
+                startup.Resume();
+                await delivered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            else
+            {
+                startup.Resume();
+            }
 
             await HeadlessTestHelpers.WaitUntilAsync(() => items.Count == 0);
             Assert.That(browser.SelectedItems, Is.Empty);
@@ -300,14 +423,14 @@ public class FileBrowserWatchingTests
     private sealed class PausedWatcher : IDisposable
     {
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<FileSystemWatcher> Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public DirectoryWatcherService Service { get; }
 
         public PausedWatcher(bool enableNativeWatcher = true)
         {
             Service = new DirectoryWatcherService(TimeSpan.Zero, action => Dispatcher.UIThread.Post(action), watcher =>
             {
-                Entered.TrySetResult();
+                Entered.TrySetResult(watcher);
                 if (!_release.Task.Wait(TimeSpan.FromSeconds(10)))
                     throw new TimeoutException("The test did not release watcher startup.");
                 if (enableNativeWatcher) watcher.EnableRaisingEvents = true;

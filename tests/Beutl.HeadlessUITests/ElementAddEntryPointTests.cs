@@ -11,16 +11,25 @@ using Avalonia.Input.Raw;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Audio;
+using Beutl.Composition;
+using Beutl.Editor.Components;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
+using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
+using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
+using Beutl.Graphics3D.Primitives;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -33,6 +42,7 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.HeadlessUITests;
@@ -60,11 +70,11 @@ public class ElementAddEntryPointTests
         using var notifications = new NotificationCapture(TestShell.Notifications);
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
-        var description = new ElementDescription(
+        ElementDescription description = LibraryElementDescription.Create(
+            typeof(RectShape),
             MediaTime.FromSeconds(3),
             MediaTime.FromSeconds(2),
-            4,
-            new ElementSource.EngineObject(() => new RectShape()));
+            4);
 
         await timeline.AddElement.ExecuteAsync(description);
         HeadlessTestHelpers.Settle();
@@ -84,29 +94,273 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
+    public async Task LibraryAddScene3D_ComposesTheSampleCubeAndUndoesBothTogether()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("library-add-scene3d");
+        MediaTime start = MediaTime.FromSeconds(3);
+        MediaTime length = MediaTime.FromSeconds(2);
+        const int layer = 4;
+        int undoCount = editor.HistoryManager.UndoCount;
+
+        ElementAddResult result = await timeline.AddElementWithResultAsync(
+            LibraryElementDescription.Create(typeof(Scene3D), start, length, layer));
+        Assert.That(result.IsSuccess, Is.True);
+        Element sceneElement = result.Items.Single().PrimaryElement;
+        Element cubeElement = result.Elements.Single(element => element != sceneElement);
+        Scene3D scene3D = sceneElement.Objects.OfType<Scene3D>().Single();
+        Cube3D cube = cubeElement.Objects.OfType<Cube3D>().Single();
+
+        using var compositor = new SceneCompositor(editor.Scene, TestShell.FontManager) { DisableResourceShare = true };
+        CompositionFrame frame = compositor.EvaluateGraphics(start);
+        Scene3D.Resource sceneResource = frame.Objects.OfType<Scene3D.Resource>().Single();
+        var cubeResource = (Cube3D.Resource)sceneResource.Objects.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editor.Scene.Children, Is.EquivalentTo(result.Elements));
+            Assert.That(sceneElement.ZIndex.Value, Is.EqualTo(layer));
+            Assert.That(cubeElement.ZIndex.Value, Is.EqualTo(layer + 1));
+            Assert.That(sceneElement.Start.Value, Is.EqualTo(start));
+            Assert.That(sceneElement.Length.Value, Is.EqualTo(length));
+            Assert.That(cubeElement.Range, Is.EqualTo(sceneElement.Range));
+            Assert.That(sceneElement.Objects.OfType<PortalObject>().Single().Count.Value, Is.EqualTo(5));
+            Assert.That(sceneElement.Name.Value, Is.EqualTo(GraphicsStrings.Scene3D));
+            Assert.That(cubeElement.Name.Value, Is.EqualTo(GraphicsStrings.Cube3D));
+            Assert.That(sceneElement.AccentColor.Value, Is.EqualTo(ElementAccentColorGenerator.GenerateColor(typeof(Scene3D).FullName!)));
+            Assert.That(cubeElement.AccentColor.Value, Is.EqualTo(ElementAccentColorGenerator.GenerateColor(typeof(Cube3D).FullName!)));
+            AssertCanonicalTransform(scene3D, 0, 0);
+            Assert.That(sceneResource.GetOriginal(), Is.SameAs(scene3D));
+            Assert.That(cubeResource.GetOriginal(), Is.SameAs(cube));
+            Assert.That(frame.Objects.OfType<Cube3D.Resource>(), Is.Empty);
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+        }
+
+        Assert.That(editor.HistoryManager.Undo(), Is.True);
+        Assert.That(editor.Scene.Children, Is.Empty);
+        Assert.That(editor.HistoryManager.Redo(), Is.True);
+        Assert.That(editor.Scene.Children, Is.EquivalentTo(new[] { sceneElement, cubeElement }));
+    }
+
+    [AvaloniaTest]
+    [TestCase(2, false)]
+    [TestCase(3, false)]
+    [TestCase(3, true)]
+    public async Task LibraryAddScene3D_KeepsBothClipsTogetherAroundABlockedLayer(int blockedLayer, bool locked)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("library-add-scene3d-blocked-layer");
+        var adder = editor.GetRequiredService<IElementAdder>();
+        if (locked)
+        {
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = blockedLayer }, IsLocked = { Value = true } });
+            }
+        }
+        else
+        {
+            ElementAddResult blocker = await adder.AddAsync(
+                [new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(10), blockedLayer,
+                    new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
+            Assert.That(blocker.IsSuccess, Is.True);
+        }
+
+        ElementAddResult result = await adder.AddAsync(
+            [LibraryElementDescription.Create(typeof(Scene3D), MediaTime.Zero, MediaTime.FromSeconds(2), 2)],
+            CancellationToken.None);
+        Assert.That(result.IsSuccess, Is.True);
+        Element sceneElement = result.Items.Single().PrimaryElement;
+        Element cubeElement = result.Elements.Single(element => element.Objects.OfType<Cube3D>().Any());
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(sceneElement.Objects.OfType<PortalObject>().Single().Count.Value, Is.EqualTo(5));
+            Assert.That(cubeElement.ZIndex.Value, Is.EqualTo(sceneElement.ZIndex.Value + 1));
+            Assert.That(cubeElement.Range, Is.EqualTo(sceneElement.Range));
+            Assert.That(result.Elements.Select(element => element.ZIndex.Value), Has.None.EqualTo(blockedLayer));
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(typeof(DrawableGroup))]
+    [TestCase(typeof(DrawableDecorator))]
+    [TestCase(typeof(DrawableTimeController))]
+    [TestCase(typeof(DrawableObject3D))]
+    [TestCase(typeof(SoundGroup))]
+    public async Task LibraryAddFlowOperator_CreatesOneElementWithFivePortalLayers(Type type)
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("library-add-flow-operator");
+        MediaTime start = MediaTime.FromSeconds(3);
+        MediaTime length = MediaTime.FromSeconds(2);
+        const int layer = 4;
+
+        ElementAddResult result = await timeline.AddElementWithResultAsync(
+            LibraryElementDescription.Create(type, start, length, layer));
+        Assert.That(result.IsSuccess, Is.True);
+        Element element = result.Elements.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editor.Scene.Children, Is.EqualTo(new[] { element }));
+            Assert.That(element.Start.Value, Is.EqualTo(start));
+            Assert.That(element.Length.Value, Is.EqualTo(length));
+            Assert.That(element.ZIndex.Value, Is.EqualTo(layer));
+            Assert.That(element.Name.Value, Is.EqualTo(TypeDisplayHelpers.GetLocalizedName(type)));
+            Assert.That(element.AccentColor.Value, Is.EqualTo(ElementAccentColorGenerator.GenerateColor(type.FullName!)));
+            AssertFlowOperatorElement(element, type, portalCount: 5);
+            if (element.Objects[1] is Drawable drawable)
+            {
+                AssertCanonicalTransform(drawable, 0, 0);
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task FlowOperatorAdd_OverlapTrimsTheLengthOnTheRequestedLayer(bool fromLibrary)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("add-flow-operator-overlap");
+        MediaTime start = MediaTime.FromSeconds(2);
+        MediaTime length = MediaTime.FromSeconds(4);
+        MediaTime blockerStart = MediaTime.FromSeconds(4);
+        const int layer = 2;
+        ElementAddResult blocker = await TestShell.AddElementAsync(editor, () => new RectShape(), blockerStart, length, layer);
+        Assert.That(blocker.IsSuccess, Is.True);
+
+        ElementDescription description = fromLibrary
+            ? LibraryElementDescription.Create(typeof(DrawableGroup), start, length, layer)
+            : new ElementDescription(start, length, layer, new ElementSource.EngineObject(() => new DrawableGroup()));
+        ElementAddResult result = await editor.GetRequiredService<IElementAdder>().AddAsync([description], CancellationToken.None);
+        Assert.That(result.IsSuccess, Is.True);
+        Element element = result.Elements.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(element.Start.Value, Is.EqualTo(start));
+            Assert.That(element.Length.Value, Is.EqualTo(blockerStart - start));
+            Assert.That(element.ZIndex.Value, Is.EqualTo(layer));
+            AssertFlowOperatorElement(element, typeof(DrawableGroup), fromLibrary ? 5 : 0);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(typeof(Scene3D))]
+    [TestCase(typeof(DrawableGroup))]
+    public async Task ProgrammaticFlowOperator_AddDuplicateAndPasteKeepZeroPortalLayers(Type type)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("programmatic-add-flow-operator");
+        Scene scene = editor.Scene;
+        ElementAddResult result = await editor.GetRequiredService<IElementAdder>().AddAsync(
+            [new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), 0,
+                new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!))], CancellationToken.None);
+        Assert.That(result.IsSuccess, Is.True);
+        Element original = result.Elements.Single();
+        AssertFlowOperatorElement(original, type, portalCount: 0);
+
+        DuplicateOutcome duplicate = editor.GetRequiredService<IElementDuplicateService>()
+            .DuplicateAtClickedPosition(scene, [original], MediaTime.FromSeconds(3), 0);
+        Assert.That(duplicate.Success, Is.True);
+
+        var window = new Window();
+        try
+        {
+            window.Show();
+            ClipboardHelper.OverrideClipboard = window.Clipboard;
+            var clipboard = editor.GetRequiredService<IElementClipboardService>();
+            Assert.That(await clipboard.CopyAsync([original]), Is.True);
+            ElementPasteOutcome paste = await clipboard.PasteAsync(scene, MediaTime.FromSeconds(6), 0);
+            Assert.That(paste.Pasted, Is.True);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(scene.Children, Has.Count.EqualTo(3));
+                foreach (Element element in scene.Children)
+                {
+                    AssertFlowOperatorElement(element, type, portalCount: 0);
+                }
+            }
+        }
+        finally
+        {
+            ClipboardHelper.OverrideClipboard = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ElementPropertyTab_FlowOperatorDropKeepsZeroPortalLayers(bool insertAtObject)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-property-flow-operator-drop");
+        ElementAddResult result = await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromSeconds(2));
+        Assert.That(result.IsSuccess, Is.True);
+        Element element = result.Elements.Single();
+        using var model = new ElementPropertyTabViewModel(editor);
+        model.Element.Value = element;
+        Control target = insertAtObject
+            ? new EngineObjectPropertyView { DataContext = model.Items.Single() }
+            : new ElementPropertyTabView { DataContext = model };
+        using var transfer = new DataTransfer();
+        transfer.Add(DataTransferItem.Create(BeutlDataFormats.EngineObject, TypeFormat.ToString(typeof(DrawableGroup))));
+        var args = new DragEventArgs(DragDrop.DropEvent, transfer, target, default, KeyModifiers.None);
+
+        target.RaiseEvent(args);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(args.Handled, Is.True);
+            Assert.That(editor.Scene.Children, Is.EqualTo(new[] { element }));
+            Type[] expectedOrder = insertAtObject
+                ? [typeof(PortalObject), typeof(DrawableGroup), typeof(RectShape)]
+                : [typeof(RectShape), typeof(PortalObject), typeof(DrawableGroup)];
+            Assert.That(element.Objects.Select(obj => obj.GetType()), Is.EqualTo(expectedOrder));
+            Assert.That(element.Objects.OfType<PortalObject>().Single().Count.Value, Is.Zero);
+        }
+    }
+
+    private static void AssertFlowOperatorElement(Element element, Type type, int portalCount)
+    {
+        Assert.That(element.Objects.Select(obj => obj.GetType()), Is.EqualTo(new[] { typeof(PortalObject), type }));
+        Assert.That(element.Objects.OfType<PortalObject>().Single().Count.Value, Is.EqualTo(portalCount));
+    }
+
+    private static void AssertCanonicalTransform(Drawable drawable, float x, float y)
+    {
+        var group = (TransformGroup)drawable.Transform.Value!;
+        Assert.That(group.Children.Select(child => child.GetType()),
+            Is.EqualTo(new[] { typeof(TranslateTransform), typeof(RotationTransform), typeof(ScaleTransform) }));
+        var translate = (TranslateTransform)group.Children[0];
+        Assert.That(translate.X.Value, Is.EqualTo(x));
+        Assert.That(translate.Y.Value, Is.EqualTo(y));
+    }
+
+    [AvaloniaTest]
     public async Task TimelineAddElement_NewDrawable_StartsWithItsTransformsAndTakesThePosition()
     {
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-add-entry-transforms");
 
-        await timeline.AddElement.ExecuteAsync(new ElementDescription(
+        await timeline.AddElement.ExecuteAsync(LibraryElementDescription.Create(
+            typeof(RectShape),
             MediaTime.Zero,
             MediaTime.FromSeconds(2),
             0,
-            new ElementSource.EngineObject(() => new RectShape()),
-            Position: new Beutl.Graphics.Point(30, 40)));
+            position: new Beutl.Graphics.Point(30, 40)));
         HeadlessTestHelpers.Settle();
 
         RectShape shape = editor.Scene.Children.Single().Objects.OfType<RectShape>().Single();
-        var group = (TransformGroup)shape.Transform.Value!;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(
-                group.Children.Select(child => child.GetType()),
-                Is.EqualTo(new[] { typeof(TranslateTransform), typeof(RotationTransform), typeof(ScaleTransform) }));
-            Assert.That(((TranslateTransform)group.Children[0]).X.Value, Is.EqualTo(30));
-            Assert.That(((TranslateTransform)group.Children[0]).Y.Value, Is.EqualTo(40));
+            AssertCanonicalTransform(shape, 30, 40);
         }
     }
 
@@ -138,7 +392,9 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
-    public async Task TimelineAddElement_LockedLayer_ShowsWarningWithoutAddingOrScrolling()
+    [TestCase(typeof(RectShape))]
+    [TestCase(typeof(DrawableGroup))]
+    public async Task TimelineAddElement_LockedLayer_ShowsWarningWithoutAddingOrScrolling(Type type)
     {
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
@@ -152,11 +408,11 @@ public class ElementAddEntryPointTests
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
 
-        await timeline.AddElement.ExecuteAsync(new ElementDescription(
+        await timeline.AddElement.ExecuteAsync(LibraryElementDescription.Create(
+            type,
             MediaTime.Zero,
             MediaTime.FromSeconds(2),
-            2,
-            new ElementSource.EngineObject(() => new RectShape())));
+            2));
         HeadlessTestHelpers.Settle();
 
         Notification notification = notifications.Single();
@@ -217,6 +473,45 @@ public class ElementAddEntryPointTests
             Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
             Assert.That(notification.Title, Is.EqualTo(Strings.AddElement));
             Assert.That(notification.Message, Is.EqualTo(MessageStrings.UnexpectedError));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TimelineView_FlowOperatorDrop_AddsOneElementWithFivePortalLayers()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) =
+            await OpenEditorForNewScene("timeline-flow-operator-drop");
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel timelinePanel = view.FindControl<Panel>("TimelinePanel")!;
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(BeutlDataFormats.EngineObject, TypeFormat.ToString(typeof(DrawableGroup))));
+            var dropPoint = new AvaPoint(180, timeline.CalculateLayerTop(3) + 5);
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, timelinePanel, dropPoint, KeyModifiers.None);
+
+            Element element = await RaiseDropAndWaitForElement(editor.Scene, timelinePanel, args);
+            HeadlessTestHelpers.Settle();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(editor.Scene.Children, Is.EqualTo(new[] { element }));
+                Assert.That(element.Start.Value, Is.EqualTo(timeline.ClickedFrame));
+                Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(element.ZIndex.Value, Is.EqualTo(timeline.ToLayerNumber(dropPoint.Y)));
+                AssertFlowOperatorElement(element, typeof(DrawableGroup), portalCount: 5);
+                AssertCanonicalTransform(element.Objects.OfType<DrawableGroup>().Single(), 0, 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
         }
     }
 
@@ -1019,6 +1314,84 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
+    [TestCase(typeof(Scene3D))]
+    [TestCase(typeof(DrawableGroup))]
+    [TestCase(typeof(DrawableDecorator))]
+    [TestCase(typeof(DrawableTimeController))]
+    [TestCase(typeof(DrawableObject3D))]
+    [TestCase(typeof(SoundGroup))]
+    [TestCase(typeof(PresetTransformFlowOperator))]
+    public async Task PlayerView_FlowOperatorDrop_SetsThePortalCountAndPositionsDrawables(Type type)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("player-flow-operator-drop");
+        MediaTime frame = MediaTime.FromSeconds(4);
+        editor.Player.CurrentFrame.Value = frame;
+        var frameSize = editor.Scene.FrameSize.Value;
+        editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(frameSize.Width, frameSize.Height));
+        var view = new PlayerView { DataContext = editor.Player };
+        view.image.Width = frameSize.Width;
+        view.image.Height = frameSize.Height;
+        var window = new Window { Content = view, Width = 800, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Panel framePanel = view.FindControl<Panel>("framePanel")!;
+            var previewSize = new Avalonia.Size(frameSize.Width, frameSize.Height);
+            view.image.Measure(previewSize);
+            view.image.Arrange(new Avalonia.Rect(previewSize));
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(BeutlDataFormats.EngineObject, TypeFormat.ToString(type)));
+            var dropPoint = new AvaPoint(frameSize.Width / 2.0 + 30, frameSize.Height / 2.0 - 40);
+            var args = new DragEventArgs(DragDrop.DropEvent, transfer, view.image, dropPoint, KeyModifiers.None);
+
+            Element element = await RaiseDropAndWaitForElement(editor.Scene, framePanel, args);
+            HeadlessTestHelpers.Settle();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(args.Handled, Is.True);
+                Assert.That(element.Start.Value, Is.EqualTo(frame));
+                Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(element.ZIndex.Value, Is.Zero);
+                AssertFlowOperatorElement(element, type, portalCount: 5);
+
+                if (type == typeof(Scene3D))
+                {
+                    Assert.That(editor.Scene.Children, Has.Count.EqualTo(2));
+                    Element cubeElement = editor.Scene.Children.Single(item => item.Objects.OfType<Cube3D>().Any());
+                    Assert.That(cubeElement.ZIndex.Value, Is.EqualTo(element.ZIndex.Value + 1));
+                }
+                else
+                {
+                    Assert.That(editor.Scene.Children, Is.EqualTo(new[] { element }));
+                }
+
+                if (element.Objects[1] is PresetTransformFlowOperator preset)
+                {
+                    var group = (TransformGroup)preset.Transform.Value!;
+                    Assert.That(group.Children.Select(child => child.GetType()),
+                        Is.EqualTo(new[] { typeof(TranslateTransform), typeof(RotationTransform) }));
+                    var translate = (TranslateTransform)group.Children[0];
+                    Assert.That(translate.X.Value, Is.EqualTo(30));
+                    Assert.That(translate.Y.Value, Is.EqualTo(-40));
+                    Assert.That(((RotationTransform)group.Children[1]).Rotation.Value, Is.EqualTo(30));
+                }
+                else if (element.Objects[1] is Drawable drawable)
+                {
+                    AssertCanonicalTransform(drawable, 30, -40);
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task PlayerView_ImageFileDrop_RoutesThroughTimelineAndScrollsToAddedElement(bool fromStorage)
@@ -1617,6 +1990,23 @@ public class ElementAddEntryPointTests
         {
             MaterializationCalled = true;
             throw new AssertionException("Canceled preflight must not be materialized.");
+        }
+    }
+}
+
+internal sealed partial class PresetTransformFlowOperator : Drawable, IFlowOperator
+{
+    public PresetTransformFlowOperator()
+    {
+        ((TransformGroup)Transform.Value!).Children.Add(new RotationTransform(30));
+    }
+
+    public new partial class Resource
+    {
+        protected override Beutl.Graphics.Size MeasureCore(Beutl.Graphics.Size availableSize) => Beutl.Graphics.Size.Empty;
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
         }
     }
 }

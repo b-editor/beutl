@@ -638,6 +638,12 @@
   <data name="RippleEdit" xml:space="preserve">
     <value>Edición de ondulación</value>
   </data>
+  <data name="RippleEdit_Description" xml:space="preserve">
+    <value>Alterna la edición de ondulación. Mientras está activada, al eliminar o cortar un clip se mueven los clips posteriores de la misma capa, y al recortar un borde se mueven los clips de ese lado.</value>
+  </data>
+  <data name="TimelineSnap_Description" xml:space="preserve">
+    <value>Alterna el ajuste. Mantén pulsado Alt / Opción mientras arrastras para ignorarlo.</value>
+  </data>
   <data name="UseGlobalClock" xml:space="preserve">
     <value>Usar el reloj global</value>
   </data>
@@ -3888,5 +3894,8 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="Paste_ProjectNotSaved" xml:space="preserve">
     <value>Guarda el proyecto antes de pegar clips.</value>
+  </data>
+  <data name="Portal_LibraryDescription" xml:space="preserve">
+    <value>Incorpora el contenido de las capas inferiores a la capa actual (referencia de capa, entrada de flujo / layer reference, flow input).</value>
   </data>
 </root>

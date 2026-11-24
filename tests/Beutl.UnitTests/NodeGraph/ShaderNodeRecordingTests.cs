@@ -839,58 +839,109 @@ public class ShaderNodeRecordingTests
     }
 
     [Test]
-    public void CodeThatDoesNotCompileReportsWithoutBreakingTheEvaluationAndThenRecovers()
+    public void OnlyThePassesWithBrokenCodeReportItAndTheChainRecovers()
+    {
+        var (graph, output) = NewGraph();
+        var first = graph.Add(new ShaderFullscreenPassNode());
+        var middle = graph.Add(new ShaderFullscreenPassNode());
+        var last = graph.Add(new ShaderFullscreenPassNode());
+        graph.Connect(middle.In("source"), first.Out("color"));
+        graph.Connect(last.In("source"), middle.Out("color"));
+        Connection wire = graph.Connect(output.InputPort, last.Out("color"));
+        using var snapshot = new GraphSnapshot();
+
+        middle.Padding.Property!.SetValue(-1f);
+        Assert.That(Evaluate(graph, snapshot).Description, Is.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(middle.Error.Value, Does.Contain("padding"));
+            Assert.That(last.Error.Value, Is.Null);
+        }
+
+        middle.Padding.Property.SetValue(0f);
+        first.Code.Value = ShaderFullscreenPassNode.DefaultCode.Replace("texture(source, uv)", "missingFirst", StringComparison.Ordinal);
+        Assert.That(Evaluate(graph, snapshot).Description, Is.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first.Error.Value, Does.Contain("missingFirst"));
+            Assert.That(middle.Error.Value, Is.Null);
+            Assert.That(last.Error.Value, Is.Null);
+            Assert.That(wire.Status.Value, Is.EqualTo(ConnectionStatus.Error));
+            Assert.That(wire.HasFailedPicture, Is.True);
+        }
+
+        middle.Code.Value = ShaderFullscreenPassNode.DefaultCode.Replace("texture(source, uv)", "missingMiddle", StringComparison.Ordinal);
+        Assert.That(Evaluate(graph, snapshot).Description, Is.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first.Error.Value, Does.Contain("missingFirst"));
+            Assert.That(middle.Error.Value, Does.Contain("missingMiddle"));
+            Assert.That(last.Error.Value, Is.Null);
+        }
+
+        middle.Code.Value = ShaderFullscreenPassNode.DefaultCode;
+        Assert.That(Evaluate(graph, snapshot).Description, Is.Null);
+        Assert.That(middle.Error.Value, Is.Null);
+
+        first.Code.Value = ShaderFullscreenPassNode.DefaultCode;
+        Assert.That(Evaluate(graph, snapshot).Description?.Passes, Has.Length.EqualTo(3));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(new[] { first.Error.Value, middle.Error.Value, last.Error.Value }, Is.All.Null);
+            Assert.That(wire.Status.Value, Is.EqualTo(ConnectionStatus.Convert));
+            Assert.That(wire.HasFailedPicture, Is.False);
+        }
+    }
+
+    [Test]
+    public void APassReportsItsOwnPreflightErrorWheneverItsInputRecords()
+    {
+        var (graph, output) = NewGraph();
+        var first = graph.Add(new ShaderFullscreenPassNode());
+        var pass = graph.Add(new ShaderFullscreenPassNode());
+        pass.Code.Value = ShaderFullscreenPassNode.DefaultCode
+            .Replace("sampler2D", "sampler3D", StringComparison.Ordinal)
+            .Replace("texture(source, uv)", "texture(source, vec3(uv, 0.5))", StringComparison.Ordinal);
+        graph.Connect(pass.In("source"), first.Out("color"));
+        graph.Connect(output.InputPort, pass.Out("color"));
+        using var snapshot = new GraphSnapshot();
+
+        Evaluate(graph, snapshot);
+        Assert.That(pass.Error.Value, Does.Contain("binding 0"));
+
+        first.Code.Value = "broken";
+        Assert.That(Evaluate(graph, snapshot).Description, Is.Null);
+        Assert.That(first.Error.Value, Is.Not.Null.And.Not.Empty);
+        Assert.That(pass.Error.Value, Is.Null);
+
+        first.Code.Value = ShaderFullscreenPassNode.DefaultCode;
+        Evaluate(graph, snapshot);
+        Assert.That(pass.Error.Value, Does.Contain("binding 0"));
+    }
+
+    [TestCase(typeof(ShaderSamplerNode))]
+    [TestCase(typeof(ShaderInputRegionNode))]
+    [TestCase(typeof(ShaderRepeatNode))]
+    public void APictureOwnerReportsPreflightAndLeavesAReportedPassErrorOnItsSource(Type ownerType)
     {
         var (graph, output) = NewGraph();
         var pass = graph.Add(new ShaderFullscreenPassNode());
-        graph.Connect(output.InputPort, pass.Out("color"));
+        var image = graph.Add(new ShaderFixedImageNode());
+        image.Kind.Property!.SetValue(ImageKind.Image3D);
+        graph.Connect(pass.In("source"), image.Output);
+        var owner = graph.Add((GraphNode)Activator.CreateInstance(ownerType)!);
+        graph.Connect(Port<IInputPort>(owner, "Image"), pass.Out("color"));
+        graph.Connect(output.InputPort, owner.Items.OfType<IOutputPort>().Single());
+        NodeMonitor<string?> error = Port<NodeMonitor<string?>>(owner, "Error");
         using var snapshot = new GraphSnapshot();
-        Assert.That(Evaluate(graph, snapshot).Description, Is.Not.Null);
+
+        Evaluate(graph, snapshot);
+        Assert.That(error.Value, Does.Contain("binding 0"));
 
         pass.Code.Value = "broken";
         Assert.That(Evaluate(graph, snapshot).Description, Is.Null);
         Assert.That(pass.Error.Value, Is.Not.Null.And.Not.Empty);
-
-        pass.Code.Value = ShaderFullscreenPassNode.DefaultCode;
-        Assert.That(Evaluate(graph, snapshot).Description, Is.Not.Null);
-        Assert.That(pass.Error.Value, Is.Null);
-    }
-
-    [Test]
-    public void AMistakeOnlyTheRendererWouldFindIsCaughtBeforeItGetsThere()
-    {
-        var (graph, output) = NewGraph();
-        var pass = graph.Add(new ShaderFullscreenPassNode());
-        var image = graph.Add(new ShaderFixedImageNode());
-        image.Kind.Property!.SetValue(ImageKind.Image3D);
-        graph.Connect(pass.In("source"), image.Output);
-        graph.Connect(output.InputPort, pass.Out("color"));
-        using var snapshot = new GraphSnapshot();
-
-        Evaluate(graph, snapshot);
-
-        Assert.That(pass.Error.Value, Does.Contain("binding 0"));
-    }
-
-    // A sampler and an input region pass the image on, so the picture can come out of them; they say why it failed.
-    [TestCase(false)]
-    [TestCase(true)]
-    public void AMistakeInAPictureFromASettingsNodeIsShownOnThatNode(bool region)
-    {
-        var (graph, output) = NewGraph();
-        var pass = graph.Add(new ShaderFullscreenPassNode());
-        var image = graph.Add(new ShaderFixedImageNode());
-        image.Kind.Property!.SetValue(ImageKind.Image3D);
-        graph.Connect(pass.In("source"), image.Output);
-        GraphNode settings = region ? graph.Add(new ShaderInputRegionNode()) : graph.Add(new ShaderSamplerNode());
-        graph.Connect(Port<IInputPort>(settings, "Image"), pass.Out("color"));
-        graph.Connect(output.InputPort, Port<IOutputPort>(settings, "Output"));
-        using var snapshot = new GraphSnapshot();
-
-        Evaluate(graph, snapshot);
-
-        Assert.That(settings.Items.OfType<NodeMonitor<string?>>().SingleOrDefault(item => item.Name.Value == "Error")?.Value,
-            Does.Contain("binding 0"));
+        Assert.That(error.Value, Is.Null);
     }
 
     // A plain group shows nothing of its own, so the node inside that made the picture says why it failed.

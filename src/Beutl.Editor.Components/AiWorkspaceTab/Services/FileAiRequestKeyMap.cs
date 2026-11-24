@@ -1,5 +1,4 @@
-﻿using System.Reactive.Disposables;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Beutl.Api.Services;
 using Beutl.Language;
 
@@ -324,24 +323,20 @@ internal sealed class AiRequestRecoveryContext : IDisposable
 
     public AiAuthenticatedRequestIdentity GetRequiredIdentity()
     {
-        AiAuthenticatedRequestIdentity identity = _identityProvider()
+        AiAuthenticatedRequestIdentity identity = GetCurrentIdentity()
             ?? throw new AuthenticationRequiredException();
-        if (IsInconsistent(identity))
-        {
+        if (AiAuthenticatedRequestScope.Identity is { } expected && identity != expected)
             throw new AuthenticationRequiredException();
-        }
 
         return identity;
     }
 
+    internal AiAuthenticatedRequestIdentity? GetCurrentIdentity()
+        => _identityProvider() is { } identity && !IsInconsistent(identity) ? identity : null;
+
     public AiAuthenticatedRequestIdentity? TryGetIdentity()
     {
-        AiAuthenticatedRequestIdentity? current = _identityProvider();
-        if (current is { } identity && IsInconsistent(identity))
-        {
-            current = null;
-        }
-
+        AiAuthenticatedRequestIdentity? current = GetCurrentIdentity();
         string? account = current?.AccountId;
         if (!StringComparer.Ordinal.Equals(account, _lastAccount))
         {
@@ -395,8 +390,6 @@ internal sealed class AiRequestRecoveryContext : IDisposable
         AiAuthenticatedRequestIdentity current = GetRequiredIdentity();
         if (!StringComparer.Ordinal.Equals(current.AccountId, issuedAccountId))
             throw new AuthenticationRequiredException();
-        return current.User is null
-            ? Disposable.Empty
-            : AiAuthenticatedRequestScope.Enter(current.User);
+        return AiAuthenticatedRequestScope.Enter(current);
     }
 }

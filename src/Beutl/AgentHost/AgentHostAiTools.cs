@@ -313,7 +313,7 @@ internal sealed class AgentHostAiTools(
 
     [McpServerTool(Name = "transcribe_audio")]
     [Description("Transcribes the speech in an audio or video file and returns timed segments, and words when the model reports them. Long files are sent in ten-minute parts. Paid by length.")]
-    public async ValueTask<ToolResult<AgentAiJobSnapshot>> TranscribeAudio(
+    public ValueTask<ToolResult<AgentAiJobSnapshot>> TranscribeAudio(
         [Description("Absolute path of the audio or video file.")]
         string sourcePath,
         [Description("Language code such as ja or en; omit to detect it.")]
@@ -324,26 +324,26 @@ internal sealed class AgentHostAiTools(
         int waitSeconds = 45,
         CancellationToken cancellationToken = default)
     {
-        return await ExecuteAsync<AgentAiJobSnapshot>(async () =>
+        return StartAccountJobAsync("audio.transcribe", waitSeconds, cancellationToken, async (account, token) =>
         {
-            RequireWait(waitSeconds);
             string? languageCode = string.IsNullOrWhiteSpace(language) ? null : language.Trim().ToLowerInvariant();
             if (languageCode is not null && !AiRequestLimits.IsIso6391LanguageCode(languageCode))
                 throw Invalid($"'{language}' is not a two-letter ISO 639-1 language code such as ja or en.", "language");
-            await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
+            using (account.Enter(token))
+                await RequireAvailableAsync(token).ConfigureAwait(false);
             // Transcription has no executor to resolve the default model, so the one chosen here is sent.
-            GenerativeModelInfo? chosen = await ResolveModelAsync("audio.transcribe", model, cancellationToken, sendsNamedModel: true).ConfigureAwait(false);
+            GenerativeModelInfo? chosen = await account.SendAsync(
+                ct => ResolveModelAsync("audio.transcribe", model, ct, sendsNamedModel: true), token).ConfigureAwait(false);
             string? modelId = chosen?.Id ?? NormalizeModel(model);
             string path = RequireFile(sourcePath, "sourcePath");
-            string jobId = jobs.Start("audio.transcribe", async (progress, token) =>
+            return new PreparedAiJob(async (progress, jobToken) =>
             {
                 AgentTranscript transcript = await backend
-                    .TranscribeAsync(path, languageCode, modelId, progress, token)
+                    .TranscribeAsync(path, languageCode, modelId, progress, jobToken)
                     .ConfigureAwait(false);
                 return new AgentAiJobOutput(null, "transcript", modelId, null, transcript);
             });
-            return await WaitAsync(jobId, waitSeconds, cancellationToken).ConfigureAwait(false);
-        }).ConfigureAwait(false);
+        });
     }
 
     [McpServerTool(Name = "list_ai_jobs")]
@@ -389,15 +389,19 @@ internal sealed class AgentHostAiTools(
         Func<Scene, GenerativeModelInfo?, GenerativeRequest> build,
         Func<CancellationToken, ValueTask>? precheck = null)
     {
-        return ExecuteAsync<AgentAiJobSnapshot>(async () =>
+        return StartAccountJobAsync(operation, waitSeconds, cancellationToken, async (account, token) =>
         {
-            RequireWait(waitSeconds);
             if (precheck is not null)
-                await precheck(cancellationToken).ConfigureAwait(false);
-            await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
+            {
+                using (account.Enter(token))
+                    await precheck(token).ConfigureAwait(false);
+            }
+            using (account.Enter(token))
+                await RequireAvailableAsync(token).ConfigureAwait(false);
             Scene scene = await RequireSceneAsync().ConfigureAwait(false);
             // Omitted settings are chosen from what this model offers, as the AI tab's controls are.
-            GenerativeModelInfo? chosen = await ResolveModelAsync(operation, model, cancellationToken).ConfigureAwait(false);
+            GenerativeModelInfo? chosen = await account.SendAsync(
+                ct => ResolveModelAsync(operation, model, ct), token).ConfigureAwait(false);
             // Inputs are read now, so a missing file or a bad argument is the call's error, not the job's.
             GenerativeRequest request;
             try
@@ -411,7 +415,7 @@ internal sealed class AgentHostAiTools(
 
             IGenerativeNodeExecutor executor = backend.CreateExecutor(scene);
             // The executor's own checks, so a request it would refuse is the call's error, not a failed job.
-            if (await executor.ValidateAsync(request, cancellationToken).ConfigureAwait(false) is { } refusal)
+            if (await account.SendAsync(ct => executor.ValidateAsync(request, ct), token).ConfigureAwait(false) is { } refusal)
             {
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
@@ -420,13 +424,13 @@ internal sealed class AgentHostAiTools(
                     $"Call list_ai_models(\"{operation}\") for what each model takes."));
             }
 
-            string jobId = jobs.Start(operation, async (progress, token) =>
+            return new PreparedAiJob(async (progress, jobToken) =>
             {
                 GenerativeExecutionResult result;
                 try
                 {
                     result = await executor
-                        .ExecuteAsync(request, new StatusProgress(progress), token)
+                        .ExecuteAsync(request, new StatusProgress(progress), jobToken)
                         .ConfigureAwait(false);
                 }
                 catch (GenerativeExecutionException ex)
@@ -441,9 +445,74 @@ internal sealed class AgentHostAiTools(
                     result.ModelId,
                     result.Seed);
             }, scene.Id.Value);
-            return await WaitAsync(jobId, waitSeconds, cancellationToken).ConfigureAwait(false);
         });
     }
+
+    private ValueTask<ToolResult<AgentAiJobSnapshot>> StartAccountJobAsync(
+        string operation,
+        int waitSeconds,
+        CancellationToken cancellationToken,
+        Func<AiAccountJobScope, CancellationToken, Task<PreparedAiJob>> prepare)
+    {
+        return ExecuteAsync<AgentAiJobSnapshot>(async () =>
+        {
+            RequireWait(waitSeconds);
+            AiAccountJobScope? account = null;
+            bool queued = false;
+            try
+            {
+                var job = account = new AiAccountJobScope(backend.RecoveryContext);
+                PreparedAiJob prepared;
+                using (CancellationTokenSource preflight = job.Link(cancellationToken))
+                {
+                    prepared = await prepare(job, preflight.Token).ConfigureAwait(false);
+                    job.ThrowIfInvalid(preflight.Token);
+                }
+
+                // The queued job owns the account guard. Stopping the MCP wait is independent of the job.
+                string jobId = jobs.Start(operation, (progress, token) => RunAccountJobAsync(job, prepared, progress, token),
+                    prepared.SceneId);
+                queued = true;
+                return await WaitAsync(jobId, waitSeconds, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!queued && (ex is AuthenticationRequiredException || account?.AccountChanged == true))
+            {
+                throw Unavailable("Sign in to Beutl in the running app to use AI generation.");
+            }
+            finally
+            {
+                if (!queued)
+                    account?.Dispose();
+            }
+        });
+    }
+
+    private static async Task<AgentAiJobOutput> RunAccountJobAsync(
+        AiAccountJobScope account,
+        PreparedAiJob prepared,
+        IProgress<string> progress,
+        CancellationToken cancellationToken)
+    {
+        using (account)
+        using (CancellationTokenSource cancellation = account.Link(cancellationToken))
+        {
+            try
+            {
+                using IDisposable scope = account.Enter(cancellation.Token);
+                AgentAiJobOutput output = await prepared.Run(progress, cancellation.Token).ConfigureAwait(false);
+                account.ThrowIfInvalid(cancellation.Token);
+                return output;
+            }
+            catch (Exception ex) when (ex is AuthenticationRequiredException || account.AccountChanged)
+            {
+                throw new AgentAiException(ErrorCode.AiUnavailable, Beutl.Language.Strings.AiAuthenticationRequired);
+            }
+        }
+    }
+
+    private sealed record PreparedAiJob(
+        Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> Run,
+        Guid? SceneId = null);
 
     private async Task<AgentAiJobSnapshot> WaitAsync(string jobId, int waitSeconds, CancellationToken cancellationToken)
     {
@@ -537,14 +606,15 @@ internal sealed class AgentHostAiTools(
     private async Task RequireAvailableAsync(CancellationToken cancellationToken)
     {
         if (await backend.GetUnavailableReasonAsync(cancellationToken).ConfigureAwait(false) is { } reason)
-        {
-            throw new ReconcileException(new ToolError(
-                ErrorCode.AiUnavailable,
-                reason,
-                null,
-                "AI tools run on the account signed in to the Beutl app; sign in there, then call the tool again."));
-        }
+            throw Unavailable(reason);
     }
+
+    private static ReconcileException Unavailable(string reason)
+        => new(new ToolError(
+            ErrorCode.AiUnavailable,
+            reason,
+            null,
+            "AI tools run on the account signed in to the Beutl app; sign in there, then call the tool again."));
 
     private Task<Scene?> FindSceneAsync()
         => Dispatcher.UIThread.InvokeAsync(

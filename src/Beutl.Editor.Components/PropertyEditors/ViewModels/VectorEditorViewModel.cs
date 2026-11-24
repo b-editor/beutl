@@ -23,6 +23,9 @@ public class VectorEditorViewModel<TValue, TElement, TEdit>(
     protected override TValue ReplaceUnderExpression(TValue underlying, TValue shown, TValue input)
         => Beutl.Animation.ComponentAnimations.ReplaceEditedComponents(underlying, shown, input);
 
+    protected override TValue ReplaceUnderExpression(TValue underlying, TValue shown, TValue input, int editedComponents)
+        => Beutl.Animation.ComponentAnimations.ReplaceEditedComponents(underlying, input, editedComponents);
+
     public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
     protected override TEdit ToEdit(TValue value) => toEdit(value);

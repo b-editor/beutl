@@ -13,19 +13,20 @@ internal static class AiVideoJobWaiter
         TimeSpan pollInterval,
         TimeSpan maximumRetryDelay,
         Func<TimeSpan, CancellationToken, Task> delay,
+        AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
         int transientFailures = 0;
         while (true)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            account.ThrowIfInvalid(cancellationToken);
             AiVideoJob job;
             try
             {
-                job = await videos.GetAsync(jobId, cancellationToken);
+                job = await account.SendAsync(token => videos.GetAsync(jobId, token), cancellationToken);
                 transientFailures = 0;
             }
-            catch (Exception ex) when (IsTransientFailure(ex, cancellationToken))
+            catch (Exception ex) when (!account.AccountChanged && IsTransientFailure(ex, cancellationToken))
             {
                 transientFailures++;
                 processing();
@@ -33,21 +34,25 @@ internal static class AiVideoJobWaiter
                 double milliseconds = Math.Min(
                     pollInterval.TotalMilliseconds * multiplier,
                     maximumRetryDelay.TotalMilliseconds);
+                account.ThrowIfInvalid(cancellationToken);
                 await delay(TimeSpan.FromMilliseconds(Math.Max(0, milliseconds)), cancellationToken);
                 continue;
             }
 
+            account.ThrowIfInvalid(cancellationToken);
             AiJobStatusSemantics status = jobKinds.GetStatus(AiJobKinds.Video, job.Status);
             if (status.Outcome == AiJobOutcomes.Succeeded || status.IsTerminal || !status.ShouldPoll)
                 return (job, status);
 
             processing();
+            account.ThrowIfInvalid(cancellationToken);
             await delay(pollInterval, cancellationToken);
         }
     }
 
     private static bool IsTransientFailure(Exception exception, CancellationToken cancellationToken)
         => !cancellationToken.IsCancellationRequested
+            && exception is not AuthenticationRequiredException
             && (exception is OperationCanceledException
                 or TimeoutException
                 or HttpRequestException

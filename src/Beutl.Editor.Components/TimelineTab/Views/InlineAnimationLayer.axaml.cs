@@ -96,9 +96,14 @@ public partial class InlineAnimationLayer : UserControl
 
     private sealed class _DragBehavior : Behavior<Control>
     {
+        private readonly TimelineSnapFeedback _snapFeedback = new();
         private bool _pressed;
-        private Point _start;
+        // Every move is measured from the press, so a key that snapped can come away again.
+        private double _pressX;
+        private double _pressLeft;
         private InlineKeyFrameViewModel[]? _items;
+        private double[] _itemLefts = [];
+        private TimelineTabViewModel? _timeline;
         private DragSession? _drag;
 
         protected override void OnAttached()
@@ -138,18 +143,28 @@ public partial class InlineAnimationLayer : UserControl
                 return;
             }
 
-            Point position = e.GetPosition(AssociatedObject);
-            Point delta = position - _start;
-            _start = position;
-
-            viewModel.Left.Value += delta.X;
-            e.Handled = true;
-
-            if (_items == null) return;
-            foreach (InlineKeyFrameViewModel item in _items)
+            // The pressed key snaps in scene time, and the rest of a Shift drag moves with it.
+            float scale = viewModel.Timeline.Options.Value.Scale;
+            MediaTime origin = viewModel.TimeOrigin;
+            double left = _pressLeft + e.GetPosition(control).X - _pressX;
+            SnapResult snap = viewModel.SnapTime(
+                origin + left.PixelToTime(scale), e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+            if (snap.DidSnap)
             {
-                item.Left.Value += delta.X;
+                left = (snap.Time - origin).TimeToPixel(scale);
             }
+
+            viewModel.Left.Value = left;
+            if (_items != null)
+            {
+                for (int i = 0; i < _items.Length; i++)
+                {
+                    _items[i].Left.Value = _itemLefts[i] + left - _pressLeft;
+                }
+            }
+
+            _snapFeedback.Update(viewModel.Timeline, control, snap.DidSnap ? snap.Time : null, scale, e.Timestamp);
+            e.Handled = true;
         }
 
         private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -178,6 +193,7 @@ public partial class InlineAnimationLayer : UserControl
             _pressed = false;
             InlineKeyFrameViewModel[]? items = _items;
             _items = null;
+            ClearSnapFeedback();
             if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
 
             viewModel.RestoreVisualFromModel();
@@ -201,6 +217,7 @@ public partial class InlineAnimationLayer : UserControl
             _pressed = false;
             InlineKeyFrameViewModel[]? items = _items;
             _items = null;
+            ClearSnapFeedback();
             if (items != null)
             {
                 foreach (InlineKeyFrameViewModel item in items)
@@ -227,13 +244,26 @@ public partial class InlineAnimationLayer : UserControl
             if (!point.Properties.IsLeftButtonPressed) return;
 
             _pressed = true;
-            _start = point.Position;
+            _pressX = point.Position.X;
+            _pressLeft = viewModel.Left.Value;
+            _timeline = viewModel.Timeline;
             e.Handled = true;
 
-            if (e.KeyModifiers == KeyModifiers.Shift)
+            // Shift takes the whole row along. Alt only turns snapping off, as in the timeline's other drags.
+            _items = (e.KeyModifiers & ~KeyModifiers.Alt) == KeyModifiers.Shift
+                ? viewModel.Parent.Items.Where(i => i != viewModel).ToArray()
+                : null;
+            _itemLefts = _items?.Select(i => i.Left.Value).ToArray() ?? [];
+        }
+
+        private void ClearSnapFeedback()
+        {
+            if (_timeline is { } timeline)
             {
-                _items = viewModel.Parent.Items.Where(i => i != viewModel).ToArray();
+                _snapFeedback.Clear(timeline);
             }
+
+            _timeline = null;
         }
     }
 }

@@ -311,4 +311,46 @@
   <data name="RingModulatorEffect_Mix" xml:space="preserve">
     <value>믹스 (%)</value>
   </data>
+  <data name="SourceSound_LibraryDescription" xml:space="preserve">
+    <value>미디어 파일의 오디오를 재생합니다 (오디오 클립, 사운드 소스 / audio clip, sound source).</value>
+  </data>
+  <data name="SceneSound_LibraryDescription" xml:space="preserve">
+    <value>다른 장면의 오디오 믹스를 재생합니다 (중첩 오디오, 프리컴프 오디오 / nested audio, precomp audio).</value>
+  </data>
+  <data name="SoundGroup_LibraryDescription" xml:space="preserve">
+    <value>여러 소리를 믹스해 한꺼번에 조절할 수 있게 합니다 (오디오 버스, 서브믹스, 오디오 그룹 / audio bus, submix, audio group).</value>
+  </data>
+  <data name="DelayEffect_LibraryDescription" xml:space="preserve">
+    <value>설정한 시간 간격으로 소리를 반복합니다 (에코, 오디오 딜레이 / echo, audio delay).</value>
+  </data>
+  <data name="EqualizerEffect_LibraryDescription" xml:space="preserve">
+    <value>주파수 대역별로 레벨을 높이거나 낮춥니다 (EQ, 그래픽 이퀄라이저, 톤 조절 / EQ, graphic equalizer, tone control).</value>
+  </data>
+  <data name="CompressorEffect_LibraryDescription" xml:space="preserve">
+    <value>큰 소리의 레벨을 줄여 다이내믹 레인지를 좁힙니다 (다이내믹 레인지 압축, 오디오 컴프레서 / dynamic range compression, audio compressor).</value>
+  </data>
+  <data name="LimiterEffect_LibraryDescription" xml:space="preserve">
+    <value>오디오 피크가 설정한 레벨을 넘지 않도록 합니다 (피크 리미터, 브릭월 리미터 / peak limiter, brickwall limiter).</value>
+  </data>
+  <data name="GateEffect_LibraryDescription" xml:space="preserve">
+    <value>설정한 레벨보다 작은 소리를 줄입니다 (노이즈 게이트, 익스팬더 / noise gate, expander).</value>
+  </data>
+  <data name="TimeStretchEffect_LibraryDescription" xml:space="preserve">
+    <value>음높이를 유지하면서 오디오 재생 속도를 바꿉니다 (타임 스트레치, 속도 변경, 피치 유지 / time stretch, speed change, preserve pitch).</value>
+  </data>
+  <data name="NoiseReductionEffect_LibraryDescription" xml:space="preserve">
+    <value>쉿 소리나 웅웅거리는 소리처럼 지속되는 배경 잡음을 줄입니다 (노이즈 제거, 잡음 제거 / denoise, noise removal).</value>
+  </data>
+  <data name="PitchShiftEffect_LibraryDescription" xml:space="preserve">
+    <value>오디오의 음높이를 반음 단위로 높이거나 낮춥니다 (피치 시프터, 조옮김 / pitch shifter, transpose).</value>
+  </data>
+  <data name="ResamplingEffect_LibraryDescription" xml:space="preserve">
+    <value>오디오의 샘플 레이트를 프로젝트 설정에 맞게 변환합니다 (샘플 레이트 변환, 리샘플링 / sample rate conversion, SRC).</value>
+  </data>
+  <data name="VibratoEffect_LibraryDescription" xml:space="preserve">
+    <value>오디오의 음높이를 주기적으로 높였다 낮춥니다 (피치 변조, 음높이 흔들림 / pitch modulation, pitch wobble).</value>
+  </data>
+  <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
+    <value>오디오에 일정한 주파수의 신호를 곱해 금속성 소리를 냅니다 (링 변조, 금속성 음성 / ring modulation, metallic voice).</value>
+  </data>
 </root>

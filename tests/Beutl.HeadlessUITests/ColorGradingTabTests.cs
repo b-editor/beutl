@@ -15,6 +15,7 @@ using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -32,6 +33,9 @@ namespace Beutl.HeadlessUITests;
 public sealed class ColorGradingTabTests
 {
     public enum DragEnd { CaptureLoss, Playback, Escape, Undo }
+
+    private const string OffsetColorExpression = "Value + new GradingColor(0.5f, 0.5f, 0.5f)";
+    private static readonly GradingColor s_expressionOffset = new(0.5f, 0.5f, 0.5f);
 
     // Cb and Cr as the vectorscope plots them (BT.709).
     private static Vector ScopeChroma(GradingColor c)
@@ -236,6 +240,223 @@ public sealed class ColorGradingTabTests
             Assert.That(host.History.UndoCount, Is.EqualTo(1));
             Assert.That(reset.IsEnabled, Is.False, "Nothing is left to reset.");
         });
+    }
+
+    [AvaloniaTest]
+    [TestCase(0, false)]
+    [TestCase(0, true)]
+    [TestCase(1, false)]
+    [TestCase(1, true)]
+    [TestCase(2, false)]
+    [TestCase(2, true)]
+    public void A_wheel_field_edits_only_its_underlying_channel(int channel, bool live)
+    {
+        using var host = new WheelHost(effect => effect.Lift, expression: OffsetColorExpression);
+        host.IsLivePreviewEnabled.Value = live;
+        TextBox[] boxes = host.Boxes();
+        TextBox box = boxes[channel];
+        GradingColor shown = s_expressionOffset;
+        var expected = new GradingColor(channel == 0 ? 0.8f : 0, channel == 1 ? 0.8f : 0, channel == 2 ? 0.8f : 0);
+
+        Assert.That(boxes.Select(b => b.Text), Is.All.EqualTo("50"));
+        box.Focus();
+        HeadlessTestHelpers.Render();
+        HeadlessCapture.SaveIfRequested(host.Window, nameof(ColorGradingTabTests), $"wheel-field-{channel}-{live}-focused");
+        Assert.That(box.Text, Is.EqualTo("0"));
+        host.Blur();
+        Assert.That(box.Text, Is.EqualTo("50"));
+        Assert.That(host.History.UndoCount, Is.Zero);
+
+        box.Focus();
+        box.SelectAll();
+        host.Window.KeyTextInput("80");
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(box.Text, Is.EqualTo("80"));
+            Assert.That(boxes.Where(b => b != box).Select(b => b.Text), Is.All.EqualTo("50"));
+            Assert.That(host.Property.Value, Is.EqualTo(live ? expected : GradingColor.Zero));
+            Assert.That(host.History.UndoCount, Is.Zero);
+        });
+
+        host.Blur();
+        HeadlessCapture.SaveIfRequested(host.Window, nameof(ColorGradingTabTests), $"wheel-field-{channel}-{live}-confirmed");
+        Assert.Multiple(() =>
+        {
+            Assert.That(box.Text, Is.EqualTo("130"));
+            Assert.That(boxes.Where(b => b != box).Select(b => b.Text), Is.All.EqualTo("50"));
+            Assert.That(host.Wheel.Color, Is.EqualTo(expected + shown));
+            Assert.That(host.Property.Value, Is.EqualTo(expected));
+            Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        });
+        Assert.That(host.History.Undo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(GradingColor.Zero));
+        Assert.That(host.Wheel.Color, Is.EqualTo(shown));
+        Assert.That(host.History.Redo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(expected));
+        Assert.That(host.Wheel.Color, Is.EqualTo(expected + shown));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void A_wheel_field_confirms_even_if_the_expression_result_stays_the_same(bool live)
+    {
+        var initial = new GradingColor(0.11f, -0.897f, 0.843f);
+        using var host = new WheelHost(effect => effect.Lift, initial, "new GradingColor(0.5f, 0.5f, 0.5f)");
+        host.IsLivePreviewEnabled.Value = live;
+        TextBox box = host.Boxes()[0];
+        box.Focus();
+        box.SelectAll();
+        host.Window.KeyTextInput("50");
+        host.Blur();
+
+        // G and B do not round-trip through the editor's percentage units exactly.
+        var expected = new GradingColor(0.5f, initial.G, initial.B);
+        Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        Assert.That(host.Property.Value, Is.EqualTo(expected));
+        Assert.That(host.Wheel.Color, Is.EqualTo(s_expressionOffset));
+        Assert.That(host.History.Undo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(initial));
+        Assert.That(host.History.Redo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(expected));
+    }
+
+    [AvaloniaTest]
+    public void Blurring_an_unedited_wheel_field_does_not_commit_a_new_expression_result()
+    {
+        const string expression = "Value + new GradingColor((float)Time, (float)Time, (float)Time)";
+        using var host = new WheelHost(effect => effect.Lift, expression: expression);
+        TextBox box = host.Boxes()[0];
+        box.Focus();
+        host.CurrentTime.Value = MediaTime.FromSeconds(1);
+        Assert.That(host.Wheel.Color, Is.EqualTo(GradingColor.One));
+        Assert.That(box.Text, Is.EqualTo("0"));
+
+        host.Blur();
+        Assert.That(host.Property.Value, Is.EqualTo(GradingColor.Zero));
+        Assert.That(box.Text, Is.EqualTo("100"));
+        Assert.That(host.History.UndoCount, Is.Zero);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Scrolling_a_focused_wheel_field_steps_the_underlying_channel(bool live)
+    {
+        using var host = new WheelHost(effect => effect.Lift, expression: OffsetColorExpression);
+        host.IsLivePreviewEnabled.Value = live;
+        TextBox box = host.Boxes()[1];
+        box.Focus();
+        AvaPoint point = HeadlessTestHelpers.Center(box, host.Window);
+        host.Window.MouseWheel(point, new Vector(0, 1));
+        host.Window.MouseWheel(point, new Vector(0, 1));
+        HeadlessTestHelpers.Render();
+        var expected = new GradingColor(0, 0.2f, 0);
+        Assert.That(box.Text, Is.EqualTo("20"));
+        Assert.That(host.Property.Value, Is.EqualTo(live ? expected : GradingColor.Zero));
+
+        host.Blur();
+        Assert.That(host.Property.Value, Is.EqualTo(expected));
+        Assert.That(box.Text, Is.EqualTo("70"));
+        Assert.That(host.History.UndoCount, Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Scrubbing_an_unfocused_wheel_field_offsets_only_its_underlying_channel(bool live)
+    {
+        var initial = new GradingColor(0.11f, -0.897f, 0.2f);
+        using var host = new WheelHost(effect => effect.Lift, initial, "Value * 2f");
+        host.IsLivePreviewEnabled.Value = live;
+        TextBox box = host.Boxes()[2];
+        AvaPoint press = HeadlessTestHelpers.Center(box, host.Window);
+        TimelineTestHost.WaitForHitTest(host.Window, box, press);
+        host.Window.MouseMove(press);
+        host.Window.MouseDown(press, MouseButton.Left);
+        host.Window.MouseMove(press + new Vector(4, 0), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseMove(press + new Vector(9, 0), RawInputModifiers.LeftMouseButton);
+        AvaPoint end = press + new Vector(14, 0);
+        host.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        var expected = new GradingColor(initial.R, initial.G, 0.3f);
+        Assert.That(host.Property.Value, Is.EqualTo(live ? expected : initial));
+        Assert.That(host.Wheel.Color.B, Is.EqualTo(live ? 0.6f : 0.5f).Within(1e-6));
+        host.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+
+        Assert.That(host.Property.Value, Is.EqualTo(expected));
+        Assert.That(host.Wheel.Color, Is.EqualTo(expected * 2f));
+        Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        Assert.That(host.History.Undo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(initial));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Dragging_the_pad_or_jog_offsets_the_value_under_an_expression(bool pad, bool live)
+    {
+        var initial = new GradingColor(0.05f, 0, -0.05f);
+        using var host = new WheelHost(effect => effect.Lift, initial, OffsetColorExpression);
+        host.IsLivePreviewEnabled.Value = live;
+        GradingWheel jog = host.Wheel.GetVisualDescendants().OfType<GradingWheel>().Single();
+        AvaPoint start = pad ? host.PadCenter() : HeadlessTestHelpers.Center(jog, host.Window);
+        host.Drag(start, start + new Vector(40, 0));
+
+        GradingColor changed = host.Property.Value - initial;
+        Assert.That(changed, Is.Not.EqualTo(GradingColor.Zero));
+        if (pad)
+        {
+            Assert.That(ColorBalance.Luma(changed), Is.EqualTo(0).Within(1e-6));
+        }
+        else
+        {
+            float delta = 40f / (float)jog.Bounds.Width;
+            Assert.That(changed.R, Is.EqualTo(delta).Within(1e-6));
+            Assert.That(changed.G, Is.EqualTo(delta).Within(1e-6));
+            Assert.That(changed.B, Is.EqualTo(delta).Within(1e-6));
+        }
+
+        Assert.That(host.Wheel.Color, Is.EqualTo(host.Property.Value + s_expressionOffset));
+        Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        Assert.That(host.History.Undo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(initial));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Resetting_the_pad_or_wheel_replaces_the_whole_value_under_an_expression(bool pad, bool live)
+    {
+        var initial = new GradingColor(0.05f, 0, -0.05f);
+        using var host = new WheelHost(effect => effect.Lift, initial, OffsetColorExpression);
+        host.IsLivePreviewEnabled.Value = live;
+        GradingColor expected = pad ? ColorBalance.WithoutChroma(initial + s_expressionOffset, GradingColor.Zero) : GradingColor.Zero;
+        if (pad)
+        {
+            AvaPoint center = host.PadCenter();
+            host.Window.MouseDown(center, MouseButton.Left);
+            host.Window.MouseUp(center, MouseButton.Left);
+            host.Window.MouseDown(center, MouseButton.Left);
+            host.Window.MouseUp(center, MouseButton.Left);
+        }
+        else
+        {
+            Button reset = host.Wheel.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "PART_ResetButton");
+            HeadlessTestHelpers.Click(reset);
+        }
+
+        HeadlessTestHelpers.Render();
+        Assert.That(host.Property.Value, Is.EqualTo(expected));
+        Assert.That(host.Wheel.Color, Is.EqualTo(expected + s_expressionOffset));
+        Assert.That(host.History.UndoCount, Is.EqualTo(1));
+        Assert.That(host.History.Undo(), Is.True);
+        Assert.That(host.Property.Value, Is.EqualTo(initial));
     }
 
     // A click leaves the cursor alone, as on a number box: the drag and the pointer lock that hides the cursor wait
@@ -749,22 +970,27 @@ public sealed class ColorGradingTabTests
         private readonly GradingColorEditorViewModel _viewModel;
         private readonly PointerLockScope _pointerLock = PointerLockScope.Off(TestShell.Configuration.EditorConfig);
 
-        public WheelHost(Func<ColorGrading, IProperty<GradingColor>> pick, GradingColor? start = null)
+        public WheelHost(Func<ColorGrading, IProperty<GradingColor>> pick, GradingColor? start = null, string? expression = null)
         {
             var effect = new ColorGrading();
-            Property = pick(effect);
+            Property = (AnimatableProperty<GradingColor>)pick(effect);
             if (start is { } value)
                 Property.Value = value;
+            if (expression != null)
+                Property.Expression = new StringExpression<GradingColor>(expression);
 
             _history = new HistoryScope(effect);
             var player = new Mock<IPreviewPlayer>();
             player.SetupGet(x => x.IsPlaying).Returns(Playing);
+            var clock = new Mock<IEditorClock>();
+            clock.SetupGet(x => x.CurrentTime).Returns(CurrentTime);
             _viewModel = new GradingColorEditorViewModel(
-                new AnimatablePropertyAdapter<GradingColor>((AnimatableProperty<GradingColor>)Property, effect));
-            _viewModel.Accept(new ServiceVisitor((typeof(HistoryManager), _history.History), (typeof(IPreviewPlayer), player.Object)));
-            Wheel = new ColorGradingWheel();
+                new AnimatablePropertyAdapter<GradingColor>(Property, effect));
+            _viewModel.Accept(new ServiceVisitor((typeof(HistoryManager), _history.History),
+                (typeof(IPreviewPlayer), player.Object), (typeof(IEditorClock), clock.Object)));
+            Wheel = new ColorGradingWheel { Header = Property.Name };
             _viewModel.Accept(Wheel);
-            Window = new Window { Content = Wheel, Width = 260, Height = 380 };
+            Window = new Window { Content = new Border { Focusable = true, Child = Wheel }, Width = 260, Height = 380 };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
             Beutl.Controls.ControlNotifications.SetNotifications(Window, TestShell.Notifications);
@@ -773,7 +999,7 @@ public sealed class ColorGradingTabTests
             Pad = Wheel.GetVisualDescendants().OfType<ColorBalancePad>().Single();
         }
 
-        public IProperty<GradingColor> Property { get; }
+        public AnimatableProperty<GradingColor> Property { get; }
 
         public HistoryManager History => _history.History;
 
@@ -781,11 +1007,21 @@ public sealed class ColorGradingTabTests
 
         public ReactivePropertySlim<bool> Playing { get; } = new(false);
 
+        public ReactivePropertySlim<MediaTime> CurrentTime { get; } = new(MediaTime.Zero);
+
         public ColorGradingWheel Wheel { get; }
 
         public ColorBalancePad Pad { get; }
 
         public Window Window { get; }
+
+        public TextBox[] Boxes() => [.. Wheel.GetVisualDescendants().OfType<TextBox>()];
+
+        public void Blur()
+        {
+            ((Border)Window.Content!).Focus();
+            HeadlessTestHelpers.Render();
+        }
 
         public AvaPoint PadCenter() => Pad.TranslatePoint(Pad.DiskBounds.Center, Window)!.Value;
 

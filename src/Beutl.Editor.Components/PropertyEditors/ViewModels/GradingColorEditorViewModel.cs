@@ -44,6 +44,8 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
 
             wheel.Bind(ColorGradingWheel.ColorProperty, Value.ToBinding())
                 .DisposeWith(Disposables);
+            wheel.ConnectUnderlyingComponents(() => TryGetFocusedEditValue(out var color) ? color : null)
+                .DisposeWith(Disposables);
             wheel.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnWheelValueConfirmed)
                 .DisposeWith(Disposables);
             wheel.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnWheelValueChanged)
@@ -53,15 +55,16 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
 
     private void OnWheelValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (sender is not ColorGradingWheel wheel)
+        if (sender is not ColorGradingWheel wheel || e.Expect<GradingColor>(sender) is not { } args)
             return;
 
         if (IsLivePreviewEnabled.Value)
         {
             // Only a drag on the wheel opens a session; typed values are confirmed as before.
+            // An RGB field's event carries the input even when the wheel is showing the expression result.
             GradingColor coerced = default;
             _drag.Write(this, wheel.IsDragging ? wheel : null, () => StopDrag(wheel),
-                () => coerced = SetCurrentValueAndGetCoerced(wheel.Color, wheel.IsDragging));
+                () => coerced = SetCurrentValueAndGetCoerced(args.NewValue, wheel.IsDragging));
             // During a drag the wheel keeps the input rather than an expression's result, so that moving back to where the
             // drag began is still a change; it shows the result again once the drag ends.
             wheel.Color = wheel.IsDragging ? GetIncrementValue(coerced) : coerced;
@@ -86,17 +89,14 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
 
     private void OnWheelValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        // The session has already committed the underlying value, including deferred previews.
-        if (_drag.Confirm())
-        {
-            if (IsLivePreviewEnabled.Value && sender is ColorGradingWheel wheel)
-                wheel.Color = Value.Value;
+        if (sender is not ColorGradingWheel wheel || e.Expect<GradingColor>(sender) is not { } args)
             return;
-        }
-        if (e.Expect<GradingColor>(sender) is { } args)
-        {
+
+        // The session has already committed the underlying value, including deferred previews.
+        if (!_drag.Confirm())
             SetValue(args.OldValue, args.NewValue);
-        }
+
+        wheel.Color = Value.Value;
     }
 
     private void StopDrag(ColorGradingWheel wheel)

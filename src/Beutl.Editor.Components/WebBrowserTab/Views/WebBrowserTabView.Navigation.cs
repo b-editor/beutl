@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -21,6 +22,7 @@ internal partial class WebBrowserTabView
     private bool _openerPageCommitted;
     // The referrer WebKit computed for the latest new window request, from the page's policy and the link's rel.
     private (Uri Request, Uri? Referrer)? _nativeNewWindow;
+    private string? _expectedWebView2HtmlPayload;
 
     // The page whose document makes the current requests. BlankPage stands for a document of unknown origin.
     private Uri? DocumentReferrer => (_openerPageCommitted ? null : _openerNavigation?.Referrer)
@@ -64,7 +66,23 @@ internal partial class WebBrowserTabView
     {
         if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
         if (e.Cancel) return;
-        if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
+        Uri? request = e.Request;
+        if (_expectedWebView2HtmlPayload is { } payload && request is { Scheme: "data" })
+        {
+            ReadOnlySpan<char> address = request.OriginalString;
+            int separator = address.IndexOf(',');
+            if (separator >= 0
+                && address[..separator].StartsWith("data:text/html;", StringComparison.OrdinalIgnoreCase)
+                && address[..separator].EndsWith(";base64", StringComparison.OrdinalIgnoreCase)
+                && address[(separator + 1)..].SequenceEqual(payload))
+            {
+                // WebView2 reports about:blank as the document URL for this HTML load.
+                _expectedWebView2HtmlPayload = null;
+                request = WebBrowserTabViewModel.BlankPage;
+            }
+        }
+
+        if (request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
             e.Cancel = true;
@@ -72,8 +90,10 @@ internal partial class WebBrowserTabView
             return;
         }
 
-        _latestNavigationRequest = e.Request;
-        if (_nativeBrowserHandler is WindowsBrowserDownloadHandler windows) windows.BeginDocument(e.Request);
+        if (request != WebBrowserTabViewModel.BlankPage) _expectedWebView2HtmlPayload = null;
+        SupersedeHeldAdapterAddress(request);
+        _latestNavigationRequest = request;
+        if (_nativeBrowserHandler is WindowsBrowserDownloadHandler windows) windows.BeginDocument(request);
 
         // WebKit reports subframe policy decisions here without frame identity; only the macOS delegate
         // can filter them here. The WebKit backends report main-frame load starts separately.
@@ -94,7 +114,7 @@ internal partial class WebBrowserTabView
         _findRequest?.Cancel();
         if (_nativeBrowserHandler is not WindowsBrowserDownloadHandler && TryInterceptMediaNavigation(e, true)) return;
 
-        if (e.Request is { } request)
+        if (request != null)
         {
             PreservePendingNativeDownload();
             InvalidatePageDownloadRequests(navigationStarted: true);
@@ -160,6 +180,7 @@ internal partial class WebBrowserTabView
         // The canceled media never replaced the document. Its failure may arrive even after
         // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
         Uri uri = request ?? _webView.Source;
+        if (isSuccess) SupersedeHeldAdapterAddress(uri);
         if (!isSuccess && ConsumeNativeDownloadFailure(request, uri))
         {
             return;
@@ -180,7 +201,8 @@ internal partial class WebBrowserTabView
         if (isSuccess && uri != WebBrowserTabViewModel.BlankPage) _openerNavigation = null;
         _pageRevision++;
         _findRequest?.Cancel();
-        _viewModel.CompleteNavigation(uri, isSuccess, _webView.CanGoBack, _webView.CanGoForward);
+        var (canGoBack, canGoForward) = ReadHistoryState(_webView, _viewModel);
+        _viewModel.CompleteNavigation(uri, isSuccess, canGoBack, canGoForward);
         UpdateBlankPageState();
         SettleLoadingPageClaims(uri, isSuccess);
         OfferNextDeferredNativeDownload();
@@ -312,12 +334,39 @@ internal partial class WebBrowserTabView
         return _viewModel?.TryOpenNewTab(request, referrer) == true;
     }
 
+    internal void NavigateToString(string html, Uri? baseUri = null)
+    {
+        if (_webView is not { } webView) return;
+        _openerNavigation = null;
+        // An HTML load can be queued before EnvironmentRequested. Keep it here so the
+        // adapter's blank startup navigation cannot replace it.
+        _pendingHtmlNavigation = (html, baseUri);
+        if (_pendingAdapterAddress == null && webView.TryGetPlatformHandle() != null)
+            ResumeHtmlNavigation(webView);
+    }
+
+    private void ResumeHtmlNavigation(NativeWebView webView)
+    {
+        if (_adBlockSession?.IsPreparing == true)
+            _adBlockSession.HoldNavigation(WebBrowserTabViewModel.BlankPage, replacePending: true);
+        else
+            ResumeNavigation(webView, WebBrowserTabViewModel.BlankPage);
+    }
+
     // Ad blocking holds a new tab's first navigation until its rules are in place.
     private void ResumeNavigation(NativeWebView webView, Uri uri)
     {
         // The adapter will resume the latest address entered while it was starting.
-        if (_pendingWindowsAddress != null) return;
-        if (_openerNavigation?.Uri == uri)
+        if (_pendingAdapterAddress != null) return;
+        if (_pendingHtmlNavigation is { } html)
+        {
+            _pendingHtmlNavigation = null;
+            _expectedWebView2HtmlPayload = webView.TryGetPlatformHandle() is IWindowsWebView2PlatformHandle
+                ? Convert.ToBase64String(Encoding.UTF8.GetBytes(html.Html))
+                : null;
+            webView.NavigateToString(html.Html, html.BaseUri);
+        }
+        else if (_openerNavigation?.Uri == uri)
         {
             _openerNavigationIssued = false;
             NavigateFromOpener(webView);
@@ -449,7 +498,7 @@ internal partial class WebBrowserTabView
             }
             InvalidatePageDownloadRequests(navigationStarted: true);
             _viewModel.BeginNavigation(uri);
-            if (!HoldWindowsAddress(uri)) _webView.Navigate(uri);
+            if (!HoldAdapterAddress(uri)) _webView.Navigate(uri);
         }
     }
 
@@ -460,6 +509,27 @@ internal partial class WebBrowserTabView
             return;
         }
 
-        _viewModel.UpdateHistoryState(_webView.CanGoBack, _webView.CanGoForward);
+        var (canGoBack, canGoForward) = ReadHistoryState(_webView, _viewModel);
+        _viewModel.UpdateHistoryState(canGoBack, canGoForward);
+    }
+
+    private (bool CanGoBack, bool CanGoForward) ReadHistoryState(NativeWebView webView, WebBrowserTabViewModel viewModel)
+    {
+        if (webView.TryGetPlatformHandle() is not IGtkWebViewPlatformHandle)
+            return (webView.CanGoBack, webView.CanGoForward);
+
+        // The next navigation can already be in a GTK policy decision waiting on the UI thread.
+        // Keep the current button state until a history read on GLib can complete.
+        _ = UpdateGtkHistoryStateAsync(webView, viewModel);
+        return (viewModel.CanGoBack.Value, viewModel.CanGoForward.Value);
+    }
+
+    private async Task UpdateGtkHistoryStateAsync(NativeWebView webView, WebBrowserTabViewModel viewModel)
+    {
+        int version = _nativeDownloadHandlerVersion, revision = _pageRevision;
+        bool canGoBack = false, canGoForward = false;
+        await LinuxWebKit.OnGlibAsync(() => (canGoBack, canGoForward) = (webView.CanGoBack, webView.CanGoForward));
+        if (version == _nativeDownloadHandlerVersion && revision == _pageRevision && ReferenceEquals(viewModel, _viewModel))
+            viewModel.UpdateHistoryState(canGoBack, canGoForward);
     }
 }

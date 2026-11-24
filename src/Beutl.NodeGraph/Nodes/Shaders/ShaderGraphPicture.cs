@@ -65,14 +65,14 @@ internal sealed class ShaderGraphPicture : IWirePicture
     private readonly object _reportGate = new();
     private ShaderGraphEffect.Resource? _effectResource;
     private ShaderGraphRenderNode? _renderNode;
-    private string? _recordingError;
+    private Exception? _recordingFailure;
     private string? _executionError;
     private IShaderPictureOwner? _explainer;
     private bool _disposed;
 
     public RenderNode? RenderNode => _renderNode;
 
-    public bool HasFailed => _recordingError != null || _executionError != null;
+    public bool HasFailed => _recordingFailure != null || _executionError != null;
 
     public void Update(ShaderGraphValue<ShaderImage> image, GraphNode owner, INodeMember output, GraphCompositionContext context)
     {
@@ -80,7 +80,7 @@ internal sealed class ShaderGraphPicture : IWirePicture
         ShaderGraphDescription? description = null;
         RenderNode? source = null;
         IReadOnlyList<RenderNode> externals = [];
-        _recordingError = null;
+        _recordingFailure = null;
         try
         {
             description = ShaderGraphRecordingContext.Build(image, out source, out externals);
@@ -91,7 +91,7 @@ internal sealed class ShaderGraphPicture : IWirePicture
             description = null;
             source = null;
             externals = [];
-            _recordingError = ex.Message;
+            _recordingFailure = ex;
         }
 
         // What a render refused stands until a graph runs, which takes the renderer to find out.
@@ -109,7 +109,7 @@ internal sealed class ShaderGraphPicture : IWirePicture
         ResourceReconciler.ReconcileResource(context, _effect, ref _effectResource, ref changed);
         _renderNode ??= new ShaderGraphRenderNode(_effectResource!);
         _renderNode.Update(_effectResource!);
-        _renderNode.SetGraph(_effect.Description.Value, _recordingError != null, source, externals);
+        _renderNode.SetGraph(_effect.Description.Value, _recordingFailure != null, source, externals);
     }
 
     private bool IsRecorded(ShaderGraphDescription description)
@@ -129,7 +129,10 @@ internal sealed class ShaderGraphPicture : IWirePicture
             if (_disposed) return;
             if (!ReferenceEquals(_explainer, explainer)) _explainer?.WithdrawPictureFailure(this);
             _explainer = explainer;
-            explainer?.ReportPictureFailure(this, _recordingError ?? _executionError);
+            string? message = _recordingFailure is ShaderPassFailureException
+                ? null
+                : _recordingFailure?.Message ?? _executionError;
+            explainer?.ReportPictureFailure(this, message);
         }
     }
 

@@ -1783,6 +1783,8 @@ timeline.exitRazorMode
 timeline.exitRollMode
 timeline.exitSlideMode
 timeline.exitSlipMode
+timeline.fitAll
+timeline.fitSelection
 timeline.goToNextGap
 timeline.goToPreviousGap
 timeline.nudgeLeftFrame
