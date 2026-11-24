@@ -25,7 +25,6 @@ internal static class SpeedAdjustedTime
             return new MediaTime((long)(time.Flicks * (currentSpeed / 100.0)));
         }
 
-        integrator.EnsureCache(anm);
         return integrator.Integrate(time, keyFrameAnimation);
     }
 

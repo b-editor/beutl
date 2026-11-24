@@ -1,5 +1,7 @@
 ﻿using Beutl.Animation;
 
+using Beutl.Animation.Easings;
+
 namespace Beutl.Media;
 
 /// <summary>
@@ -15,6 +17,9 @@ public sealed class SpeedIntegrator : IDisposable
     private Dictionary<int, double>? _integralCache;
     private int _greatestCachedSecond = -1;
     private KeyFrameAnimation<float>? _trackedAnimation;
+    private KeySnapshot[] _keys = [];
+    private bool _hasKeySnapshot;
+    private bool _useGlobalClock;
     private int _sampleRate;
     private readonly Action? _invalidateCallback;
     private Func<float, float>? _speedTransform;
@@ -54,8 +59,7 @@ public sealed class SpeedIntegrator : IDisposable
     }
 
     /// <summary>
-    /// Starts tracking the animation and initializes the cache.
-    /// If the animation changes, clears the cache and re-registers the event handler.
+    /// Prepares the cache for the animation and invalidates it if the animation or its keys changed.
     /// </summary>
     public void EnsureCache(KeyFrameAnimation<float>? animation)
     {
@@ -63,16 +67,39 @@ public sealed class SpeedIntegrator : IDisposable
 
         if (!ReferenceEquals(_trackedAnimation, animation))
         {
-            Invalidate();
-
-            if (_trackedAnimation != null)
-                _trackedAnimation.Edited -= OnAnimationEdited;
-
-            if (animation != null)
-                animation.Edited += OnAnimationEdited;
-
+            // A caller with a callback can act on edits before asking for another integral.
+            if (_invalidateCallback != null)
+            {
+                if (_trackedAnimation != null) _trackedAnimation.Edited -= OnAnimationEdited;
+                if (animation != null) animation.Edited += OnAnimationEdited;
+            }
             _trackedAnimation = animation;
+            _keys = [];
+            _hasKeySnapshot = false;
+            Invalidate();
         }
+
+        if (animation == null || (_hasKeySnapshot && KeysMatch(animation))) return;
+
+        // Structural edits and changes to the spline's control points can leave Edited silent.
+        _keys = [.. animation.KeyFrames.Select(KeySnapshot.Read)];
+        _useGlobalClock = animation.UseGlobalClock.Value;
+        bool invalidate = _hasKeySnapshot;
+        _hasKeySnapshot = true;
+        if (invalidate) Invalidate();
+    }
+
+    private bool KeysMatch(KeyFrameAnimation<float> animation)
+    {
+        var keys = animation.KeyFrames;
+        if (_useGlobalClock != animation.UseGlobalClock.Value || _keys.Length != keys.Count) return false;
+
+        for (int i = 0; i < _keys.Length; i++)
+        {
+            if (!_keys[i].Matches(KeySnapshot.Read(keys[i]))) return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -113,9 +140,11 @@ public sealed class SpeedIntegrator : IDisposable
     {
         if (_trackedAnimation != null)
         {
-            _trackedAnimation.Edited -= OnAnimationEdited;
+            if (_invalidateCallback != null) _trackedAnimation.Edited -= OnAnimationEdited;
             _trackedAnimation = null;
         }
+        _keys = [];
+        _hasKeySnapshot = false;
         _integralCache = null;
     }
 
@@ -123,6 +152,13 @@ public sealed class SpeedIntegrator : IDisposable
     /// Integrates the speed animation and returns the transformed time corresponding to the specified time.
     /// </summary>
     public MediaTime Integrate(MediaTime timeSpan, KeyFrameAnimation<float> animation)
+    {
+        EnsureCache(animation);
+        return IntegrateCached(timeSpan, animation);
+    }
+
+    // Callers that prepared the animation for a batch of queries can reuse that snapshot.
+    internal MediaTime IntegrateCached(MediaTime timeSpan, KeyFrameAnimation<float> animation)
     {
         int targetSec = (int)timeSpan.ToSeconds();
         (int cachedSec, double cachedSum) = TryGetCache(targetSec);
@@ -234,6 +270,22 @@ public sealed class SpeedIntegrator : IDisposable
 
     private void OnAnimationEdited(object? sender, EventArgs e)
     {
+        _hasKeySnapshot = false;
         Invalidate();
+    }
+
+    private readonly record struct KeySnapshot(IKeyFrame Frame, MediaTime Time, float Value, Easing Easing,
+        (float X1, float Y1, float X2, float Y2) ControlPoints)
+    {
+        public static KeySnapshot Read(IKeyFrame frame)
+        {
+            Easing easing = frame.Easing.Value;
+            return new KeySnapshot(frame, frame.KeyTime.Value, frame is KeyFrame<float> typed ? typed.Value.Value : float.NaN,
+                easing, easing is SplineEasing spline ? (spline.X1, spline.Y1, spline.X2, spline.Y2) : default);
+        }
+
+        public bool Matches(KeySnapshot other)
+            => ReferenceEquals(Frame, other.Frame) && Time == other.Time && Value.Equals(other.Value)
+                && ReferenceEquals(Easing, other.Easing) && ControlPoints.Equals(other.ControlPoints);
     }
 }

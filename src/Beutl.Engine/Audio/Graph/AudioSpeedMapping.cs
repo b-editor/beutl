@@ -117,8 +117,8 @@ internal sealed class AudioSpeedMapping : IDisposable
 
         var ownerStart = GetOwnerStart(animation);
         return animation.UseGlobalClock.Value
-            ? _integrator.Integrate(time + ownerStart, animation) - _integrator.Integrate(ownerStart, animation)
-            : _integrator.Integrate(time, animation);
+            ? _integrator.IntegrateCached(time + ownerStart, animation) - _integrator.IntegrateCached(ownerStart, animation)
+            : _integrator.IntegrateCached(time, animation);
     }
 
     public double? GetFiniteSourceEndSample(double? inputEnd, int sampleRate)
@@ -141,7 +141,7 @@ internal sealed class AudioSpeedMapping : IDisposable
         if (_finiteEndKey == key)
             return _finiteEndValue;
         MediaTime origin = animation.UseGlobalClock.Value
-            ? _integrator.Integrate(ownerStart, animation)
+            ? _integrator.IntegrateCached(ownerStart, animation)
             : MediaTime.Zero;
         double low = 0;
         double high = end / minimumSpeed;
@@ -151,7 +151,7 @@ internal sealed class AudioSpeedMapping : IDisposable
             var time = MediaTime.FromSeconds(middle / sampleRate);
             if (animation.UseGlobalClock.Value)
                 time += ownerStart;
-            double mapped = (_integrator.Integrate(time, animation) - origin).ToSeconds() * sampleRate;
+            double mapped = (_integrator.IntegrateCached(time, animation) - origin).ToSeconds() * sampleRate;
             if (mapped < end)
                 low = middle;
             else

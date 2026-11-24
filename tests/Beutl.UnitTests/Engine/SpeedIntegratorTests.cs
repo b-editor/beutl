@@ -106,6 +106,55 @@ public class SpeedIntegratorTests
         Assert.That(integrator.Integrate(MediaTime.FromSeconds(0.75), animation).ToSeconds(), Is.EqualTo(1.5).Within(1e-6));
     }
 
+    [TestCase("insert")]
+    [TestCase("remove")]
+    [TestCase("move")]
+    [TestCase("value")]
+    [TestCase("replace easing")]
+    [TestCase("edit spline")]
+    [TestCase("global clock")]
+    public void KeyframeChangesInvalidateTheCachedIntegral(string change)
+    {
+        var spline = new SplineEasing(0.2f, 0.2f, 0.8f, 0.8f);
+        var middle = new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = 500f },
+            Easing = { Value = spline }
+        };
+        var animation = TestAnimations.Linear(100f, 300f, MediaTime.FromSeconds(6));
+        if (change != "insert") animation.KeyFrames.Insert(1, middle);
+
+        int invalidations = 0;
+        using var integrator = new SpeedIntegrator(60, () => invalidations++);
+        integrator.EnsureCache(animation);
+        MediaTime query = MediaTime.FromSeconds(3.5);
+        integrator.Integrate(query, animation);
+        int version = integrator.CacheVersion;
+        int previousInvalidations = invalidations;
+
+        switch (change)
+        {
+            case "insert": animation.KeyFrames.Insert(1, middle); break;
+            case "remove": animation.KeyFrames.Remove(middle); break;
+            case "move": middle.KeyTime.Value = MediaTime.FromSeconds(2.5); break;
+            case "value": middle.Value.Value = 700f; break;
+            case "replace easing": middle.Easing.Value = new HoldEasing(); break;
+            case "edit spline": spline.Y1 = 1f; break;
+            case "global clock": animation.UseGlobalClock.Value = true; break;
+        }
+
+        integrator.EnsureCache(animation);
+        using var fresh = new SpeedIntegrator(60);
+        fresh.EnsureCache(animation);
+        Assert.Multiple(() =>
+        {
+            Assert.That(integrator.Integrate(query, animation), Is.EqualTo(fresh.Integrate(query, animation)));
+            Assert.That(integrator.CacheVersion, Is.EqualTo(version + 1));
+            Assert.That(invalidations, Is.EqualTo(previousInvalidations + 1));
+        });
+    }
+
     private static KeyFrameAnimation<float> ConstantSpeed(float value)
         => TestAnimations.Linear(value, value, MediaTime.FromSeconds(10));
 
