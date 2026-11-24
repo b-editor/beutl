@@ -330,6 +330,22 @@
     <value>Muestra tiras de fotogramas y formas de onda en los clips de la línea de tiempo. Si está desactivado, actívalas por clip desde su menú contextual; así el zoom de una línea de tiempo con muchos medios sigue siendo fluido.</value>
     <comment />
   </data>
+  <data name="TimelineLayerSize" xml:space="preserve">
+    <value>Altura de las capas de la línea de tiempo</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Small" xml:space="preserve">
+    <value>Pequeña</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Medium" xml:space="preserve">
+    <value>Mediana</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Large" xml:space="preserve">
+    <value>Grande</value>
+    <comment />
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>Gráficos</value>
     <comment />

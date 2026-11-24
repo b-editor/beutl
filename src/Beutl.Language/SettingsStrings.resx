@@ -330,6 +330,22 @@
     <value>Show filmstrips and waveforms on timeline elements. When off, turn them on per element from its context menu; this keeps zooming a timeline full of media responsive.</value>
     <comment/>
   </data>
+  <data name="TimelineLayerSize" xml:space="preserve">
+    <value>Timeline layer height</value>
+    <comment/>
+  </data>
+  <data name="TimelineLayerSize_Small" xml:space="preserve">
+    <value>Small</value>
+    <comment/>
+  </data>
+  <data name="TimelineLayerSize_Medium" xml:space="preserve">
+    <value>Medium</value>
+    <comment/>
+  </data>
+  <data name="TimelineLayerSize_Large" xml:space="preserve">
+    <value>Large</value>
+    <comment/>
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>Graphics</value>
     <comment/>

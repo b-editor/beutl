@@ -709,14 +709,120 @@ public sealed class TimelineVirtualizationTests
             ? model.VideoThumbnailCount.Value > 0 : model.WaveformChunkCount.Value > 0;
     }
 
-    private sealed class CountingThumbnailSource(ThumbnailsKind kind = ThumbnailsKind.Audio) : EngineObject, IThumbnailsProvider
+    [AvaloniaTest]
+    public async Task Layer_height_changes_regenerate_the_video_strip_without_reprocessing_audio()
     {
+        await TestReset.ResetShellAsync();
+        EditorConfig config = TestShell.Configuration.EditorConfig;
+        TimelineLayerSize previous = config.TimelineLayerSize.Value;
+        bool showByDefault = config.ShowTimelineThumbnailsByDefault.Value;
+        try
+        {
+            config.TimelineLayerSize.Value = TimelineLayerSize.Small;
+            config.ShowTimelineThumbnailsByDefault.Value = true;
+            var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(10) } };
+            Element video = Clip(0, 0);
+            Element audio = Clip(1, 0);
+            var videoSource = new CountingThumbnailSource(ThumbnailsKind.Video);
+            var audioSource = new CountingThumbnailSource();
+            video.Objects.Add(videoSource);
+            audio.Objects.Add(audioSource);
+            scene.Children.AddRange([video, audio]);
+            using var host = new ViewportHost(scene);
+            await HeadlessTestHelpers.WaitUntilAsync(() => videoSource.LastRequestedHeight == 25 && audioSource.Requests > 0);
+            int audioRequests = audioSource.Requests;
+            HeadlessCapture.SaveIfRequested(host.Window, nameof(TimelineVirtualizationTests), "media-rows-small");
+
+            config.TimelineLayerSize.Value = TimelineLayerSize.Medium;
+            config.TimelineLayerSize.Value = TimelineLayerSize.Large;
+            await HeadlessTestHelpers.WaitUntilAsync(() => videoSource.LastRequestedHeight == 64);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(audioSource.Requests, Is.EqualTo(audioRequests));
+            HeadlessCapture.SaveIfRequested(host.Window, nameof(TimelineVirtualizationTests), "media-rows-large");
+        }
+        finally
+        {
+            config.TimelineLayerSize.Value = previous;
+            config.ShowTimelineThumbnailsByDefault.Value = showByDefault;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Enlarging_layer_height_on_a_scrolled_video_clip_rebuilds_the_visible_slots()
+    {
+        await TestReset.ResetShellAsync();
+        EditorConfig config = TestShell.Configuration.EditorConfig;
+        TimelineLayerSize previous = config.TimelineLayerSize.Value;
+        bool showByDefault = config.ShowTimelineThumbnailsByDefault.Value;
+        try
+        {
+            config.TimelineLayerSize.Value = TimelineLayerSize.Small;
+            config.ShowTimelineThumbnailsByDefault.Value = true;
+            var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(20) } };
+            var video = new Element
+            {
+                ZIndex = { Value = 0 },
+                Start = { Value = MediaTime.Zero },
+                Length = { Value = MediaTime.FromSeconds(20) },
+                Name = { Value = "Long Video" }
+            };
+            var videoSource = new CountingThumbnailSource(ThumbnailsKind.Video, scaledSlots: true);
+            video.Objects.Add(videoSource);
+            scene.Children.Add(video);
+            using var host = new ViewportHost(scene);
+            ElementViewModel model = host.Model.GetViewModelFor(video)!;
+
+            await HeadlessTestHelpers.WaitUntilAsync(() => model.VideoThumbnailCount.Value > 40);
+            int smallCount = model.VideoThumbnailCount.Value;
+            ThumbnailStripControl strip = host.Panel.GetVisualDescendants().OfType<ThumbnailStripControl>().Single();
+
+            // Scroll near the right end so ElementViewModel caches a Small slot range past Large's total slot count.
+            int scrolledStart = -1;
+            strip.VisibleRangeChanged += OnVisibleRangeChanged;
+            try
+            {
+                // ThumbnailStripControl computes the visible range on OffsetProperty changes before layout settles,
+                // so a second scroll step after Render observes the scrolled layout bounds.
+                host.Scroll(2000, 0);
+                host.Scroll(2010, 0);
+                await HeadlessTestHelpers.WaitUntilAsync(() => scrolledStart > 25);
+            }
+            finally
+            {
+                strip.VisibleRangeChanged -= OnVisibleRangeChanged;
+            }
+
+            config.TimelineLayerSize.Value = TimelineLayerSize.Large;
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                videoSource.LastRequestedHeight == 64 && model.VideoThumbnailCount.Value < smallCount);
+            HeadlessTestHelpers.Render(3);
+            int largeCount = model.VideoThumbnailCount.Value;
+
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                videoSource.YieldedAtHeight(64, largeCount - 1)
+                && strip.GetMissingIndices(Math.Max(0, largeCount - 3), largeCount - 1).Count == 0);
+            Assert.That(largeCount, Is.LessThan(smallCount));
+
+            void OnVisibleRangeChanged(int start, int _) => scrolledStart = start;
+        }
+        finally
+        {
+            config.TimelineLayerSize.Value = previous;
+            config.ShowTimelineThumbnailsByDefault.Value = showByDefault;
+        }
+    }
+
+    private sealed class CountingThumbnailSource(ThumbnailsKind kind = ThumbnailsKind.Audio, bool scaledSlots = false) : EngineObject, IThumbnailsProvider
+    {
+        private readonly HashSet<(int Height, int Index)> _yielded = [];
         public int Requests { get; private set; }
+        public int LastRequestedHeight { get; private set; }
         public ThumbnailsKind ThumbnailsKind => kind;
         public bool HoldRequests { get; set; }
         public CancellationToken LastRequestCancellation { get; private set; }
         public event EventHandler? ThumbnailsInvalidated;
         public void Invalidate() => ThumbnailsInvalidated?.Invoke(this, EventArgs.Empty);
+        public bool YieldedAtHeight(int height, int index) => _yielded.Contains((height, index));
 
         private Task BeginRequest(CancellationToken cancellationToken)
         {
@@ -740,7 +846,24 @@ public sealed class TimelineVirtualizationTests
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default,
             int startIndex = 0, int endIndex = -1, Beutl.Media.Decoding.DecoderRegistry? decoders = null)
         {
+            LastRequestedHeight = maxHeight;
             await BeginRequest(cancellationToken);
+            if (scaledSlots)
+            {
+                int count = Beutl.Graphics.SourceVideo.GetVideoThumbnailCount(new Beutl.Media.PixelSize(160, 90), maxWidth, maxHeight);
+                int effectiveStart = Math.Max(0, startIndex);
+                int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
+                await Task.Yield();
+                for (int i = effectiveStart; i <= effectiveEnd; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _yielded.Add((maxHeight, i));
+                    var tile = new Beutl.Media.Bitmap(4, 4);
+                    yield return (i, count, tile);
+                }
+                yield break;
+            }
+
             var bitmap = new Beutl.Media.Bitmap(4, 4);
             bitmap.GetPixelSpan<Beutl.Media.Pixel.Bgra8888>().Fill(new Beutl.Media.Pixel.Bgra8888(180, 100, 40, 255));
             yield return (0, 1, bitmap);

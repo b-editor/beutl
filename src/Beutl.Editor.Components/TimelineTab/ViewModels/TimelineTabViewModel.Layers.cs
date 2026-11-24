@@ -1,5 +1,4 @@
 ﻿using Avalonia;
-using Beutl.Editor.Components.Helpers;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
@@ -9,6 +8,7 @@ public sealed partial class TimelineTabViewModel
 {
     // Prefix sums are extended on demand and only invalidated below a resized row.
     private readonly List<double> _layerTops = [0];
+    private bool _updatingLayerRowHeight;
 
     public int CalculateClickedLayer()
     {
@@ -185,7 +185,7 @@ public sealed partial class TimelineTabViewModel
     // header are counted from its top.
     public int ToLayerNumber(Thickness thickness)
     {
-        return FindLayerNumber(thickness.Top + (FrameNumberHelper.LayerHeight / 2), thickness.Top);
+        return FindLayerNumber(thickness.Top + (LayerRowHeight.Value / 2), thickness.Top);
     }
 
     // The rows a band of the timeline covers. Unlike ToLayerNumber, this adds none.
@@ -216,7 +216,7 @@ public sealed partial class TimelineTabViewModel
         if (low < LayerHeaders.Count && hitY >= 0) return low;
 
         double delta = overflowY - _layerTops[^1];
-        int addCount = (int)Math.Ceiling(delta / FrameNumberHelper.LayerHeight);
+        int addCount = (int)Math.Ceiling(delta / LayerRowHeight.Value);
         int zIndex = addCount + LayerHeaders.Count;
         AddLayerHeaders(zIndex + 1);
 
@@ -225,8 +225,29 @@ public sealed partial class TimelineTabViewModel
 
     internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)
     {
+        if (_updatingLayerRowHeight) return;
+
         InvalidateLayerTops(value.Number);
         _layerHeightChanged.OnNext(value);
+    }
+
+    private void ApplyLayerRowHeight(double rowHeight)
+    {
+        _updatingLayerRowHeight = true;
+        try
+        {
+            foreach (LayerHeaderViewModel header in LayerHeaders)
+            {
+                header.UpdateHeight(rowHeight);
+            }
+        }
+        finally
+        {
+            _updatingLayerRowHeight = false;
+        }
+
+        InvalidateLayerTops(0);
+        _layerHeightChanged.OnNext(null);
     }
 
     private void EnsureLayerTops(int count)
@@ -260,9 +281,9 @@ public sealed partial class TimelineTabViewModel
             _disposable2 = timeline.LayerHeightChanged.Subscribe(OnLayerHeightChanged);
         }
 
-        private void OnLayerHeightChanged(LayerHeaderViewModel obj)
+        private void OnLayerHeightChanged(LayerHeaderViewModel? obj)
         {
-            if (obj.Number < layerNum)
+            if (obj is null || obj.Number < layerNum)
             {
                 PublishNext(timeline.CalculateLayerTop(layerNum));
             }

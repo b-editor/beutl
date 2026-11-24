@@ -14,9 +14,10 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
 public sealed partial class ElementViewModel
 {
-    // Below the thumbnail height, the clip is too narrow to show useful media detail.
+    // Media detail requires at least this much horizontal space.
     internal const double MinimumThumbnailWidth = 25;
     private bool _timelineViewAttached;
+    private volatile bool _visibleRangeStale;
 
     private bool CanGenerateThumbnails => !_isDisposed && _timelineViewAttached
         && !IsThumbnailsDisabled.Value && Width.Value >= MinimumThumbnailWidth;
@@ -118,13 +119,30 @@ public sealed partial class ElementViewModel
             })
             .AddTo(_disposables);
 
+        // Changing clip width or row height changes the video slot count, so cached slot indices no longer match.
         Observable.Merge(
-                Width.Select(_ => Unit.Default),
-                _thumbnailsInvalidatedSubject.AsObservable())
+                Width.Select(_ => true),
+                Timeline.LayerRowHeight.Skip(1)
+                    .Where(_ => ThumbnailsKind.Value == Engine.ThumbnailsKind.Video)
+                    .Select(_ => true),
+                _thumbnailsInvalidatedSubject.AsObservable().Select(_ => false))
             .Where(_ => _timelineViewAttached)
+            .Do(resetVisibleRange =>
+            {
+                if (resetVisibleRange) _visibleRangeStale = true;
+            })
             .Throttle(TimeSpan.FromMilliseconds(500))
             .ObserveOnUIDispatcher()
-            .Subscribe(_ => UpdateThumbnailsAsync())
+            .Subscribe(_ =>
+            {
+                if (_visibleRangeStale)
+                {
+                    _visibleRangeStale = false;
+                    _lastVisibleStart = _lastVisibleEnd = -1;
+                }
+
+                UpdateThumbnailsAsync();
+            })
             .AddTo(_disposables);
 
         _visibleRangeSubject
@@ -159,6 +177,13 @@ public sealed partial class ElementViewModel
         _thumbnailsCts?.Cancel();
         _thumbnailsCts?.Dispose();
         _thumbnailsCts = null;
+    }
+
+    private void CancelScrollThumbnailsLoading()
+    {
+        _scrollThumbnailsCts?.Cancel();
+        _scrollThumbnailsCts?.Dispose();
+        _scrollThumbnailsCts = null;
     }
 
     private async void UpdateThumbnailsAsync()
@@ -222,9 +247,7 @@ public sealed partial class ElementViewModel
     private void ClearVisibleThumbnails()
     {
         CancelThumbnailsLoading();
-        _scrollThumbnailsCts?.Cancel();
-        _scrollThumbnailsCts?.Dispose();
-        _scrollThumbnailsCts = null;
+        CancelScrollThumbnailsLoading();
         _lastVisibleStart = _lastVisibleEnd = -1;
         ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
         VideoThumbnailCount.Value = 0;
@@ -337,8 +360,7 @@ public sealed partial class ElementViewModel
         if (missing == null || missing.Count == 0)
             return;
 
-        _scrollThumbnailsCts?.Cancel();
-        _scrollThumbnailsCts?.Dispose();
+        CancelScrollThumbnailsLoading();
         _scrollThumbnailsCts = new CancellationTokenSource();
         var ct = _scrollThumbnailsCts.Token;
 
@@ -373,6 +395,7 @@ public sealed partial class ElementViewModel
         if (width <= 0)
             return;
 
+        CancelScrollThumbnailsLoading();
         await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (!ct.IsCancellationRequested)
@@ -391,8 +414,8 @@ public sealed partial class ElementViewModel
     private async Task StreamVideoThumbnailsAsync(IThumbnailsProvider provider, int width, int start, int end, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        const int MaxThumbnailHeight = 25;
-        await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(provider, width, MaxThumbnailHeight, ct, start, end))
+        int maxThumbnailHeight = Math.Max(1, (int)Math.Round(Timeline.LayerRowHeight.Value));
+        await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(provider, width, maxThumbnailHeight, ct, start, end))
         {
             if (ct.IsCancellationRequested)
             {

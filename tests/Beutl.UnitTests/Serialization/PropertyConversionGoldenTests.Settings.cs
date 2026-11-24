@@ -47,6 +47,7 @@ public partial class PropertyConversionGoldenTests
                 SeekOnTimelineClick = { Value = false },
                 FrameCacheMaxSize = { Value = 512 },
                 FrameCacheScale = { Value = FrameCacheConfigScale.Original },
+                TimelineLayerSize = { Value = TimelineLayerSize.Large },
                 TimelineAutoScrollMode = { Value = TimelineAutoScrollMode.AlwaysFollow },
                 ToneMappingMode = { Value = UIToneMappingOperator.ACES },
                 ToneMappingExposure = { Value = 0.5f },

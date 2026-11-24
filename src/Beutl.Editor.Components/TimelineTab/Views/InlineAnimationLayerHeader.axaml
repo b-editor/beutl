@@ -8,14 +8,15 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
+             Height="{CompiledBinding Timeline.LayerRowHeight.Value}"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Top"
-             VerticalContentAlignment="Top"
+             VerticalContentAlignment="Stretch"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="vm:InlineAnimationLayerViewModel"
              mc:Ignorable="d">
-    <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="14,Auto,Auto,Auto,*">
+    <Grid ColumnDefinitions="14,Auto,Auto,Auto,*">
 
         <Border x:Name="border"
                 Grid.Column="1"
@@ -33,6 +34,8 @@
 
         <Button Grid.Column="2"
                 Width="22"
+                Height="{DynamicResource LayerHeight}"
+                VerticalAlignment="Center"
                 usage:UsageTracking.Feature="Timeline.Close"
                 Command="{CompiledBinding Close}"
                 Theme="{StaticResource LayerHeaderButtonTheme}">
@@ -41,6 +44,8 @@
 
         <Button Grid.Column="3"
                 Width="30"
+                Height="{DynamicResource LayerHeight}"
+                VerticalAlignment="Center"
                 usage:UsageTracking.Feature="Timeline.OpenTab"
                 Click="OpenTab_Click"
                 Theme="{StaticResource LayerHeaderButtonTheme}">

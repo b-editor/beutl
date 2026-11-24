@@ -22,7 +22,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 {
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabViewModel>();
     private readonly CompositeDisposable _disposables = [];
-    private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
+    private readonly Subject<LayerHeaderViewModel?> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
     private readonly Dictionary<PropertyPair, IDisposable> _inlinePairs = [];
@@ -59,7 +59,14 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
             Scene, _editorClock, Scale, ViewportWidth, _disposables);
 
-        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, _disposables);
+        EditorConfig editorConfig = editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig;
+        TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorConfig, _disposables);
+        LayerRowHeight = editorConfig.TimelineLayerSize.GetObservable()
+            .Select(size => Enum.IsDefined(size) ? (double)size : FrameNumberHelper.LayerHeight)
+            .DistinctUntilChanged()
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        LayerRowHeight.Skip(1).Subscribe(ApplyLayerRowHeight).AddTo(_disposables);
 
         AddElement.WithSubscribe(AddElementCore).AddTo(_disposables);
 
@@ -127,8 +134,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         CloseAllGaps = new ReactiveCommandSlim().WithSubscribe(CloseAllSceneGaps).DisposeWith(_disposables);
         GoToNextGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: true)).DisposeWith(_disposables);
         GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false)).DisposeWith(_disposables);
-        EditorConfig editorConfig = EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig;
-
         AutoAdjustSceneDuration = editorConfig.AutoAdjustSceneDuration.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -300,6 +305,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public IObservable<float> Scale { get; }
 
+    public ReadOnlyReactivePropertySlim<double> LayerRowHeight { get; }
+
     public IReactiveProperty<TimelineOptions> Options { get; }
 
     public IReadOnlyReactiveProperty<MediaTime> CurrentTime { get; }
@@ -409,7 +416,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
+    // A null header means all rows changed height.
+    public IObservable<LayerHeaderViewModel?> LayerHeightChanged => _layerHeightChanged;
 
     public IObservable<System.Reactive.Unit> CanExecuteChanged => _canExecuteChangedSubject;
 

@@ -122,6 +122,16 @@
                                               Theme="{StaticResource CompactToggleSwitchStyle}" />
                             </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.TimelineLayerSize}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding TimelineLayerSize.Value}">
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.TimelineLayerSize_Small}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.TimelineLayerSize_Medium}" />
+                                    <ComboBoxItem Content="{x:Static lang:SettingsStrings.TimelineLayerSize_Large}" />
+                                </ComboBox>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
                     </ctrls:OptionsGroupPanel>
                 </Border>
 

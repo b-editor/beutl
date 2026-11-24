@@ -350,7 +350,7 @@
                     </ui:FAMenuFlyout>
                 </Panel.ContextFlyout>
 
-                <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{DynamicResource LayerHeight}" />
+                <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{CompiledBinding LayerRowHeight.Value}" />
 
                 <ecv:BpmGridOverlay x:Name="BpmGrid"
                                     VerticalAlignment="Stretch"
