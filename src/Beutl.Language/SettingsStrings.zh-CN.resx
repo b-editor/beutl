@@ -330,6 +330,22 @@
     <value>在时间轴片段上显示胶片缩略图和波形。关闭后，可从片段的右键菜单中逐个开启；这样可使包含大量媒体的时间轴缩放保持流畅。</value>
     <comment />
   </data>
+  <data name="TimelineLayerSize" xml:space="preserve">
+    <value>时间轴图层高度</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Small" xml:space="preserve">
+    <value>小</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Medium" xml:space="preserve">
+    <value>中</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Large" xml:space="preserve">
+    <value>大</value>
+    <comment />
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>图形</value>
     <comment />

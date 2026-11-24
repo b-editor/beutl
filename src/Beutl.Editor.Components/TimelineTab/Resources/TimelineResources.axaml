@@ -3,7 +3,7 @@
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:pe="using:Beutl.Controls.PropertyEditors">
     <!--
-        Elements are only LayerHeight tall and sit edge to edge, so the shell's ControlCornerRadius
+        Timeline elements sit edge to edge, so the shell's ControlCornerRadius
         reads as too round on them. This is a deliberate exception, not a spot that fell out of sync.
     -->
     <CornerRadius x:Key="TimelineElementCornerRadius">4</CornerRadius>
@@ -11,6 +11,9 @@
     <ControlTheme x:Key="LayerHeaderColorPickerButtonTheme"
                   TargetType="pe:SimpleColorPickerButton"
                   BasedOn="{StaticResource {x:Type pe:SimpleColorPickerButton}}">
+        <Setter Property="Height" Value="{DynamicResource LayerHeight}" />
+        <Setter Property="MinHeight" Value="{DynamicResource LayerHeight}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Button Name="PART_Button"
@@ -61,11 +64,11 @@
     <ControlTheme x:Key="ElementNameTextBoxTheme"
                   TargetType="TextBox"
                   BasedOn="{StaticResource {x:Type TextBox}}">
-        <!-- Padding.Left must equal the display label's margin, or renaming shifts the name.
+        <!-- Match the display label's left and bottom margins so renaming keeps the name in place.
              The base theme's focus ring is left alone: it draws inside PART_BorderElement and so
              does not move the content. -->
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding" Value="6,0,6,0" />
+        <Setter Property="Padding" Value="6,0,6,1" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </ControlTheme>
 
@@ -85,8 +88,8 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="MinWidth" Value="{DynamicResource LayerHeight}" />
-        <Setter Property="MinHeight" Value="{DynamicResource LayerHeight}" />
-        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Height" Value="{DynamicResource LayerHeight}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
