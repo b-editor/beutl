@@ -7,7 +7,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class BpmGridOverlay : Control
+public sealed partial class BpmGridOverlay : Control
 {
     public static readonly DirectProperty<BpmGridOverlay, Vector> OffsetProperty
         = AvaloniaProperty.RegisterDirect<BpmGridOverlay, Vector>(
@@ -24,12 +24,6 @@ public sealed class BpmGridOverlay : Control
     public static readonly DirectProperty<BpmGridOverlay, BpmGridOptions> BpmOptionsProperty
         = AvaloniaProperty.RegisterDirect<BpmGridOverlay, BpmGridOptions>(
             nameof(BpmOptions), o => o.BpmOptions, (o, v) => o.BpmOptions = v);
-
-    public static readonly StyledProperty<IBrush?> BeatBrushProperty
-        = AvaloniaProperty.Register<BpmGridOverlay, IBrush?>(nameof(BeatBrush));
-
-    public static readonly StyledProperty<IBrush?> SubdivisionBrushProperty
-        = AvaloniaProperty.Register<BpmGridOverlay, IBrush?>(nameof(SubdivisionBrush));
 
     private Vector _offset;
     private Size _viewport;
@@ -79,17 +73,11 @@ public sealed class BpmGridOverlay : Control
         set => SetAndRaise(BpmOptionsProperty, ref _bpmOptions, value);
     }
 
-    public IBrush? BeatBrush
-    {
-        get => GetValue(BeatBrushProperty);
-        set => SetValue(BeatBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? BeatBrush { get; set; }
 
-    public IBrush? SubdivisionBrush
-    {
-        get => GetValue(SubdivisionBrushProperty);
-        set => SetValue(SubdivisionBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? SubdivisionBrush { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

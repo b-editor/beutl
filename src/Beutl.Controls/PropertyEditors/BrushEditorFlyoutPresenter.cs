@@ -10,26 +10,10 @@ using Avalonia.Media.Immutable;
 using Beutl.Reactive;
 using FluentAvalonia.UI.Media;
 
-
 namespace Beutl.Controls.PropertyEditors;
 
-public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
+public partial class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
-    public static readonly StyledProperty<Brush?> BrushProperty =
-        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Brush?>(nameof(Brush));
-
-    public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
-        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Media.Brush?>(nameof(OriginalBrush));
-
-    public static readonly StyledProperty<GradientStops?> BackgroundStopsProperty =
-        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, GradientStops?>(nameof(BackgroundStops));
-
-    public static readonly StyledProperty<string?> DrawableNameProperty =
-        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, string?>(nameof(DrawableName));
-
-    public static readonly StyledProperty<bool> CanEditDrawableProperty =
-        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, bool>(nameof(CanEditDrawable), false);
-
     private readonly CompositeDisposable _disposables = [];
     private readonly SerialDisposable _paletteConnection = new();
     private const string Palette = ":palette";
@@ -69,35 +53,20 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     public event EventHandler? EditDrawableClicked;
 
-    public Brush? Brush
-    {
-        get => GetValue(BrushProperty);
-        set => SetValue(BrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Brush? Brush { get; set; }
 
-    public Media.Brush? OriginalBrush
-    {
-        get => GetValue(OriginalBrushProperty);
-        set => SetValue(OriginalBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Media.Brush? OriginalBrush { get; set; }
 
-    public GradientStops? BackgroundStops
-    {
-        get => GetValue(BackgroundStopsProperty);
-        set => SetValue(BackgroundStopsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial GradientStops? BackgroundStops { get; set; }
 
-    public string? DrawableName
-    {
-        get => GetValue(DrawableNameProperty);
-        set => SetValue(DrawableNameProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? DrawableName { get; set; }
 
-    public bool CanEditDrawable
-    {
-        get => GetValue(CanEditDrawableProperty);
-        set => SetValue(CanEditDrawableProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = false)]
+    public partial bool CanEditDrawable { get; set; }
 
     // Whether a stop, or the color picker's spectrum, sliders or previewer, is being dragged.
     public bool IsDragging => _gradientStopsSlider?.IsDragging == true || Content is SimpleColorPicker { IsDragging: true };

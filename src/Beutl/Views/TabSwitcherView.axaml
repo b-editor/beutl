@@ -41,8 +41,9 @@
         <Border Background="Transparent" PointerPressed="OnBackdropPointerPressed" />
         <Border x:Name="SwitcherContainer"
                 Classes="OverlayCard"
-                Margin="16" Padding="12"
+                Margin="16" Padding="0"
                 HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border Classes="OverlayCardSurface" Padding="12">
             <Panel>
                 <Grid ColumnDefinitions="0.9*,Auto,1.1*" ColumnSpacing="12"
                       IsVisible="{Binding !IsCreating.Value}">
@@ -90,6 +91,7 @@
                              AutomationProperties.Name="{x:Static lang:Strings.TabSwitcher_Create}" />
                 </Grid>
             </Panel>
+            </Border>
         </Border>
     </Panel>
 </UserControl>

@@ -48,7 +48,8 @@ internal static partial class NativeTimelineTestHost
         int exitCode = 1;
         try
         {
-            var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime)
+                return;
             Window window = lifetime.MainWindow!;
             var handle = (IMacOSTopLevelPlatformHandle)window.TryGetPlatformHandle()!;
             SetAlpha(handle.NSWindow, Selector("setAlphaValue:"), 0);

@@ -48,7 +48,8 @@ internal static partial class NativeBrowserFrameTestHost
 
     private static async void CheckNavigation(string scenario)
     {
-        var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime)
+            return;
         Window? window = null;
         int exitCode = 1;
         try

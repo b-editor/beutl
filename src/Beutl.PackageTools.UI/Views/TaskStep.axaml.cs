@@ -9,15 +9,6 @@ namespace Beutl.PackageTools.UI.Views;
 // The step badge, the line and the title of an install task. Double-clicking the title shows or hides the details.
 public partial class TaskStep : UserControl
 {
-    public static readonly StyledProperty<int> StepProperty =
-        AvaloniaProperty.Register<TaskStep, int>(nameof(Step));
-
-    public static readonly StyledProperty<string?> TitleProperty =
-        AvaloniaProperty.Register<TaskStep, string?>(nameof(Title));
-
-    public static readonly StyledProperty<Control?> DetailsProperty =
-        AvaloniaProperty.Register<TaskStep, Control?>(nameof(Details));
-
     private bool _doubleClick;
 
     public TaskStep()
@@ -25,23 +16,14 @@ public partial class TaskStep : UserControl
         InitializeComponent();
     }
 
-    public int Step
-    {
-        get => GetValue(StepProperty);
-        set => SetValue(StepProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial int Step { get; set; }
 
-    public string? Title
-    {
-        get => GetValue(TitleProperty);
-        set => SetValue(TitleProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? Title { get; set; }
 
-    public Control? Details
-    {
-        get => GetValue(DetailsProperty);
-        set => SetValue(DetailsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Control? Details { get; set; }
 
     private void OnTaskNamePointerReleased(object? sender, PointerReleasedEventArgs e)
     {

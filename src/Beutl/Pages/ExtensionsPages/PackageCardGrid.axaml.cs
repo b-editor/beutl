@@ -14,20 +14,14 @@ namespace Beutl.Pages.ExtensionsPages;
 // the Show more card runs More to load the next page.
 public sealed partial class PackageCardGrid : ItemsRepeater
 {
-    public static readonly StyledProperty<AsyncReactiveCommand?> MoreProperty =
-        AvaloniaProperty.Register<PackageCardGrid, AsyncReactiveCommand?>(nameof(More));
-
     public PackageCardGrid()
     {
         InitializeComponent();
         AddHandler(Button.ClickEvent, OnCardClick);
     }
 
-    public AsyncReactiveCommand? More
-    {
-        get => GetValue(MoreProperty);
-        set => SetValue(MoreProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial AsyncReactiveCommand? More { get; set; }
 
     private void OnCardClick(object? sender, RoutedEventArgs e)
     {

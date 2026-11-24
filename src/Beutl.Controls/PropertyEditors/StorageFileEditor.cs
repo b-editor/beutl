@@ -9,11 +9,8 @@ using Beutl.Extensibility;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class StorageFileEditor : StringEditorBase, IValueEditorControl<FileInfo?>
+public partial class StorageFileEditor : StringEditorBase, IValueEditorControl<FileInfo?>
 {
-    public static readonly StyledProperty<FilePickerOpenOptions> OpenOptionsProperty =
-        AvaloniaProperty.Register<StorageFileEditor, FilePickerOpenOptions>(nameof(OpenOptions));
-
     public static readonly DirectProperty<StorageFileEditor, FileInfo?> ValueProperty =
         AvaloniaProperty.RegisterDirect<StorageFileEditor, FileInfo?>(
             nameof(Value),
@@ -35,11 +32,8 @@ public class StorageFileEditor : StringEditorBase, IValueEditorControl<FileInfo?
         AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
-    public FilePickerOpenOptions OpenOptions
-    {
-        get => GetValue(OpenOptionsProperty);
-        set => SetValue(OpenOptionsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial FilePickerOpenOptions OpenOptions { get; set; }
 
     public FileInfo? Value
     {

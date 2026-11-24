@@ -19,7 +19,8 @@ internal static partial class NativeTimelineTestHost
     // requested WindowState; also check the native style mask or actual fullscreen dimensions.
     private static async void RunPresentation()
     {
-        var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime)
+            return;
         Window? owner = null;
         PlayerView? view = null;
         int exitCode = 1;

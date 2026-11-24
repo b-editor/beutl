@@ -15,17 +15,11 @@ namespace Beutl.Controls;
 /// marker, under the thumb. Its tip tells the time under the pointer, and over a mark the marker's name and time, and a
 /// press on a mark moves to the marker's time exactly.
 /// </summary>
-public sealed class PlayerSeekBar : Slider
+public sealed partial class PlayerSeekBar : Slider
 {
-    public static readonly StyledProperty<IReadOnlyList<PlayerMarkerEntry>?> MarkersProperty =
-        AvaloniaProperty.Register<PlayerSeekBar, IReadOnlyList<PlayerMarkerEntry>?>(nameof(Markers));
-
     public static readonly StyledProperty<Rational> FrameRateProperty =
         AvaloniaProperty.Register<PlayerSeekBar, Rational>(
             nameof(FrameRate), new Rational(30), validate: rate => rate is { Numerator: > 0, Denominator: > 0 });
-
-    public static readonly StyledProperty<TimeDisplayFormat> TimeDisplayFormatProperty =
-        AvaloniaProperty.Register<PlayerSeekBar, TimeDisplayFormat>(nameof(TimeDisplayFormat));
 
     private const double TrackThickness = 4;
     private const double MarkWidth = 2;
@@ -60,11 +54,8 @@ public sealed class PlayerSeekBar : Slider
     }
 
     /// <summary>Gets or sets the markers to mark on the bar. Those without a time, or outside the range, get none.</summary>
-    public IReadOnlyList<PlayerMarkerEntry>? Markers
-    {
-        get => GetValue(MarkersProperty);
-        set => SetValue(MarkersProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IReadOnlyList<PlayerMarkerEntry>? Markers { get; set; }
 
     /// <summary>Gets or sets the rate that the tip counts frames at. It must be positive.</summary>
     public Rational FrameRate
@@ -74,11 +65,8 @@ public sealed class PlayerSeekBar : Slider
     }
 
     /// <summary>Gets or sets how the tip writes times, which is as the player writes the current time.</summary>
-    public TimeDisplayFormat TimeDisplayFormat
-    {
-        get => GetValue(TimeDisplayFormatProperty);
-        set => SetValue(TimeDisplayFormatProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial TimeDisplayFormat TimeDisplayFormat { get; set; }
 
     public override void Render(DrawingContext context)
     {

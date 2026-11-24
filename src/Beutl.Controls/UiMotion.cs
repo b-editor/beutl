@@ -8,7 +8,7 @@ namespace Beutl.Controls;
 
 // Short UI motion driven by the frames themselves: each frame writes the value for its own timestamp, so an animation
 // never starts part-way through after a slow layout, and what it leaves behind is an ordinary local value.
-public static class UiMotion
+public static partial class UiMotion
 {
     public static readonly TimeSpan Fast = TimeSpan.FromMilliseconds(83);
     public static readonly TimeSpan Normal = TimeSpan.FromMilliseconds(167);
@@ -18,11 +18,6 @@ public static class UiMotion
 
     // How far, in device-independent pixels, something that appears moves into place.
     public const double RevealOffset = 4;
-
-    // Whether what appears inside moves into place or only fades. Off where something laid out beside it stays put
-    // while it moves, such as the ports on a node's edge beside the node's rows.
-    public static readonly AttachedProperty<bool> SlidesProperty =
-        AvaloniaProperty.RegisterAttached<Visual, bool>("Slides", typeof(UiMotion), defaultValue: true, inherits: true);
 
     private static readonly ConditionalWeakTable<Visual, object> s_runs = new();
     private static readonly ConditionalWeakTable<Visual, TranslateTransform> s_slides = new();
@@ -109,9 +104,10 @@ public static class UiMotion
             s_slides.AddOrUpdate(target, slide);
     }
 
-    public static bool GetSlides(Visual visual) => visual.GetValue(SlidesProperty);
-
-    public static void SetSlides(Visual visual, bool value) => visual.SetValue(SlidesProperty, value);
+    // Whether what appears inside moves into place or only fades. Off where something laid out beside it stays put
+    // while it moves, such as the ports on a node's edge beside the node's rows.
+    [GeneratedAttachedProperty(DefaultValue = true, Inherits = true)]
+    public static partial bool GetSlides(Visual visual);
 
     private static bool IsCurrent(Visual target, object run)
     {

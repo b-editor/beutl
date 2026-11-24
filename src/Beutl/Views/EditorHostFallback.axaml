@@ -2,7 +2,6 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:beutl="using:Beutl"
-             xmlns:converters="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -87,7 +86,7 @@
                                                Height="32"
                                                IsIndeterminate="{CompiledBinding $self.IsVisible}">
                                 <ui:FAProgressRing.IsVisible>
-                                    <MultiBinding Converter="{x:Static converters:EqualAllConverter.Instance}">
+                                    <MultiBinding Converter="{x:Static ObjectConverters.AreAllEqual}">
                                         <xaml:CompiledBindingExtension Path="FullName" />
                                         <xaml:CompiledBindingExtension Path="$parent[local:EditorHostFallback].OpeningFile" />
                                     </MultiBinding>
@@ -156,7 +155,7 @@
                                        HorizontalAlignment="Right"
                                        IsIndeterminate="{CompiledBinding $self.IsVisible}">
                         <ui:FAProgressRing.IsVisible>
-                            <MultiBinding Converter="{x:Static converters:EqualAllConverter.Instance}">
+                            <MultiBinding Converter="{x:Static ObjectConverters.AreAllEqual}">
                                 <xaml:CompiledBindingExtension Path="FullName" />
                                 <xaml:CompiledBindingExtension Path="$parent[local:EditorHostFallback].OpeningFile" />
                             </MultiBinding>

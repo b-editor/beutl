@@ -7,11 +7,8 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
-public sealed class InlineEasingGraphControl : Control
+public sealed partial class InlineEasingGraphControl : Control
 {
-    public static readonly StyledProperty<IBrush?> BrushProperty =
-        AvaloniaProperty.Register<InlineEasingGraphControl, IBrush?>(nameof(Brush), Brushes.White);
-
     private const double VerticalPadding = 1.0;
 
     private readonly Pen _pen = new()
@@ -22,6 +19,9 @@ public sealed class InlineEasingGraphControl : Control
     };
 
     private CompositeDisposable? _subscriptions;
+
+    public static readonly StyledProperty<IBrush?> BrushProperty =
+        AvaloniaProperty.Register<InlineEasingGraphControl, IBrush?>(nameof(Brush), Brushes.White);
 
     static InlineEasingGraphControl()
     {

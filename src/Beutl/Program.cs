@@ -73,7 +73,12 @@ internal static class Program
             .UseReactiveUI(builder => builder.WithMainThreadScheduler(UiThreadScheduler.Instance))
             .With(new Win32PlatformOptions()
             {
-                WinUICompositionBackdropCornerRadius = 8f
+                WinUICompositionBackdropCornerRadius = 8f,
+                UseCompositionSwapChain = true
+            })
+            .With(new X11PlatformOptions()
+            {
+                UseXShmFramebuffer = true
             })
             .With(UiFonts.CreateFontManagerOptions(configuration.ViewConfig.UICulture.Value))
             .AfterSetup(_ => Telemetry.CompressLogFiles())

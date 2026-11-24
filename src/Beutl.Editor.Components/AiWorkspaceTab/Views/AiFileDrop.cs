@@ -25,11 +25,8 @@ internal enum AiFileDropTarget
     Captions,
 }
 
-internal static class AiFileDrop
+internal static partial class AiFileDrop
 {
-    public static readonly AttachedProperty<AiFileDropTarget> TargetProperty =
-        AvaloniaProperty.RegisterAttached<Control, AiFileDropTarget>("Target", typeof(AiFileDrop));
-
     static AiFileDrop()
     {
         TargetProperty.Changed.AddClassHandler<Control>((control, change) =>
@@ -60,9 +57,8 @@ internal static class AiFileDrop
         });
     }
 
-    public static AiFileDropTarget GetTarget(Control control) => control.GetValue(TargetProperty);
-
-    public static void SetTarget(Control control, AiFileDropTarget value) => control.SetValue(TargetProperty, value);
+    [GeneratedAttachedProperty]
+    public static partial AiFileDropTarget GetTarget(Control control);
 
     private static void OnDragOver(object? sender, DragEventArgs e)
     {

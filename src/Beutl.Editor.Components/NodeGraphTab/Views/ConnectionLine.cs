@@ -8,14 +8,8 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
-public sealed class ConnectionLine : Line
+public sealed partial class ConnectionLine : Line
 {
-    public static readonly StyledProperty<InputPortViewModel?> InputPortProperty
-        = AvaloniaProperty.Register<ConnectionLine, InputPortViewModel?>(nameof(InputPort));
-    public static readonly StyledProperty<OutputPortViewModel?> OutputPortProperty
-        = AvaloniaProperty.Register<ConnectionLine, OutputPortViewModel?>(nameof(OutputPort));
-    public static readonly StyledProperty<ConnectionViewModel?> ConnectionViewModelProperty
-        = AvaloniaProperty.Register<ConnectionLine, ConnectionViewModel?>(nameof(ConnectionViewModel));
     private IDisposable? _strokeBinding;
 
     static ConnectionLine()
@@ -23,23 +17,14 @@ public sealed class ConnectionLine : Line
         StrokeThicknessProperty.OverrideDefaultValue<ConnectionLine>(3);
     }
 
-    public InputPortViewModel? InputPort
-    {
-        get => GetValue(InputPortProperty);
-        set => SetValue(InputPortProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial InputPortViewModel? InputPort { get; set; }
 
-    public OutputPortViewModel? OutputPort
-    {
-        get => GetValue(OutputPortProperty);
-        set => SetValue(OutputPortProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial OutputPortViewModel? OutputPort { get; set; }
 
-    public ConnectionViewModel? ConnectionViewModel
-    {
-        get => GetValue(ConnectionViewModelProperty);
-        set => SetValue(ConnectionViewModelProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial ConnectionViewModel? ConnectionViewModel { get; set; }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {

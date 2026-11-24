@@ -8,26 +8,8 @@ namespace Beutl.Editor.Components.Helpers;
 // The frame and handles of the panner and equalizer canvases, so both audio canvases look alike. The
 // brushes come from the theme (AudioCanvasResources.axaml), so the canvases follow the light, dark and
 // high-contrast themes, a theme an extension adds, and the accent color.
-public abstract class AudioCanvas : Control
+public abstract partial class AudioCanvas : Control
 {
-    public static readonly StyledProperty<IBrush?> BackgroundProperty =
-        Border.BackgroundProperty.AddOwner<AudioCanvas>();
-
-    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
-        Border.BorderBrushProperty.AddOwner<AudioCanvas>();
-
-    public static readonly StyledProperty<IBrush?> ForegroundProperty =
-        TextElement.ForegroundProperty.AddOwner<AudioCanvas>();
-
-    public static readonly StyledProperty<IBrush?> LineBrushProperty =
-        AvaloniaProperty.Register<AudioCanvas, IBrush?>(nameof(LineBrush));
-
-    public static readonly StyledProperty<IBrush?> HandleBrushProperty =
-        AvaloniaProperty.Register<AudioCanvas, IBrush?>(nameof(HandleBrush));
-
-    public static readonly StyledProperty<IBrush?> AccentBrushProperty =
-        AvaloniaProperty.Register<AudioCanvas, IBrush?>(nameof(AccentBrush));
-
     private Pen? _borderPen;
     private Pen? _linePen;
     private Pen? _outlinePen;
@@ -38,46 +20,28 @@ public abstract class AudioCanvas : Control
             LineBrushProperty, HandleBrushProperty, AccentBrushProperty);
     }
 
-    public IBrush? Background
-    {
-        get => GetValue(BackgroundProperty);
-        set => SetValue(BackgroundProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial IBrush? Background { get; set; }
 
     // The outline of the frame.
-    public IBrush? BorderBrush
-    {
-        get => GetValue(BorderBrushProperty);
-        set => SetValue(BorderBrushProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(Border))]
+    public partial IBrush? BorderBrush { get; set; }
 
     // The labels and the outline of the handles.
-    public IBrush? Foreground
-    {
-        get => GetValue(ForegroundProperty);
-        set => SetValue(ForegroundProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(TextElement))]
+    public partial IBrush? Foreground { get; set; }
 
     // The axes and guides inside the frame.
-    public IBrush? LineBrush
-    {
-        get => GetValue(LineBrushProperty);
-        set => SetValue(LineBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? LineBrush { get; set; }
 
     // The speakers and the handles that are not active.
-    public IBrush? HandleBrush
-    {
-        get => GetValue(HandleBrushProperty);
-        set => SetValue(HandleBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? HandleBrush { get; set; }
 
     // The active handle.
-    public IBrush? AccentBrush
-    {
-        get => GetValue(AccentBrushProperty);
-        set => SetValue(AccentBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? AccentBrush { get; set; }
 
     protected Pen LinePen => GetPen(ref _linePen, LineBrush);
 

@@ -9,14 +9,8 @@ using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
-public class HistogramControl : HdrScopeControlBase
+public partial class HistogramControl : HdrScopeControlBase
 {
-    public static readonly DirectProperty<HistogramControl, HistogramMode> ModeProperty =
-        AvaloniaProperty.RegisterDirect<HistogramControl, HistogramMode>(
-            nameof(Mode), o => o.Mode, (o, v) => o.Mode = v, HistogramMode.Overlay);
-
-    private HistogramMode _mode = HistogramMode.Overlay;
-
     // Cached histogram bin arrays (reused across frames to avoid per-frame allocation)
     // Thread safety: _renderLock in ScopeControlBase serializes RenderScope calls
     private readonly int[] _rHist = new int[256];
@@ -34,11 +28,8 @@ public class HistogramControl : HdrScopeControlBase
 
     protected override Orientation DragAxis => Orientation.Horizontal;
 
-    public HistogramMode Mode
-    {
-        get => _mode;
-        set => SetAndRaise(ModeProperty, ref _mode, value);
-    }
+    [GeneratedDirectProperty(UnsetValue = HistogramMode.Overlay)]
+    public partial HistogramMode Mode { get; set; } = HistogramMode.Overlay;
 
     protected override string[]? VerticalAxisLabels => null;
 

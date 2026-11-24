@@ -30,9 +30,6 @@ public partial class EditorHostFallback : UserControl
     private INotificationService Notifications => (DataContext as MainViewModel)?.AppServices.GetService<INotificationService>()
         ?? Beutl.Controls.ControlNotifications.GetOrDefault(this);
 
-    public static readonly StyledProperty<string?> OpeningFileProperty =
-        AvaloniaProperty.Register<EditorHostFallback, string?>(nameof(OpeningFile));
-
     // Every picture stays decoded while the page shows (about 0.5 MiB each), and the recent list has no end, so the
     // page shows the most recent ones only. The File menu still lists them all.
     internal const int MaxShownProjects = 100;
@@ -62,11 +59,8 @@ public partial class EditorHostFallback : UserControl
     // Tests stand in for the file manager here.
     internal Func<ProcessStartInfo, Task<bool>> LaunchFileManagerAsync { get; set; } = FileManagerLauncher.LaunchAsync;
 
-    public string? OpeningFile
-    {
-        get => GetValue(OpeningFileProperty);
-        private set => SetValue(OpeningFileProperty, value);
-    }
+    [GeneratedDirectProperty]
+    public partial string? OpeningFile { get; private set; }
 
     public EditorHostFallback()
     {

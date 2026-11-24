@@ -82,6 +82,9 @@
                     <StaticResource x:Key="MainWindowBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" />
                     <!--  The border theme matches this to its dock splitter.  -->
                     <SolidColorBrush x:Key="TitleBarBottomBorderBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
+                    <SolidColorBrush x:Key="OverlayCardBackgroundBrush" Color="#CCF3F3F3" />
+                    <BlurEffect x:Key="OverlayCardBackdropEffect" Radius="24" />
+                    <BlurEffect x:Key="PreviewOverlayBackdropEffect" Radius="12" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <ResourceDictionary.MergedDictionaries>
@@ -90,8 +93,18 @@
                     </ResourceDictionary.MergedDictionaries>
                     <SolidColorBrush x:Key="MainWindowBackground" Color="#FF111111" />
                     <SolidColorBrush x:Key="TitleBarBottomBorderBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
+                    <SolidColorBrush x:Key="OverlayCardBackgroundBrush" Color="#CC161616" />
+                    <BlurEffect x:Key="OverlayCardBackdropEffect" Radius="24" />
+                    <BlurEffect x:Key="PreviewOverlayBackdropEffect" Radius="12" />
                 </ResourceDictionary>
-                <styling:HighContrastTextOnAccentResources x:Key="{x:Static sty:FluentAvaloniaTheme.HighContrastTheme}" />
+                <ResourceDictionary x:Key="{x:Static sty:FluentAvaloniaTheme.HighContrastTheme}">
+                    <ResourceDictionary.MergedDictionaries>
+                        <styling:HighContrastTextOnAccentResources />
+                    </ResourceDictionary.MergedDictionaries>
+                    <StaticResource x:Key="OverlayCardBackgroundBrush" ResourceKey="SolidBackgroundFillColorBaseBrush" />
+                    <BlurEffect x:Key="OverlayCardBackdropEffect" Radius="0" />
+                    <BlurEffect x:Key="PreviewOverlayBackdropEffect" Radius="0" />
+                </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
             <x:Double x:Key="LayerHeight">25</x:Double>
@@ -171,11 +184,18 @@
     </Style>
 
     <Style Selector="Border.OverlayCard">
-        <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorBaseBrush}" />
+        <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
         <Setter Property="BoxShadow" Value="0 8 32 0 #40000000" />
+    </Style>
+
+    <Style Selector="Border.OverlayCardSurface">
+        <Setter Property="Background" Value="{DynamicResource OverlayCardBackgroundBrush}" />
+        <Setter Property="BackdropEffect" Value="{DynamicResource OverlayCardBackdropEffect}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+        <Setter Property="ClipToBounds" Value="True" />
     </Style>
 
     <Style Selector=":is(InputElement).transparent">

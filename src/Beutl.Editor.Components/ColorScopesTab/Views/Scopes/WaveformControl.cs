@@ -12,17 +12,11 @@ using VectorF = System.Numerics.Vector<float>;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
-public class WaveformControl : HdrScopeControlBase
+public partial class WaveformControl : HdrScopeControlBase
 {
-    public static readonly DirectProperty<WaveformControl, WaveformMode> ModeProperty =
-        AvaloniaProperty.RegisterDirect<WaveformControl, WaveformMode>(
-            nameof(Mode), o => o.Mode, (o, v) => o.Mode = v, WaveformMode.Luma);
-
     private const float Thickness = 5f;
     private const float Gain = 10.0f;
     private const bool ShowGrid = true;
-
-    private WaveformMode _mode = WaveformMode.Luma;
 
     // Cached gridStrength array (invalidated on height/hdrRange change)
     private float[]? _cachedGridStrength;
@@ -41,11 +35,8 @@ public class WaveformControl : HdrScopeControlBase
 
     protected override Orientation DragAxis => Orientation.Vertical;
 
-    public WaveformMode Mode
-    {
-        get => _mode;
-        set => SetAndRaise(ModeProperty, ref _mode, value);
-    }
+    [GeneratedDirectProperty(UnsetValue = WaveformMode.Luma)]
+    public partial WaveformMode Mode { get; set; } = WaveformMode.Luma;
 
     protected override string[]? VerticalAxisLabels =>
         HdrRange is > 0.99f and < 1.01f

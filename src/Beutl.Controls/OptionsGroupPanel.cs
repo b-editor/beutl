@@ -7,14 +7,8 @@ namespace Beutl.Controls;
 /// <summary>
 /// Stacks settings rows and separates visible rows, including generated item containers.
 /// </summary>
-public sealed class OptionsGroupPanel : StackPanel
+public sealed partial class OptionsGroupPanel : StackPanel
 {
-    public static readonly AttachedProperty<bool> IsGroupedProperty =
-        AvaloniaProperty.RegisterAttached<OptionsGroupPanel, Control, bool>("IsGrouped", inherits: true);
-
-    public static readonly StyledProperty<IBrush?> SeparatorBrushProperty =
-        AvaloniaProperty.Register<OptionsGroupPanel, IBrush?>(nameof(SeparatorBrush));
-
     private double[] _separatorPositions = [];
     private readonly SeparatorLayer _separatorLayer;
 
@@ -27,15 +21,11 @@ public sealed class OptionsGroupPanel : StackPanel
         VisualChildren.Add(_separatorLayer);
     }
 
-    public static bool GetIsGrouped(Control control) => control.GetValue(IsGroupedProperty);
+    [GeneratedAttachedProperty(Inherits = true)]
+    public static partial bool GetIsGrouped(Control control);
 
-    public static void SetIsGrouped(Control control, bool value) => control.SetValue(IsGroupedProperty, value);
-
-    public IBrush? SeparatorBrush
-    {
-        get => GetValue(SeparatorBrushProperty);
-        set => SetValue(SeparatorBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? SeparatorBrush { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

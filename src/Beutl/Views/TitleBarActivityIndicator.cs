@@ -13,26 +13,8 @@ namespace Beutl.Views;
 // The status button's icon. It shows the Pulse icon while nothing runs and one animation per kind of task
 // while tasks run, and the tasks take turns when several run at once. The animations are drawn in an 18-px box,
 // as the progress ring before them was.
-public sealed class TitleBarActivityIndicator : Control
+public sealed partial class TitleBarActivityIndicator : Control
 {
-    public static readonly StyledProperty<TitleBarActivities> ActivitiesProperty =
-        AvaloniaProperty.Register<TitleBarActivityIndicator, TitleBarActivities>(nameof(Activities));
-
-    public static readonly StyledProperty<double?> UpdateProgressProperty =
-        AvaloniaProperty.Register<TitleBarActivityIndicator, double?>(nameof(UpdateProgress));
-
-    public static readonly StyledProperty<bool> IsUpdateInstallingProperty =
-        AvaloniaProperty.Register<TitleBarActivityIndicator, bool>(nameof(IsUpdateInstalling));
-
-    public static readonly StyledProperty<IBrush?> ForegroundProperty =
-        TextElement.ForegroundProperty.AddOwner<TitleBarActivityIndicator>();
-
-    public static readonly StyledProperty<IBrush?> AccentProperty =
-        AvaloniaProperty.Register<TitleBarActivityIndicator, IBrush?>(nameof(Accent));
-
-    public static readonly StyledProperty<IBrush?> AccentLineProperty =
-        AvaloniaProperty.Register<TitleBarActivityIndicator, IBrush?>(nameof(AccentLine));
-
     // How long each task shows before the next one takes its turn, and how long a hand-over fades.
     internal const double TurnSeconds = 2.4;
     internal const double FadeSeconds = 0.3;
@@ -103,45 +85,27 @@ public sealed class TitleBarActivityIndicator : Control
         VisualChildren.Add(_pulseTrace);
     }
 
-    public TitleBarActivities Activities
-    {
-        get => GetValue(ActivitiesProperty);
-        set => SetValue(ActivitiesProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial TitleBarActivities Activities { get; set; }
 
     // From 0 to 1 while the update downloads something of known size, and null otherwise.
-    public double? UpdateProgress
-    {
-        get => GetValue(UpdateProgressProperty);
-        set => SetValue(UpdateProgressProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double? UpdateProgress { get; set; }
 
-    public bool IsUpdateInstalling
-    {
-        get => GetValue(IsUpdateInstallingProperty);
-        set => SetValue(IsUpdateInstallingProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial bool IsUpdateInstalling { get; set; }
 
-    public IBrush? Foreground
-    {
-        get => GetValue(ForegroundProperty);
-        set => SetValue(ForegroundProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(TextElement))]
+    public partial IBrush? Foreground { get; set; }
 
     // The accent for filled shapes: the dots and the update's ring.
-    public IBrush? Accent
-    {
-        get => GetValue(AccentProperty);
-        set => SetValue(AccentProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? Accent { get; set; }
 
     // The accent for the Pulse icon's thin line. The fill accent can be too dark to read as a line on the
     // dark title bar, so this takes the lighter shade made for accent text. Falls back to Accent.
-    public IBrush? AccentLine
-    {
-        get => GetValue(AccentLineProperty);
-        set => SetValue(AccentLineProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? AccentLine { get; set; }
 
     // What the indicator shows now: one task, or None for the idle icon.
     internal TitleBarActivities Shown => _shown;

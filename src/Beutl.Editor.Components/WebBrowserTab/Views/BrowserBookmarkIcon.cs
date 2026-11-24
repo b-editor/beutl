@@ -6,29 +6,18 @@ using SkiaSharp;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
-internal sealed class BrowserBookmarkIcon : Image
+internal sealed partial class BrowserBookmarkIcon : Image
 {
-    public static readonly StyledProperty<string?> PageUrlProperty =
-        AvaloniaProperty.Register<BrowserBookmarkIcon, string?>(nameof(PageUrl));
-    public static readonly StyledProperty<BrowserFaviconLoader?> LoaderProperty =
-        AvaloniaProperty.Register<BrowserBookmarkIcon, BrowserFaviconLoader?>(nameof(Loader));
-
     private CancellationTokenSource? _loading;
     private Bitmap? _bitmap;
     private bool _attached;
     internal Task Loading { get; private set; } = Task.CompletedTask;
 
-    public string? PageUrl
-    {
-        get => GetValue(PageUrlProperty);
-        set => SetValue(PageUrlProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial string? PageUrl { get; set; }
 
-    public BrowserFaviconLoader? Loader
-    {
-        get => GetValue(LoaderProperty);
-        set => SetValue(LoaderProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial BrowserFaviconLoader? Loader { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

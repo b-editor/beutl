@@ -13,17 +13,8 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public partial class PathEditorView : PathEditorViewBase
 {
-    public static readonly StyledProperty<int> SceneWidthProperty =
-        AvaloniaProperty.Register<PathEditorView, int>(nameof(SceneWidth));
-
-    public static readonly StyledProperty<double?> ViewportScaleProperty =
-        AvaloniaProperty.Register<PathEditorView, double?>(nameof(ViewportScale));
-
-    public double? ViewportScale
-    {
-        get => GetValue(ViewportScaleProperty);
-        set => SetValue(ViewportScaleProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double? ViewportScale { get; set; }
 
     public Action<Vector>? PanViewport { get; set; }
     private double _scale = 1;
@@ -45,11 +36,8 @@ public partial class PathEditorView : PathEditorViewBase
         HdrOverlay.InvalidateVisual(view);
     }
 
-    public int SceneWidth
-    {
-        get => GetValue(SceneWidthProperty);
-        set => SetValue(SceneWidthProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial int SceneWidth { get; set; }
 
     public override double Scale => _scale;
 

@@ -4,7 +4,7 @@ using Avalonia.Media.Immutable;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class TimelineOverlay : TimelineBarsControl
+public sealed partial class TimelineOverlay : TimelineBarsControl
 {
     public static readonly DirectProperty<TimelineOverlay, Vector> OffsetProperty
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, Vector>(
@@ -21,9 +21,6 @@ public sealed class TimelineOverlay : TimelineBarsControl
     public static readonly DirectProperty<TimelineOverlay, double?> SnapBarPositionProperty
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, double?>(
             nameof(SnapBarPosition), o => o.SnapBarPosition, (o, v) => o.SnapBarPosition = v);
-
-    public static readonly StyledProperty<IBrush?> SnapBarBrushProperty
-        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SnapBarBrush));
 
     private Vector _offset;
     private double? _snapBarPosition;
@@ -70,11 +67,8 @@ public sealed class TimelineOverlay : TimelineBarsControl
         set => SetAndRaise(SnapBarPositionProperty, ref _snapBarPosition, value);
     }
 
-    public IBrush? SnapBarBrush
-    {
-        get => GetValue(SnapBarBrushProperty);
-        set => SetValue(SnapBarBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? SnapBarBrush { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {

@@ -12,28 +12,17 @@ using Beutl.Reactive;
 namespace Beutl.Controls.PropertyEditors;
 
 [TemplatePart("PART_TargetPickerButton", typeof(Button))]
-public class ReferenceEditor : PropertyEditor
+public partial class ReferenceEditor : PropertyEditor
 {
-    public static readonly DirectProperty<ReferenceEditor, string?> TargetNameProperty =
-        AvaloniaProperty.RegisterDirect<ReferenceEditor, string?>(
-            nameof(TargetName),
-            o => o.TargetName,
-            (o, v) => o.TargetName = v,
-            defaultBindingMode: BindingMode.TwoWay);
-
     public static readonly RoutedEvent<RoutedEventArgs> SelectTargetRequestedEvent =
         RoutedEvent.Register<ReferenceEditor, RoutedEventArgs>(
             nameof(SelectTargetRequested),
             RoutingStrategies.Bubble);
 
-    private string? _targetName;
     private readonly CompositeDisposable _eventRevokers = new(2);
 
-    public string? TargetName
-    {
-        get => _targetName;
-        set => SetAndRaise(TargetNameProperty, ref _targetName, value);
-    }
+    [GeneratedDirectProperty(DefaultBindingMode = BindingMode.TwoWay)]
+    public partial string? TargetName { get; set; }
 
     public event EventHandler<RoutedEventArgs>? SelectTargetRequested
     {

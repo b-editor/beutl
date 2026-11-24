@@ -7,11 +7,8 @@ using Stretch = Avalonia.Media.Stretch;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
-public sealed class ThumbnailStripControl : Control
+public sealed partial class ThumbnailStripControl : Control
 {
-    public static readonly StyledProperty<int> ThumbnailCountProperty =
-        AvaloniaProperty.Register<ThumbnailStripControl, int>(nameof(ThumbnailCount));
-
     private readonly Dictionary<int, WriteableBitmap?> _thumbnails = new();
     private ScrollViewer? _scrollViewer;
     private int _lastNotifiedStart = -1;
@@ -24,11 +21,8 @@ public sealed class ThumbnailStripControl : Control
         AffectsRender<ThumbnailStripControl>(ThumbnailCountProperty);
     }
 
-    public int ThumbnailCount
-    {
-        get => GetValue(ThumbnailCountProperty);
-        set => SetValue(ThumbnailCountProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial int ThumbnailCount { get; set; }
 
     public void SetThumbnail(int index, WriteableBitmap? thumbnail)
     {

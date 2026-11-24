@@ -6,14 +6,8 @@ using Beutl.Animation.Easings;
 
 namespace Beutl.Controls;
 
-public sealed class EasingGraph : TemplatedControl
+public sealed partial class EasingGraph : TemplatedControl
 {
-    public static readonly StyledProperty<Easing?> EasingProperty
-        = AvaloniaProperty.Register<EasingGraph, Easing?>("Easing");
-
-    public static readonly StyledProperty<double> StrokeThicknessProperty
-        = AvaloniaProperty.Register<EasingGraph, double>(nameof(StrokeThickness), 2.5);
-
     private readonly Pen _pen = new()
     {
         LineJoin = PenLineJoin.Round,
@@ -25,17 +19,11 @@ public sealed class EasingGraph : TemplatedControl
         AffectsRender<EasingGraph>(EasingProperty, StrokeThicknessProperty);
     }
 
-    public Easing? Easing
-    {
-        get => GetValue(EasingProperty);
-        set => SetValue(EasingProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Easing? Easing { get; set; }
 
-    public double StrokeThickness
-    {
-        get => GetValue(StrokeThicknessProperty);
-        set => SetValue(StrokeThicknessProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 2.5)]
+    public partial double StrokeThickness { get; set; }
 
     public override void Render(DrawingContext context)
     {

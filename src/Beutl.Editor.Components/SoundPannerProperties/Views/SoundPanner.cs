@@ -8,11 +8,8 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.SoundPannerProperties.Views;
 
-public sealed class SoundPanner : AudioCanvas
+public sealed partial class SoundPanner : AudioCanvas
 {
-    public static readonly StyledProperty<SoundPannerViewModel?> ViewModelProperty =
-        AvaloniaProperty.Register<SoundPanner, SoundPannerViewModel?>(nameof(ViewModel));
-
     private CompositeDisposable? _subscriptions;
     private SoundPannerViewModel? _dragging;
     private MediaTime _dragTime;
@@ -20,11 +17,8 @@ public sealed class SoundPanner : AudioCanvas
     private bool _dragHorizontalOnly;
     private bool _changed;
 
-    public SoundPannerViewModel? ViewModel
-    {
-        get => GetValue(ViewModelProperty);
-        set => SetValue(ViewModelProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial SoundPannerViewModel? ViewModel { get; set; }
 
     internal Rect PanningBounds => Inset(36, 40);
 

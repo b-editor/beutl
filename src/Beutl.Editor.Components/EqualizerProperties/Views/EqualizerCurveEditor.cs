@@ -11,7 +11,7 @@ using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Editor.Components.EqualizerProperties.Views;
 
-public sealed class EqualizerCurveEditor : AudioCanvas
+public sealed partial class EqualizerCurveEditor : AudioCanvas
 {
     public const float MinFrequency = 20f;
     public const float MaxFrequency = 20000f;
@@ -28,25 +28,6 @@ public sealed class EqualizerCurveEditor : AudioCanvas
     private const int DefaultResponseSampleRate = 48000;
 
     private static readonly float[] s_gridFrequencies = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
-
-    public static readonly StyledProperty<IBrush?> GridBrushProperty =
-        AvaloniaProperty.Register<EqualizerCurveEditor, IBrush?>(nameof(GridBrush));
-
-    public static readonly StyledProperty<IBrush?> CurveBrushProperty =
-        AvaloniaProperty.Register<EqualizerCurveEditor, IBrush?>(nameof(CurveBrush));
-
-    public static readonly StyledProperty<ObservableCollection<EqualizerBandItemViewModel>?> BandViewModelsProperty =
-        AvaloniaProperty.Register<EqualizerCurveEditor, ObservableCollection<EqualizerBandItemViewModel>?>(nameof(BandViewModels));
-
-    public static readonly StyledProperty<int> SelectedBandIndexProperty =
-        AvaloniaProperty.Register<EqualizerCurveEditor, int>(nameof(SelectedBandIndex), defaultValue: -1,
-            defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
-
-    public static readonly StyledProperty<MediaTime> CurrentTimeProperty =
-        AvaloniaProperty.Register<EqualizerCurveEditor, MediaTime>(nameof(CurrentTime));
-
-    public static readonly StyledProperty<int> SampleRateProperty =
-        AvaloniaProperty.Register<EqualizerCurveEditor, int>(nameof(SampleRate), defaultValue: DefaultResponseSampleRate);
 
     private int _draggingIndex = -1;
     private float _dragStartFrequency;
@@ -84,42 +65,24 @@ public sealed class EqualizerCurveEditor : AudioCanvas
     }
 
     // The lines between the axes.
-    public IBrush? GridBrush
-    {
-        get => GetValue(GridBrushProperty);
-        set => SetValue(GridBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? GridBrush { get; set; }
 
     // The response curve.
-    public IBrush? CurveBrush
-    {
-        get => GetValue(CurveBrushProperty);
-        set => SetValue(CurveBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? CurveBrush { get; set; }
 
-    public ObservableCollection<EqualizerBandItemViewModel>? BandViewModels
-    {
-        get => GetValue(BandViewModelsProperty);
-        set => SetValue(BandViewModelsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial ObservableCollection<EqualizerBandItemViewModel>? BandViewModels { get; set; }
 
-    public int SelectedBandIndex
-    {
-        get => GetValue(SelectedBandIndexProperty);
-        set => SetValue(SelectedBandIndexProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = -1, DefaultBindingMode = Avalonia.Data.BindingMode.TwoWay)]
+    public partial int SelectedBandIndex { get; set; }
 
-    public MediaTime CurrentTime
-    {
-        get => GetValue(CurrentTimeProperty);
-        set => SetValue(CurrentTimeProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial MediaTime CurrentTime { get; set; }
 
-    public int SampleRate
-    {
-        get => GetValue(SampleRateProperty);
-        set => SetValue(SampleRateProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = DefaultResponseSampleRate)]
+    public partial int SampleRate { get; set; }
 
     private int EffectiveSampleRate => SampleRate > 0 ? SampleRate : DefaultResponseSampleRate;
 

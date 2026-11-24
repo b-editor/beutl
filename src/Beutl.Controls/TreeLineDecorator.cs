@@ -5,14 +5,8 @@ using Avalonia.Media;
 
 namespace Beutl.Controls;
 
-public class TreeLineDecorator : Decorator
+public partial class TreeLineDecorator : Decorator
 {
-    public static readonly StyledProperty<int> IndentLevelProperty =
-        AvaloniaProperty.Register<TreeLineDecorator, int>(nameof(IndentLevel), 1);
-
-    public static readonly StyledProperty<IBrush?> LineBrushProperty =
-        AvaloniaProperty.Register<TreeLineDecorator, IBrush?>(nameof(LineBrush));
-
     private const double IndentWidth = 16.0;
     private const double LineThickness = 1.0;
 
@@ -22,17 +16,11 @@ public class TreeLineDecorator : Decorator
         AffectsMeasure<TreeLineDecorator>(IndentLevelProperty);
     }
 
-    public int IndentLevel
-    {
-        get => GetValue(IndentLevelProperty);
-        set => SetValue(IndentLevelProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = 1)]
+    public partial int IndentLevel { get; set; }
 
-    public IBrush? LineBrush
-    {
-        get => GetValue(LineBrushProperty);
-        set => SetValue(LineBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? LineBrush { get; set; }
 
     public override void Render(DrawingContext context)
     {

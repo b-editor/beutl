@@ -6,25 +6,19 @@ using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
 
-public abstract class AudioVisualizerControlBase : Control
+public abstract partial class AudioVisualizerControlBase : Control
 {
-    public static readonly StyledProperty<AudioSampleRingBuffer?> RingBufferProperty =
-        AvaloniaProperty.Register<AudioVisualizerControlBase, AudioSampleRingBuffer?>(nameof(RingBuffer));
-
-    public static readonly StyledProperty<MediaTime> PlayheadTimeProperty =
-        AvaloniaProperty.Register<AudioVisualizerControlBase, MediaTime>(nameof(PlayheadTime));
-
-    public static readonly StyledProperty<IBrush> SecondaryBrushProperty =
-        AvaloniaProperty.Register<AudioVisualizerControlBase, IBrush>(
-            nameof(SecondaryBrush), new SolidColorBrush(Color.FromArgb(160, 120, 200, 255)));
+    private DispatcherTimer? _timer;
+    private long? _renderedVersion;
+    private MediaTime _renderedPlayhead;
 
     public static readonly StyledProperty<IBrush> PrimaryBrushProperty =
         AvaloniaProperty.Register<AudioVisualizerControlBase, IBrush>(
             nameof(PrimaryBrush), new SolidColorBrush(Color.FromArgb(220, 90, 255, 160)));
 
-    private DispatcherTimer? _timer;
-    private long? _renderedVersion;
-    private MediaTime _renderedPlayhead;
+    public static readonly StyledProperty<IBrush> SecondaryBrushProperty =
+        AvaloniaProperty.Register<AudioVisualizerControlBase, IBrush>(
+            nameof(SecondaryBrush), new SolidColorBrush(Color.FromArgb(160, 120, 200, 255)));
 
     static AudioVisualizerControlBase()
     {
@@ -32,17 +26,11 @@ public abstract class AudioVisualizerControlBase : Control
         AffectsRender<AudioVisualizerControlBase>(RingBufferProperty, PrimaryBrushProperty, SecondaryBrushProperty);
     }
 
-    public AudioSampleRingBuffer? RingBuffer
-    {
-        get => GetValue(RingBufferProperty);
-        set => SetValue(RingBufferProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial AudioSampleRingBuffer? RingBuffer { get; set; }
 
-    public MediaTime PlayheadTime
-    {
-        get => GetValue(PlayheadTimeProperty);
-        set => SetValue(PlayheadTimeProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial MediaTime PlayheadTime { get; set; }
 
     public IBrush PrimaryBrush
     {

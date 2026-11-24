@@ -5,22 +5,10 @@ using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
-public sealed class GraphEditorBackground : GraphEditorRulerControl
+public sealed partial class GraphEditorBackground : GraphEditorRulerControl
 {
-    public static readonly StyledProperty<bool> IsSpeedGraphProperty
-        = AvaloniaProperty.Register<GraphEditorBackground, bool>(nameof(IsSpeedGraph));
-
-    public bool IsSpeedGraph
-    {
-        get => GetValue(IsSpeedGraphProperty);
-        set => SetValue(IsSpeedGraphProperty, value);
-    }
-
-    public static readonly StyledProperty<double> MaximumProperty
-        = AvaloniaProperty.Register<GraphEditorBackground, double>(nameof(Maximum), double.MaxValue);
-
-    public static readonly StyledProperty<double> MinimumProperty
-        = AvaloniaProperty.Register<GraphEditorBackground, double>(nameof(Minimum), double.MinValue);
+    [GeneratedStyledProperty]
+    public partial bool IsSpeedGraph { get; set; }
 
     public static readonly DirectProperty<GraphEditorBackground, Size> ViewportProperty
         = AvaloniaProperty.RegisterDirect<GraphEditorBackground, Size>(
@@ -44,17 +32,11 @@ public sealed class GraphEditorBackground : GraphEditorRulerControl
         set => SetAndRaise(ViewportProperty, ref _viewport, value);
     }
 
-    public double Maximum
-    {
-        get => GetValue(MaximumProperty);
-        set => SetValue(MaximumProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = double.MaxValue)]
+    public partial double Maximum { get; set; }
 
-    public double Minimum
-    {
-        get => GetValue(MinimumProperty);
-        set => SetValue(MinimumProperty, value);
-    }
+    [GeneratedStyledProperty(DefaultValue = double.MinValue)]
+    public partial double Minimum { get; set; }
 
     public override void Render(DrawingContext context)
     {

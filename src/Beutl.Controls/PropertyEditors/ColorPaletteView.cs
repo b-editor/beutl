@@ -21,11 +21,8 @@ namespace Beutl.Controls.PropertyEditors;
 // The palette tab of the color pickers: a button that makes a new palette, then the recent colors, the open
 // project's palettes, the user's palettes and the default palette, each under its name. A click on a color raises ColorSelected. The palettes of the project
 // and the user take the current color with their + button, and their menus name, order, move and delete them.
-public sealed class ColorPaletteView : TemplatedControl
+public sealed partial class ColorPaletteView : TemplatedControl
 {
-    public static readonly StyledProperty<Color> CurrentColorProperty =
-        AvaloniaProperty.Register<ColorPaletteView, Color>(nameof(CurrentColor));
-
     private readonly List<ColorPaletteItem> _items = [];
     private ColorPaletteService? _subscribedService;
     private StackPanel? _sections;
@@ -39,11 +36,8 @@ public sealed class ColorPaletteView : TemplatedControl
     public event TypedEventHandler<ColorPaletteView, Color>? ColorSelected;
 
     // The color being edited: the colors equal to it are ringed, and + adds it.
-    public Color CurrentColor
-    {
-        get => GetValue(CurrentColorProperty);
-        set => SetValue(CurrentColorProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial Color CurrentColor { get; set; }
 
     internal ColorPaletteService? Service
     {

@@ -16,29 +16,15 @@ public class EnumItem(string? displayName, string? description, object value)
     public object Value { get; } = value;
 }
 
-public class EnumEditor : PropertyEditor, IValueEditorControl<int>
+public partial class EnumEditor : PropertyEditor, IValueEditorControl<int>
 {
-    public static readonly StyledProperty<IReadOnlyList<EnumItem>?> ItemsProperty =
-        AvaloniaProperty.Register<EnumEditor, IReadOnlyList<EnumItem>?>(nameof(Items));
-
-    public static readonly DirectProperty<EnumEditor, int> SelectedIndexProperty =
-        SelectingItemsControl.SelectedIndexProperty.AddOwner<EnumEditor>(
-            o => o.SelectedIndex, (o, v) => o.SelectedIndex = v, defaultBindingMode: BindingMode.TwoWay);
-
-    private int _selectedIndex;
     private IDisposable? _disposable;
 
-    public IReadOnlyList<EnumItem>? Items
-    {
-        get => GetValue(ItemsProperty);
-        set => SetValue(ItemsProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IReadOnlyList<EnumItem>? Items { get; set; }
 
-    public int SelectedIndex
-    {
-        get => _selectedIndex;
-        set => SetAndRaise(SelectedIndexProperty, ref _selectedIndex, value);
-    }
+    [GeneratedDirectProperty(AddOwnerFrom = typeof(SelectingItemsControl), DefaultBindingMode = BindingMode.TwoWay)]
+    public partial int SelectedIndex { get; set; }
 
     private ComboBox InnerComboBox { get; set; } = null!;
 

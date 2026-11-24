@@ -51,6 +51,10 @@ internal class Program
     {
         return AppBuilder.Configure(() => new App(configuration))
             .UsePlatformDetect()
+            .With(new X11PlatformOptions()
+            {
+                UseXShmFramebuffer = true
+            })
             .With(UiFonts.CreateFontManagerOptions(configuration.ViewConfig.UICulture.Value))
             .LogToTrace();
     }

@@ -22,10 +22,11 @@
         <Border x:Name="TipContainer"
                 Classes="OverlayCard"
                 MaxWidth="400"
-                Padding="16"
+                Padding="0"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 IsHitTestVisible="True">
+            <Border Classes="OverlayCardSurface" Padding="16">
             <StackPanel Spacing="12">
                 <TextBlock x:Name="TipTitle"
                            FontWeight="SemiBold"
@@ -55,6 +56,7 @@
                     </StackPanel>
                 </Grid>
             </StackPanel>
+            </Border>
         </Border>
     </Panel>
 

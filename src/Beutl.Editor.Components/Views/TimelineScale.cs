@@ -13,61 +13,10 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class TimelineScale : TimelineBarsControl
+public sealed partial class TimelineScale : TimelineBarsControl
 {
-    public static readonly DirectProperty<TimelineScale, float> ScaleProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, float>(
-            nameof(Scale),
-            o => o.Scale, (o, v) => o.Scale = v,
-            1);
-
-    public static readonly DirectProperty<TimelineScale, Vector> OffsetProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, Vector>(
-            nameof(Offset), o => o.Offset, (o, v) => o.Offset = v);
-
-    public static readonly StyledProperty<double> BufferStartProperty
-        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferStart));
-
-    public static readonly StyledProperty<double> BufferEndProperty
-        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferEnd));
-
-    public static readonly StyledProperty<CacheBlock[]?> CacheBlocksProperty
-        = AvaloniaProperty.Register<TimelineScale, CacheBlock[]?>(nameof(CacheBlocks));
-
-    public static readonly StyledProperty<CacheBlock?> HoveredCacheBlockProperty
-        = AvaloniaProperty.Register<TimelineScale, CacheBlock?>(nameof(HoveredCacheBlock));
-
-    public static readonly StyledProperty<IBrush?> ScaleBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(ScaleBrush));
-
-    public static readonly StyledProperty<IBrush?> CacheBlockBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(CacheBlockBrush));
-
-    public static readonly StyledProperty<IBrush?> LockedCacheBlockBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(LockedCacheBlockBrush));
-
-    public static readonly StyledProperty<IBrush?> BufferBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(BufferBrush));
-
-    public static readonly StyledProperty<IEnumerable?> MarkersProperty
-        = AvaloniaProperty.Register<TimelineScale, IEnumerable?>(nameof(Markers));
-
-    public static readonly StyledProperty<IBrush?> MarkerLabelBackgroundProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelBackground));
-
-    public static readonly StyledProperty<IBrush?> MarkerLabelForegroundProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelForeground));
-
-    public static readonly StyledProperty<Rational> FrameRateProperty
-        = PlayerSeekBar.FrameRateProperty.AddOwner<TimelineScale>();
-
-    public static readonly StyledProperty<TimeDisplayFormat> TimeDisplayFormatProperty
-        = PlayerSeekBar.TimeDisplayFormatProperty.AddOwner<TimelineScale>();
-
     private const int FramesPerTick = 30;
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
-    private float _scale = 1;
-    private Vector _offset;
     private ImmutablePen? _pen;
     private static readonly Geometry _rangeMarker;
     private static readonly Geometry _pointMarker;
@@ -104,97 +53,52 @@ public sealed class TimelineScale : TimelineBarsControl
         ClipToBounds = true;
     }
 
-    public float Scale
-    {
-        get => _scale;
-        set => SetAndRaise(ScaleProperty, ref _scale, value);
-    }
+    [GeneratedDirectProperty(UnsetValue = 1)]
+    public partial float Scale { get; set; } = 1;
 
-    public Vector Offset
-    {
-        get => _offset;
-        set => SetAndRaise(OffsetProperty, ref _offset, value);
-    }
+    [GeneratedDirectProperty]
+    public partial Vector Offset { get; set; }
 
-    public double BufferStart
-    {
-        get => GetValue(BufferStartProperty);
-        set => SetValue(BufferStartProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double BufferStart { get; set; }
 
-    public double BufferEnd
-    {
-        get => GetValue(BufferEndProperty);
-        set => SetValue(BufferEndProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial double BufferEnd { get; set; }
 
-    public CacheBlock[]? CacheBlocks
-    {
-        get => GetValue(CacheBlocksProperty);
-        set => SetValue(CacheBlocksProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial CacheBlock[]? CacheBlocks { get; set; }
 
-    public CacheBlock? HoveredCacheBlock
-    {
-        get => GetValue(HoveredCacheBlockProperty);
-        set => SetValue(HoveredCacheBlockProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial CacheBlock? HoveredCacheBlock { get; set; }
 
-    public IBrush? ScaleBrush
-    {
-        get => GetValue(ScaleBrushProperty);
-        set => SetValue(ScaleBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? ScaleBrush { get; set; }
 
-    public IBrush? CacheBlockBrush
-    {
-        get => GetValue(CacheBlockBrushProperty);
-        set => SetValue(CacheBlockBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? CacheBlockBrush { get; set; }
 
-    public IBrush? LockedCacheBlockBrush
-    {
-        get => GetValue(LockedCacheBlockBrushProperty);
-        set => SetValue(LockedCacheBlockBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? LockedCacheBlockBrush { get; set; }
 
-    public IBrush? BufferBrush
-    {
-        get => GetValue(BufferBrushProperty);
-        set => SetValue(BufferBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? BufferBrush { get; set; }
 
-    public IEnumerable? Markers
-    {
-        get => GetValue(MarkersProperty);
-        set => SetValue(MarkersProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IEnumerable? Markers { get; set; }
 
-    public IBrush? MarkerLabelBackground
-    {
-        get => GetValue(MarkerLabelBackgroundProperty);
-        set => SetValue(MarkerLabelBackgroundProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? MarkerLabelBackground { get; set; }
 
-    public IBrush? MarkerLabelForeground
-    {
-        get => GetValue(MarkerLabelForegroundProperty);
-        set => SetValue(MarkerLabelForegroundProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? MarkerLabelForeground { get; set; }
 
     /// <summary>Gets or sets the rate that the ruler's timecodes and frame numbers count frames at. It must be positive.</summary>
-    public Rational FrameRate
-    {
-        get => GetValue(FrameRateProperty);
-        set => SetValue(FrameRateProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(PlayerSeekBar))]
+    public partial Rational FrameRate { get; set; }
 
     /// <summary>Gets or sets how the ruler writes the times of its ticks.</summary>
-    public TimeDisplayFormat TimeDisplayFormat
-    {
-        get => GetValue(TimeDisplayFormatProperty);
-        set => SetValue(TimeDisplayFormatProperty, value);
-    }
+    [GeneratedStyledProperty(AddOwnerFrom = typeof(PlayerSeekBar))]
+    public partial TimeDisplayFormat TimeDisplayFormat { get; set; }
 
     // The layouts made for the ruler's texts so far; tests check that a render that only moves the seek bar makes none.
     internal int LabelLayoutsMade => _tickLabels.Made + _markerLabels.Made;

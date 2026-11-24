@@ -34,7 +34,7 @@ internal interface IProjectColorPaletteHost
 }
 
 // The palettes and the recent colors that the palette tab of every color picker shows. Accessed on the UI thread.
-internal sealed class ColorPaletteService
+internal sealed partial class ColorPaletteService
 {
     internal const string RecentColorsKey = "ColorPalette.RecentColors";
     internal const string UserPalettesKey = "ColorPalette.UserPalettes";
@@ -53,13 +53,8 @@ internal sealed class ColorPaletteService
         _userPalettes = LoadUserPalettes();
     }
 
-    public static readonly AttachedProperty<ColorPaletteService?> ServiceProperty =
-        AvaloniaProperty.RegisterAttached<ColorPaletteService, StyledElement, ColorPaletteService?>(
-            "Service", inherits: true);
-
-    public static ColorPaletteService? GetService(AvaloniaObject element) => element.GetValue(ServiceProperty);
-
-    public static void SetService(AvaloniaObject element, ColorPaletteService? service) => element.SetValue(ServiceProperty, service);
+    [GeneratedAttachedProperty(Inherits = true)]
+    public static partial ColorPaletteService? GetService(AvaloniaObject element);
 
     public event EventHandler? Changed;
 

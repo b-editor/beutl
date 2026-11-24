@@ -62,19 +62,13 @@ public partial class KeyMapSettingsPage : UserControl
     }
 }
 
-public sealed class KeyMapFlyout : FAPickerFlyoutBase
+public sealed partial class KeyMapFlyout : FAPickerFlyoutBase
 {
-    public static readonly StyledProperty<KeyGesture?> GestureProperty =
-        AvaloniaProperty.Register<KeyMapFlyout, KeyGesture?>(nameof(Gesture));
-
     // The flyout taking a key now, if any.
     private static KeyMapFlyout? s_open;
 
-    public KeyGesture? Gesture
-    {
-        get => GetValue(GestureProperty);
-        set => SetValue(GestureProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial KeyGesture? Gesture { get; set; }
 
     public event TypedEventHandler<KeyMapFlyout, EventArgs>? Confirmed;
 

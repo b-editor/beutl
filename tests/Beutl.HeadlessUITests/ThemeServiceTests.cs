@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -254,6 +255,66 @@ public class ThemeServiceTests
             Assert.That(Application.Current!.TryGetResource("AccentButtonForeground", highContrast, out object? resolved), Is.True);
             Assert.That(resolved, Is.SameAs(fluent));
         });
+    }
+
+    [AvaloniaTest]
+    public void OverlayCardBackdropEffect_BlursInStandardThemes_AndDisablesInHighContrast()
+    {
+        using var scope = new ThemeScope();
+        scope.Config.Theme.Value = BuiltinThemeIds.Dark;
+        scope.Service.Start();
+        Dispatcher.UIThread.RunJobs();
+
+        var backdrop = new Border { Background = Brushes.OrangeRed };
+        var surface = new Border
+        {
+            Classes = { "OverlayCardSurface" },
+            Width = 120,
+            Height = 80,
+            Child = new TextBlock { Text = "Overlay" }
+        };
+        var card = new Border
+        {
+            Classes = { "OverlayCard" },
+            Child = surface
+        };
+        var window = new Window
+        {
+            Width = 240,
+            Height = 160,
+            Content = new Panel { Children = { backdrop, card } }
+        };
+
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(surface.BackdropEffect, Is.InstanceOf<IBlurEffect>());
+                Assert.That(((IBlurEffect)surface.BackdropEffect!).Radius, Is.GreaterThan(0));
+                Assert.That(surface.Background, Is.InstanceOf<ISolidColorBrush>());
+                Assert.That(((ISolidColorBrush)surface.Background!).Color.A, Is.LessThan(255));
+                Assert.That(window.CaptureRenderedFrame(), Is.Not.Null);
+            });
+
+            scope.Config.Theme.Value = BuiltinThemeIds.HighContrast;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(surface.BackdropEffect, Is.InstanceOf<IBlurEffect>());
+                Assert.That(((IBlurEffect)surface.BackdropEffect!).Radius, Is.EqualTo(0));
+                Assert.That(surface.Background, Is.InstanceOf<ISolidColorBrush>());
+                Assert.That(((ISolidColorBrush)surface.Background!).Color.A, Is.EqualTo(255));
+                Assert.That(window.CaptureRenderedFrame(), Is.Not.Null);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     // Settings written while the picker still offered an alpha slider can carry one. Applying it as-is

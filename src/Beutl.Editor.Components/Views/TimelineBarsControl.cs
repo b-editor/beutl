@@ -6,7 +6,7 @@ using Avalonia.Media.Immutable;
 namespace Beutl.Editor.Components.Views;
 
 // The seek, starting and ending bars that the timeline scale and overlay both draw.
-public abstract class TimelineBarsControl : Control
+public abstract partial class TimelineBarsControl : Control
 {
     public static readonly DirectProperty<TimelineBarsControl, Thickness> StartingBarMarginProperty
         = AvaloniaProperty.RegisterDirect<TimelineBarsControl, Thickness>(
@@ -19,15 +19,6 @@ public abstract class TimelineBarsControl : Control
     public static readonly DirectProperty<TimelineBarsControl, Thickness> SeekBarMarginProperty
         = AvaloniaProperty.RegisterDirect<TimelineBarsControl, Thickness>(
             nameof(SeekBarMargin), o => o.SeekBarMargin, (o, v) => o.SeekBarMargin = v);
-
-    public static readonly StyledProperty<IBrush?> SeekBarBrushProperty
-        = AvaloniaProperty.Register<TimelineBarsControl, IBrush?>(nameof(SeekBarBrush));
-
-    public static readonly StyledProperty<IBrush?> StartingBarBrushProperty
-        = AvaloniaProperty.Register<TimelineBarsControl, IBrush?>(nameof(StartingBarBrush));
-
-    public static readonly StyledProperty<IBrush?> EndingBarBrushProperty
-        = AvaloniaProperty.Register<TimelineBarsControl, IBrush?>(nameof(EndingBarBrush));
 
     private Thickness _startingBarMargin;
     private Thickness _endingBarMargin;
@@ -65,23 +56,14 @@ public abstract class TimelineBarsControl : Control
         set => SetAndRaise(SeekBarMarginProperty, ref _seekBarMargin, value);
     }
 
-    public IBrush? SeekBarBrush
-    {
-        get => GetValue(SeekBarBrushProperty);
-        set => SetValue(SeekBarBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? SeekBarBrush { get; set; }
 
-    public IBrush? StartingBarBrush
-    {
-        get => GetValue(StartingBarBrushProperty);
-        set => SetValue(StartingBarBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? StartingBarBrush { get; set; }
 
-    public IBrush? EndingBarBrush
-    {
-        get => GetValue(EndingBarBrushProperty);
-        set => SetValue(EndingBarBrushProperty, value);
-    }
+    [GeneratedStyledProperty]
+    public partial IBrush? EndingBarBrush { get; set; }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
