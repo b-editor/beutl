@@ -230,15 +230,15 @@ public class ProjectThumbnailTests
     {
         TestGpu.RequireAnyDevice();
         const string repoId = "a3a8927c-bcf4-4f6e-91f4-64897320378e";
+        const string pushRepoId = "76972d37-e697-401c-8291-6d08cdeb4d81";
         byte[]? uploadedBytes = null;
-        int requestCount = 0;
+        var uploadedPaths = new List<string>();
 
         using var http = new HttpClient(new StubHttpHandler(async request =>
         {
-            requestCount++;
             Assert.That(request.Method, Is.EqualTo(HttpMethod.Put));
-            Assert.That(request.RequestUri!.AbsolutePath, Is.EqualTo($"/api/v3/repos/{repoId}/thumbnail"));
             Assert.That(request.Content!.Headers.ContentType?.MediaType, Is.EqualTo("image/png"));
+            uploadedPaths.Add(request.RequestUri!.AbsolutePath);
             uploadedBytes = await request.Content.ReadAsByteArrayAsync();
             var now = DateTimeOffset.UtcNow;
             var summary = new GitRepositorySummary(
@@ -257,19 +257,23 @@ public class ProjectThumbnailTests
 
         var thumbnailService = new ProjectThumbnailService(TestShell.Project, TestShell.Editor);
         var hostedVc = new StubVersionControlService($"{BeutlApiApplication.BaseUrl}/api/v3/git/{repoId}.git");
-        await thumbnailService.SyncRepositoryThumbnailAsync(project, projectFile, hostedVc, api, owner);
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, hostedVc, api, owner,
+            pushUrls: [$"{BeutlApiApplication.BaseUrl}/api/v3/git/{pushRepoId}.git"]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(requestCount, Is.EqualTo(1));
+            Assert.That(uploadedPaths, Is.EqualTo(new[] { $"/api/v3/repos/{pushRepoId}/thumbnail" }));
             Assert.That(uploadedBytes, Is.Not.Null);
             Assert.That(uploadedBytes!.Length, Is.GreaterThan(8));
             Assert.That(File.Exists(ProjectThumbnailService.GetPath(projectFile)), Is.True);
         });
 
         var nonHostedVc = new StubVersionControlService("https://github.com/example/demo.git");
-        await thumbnailService.SyncRepositoryThumbnailAsync(project, projectFile, nonHostedVc, api, owner);
-        Assert.That(requestCount, Is.EqualTo(1), "Non-Beutl remotes must not trigger thumbnail uploads.");
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, nonHostedVc, api, owner,
+            pushUrls: ["https://github.com/example/demo.git"]);
+        Assert.That(uploadedPaths, Has.Count.EqualTo(1), "Non-Beutl remotes must not trigger thumbnail uploads.");
     }
 
     [AvaloniaTest]

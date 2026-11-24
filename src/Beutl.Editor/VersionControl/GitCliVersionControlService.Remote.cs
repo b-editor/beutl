@@ -189,8 +189,10 @@ internal sealed partial class GitCliVersionControlService
                 progress is null ? GitCommandOptions.Network : s_lfsNetworkProgress with { StdoutProgress = progress },
                 cancellationToken,
                 progress).ConfigureAwait(false);
+            IReadOnlyList<string> pushUrls = await GetOriginPushUrlsAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false);
             await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
-            return new RemoteOpResult.Success();
+            return new RemoteOpResult.Success(pushUrls);
         }
         catch (GitOperationException ex)
         {

@@ -275,4 +275,53 @@ public sealed class HostedGitRepositoryServiceTests
         Assert.Throws<ArgumentException>(() => service.UploadThumbnailAsync(
             id, new byte[HostedGitRepositoryService.MaxThumbnailBytes + 1], owner));
     }
+
+    [Test]
+    public async Task Thumbnail_download_times_out_when_response_body_stalls()
+    {
+        Guid id = Guid.Parse(RepositoryId);
+        using var http = new HttpClient(new DelegateHttpHandler(_ => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StallingStreamContent(),
+            })));
+        await using var app = CreateApp(http);
+        AuthenticatedUser owner = ApiTestAuthentication.SignIn(app, id: "owner", token: "desktop-token");
+        var service = app.GetResource<HostedGitRepositoryService>();
+        service.ThumbnailDownloadTimeout = TimeSpan.FromMilliseconds(80);
+
+        var failure = await Assert.ThrowsAsync<HostedGitApiException>(() => service.DownloadThumbnailAsync(id, owner));
+        Assert.That(failure!.Error, Is.EqualTo(HostedGitError.Unavailable));
+    }
+
+    private sealed class StallingStreamContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+            => Task.CompletedTask;
+
+        protected override Task<Stream> CreateContentReadStreamAsync(CancellationToken cancellationToken)
+            => Task.FromResult<Stream>(new StallingStream());
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+    }
+
+    private sealed class StallingStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => new(Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ContinueWith(static _ => 0, TaskContinuationOptions.OnlyOnRanToCompletion));
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
 }

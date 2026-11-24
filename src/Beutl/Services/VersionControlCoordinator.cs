@@ -134,7 +134,11 @@ internal sealed partial class VersionControlCoordinator :
 
     public event EventHandler? RepositoryAdoptionChanged;
 
-    internal event EventHandler<IProjectVersionControlService>? PushSucceeded;
+    internal event EventHandler<PushSucceededEventArgs>? PushSucceeded;
+
+    internal sealed record PushSucceededEventArgs(
+        IProjectVersionControlService Service,
+        IReadOnlyList<string>? PushUrls);
 
     public RepositoryAdoptionRequest? PendingRepositoryAdoption => _pendingRepositoryAdoption;
 
@@ -286,9 +290,9 @@ internal sealed partial class VersionControlCoordinator :
                 }
             }
 
-            if (result is RemoteOpResult.Success && pushedService is not null)
+            if (result is RemoteOpResult.Success success && pushedService is not null)
             {
-                PushSucceeded?.Invoke(this, pushedService);
+                PushSucceeded?.Invoke(this, new PushSucceededEventArgs(pushedService, success.PushUrls));
             }
 
             return result;

@@ -41,6 +41,8 @@ public sealed class HostedGitRepositoryService : IBeutlApiResource
     public const int MaxThumbnailBytes = 1024 * 1024;
     private readonly BeutlApiApplication _app;
 
+    internal TimeSpan ThumbnailDownloadTimeout { get; set; } = TimeSpan.FromSeconds(15);
+
     internal HostedGitRepositoryService(BeutlApiApplication app)
     {
         _app = app;
@@ -139,7 +141,7 @@ public sealed class HostedGitRepositoryService : IBeutlApiResource
         }, cancellationToken, expectedUser);
     }
 
-    public Task<byte[]?> DownloadThumbnailAsync(
+    public async Task<byte[]?> DownloadThumbnailAsync(
         Guid repositoryId,
         AuthenticatedUser expectedUser,
         CancellationToken cancellationToken = default)
@@ -147,47 +149,56 @@ public sealed class HostedGitRepositoryService : IBeutlApiResource
         ArgumentNullException.ThrowIfNull(expectedUser);
         string id = ValidateId(repositoryId);
 
-        return SendAsync<byte[]?>(async (auth, token) =>
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(ThumbnailDownloadTimeout);
+        try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/repos/{id}/thumbnail");
-            request.Headers.TryAddWithoutValidation("Authorization", auth);
-
-            using HttpResponseMessage response = await _app.HttpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                token).ConfigureAwait(false);
-            if (response.StatusCode == HttpStatusCode.NotFound)
-                return null;
-
-            if (!response.IsSuccessStatusCode)
+            return await SendAsync<byte[]?>(async (auth, token) =>
             {
-                string? body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
-                throw MapError(response.StatusCode, body, collection: false);
-            }
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/repos/{id}/thumbnail");
+                request.Headers.TryAddWithoutValidation("Authorization", auth);
 
-            if (response.Content.Headers.ContentLength is > MaxThumbnailBytes)
-                return null;
-
-            await using Stream stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
-            using var buffer = new MemoryStream(
-                response.Content.Headers.ContentLength is { } known and > 0 and <= MaxThumbnailBytes
-                    ? (int)known
-                    : 0);
-            byte[] chunk = new byte[16 * 1024];
-            int total = 0;
-            while (true)
-            {
-                int read = await stream.ReadAsync(chunk, token).ConfigureAwait(false);
-                if (read == 0)
-                    break;
-                total += read;
-                if (total > MaxThumbnailBytes)
+                using HttpResponseMessage response = await _app.HttpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    token).ConfigureAwait(false);
+                if (response.StatusCode == HttpStatusCode.NotFound)
                     return null;
-                buffer.Write(chunk, 0, read);
-            }
 
-            return total > 0 ? buffer.ToArray() : null;
-        }, cancellationToken, expectedUser);
+                if (!response.IsSuccessStatusCode)
+                {
+                    string? body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+                    throw MapError(response.StatusCode, body, collection: false);
+                }
+
+                if (response.Content.Headers.ContentLength is > MaxThumbnailBytes)
+                    return null;
+
+                await using Stream stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+                using var buffer = new MemoryStream(
+                    response.Content.Headers.ContentLength is { } known and > 0 and <= MaxThumbnailBytes
+                        ? (int)known
+                        : 0);
+                byte[] chunk = new byte[16 * 1024];
+                int total = 0;
+                while (true)
+                {
+                    int read = await stream.ReadAsync(chunk, token).ConfigureAwait(false);
+                    if (read == 0)
+                        break;
+                    total += read;
+                    if (total > MaxThumbnailBytes)
+                        return null;
+                    buffer.Write(chunk, 0, read);
+                }
+
+                return total > 0 ? buffer.ToArray() : null;
+            }, timeout.Token, expectedUser).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
+        {
+            throw new HostedGitApiException(HostedGitError.Unavailable, Strings.HostedGit_Unavailable);
+        }
     }
 
     public async Task<IReadOnlyList<GitAccessTokenSummary>> ListTokensAsync(
