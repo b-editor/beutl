@@ -182,6 +182,7 @@ public sealed partial class TimelineTabView
         foreach (ViewportElement entry in _viewportElements)
         {
             entry.ShowView = entry.Bounds.Intersects(viewport) || entry.View?.KeepRealized == true;
+            if (entry.ShowView) entry.Model.SetFlowInputWarning(ViewModel.GetFlowInputWarning(entry.Model.Model));
             entry.ShowDetails = entry.ShowView && (entry.Bounds.Width >= ElementViewModel.MinimumThumbnailWidth
                 || ReferenceEquals(entry, _activeCompactElement) || entry.View?.KeepRealized == true);
             entry.ShowScope = entry.ScopeBounds.Height > 0 && entry.ScopeBounds.Intersects(viewport);
@@ -274,7 +275,7 @@ public sealed partial class TimelineTabView
             if (used == _unrealizedClips.Count) _unrealizedClips.Add(new UnrealizedClip());
             UnrealizedClip clip = _unrealizedClips[used++];
             (IBrush fill, IPen border) = GetClipPaints(element.AccentColor.Value);
-            clip.Update(element, bounds, fill, border, scene);
+            clip.Update(element, bounds, fill, border, scene, ViewModel.GetFlowInputWarning(element) is not null);
             _viewportClips.Add(clip);
         }
 
@@ -334,13 +335,16 @@ public sealed partial class TimelineTabView
 
         public IPen RestBorderPen { get; private set; } = null!;
 
-        public void Update(Element element, Rect bounds, IBrush fill, IPen border, Scene scene)
+        public bool HasFlowInputWarning { get; private set; }
+
+        public void Update(Element element, Rect bounds, IBrush fill, IPen border, Scene scene, bool hasFlowInputWarning)
         {
             Element = element;
             Bounds = bounds;
             FillBrush = fill;
             RestBorderPen = border;
             Opacity = CompactElementLayer.ClipOpacity(!scene.IsElementLocked(element), element.IsEnabled.Value);
+            HasFlowInputWarning = hasFlowInputWarning;
         }
     }
 
@@ -390,6 +394,7 @@ public sealed partial class TimelineTabView
         public ElementView? View { get; set; }
         public IBrush FillBrush { get; private set; } = Brushes.Transparent;
         public IPen RestBorderPen { get; private set; } = new Pen(Brushes.Transparent);
+        public bool HasFlowInputWarning => Model.FlowInputWarning.Value is not null;
         public Action? Rename { get; set; }
         public ElementScopeView? Scope { get; set; }
         public bool ShowView { get; set; }

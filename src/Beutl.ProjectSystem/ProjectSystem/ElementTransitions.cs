@@ -359,6 +359,8 @@ internal readonly record struct TransitionBoundary(
     ClipTransition Transition,
     TimeRange Region)
 {
+    internal bool HasVisibleSide => Outgoing?.IsVisibleInOutput.Value == true || Incoming?.IsVisibleInOutput.Value == true;
+
     // How far the transition has played at time, before its easing, which the compositor applies as
     // evaluated for that time.
     public float GetLinearProgress(MediaTime time)

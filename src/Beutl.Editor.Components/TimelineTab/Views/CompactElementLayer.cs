@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Rendering;
+using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -19,6 +20,8 @@ internal interface ICompactClip
     IBrush FillBrush { get; }
 
     IPen RestBorderPen { get; }
+
+    bool HasFlowInputWarning { get; }
 }
 
 // One drawing surface for a run of narrow clips. Selected clips use a separate surface at the same
@@ -65,6 +68,7 @@ internal sealed class CompactElementLayer : Control, ICustomHitTest
     {
         base.Render(context);
         IPen? selectionPen = _selected ? GetSelectionPen() : null;
+        IBrush? warningBrush = null;
         foreach (ICompactClip entry in _elements)
         {
             if (entry.IsSelected != _selected) continue;
@@ -78,6 +82,18 @@ internal sealed class CompactElementLayer : Control, ICustomHitTest
             else
                 context.DrawRectangle(entry.FillBrush, pen,
                     new Rect(bounds.X + 0.5, bounds.Y + 1.5, bounds.Width - 1, bounds.Height - 3), 3, 3);
+
+            if (entry.HasFlowInputWarning && bounds.Height >= 6)
+            {
+                warningBrush ??= this.TryFindResource("SystemFillColorCautionBrush", out object? resource) && resource is IBrush brush
+                    ? brush : Brushes.Orange;
+                IBrush outline = entry.FillBrush is ISolidColorBrush fill && ColorGenerator.GetTextColor(fill.Color) == Colors.White
+                    ? Brushes.White : Brushes.Black;
+                double width = Math.Min(9, bounds.Width);
+                var marker = new Rect(bounds.Center.X - width / 2, bounds.Y + 2, width, 4);
+                context.FillRectangle(outline, marker);
+                if (width > 2) context.FillRectangle(warningBrush, new Rect(marker.X + 1, marker.Y + 1, width - 2, 2));
+            }
         }
     }
 

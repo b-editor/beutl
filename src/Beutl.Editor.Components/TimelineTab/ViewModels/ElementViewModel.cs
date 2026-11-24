@@ -36,6 +36,7 @@ public sealed partial class ElementViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly Subject<Unit> _thumbnailsInvalidatedSubject = new();
     private readonly Subject<Unit> _elementEditedSubject = new();
+    private readonly ReactivePropertySlim<string?> _flowInputWarning = new();
     private CancellationTokenSource? _thumbnailsCts;
     private IThumbnailsProvider? _currentThumbnailsProvider;
     private readonly IThumbnailCacheService _thumbnailCacheService = ThumbnailCacheService.Instance;
@@ -184,6 +185,12 @@ public sealed partial class ElementViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        _flowInputWarning.AddTo(_disposables);
+        ClipToolTip = RecoveryProtectionToolTip.CombineLatest(_flowInputWarning, (recovery, warning) =>
+                recovery is null ? warning : warning is null ? recovery : $"{recovery}\n\n{warning}")
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
         // Must stay after IsEditable is assigned — the handler reads it. Skip(1) drops the initial
         // sync emit; while locked a rename must not persist, so snap Name.Value back to Model.Name.
         Name.Skip(1)
@@ -272,6 +279,12 @@ public sealed partial class ElementViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> CanToggleLock { get; }
 
     public ReadOnlyReactivePropertySlim<string?> RecoveryProtectionToolTip { get; }
+
+    public IReadOnlyReactiveProperty<string?> FlowInputWarning => _flowInputWarning;
+
+    public ReadOnlyReactivePropertySlim<string?> ClipToolTip { get; }
+
+    internal void SetFlowInputWarning(string? warning) => _flowInputWarning.Value = warning;
 
     public ReactiveProperty<string> Name { get; }
 

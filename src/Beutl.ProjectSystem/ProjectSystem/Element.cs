@@ -68,6 +68,9 @@ public partial class Element : Hierarchical, INotifyEdited
 
     public IProperty<MatteMode> MatteMode { get; } = Property.CreateValue(Graphics.MatteMode.None);
 
+    internal bool HasTrackMatte => MatteMode.Value != Graphics.MatteMode.None
+        && (MatteSourceKind.Value != ProjectSystem.MatteSourceKind.Layer || MatteSourceZIndex.Value.HasValue);
+
     /// <summary>Whether to draw this element in the scene. Hidden elements can still supply a matte.</summary>
     public IProperty<bool> IsVisibleInOutput { get; } = Property.CreateValue(true);
 

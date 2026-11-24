@@ -8,7 +8,7 @@ using Beutl.Language;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(GraphicsStrings.DrawableTimeController), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>, IFlowOperator
+public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>, IFlowInputOperator
 {
     public DrawableTimeController()
     {
@@ -18,6 +18,10 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     [SuppressResourceClassGeneration]
     public IExpressionProperty<Drawable?> Target { get; } = Property.CreateReference<Drawable?>();
+
+    FlowInputKind IFlowInputOperator.RequiredInput => FlowInputKind.Drawable;
+
+    string IFlowInputOperator.MissingInputMessage => MessageStrings.FlowInputMissingDrawable;
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<MediaTime> OffsetPosition { get; } = Property.CreateExpression<MediaTime>();

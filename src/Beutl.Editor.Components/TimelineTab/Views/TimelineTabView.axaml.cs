@@ -158,11 +158,13 @@ public sealed partial class TimelineTabView : UserControl
 
         vm.ElementRealized += AddElement;
         vm.ElementReleased += RemoveElement;
+        vm.FlowInputWarningsInvalidated += InvalidateElementViewport;
         vm.Scene.Edited += OnSceneEdited;
         Disposable.Create(() =>
             {
                 vm.ElementRealized -= AddElement;
                 vm.ElementReleased -= RemoveElement;
+                vm.FlowInputWarningsInvalidated -= InvalidateElementViewport;
                 vm.Scene.Edited -= OnSceneEdited;
             })
             .DisposeWith(_disposables);

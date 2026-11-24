@@ -560,4 +560,13 @@
   <data name="ExtensionUpdatesIncluded" xml:space="preserve">
     <value>拡張機能{0}件も一緒に更新します。</value>
   </data>
+  <data name="FlowInputMissingDrawable" xml:space="preserve">
+    <value>「{0}」には描画オブジェクトが必要です。下のレイヤーに時間が重なるように配置してください。このオペレーターの前にポータルを追加するか有効にし、ポータルの［個数］でそのレイヤーを範囲に含めてください。</value>
+  </data>
+  <data name="FlowInputMissingObject3D" xml:space="preserve">
+    <value>「{0}」には3Dオブジェクトが必要です。下のレイヤーに時間が重なるように配置してください。このオペレーターの前にポータルを追加するか有効にし、ポータルの［個数］でそのレイヤーを範囲に含めてください。</value>
+  </data>
+  <data name="FlowInputMissingSound" xml:space="preserve">
+    <value>「{0}」には音声オブジェクトが必要です。下のレイヤーに時間が重なるように配置してください。このオペレーターの前にポータルを追加するか有効にし、ポータルの［個数］でそのレイヤーを範囲に含めてください。</value>
+  </data>
 </root>

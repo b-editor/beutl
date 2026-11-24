@@ -19,6 +19,26 @@ public sealed partial class PortalObject : EngineObject
     [Display(Name = nameof(Strings.Portal_Clear), ResourceType = typeof(Strings))]
     public IExpressionProperty<bool> Clear { get; } = Property.CreateExpression<bool>();
 
+    internal (int First, int Last) GetInputLayerSpan(int count)
+        => (ZIndex.Value + 1, ZIndex.Value + count);
+
+    // A portal takes each input out of the current pass before that input can take other layers.
+    internal static Element? TakeNextInput(IList<Element> elements, (int First, int Last) span, ref int index)
+    {
+        for (; index < elements.Count; index++)
+        {
+            Element item = elements[index];
+            int layer = item.ZIndex.Value;
+            if (layer > span.Last) break;
+            if (layer < span.First) continue;
+
+            elements.RemoveAt(index);
+            return item;
+        }
+
+        return null;
+    }
+
     public partial class Resource
     {
         partial void PostReconcile(PortalObject obj, CompositionContext context)
@@ -30,22 +50,12 @@ public sealed partial class PortalObject : EngineObject
                     context.Flow?.Clear();
                 }
 
-                int start = obj.ZIndex.Value + 1;
-                int end = obj.ZIndex.Value + Count;
-
+                var span = obj.GetInputLayerSpan(Count);
                 IList<Element> elements = ctx.CurrentElements;
-
-                for (int i = 0; i < elements.Count; i++)
+                int index = 0;
+                while (TakeNextInput(elements, span, ref index) is { } item)
                 {
-                    Element item = elements[i];
-                    if (item.ZIndex.Value >= start && item.ZIndex.Value <= end)
-                    {
-                        elements.RemoveAt(i);
-                        i--;
-                        // Evaluate another element and get flow-processed results
-                        ctx.EvaluateElementIntoFlow(item);
-                    }
-                    else if (item.ZIndex.Value > end) break;
+                    ctx.EvaluateElementIntoFlow(item);
                 }
             }
         }
