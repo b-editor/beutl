@@ -27,6 +27,8 @@ internal interface IProjectVersionControlCoordinator
         string url,
         CancellationToken cancellationToken);
 
+    Task SetRemoteAsync(GitRemoteUrl remote, string? expectedOrigin, CancellationToken cancellationToken);
+
     Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken);

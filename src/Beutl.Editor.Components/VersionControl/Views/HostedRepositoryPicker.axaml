@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:api="using:Beutl.Api.Clients"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.Editor.Components.VersionControl.ViewModels"
+             x:Class="Beutl.Editor.Components.VersionControl.Views.HostedRepositoryPicker"
+             x:CompileBindings="True"
+             x:DataType="vm:HostedRepositoryPickerViewModel">
+    <StackPanel Spacing="6">
+        <StackPanel IsVisible="{Binding NeedsSignIn.Value}" Spacing="8">
+            <TextBlock Text="{x:Static lang:Strings.HostedGit_AuthenticationRequired}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Button Content="{x:Static lang:Strings.HostedGit_SignIn}"
+                    IsEnabled="{Binding CanSignIn.Value}" Click="SignIn_Click" />
+        </StackPanel>
+        <StackPanel IsVisible="{Binding !NeedsSignIn.Value}" Spacing="8">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBox PlaceholderText="{x:Static lang:Strings.Search}"
+                         AutomationProperties.Name="{x:Static lang:Strings.Search}"
+                         Text="{Binding Search.Value, Mode=TwoWay}">
+                    <TextBox.InnerLeftContent>
+                        <icons:FluentIcon Icon="Search" FontSize="16" Margin="8,0,0,0"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </TextBox.InnerLeftContent>
+                </TextBox>
+                <Button Grid.Column="1" Padding="8"
+                        ToolTip.Tip="{x:Static lang:Strings.Refresh}"
+                        AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                        IsEnabled="{Binding !IsLoading.Value}" Click="Refresh_Click">
+                    <Panel Width="16" Height="16">
+                        <icons:FluentIcon Icon="ArrowClockwise" FontSize="16" IsVisible="{Binding !IsLoading.Value}" />
+                        <ui:FAProgressRing Height="16" Width="16" IsVisible="{Binding IsLoading.Value}"
+                                           IsActive="{Binding IsLoading.Value}" />
+                    </Panel>
+                </Button>
+            </Grid>
+            <ListBox MaxHeight="150" Padding="0" CornerRadius="8"
+                     Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                     AutomationProperties.Name="{x:Static lang:Strings.HostedGit_BeutlRepositories}"
+                     ItemsSource="{Binding Repositories.Value}"
+                     SelectedItem="{Binding SelectedRepository.Value, Mode=TwoWay}">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="8,6" />
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="api:GitRepositorySummary">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <icons:FluentIcon Icon="BranchFork" FontSize="16" VerticalAlignment="Center"
+                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                       FontWeight="SemiBold" VerticalAlignment="Center"
+                                       ToolTip.Tip="{Binding Name}" />
+                            <TextBlock Grid.Column="2" Text="{Binding CreatedAt, StringFormat={}{0:d}}"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </StackPanel>
+        <TextBlock Text="{Binding Status.Value}" TextWrapping="Wrap"
+                   IsVisible="{Binding Status.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    </StackPanel>
+</UserControl>

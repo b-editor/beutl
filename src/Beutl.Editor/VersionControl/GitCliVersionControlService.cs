@@ -19,7 +19,7 @@ internal sealed partial class GitCliVersionControlService :
     };
 
     // A repository can restrict which LFS paths are hydrated (lfs.fetchinclude / lfs.fetchexclude).
-    // A pull, restore or branch switch has to reopen the project on its real media, so the Git
+    // A clone, pull, restore or branch switch has to open the project on its real media, so the Git
     // command that rewrites the files clears those filters: an excluded pointer is copied through
     // unchanged, which would leave pointer text in the work tree where the media belongs.
     // Repository-wide prefetches use the same cleared baseline; project restore narrows the scan
@@ -31,6 +31,8 @@ internal sealed partial class GitCliVersionControlService :
         "-c",
         "lfs.fetchexclude=",
     ];
+
+    internal static IReadOnlyList<string> LfsPathFilterOverrides => s_lfsPathFilterOverrides;
 
     private static readonly UTF8Encoding s_strictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
@@ -431,6 +433,15 @@ internal sealed partial class GitCliVersionControlService :
         GitRemoteUrl remote = GitRemoteUrl.Parse(url);
         return RunSerializedAsync(
             () => SetRemoteCoreAsync(remote, cancellationToken),
+            cancellationToken);
+    }
+
+    public Task SetRemoteAsync(
+        GitRemoteUrl remote, string? expectedOrigin, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        return RunSerializedAsync(
+            () => SetRemoteCoreAsync(remote, cancellationToken, verifyOrigin: true, expectedOrigin),
             cancellationToken);
     }
 

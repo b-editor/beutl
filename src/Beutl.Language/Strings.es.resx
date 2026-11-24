@@ -3919,4 +3919,184 @@ cuando el registro del historial está activado.</value>
   <data name="Portal_LibraryDescription" xml:space="preserve">
     <value>Incorpora el contenido de las capas inferiores a la capa actual (referencia de capa, entrada de flujo / layer reference, flow input).</value>
   </data>
+  <data name="StartupProjects" xml:space="preserve">
+    <value>Proyectos</value>
+  </data>
+  <data name="HostedGit_AuthenticationRequired" xml:space="preserve">
+    <value>Inicia sesión en Beutl para acceder a tus repositorios.</value>
+  </data>
+  <data name="HostedGit_Unavailable" xml:space="preserve">
+    <value>Los repositorios de Beutl no están disponibles. Inténtalo más tarde.</value>
+  </data>
+  <data name="HostedGit_NotFound" xml:space="preserve">
+    <value>No se encontró este repositorio en tu cuenta de Beutl.</value>
+  </data>
+  <data name="HostedGit_RepositoryLimit" xml:space="preserve">
+    <value>Has alcanzado el límite de repositorios de Beutl. Conecta un repositorio existente o gestiona tus repositorios en la web.</value>
+  </data>
+  <data name="HostedGit_TokenLimit" xml:space="preserve">
+    <value>Este repositorio ha alcanzado su límite de tokens de acceso. Revoca un token que no uses en la web e inténtalo de nuevo.</value>
+  </data>
+  <data name="HostedGit_AccountChanged" xml:space="preserve">
+    <value>La cuenta activa ha cambiado. Vuelve a la cuenta original e inténtalo de nuevo.</value>
+  </data>
+  <data name="HostedGit_Conflict" xml:space="preserve">
+    <value>No se pudo guardar el repositorio porque entra en conflicto con otro existente. Actualiza la lista de repositorios e inténtalo de nuevo.</value>
+  </data>
+  <data name="HostedGit_RequestFailed" xml:space="preserve">
+    <value>No se pudo completar la operación en el repositorio de Beutl. Inténtalo de nuevo.</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryName" xml:space="preserve">
+    <value>Introduce un nombre de repositorio de hasta 80 caracteres, sin barras inclinadas, barras invertidas ni caracteres de control.</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryId" xml:space="preserve">
+    <value>El identificador del repositorio o del token de acceso no es válido.</value>
+  </data>
+  <data name="HostedGit_InvalidTokenName" xml:space="preserve">
+    <value>Introduce un nombre de token de acceso de hasta 80 caracteres, sin caracteres de control.</value>
+  </data>
+  <data name="HostedGit_InvalidTokenScope" xml:space="preserve">
+    <value>Elige el permiso de lectura o de escritura para el token.</value>
+  </data>
+  <data name="HostedGit_InvalidRepositoryUrl" xml:space="preserve">
+    <value>Beutl devolvió una URL de Git no válida para este repositorio.</value>
+  </data>
+  <data name="HostedGit_InvalidRevision" xml:space="preserve">
+    <value>El enlace contiene una revisión de Git no válida.</value>
+  </data>
+  <data name="HostedGit_InvalidDestination" xml:space="preserve">
+    <value>Elige una carpeta superior válida e introduce un nombre de carpeta.</value>
+  </data>
+  <data name="HostedGit_DestinationExists" xml:space="preserve">
+    <value>Elige una carpeta de destino que esté vacía o que aún no exista.</value>
+  </data>
+  <data name="HostedGit_ConnectRemote" xml:space="preserve">
+    <value>Conectar un remoto de Git</value>
+  </data>
+  <data name="HostedGit_CreateRepository" xml:space="preserve">
+    <value>Crear en Beutl</value>
+  </data>
+  <data name="HostedGit_ConnectExisting" xml:space="preserve">
+    <value>Existente</value>
+  </data>
+  <data name="HostedGit_CustomUrl" xml:space="preserve">
+    <value>URL de Git</value>
+  </data>
+  <data name="HostedGit_RepositoryName" xml:space="preserve">
+    <value>Nombre del repositorio</value>
+  </data>
+  <data name="HostedGit_Connect" xml:space="preserve">
+    <value>Conectar</value>
+  </data>
+  <data name="HostedGit_ConnectAndPublish" xml:space="preserve">
+    <value>Conectar y publicar</value>
+  </data>
+  <data name="HostedGit_CreateAndConnect" xml:space="preserve">
+    <value>Crear y conectar</value>
+  </data>
+  <data name="HostedGit_CreateAndPublish" xml:space="preserve">
+    <value>Crear y publicar</value>
+  </data>
+  <data name="HostedGit_ReplaceOrigin" xml:space="preserve">
+    <value>Se reemplazará el origin actual.</value>
+  </data>
+  <data name="HostedGit_OriginChanged" xml:space="preserve">
+    <value>El origin actual ha cambiado. Vuelve a abrir el cuadro de diálogo para revisarlo antes de conectar.</value>
+  </data>
+  <data name="HostedGit_OriginAlreadyConfigured" xml:space="preserve">
+    <value>Origin ya está configurado. Usa «Enviar» para publicar en él.</value>
+  </data>
+  <data name="HostedGit_PushDestinationMismatch" xml:space="preserve">
+    <value>Git enviaría los cambios a otro repositorio. Comprueba las URL de envío de origin antes de conectar.</value>
+  </data>
+  <data name="HostedGit_SignIn" xml:space="preserve">
+    <value>Iniciar sesión en Beutl</value>
+  </data>
+  <data name="HostedGit_SignInFailed" xml:space="preserve">
+    <value>No se pudo iniciar sesión. Vuelve a intentarlo.</value>
+  </data>
+  <data name="HostedGit_NoRepositories" xml:space="preserve">
+    <value>Esta cuenta no tiene repositorios de Beutl.</value>
+  </data>
+  <data name="HostedGit_NoSearchResults" xml:space="preserve">
+    <value>No hay repositorios que coincidan con tu búsqueda.</value>
+  </data>
+  <data name="HostedGit_Reconnect" xml:space="preserve">
+    <value>Volver a conectar el remoto de Beutl</value>
+  </data>
+  <data name="HostedGit_ReconnectHint" xml:space="preserve">
+    <value>Vuelve a conectar para generar un nuevo token de acceso y luego repite la operación de Git.</value>
+  </data>
+  <data name="HostedGit_Reconnected" xml:space="preserve">
+    <value>Se ha vuelto a conectar el remoto de Beutl.</value>
+  </data>
+  <data name="HostedGit_OpenOnWeb" xml:space="preserve">
+    <value>Abrir en la web</value>
+  </data>
+  <data name="HostedGit_OpenCommitOnWeb" xml:space="preserve">
+    <value>Ver el commit en la web</value>
+  </data>
+  <data name="HostedGit_CloneRepository" xml:space="preserve">
+    <value>Clonar repositorio</value>
+  </data>
+  <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
+    <value>Clonar repositorio…</value>
+  </data>
+  <data name="HostedGit_BeutlRepositories" xml:space="preserve">
+    <value>Repositorios de Beutl</value>
+  </data>
+  <data name="HostedGit_CloneFromUrl" xml:space="preserve">
+    <value>Clonar desde una URL</value>
+  </data>
+  <data name="HostedGit_Clone" xml:space="preserve">
+    <value>Clonar</value>
+  </data>
+  <data name="HostedGit_ClonedProject" xml:space="preserve">
+    <value>Copia local</value>
+  </data>
+  <data name="HostedGit_CloudProject" xml:space="preserve">
+    <value>Nube</value>
+  </data>
+  <data name="HostedGit_FolderName" xml:space="preserve">
+    <value>Nombre de la carpeta</value>
+  </data>
+  <data name="HostedGit_ParentFolder" xml:space="preserve">
+    <value>Carpeta superior</value>
+  </data>
+  <data name="HostedGit_Cloning" xml:space="preserve">
+    <value>Clonando el repositorio…</value>
+  </data>
+  <data name="HostedGit_Canceling" xml:space="preserve">
+    <value>Cancelando la clonación…</value>
+  </data>
+  <data name="HostedGit_CloneFailed" xml:space="preserve">
+    <value>No se pudo clonar el repositorio.</value>
+  </data>
+  <data name="HostedGit_CloneRequiresLfs" xml:space="preserve">
+    <value>Este repositorio contiene archivos de Git LFS. Instala Git LFS y vuelve a clonar el repositorio.</value>
+  </data>
+  <data name="HostedGit_ChooseClonedProject" xml:space="preserve">
+    <value>Elige un proyecto para abrir</value>
+  </data>
+  <data name="HostedGit_NoProjectFound" xml:space="preserve">
+    <value>Se clonó el repositorio, pero no contiene archivos de proyecto de Beutl.</value>
+  </data>
+  <data name="HostedGit_OpenFolder" xml:space="preserve">
+    <value>Abrir carpeta</value>
+  </data>
+  <data name="HostedGit_ProjectAlreadyOpen" xml:space="preserve">
+    <value>Este repositorio ya está abierto en Beutl.</value>
+  </data>
+  <data name="HostedGit_ExistingCloneFound" xml:space="preserve">
+    <value>Este equipo ya tiene un proyecto de este repositorio.</value>
+  </data>
+  <data name="HostedGit_OpenLocalProject" xml:space="preserve">
+    <value>Abrir copia local</value>
+  </data>
+  <data name="HostedGit_CloneNewCopy" xml:space="preserve">
+    <value>Clonar una nueva copia</value>
+  </data>
+  <data name="HostedGit_RevisionFormat" xml:space="preserve">
+    <value>Revisión {0}</value>
+  </data>
 </root>

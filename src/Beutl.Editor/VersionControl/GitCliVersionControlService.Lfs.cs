@@ -145,7 +145,7 @@ internal sealed partial class GitCliVersionControlService
         }
     }
 
-    private static async Task<bool> TargetContainsLfsPointerAsync(
+    internal static async Task<bool> TargetContainsLfsPointerAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         string reference,
