@@ -20,6 +20,7 @@ using Beutl.NodeGraph.Nodes;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Reactive.Bindings;
+using Vector3 = System.Numerics.Vector3;
 
 namespace Beutl.HeadlessUITests;
 
@@ -99,10 +100,12 @@ public class RoundedCornerBorderTests
             Assert.That(view.TryFindResource("FocusStrokeColorOuterBrush", ThemeVariant.Dark, out object? brushObj), Is.True);
             Color borderColor = ((ISolidColorBrush)brushObj!).Color;
 
+            HeadlessCapture.SaveIfRequested(view, nameof(RoundedCornerBorderTests), "graph-node-expanded");
             AssertFourCornerBorders(window, view, borderColor, "expanded GraphNodeView");
 
             nodeVm.IsExpanded.Value = false;
             HeadlessTestHelpers.Render(4);
+            HeadlessCapture.SaveIfRequested(view, nameof(RoundedCornerBorderTests), "graph-node-collapsed");
             AssertFourCornerBorders(window, view, borderColor, "collapsed GraphNodeView");
         }
         finally
@@ -153,7 +156,8 @@ public class RoundedCornerBorderTests
 
             Assert.That(frame.BorderBrush, Is.InstanceOf<ISolidColorBrush>());
             Color hoverBorderColor = ((ISolidColorBrush)frame.BorderBrush!).Color;
-            AssertFourCornerBorders(window, frame, hoverBorderColor, "hovered LibraryGalleryView tile");
+            HeadlessCapture.SaveIfRequested(frame, nameof(RoundedCornerBorderTests), "library-gallery-hover");
+            AssertFourCornerBorders(window, frame, hoverBorderColor, "hovered LibraryGalleryView tile", overRedThumbnail: true);
         }
         finally
         {
@@ -196,7 +200,8 @@ public class RoundedCornerBorderTests
             frame.BorderBrush = Brushes.Lime;
             HeadlessTestHelpers.Render(2);
 
-            AssertFourCornerBorders(window, frame, Colors.Lime, "LibraryItemPickerFlyoutPresenter tile");
+            HeadlessCapture.SaveIfRequested(frame, nameof(RoundedCornerBorderTests), "library-picker-tile");
+            AssertFourCornerBorders(window, frame, Colors.Lime, "LibraryItemPickerFlyoutPresenter tile", overRedThumbnail: true);
         }
         finally
         {
@@ -205,7 +210,8 @@ public class RoundedCornerBorderTests
         }
     }
 
-    private static void AssertFourCornerBorders(Window window, Control control, Color expectedBorder, string description)
+    private static void AssertFourCornerBorders(
+        Window window, Control control, Color expectedBorder, string description, bool overRedThumbnail = false)
     {
         using WriteableBitmap frame = window.CaptureRenderedFrame()!;
         double scale = window.RenderScaling;
@@ -223,10 +229,13 @@ public class RoundedCornerBorderTests
             ("bottom-right", right - 1 - 2.7 * scale, bottom - 1 - 2.7 * scale),
         };
 
+        // The red thumbnail can contribute to the stroke's partially covered edge pixels.
+        var borderRgb = new Vector3(overRedThumbnail ? 0 : expectedBorder.R, expectedBorder.G, expectedBorder.B);
+        float borderLengthSquared = borderRgb.LengthSquared();
         var failures = new List<string>();
         foreach ((string name, double cx, double cy) in corners)
         {
-            double bestScore = double.NegativeInfinity;
+            float bestDistance = float.PositiveInfinity;
             (int R, int G, int B) bestPixel = default;
             int ix = (int)Math.Round(cx);
             int iy = (int)Math.Round(cy);
@@ -234,30 +243,21 @@ public class RoundedCornerBorderTests
             {
                 for (int dx = -1; dx <= 1; dx++)
                 {
-                    (int R, int G, int B) p = HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(ix + dx, iy + dy));
-                    // A 1px anti-aliased stroke at 45 degrees reaches ~65% pixel coverage; compare against
-                    // the 65%-blended border color and verify the dominant border channel is strongly present.
-                    int dist = Math.Abs(p.R - (int)(expectedBorder.R * 0.65))
-                             + Math.Abs(p.G - (int)(expectedBorder.G * 0.65))
-                             + Math.Abs(p.B - (int)(expectedBorder.B * 0.65));
-                    double score = -dist;
-                    if (score > bestScore)
+                    var pixel = HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(ix + dx, iy + dy));
+                    var pixelRgb = new Vector3(overRedThumbnail ? 0 : pixel.R, pixel.G, pixel.B);
+                    // Over the black window background, subpixel placement can make the stroke anywhere
+                    // from partially covered to fully covered. Look for its color at 50% coverage or higher.
+                    float coverage = Math.Clamp(Vector3.Dot(pixelRgb, borderRgb) / borderLengthSquared, 0.5f, 1f);
+                    float distance = Vector3.Distance(pixelRgb, borderRgb * coverage);
+                    if (distance < bestDistance)
                     {
-                        bestScore = score;
-                        bestPixel = p;
+                        bestDistance = distance;
+                        bestPixel = pixel;
                     }
                 }
             }
 
-            // Require at least 50% of the dominant border channel and close overall color match (catches
-            // interior content overwriting the rounded corner, where the border channel drops near zero).
-            bool hasBorderColor =
-                (expectedBorder.R < 128 || bestPixel.R >= expectedBorder.R * 0.5)
-                && (expectedBorder.G < 128 || bestPixel.G >= expectedBorder.G * 0.5)
-                && (expectedBorder.B < 128 || bestPixel.B >= expectedBorder.B * 0.5)
-                && (-bestScore <= 120);
-
-            if (!hasBorderColor)
+            if (bestDistance > 32)
             {
                 failures.Add($"{name} near ({ix},{iy}): closest pixel RGB{bestPixel}, expected ~RGB({expectedBorder.R},{expectedBorder.G},{expectedBorder.B})");
             }

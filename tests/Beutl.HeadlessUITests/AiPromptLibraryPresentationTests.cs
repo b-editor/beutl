@@ -110,7 +110,7 @@ public sealed class AiPromptLibraryPresentationTests
     }
 
     [AvaloniaTest]
-    public void Templates_KeepTheRowActionsOutOfTheWayUntilTheRowIsReachedFor()
+    public async Task Templates_KeepTheRowActionsOutOfTheWayUntilTheRowIsReachedFor()
     {
         var library = CreateLibrary();
         library.SaveTemplate("Sunset", PromptTaskKind.Image, "a calm sunset");
@@ -143,7 +143,7 @@ public sealed class AiPromptLibraryPresentationTests
             }
 
             list.SelectedItem = FindRow(list, "Sunset").DataContext;
-            HeadlessTestHelpers.Render();
+            await WaitForRowActionTransitionsAsync(list, "Sunset");
 
             using (Assert.EnterMultipleScope())
             {
@@ -154,7 +154,7 @@ public sealed class AiPromptLibraryPresentationTests
 
             Invoke(Pin(list, "Sunset"));
             list.SelectedItem = null;
-            HeadlessTestHelpers.Render();
+            await WaitForRowActionTransitionsAsync(list, "Sunset");
 
             using (Assert.EnterMultipleScope())
             {
@@ -290,6 +290,16 @@ public sealed class AiPromptLibraryPresentationTests
         => list.GetRealizedContainers()
             .OfType<ListBoxItem>()
             .Single(item => ((AiPromptChoice)item.DataContext!).Name == name);
+
+    private static Task WaitForRowActionTransitionsAsync(ListBox list, string name)
+    {
+        HeadlessTestHelpers.Render();
+        return HeadlessTestHelpers.WaitUntilAsync(
+            () => !Apply(list, name).IsAnimating(Visual.OpacityProperty)
+                && !Pin(list, name).IsAnimating(Visual.OpacityProperty)
+                && !Delete(list, name).IsAnimating(Visual.OpacityProperty),
+            message: "The row action opacity transitions did not finish.");
+    }
 
     private static void Invoke(Button button)
     {
