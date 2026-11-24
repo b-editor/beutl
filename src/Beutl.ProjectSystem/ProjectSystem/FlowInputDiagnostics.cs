@@ -147,6 +147,8 @@ internal static class FlowInputDiagnostics
     private readonly record struct InputScope(PooledList<Element> Elements, MediaTime Time, bool IsMatteSource,
         MediaTime? FrameTime = null, MediaTime? SideTime = null);
 
+    private readonly record struct TransitionRead(Element[] Offered, Element[] Blocked, Element[] Remaining);
+
     private sealed class InputPass(Scene scene, Element owner, List<EngineObject> missing,
         CompositionTarget target, HashSet<Element>? participants)
     {
@@ -154,6 +156,8 @@ internal static class FlowInputDiagnostics
         private readonly HashSet<Element> _evaluating = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<(PortalObject Portal, MediaTime Time, MediaTime? FrameTime, MediaTime? SideTime),
             (Element[] Elements, FlowInputKind Output)> _variablePortalOutputs = [];
+        private readonly Dictionary<(TransitionBoundary Boundary, MediaTime Time, bool IsMatteSource),
+            List<TransitionRead>> _transitionReads = [];
         private MediaTime _frameTime;
 
         public void InspectLocalInputs()
@@ -167,12 +171,10 @@ internal static class FlowInputDiagnostics
             _frameTime = time;
             _matteLayers.Clear();
             _variablePortalOutputs.Clear();
+            _transitionReads.Clear();
             using var active = new PooledList<Element>();
             SceneCompositor.CollectFrameElements(scene, time, active, target, participants);
             InspectRoots(new InputScope(active, time, IsMatteSource: false));
-
-            // A hidden clip can be authored as a matte source. Its inputs use their own pass.
-            if (participants != null && !owner.IsVisibleInOutput.Value) InspectMatte(owner.ZIndex.Value);
         }
 
         private void InspectRoots(InputScope scope, int? layer = null)
@@ -298,11 +300,36 @@ internal static class FlowInputDiagnostics
         {
             if (!scope.IsMatteSource && !boundary.HasVisibleSide) return FlowInputKind.None;
 
+            var key = (boundary, scope.Time, scope.IsMatteSource);
+            // Matte reads can revisit a layer that is already being evaluated. Portal traversal within
+            // a side only goes farther down, so earlier layers cannot block this read.
+            int layer = (boundary.Outgoing ?? boundary.Incoming)!.ZIndex.Value;
+            Element[] blocked = scope.IsMatteSource ? [.. _evaluating.Where(e => e.ZIndex.Value >= layer)] : [];
+            if (!_transitionReads.TryGetValue(key, out var reads))
+            {
+                reads = [];
+                _transitionReads.Add(key, reads);
+            }
+
+            foreach (TransitionRead read in reads)
+            {
+                if (!scope.Elements.Span.SequenceEqual(read.Offered) || !blocked.AsSpan().SequenceEqual(read.Blocked)) continue;
+                if (read.Remaining.Length != scope.Elements.Count)
+                {
+                    scope.Elements.Clear();
+                    scope.Elements.AddRange(read.Remaining);
+                }
+
+                return FlowInputKind.Drawable;
+            }
+
             Element[] inputs = [.. scope.Elements];
             if (boundary.Outgoing is { } outgoing)
                 ReadSide(outgoing, boundary.GetOutgoingTime(scope.Time), inputs, scope);
             if (boundary.Incoming is { } incoming)
                 ReadSide(incoming, boundary.GetIncomingTime(scope.Time), inputs, scope);
+            Element[] remaining = scope.Elements.Count == inputs.Length ? inputs : scope.Elements.Span.ToArray();
+            reads.Add(new TransitionRead(inputs, blocked, remaining));
             return FlowInputKind.Drawable;
         }
 

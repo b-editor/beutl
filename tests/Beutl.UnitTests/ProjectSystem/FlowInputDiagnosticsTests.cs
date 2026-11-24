@@ -1,4 +1,5 @@
 ﻿using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
@@ -242,6 +243,11 @@ public class FlowInputDiagnosticsTests
         ((PortalObject)receiver.Objects[0]).Count.Value = 1;
         Element input = AddClip(scene, new RectShape(), layer: 2, start: 0, duration: 2);
         input.IsVisibleInOutput.Value = false;
+
+        using var compositor = new SceneCompositor(scene, null);
+        Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).Objects, Is.Empty);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { group }));
+
         Element target = AddClip(scene, new RectShape(), layer: 0, start: 0, duration: 2);
         target.MatteMode.Value = MatteMode.Alpha;
         target.MatteSourceKind.Value = MatteSourceKind.Layer;
@@ -291,21 +297,67 @@ public class FlowInputDiagnosticsTests
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
     }
 
-    [Test]
-    public void ASideOfATransitionUsesTheOutputOfTheClipItsPortalReaches()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ASideOfATransitionUsesTheOutputOfTheClipItsPortalReaches(bool held)
     {
         var scene = new Scene();
         var scene3D = new Scene3D();
-        Element receiver = AddClip(scene, scene3D, layer: 0, start: 0, duration: 0.25);
+        Element receiver = AddClip(scene, scene3D, layer: 0, start: 0, duration: held ? 1.02 : 0.25);
         ((PortalObject)receiver.Objects[0]).Count.Value = 1;
-        receiver.EnterTransition.Value = new FadeTransition();
-        Element input = AddClip(scene, new Cube3D(), layer: 1, start: 0, duration: 2);
+        if (held) receiver.ExitTransition.Value = new FadeTransition();
+        else receiver.EnterTransition.Value = new FadeTransition();
+
+        // Only the held edge of the exit side reaches this source, between two rendered frames.
+        Element input = AddClip(scene, new Cube3D(), layer: 1, start: held ? 0.98 : 0, duration: held ? 0.01 : 2);
         var clear = new PortalObject { Clear = { Value = true } };
         input.Objects.Add(clear);
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
 
         clear.Clear.Value = false;
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+    }
+
+    [Test]
+    public void IdenticalTransitionReadsReuseTheirConsumptionAcrossPortalSides()
+    {
+        const int stackedLayers = 12;
+        var scene = new Scene();
+        var scene3D = new Scene3D();
+        AddClip(scene, new PortalObject { Count = { Value = 1 } }, layer: 0, start: 0, duration: 4);
+        Element receiver = AddClip(scene, scene3D, layer: 0, start: 1, duration: 4);
+        receiver.EnterTransition.Value = new FadeTransition();
+        var clearingPortal = (PortalObject)receiver.Objects[0];
+        clearingPortal.Count.Value = stackedLayers + 1;
+        clearingPortal.Clear.Value = true;
+        receiver.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
+
+        for (int layer = 1; layer <= stackedLayers; layer++)
+        {
+            AddClip(scene, new PortalObject { Count = { Value = 1 } }, layer, start: 0, duration: 4);
+            Element incoming = AddClip(scene, new PortalObject { Count = { Value = 1 } }, layer, start: 1, duration: 4);
+            incoming.EnterTransition.Value = new FadeTransition();
+        }
+
+        Element source = AddClip(scene, new Cube3D(), layer: stackedLayers + 1, start: 0, duration: 5);
+        var probe = new CountingGraphicsObject();
+        source.Objects.Add(probe);
+
+        // The incoming side's second Portal cannot retake the cube consumed by its first Portal.
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
+        Assert.That(probe.TargetQueries, Is.InRange(1, 128), "Equivalent reads of stacked transitions should reuse the deepest input evaluation.");
+    }
+
+    [SuppressResourceClassGeneration]
+    private sealed class CountingGraphicsObject : EngineObject
+    {
+        public int TargetQueries { get; private set; }
+
+        public override CompositionTarget GetCompositionTarget()
+        {
+            TargetQueries++;
+            return CompositionTarget.Graphics;
+        }
     }
 
     private static Element AddClip(Scene scene, EngineObject obj, int layer, double start, double duration)
