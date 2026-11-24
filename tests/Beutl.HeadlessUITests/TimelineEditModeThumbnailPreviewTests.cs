@@ -90,11 +90,13 @@ public class TimelineEditModeThumbnailPreviewTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, false)]
-    [TestCase(true, false)]
-    [TestCase(false, true)]
-    [TestCase(true, true)]
-    public async Task TrimEdit_AnchorsFrontAndBackContent(bool slide, bool animatedSpeed)
+    [TestCase(false, "none")]
+    [TestCase(true, "none")]
+    [TestCase(false, "speed")]
+    [TestCase(true, "speed")]
+    [TestCase(false, "gain")]
+    [TestCase(true, "gain")]
+    public async Task TrimEdit_AnchorsFrontAndBackContent(bool slide, string animation)
     {
         using var config = new PreviewConfigScope();
         var (_, timeline) = await TimelineTestHost.OpenTimelineAsync("trim-thumbnail-preview",
@@ -105,8 +107,15 @@ public class TimelineEditModeThumbnailPreviewTests
         ElementViewModel front = clips[0];
         ElementViewModel back = clips[^1];
         ElementViewModel dragged = slide ? clips[1] : front;
-        if (animatedSpeed)
-            Animate(back.Model.Objects.OfType<SourceSound>().Single().Speed, 100, 200);
+        var sound = back.Model.Objects.OfType<SourceSound>().Single();
+        if (animation == "speed")
+            Animate(sound.Speed, 100, 200);
+        else if (animation == "gain")
+        {
+            Animate(sound.Gain, 0, 100);
+            Animate(sound.Pan, -100, 100, back.Model.Start.Value, global: true);
+        }
+        bool resampled = animation != "none";
 
         timeline.ClearSelected();
         timeline.SelectElement(dragged);
@@ -142,12 +151,12 @@ public class TimelineEditModeThumbnailPreviewTests
                     Assert.That(front.ThumbnailContentOffsetX.Value, Is.Zero);
                     Assert.That(back.IsThumbnailPreviewActive.Value, Is.True);
                     Assert.That(back.ThumbnailContentWidth.Value, Is.EqualTo(backWidth));
-                    Assert.That(back.ThumbnailContentOffsetX.Value, Is.EqualTo(animatedSpeed ? 0 : -deltaPixels).Within(0.5));
+                    Assert.That(back.ThumbnailContentOffsetX.Value, Is.EqualTo(resampled ? 0 : -deltaPixels).Within(0.5));
                     if (slide)
                         Assert.That(double.IsNaN(dragged.ThumbnailContentWidth.Value), Is.True);
                 });
 
-                if (animatedSpeed)
+                if (resampled)
                 {
                     await HeadlessTestHelpers.WaitUntilAsync(() => observedChunk.HasValue);
                     if (!slide)
@@ -166,7 +175,7 @@ public class TimelineEditModeThumbnailPreviewTests
             if (previewChunk is { } sample)
             {
                 await HeadlessTestHelpers.WaitUntilAsync(() => observedChunk.HasValue);
-                Assert.That(observedChunk!.Value.MaxValue, Is.EqualTo(sample.MaxValue).Within(0.05f));
+                Assert.That(observedChunk!.Value.MaxValue, Is.EqualTo(sample.MaxValue).Within(animation == "gain" ? 0.01f : 0.05f));
             }
             Assert.Multiple(() =>
             {
@@ -282,6 +291,73 @@ public class TimelineEditModeThumbnailPreviewTests
     }
 
     [AvaloniaTest]
+    public async Task SlipEdit_CancellingTheNextDragRestoresTheCommittedWaveform()
+    {
+        using var config = new PreviewConfigScope();
+        ElementViewModel clip = await OpenAudioClip(startSeconds: 1, lengthSeconds: 2, offsetSeconds: 1, sourceSeconds: 6);
+        var sound = clip.Model.Objects.OfType<SourceSound>().Single();
+        Animate(sound.Gain, 0, 100);
+        clip.Timeline.IsSlipMode.Value = true;
+        using var view = new TimelineViewScope(clip, width: 1200);
+        await WaitForWaveformReady(clip, view.Waveform);
+
+        int index = clip.WaveformChunkCount.Value / 4;
+        Assert.That(view.Waveform.TryGetChunk(index, out var original), Is.True);
+        int lastIndex = clip.WaveformChunkCount.Value - 1;
+        Assert.That(view.Waveform.TryGetChunk(lastIndex, out var originalEnd), Is.True);
+        Point press = HeadlessTestHelpers.Center(view.Border, view.Window);
+        double slipPixels = MediaTime.FromSeconds(0.5).TimeToPixel(view.Scale);
+        Point move = press.WithX(press.X + slipPixels);
+        DispatcherPause? pending = null;
+        WaveformChunk firstPreview = default;
+        try
+        {
+            await view.DragAsync(press, move, RawInputModifiers.Alt, async () =>
+            {
+                firstPreview = await WaitForChangedChunk(index, original);
+                await WaitForChangedChunk(lastIndex, originalEnd);
+                pending = new DispatcherPause(ComposeThread.Dispatcher);
+                await pending.Entered;
+            });
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            HeadlessTestHelpers.Render(3);
+            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "slip-chain-committed");
+
+            Point secondPress = press.WithX(press.X + 30);
+            Point secondMove = secondPress.WithX(secondPress.X + slipPixels);
+            await view.DragAsync(secondPress, secondMove, RawInputModifiers.Alt, async () =>
+            {
+                pending!.Release();
+                await WaitForChangedChunk(index, firstPreview);
+                await using var cancelled = new DispatcherPause(ComposeThread.Dispatcher);
+                await cancelled.Entered;
+                view.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+                HeadlessTestHelpers.Render(3);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+                    Assert.That(view.Waveform.TryGetChunk(index, out var restored), Is.True);
+                    Assert.That(restored, Is.EqualTo(firstPreview));
+                });
+                HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "slip-chain-cancelled");
+            });
+        }
+        finally
+        {
+            if (pending != null)
+                await pending.DisposeAsync();
+            clip.Timeline.IsSlipMode.Value = false;
+        }
+
+        async Task<WaveformChunk> WaitForChangedChunk(int slot, WaveformChunk previous)
+        {
+            WaveformChunk chunk = default;
+            await HeadlessTestHelpers.WaitUntilAsync(() => view.Waveform.TryGetChunk(slot, out chunk) && chunk != previous);
+            return chunk;
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task SlipEdit_ClampsToSourceBoundsAndPreservesTheGainEnvelope(bool animatedGain)
@@ -343,8 +419,9 @@ public class TimelineEditModeThumbnailPreviewTests
                 }
                 else
                 {
+                    var (_, end) = view.Waveform.GetVisibleRange();
                     await HeadlessTestHelpers.WaitUntilAsync(() =>
-                        view.Waveform.GetMissingIndices(initialChunkCount, initialChunkCount + 10).Count == 0);
+                        view.Waveform.GetMissingIndices(initialChunkCount, end).Count == 0);
                 }
                 HeadlessTestHelpers.Render(3);
                 HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), $"{captureName}-drag");
@@ -566,18 +643,18 @@ public class TimelineEditModeThumbnailPreviewTests
         }
     }
 
-    private static void Animate(IProperty<float> property, float start, float end)
+    private static void Animate(IProperty<float> property, float start, float end, MediaTime startTime = default, bool global = false)
     {
-        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = false } };
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = global } };
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = { Value = MediaTime.Zero },
+            KeyTime = { Value = startTime },
             Value = { Value = start },
             Easing = { Value = new LinearEasing() }
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            KeyTime = { Value = startTime + MediaTime.FromSeconds(2) },
             Value = { Value = end },
             Easing = { Value = new LinearEasing() }
         });

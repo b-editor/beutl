@@ -350,7 +350,10 @@ public sealed partial class ElementView
 
             foreach (TrimSegment back in ctx.Backs)
             {
-                back.ViewModel.UpdateMediaPreview(-deltaPixels, back.ResampleTarget?.SourceDelta(delta, trim: true));
+                ElementViewModel.MediaPreviewMapping? mapping = back.ResampleTarget is { } target
+                    ? new(target.SourceDelta(delta, trim: true), delta)
+                    : null;
+                back.ViewModel.UpdateMediaPreview(-deltaPixels, mapping);
                 back.ViewModel.BorderMargin.Value = new Thickness(back.InitialLeft + deltaPixels, 0, 0, 0);
                 back.ViewModel.Width.Value = back.InitialWidth - deltaPixels;
             }
@@ -651,11 +654,12 @@ public sealed partial class ElementView
 
             foreach (TrimSegment back in ctx.Backs)
             {
-                double? finalOffsetX = committed
-                    ? -(back.ViewModel.Model.Start.Value - back.InitialStart).TimeToPixel(scale)
+                MediaTime startDelta = back.ViewModel.Model.Start.Value - back.InitialStart;
+                double? finalOffsetX = committed ? -startDelta.TimeToPixel(scale) : null;
+                ElementViewModel.MediaPreviewMapping? mapping = back.ResampleTarget is { } target
+                    ? new(target.Offset.Value - target.InitialOffset, startDelta)
                     : null;
-                MediaTime? appliedOffset = back.ResampleTarget is { } target ? target.Offset.Value - target.InitialOffset : null;
-                back.ViewModel.EndMediaPreview(committed, finalOffsetX, appliedOffset);
+                back.ViewModel.EndMediaPreview(committed, finalOffsetX, mapping);
             }
         }
 

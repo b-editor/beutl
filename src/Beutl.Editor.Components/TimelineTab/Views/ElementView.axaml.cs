@@ -300,6 +300,7 @@ public sealed partial class ElementView : UserControl
         obj.ThumbnailReady -= OnThumbnailReady;
         obj.ThumbnailsClear -= OnThumbnailsClear;
         obj.MediaPreviewClear -= OnMediaPreviewClear;
+        obj.MediaPreviewCommitted -= OnMediaPreviewCommitted;
         obj.WaveformChunkReady -= OnWaveformChunkReady;
         obj.WaveformClear -= OnWaveformClear;
 
@@ -357,6 +358,7 @@ public sealed partial class ElementView : UserControl
         obj.ThumbnailReady += OnThumbnailReady;
         obj.ThumbnailsClear += OnThumbnailsClear;
         obj.MediaPreviewClear += OnMediaPreviewClear;
+        obj.MediaPreviewCommitted += OnMediaPreviewCommitted;
         obj.WaveformChunkReady += OnWaveformChunkReady;
         obj.WaveformClear += OnWaveformClear;
         obj.SetTimelineViewAttached(true);
@@ -376,6 +378,12 @@ public sealed partial class ElementView : UserControl
     {
         thumbnailStrip.ClearPreview();
         waveformControl.ClearPreview();
+    }
+
+    private void OnMediaPreviewCommitted()
+    {
+        thumbnailStrip.CommitPreview();
+        waveformControl.CommitPreview();
     }
 
     private void OnWaveformChunkReady(WaveformChunk chunk)

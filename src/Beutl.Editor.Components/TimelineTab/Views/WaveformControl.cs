@@ -89,6 +89,8 @@ public sealed partial class WaveformControl : Control
         InvalidateVisual();
     }
 
+    internal void CommitPreview() => _chunks.CommitPreview();
+
     internal (int Start, int End) GetVisibleRange()
         => TimelineSlotRange.Compute(
             this,

@@ -141,7 +141,10 @@ public sealed partial class ElementView
                     double offsetX = -previewDelta.TimeToPixel(scale);
                     foreach (SlipPreviewEntry entry in _slipPreviewElements)
                     {
-                        entry.ViewModel.UpdateMediaPreview(offsetX, entry.ResampleTarget?.SourceDelta(previewDelta, trim: false));
+                        ElementViewModel.MediaPreviewMapping? mapping = entry.ResampleTarget is { } target
+                            ? new(target.SourceDelta(previewDelta, trim: false))
+                            : null;
+                        entry.ViewModel.UpdateMediaPreview(offsetX, mapping);
                     }
 
                     view.UpdateSnapFeedback(slipSnap.DidSnap && previewDelta == requestedDelta ? slipSnap.Time : null, scale, e.Timestamp);
@@ -315,8 +318,10 @@ public sealed partial class ElementView
             double? translatedOffsetX = applied ? -effectiveDelta.TimeToPixel(scale) : null;
             foreach (SlipPreviewEntry entry in previewElements)
             {
-                MediaTime? appliedOffset = entry.ResampleTarget is { } target ? target.Offset.Value - target.InitialOffset : null;
-                entry.ViewModel.EndMediaPreview(applied, translatedOffsetX, appliedOffset);
+                ElementViewModel.MediaPreviewMapping? mapping = entry.ResampleTarget is { } target
+                    ? new(target.Offset.Value - target.InitialOffset)
+                    : null;
+                entry.ViewModel.EndMediaPreview(applied, translatedOffsetX, mapping);
             }
         }
 

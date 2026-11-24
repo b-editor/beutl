@@ -51,6 +51,10 @@ public sealed partial class SourceSound : IThumbnailsProvider
     internal bool RequiresResampledSlipPreview
         => Properties.Any(AnimationSampler.IsAnimated) || HasEnabledEffect(Effect.Value);
 
+    internal bool RequiresResampledTrimPreview
+        => Properties.Any(property => property.GetKeyFrameAnimation() is { KeyFrames.Count: > 0, UseGlobalClock.Value: false })
+            || HasEnabledEffect(Effect.Value);
+
     private static bool HasEnabledEffect(AudioEffect? effect)
         => effect is { IsEnabled.Value: true }
             && (effect is not AudioEffectGroup group || group.Children.Any(HasEnabledEffect));
@@ -187,7 +191,8 @@ public sealed partial class SourceSound : IThumbnailsProvider
         [EnumeratorCancellation] CancellationToken cancellationToken = default,
         DecoderRegistry? decoders = null,
         MediaTime offsetDelta = default,
-        TimeRange? previewLayout = null)
+        TimeRange? previewLayout = null,
+        MediaTime startDelta = default)
     {
         if (indices.Count == 0 || baseChunkCount <= 0 || samplesPerChunk <= 0
             || !await WaveformGate.TryEnterAsync(cancellationToken))
@@ -213,9 +218,14 @@ public sealed partial class SourceSound : IThumbnailsProvider
             var (output, finiteEndSample) = await ComposeThread.Dispatcher.InvokeAsync(() =>
             {
                 var output = ComposeForWaveformPreview(audioContext, resource, offsetDelta);
+                if (startDelta != MediaTime.Zero)
+                {
+                    foreach (IAudioTimeMappingNode node in audioContext.Nodes.OfType<IAudioTimeMappingNode>())
+                        node.SetPreviewStartDelta(startDelta);
+                }
                 return (output, output?.GetFiniteSourceEndSample(sampleRate));
             }, DispatchPriority.Low, cancellationToken);
-            var sampler = new AnimationSampler();
+            var sampler = new AnimationSampler { PreviewStartDelta = startDelta };
 
             // Sparse requests have different processing history from a normal, sequential waveform.
             foreach (int index in indices)
@@ -236,7 +246,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 yield return await ComposeThread.Dispatcher.InvokeAsync(() =>
                 {
                     using var buffer = output.Process(new AudioProcessContext(
-                        range, sampleRate, sampler, range.AddStart(clipRange.Start)));
+                        range, sampleRate, sampler, range.AddStart(clipRange.Start + startDelta)));
                     for (int ch = 0; ch < buffer.ChannelCount; ch++)
                     {
                         var data = buffer.GetChannelData(ch);

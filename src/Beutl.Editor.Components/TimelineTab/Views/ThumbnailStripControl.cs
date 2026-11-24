@@ -63,6 +63,8 @@ public sealed partial class ThumbnailStripControl : Control
         InvalidateVisual();
     }
 
+    internal void CommitPreview() => _thumbnails.CommitPreview();
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);

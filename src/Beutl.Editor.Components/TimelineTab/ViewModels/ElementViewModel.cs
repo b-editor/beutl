@@ -363,6 +363,8 @@ public sealed partial class ElementViewModel : IDisposable
 
     internal event Action? MediaPreviewClear;
 
+    internal event Action? MediaPreviewCommitted;
+
     public event Action<WaveformChunk>? WaveformChunkReady;
 
     public event Action? WaveformClear;

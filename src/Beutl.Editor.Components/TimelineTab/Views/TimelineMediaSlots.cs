@@ -31,6 +31,13 @@ internal sealed class TimelineMediaSlots<T>(Action<T>? release = null)
 
     public void ClearPreview() => Clear(_preview);
 
+    public void CommitPreview()
+    {
+        foreach (var (index, item) in _preview)
+            Set(index, item);
+        _preview.Clear();
+    }
+
     public void Clear()
     {
         Clear(_base);
