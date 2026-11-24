@@ -19,8 +19,7 @@ public sealed partial class ElementViewModel
     private bool _timelineViewAttached;
     private int _thumbnailLayoutVersion;
     private int _thumbnailCountVersion;
-
-    private bool HasStaleVisibleRange => Volatile.Read(ref _thumbnailCountVersion) != Volatile.Read(ref _thumbnailLayoutVersion);
+    private int _failedThumbnailLayoutVersion = -1;
 
     private bool CanGenerateThumbnails => !_isDisposed && _timelineViewAttached
         && !IsThumbnailsDisabled.Value && Width.Value >= MinimumThumbnailWidth;
@@ -245,6 +244,7 @@ public sealed partial class ElementViewModel
         CancelThumbnailsLoading();
         CancelScrollThumbnailsLoading();
         Volatile.Write(ref _thumbnailCountVersion, Volatile.Read(ref _thumbnailLayoutVersion));
+        Volatile.Write(ref _failedThumbnailLayoutVersion, -1);
         _lastVisibleStart = _lastVisibleEnd = -1;
         ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
         VideoThumbnailCount.Value = 0;
@@ -345,11 +345,22 @@ public sealed partial class ElementViewModel
 
     private async Task UpdateVisibleThumbnailsAsync(int start, int end)
     {
-        if (!CanGenerateThumbnails || HasStaleVisibleRange || end < start) return;
+        if (!CanGenerateThumbnails || end < start) return;
 
         var provider = _currentThumbnailsProvider;
         if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
             return;
+
+        int layoutVersion = Volatile.Read(ref _thumbnailLayoutVersion);
+        if (Volatile.Read(ref _thumbnailCountVersion) != layoutVersion)
+        {
+            if (_thumbnailsCts == null && Volatile.Read(ref _failedThumbnailLayoutVersion) == layoutVersion)
+            {
+                UpdateThumbnailsAsync();
+            }
+
+            return;
+        }
 
         CancelThumbnailsLoading();
 
@@ -360,7 +371,6 @@ public sealed partial class ElementViewModel
         CancelScrollThumbnailsLoading();
         _scrollThumbnailsCts = new CancellationTokenSource();
         var ct = _scrollThumbnailsCts.Token;
-        int layoutVersion = Volatile.Read(ref _thumbnailLayoutVersion);
 
         try
         {
@@ -393,26 +403,40 @@ public sealed partial class ElementViewModel
         if (width <= 0)
             return;
 
-        CancelScrollThumbnailsLoading();
-        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (!ct.IsCancellationRequested)
-            {
-                ThumbnailsClear?.Invoke();
-            }
-        });
-
         int layoutVersion = Volatile.Read(ref _thumbnailLayoutVersion);
-        bool staleRange = Volatile.Read(ref _thumbnailCountVersion) != layoutVersion;
-        if (staleRange)
+        Volatile.Write(ref _failedThumbnailLayoutVersion, -1);
+
+        CancelScrollThumbnailsLoading();
+        try
         {
-            _lastVisibleStart = _lastVisibleEnd = -1;
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!ct.IsCancellationRequested)
+                {
+                    ThumbnailsClear?.Invoke();
+                }
+            });
+
+            bool staleRange = Volatile.Read(ref _thumbnailCountVersion) != layoutVersion;
+            if (staleRange)
+            {
+                _lastVisibleStart = _lastVisibleEnd = -1;
+            }
+
+            int startIndex = !staleRange && _lastVisibleStart >= 0 ? _lastVisibleStart : 0;
+            int endIndex = !staleRange && _lastVisibleEnd >= 0 ? _lastVisibleEnd : -1;
+
+            await StreamVideoThumbnailsAsync(provider, (int)width, startIndex, endIndex, layoutVersion, ct);
         }
-
-        int startIndex = !staleRange && _lastVisibleStart >= 0 ? _lastVisibleStart : 0;
-        int endIndex = !staleRange && _lastVisibleEnd >= 0 ? _lastVisibleEnd : -1;
-
-        await StreamVideoThumbnailsAsync(provider, (int)width, startIndex, endIndex, layoutVersion, ct);
+        finally
+        {
+            if (!ct.IsCancellationRequested
+                && Volatile.Read(ref _thumbnailCountVersion) != layoutVersion
+                && Volatile.Read(ref _thumbnailLayoutVersion) == layoutVersion)
+            {
+                Volatile.Write(ref _failedThumbnailLayoutVersion, layoutVersion);
+            }
+        }
     }
 
     // Each thumbnail is disposed on the UI thread after the hand-off, or here once the request is cancelled.

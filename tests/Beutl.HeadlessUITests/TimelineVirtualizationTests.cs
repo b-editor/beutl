@@ -845,11 +845,77 @@ public sealed class TimelineVirtualizationTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Failed_video_height_rebuild_recovers_on_subsequent_visible_range_without_reusing_stale_indices()
+    {
+        await TestReset.ResetShellAsync();
+        EditorConfig config = TestShell.Configuration.EditorConfig;
+        TimelineLayerSize previous = config.TimelineLayerSize.Value;
+        bool showByDefault = config.ShowTimelineThumbnailsByDefault.Value;
+        try
+        {
+            config.TimelineLayerSize.Value = TimelineLayerSize.Small;
+            config.ShowTimelineThumbnailsByDefault.Value = true;
+            var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(20) } };
+            var video = new Element
+            {
+                ZIndex = { Value = 0 },
+                Start = { Value = MediaTime.Zero },
+                Length = { Value = MediaTime.FromSeconds(20) },
+                Name = { Value = "Long Video" }
+            };
+            var videoSource = new CountingThumbnailSource(ThumbnailsKind.Video, scaledSlots: true);
+            video.Objects.Add(videoSource);
+            scene.Children.Add(video);
+            using var host = new ViewportHost(scene);
+            ElementViewModel model = host.Model.GetViewModelFor(video)!;
+
+            await HeadlessTestHelpers.WaitUntilAsync(() => model.VideoThumbnailCount.Value > 40);
+            int smallCount = model.VideoThumbnailCount.Value;
+            ThumbnailStripControl strip = host.Panel.GetVisualDescendants().OfType<ThumbnailStripControl>().Single();
+
+            int requestsBeforeResize = videoSource.Requests;
+            videoSource.FailNextVideoStrip = true;
+            config.TimelineLayerSize.Value = TimelineLayerSize.Large;
+
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                videoSource.Requests > requestsBeforeResize
+                && !videoSource.FailNextVideoStrip
+                && videoSource.LastRequestedHeight == 64);
+            HeadlessTestHelpers.Settle();
+            Assert.That(model.VideoThumbnailCount.Value, Is.EqualTo(smallCount));
+
+            // A subsequent visible-range request with stale Small indices must trigger a full Large rebuild.
+            model.OnVisibleRangeChanged(smallCount - 3, smallCount - 1);
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                model.VideoThumbnailCount.Value < smallCount
+                && videoSource.YieldedAtHeight(64, model.VideoThumbnailCount.Value - 1));
+            HeadlessTestHelpers.Render(3);
+            int largeCount = model.VideoThumbnailCount.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(largeCount, Is.LessThan(smallCount));
+                Assert.That(videoSource.LastRequestedHeight, Is.EqualTo(64));
+                Assert.That(videoSource.LastRequestedStart, Is.Zero);
+                Assert.That(videoSource.LastRequestedEnd, Is.EqualTo(-1));
+                Assert.That(strip.GetMissingIndices(0, largeCount - 1), Is.Empty);
+            });
+        }
+        finally
+        {
+            config.TimelineLayerSize.Value = previous;
+            config.ShowTimelineThumbnailsByDefault.Value = showByDefault;
+        }
+    }
+
     private sealed class CountingThumbnailSource(ThumbnailsKind kind = ThumbnailsKind.Audio, bool scaledSlots = false) : EngineObject, IThumbnailsProvider
     {
         private readonly HashSet<(int Height, int Index)> _yielded = [];
         public int Requests { get; private set; }
         public int LastRequestedHeight { get; private set; }
+        public int LastRequestedStart { get; private set; }
+        public int LastRequestedEnd { get; private set; }
+        public bool FailNextVideoStrip { get; set; }
         public (int Height, TaskCompletionSource Gate)? PauseAfterFirstTileAtHeight { get; set; }
         public int PausedAtHeight { get; private set; }
         public ThumbnailsKind ThumbnailsKind => kind;
@@ -887,7 +953,14 @@ public sealed class TimelineVirtualizationTests
             int startIndex = 0, int endIndex = -1, Beutl.Media.Decoding.DecoderRegistry? decoders = null)
         {
             LastRequestedHeight = maxHeight;
+            LastRequestedStart = startIndex;
+            LastRequestedEnd = endIndex;
             await BeginRequest(cancellationToken);
+            if (FailNextVideoStrip)
+            {
+                FailNextVideoStrip = false;
+                throw new InvalidOperationException("Simulated thumbnail decode failure.");
+            }
             if (scaledSlots)
             {
                 int count = Beutl.Graphics.SourceVideo.GetVideoThumbnailCount(new Beutl.Media.PixelSize(160, 90), maxWidth, maxHeight);
