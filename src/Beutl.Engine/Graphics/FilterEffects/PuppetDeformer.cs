@@ -1,16 +1,21 @@
-﻿using System.Numerics;
+﻿using System.Buffers;
+using System.Numerics;
 
 namespace Beutl.Graphics.Effects;
 
 // Two-dimensional ARAP with uniform edge weights and exact positional constraints.
 internal sealed class PuppetDeformer
 {
-    private const int RotationIterations = 6;
+    // The iterations stop once no vertex moves further than this in one of them, in the input's units.
+    private const float Tolerance = 1f / 64;
+    // Bounds the work for a pose that converges slowly, such as one that folds the picture over itself.
+    private const int MaxIterations = 100;
     private readonly PuppetMesh _mesh;
     private readonly int[][] _neighbors;
     private readonly int[] _pinAtVertex;
     private readonly int[] _component;
     private readonly int[] _componentPinCount;
+    private readonly int[] _pinned;
     private readonly int[] _rotating;
     private readonly int[] _free;
     private readonly LaplacianFactor _laplacian;
@@ -32,6 +37,7 @@ internal sealed class PuppetDeformer
             _componentPinCount[_component[vertex]]++;
         }
 
+        _pinned = Enumerable.Range(0, mesh.Rest.Length).Where(vertex => _pinAtVertex[vertex] >= 0).ToArray();
         _rotating = Enumerable.Range(0, mesh.Rest.Length)
             .Where(vertex => _componentPinCount[_component[vertex]] >= 2).ToArray();
         _free = _rotating.Where(vertex => _pinAtVertex[vertex] < 0).ToArray();
@@ -42,85 +48,337 @@ internal sealed class PuppetDeformer
     {
         Vector2[] rest = _mesh.Rest;
         var displacement = new Vector2[rest.Length];
-        var componentDisplacement = new Vector2[_componentPinCount.Length];
         bool moved = false;
-        for (int vertex = 0; vertex < rest.Length; vertex++)
+        foreach (int vertex in _pinned)
         {
-            if (_pinAtVertex[vertex] < 0) continue;
-
+            // A pin without a finite destination holds its vertex at rest.
             Vector2 target = PuppetMesh.ToLocal(size, targets[_pinAtVertex[vertex]]);
             if (!float.IsFinite(target.X) || !float.IsFinite(target.Y)) continue;
 
             Vector2 delta = target - rest[vertex];
             displacement[vertex] = delta;
-            componentDisplacement[_component[vertex]] += delta;
             moved |= delta != Vector2.Zero;
         }
         if (!moved) return rest;
 
-        // A component with one pin translates exactly. Starting other components from their mean translation makes
-        // every solve independent of playback order while leaving them free to find a rotation.
-        for (int vertex = 0; vertex < displacement.Length; vertex++)
-        {
-            int component = _component[vertex];
-            if (_pinAtVertex[vertex] < 0 && _componentPinCount[component] > 0)
-                displacement[vertex] = componentDisplacement[component] / _componentPinCount[component];
-        }
-
+        // Every solve starts from the pins alone, never from an earlier frame, so it is independent of playback order.
+        StartFromRigidFit(rest, displacement);
         if (_free.Length > 0)
-        {
-            var rotations = new Vector2[rest.Length];
-            var right = new Vector2[rest.Length];
-            for (int iteration = 0; iteration < RotationIterations; iteration++)
-            {
-                foreach (int vertex in _rotating)
-                {
-                    double cosine = 0;
-                    double sine = 0;
-                    foreach (int other in _neighbors[vertex])
-                    {
-                        Vector2 original = rest[vertex] - rest[other];
-                        Vector2 current = original + displacement[vertex] - displacement[other];
-                        cosine += (double)original.X * current.X + (double)original.Y * current.Y;
-                        sine += (double)original.X * current.Y - (double)original.Y * current.X;
-                    }
-
-                    double length = Math.Sqrt(cosine * cosine + sine * sine);
-                    rotations[vertex] = length > 0
-                        ? new Vector2((float)(cosine / length), (float)(sine / length))
-                        : Vector2.UnitX;
-                }
-
-                // Solve for displacements from rest so small moves on a large image retain their precision.
-                foreach (int vertex in _free)
-                {
-                    Vector2 value = Vector2.Zero;
-                    foreach (int other in _neighbors[vertex])
-                    {
-                        Vector2 edge = rest[vertex] - rest[other];
-                        Vector2 rotation = (rotations[vertex] + rotations[other]) * 0.5f;
-                        value += new Vector2(rotation.X * edge.X - rotation.Y * edge.Y,
-                            rotation.Y * edge.X + rotation.X * edge.Y) - edge;
-                        if (_pinAtVertex[other] >= 0)
-                            value += displacement[other];
-                    }
-                    right[vertex] = value;
-                }
-                _laplacian.Solve(right, displacement);
-            }
-        }
+            Relax(rest, displacement);
 
         for (int vertex = 0; vertex < rest.Length; vertex++)
             displacement[vertex] += rest[vertex];
-        for (int vertex = 0; vertex < rest.Length; vertex++)
+        foreach (int vertex in _pinned)
         {
-            if (_pinAtVertex[vertex] < 0) continue;
-
             Vector2 target = PuppetMesh.ToLocal(size, targets[_pinAtVertex[vertex]]);
             if (float.IsFinite(target.X) && float.IsFinite(target.Y))
                 displacement[vertex] = target;
         }
         return displacement;
+    }
+
+    // Moves each pinned component by the rotation and translation that best map its pins' rest positions onto their
+    // destinations, a 2D Procrustes fit, so the local step starts near the rotations the pins ask for. A component with
+    // one pin translates exactly, and pins that move rigidly need no further iteration.
+    private void StartFromRigidFit(Vector2[] rest, Vector2[] displacement)
+    {
+        int count = _componentPinCount.Length;
+        var restCenters = new Vector2D[count];
+        var targetCenters = new Vector2D[count];
+        foreach (int vertex in _pinned)
+        {
+            int component = _component[vertex];
+            restCenters[component] += (Vector2D)rest[vertex];
+            targetCenters[component] += (Vector2D)rest[vertex] + (Vector2D)displacement[vertex];
+        }
+
+        for (int component = 0; component < count; component++)
+        {
+            if (_componentPinCount[component] == 0) continue;
+
+            restCenters[component] /= _componentPinCount[component];
+            targetCenters[component] /= _componentPinCount[component];
+        }
+
+        // The best rotation's cosine and sine are in proportion to the sums of the dot and cross products of the pins'
+        // rest and target offsets from their centers.
+        var rotations = new Vector2D[count];
+        foreach (int vertex in _pinned)
+        {
+            int component = _component[vertex];
+            Vector2D from = (Vector2D)rest[vertex] - restCenters[component];
+            Vector2D to = (Vector2D)rest[vertex] + (Vector2D)displacement[vertex] - targetCenters[component];
+            rotations[component] += new Vector2D(from.X * to.X + from.Y * to.Y, from.X * to.Y - from.Y * to.X);
+        }
+
+        for (int component = 0; component < count; component++)
+        {
+            (double cosine, double sine) = rotations[component];
+            double length = Math.Sqrt(cosine * cosine + sine * sine);
+            rotations[component] = length > 0 ? rotations[component] / length : new Vector2D(1, 0);
+        }
+
+        for (int vertex = 0; vertex < rest.Length; vertex++)
+        {
+            int component = _component[vertex];
+            if (_pinAtVertex[vertex] >= 0 || _componentPinCount[component] == 0) continue;
+
+            (double cosine, double sine) = rotations[component];
+            Vector2D offset = (Vector2D)rest[vertex] - restCenters[component];
+            Vector2D value = targetCenters[component] - restCenters[component] + new Vector2D(
+                (cosine - 1) * offset.X - sine * offset.Y,
+                sine * offset.X + (cosine - 1) * offset.Y);
+            displacement[vertex] = new Vector2((float)value.X, (float)value.Y);
+        }
+    }
+
+    // Alternates the local step, which fits each vertex's rotation to its edges, and the global step, which solves the
+    // positions for those rotations, until the vertices stop moving.
+    private void Relax(Vector2[] rest, Vector2[] displacement)
+    {
+        var rotations = new Vector2[rest.Length];
+        var right = new Vector2[rest.Length];
+        var solved = new Vector2[rest.Length];
+        AndersonMixer? mixer = null;
+        try
+        {
+            double energy = FitRotations(rest, displacement, rotations);
+            for (int iteration = 0; iteration < MaxIterations; iteration++)
+            {
+                BuildRight(rest, displacement, rotations, right);
+                _laplacian.Solve(right, solved);
+                float largest = 0;
+                foreach (int vertex in _free)
+                    largest = MathF.Max(largest, Vector2.DistanceSquared(solved[vertex], displacement[vertex]));
+                // A destination too far away to represent gives a solve that cannot converge.
+                if (largest <= Tolerance * Tolerance || !float.IsFinite(largest))
+                {
+                    foreach (int vertex in _free)
+                        displacement[vertex] = solved[vertex];
+                    return;
+                }
+
+                mixer ??= new AndersonMixer(_free.Length);
+                if (mixer.Mix(_free, displacement, solved))
+                {
+                    double mixedEnergy = FitRotations(rest, displacement, rotations);
+                    if (mixedEnergy < energy)
+                    {
+                        energy = mixedEnergy;
+                        continue;
+                    }
+                }
+
+                foreach (int vertex in _free)
+                    displacement[vertex] = solved[vertex];
+                energy = FitRotations(rest, displacement, rotations);
+            }
+        }
+        finally
+        {
+            mixer?.Dispose();
+        }
+    }
+
+    // The local step: each vertex's rotation that best maps its rest edges onto the current ones. Returns the ARAP energy
+    // of the current positions with those rotations.
+    private double FitRotations(Vector2[] rest, Vector2[] displacement, Vector2[] rotations)
+    {
+        double energy = 0;
+        foreach (int vertex in _rotating)
+        {
+            double cosine = 0;
+            double sine = 0;
+            double squares = 0;
+            foreach (int other in _neighbors[vertex])
+            {
+                Vector2 original = rest[vertex] - rest[other];
+                Vector2 current = original + displacement[vertex] - displacement[other];
+                cosine += (double)original.X * current.X + (double)original.Y * current.Y;
+                sine += (double)original.X * current.Y - (double)original.Y * current.X;
+                squares += (double)original.LengthSquared() + current.LengthSquared();
+            }
+
+            double length = Math.Sqrt(cosine * cosine + sine * sine);
+            energy += squares - 2 * length;
+            rotations[vertex] = length > 0
+                ? new Vector2((float)(cosine / length), (float)(sine / length))
+                : Vector2.UnitX;
+        }
+        return energy;
+    }
+
+    private void BuildRight(Vector2[] rest, Vector2[] displacement, Vector2[] rotations, Vector2[] right)
+    {
+        // Solve for displacements from rest so small moves on a large image retain their precision.
+        foreach (int vertex in _free)
+        {
+            Vector2 value = Vector2.Zero;
+            foreach (int other in _neighbors[vertex])
+            {
+                Vector2 edge = rest[vertex] - rest[other];
+                Vector2 rotation = (rotations[vertex] + rotations[other]) * 0.5f;
+                value += new Vector2(rotation.X * edge.X - rotation.Y * edge.Y,
+                    rotation.Y * edge.X + rotation.X * edge.Y) - edge;
+                if (_pinAtVertex[other] >= 0)
+                    value += displacement[other];
+            }
+            right[vertex] = value;
+        }
+    }
+
+    // Anderson acceleration of the local-global iteration (Peng et al., "Anderson Acceleration for Geometry Optimization
+    // and Physics Simulation", 2018). Where plain iterations creep along a slow bend, it extrapolates from the last few
+    // of them. The caller keeps an extrapolated step only when it lowers the energy.
+    private sealed class AndersonMixer : IDisposable
+    {
+        private const int Depth = 5;
+        private readonly int _length;
+        // Depth changes of the residual, Depth changes of the solved displacement, then the last residual and solve.
+        private readonly Vector2[] _history;
+        private readonly double[] _gram = new double[Depth * Depth];
+        private readonly double[] _factor = new double[Depth * Depth];
+        private readonly double[] _weights = new double[Depth];
+        private int _count;
+        private int _next;
+        private bool _started;
+
+        public AndersonMixer(int length)
+        {
+            _length = length;
+            _history = ArrayPool<Vector2>.Shared.Rent(length * (2 * Depth + 2));
+        }
+
+        // Records that the global step took the free vertices from displacement to solved, then replaces their
+        // displacement with the extrapolated one. Returns false, leaving it alone, while there is nothing to
+        // extrapolate from.
+        public bool Mix(int[] free, Vector2[] displacement, Vector2[] solved)
+        {
+            Vector2[] history = _history;
+            int length = _length;
+            int lastResidual = 2 * Depth * length;
+            int lastSolved = lastResidual + length;
+            if (!_started)
+            {
+                for (int i = 0; i < free.Length; i++)
+                {
+                    int vertex = free[i];
+                    history[lastResidual + i] = solved[vertex] - displacement[vertex];
+                    history[lastSolved + i] = solved[vertex];
+                }
+                _started = true;
+                return false;
+            }
+
+            int residualChange = _next * length;
+            int solvedChange = (Depth + _next) * length;
+            for (int i = 0; i < free.Length; i++)
+            {
+                int vertex = free[i];
+                Vector2 residual = solved[vertex] - displacement[vertex];
+                history[residualChange + i] = residual - history[lastResidual + i];
+                history[solvedChange + i] = solved[vertex] - history[lastSolved + i];
+                history[lastResidual + i] = residual;
+                history[lastSolved + i] = solved[vertex];
+            }
+            _count = Math.Min(_count + 1, Depth);
+
+            Span<double> products = stackalloc double[Depth];
+            Span<double> right = stackalloc double[Depth];
+            for (int i = 0; i < free.Length; i++)
+            {
+                Vector2 change = history[residualChange + i];
+                Vector2 residual = history[lastResidual + i];
+                for (int slot = 0; slot < _count; slot++)
+                {
+                    Vector2 other = history[slot * length + i];
+                    products[slot] += (double)change.X * other.X + (double)change.Y * other.Y;
+                    right[slot] += (double)other.X * residual.X + (double)other.Y * residual.Y;
+                }
+            }
+            for (int slot = 0; slot < _count; slot++)
+            {
+                _gram[_next * Depth + slot] = products[slot];
+                _gram[slot * Depth + _next] = products[slot];
+            }
+            _next = (_next + 1) % Depth;
+            if (!SolveWeights(right[.._count])) return false;
+
+            for (int i = 0; i < free.Length; i++)
+            {
+                int vertex = free[i];
+                double x = solved[vertex].X;
+                double y = solved[vertex].Y;
+                for (int slot = 0; slot < _count; slot++)
+                {
+                    Vector2 change = history[(Depth + slot) * length + i];
+                    x -= _weights[slot] * change.X;
+                    y -= _weights[slot] * change.Y;
+                }
+                displacement[vertex] = new Vector2((float)x, (float)y);
+            }
+            return true;
+        }
+
+        // The weights of the recorded residual changes that best cancel the last residual, by least squares.
+        private bool SolveWeights(ReadOnlySpan<double> right)
+        {
+            int count = right.Length;
+            double scale = 0;
+            for (int slot = 0; slot < count; slot++)
+                scale = Math.Max(scale, _gram[slot * Depth + slot]);
+            if (!(scale > 0)) return false;
+
+            // Cholesky with a small ridge, which keeps nearly parallel changes from blowing the weights up.
+            for (int row = 0; row < count; row++)
+            {
+                for (int column = 0; column <= row; column++)
+                {
+                    double sum = _gram[row * Depth + column];
+                    for (int k = 0; k < column; k++)
+                        sum -= _factor[row * Depth + k] * _factor[column * Depth + k];
+                    if (row != column)
+                    {
+                        _factor[row * Depth + column] = sum / _factor[column * Depth + column];
+                    }
+                    else
+                    {
+                        sum += scale * 1e-10;
+                        if (!(sum > 0)) return false;
+                        _factor[row * Depth + row] = Math.Sqrt(sum);
+                    }
+                }
+            }
+
+            for (int row = 0; row < count; row++)
+            {
+                double sum = right[row];
+                for (int k = 0; k < row; k++)
+                    sum -= _factor[row * Depth + k] * _weights[k];
+                _weights[row] = sum / _factor[row * Depth + row];
+            }
+            for (int row = count - 1; row >= 0; row--)
+            {
+                double sum = _weights[row];
+                for (int k = row + 1; k < count; k++)
+                    sum -= _factor[k * Depth + row] * _weights[k];
+                _weights[row] = sum / _factor[row * Depth + row];
+            }
+            return true;
+        }
+
+        public void Dispose() => ArrayPool<Vector2>.Shared.Return(_history);
+    }
+
+    private readonly record struct Vector2D(double X, double Y)
+    {
+        public static explicit operator Vector2D(Vector2 value) => new(value.X, value.Y);
+
+        public static Vector2D operator +(Vector2D left, Vector2D right) => new(left.X + right.X, left.Y + right.Y);
+
+        public static Vector2D operator -(Vector2D left, Vector2D right) => new(left.X - right.X, left.Y - right.Y);
+
+        public static Vector2D operator /(Vector2D value, double divisor) => new(value.X / divisor, value.Y / divisor);
     }
 
     // The anchored Laplacian is positive definite and stays fixed while pins move. Factor it once in double
