@@ -330,6 +330,21 @@ public sealed class VignetteTests
     }
 
     [Test]
+    public void AMidpointJustAboveTheCenterStaysFinite()
+    {
+        // A tiny positive Midpoint must not divide 0 by 0 where the band starts. The 65 x 65 picture puts the center
+        // on a pixel's center, at distance 0.
+        float[] pixels = RenderWhite(new Vignette { Midpoint = { Value = 1e-7f }, Feather = { Value = 100f } }, s_square);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pixels, Is.All.Matches<float>(float.IsFinite));
+            Assert.That(ChannelAt(pixels, s_square, 32, 32), Is.EqualTo(1f).Within(0.002f), "the center");
+            Assert.That(ChannelAt(pixels, s_square, 0, 0), Is.EqualTo(0.5f).Within(0.002f), "the corner");
+        });
+    }
+
+    [Test]
     public void DetachedValuesUseRangesAndFiniteDefaults()
     {
         using var resource = new Vignette.Resource
