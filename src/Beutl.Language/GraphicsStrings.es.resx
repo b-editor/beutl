@@ -2283,7 +2283,7 @@
     <value>Coordenadas relativas a la imagen. La esquina superior izquierda es (0, 0) y la inferior derecha es (1, 1).</value>
   </data>
   <data name="Puppet_LibraryDescription" xml:space="preserve">
-    <value>Deforma una imagen al colocar y mover pines.</value>
+    <value>Deforma una imagen al colocar y mover pines (pin de marioneta, herramienta de marioneta / puppet pin, puppet tool, deform).</value>
   </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>Dibuja un círculo o una elipse que también puede usarse como mate (elipse, forma, sólido, máscara, mate de pista / ellipse, shape, solid, mask, track matte).</value>
@@ -2394,7 +2394,7 @@
     <value>Superpone copias atenuadas de instantes anteriores o posteriores sobre el fotograma actual (estela, rastro fantasma / afterimage, ghost trail, motion trails).</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>Mantiene los fotogramas durante intervalos fijos para crear un aspecto de animación cuadro a cuadro (baja frecuencia de fotogramas / frame hold, stop motion).</value>
+    <value>Mantiene los fotogramas durante intervalos fijos para crear un aspecto de animación cuadro a cuadro (baja frecuencia de fotogramas / frame hold, stop motion, posterize time).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>Desenfoca la imagen con la forma de la apertura del objetivo (desenfoque de lente, desenfoque de objetivo / lens blur, defocus).</value>
@@ -2460,7 +2460,7 @@
     <value>Aclara u oscurece toda la imagen (aclarar, oscurecer / brighten, darken).</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>Cambia el grado de transparencia de la imagen (alfa, transparencia / alpha, transparency).</value>
+    <value>Cambia el grado de transparencia de la imagen (alfa, transparencia, fundido / alpha, transparency, fade).</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>Aclara u oscurece los tonos medios para ajustar el equilibrio tonal (corrección gamma, tonos medios / gamma correction, midtones).</value>
@@ -2475,7 +2475,7 @@
     <value>Añade un ruido fino parecido al grano de película (ruido, grano / noise, grain).</value>
   </data>
   <data name="Vignette_LibraryDescription" xml:space="preserve">
-    <value>Oscurece los bordes de la imagen alrededor del centro elegido (viñeta de lente, oscurecimiento de bordes / lens vignette, edge darkening).</value>
+    <value>Oscurece los bordes de la imagen alrededor del centro elegido, o los aclara con una cantidad negativa (viñeta de lente, oscurecimiento de bordes / lens vignette, edge darkening).</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
     <value>Invierte los colores de la imagen (negativo, invertir colores / negative, invert colors).</value>
@@ -2490,7 +2490,7 @@
     <value>Invierte los colores con ajustes independientes de rojo, verde y azul (negativo, invertir colores / negative, invert colors).</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
-    <value>Elimina un fondo en función de su tono y saturación (pantalla verde, pantalla azul, croma / green screen, blue screen, keylight).</value>
+    <value>Elimina un fondo en función de su tono y saturación y suprime el color del fondo que se derrama sobre el sujeto (pantalla verde, pantalla azul, croma, supresión de derrame / green screen, blue screen, keylight, despill, spill suppressor).</value>
   </data>
   <data name="ColorKey_LibraryDescription" xml:space="preserve">
     <value>Hace transparentes los píxeles cercanos a un color elegido (clave de color, incrustación por color, mate de color / keying, color key, color matte).</value>
@@ -2535,7 +2535,7 @@
     <value>Combina varias salidas de un efecto en una sola imagen (acoplar, combinar capas / flatten, merge layers).</value>
   </data>
   <data name="DelayAnimationEffect_LibraryDescription" xml:space="preserve">
-    <value>Aplica un mismo efecto animado a distintas copias o piezas con un desfase de tiempo (animación escalonada, desfase temporal / stagger, time offset).</value>
+    <value>Aplica un mismo efecto animado a distintas copias, piezas o caracteres de un texto con un desfase de tiempo para que se animen uno tras otro (animación escalonada, desfase temporal, animación de texto / stagger, time offset, text animator).</value>
   </data>
   <data name="PixelSortEffect_LibraryDescription" xml:space="preserve">
     <value>Ordena grupos de píxeles por brillo o color para crear estelas (ordenación de píxeles, distorsión en franjas / pixel sorting, streak glitch).</value>
