@@ -94,10 +94,10 @@
                                                   Icon="VideoClip" />
                             </ContentControl>
                             <Border Background="{DynamicResource AccentFillColorDefaultBrush}" Opacity="0.10"
-                                    IsVisible="{CompiledBinding IsRemoteOnly}" />
+                                    IsVisible="{CompiledBinding ShowRemotePlaceholder.Value}" />
                             <icons:FluentIcon FontSize="32" Icon="CloudArrowDown"
                                               Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                              IsVisible="{CompiledBinding IsRemoteOnly}" />
+                                              IsVisible="{CompiledBinding ShowRemotePlaceholder.Value}" />
                             <Image Classes="recent-thumb" RenderOptions.BitmapInterpolationMode="HighQuality" Source="{CompiledBinding Thumbnail.Value}" />
                             <Border Background="{DynamicResource ControlOnImageFillColorDefaultBrush}" IsVisible="{Binding #openingRing.IsVisible}" />
                             <ui:FAProgressRing x:Name="openingRing"
@@ -153,10 +153,10 @@
                                           Icon="VideoClip"
                                           IsVisible="{CompiledBinding HasNoThumbnail.Value}" />
                         <Border Background="{DynamicResource AccentFillColorDefaultBrush}" Opacity="0.10"
-                                IsVisible="{CompiledBinding IsRemoteOnly}" />
+                                IsVisible="{CompiledBinding ShowRemotePlaceholder.Value}" />
                         <icons:FluentIcon FontSize="18" Icon="CloudArrowDown"
                                           Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                          IsVisible="{CompiledBinding IsRemoteOnly}" />
+                                          IsVisible="{CompiledBinding ShowRemotePlaceholder.Value}" />
                         <Image RenderOptions.BitmapInterpolationMode="HighQuality" Source="{CompiledBinding Thumbnail.Value}" />
                     </Panel>
                 </Border>

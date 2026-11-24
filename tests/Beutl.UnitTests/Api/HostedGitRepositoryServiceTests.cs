@@ -222,4 +222,57 @@ public sealed class HostedGitRepositoryServiceTests
             Assert.That(HostedGitRepositoryService.CreateDesktopTokenName("test\r\npc"), Is.EqualTo("Beutl Desktop (testpc)"));
         });
     }
+
+    [Test]
+    public async Task Thumbnail_upload_and_download_use_authenticated_binary_endpoints()
+    {
+        Guid id = Guid.Parse(RepositoryId);
+        byte[] pngBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01, 0x02];
+        DateTimeOffset uploadedAt = DateTimeOffset.Parse("2026-11-25T01:00:00Z");
+        byte[]? uploaded = null;
+        string? uploadContentType = null;
+        bool returnNotFound = false;
+
+        using var http = new HttpClient(new DelegateHttpHandler(async request =>
+        {
+            Assert.That(request.Headers.Authorization?.ToString(), Is.EqualTo("Bearer desktop-token"));
+            Assert.That(request.RequestUri!.AbsolutePath, Is.EqualTo($"/api/v3/repos/{RepositoryId}/thumbnail"));
+            if (request.Method == HttpMethod.Put)
+            {
+                uploadContentType = request.Content!.Headers.ContentType?.MediaType;
+                uploaded = await request.Content.ReadAsByteArrayAsync();
+                return Json(Repository() with { ThumbnailUpdatedAt = uploadedAt });
+            }
+
+            if (returnNotFound)
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(pngBytes),
+            };
+            response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+            return response;
+        }));
+        await using var app = CreateApp(http);
+        AuthenticatedUser owner = ApiTestAuthentication.SignIn(app, id: "owner", token: "desktop-token");
+        var service = app.GetResource<HostedGitRepositoryService>();
+
+        GitRepositorySummary updated = await service.UploadThumbnailAsync(id, pngBytes, owner);
+        Assert.Multiple(() =>
+        {
+            Assert.That(uploadContentType, Is.EqualTo("image/png"));
+            Assert.That(uploaded, Is.EqualTo(pngBytes));
+            Assert.That(updated.ThumbnailUpdatedAt, Is.EqualTo(uploadedAt));
+        });
+
+        Assert.That(await service.DownloadThumbnailAsync(id, owner), Is.EqualTo(pngBytes));
+
+        returnNotFound = true;
+        Assert.That(await service.DownloadThumbnailAsync(id, owner), Is.Null);
+
+        Assert.Throws<ArgumentException>(() => service.UploadThumbnailAsync(id, ReadOnlyMemory<byte>.Empty, owner));
+        Assert.Throws<ArgumentException>(() => service.UploadThumbnailAsync(
+            id, new byte[HostedGitRepositoryService.MaxThumbnailBytes + 1], owner));
+    }
 }

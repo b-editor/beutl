@@ -15,6 +15,7 @@ public partial class EditorHostFallback
     private CancellationTokenSource? _repositoryScan;
     private IReadOnlyList<GitRepositorySummary> _hostedRepositories = [];
     private Dictionary<string, Guid> _localRepositories = new(StringComparer.Ordinal);
+    private readonly SemaphoreSlim _remoteThumbnailGate = new(4, 4);
 
     private bool IsShowingProjects => _projectsAttached && IsVisible;
 

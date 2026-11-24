@@ -134,6 +134,8 @@ internal sealed partial class VersionControlCoordinator :
 
     public event EventHandler? RepositoryAdoptionChanged;
 
+    internal event EventHandler<IProjectVersionControlService>? PushSucceeded;
+
     public RepositoryAdoptionRequest? PendingRepositoryAdoption => _pendingRepositoryAdoption;
 
     internal Func<CancellationToken, Task<bool>> ConfirmRestoreAsync { get; set; }
@@ -273,8 +275,23 @@ internal sealed partial class VersionControlCoordinator :
     {
         return RunOnUiThreadAsync(async () =>
         {
-            using OperationLease operation = await BeginOperationAsync(cancellationToken);
-            return await GetTrackedBackend().PushAsync(progress, operation.CancellationToken);
+            RemoteOpResult result;
+            IProjectVersionControlService? pushedService = null;
+            using (OperationLease operation = await BeginOperationAsync(cancellationToken))
+            {
+                result = await GetTrackedBackend().PushAsync(progress, operation.CancellationToken);
+                if (result is RemoteOpResult.Success)
+                {
+                    pushedService = _state.VisibleService;
+                }
+            }
+
+            if (result is RemoteOpResult.Success && pushedService is not null)
+            {
+                PushSucceeded?.Invoke(this, pushedService);
+            }
+
+            return result;
         });
     }
 
