@@ -71,13 +71,13 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
     private MediaTime CalculateVideoTime(MediaTime timeSpan, Resource resource)
         => SpeedAdjustedTime.Map(Speed, resource.Speed, resource._speedIntegrator, timeSpan);
 
-    private MediaTime CalculateRequestedPosition(MediaTime time, Resource resource)
+    private MediaTime CalculateRequestedPosition(MediaTime time, Resource resource, MediaTime startDelta = default)
     {
         MediaTime start = TimeRange.Value.Start;
         if (Speed.GetKeyFrameAnimation() is KeyFrameAnimation<float> animation)
         {
             return animation.UseGlobalClock.Value
-                ? CalculateVideoTime(time, resource) - CalculateVideoTime(start, resource)
+                ? CalculateVideoTime(time + startDelta, resource) - CalculateVideoTime(start + startDelta, resource)
                 : CalculateVideoTime(time - start, resource);
         }
 

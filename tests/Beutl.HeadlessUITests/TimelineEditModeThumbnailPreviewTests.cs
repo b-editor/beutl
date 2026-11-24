@@ -90,6 +90,48 @@ public class TimelineEditModeThumbnailPreviewTests
     }
 
     [AvaloniaTest]
+    public async Task LeftResize_PreviewsGlobalGainAtTheNewStart()
+    {
+        using var config = new PreviewConfigScope();
+        ElementViewModel clip = await OpenAudioClip(startSeconds: 1, lengthSeconds: 2, offsetSeconds: 1, sourceSeconds: 6);
+        var sound = clip.Model.Objects.OfType<SourceSound>().Single();
+        Animate(sound.Gain, 0, 100, clip.Model.Start.Value, global: true);
+        using var view = new TimelineViewScope(clip, width: 1200);
+        await WaitForWaveformReady(clip, view.Waveform);
+
+        int baseChunkCount = clip.WaveformChunkCount.Value;
+        int index = baseChunkCount / 4;
+        Assert.That(view.Waveform.TryGetChunk(index, out var original), Is.True);
+        double y = view.Border.Bounds.Height / 2;
+        Point press = view.Border.TranslatePoint(new Point(2, y), view.Window)!.Value;
+        Point release = view.Border.TranslatePoint(new Point(MediaTime.FromSeconds(0.5).TimeToPixel(view.Scale), y), view.Window)!.Value;
+        WaveformChunk preview = default;
+
+        await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
+                Assert.That(clip.Width.Value, Is.LessThan(MediaTime.FromSeconds(2).TimeToPixel(view.Scale)));
+                Assert.That(clip.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            });
+            await HeadlessTestHelpers.WaitUntilAsync(() => view.Waveform.TryGetChunk(index, out preview) && preview != original);
+            Assert.That(preview.MaxValue, Is.GreaterThan(original.MaxValue + 0.015f));
+            HeadlessTestHelpers.Render(3);
+            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "left-resize-global-gain");
+        });
+
+        await HeadlessTestHelpers.WaitUntilAsync(() => clip.WaveformChunkCount.Value < baseChunkCount);
+        await WaitForWaveformReady(clip, view.Waveform);
+        Assert.Multiple(() =>
+        {
+            Assert.That(clip.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(view.Waveform.TryGetChunk(index, out var moved), Is.True);
+            Assert.That(moved.MaxValue, Is.EqualTo(preview.MaxValue).Within(0.01f));
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(false, "none")]
     [TestCase(true, "none")]
     [TestCase(false, "speed")]

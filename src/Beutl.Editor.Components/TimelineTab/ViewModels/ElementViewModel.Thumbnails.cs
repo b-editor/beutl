@@ -46,7 +46,7 @@ public sealed partial class ElementViewModel
             ? Model.Length.Value.TimeToPixel(Timeline.Options.Value.Scale)
             : Width.Value;
 
-    private void BeginMediaPreview()
+    internal void BeginMediaPreview()
     {
         if (_isDisposed || _isEditPreviewActive) return;
 
@@ -59,6 +59,7 @@ public sealed partial class ElementViewModel
         if (_holdPreviewUntilThumbnailsRefresh)
         {
             IsThumbnailPreviewActive.Value = !double.IsNaN(ThumbnailContentWidth.Value);
+            QueueMediaPreviewForViewport();
             return;
         }
 
@@ -72,6 +73,7 @@ public sealed partial class ElementViewModel
             ThumbnailContentWidth.Value = contentWidth;
             ThumbnailContentOffsetX.Value = 0;
             IsThumbnailPreviewActive.Value = true;
+            QueueMediaPreviewForViewport();
         }
     }
 
@@ -79,16 +81,20 @@ public sealed partial class ElementViewModel
     {
         if (_isDisposed) return;
 
-        bool firstUpdate = !_isEditPreviewActive;
         BeginMediaPreview();
         if (!double.IsNaN(ThumbnailContentWidth.Value))
         {
             ThumbnailContentOffsetX.Value = _previewInitialOffsetX + (mapping.HasValue ? 0 : contentOffsetX);
         }
 
-        if (!IsThumbnailPreviewActive.Value || !firstUpdate && _previewMapping == mapping) return;
+        if (!IsThumbnailPreviewActive.Value || _previewMapping == mapping) return;
 
         _previewMapping = mapping;
+        QueueMediaPreviewForViewport();
+    }
+
+    private void QueueMediaPreviewForViewport()
+    {
         var range = _currentThumbnailsProvider switch
         {
             Beutl.Graphics.SourceVideo => GetVisibleThumbnailRange?.Invoke(),
@@ -136,6 +142,14 @@ public sealed partial class ElementViewModel
         // Keep the original deadline while pointer events replace the queued range.
         if (!_previewTimer.IsEnabled)
             _previewTimer.Start();
+    }
+
+    internal void EndResizeMediaPreview(MediaTime initialStart, MediaTime initialEnd)
+    {
+        MediaTime startDelta = Model.Start.Value - initialStart;
+        bool changed = startDelta != MediaTime.Zero || Model.Range.End != initialEnd;
+        MediaPreviewMapping? mapping = _previewMapping is { } preview ? preview with { StartDelta = startDelta } : null;
+        EndMediaPreview(changed, appliedMapping: mapping);
     }
 
     internal void EndMediaPreview(bool committed, double? finalContentOffsetX = null, MediaPreviewMapping? appliedMapping = null)
@@ -505,6 +519,14 @@ public sealed partial class ElementViewModel
         return null;
     }
 
+    internal bool RequiresResampledStartPreview()
+        => FindThumbnailsProvider() switch
+        {
+            Beutl.Graphics.SourceVideo video => video.HasGlobalSpeedAnimation,
+            Beutl.Audio.SourceSound sound => sound.RequiresResampledStartPreview,
+            _ => false
+        };
+
     internal SlippableMedia.Target? FindResampledThumbnailTarget(IReadOnlyList<SlippableMedia.Target> targets, bool trim)
     {
         var provider = FindThumbnailsProvider();
@@ -627,7 +649,7 @@ public sealed partial class ElementViewModel
                 await foreach (var (index, _, thumbnail) in video.GetPreviewThumbnailStripAsync(
                                    Timeline.EditorContext.GetRequiredService<FontManager>(),
                                    count, height, indices, _thumbnailCacheService, ct, PreferProxyForThumbnails,
-                                   PreferredProxyPresetForThumbnails, decoders, parameters.SourceOffsetDelta, layout))
+                                   PreferredProxyPresetForThumbnails, decoders, parameters.SourceOffsetDelta, layout, parameters.StartDelta))
                 {
                     using (thumbnail)
                     {

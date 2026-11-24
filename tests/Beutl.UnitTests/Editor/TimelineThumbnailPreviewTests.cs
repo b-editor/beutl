@@ -143,6 +143,43 @@ public class TimelineThumbnailPreviewTests
         });
     }
 
+    [Test]
+    public void SourceVideo_PreviewAfterStartChangeMatchesGlobalSpeedPlayback()
+    {
+        var decoders = TestMediaHelper.CreateRegistry();
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(64, 36, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { Value = source },
+            TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2)) },
+        };
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = true } };
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100 } });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(4) },
+            Value = { Value = 300 },
+            Easing = { Value = new LinearEasing() },
+        });
+        video.Speed.SetKeyFrameAnimation(animation);
+
+        MediaTime relativeTime = MediaTime.FromSeconds(1);
+        MediaTime startDelta = MediaTime.FromSeconds(0.5);
+        string? originalKey = video.GetThumbnailsCacheKey();
+        using var original = (SourceVideo.Resource)video.ToResource(new CompositionContext(video.Start + relativeTime) { Decoders = decoders });
+        Assert.That(video.TryComputePreviewSourcePosition(original, relativeTime, out var preview, startDelta: startDelta), Is.True);
+
+        video.TimeRange.Value = new TimeRange(video.Start + startDelta, video.Duration - startDelta);
+        using var committed = (SourceVideo.Resource)video.ToResource(new CompositionContext(video.Start + relativeTime) { Decoders = decoders });
+        Assert.Multiple(() =>
+        {
+            Assert.That(preview, Is.EqualTo(committed.RequestedPosition + committed.OffsetPosition));
+            Assert.That(preview, Is.Not.EqualTo(original.RequestedPosition + original.OffsetPosition));
+            Assert.That(video.GetThumbnailsCacheKey(), Is.Not.EqualTo(originalKey));
+        });
+    }
+
     [TestCase("none")]
     [TestCase("channel map")]
     [TestCase("effect")]

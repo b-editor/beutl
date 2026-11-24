@@ -111,7 +111,8 @@ public sealed partial class ElementView
             MediaTime RecordedEndTime,
             MediaTime? LeftmostUpstreamStart,
             MediaTime? OriginalDuration,
-            SlippableMedia.ResizeConstraints? MediaConstraints);
+            SlippableMedia.ResizeConstraints? MediaConstraints,
+            bool ResampleStart);
 
         private enum TrimDragKind { None, Roll, Slide }
 
@@ -251,7 +252,7 @@ public sealed partial class ElementView
             {
                 foreach (ElementResizeContext ctx in _resizeContexts)
                 {
-                    ctx.ViewModel.UpdateMediaPreview(0);
+                    ctx.ViewModel.BeginMediaPreview();
                     if (_resizeType == AlignmentX.Right)
                     {
                         PreviewRightEdge(ctx, point.X, scale, minWidth, viewModel.Timeline.IsRippleEnabled.Value);
@@ -262,6 +263,15 @@ public sealed partial class ElementView
                     }
                 }
                 AlignSharedResizeEdges(scale);
+
+                foreach (ElementResizeContext ctx in _resizeContexts)
+                {
+                    if (!ctx.ResampleStart) continue;
+
+                    MediaTime start = ctx.ViewModel.BorderMargin.Value.Left.PixelToTime(scale)
+                        .RoundToFrame(rate, MidpointRounding.AwayFromZero);
+                    ctx.ViewModel.UpdateMediaPreview(0, new ElementViewModel.MediaPreviewMapping(MediaTime.Zero, start - ctx.RecordedStartTime));
+                }
 
                 double edge = viewModel.BorderMargin.Value.Left
                     + (_resizeType == AlignmentX.Right ? viewModel.Width.Value : 0);
@@ -462,7 +472,8 @@ public sealed partial class ElementView
                     RecordedEndTime: elem.Model.Range.End,
                     LeftmostUpstreamStart: GetLeftmostUpstreamStart(viewModel.Scene, elem.Model),
                     OriginalDuration: originalDuration,
-                    MediaConstraints: constraints);
+                    MediaConstraints: constraints,
+                    ResampleStart: _resizeType == AlignmentX.Left && elem.RequiresResampledStartPreview());
             }).ToArray();
         }
 
@@ -700,9 +711,7 @@ public sealed partial class ElementView
 
             foreach (ElementResizeContext ctx in contexts)
             {
-                bool changed = ctx.ViewModel.Model.Start.Value != ctx.RecordedStartTime
-                    || ctx.ViewModel.Model.Range.End != ctx.RecordedEndTime;
-                ctx.ViewModel.EndMediaPreview(committed: changed);
+                ctx.ViewModel.EndResizeMediaPreview(ctx.RecordedStartTime, ctx.RecordedEndTime);
             }
 
             _ = AnimateToModelAsync(

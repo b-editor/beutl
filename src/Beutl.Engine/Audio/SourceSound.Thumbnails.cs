@@ -42,9 +42,10 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
     public string? GetThumbnailsCacheKey()
     {
-        return ThumbnailsCacheKey.Compute(
+        string? key = ThumbnailsCacheKey.Compute(
             CoreSerializer.SerializeToJsonObject(this),
             ["Source", "ChannelMap", "OffsetPosition", "Gain", "Pan", "Speed", "Effect"]);
+        return key != null && RequiresResampledStartPreview ? $"{key}|start:{TimeRange.Value.Start.Flicks}" : key;
     }
 
     // A slip moves the source offset while the clip's processing still runs on the same clock.
@@ -53,6 +54,11 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
     internal bool RequiresResampledTrimPreview
         => Properties.Any(property => property.GetKeyFrameAnimation() is { KeyFrames.Count: > 0, UseGlobalClock.Value: false })
+            || HasEnabledEffect(Effect.Value);
+
+    internal bool RequiresResampledStartPreview
+        => Properties.Any(property => property is IExpressionProperty { HasExpression: true }
+                || property.GetKeyFrameAnimation() is { KeyFrames.Count: > 0, UseGlobalClock.Value: true })
             || HasEnabledEffect(Effect.Value);
 
     private static bool HasEnabledEffect(AudioEffect? effect)

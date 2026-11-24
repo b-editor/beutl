@@ -517,7 +517,7 @@ public sealed partial class ElementViewModel : IDisposable
     {
         PrepareAnimationContext context = PrepareAnimation();
         MediaTime beforeStart = Model.Start.Value;
-        MediaTime beforeLength = Model.Length.Value;
+        MediaTime beforeEnd = Model.Range.End;
 
         float scale = Timeline.Options.Value.Scale;
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
@@ -532,8 +532,7 @@ public sealed partial class ElementViewModel : IDisposable
         Timeline.EditorContext.GetRequiredService<IElementResizeService>()
             .Resize(Scene, [request], ripple);
 
-        bool changed = Model.Start.Value != beforeStart || Model.Length.Value != beforeLength;
-        EndMediaPreview(committed: changed);
+        EndResizeMediaPreview(beforeStart, beforeEnd);
         await AnimationRequest(context);
     }
 

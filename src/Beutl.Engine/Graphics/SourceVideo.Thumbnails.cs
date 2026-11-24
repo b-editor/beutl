@@ -69,10 +69,13 @@ public partial class SourceVideo : IThumbnailsProvider
 
     public string? GetThumbnailsCacheKey()
     {
-        return ThumbnailsCacheKey.Compute(
+        string? key = ThumbnailsCacheKey.Compute(
             CoreSerializer.SerializeToJsonObject(this),
             ["Source", "OffsetPosition", "Speed", "IsLoop"]);
+        return key != null && HasGlobalSpeedAnimation ? $"{key}|start:{TimeRange.Value.Start.Flicks}" : key;
     }
+
+    internal bool HasGlobalSpeedAnimation => Speed.GetKeyFrameAnimation() is { KeyFrames.Count: > 0, UseGlobalClock.Value: true };
 
     public IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         FontManager fonts,
@@ -117,9 +120,10 @@ public partial class SourceVideo : IThumbnailsProvider
         ProxyPreset preferredProxyPreset,
         DecoderRegistry? decoders,
         MediaTime offsetDelta,
-        TimeRange previewLayout)
+        TimeRange previewLayout,
+        MediaTime startDelta)
         => GetThumbnailStripCoreAsync(fonts, 0, maxHeight, cacheService, cancellationToken, 0, -1,
-            preferProxy, preferredProxyPreset, decoders, indices, count, offsetDelta, previewLayout);
+            preferProxy, preferredProxyPreset, decoders, indices, count, offsetDelta, previewLayout, startDelta);
 
     private async IAsyncEnumerable<(int Index, int Count, Bitmap? Thumbnail)> GetThumbnailStripCoreAsync(
         FontManager fonts,
@@ -135,7 +139,8 @@ public partial class SourceVideo : IThumbnailsProvider
         IReadOnlyList<int>? previewIndices = null,
         int previewCount = 0,
         MediaTime offsetDelta = default,
-        TimeRange? previewLayout = null)
+        TimeRange? previewLayout = null,
+        MediaTime startDelta = default)
     {
         if (previewIndices is { Count: 0 })
             yield break;
@@ -177,7 +182,9 @@ public partial class SourceVideo : IThumbnailsProvider
             float thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
             double interval = duration.ToSeconds() / count;
 
-            string? baseKey = offsetDelta == MediaTime.Zero && cacheService != null ? GetThumbnailsCacheKey() : null;
+            string? baseKey = offsetDelta == MediaTime.Zero && startDelta == MediaTime.Zero && cacheService != null
+                ? GetThumbnailsCacheKey()
+                : null;
             // Partition by preview-source mode: ThumbnailsInvalidated covers mode changes for one
             // view, but two same-source views in different modes (or a fresh view after a prior proxy
             // render) would otherwise collide on the mode-agnostic base key.
@@ -241,7 +248,7 @@ public partial class SourceVideo : IThumbnailsProvider
                     MediaTime? previewPosition = null;
                     if (previewIndices != null)
                     {
-                        if (!TryComputePreviewSourcePosition(resource, time, out MediaTime sourcePosition, offsetDelta))
+                        if (!TryComputePreviewSourcePosition(resource, time, out MediaTime sourcePosition, offsetDelta, startDelta))
                             return (false, (Bitmap?)null);
 
                         previewPosition = sourcePosition;
@@ -283,7 +290,8 @@ public partial class SourceVideo : IThumbnailsProvider
         Resource resource,
         MediaTime relativeTime,
         out MediaTime sourcePosition,
-        MediaTime offsetDelta = default)
+        MediaTime offsetDelta = default,
+        MediaTime startDelta = default)
     {
         sourcePosition = MediaTime.Zero;
         if (resource.Source is not { IsDisposed: false } source || source.Duration <= MediaTime.Zero)
@@ -294,12 +302,12 @@ public partial class SourceVideo : IThumbnailsProvider
         if (relativeTime < MediaTime.Zero && Speed.GetKeyFrameAnimation() is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } animation)
         {
             // Extrapolate before the clip using its starting rate.
-            float startSpeed = animation.Interpolate(animation.UseGlobalClock.Value ? start : MediaTime.Zero);
+            float startSpeed = animation.Interpolate(animation.UseGlobalClock.Value ? start + startDelta : MediaTime.Zero);
             requested = new MediaTime((long)Math.Round(relativeTime.Flicks * (double)(startSpeed / 100f)));
         }
         else
         {
-            requested = CalculateRequestedPosition(start + relativeTime, resource);
+            requested = CalculateRequestedPosition(start + relativeTime, resource, startDelta);
         }
 
         // Playback can move backwards after the in-point. Extending before it can also expose empty media space.
