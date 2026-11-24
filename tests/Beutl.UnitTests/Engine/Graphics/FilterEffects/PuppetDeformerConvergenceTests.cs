@@ -62,10 +62,16 @@ public sealed class PuppetDeformerConvergenceTests
         Point[] destinations = [Turn(anchors[0], -degrees), new(anchors[1].X, anchors[1].Y + pull / 1080), Turn(anchors[2], degrees)];
         var deformer = new PuppetDeformer(mesh);
         Vector2[] deformed = deformer.Deform(s_frame, destinations);
+        // Solving far longer, to a far tighter tolerance, barely moves a converged bend.
+        Vector2[] reference = deformer.Deform(s_frame, destinations, tolerance: 1e-3f, maxIterations: 2000);
+        double squares = 0;
+        for (int vertex = 0; vertex < deformed.Length; vertex++)
+            squares += Vector2.DistanceSquared(deformed[vertex], reference[vertex]);
 
         Assert.Multiple(() =>
         {
             Assert.That(deformed.All(vertex => float.IsFinite(vertex.X) && float.IsFinite(vertex.Y)), Is.True);
+            Assert.That(Math.Sqrt(squares / deformed.Length), Is.LessThan(0.5), "RMS distance from a converged solve, in pixels");
             Assert.That(FoldedTriangles(mesh, deformed), Is.Zero);
             for (int pin = 0; pin < anchors.Length; pin++)
                 Assert.That(deformed[mesh.PinVertices[pin]], Is.EqualTo(PuppetMesh.ToLocal(s_frame, destinations[pin])));

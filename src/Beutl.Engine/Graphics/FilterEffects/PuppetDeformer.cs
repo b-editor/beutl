@@ -44,7 +44,10 @@ internal sealed class PuppetDeformer
         _laplacian = new LaplacianFactor(_neighbors, _free, _pinAtVertex);
     }
 
-    public Vector2[] Deform(Size size, Point[] targets)
+    public Vector2[] Deform(Size size, Point[] targets) => Deform(size, targets, Tolerance, MaxIterations);
+
+    // Tests solve with a tighter tolerance and more iterations for a converged reference.
+    internal Vector2[] Deform(Size size, Point[] targets, float tolerance, int maxIterations)
     {
         Vector2[] rest = _mesh.Rest;
         var displacement = new Vector2[rest.Length];
@@ -64,7 +67,7 @@ internal sealed class PuppetDeformer
         // Every solve starts from the pins alone, never from an earlier frame, so it is independent of playback order.
         StartFromRigidFit(rest, displacement);
         if (_free.Length > 0)
-            Relax(rest, displacement);
+            Relax(rest, displacement, tolerance, maxIterations);
 
         for (int vertex = 0; vertex < rest.Length; vertex++)
             displacement[vertex] += rest[vertex];
@@ -134,7 +137,7 @@ internal sealed class PuppetDeformer
 
     // Alternates the local step, which fits each vertex's rotation to its edges, and the global step, which solves the
     // positions for those rotations, until the vertices stop moving.
-    private void Relax(Vector2[] rest, Vector2[] displacement)
+    private void Relax(Vector2[] rest, Vector2[] displacement, float tolerance, int maxIterations)
     {
         var rotations = new Vector2[rest.Length];
         var right = new Vector2[rest.Length];
@@ -143,7 +146,7 @@ internal sealed class PuppetDeformer
         try
         {
             double energy = FitRotations(rest, displacement, rotations);
-            for (int iteration = 0; iteration < MaxIterations; iteration++)
+            for (int iteration = 0; iteration < maxIterations; iteration++)
             {
                 BuildRight(rest, displacement, rotations, right);
                 _laplacian.Solve(right, solved);
@@ -151,7 +154,7 @@ internal sealed class PuppetDeformer
                 foreach (int vertex in _free)
                     largest = MathF.Max(largest, Vector2.DistanceSquared(solved[vertex], displacement[vertex]));
                 // A destination too far away to represent gives a solve that cannot converge.
-                if (largest <= Tolerance * Tolerance || !float.IsFinite(largest))
+                if (largest <= tolerance * tolerance || !float.IsFinite(largest))
                 {
                     foreach (int vertex in _free)
                         displacement[vertex] = solved[vertex];
