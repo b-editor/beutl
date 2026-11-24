@@ -370,23 +370,32 @@ internal static partial class NativeBrowserFrameTestHost
         var htmlPage = new Uri(origin, "/direct");
         var browser = new NativeWebView();
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), initialPage);
-        using var view = new WebBrowserTabView(_ => browser, () => (true, null, false)) { DataContext = vm };
+        using var view = new WebBrowserTabView(uri =>
+        {
+            browser.Source = uri;
+            return browser;
+        }, () => (true, null, false))
+        { DataContext = vm };
+        var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        browser.WebMessageReceived += (_, e) =>
+        {
+            if (e.Body == "Direct HTML") loaded.TrySetResult();
+        };
+        browser.NavigationStarted += (_, e) =>
+        {
+            if (e.Cancel) loaded.TrySetException(new AssertionException($"Startup navigation with scheme '{e.Request?.Scheme}' was canceled."));
+        };
         browser.EnvironmentRequested += (_, e) =>
         {
             if (e is AppleWKWebViewEnvironmentRequestedEventArgs apple) apple.NonPersistentDataStore = true;
-            // The view has held the initial address and the adapter has yet to be created.
-            view.NavigateToString("<title>Direct HTML</title>", htmlPage);
-        };
-        var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        browser.NavigationCompleted += (_, e) =>
-        {
-            // WebView2 gives NavigateToString an about:blank URL.
-            if (e.IsSuccess && (e.Request == htmlPage || OperatingSystem.IsWindows())) loaded.TrySetResult();
+            // WebView2 reports about:blank for both loads, so wait for a message from the HTML document.
+            view.NavigateToString("""
+                <title>Direct HTML</title>
+                <script>window.addEventListener('load', () => window.invokeCSharpAction(document.title));</script>
+                """, htmlPage);
         };
         window.Content = view;
         await loaded.Task.WaitAsync(token);
-        while (WebBrowserTabView.NormalizePageTitle(await browser.InvokeScript("document.title").WaitAsync(token)) != "Direct HTML")
-            await Task.Delay(20, token);
         Assert.That(Volatile.Read(ref initialRequests), Is.Zero, "The held HTTP address was superseded by the HTML navigation.");
     }
 

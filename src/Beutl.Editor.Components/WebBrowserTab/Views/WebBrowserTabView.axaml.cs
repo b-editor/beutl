@@ -150,6 +150,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _nativeNewWindow = null;
         _openerNavigation = null;
         _pendingHtmlNavigation = null;
+        _expectedWebView2HtmlPayload = null;
         _downloadCancellation?.Cancel();
         ClearDeferredNativeDownloads();
         ResetPageDownloadRequests();
@@ -182,14 +183,15 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         if (_webView is { } webView)
         {
-            _adBlockSession = CreateAdBlockSession(webView, viewModel.Profile, viewModel.CurrentUri);
-        }
-
-        if (_webView != null && _webView.Source != viewModel.CurrentUri)
-        {
-            InvalidatePageDownloadRequests(navigationStarted: true);
-            viewModel.BeginNavigation(viewModel.CurrentUri);
-            if (!HoldAdapterAddress(viewModel.CurrentUri)) _webView.Source = viewModel.CurrentUri;
+            Uri uri = viewModel.CurrentUri;
+            _adBlockSession = CreateAdBlockSession(webView, viewModel.Profile, uri);
+            bool held = HoldAdapterAddress(uri);
+            if (webView.Source != uri)
+            {
+                InvalidatePageDownloadRequests(navigationStarted: true);
+                viewModel.BeginNavigation(uri);
+                if (!held) webView.Source = uri;
+            }
         }
 
         EnsureWebView();
@@ -274,12 +276,14 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     {
         if (_viewModel == null) return;
         _pendingAdapterAddress = _viewModel.CurrentUri;
+        _expectedWebView2HtmlPayload = null;
         webView.Navigate(WebBrowserTabViewModel.BlankPage);
     }
 
     private bool HoldAdapterAddress(Uri uri)
     {
         _pendingHtmlNavigation = null;
+        _expectedWebView2HtmlPayload = null;
         if (_pendingAdapterAddress == null) return false;
         _pendingAdapterAddress = uri;
         return true;
@@ -588,6 +592,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
         _pendingAdapterAddress = null;
         _pendingHtmlNavigation = null;
+        _expectedWebView2HtmlPayload = null;
         _webView.EnvironmentRequested -= OnEnvironmentRequested;
         _webView.AdapterCreated -= LinuxWebKitCookies.PersistCookies;
         _webView.AdapterCreated -= OnAdapterCreated;

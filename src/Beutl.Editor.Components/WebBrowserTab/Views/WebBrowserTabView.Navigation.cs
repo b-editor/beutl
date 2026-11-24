@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -21,6 +22,7 @@ internal partial class WebBrowserTabView
     private bool _openerPageCommitted;
     // The referrer WebKit computed for the latest new window request, from the page's policy and the link's rel.
     private (Uri Request, Uri? Referrer)? _nativeNewWindow;
+    private string? _expectedWebView2HtmlPayload;
 
     // The page whose document makes the current requests. BlankPage stands for a document of unknown origin.
     private Uri? DocumentReferrer => (_openerPageCommitted ? null : _openerNavigation?.Referrer)
@@ -64,7 +66,23 @@ internal partial class WebBrowserTabView
     {
         if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
         if (e.Cancel) return;
-        if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
+        Uri? request = e.Request;
+        if (_expectedWebView2HtmlPayload is { } payload && request is { Scheme: "data" })
+        {
+            ReadOnlySpan<char> address = request.OriginalString;
+            int separator = address.IndexOf(',');
+            if (separator >= 0
+                && address[..separator].StartsWith("data:text/html;", StringComparison.OrdinalIgnoreCase)
+                && address[..separator].EndsWith(";base64", StringComparison.OrdinalIgnoreCase)
+                && address[(separator + 1)..].SequenceEqual(payload))
+            {
+                // WebView2 reports about:blank as the document URL for this HTML load.
+                _expectedWebView2HtmlPayload = null;
+                request = WebBrowserTabViewModel.BlankPage;
+            }
+        }
+
+        if (request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
             && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
         {
             e.Cancel = true;
@@ -72,9 +90,10 @@ internal partial class WebBrowserTabView
             return;
         }
 
-        SupersedeHeldAdapterAddress(e.Request);
-        _latestNavigationRequest = e.Request;
-        if (_nativeBrowserHandler is WindowsBrowserDownloadHandler windows) windows.BeginDocument(e.Request);
+        if (request != WebBrowserTabViewModel.BlankPage) _expectedWebView2HtmlPayload = null;
+        SupersedeHeldAdapterAddress(request);
+        _latestNavigationRequest = request;
+        if (_nativeBrowserHandler is WindowsBrowserDownloadHandler windows) windows.BeginDocument(request);
 
         // WebKit reports subframe policy decisions here without frame identity; only the macOS delegate
         // can filter them here. The WebKit backends report main-frame load starts separately.
@@ -95,7 +114,7 @@ internal partial class WebBrowserTabView
         _findRequest?.Cancel();
         if (_nativeBrowserHandler is not WindowsBrowserDownloadHandler && TryInterceptMediaNavigation(e, true)) return;
 
-        if (e.Request is { } request)
+        if (request != null)
         {
             PreservePendingNativeDownload();
             InvalidatePageDownloadRequests(navigationStarted: true);
@@ -342,6 +361,9 @@ internal partial class WebBrowserTabView
         if (_pendingHtmlNavigation is { } html)
         {
             _pendingHtmlNavigation = null;
+            _expectedWebView2HtmlPayload = webView.TryGetPlatformHandle() is IWindowsWebView2PlatformHandle
+                ? Convert.ToBase64String(Encoding.UTF8.GetBytes(html.Html))
+                : null;
             webView.NavigateToString(html.Html, html.BaseUri);
         }
         else if (_openerNavigation?.Uri == uri)
