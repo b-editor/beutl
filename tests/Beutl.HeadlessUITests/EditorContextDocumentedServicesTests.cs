@@ -18,7 +18,7 @@ public class EditorContextDocumentedServicesTests
         var scene = new Scene(320, 180, "documented-services") { Uri = new Uri(Path.Combine(workspace, "main.scene")) };
         var extensions = new ExtensionProvider(TestShell.Configuration.ExtensionConfig);
         using var library = new Beutl.Services.LibraryService();
-        using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestShell.FontManager, Path.Combine(workspace, "templates"));
+        using var templates = new Beutl.Editor.Services.ObjectTemplateService(new SceneRenderServices(TestShell.FontManager), Path.Combine(workspace, "templates"));
         var tutorials = new Beutl.Services.Tutorials.TutorialServiceHandler(TestShell.Configuration.TutorialConfig);
         var palettes = new Beutl.Controls.PropertyEditors.ColorPaletteService(null);
         var services = TestShell.CreateEditorServices()

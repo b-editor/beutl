@@ -37,7 +37,7 @@ public class DrawableTimeControllerFlowTests
         element.Objects.Add(preceding);
         var controller = new DrawableTimeController { OffsetPosition = { Value = Seconds(1) } };
         element.Objects.Add(controller);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders) { DisableResourceShare = disableShare, ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(harness.Scene, new SceneRenderServices(TestFonts.Manager, _decoders)) { DisableResourceShare = disableShare, ForceOriginalSource = true };
 
         var first = (DrawableTimeController.Resource)compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single();
         var firstVideo = Videos(first).Single();
@@ -68,7 +68,7 @@ public class DrawableTimeControllerFlowTests
         element.Objects.Add(new DrawableGroup());
         var controller = new DrawableTimeController();
         element.Objects.Add(controller);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(harness.Scene, new SceneRenderServices(TestFonts.Manager, _decoders)) { ForceOriginalSource = true };
 
         foreach (bool useOffset in new[] { false, true })
         {
@@ -100,7 +100,7 @@ public class DrawableTimeControllerFlowTests
         element.Objects.Add(new DrawableGroup());
         var controller = new DrawableTimeController { IsEnabled = { Value = false }, OffsetPosition = { Value = Seconds(1) } };
         element.Objects.Add(controller);
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(harness.Scene, new SceneRenderServices(TestFonts.Manager, _decoders)) { ForceOriginalSource = true };
         var producerGroup = (DrawableGroup.Resource)compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single();
         var producer = Videos(producerGroup).First();
         controller.IsEnabled.Value = true;
@@ -137,7 +137,7 @@ public class DrawableTimeControllerFlowTests
         element.Objects.Add(new DrawableGroup());
         element.Objects.Add(sibling);
         element.Objects.Add(new DrawableTimeController { OffsetPosition = { Value = Seconds(1) } });
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(harness.Scene, new SceneRenderServices(TestFonts.Manager, _decoders)) { ForceOriginalSource = true };
 
         var resources = compositor.EvaluateGraphics(Seconds(0.5)).Objects.SelectMany(Videos).ToArray();
         Assert.Multiple(() =>
@@ -165,7 +165,7 @@ public class DrawableTimeControllerFlowTests
             "decorator" => new DrawableDecorator(),
             _ => new DrawableTimeController { Speed = { Value = 200 } }
         });
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(harness.Scene, new SceneRenderServices(TestFonts.Manager, _decoders)) { ForceOriginalSource = true };
         var first = FlowNode.Capture(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single());
         var secondResource = compositor.EvaluateGraphics(Seconds(1)).Objects.Single();
         var second = FlowNode.Capture(secondResource);
@@ -190,7 +190,7 @@ public class DrawableTimeControllerFlowTests
         element.Objects.Add(second);
         element.Objects.Add(new DrawableGroup());
         element.Objects.Add(new DrawableTimeController());
-        using var compositor = new SceneCompositor(harness.Scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(harness.Scene, new SceneRenderServices(TestFonts.Manager, _decoders)) { ForceOriginalSource = true };
         var before = FlowNode.Capture(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single())!;
         first.IsEnabled.Value = false;
         var after = FlowNode.Capture(compositor.EvaluateGraphics(Seconds(1)).Objects.Single())!;

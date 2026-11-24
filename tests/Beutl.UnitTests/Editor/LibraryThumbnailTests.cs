@@ -48,7 +48,7 @@ public class LibraryThumbnailTests
         var failed = new List<string>();
         foreach (Type type in LibraryTypes())
         {
-            using LibraryThumbnailSheet? still = await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager, type, null, stillOnly: true);
+            using LibraryThumbnailSheet? still = await LibraryThumbnailRenderer.RenderAsync(TestFonts.RenderServices, type, null, stillOnly: true);
             if (still == null)
                 failed.Add(type.Name);
             else
@@ -99,9 +99,9 @@ public class LibraryThumbnailTests
         LibraryThumbnailRecipes.Register<LibraryThumbnailTestEffect>(LibraryThumbnailSample.GreenScreen, (_, _) => { });
         try
         {
-            using LibraryThumbnailSheet plain = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager,
+            using LibraryThumbnailSheet plain = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.RenderServices,
                 typeof(LibraryThumbnailTestEffect), null, stillOnly: true))!;
-            using LibraryThumbnailSheet keyed = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager,
+            using LibraryThumbnailSheet keyed = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.RenderServices,
                 typeof(ChromaKey), null, stillOnly: false))!;
             using Bitmap first = keyed.Bitmap.ExtractSubset(keyed.Layout.GetFrameRect(0));
             using Bitmap still = keyed.Bitmap.ExtractSubset(keyed.Layout.GetFrameRect(keyed.Layout.StillIndex));
@@ -127,7 +127,7 @@ public class LibraryThumbnailTests
     public async Task A_recipe_moves_the_effect_between_the_first_frame_and_the_still()
     {
         TestGpu.RequireAnyDevice();
-        using LibraryThumbnailSheet sheet = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager, typeof(Invert)))!;
+        using LibraryThumbnailSheet sheet = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.RenderServices, typeof(Invert)))!;
         using Bitmap first = sheet.Bitmap.ExtractSubset(sheet.Layout.GetFrameRect(0));
         using Bitmap still = sheet.Bitmap.ExtractSubset(sheet.Layout.GetFrameRect(sheet.Layout.StillIndex));
 
@@ -141,7 +141,7 @@ public class LibraryThumbnailTests
         TestGpu.RequireAnyDevice();
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.FromFrameAsync(
             Ref<Bitmap>.Create(CreateFrame(960, 540, Colors.Red)), new PixelSize(1920, 1080));
-        using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager, typeof(Invert), subject, stillOnly: true))!;
+        using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.RenderServices, typeof(Invert), subject, stillOnly: true))!;
         Bgra8888 center = Read(still.Bitmap, 160, 90);
 
         Assert.Multiple(() =>
@@ -163,7 +163,7 @@ public class LibraryThumbnailTests
         TestGpu.RequireAnyDevice();
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.FromFrameAsync(
             Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Blue)), new PixelSize(1920, 1080));
-        using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager, effectType, subject, stillOnly: true))!;
+        using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.RenderServices, effectType, subject, stillOnly: true))!;
         Bgra8888 center = Read(still.Bitmap, 160, 90);
 
         Assert.Multiple(() =>
@@ -181,7 +181,7 @@ public class LibraryThumbnailTests
         TestGpu.RequireAnyDevice();
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.FromFrameAsync(
             Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Red)), new PixelSize(1920, 1080));
-        using LibraryThumbnailSheet sheet = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager, typeof(FadeTransition), subject, stillOnly: false))!;
+        using LibraryThumbnailSheet sheet = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.RenderServices, typeof(FadeTransition), subject, stillOnly: false))!;
         int hold = (int)Math.Round(LibraryThumbnailRenderer.TransitionHold.ToSeconds() * 24);
         int length = (int)Math.Round(LibraryThumbnailRenderer.TransitionLength.ToSeconds() * 24);
 
@@ -207,7 +207,7 @@ public class LibraryThumbnailTests
         TestGpu.RequireAnyDevice();
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.FromFrameAsync(
             Ref<Bitmap>.Create(CreateFrame(64, 36, Colors.Red)), new PixelSize(1920, 1080));
-        using LibraryThumbnailSheet sheet = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager, typeof(SlideTransition), subject, stillOnly: false))!;
+        using LibraryThumbnailSheet sheet = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.RenderServices, typeof(SlideTransition), subject, stillOnly: false))!;
         int hold = (int)Math.Round(LibraryThumbnailRenderer.TransitionHold.ToSeconds() * 24);
         int length = (int)Math.Round(LibraryThumbnailRenderer.TransitionLength.ToSeconds() * 24);
 
@@ -243,7 +243,7 @@ public class LibraryThumbnailTests
         AddElement(scene, CreateRect(width, height, Colors.Blue), 0, 4, 0);
         Element small = AddElement(scene, CreateRect(400, 200, Colors.Red), 0, 4, 1);
 
-        using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(TestFonts.Manager, small, MediaTime.FromSeconds(1));
+        using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(TestFonts.RenderServices, small, MediaTime.FromSeconds(1));
         LibraryThumbnailSubject.Picture picture = subject!.EffectPicture!;
         Bitmap captured = picture.Image;
         Bgra8888 center = Read(captured, captured.Width / 2, captured.Height / 2);
@@ -282,7 +282,7 @@ public class LibraryThumbnailTests
 
         await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            using var renderer = LibraryThumbnailRenderer.CreateRenderer(scene, TestFonts.Manager, scale);
+            using var renderer = LibraryThumbnailRenderer.CreateRenderer(scene, TestFonts.RenderServices, scale);
             CompositionFrame frame = renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(1));
             var targets = new RecordingTargetFactory();
             using RenderNodeRasterization raster = LibraryThumbnailSubject.RasterizeObject(frame, scale, targets);
@@ -335,7 +335,7 @@ public class LibraryThumbnailTests
         Element element = AddElement(scene, source, 0, 4, 0);
         await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            using var compositor = new SceneCompositor(scene, TestFonts.Manager);
+            using var compositor = new SceneCompositor(scene, TestFonts.RenderServices);
             CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.FromSeconds(1));
             var targets = new RecordingTargetFactory();
             Assert.Throws<RenderTargetAllocationException>(() =>
@@ -346,7 +346,7 @@ public class LibraryThumbnailTests
         });
 
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(
-            TestFonts.Manager, element, MediaTime.FromSeconds(1));
+            TestFonts.RenderServices, element, MediaTime.FromSeconds(1));
         LibraryThumbnailSubject.Picture picture = subject!.EffectPicture!;
         // The probe's sampling can cover a neighboring pixel at the edge of the patch.
         Assert.That(picture.Pixels.Width, Is.EqualTo(40).Within(2));
@@ -363,7 +363,7 @@ public class LibraryThumbnailTests
         TestGpu.RequireAnyDevice();
         Scene scene = CreateScene();
         Element small = AddElement(scene, CreateRect(400, 200, Colors.Red), 0, 4, 1);
-        using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(TestFonts.Manager, small, MediaTime.FromSeconds(1));
+        using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(TestFonts.RenderServices, small, MediaTime.FromSeconds(1));
         LibraryThumbnailRecipes.Register<Clipping>((effect, _) =>
         {
             effect.Left.Value = 100;
@@ -371,7 +371,7 @@ public class LibraryThumbnailTests
         });
         try
         {
-            using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.Manager, typeof(Clipping), subject, stillOnly: true))!;
+            using LibraryThumbnailSheet still = (await LibraryThumbnailRenderer.RenderAsync(TestFonts.RenderServices, typeof(Clipping), subject, stillOnly: true))!;
             PixelSize frame = LibraryThumbnailRenderer.FrameAround(subject!.EffectArea);
             float unit = 320f / frame.Width;
 
@@ -403,9 +403,9 @@ public class LibraryThumbnailTests
         Element first = AddElement(scene, CreateRect(1920, 1080, Colors.Red), 0, 2, 0);
         Element second = AddElement(scene, CreateRect(1920, 1080, Colors.Blue), 2, 2, 0);
 
-        using LibraryThumbnailSubject? between = await LibraryThumbnailSubject.CaptureEdgeAsync(TestFonts.Manager, second, ElementEdge.Start);
-        using LibraryThumbnailSubject? before = await LibraryThumbnailSubject.CaptureEdgeAsync(TestFonts.Manager, first, ElementEdge.Start);
-        using LibraryThumbnailSubject? after = await LibraryThumbnailSubject.CaptureEdgeAsync(TestFonts.Manager, second, ElementEdge.End);
+        using LibraryThumbnailSubject? between = await LibraryThumbnailSubject.CaptureEdgeAsync(TestFonts.RenderServices, second, ElementEdge.Start);
+        using LibraryThumbnailSubject? before = await LibraryThumbnailSubject.CaptureEdgeAsync(TestFonts.RenderServices, first, ElementEdge.Start);
+        using LibraryThumbnailSubject? after = await LibraryThumbnailSubject.CaptureEdgeAsync(TestFonts.RenderServices, second, ElementEdge.End);
 
         Bitmap from = between!.TransitionFrom!.Image;
         Bitmap to = between.TransitionTo!.Image;
@@ -433,7 +433,7 @@ public class LibraryThumbnailTests
         first.ExitTransition.Value = new FadeTransition();
         second.EnterTransition.Value = new CrossDissolveTransition();
 
-        using LibraryThumbnailSubject? edge = await LibraryThumbnailSubject.CaptureEdgeAsync(TestFonts.Manager, second, ElementEdge.Start);
+        using LibraryThumbnailSubject? edge = await LibraryThumbnailSubject.CaptureEdgeAsync(TestFonts.RenderServices, second, ElementEdge.Start);
 
         Assert.Multiple(() =>
         {
@@ -462,7 +462,7 @@ public class LibraryThumbnailTests
         rect.Width.SetKeyFrameAnimation(TestAnimations.Linear(100f, 1100f, MediaTime.FromSeconds(10), useGlobalClock: true));
         Element element = AddElement(scene, rect, 2, 2, 0);
 
-        using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(TestFonts.Manager, element, MediaTime.FromSeconds(3));
+        using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(TestFonts.RenderServices, element, MediaTime.FromSeconds(3));
 
         // At 3 seconds on the scene's clock the rectangle is 400 units wide; 1 second from its start would make it 200.
         Assert.That(subject!.EffectPicture!.Size.Width, Is.EqualTo(400).Within(4));

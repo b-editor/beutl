@@ -1,10 +1,8 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
-using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Decoding;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -15,10 +13,7 @@ public sealed partial class ObjectTemplateService : IDisposable
     private readonly CoreList<ObjectTemplateItem> _items = [];
 
     private readonly string _directoryPath;
-    private readonly FontManager _fonts;
-    private readonly DecoderRegistry? _decoders;
-    private readonly EditorConfig? _editorConfig;
-    private readonly ProxyStoreConfig? _proxyConfig;
+    private readonly SceneRenderServices _renderServices;
 
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
 
@@ -28,17 +23,16 @@ public sealed partial class ObjectTemplateService : IDisposable
     private CancellationTokenSource? _debounceCts;
     private bool _disposed;
 
-    public ObjectTemplateService(FontManager fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
-        : this(fonts, BeutlEnvironment.GetTemplatesDirectoryPath(), editorConfig, proxyConfig, decoders)
+    public ObjectTemplateService(SceneRenderServices renderServices)
+        : this(renderServices, BeutlEnvironment.GetTemplatesDirectoryPath())
     {
     }
 
-    public ObjectTemplateService(FontManager fonts, string directoryPath, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+    public ObjectTemplateService(SceneRenderServices renderServices, string directoryPath)
     {
-        _fonts = fonts;
-        _decoders = decoders;
-        _editorConfig = editorConfig;
-        _proxyConfig = proxyConfig;
+        ArgumentNullException.ThrowIfNull(renderServices);
+
+        _renderServices = renderServices;
         _directoryPath = directoryPath;
         RestoreItems();
         StartWatching();
@@ -96,7 +90,8 @@ public sealed partial class ObjectTemplateService : IDisposable
             _logger.LogError(ex, "Unable to serialize template {Name}.", name);
             return null;
         }
-        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(fonts ?? _fonts, instance, cancellationToken, _editorConfig, _proxyConfig, _decoders);
+        SceneRenderServices services = fonts is null ? _renderServices : _renderServices with { Fonts = fonts };
+        item.Preview = await ObjectTemplatePreviewRenderer.RenderPngAsync(services, instance, cancellationToken);
 
         return await Task.Run(
             () =>

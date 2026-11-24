@@ -91,7 +91,7 @@ public sealed class FileBrowserFileManagerTests
         Directory.CreateDirectory(appPath);
         try
         {
-            using var templates = new Beutl.Editor.Services.ObjectTemplateService(TestShell.FontManager, root);
+            using var templates = new Beutl.Editor.Services.ObjectTemplateService(new SceneRenderServices(TestShell.FontManager), root);
             using var thumbnails = new Beutl.Editor.Components.FileBrowserTab.Services.FileThumbnailService(TestShell.Decoders, templates);
             using FileSystemItemViewModel item = FileSystemEnumerator.EnumerateDirectory(thumbnails, root).Single();
             Assert.That(item.IsDirectory, Is.True);

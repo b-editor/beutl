@@ -35,15 +35,11 @@ public sealed partial class SceneCompositor : ICompositor
     private volatile AudioEligibilitySnapshot? _audioEligibility;
     private int _audioEligibilityVersion;
 
-    private readonly EditorConfig? _editorConfig;
-    private readonly ProxyStoreConfig? _proxyConfig;
-
-    public SceneCompositor(Scene scene, FontManager? fonts, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null, DecoderRegistry? decoders = null)
+    public SceneCompositor(Scene scene, SceneRenderServices services)
     {
-        Fonts = fonts;
-        Decoders = decoders;
-        _editorConfig = editorConfig;
-        _proxyConfig = proxyConfig;
+        ArgumentNullException.ThrowIfNull(services);
+
+        Services = services;
         Scene = scene;
         _layerQueries = new(this, CreateLayerQuery);
         _audioQueries = new(this, CreateAudioQuery);
@@ -58,9 +54,11 @@ public sealed partial class SceneCompositor : ICompositor
         }
     }
 
-    public FontManager? Fonts { get; }
+    public SceneRenderServices Services { get; }
 
-    public DecoderRegistry? Decoders { get; }
+    public FontManager? Fonts => Services.Fonts;
+
+    public DecoderRegistry? Decoders => Services.Decoders;
 
     public Scene Scene { get; }
 
@@ -83,16 +81,16 @@ public sealed partial class SceneCompositor : ICompositor
     {
         SceneCompositor? parent = (context as CompositorContext)?.Compositor
             ?? context.EvaluationServices?.SessionIdentity as SceneCompositor;
-        EditorConfig? editorConfig = parent?._editorConfig;
-        ProxyStoreConfig? proxyConfig = parent?._proxyConfig;
+        SceneRenderServices services = (parent?.Services ?? SceneRenderServices.Empty) with
+        {
+            Fonts = context.Fonts,
+            Decoders = context.Decoders,
+        };
         bool forceOriginalSource = !context.PreferProxy;
         if (field?.Scene != scene
             || field?.DisableResourceShare != context.DisableResourceShare
             || field?.ForceOriginalSource != forceOriginalSource
-            || !ReferenceEquals(field?.Fonts, context.Fonts)
-            || !ReferenceEquals(field?.Decoders, context.Decoders)
-            || !ReferenceEquals(field?._editorConfig, editorConfig)
-            || !ReferenceEquals(field?._proxyConfig, proxyConfig))
+            || field?.Services != services)
         {
             field?.Dispose();
             field = null;
@@ -100,7 +98,7 @@ public sealed partial class SceneCompositor : ICompositor
 
         if (scene != null && field == null)
         {
-            field = new SceneCompositor(scene, context.Fonts, editorConfig, proxyConfig, context.Decoders)
+            field = new SceneCompositor(scene, services)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 ForceOriginalSource = forceOriginalSource,
@@ -131,8 +129,8 @@ public sealed partial class SceneCompositor : ICompositor
                 Fonts = compositor.Fonts,
                 Decoders = compositor.Decoders,
                 PreferProxy = !compositor.ForceOriginalSource
-                    && (compositor._editorConfig?.PreviewSourceMode.Value ?? PreviewSourceMode.PreferProxy) == PreviewSourceMode.PreferProxy,
-                PreferredProxyPreset = ToPreset(compositor._proxyConfig?.DefaultPreset.Value ?? ProxyStoreConfig.DefaultPresetValue),
+                    && (compositor.Services.EditorConfig?.PreviewSourceMode.Value ?? PreviewSourceMode.PreferProxy) == PreviewSourceMode.PreferProxy,
+                PreferredProxyPreset = ToPreset(compositor.Services.ProxyConfig?.DefaultPreset.Value ?? ProxyStoreConfig.DefaultPresetValue),
                 TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1)),
                 FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate(),
                 EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this),

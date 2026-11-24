@@ -65,11 +65,15 @@ public partial class MainViewModel : IAiWorkspaceHost
     internal AiSubtitleDialogViewModel CreateAiSubtitleToolViewModel(EditViewModel? editViewModel)
     {
         _captionCatalog.RefreshObjectTemplates(CaptionCatalog.FindObjectTemplates(_objectTemplateService));
-        return new AiSubtitleDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
-            // The editor's fonts, so caption previews draw the project's bundled fonts.
+        // The editor's fonts, so caption previews draw the project's bundled fonts.
+        var renderServices = new SceneRenderServices(
             editViewModel?.GetService(typeof(Beutl.Media.FontManager)) as Beutl.Media.FontManager
                 ?? AppServices.GetRequiredService<Beutl.Media.FontManager>(),
             AppServices.GetRequiredService<DecoderRegistry>(),
+            Configuration.EditorConfig,
+            Configuration.ProxyStoreConfig);
+        return new AiSubtitleDialogViewModel(AppServices.GetRequiredService<INotificationService>(),
+            renderServices,
             _beutlClients.GetResource<IAiEntitlementService>(),
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAiModelCatalogService>(),
@@ -79,7 +83,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             _captionCatalog,
             CaptionDraftStoreProvider.Current,
             CreateCaptionDraftScopes(editViewModel),
-            editViewModel, Configuration.EditorConfig, Configuration.ProxyStoreConfig, _aiRequestRecoveryContext);
+            editViewModel, _aiRequestRecoveryContext);
     }
 
     private IObservable<CaptionDraftScope?> CreateCaptionDraftScopes(EditViewModel? editViewModel)

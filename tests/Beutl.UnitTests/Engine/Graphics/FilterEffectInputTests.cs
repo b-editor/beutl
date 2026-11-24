@@ -59,12 +59,12 @@ public class FilterEffectInputTests
         };
         owner.FilterEffect.Value = new SampleInputEffect();
         var scene = ReferenceEquals(owner, controller) ? SceneWith(video, controller) : SceneWith(video, controller, owner);
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(scene, new SceneRenderServices(TestFonts.Manager, _decoders)) { ForceOriginalSource = true };
         var source = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1)).Objects.OfType<Drawable.Resource>().Single();
         var samples = ((SampleInputEffect.Resource)source.FilterEffect!).Samples;
         Assert.That(samples.Select(s => Video(s.Resource!).RequestedPosition.ToSeconds()),
             Is.EqualTo(new[] { 1.8125, 1.9375, 2.0625, 2.1875 }).Within(0.000001));
-        using var independent = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders);
+        using var independent = new SceneCompositor(scene, new SceneRenderServices(TestFonts.Manager, _decoders));
         independent.EvaluateGraphics(Seconds(2));
         Assert.That(Video(samples[0].Resource!).RequestedPosition, Is.EqualTo(Seconds(1.8125)));
 
@@ -102,7 +102,7 @@ public class FilterEffectInputTests
             "child" => SceneWith(group, controller),
             _ => SceneWith(shape, controller),
         };
-        using var compositor = new SceneCompositor(scene, TestFonts.Manager, decoders: _decoders);
+        using var compositor = new SceneCompositor(scene, new SceneRenderServices(TestFonts.Manager, _decoders));
         var frame = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
         var target = ((DrawableTimeController.Resource)frame.Objects.OfType<Drawable.Resource>().Single()).Target!;
         if (target is DrawableGroup.Resource children) target = children.Children.Single();
@@ -175,7 +175,7 @@ public class FilterEffectInputTests
         media.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(16, 16, new(30, 1), 300)));
         var video = new SourceVideo { Source = { Value = media } };
         video.FilterEffect.Value = new SampleInputEffect();
-        using var compositor = new SceneCompositor(SceneWith(video), TestFonts.Manager, decoders: _decoders) { ForceOriginalSource = true };
+        using var compositor = new SceneCompositor(SceneWith(video), new SceneRenderServices(TestFonts.Manager, _decoders)) { ForceOriginalSource = true };
         var rate = new Rational(30, 1);
         MediaReader?[] first = Readers(Seconds(1));
         MediaReader?[] next = Readers(Seconds(1) + MediaTime.FromFrames(1, rate));
@@ -325,7 +325,7 @@ public class FilterEffectInputTests
         var shape = Rectangle();
         shape.FilterEffect.Value = new SampleInputEffect();
         var nested = new SceneDrawable { ReferencedScene = { Value = SceneWith(shape) } };
-        using var compositor = new SceneCompositor(SceneWith(nested), TestFonts.Manager, decoders: _decoders);
+        using var compositor = new SceneCompositor(SceneWith(nested), new SceneRenderServices(TestFonts.Manager, _decoders));
         var frame = compositor.EvaluateGraphics(MediaTime.Zero, new Rational(120, 1));
         var scene = (SceneDrawable.Resource)frame.Objects.OfType<Drawable.Resource>().Single();
         var source = scene.Frame!.Value.Objects.OfType<Drawable.Resource>().Single();
@@ -390,8 +390,8 @@ public class FilterEffectInputTests
         Scene snapshot = SceneSnapshot.Create(live);
         shape.Width.SetKeyFrameAnimation(null);
         shape.Width.Value = 80;
-        using var export = new SceneCompositor(snapshot, TestFonts.Manager, decoders: _decoders) { DisableResourceShare = true, ForceOriginalSource = true };
-        using var preview = new SceneCompositor(live, TestFonts.Manager, decoders: _decoders);
+        using var export = new SceneCompositor(snapshot, new SceneRenderServices(TestFonts.Manager, _decoders)) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var preview = new SceneCompositor(live, new SceneRenderServices(TestFonts.Manager, _decoders));
         var saved = export.EvaluateGraphics(Seconds(1), new Rational(2, 1)).Objects.OfType<Drawable.Resource>().Single();
         var edited = preview.EvaluateGraphics(Seconds(1), new Rational(2, 1)).Objects.OfType<Drawable.Resource>().Single();
         float Width(Drawable.Resource source) => ((RectShape.Resource)((SampleInputEffect.Resource)source.FilterEffect!).Samples[0].Resource!).Width;

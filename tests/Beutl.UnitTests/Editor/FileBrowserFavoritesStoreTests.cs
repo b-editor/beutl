@@ -18,7 +18,7 @@ public class FileBrowserFavoritesStoreTests
     {
         _scratch = Path.Combine(Path.GetTempPath(), $"beutl-favorites-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_scratch);
-        _templates = new ObjectTemplateService(TestFonts.Manager, Path.Combine(_scratch, "templates"));
+        _templates = new ObjectTemplateService(TestFonts.RenderServices, Path.Combine(_scratch, "templates"));
         _thumbnails = new FileThumbnailService(new DecoderRegistry(new()), _templates);
     }
 

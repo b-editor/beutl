@@ -50,7 +50,7 @@ public class SelectLibraryItemDialogViewModel
         _baseType = baseType;
         _allItemsTask = allItemsTask;
         HasThumbnails = LibraryThumbnailRenderer.HasThumbnails(baseType);
-        Thumbnails = HasThumbnails ? new LibraryThumbnailSet(fonts, thumbnailContent, decoders) : null;
+        Thumbnails = HasThumbnails ? new LibraryThumbnailSet(new SceneRenderServices(fonts, decoders), thumbnailContent) : null;
         ShowTiles.Value = Preferences.Default.Get(ShowTilesKey, true);
         ShowTiles.Skip(1).Subscribe(value => Preferences.Default.Set(ShowTilesKey, value));
         IReadOnlySet<Type> items = _libraryService.GetTypesFromFormat(_format);

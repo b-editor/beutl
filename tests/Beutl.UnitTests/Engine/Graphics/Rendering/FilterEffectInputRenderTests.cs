@@ -50,8 +50,8 @@ public class FilterEffectInputRenderTests
             }
             Scene scene = FilterEffectInputTests.SceneWith(input);
             Scene referenceScene = FilterEffectInputTests.SceneWith(referenceInput);
-            using var renderer = new SceneRenderer(scene, TestFonts.Manager, kind == "preview" ? RenderIntent.Preview : RenderIntent.Delivery, forceOriginalSource: true, decoders: _decoders);
-            using var reference = new SceneRenderer(referenceScene, TestFonts.Manager, RenderIntent.Delivery, forceOriginalSource: true, decoders: _decoders);
+            using var renderer = new SceneRenderer(scene, new SceneRenderServices(TestFonts.Manager, _decoders), kind == "preview" ? RenderIntent.Preview : RenderIntent.Delivery, forceOriginalSource: true);
+            using var reference = new SceneRenderer(referenceScene, new SceneRenderServices(TestFonts.Manager, _decoders), RenderIntent.Delivery, forceOriginalSource: true);
             using Bitmap actual = Render(renderer, 1);
             var expected = new float[96 * 64 * 4];
             foreach (double time in new[] { 0.8125, 0.9375, 1.0625, 1.1875 })
@@ -85,7 +85,7 @@ public class FilterEffectInputRenderTests
             second.Width.SetKeyFrameAnimation(null);
             var blur = new SampleInputEffect();
             var group = new DrawableGroup { FilterEffect = { Value = blur }, Opacity = { Value = 50 } };
-            using var renderer = new SceneRenderer(FilterEffectInputTests.SceneWith(first, second, group), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
+            using var renderer = new SceneRenderer(FilterEffectInputTests.SceneWith(first, second, group), new SceneRenderServices(TestFonts.Manager, _decoders), RenderIntent.Delivery);
             using Bitmap image = Render(renderer, 1);
             Rgba pixel = ImageMetrics.ReadPixel(image, 48, 32);
             Assert.Multiple(() =>
@@ -112,7 +112,7 @@ public class FilterEffectInputRenderTests
                 chain.Children.Add(blurFirst ? new SampleInputEffect() : threshold);
                 chain.Children.Add(blurFirst ? threshold : new SampleInputEffect());
                 shape.FilterEffect.Value = chain;
-                using var renderer = new SceneRenderer(FilterEffectInputTests.SceneWith(shape), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
+                using var renderer = new SceneRenderer(FilterEffectInputTests.SceneWith(shape), new SceneRenderServices(TestFonts.Manager, _decoders), RenderIntent.Delivery);
                 using Bitmap image = Render(renderer, 1);
                 return ImageMetrics.ReadPixel(image, 48, 32).Alpha;
             }
@@ -170,8 +170,8 @@ public class FilterEffectInputRenderTests
                 if (sampled) shape.FilterEffect.Value = new SampleInputEffect();
                 return FilterEffectInputTests.SceneWith(background, shape);
             }
-            using var renderer = new SceneRenderer(MakeScene(true), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
-            using var reference = new SceneRenderer(MakeScene(false), TestFonts.Manager, RenderIntent.Delivery, decoders: _decoders);
+            using var renderer = new SceneRenderer(MakeScene(true), new SceneRenderServices(TestFonts.Manager, _decoders), RenderIntent.Delivery);
+            using var reference = new SceneRenderer(MakeScene(false), new SceneRenderServices(TestFonts.Manager, _decoders), RenderIntent.Delivery);
             using var actual = Render(renderer, 1);
             using var expected = Render(reference, 1);
             GoldenImageHarness.AssertByteIdentical(expected, actual, mode.ToString(), requireVisibleContent: true);

@@ -571,8 +571,8 @@ public partial class ShaderNodeRenderingTests
         ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(restored);
         ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(normalized);
         normalized.Children.Single().Start.Value = MediaTime.Zero;
-        using var preview = new SceneRenderer(restored, TestFonts.Manager, RenderIntent.Preview, 1);
-        using var reference = new SceneRenderer(normalized, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var preview = new SceneRenderer(restored, TestFonts.RenderServices, RenderIntent.Preview, 1);
+        using var reference = new SceneRenderer(normalized, TestFonts.RenderServices, RenderIntent.Preview, 1);
         var frames = new Dictionary<int, ushort[]>();
         foreach (int frame in new[] { 3, 0, 2, 1, 3 })
         {
@@ -650,9 +650,9 @@ public partial class ShaderNodeRenderingTests
         });
         CoreSerializer.StoreToUri(files.Scene, files.Scene.Uri!);
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(files.Scene.Uri!);
-        using var originalRenderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, scale);
-        using var restoredRenderer = new SceneRenderer(restored, TestFonts.Manager, RenderIntent.Preview, scale);
-        using var referenceRenderer = new SceneRenderer(referenceFiles.Scene, TestFonts.Manager, RenderIntent.Preview, scale);
+        using var originalRenderer = new SceneRenderer(files.Scene, TestFonts.RenderServices, RenderIntent.Preview, scale);
+        using var restoredRenderer = new SceneRenderer(restored, TestFonts.RenderServices, RenderIntent.Preview, scale);
+        using var referenceRenderer = new SceneRenderer(referenceFiles.Scene, TestFonts.RenderServices, RenderIntent.Preview, scale);
         var frames = new Dictionary<int, ushort[]>();
         foreach (int frame in new[] { 2, 0, 3, 1, 2 })
         {
@@ -695,7 +695,7 @@ public partial class ShaderNodeRenderingTests
         var output = graph.Add(new OutputNode());
         graph.Connect(output.InputPort, last.Out("color"));
         Populate(files, effect);
-        using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var renderer = new SceneRenderer(files.Scene, TestFonts.RenderServices, RenderIntent.Preview, 1);
         ushort[] working = RenderScene(renderer, MediaTime.Zero, 1);
         Assert.That(working, Has.Some.Not.EqualTo((ushort)0));
 
@@ -736,7 +736,7 @@ public partial class ShaderNodeRenderingTests
         var output = graph.Add(new OutputNode());
         graph.Connect(output.InputPort, pass.Out("color"));
         files.AddElement(MediaTime.Zero, MediaTime.FromSeconds(1)).AddObject(drawable);
-        using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var renderer = new SceneRenderer(files.Scene, TestFonts.RenderServices, RenderIntent.Preview, 1);
 
         ushort[] pixels = RenderScene(renderer, MediaTime.Zero, 1);
 
@@ -775,7 +775,7 @@ public partial class ShaderNodeRenderingTests
         var output = graph.Add(new OutputNode());
         graph.Connect(output.InputPort, pass.Out("color"));
         Populate(files, effect);
-        using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var renderer = new SceneRenderer(files.Scene, TestFonts.RenderServices, RenderIntent.Preview, 1);
         const int frameWidth = 48;
         float Alpha(ushort[] pixels, int x, int y) => (float)BitConverter.UInt16BitsToHalf(pixels[(y * frameWidth + x) * 4 + 3]);
 
@@ -809,7 +809,7 @@ public partial class ShaderNodeRenderingTests
         height.Property!.SetValue(1000f);
         CoreSerializer.StoreToUri(files.Scene, files.Scene.Uri!);
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(files.Scene.Uri!);
-        using var restoredRenderer = new SceneRenderer(restored, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var restoredRenderer = new SceneRenderer(restored, TestFonts.RenderServices, RenderIntent.Preview, 1);
         Assert.That(RenderScene(restoredRenderer, MediaTime.Zero, 1), Is.EqualTo(half));
     }
 
@@ -832,7 +832,7 @@ public partial class ShaderNodeRenderingTests
         var output = graph.Add(new OutputNode());
         graph.Connect(output.InputPort, pass.Out("color"));
         files.AddElement(MediaTime.Zero, MediaTime.FromSeconds(1)).AddObject(drawable);
-        using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var renderer = new SceneRenderer(files.Scene, TestFonts.RenderServices, RenderIntent.Preview, 1);
 
         ushort[] pixels = RenderScene(renderer, MediaTime.Zero, 1);
 
@@ -867,7 +867,7 @@ public partial class ShaderNodeRenderingTests
         var output = graph.Add(new OutputNode());
         graph.Connect(output.InputPort, merge.Out("color"));
         Populate(files, effect);
-        using var renderer = new SceneRenderer(files.Scene, TestFonts.Manager, RenderIntent.Preview, 1);
+        using var renderer = new SceneRenderer(files.Scene, TestFonts.RenderServices, RenderIntent.Preview, 1);
         ushort[] plain = RenderScene(renderer, MediaTime.Zero, 1);
         Assert.That(plain, Has.Some.Not.EqualTo((ushort)0));
 

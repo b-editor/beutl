@@ -105,8 +105,9 @@ internal static class SilenceWaveform
         }
 
         using var composer = new Composer { SampleRate = sampleRate, ChannelLayout = channelLayout };
-        SceneCompositor compositor = isolated ? new SceneCompositor(scene, fonts, decoders: decoders) { ForceOriginalSource = true }
-            : await Task.Factory.StartNew(() => new SceneCompositor(scene, fonts, decoders: decoders) { ForceOriginalSource = true },
+        var services = new SceneRenderServices(fonts, decoders);
+        SceneCompositor compositor = isolated ? new SceneCompositor(scene, services) { ForceOriginalSource = true }
+            : await Task.Factory.StartNew(() => new SceneCompositor(scene, services) { ForceOriginalSource = true },
                 cancellationToken, TaskCreationOptions.DenyChildAttach, owner).ConfigureAwait(false);
         try
         {

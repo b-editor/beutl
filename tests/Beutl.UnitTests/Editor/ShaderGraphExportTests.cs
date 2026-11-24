@@ -29,8 +29,8 @@ public sealed class ShaderGraphExportTests
         Scene scene = Populate(files, lightRays);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
-        using var original = new SceneRenderer(scene, TestFonts.Manager, RenderIntent.Preview, scale);
-        using var preview = new SceneRenderer(restored, TestFonts.Manager, RenderIntent.Preview, scale);
+        using var original = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview, scale);
+        using var preview = new SceneRenderer(restored, TestFonts.RenderServices, RenderIntent.Preview, scale);
         var frames = new Dictionary<int, ushort[]>();
 
         foreach (int index in new[] { 2, 0, 3, 1, 2 })
