@@ -2161,6 +2161,42 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>メッシュの制御点（{0} 行、{1} 列）</value>
   </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>パペット</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>ピン</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>ピン</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>ピンを追加</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>配置を終了</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>画像上をクリックして配置。Escで終了</value>
+  </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>パペットのピンを編集中。プレビューでは後続のエフェクトを一時的に非表示にしています。</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>ピンの配置を準備中…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>このフレームにはピンを置ける画像がありません。</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>選択したピンを削除</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>画像内の相対座標です。左上が (0, 0)、右下が (1, 1) です。</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>画像にピンを置き、動かして曲げます。</value>
+  </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>円や楕円を描画し、マットとしても使えます（楕円、シェイプ、平面、マスク、トラックマット / ellipse, shape, solid, mask, track matte）。</value>
   </data>

@@ -16,6 +16,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
@@ -152,13 +153,14 @@ public partial class PlayerView : UserControl
         _boundsSubscription?.Dispose();
         RemoveHdrView();
 
+        const string sourcePath = $"{nameof(PlayerViewModel.EditorPreviewImage)}.Value";
         if (useHdr)
         {
             // A native view covers what the UI draws in its place, and follows neither the frame panel's transform nor
             // its clip. So it covers the whole viewport and draws the frame where the slot is, zoom and pan included,
             // with a copy of what the UI draws over the frame. Around the frame the UI under it shows.
             var slot = new PreviewFrameSlot();
-            var view = (HdrBitmapView)PreviewSurface.CreateImage(true, "PreviewImage.Value");
+            var view = (HdrBitmapView)PreviewSurface.CreateImage(true, sourcePath);
             _hdrSourceSizeSubscription = view.GetObservable(HdrBitmapView.SourceSizeProperty)
                 .Subscribe(size => slot.SourceSize = size);
             image = slot;
@@ -170,7 +172,7 @@ public partial class PlayerView : UserControl
         }
         else
         {
-            image = PreviewSurface.CreateImage(false, "PreviewImage.Value");
+            image = PreviewSurface.CreateImage(false, sourcePath);
             // Insert after imageBackground, before guideOverlay
             framePanel.Children.Insert(1, image);
         }
@@ -284,6 +286,7 @@ public partial class PlayerView : UserControl
         _imageConfigSubscription?.Dispose();
         _imageConfigSubscription = null;
         SetupImageControl();
+        puppetPlacementHint.IsVisible = false;
 
         InvalidateTransformHandleResource();
 
@@ -328,6 +331,9 @@ public partial class PlayerView : UserControl
                 .DisposeWith(_disposables);
 
             SubscribeCursor(vm);
+            vm.SelectedPuppetPin.ObserveOnUIDispatcher()
+                .Subscribe(pin => transformHandlesOverlay.SetSelectedPuppetPin(pin?.Id.Value.ToString()))
+                .DisposeWith(_disposables);
 
             var selection = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorSelection>();
             selection.SelectedObject
@@ -357,6 +363,7 @@ public partial class PlayerView : UserControl
             {
                 framePanel.RenderTransformOrigin = Avalonia.RelativePoint.TopLeft;
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
+                transformHandlesOverlay.SetEditingHandleZoom(matrix.M11);
                 guideOverlay.Zoom = matrix.M11;
                 UpdateFrameOutline(matrix.M11);
                 UpdateZoomDisplay();
@@ -367,11 +374,21 @@ public partial class PlayerView : UserControl
 
     private void SubscribeCursor(PlayerViewModel vm)
     {
-        vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode, vm.PointPick.Select(pick => pick != null))
+        var picking = vm.PointPick.CombineLatest(vm.PuppetPlacementEffect, vm.ShowsPuppetStage,
+            static (point, effect, stage) => (point, effect, stage));
+        vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode, picking)
             .ObserveOnUIDispatcher()
             .Subscribe(t =>
             {
-                if (t.Fourth)
+                var (point, puppet, stage) = t.Fourth;
+                puppetPlacementHint.IsVisible = puppet is not null || stage;
+                if (puppet is not null)
+                    puppetPlacementMessage.Text = ReferenceEquals(point?.LocalOwner, puppet)
+                        ? GraphicsStrings.Puppet_PlacementHint
+                        : GraphicsStrings.Puppet_PreparingPlacement;
+                else
+                    puppetPlacementMessage.Text = stage ? GraphicsStrings.Puppet_EditingPreviewHint : null;
+                if (point is not null || puppet is not null)
                     framePanel.Cursor = Cursors.Cross;
                 else if (t.First)
                     framePanel.Cursor = Cursors.Hand;

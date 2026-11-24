@@ -110,6 +110,7 @@ internal static class BuiltInPropertyEditors
         Add<CurveMap>(registry, p => new CurveMapEditorViewModel(p), () => new CurveMapEditor());
         Add<MeshWarpGrid>(registry, p => new MeshWarpGridEditorViewModel(p), () => new MeshWarpGridEditor());
         Add<ICoreList<GradientStop>>(registry, p => new GradientStopsEditorViewModel(p), () => new GradientStopsEditor());
+        Add<ICoreList<PuppetPin>>(registry, p => new ListEditorViewModel<PuppetPin>(p), () => new PuppetPinsEditor());
         Add<DisplacementMapTransform?>(registry, p => new DisplacementMapTransformEditorViewModel(p), () => new DisplacementMapTransformEditor());
         Add(registry, typeof(IList), CreateListEditor, _ => new ListEditor());
         Add<GraphModel?>(registry, p => new GraphModelEditorViewModel(p), () => new GraphModelEditor());
@@ -128,6 +129,7 @@ internal static class BuiltInPropertyEditors
         });
 
         // The editors of list items, which take the place of the ones above in a list.
+        AddListItem<PuppetPin?>(registry, p => new PuppetPinItemViewModel(p), () => new PuppetPinItemEditor());
         AddListItem<FilterEffect?>(registry, p => new FilterEffectEditorViewModel(p), () => new FilterEffectListItemEditor());
         AddListItem<PathSegment?>(registry, p => new PathSegmentEditorViewModel(p), () => new PathOperationListItemEditor());
         AddListItem<PathFigure>(registry, p => new PathFigureEditorViewModel(p), () => new PathFigureListItemEditor());

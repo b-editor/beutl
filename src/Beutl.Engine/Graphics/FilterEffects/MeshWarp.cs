@@ -17,16 +17,11 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.MeshWarp), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, IComponentInterpolator<MeshWarpGrid>
 {
-    private readonly record struct CapturedPreviewFrame(Rect InputBounds, MediaTime EvaluationTime);
-
     [ThreadStatic]
     private static HashSet<MeshWarp>? s_interpolating;
 
     private static readonly Color s_cornerColor = Color.FromRgb(255, 179, 77);
-    private const int MaxCachedInputBounds = 512;
-    private readonly Lock _inputBoundsLock = new();
-    private readonly Dictionary<MediaTime, CapturedPreviewFrame> _renderedPreviewFrames = [];
-    private readonly Queue<MediaTime> _renderedPreviewFramesOrder = [];
+    private readonly EffectEditingFrames _editingFrames = new();
 
     public MeshWarp()
     {
@@ -253,10 +248,10 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
 
     private Rect GetEditingFrame(MediaTime time, Rect fallbackBounds, out MediaTime evaluationTime)
     {
-        if (IsEnabled.Value && TryGetCapturedPreviewFrame(time, out CapturedPreviewFrame captured))
+        if (IsEnabled.Value && _editingFrames.TryGet(time, out var captured))
         {
-            evaluationTime = captured.EvaluationTime;
-            return captured.InputBounds;
+            evaluationTime = captured.Time;
+            return captured.Bounds;
         }
 
         evaluationTime = time;
@@ -270,51 +265,16 @@ public sealed partial class MeshWarp : FilterEffect, IEditingHandleProvider, ICo
     }
 
     private MediaTime ResolveEvaluationTime(MediaTime time)
-        => IsEnabled.Value && TryGetCapturedPreviewFrame(time, out CapturedPreviewFrame captured)
-            ? captured.EvaluationTime
+        => IsEnabled.Value && _editingFrames.TryGet(time, out var captured)
+            ? captured.Time
             : time;
 
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(in args);
-        ClearCapturedPreviewFrames();
-    }
-
-    private void ClearCapturedPreviewFrames()
-    {
-        lock (_inputBoundsLock)
-        {
-            _renderedPreviewFrames.Clear();
-            _renderedPreviewFramesOrder.Clear();
-        }
-    }
-
-    private bool TryGetCapturedPreviewFrame(MediaTime time, out CapturedPreviewFrame frame)
-    {
-        lock (_inputBoundsLock)
-            return _renderedPreviewFrames.TryGetValue(time, out frame);
+        _editingFrames.Clear();
     }
 
     private bool CapturePreviewFrame(MediaTime displayTime, Rect bounds, MediaTime evaluationTime)
-    {
-        if (!HasArea(bounds)) return false;
-
-        lock (_inputBoundsLock)
-        {
-            if (!_renderedPreviewFrames.ContainsKey(displayTime))
-            {
-                if (_renderedPreviewFrames.Count >= MaxCachedInputBounds)
-                {
-                    MediaTime oldest = _renderedPreviewFramesOrder.Dequeue();
-                    _renderedPreviewFrames.Remove(oldest);
-                }
-
-                _renderedPreviewFramesOrder.Enqueue(displayTime);
-            }
-
-            _renderedPreviewFrames[displayTime] = new CapturedPreviewFrame(bounds, evaluationTime);
-        }
-
-        return true;
-    }
+        => _editingFrames.Capture(displayTime, bounds, evaluationTime);
 }

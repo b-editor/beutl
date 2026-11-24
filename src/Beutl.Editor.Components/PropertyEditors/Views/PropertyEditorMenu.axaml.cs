@@ -2,6 +2,8 @@
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
@@ -19,6 +21,8 @@ public sealed partial class PropertyEditorMenu : UserControl
 {
     private IDisposable? _componentSubscription;
     private ExpressionEditorFlyout? _expressionFlyout;
+
+    internal bool EditComponentsInFlyout { get; init; }
 
     public PropertyEditorMenu()
     {
@@ -107,7 +111,11 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void SeparateComponents_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PropertyEditorViewModel model) model.SeparateComponents();
+        if (DataContext is not PropertyEditorViewModel model) return;
+
+        model.SeparateComponents();
+        if (EditComponentsInFlyout)
+            Dispatcher.UIThread.Post(() => ShowComponentEditors(model));
     }
 
     private void UnseparateComponents_Click(object? sender, RoutedEventArgs e)
@@ -127,7 +135,11 @@ public sealed partial class PropertyEditorMenu : UserControl
                 return;
             }
 
-            if (viewModel.HasAnimation.Value && viewModel.GetService<IEditorClock>() is { } editorClock)
+            if (EditComponentsInFlyout && viewModel.SeparatedComponents.Value is not null)
+            {
+                ShowComponentEditors(viewModel);
+            }
+            else if (viewModel.HasAnimation.Value && viewModel.GetService<IEditorClock>() is { } editorClock)
             {
                 MediaTime keyTime = editorClock.CurrentTime.Value;
                 if (symbolIcon.IconVariant == FluentIcons.Common.IconVariant.Filled)
@@ -157,6 +169,23 @@ public sealed partial class PropertyEditorMenu : UserControl
                 button.ContextFlyout?.ShowAt(button);
             }
         }
+    }
+
+    private void ShowComponentEditors(PropertyEditorViewModel model)
+    {
+        if (model.IsDisposed || !ReferenceEquals(DataContext, model) || !this.IsAttachedToVisualTree()
+            || model.SeparatedComponents.Value is null) return;
+
+        var editors = new ComponentEditors(model, combined: null) { MinWidth = 240 };
+        var flyout = new Flyout { Content = editors, Placement = PlacementMode.BottomEdgeAlignedRight };
+        IDisposable closeWhenCombined = model.SeparatedComponents.Where(components => components is null)
+            .Subscribe(_ => flyout.Hide());
+        flyout.Closed += (_, _) =>
+        {
+            closeWhenCombined.Dispose();
+            editors.Dispose();
+        };
+        flyout.ShowAt(this);
     }
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)

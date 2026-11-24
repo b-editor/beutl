@@ -7,6 +7,30 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.LayerEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class LayerEffect : FilterEffect
 {
+    internal static EffectTarget CreateComposite(CustomFilterEffectContext context)
+    {
+        Rect bounds = context.Targets.CalculateBounds();
+        EffectTarget output = context.CreateTarget(bounds);
+        if (output.IsEmpty) return output;
+
+        try
+        {
+            using var canvas = context.Open(output);
+            canvas.Clear();
+            foreach (EffectTarget target in context.Targets)
+            {
+                using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - bounds.Position)))
+                    target.Draw(canvas);
+            }
+            return output;
+        }
+        catch
+        {
+            output.Dispose();
+            throw;
+        }
+    }
+
     public new partial class Resource
     {
         protected override void ApplyTo(FilterEffectContext context)
@@ -14,25 +38,11 @@ public partial class LayerEffect : FilterEffect
             context.CustomEffect(Unit.Default,
                 (_, ctx) =>
                 {
-                    var bounds = ctx.Targets.CalculateBounds();
-                    var newTarget = ctx.CreateTarget(bounds);
+                    EffectTarget newTarget = CreateComposite(ctx);
                     if (newTarget.IsEmpty)
                     {
                         newTarget.Dispose();
                         return;
-                    }
-
-                    // ctx.Open bakes the base CTM scale from the target's density.
-                    using (var canvas = ctx.Open(newTarget))
-                    {
-                        canvas.Clear();
-                        foreach (var t in ctx.Targets)
-                        {
-                            using (canvas.PushTransform(Matrix.CreateTranslation(t.Bounds.Position - bounds.Position)))
-                            {
-                                t.Draw(canvas);
-                            }
-                        }
                     }
 
                     ctx.Targets.Clear();

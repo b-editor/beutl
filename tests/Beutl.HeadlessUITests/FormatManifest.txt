@@ -569,6 +569,12 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:PolarCoordinates
   sealed
   keys: Amount, Angle, Animations, Center, ClipToBounds, Direction, EdgeMode, Expressions, Id, InnerRadius, InvertRadius, IsEnabled, Mirror, Name, Repeat, ReverseAngle, Scale, SweepAngle, Swirl
+[Beutl.Engine]Beutl.Graphics.Effects:Puppet
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Pins
+[Beutl.Engine]Beutl.Graphics.Effects:PuppetPin
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Position, RestPosition
 [Beutl.Engine]Beutl.Graphics.Effects:RadialBlur
   sealed
   keys: Amount, Animations, Center, Expressions, Id, IsEnabled, Mode, Name, Samples

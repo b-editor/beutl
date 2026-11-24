@@ -1,5 +1,6 @@
 ﻿using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Graphics;
 using Beutl.ViewModels;
 using AvaPoint = Avalonia.Point;
 using BtlPoint = Beutl.Graphics.Point;
@@ -23,27 +24,47 @@ public partial class PlayerView
 
     private void OnPointPickPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (ActivePointPick is not { } pick)
+        var model = DataContext as PlayerViewModel;
+        var puppet = model?.PuppetPlacementEffect.Value;
+        PreviewPointPick? pick = ActivePointPick;
+        if (pick is null && puppet is null)
             return;
 
         PointerPointProperties properties = e.GetCurrentPoint(framePanel).Properties;
         if (properties.IsMiddleButtonPressed)
             return;
 
+        // Pressing an existing Puppet pin returns to ordinary pin editing and lets this press start the drag.
+        if (puppet is not null && properties.IsLeftButtonPressed
+            && transformHandlesOverlay.HitTestEditingHandle(e.GetPosition(image)) is { } target
+            && ReferenceEquals(target.Provider, puppet))
+        {
+            model!.StopPuppetPinPlacement();
+            return;
+        }
+
         // A click off the frame picks nothing and waits for another.
-        if (properties.IsLeftButtonPressed && FramePointUnder(e) is { } point)
-            pick.Complete(point);
+        if (pick is not null && (puppet is null || ReferenceEquals(puppet, pick.LocalOwner))
+            && properties.IsLeftButtonPressed && FramePointUnder(e) is { } point
+            && PointInPickSpace(pick, point) is { } local)
+            pick.Complete(local);
 
         e.Handled = true;
     }
 
     private void OnPointPickReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (ActivePointPick is not { } pick || e.InitialPressMouseButton == MouseButton.Middle)
+        var model = DataContext as PlayerViewModel;
+        PreviewPointPick? pick = ActivePointPick;
+        bool placingPins = model?.PuppetPlacementEffect.Value is not null;
+        if ((pick is null && !placingPins) || e.InitialPressMouseButton == MouseButton.Middle)
             return;
 
         if (e.InitialPressMouseButton == MouseButton.Right)
-            pick.Cancel();
+        {
+            if (placingPins) model!.StopPuppetPinPlacement();
+            else pick?.Cancel();
+        }
 
         e.Handled = true;
     }
@@ -56,6 +77,20 @@ public partial class PlayerView
     private void OnPointPickExited(object? sender, PointerEventArgs e)
     {
         ActivePointPick?.Hover(null);
+    }
+
+    private BtlPoint? PointInPickSpace(PreviewPointPick pick, BtlPoint point)
+    {
+        if (pick.LocalOwner is not IHierarchical owner) return point;
+
+        Drawable? drawable = owner.FindHierarchicalParent<Drawable>();
+        if (drawable is not null && !ReferenceEquals(drawable, transformHandlesOverlay.Drawable))
+            UpdateTransformHandles();
+
+        return drawable is not null && ReferenceEquals(drawable, transformHandlesOverlay.Drawable)
+            && transformHandlesOverlay.UserMatrix.TryInvert(out var inverse)
+            ? inverse.Transform(point)
+            : null;
     }
 
     // The point of the frame under the pointer in frame pixels, or null off the frame.

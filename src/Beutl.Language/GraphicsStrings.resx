@@ -2166,6 +2166,42 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>Mesh point {0}, {1}</value>
   </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>Puppet</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>Pins</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>Pin</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>Add pin</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>Finish placing</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>Click the image to place pins. Esc to finish.</value>
+  </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>Editing Puppet pins. Later effects are hidden in the preview.</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>Preparing pin placement…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>There is no visible image to place pins on in this frame.</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>Remove selected pin</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>Image-relative coordinates. The upper-left corner is (0, 0) and the lower-right corner is (1, 1).</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>Bend an image by placing and moving pins.</value>
+  </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>Draws a circle or ellipse that can also serve as a matte (ellipse, shape, solid, mask, track matte).</value>
   </data>

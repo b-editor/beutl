@@ -2165,6 +2165,42 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>Punto de malla {0}, {1}</value>
   </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>Marioneta</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>Pines</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>Pin</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>Añadir pin</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>Terminar</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>Haz clic en la imagen para colocar pines. Pulsa Esc para terminar.</value>
+  </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>Editando los pines de Marioneta. La vista previa oculta los efectos posteriores.</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>Preparando la colocación de pines…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>En este fotograma no hay una imagen visible para colocar pines.</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>Eliminar pin seleccionado</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>Coordenadas relativas a la imagen. La esquina superior izquierda es (0, 0) y la inferior derecha es (1, 1).</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>Deforma una imagen al colocar y mover pines.</value>
+  </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>Dibuja un círculo o una elipse que también puede usarse como mate (elipse, forma, sólido, máscara, mate de pista / ellipse, shape, solid, mask, track matte).</value>
   </data>

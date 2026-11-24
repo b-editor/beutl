@@ -2165,6 +2165,42 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>메시 제어점({0}행, {1}열)</value>
   </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>퍼펫</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>핀</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>핀</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>핀 추가</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>배치 끝내기</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>이미지를 클릭해 핀을 배치하세요. Esc로 종료합니다.</value>
+  </data>
+  <data name="Puppet_EditingPreviewHint" xml:space="preserve">
+    <value>퍼펫 핀 편집 중입니다. 미리 보기에서 이후 효과를 일시적으로 숨깁니다.</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>핀 배치 준비 중…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>이 프레임에 핀을 배치할 수 있는 이미지가 없습니다.</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>선택한 핀 삭제</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>이미지를 기준으로 한 상대 좌표입니다. 왼쪽 위는 (0, 0), 오른쪽 아래는 (1, 1)입니다.</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>이미지에 핀을 놓고 움직여 변형합니다.</value>
+  </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>마스크로도 쓸 수 있는 원이나 타원을 그립니다 (타원, 도형, 솔리드, 마스크, 트랙 매트 / ellipse, shape, solid, mask, track matte).</value>
   </data>
