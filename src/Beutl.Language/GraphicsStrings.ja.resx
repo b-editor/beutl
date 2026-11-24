@@ -2062,6 +2062,48 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>終了</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>エコー</value>
+  </data>
+  <data name="Echo_Description" xml:space="preserve">
+    <value>対象を過去または未来の複数の時刻で描画し、不透明度を下げながら重ねます。後段のエフェクトは合成結果に一度だけ適用されます。</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>間隔 (秒)</value>
+  </data>
+  <data name="Echo_Interval_Description" xml:space="preserve">
+    <value>コピー間の時間差を秒で指定します。負の値は過去、正の値は未来を参照し、0では現在時刻を繰り返します。</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>個数</value>
+  </data>
+  <data name="Echo_Count_Description" xml:space="preserve">
+    <value>現在時刻を含むコピーの総数（1〜64）です。増やすと描画時間とメモリ使用量が増えます。</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>初期強度</value>
+  </data>
+  <data name="Echo_StartingIntensity_Description" xml:space="preserve">
+    <value>現在時刻のコピーの不透明度です。0%ではすべてのコピーが透明になります。</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>減衰</value>
+  </data>
+  <data name="Echo_Decay_Description" xml:space="preserve">
+    <value>次のコピーに引き継ぐ不透明度の割合です。0%では現在時刻のコピーのみを描画し、100%ではすべてのコピーが同じ不透明度になります。</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>ブレンドモード</value>
+  </data>
+  <data name="Echo_BlendMode_Description" xml:space="preserve">
+    <value>時刻が最も新しいコピーを手前に描画するか、コピーが重なる部分の色を加算するかを選びます。</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>最新を手前に</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>加算</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>アルファモード</value>
   </data>

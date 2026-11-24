@@ -2066,6 +2066,48 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>Final</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>Eco</value>
+  </data>
+  <data name="Echo_Description" xml:space="preserve">
+    <value>Dibuja copias del objeto en instantes anteriores o posteriores con opacidad decreciente. Los efectos posteriores se aplican una sola vez al resultado combinado.</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>Intervalo (s)</value>
+  </data>
+  <data name="Echo_Interval_Description" xml:space="preserve">
+    <value>Tiempo entre copias en segundos. Los valores negativos muestrean instantes anteriores, los positivos muestrean instantes posteriores y cero repite el instante actual.</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>Cantidad</value>
+  </data>
+  <data name="Echo_Count_Description" xml:space="preserve">
+    <value>Número total de copias, incluida la del instante actual (1–64). Más copias aumentan el tiempo de renderizado y el uso de memoria.</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>Intensidad inicial</value>
+  </data>
+  <data name="Echo_StartingIntensity_Description" xml:space="preserve">
+    <value>Opacidad de la copia del instante actual. Al 0%, todas las copias son transparentes.</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>Atenuación</value>
+  </data>
+  <data name="Echo_Decay_Description" xml:space="preserve">
+    <value>Porcentaje de opacidad que conserva cada copia sucesiva. Al 0%, solo se dibuja la copia del instante actual. Al 100%, todas las copias tienen la misma opacidad.</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>Modo de mezcla</value>
+  </data>
+  <data name="Echo_BlendMode_Description" xml:space="preserve">
+    <value>Dibuja encima la copia más reciente en orden cronológico o suma los colores en las zonas donde se superponen las copias.</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>Más reciente encima</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>Aditivo</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>Modo alfa</value>
   </data>
