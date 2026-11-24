@@ -452,6 +452,12 @@
   <data name="BringToTop" xml:space="preserve">
     <value>맨 위로 가져오기</value>
   </data>
+  <data name="ShowAllAnimations" xml:space="preserve">
+    <value>모두 표시</value>
+  </data>
+  <data name="NoAnimations" xml:space="preserve">
+    <value>애니메이션 없음</value>
+  </data>
   <data name="RecentProjectsEmpty" xml:space="preserve">
     <value>연 프로젝트가 여기에 표시됩니다.</value>
   </data>
