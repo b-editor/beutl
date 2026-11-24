@@ -546,7 +546,7 @@ public sealed class ListItemLayoutTests
                 ToggleButton nameRow = item.FindControl<ToggleButton>("reorderHandle")!;
                 Assert.That(item.ReorderHandle, Is.SameAs(nameRow));
                 Assert.That(nameRow.IsEffectivelyVisible, Is.True);
-        Assert.That(NameRowButtons(item), Has.All.Matches<Button>(b => b is { IsEffectivelyVisible: true }));
+                Assert.That(NameRowButtons(item), Has.All.Matches<Button>(b => b is { IsEffectivelyVisible: true }));
                 Assert.That(item.FindControl<Panel>("content")!.IsVisible, Is.True);
             }
             finally
