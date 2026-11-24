@@ -186,7 +186,8 @@ public sealed partial class SourceSound : IThumbnailsProvider
         IReadOnlyList<int> indices,
         [EnumeratorCancellation] CancellationToken cancellationToken = default,
         DecoderRegistry? decoders = null,
-        MediaTime offsetDelta = default)
+        MediaTime offsetDelta = default,
+        TimeRange? previewLayout = null)
     {
         if (indices.Count == 0 || baseChunkCount <= 0 || samplesPerChunk <= 0
             || !await WaveformGate.TryEnterAsync(cancellationToken))
@@ -201,11 +202,13 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 yield break;
 
             TimeRange clipRange = TimeRange.Value;
-            if (clipRange.Duration <= MediaTime.Zero)
+            TimeRange layout = previewLayout ?? new TimeRange(MediaTime.Zero, clipRange.Duration);
+            if (layout.Duration <= MediaTime.Zero)
                 yield break;
 
             int sampleRate = source.SampleRate;
-            long totalSamples = clipRange.Duration.ToSamples(sampleRate, MidpointRounding.ToZero);
+            long totalSamples = layout.Duration.ToSamples(sampleRate, MidpointRounding.ToZero);
+            long origin = layout.Start.ToSamples(sampleRate, MidpointRounding.ToZero);
             using var audioContext = new AudioContext(sampleRate, AudioChannelLayout.Stereo);
             var (output, finiteEndSample) = await ComposeThread.Dispatcher.InvokeAsync(() =>
             {
@@ -220,6 +223,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 cancellationToken.ThrowIfCancellationRequested();
                 long start = GetSamplePosition(index);
                 int count = (int)Math.Min(GetSamplePosition(index + 1) - start, samplesPerChunk);
+                start += origin;
                 if (count <= 0 || output == null || finiteEndSample is { } end && start >= end)
                 {
                     yield return new WaveformChunk(index, 0, 0);

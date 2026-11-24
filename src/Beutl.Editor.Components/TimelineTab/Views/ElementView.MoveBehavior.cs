@@ -315,7 +315,8 @@ public sealed partial class ElementView
             double? translatedOffsetX = applied ? -effectiveDelta.TimeToPixel(scale) : null;
             foreach (SlipPreviewEntry entry in previewElements)
             {
-                entry.ViewModel.EndMediaPreview(committed: applied, finalContentOffsetX: translatedOffsetX);
+                MediaTime? appliedOffset = entry.ResampleTarget is { } target ? target.Offset.Value - target.InitialOffset : null;
+                entry.ViewModel.EndMediaPreview(applied, translatedOffsetX, appliedOffset);
             }
         }
 

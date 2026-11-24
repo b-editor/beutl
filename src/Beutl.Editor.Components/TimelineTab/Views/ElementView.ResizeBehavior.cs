@@ -654,7 +654,8 @@ public sealed partial class ElementView
                 double? finalOffsetX = committed
                     ? -(back.ViewModel.Model.Start.Value - back.InitialStart).TimeToPixel(scale)
                     : null;
-                back.ViewModel.EndMediaPreview(committed, finalOffsetX);
+                MediaTime? appliedOffset = back.ResampleTarget is { } target ? target.Offset.Value - target.InitialOffset : null;
+                back.ViewModel.EndMediaPreview(committed, finalOffsetX, appliedOffset);
             }
         }
 

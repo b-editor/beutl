@@ -116,9 +116,10 @@ public partial class SourceVideo : IThumbnailsProvider
         bool preferProxy,
         ProxyPreset preferredProxyPreset,
         DecoderRegistry? decoders,
-        MediaTime offsetDelta)
+        MediaTime offsetDelta,
+        TimeRange previewLayout)
         => GetThumbnailStripCoreAsync(fonts, 0, maxHeight, cacheService, cancellationToken, 0, -1,
-            preferProxy, preferredProxyPreset, decoders, indices, count, offsetDelta);
+            preferProxy, preferredProxyPreset, decoders, indices, count, offsetDelta, previewLayout);
 
     private async IAsyncEnumerable<(int Index, int Count, Bitmap? Thumbnail)> GetThumbnailStripCoreAsync(
         FontManager fonts,
@@ -133,7 +134,8 @@ public partial class SourceVideo : IThumbnailsProvider
         DecoderRegistry? decoders,
         IReadOnlyList<int>? previewIndices = null,
         int previewCount = 0,
-        MediaTime offsetDelta = default)
+        MediaTime offsetDelta = default,
+        TimeRange? previewLayout = null)
     {
         if (previewIndices is { Count: 0 })
             yield break;
@@ -161,7 +163,7 @@ public partial class SourceVideo : IThumbnailsProvider
 
             if (source.Duration <= MediaTime.Zero)
                 yield break;
-            var duration = TimeRange.Value.Duration;
+            var duration = previewLayout?.Duration ?? TimeRange.Value.Duration;
 
             // Rendering draws the video into LogicalFrameSize; sizing the strip from the (possibly
             // smaller) proxy decode size would clip the frame. LogicalFrameSize equals FrameSize when
@@ -205,7 +207,7 @@ public partial class SourceVideo : IThumbnailsProvider
                 if (cancellationToken.IsCancellationRequested)
                     yield break;
 
-                var time = MediaTime.FromSeconds(i * interval);
+                var time = MediaTime.FromSeconds(i * interval) + (previewLayout?.Start ?? MediaTime.Zero);
 
                 if (cacheKey != null
                     && cacheService!.TryGet(cacheKey, time, cacheThreshold, out var cached)

@@ -395,7 +395,64 @@ public class TimelineEditModeThumbnailPreviewTests
     }
 
     [AvaloniaTest]
-    public async Task SecondDragKeepsItsPreviewWhenThePreviousResizeSettles()
+    [TestCase("cancel")]
+    [TestCase("same position")]
+    [TestCase("different position")]
+    public async Task SlipEdit_RestoresOrKeepsWaveformWhileReplacementIsBlocked(string completion)
+    {
+        using var config = new PreviewConfigScope();
+        ElementViewModel clip = await OpenAudioClip(startSeconds: 1, lengthSeconds: 2, offsetSeconds: 1, sourceSeconds: 6);
+        var sound = clip.Model.Objects.OfType<SourceSound>().Single();
+        Animate(sound.Gain, 0, 100);
+        clip.Timeline.IsSlipMode.Value = true;
+        using var view = new TimelineViewScope(clip, width: 1200);
+        await WaitForWaveformReady(clip, view.Waveform);
+
+        int index = clip.WaveformChunkCount.Value / 4;
+        Assert.That(view.Waveform.TryGetChunk(index, out var original), Is.True);
+        Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width / 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
+        Point move = press.WithX(press.X + MediaTime.FromSeconds(0.5).TimeToPixel(view.Scale));
+        double releaseDelta = completion == "different position" ? 1 : 0.5;
+        Point release = press.WithX(press.X + MediaTime.FromSeconds(releaseDelta).TimeToPixel(view.Scale));
+        bool cancelled = completion == "cancel";
+
+        view.Window.MouseMove(press, RawInputModifiers.Alt);
+        view.Window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
+        try
+        {
+            view.Window.MouseMove(move, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render(3);
+            WaveformChunk preview = default;
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                view.Waveform.TryGetChunk(index, out preview) && preview != original);
+
+            await using var pause = new DispatcherPause(ComposeThread.Dispatcher);
+            await pause.Entered;
+            if (cancelled)
+                view.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            else
+                view.Window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
+            HeadlessTestHelpers.Render(3);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(cancelled ? 1 : 1 + releaseDelta)));
+                Assert.That(clip.IsThumbnailPreviewActive.Value, Is.False);
+                Assert.That(view.Waveform.TryGetChunk(index, out var displayed), Is.True);
+                Assert.That(displayed, Is.EqualTo(completion == "same position" ? preview : original));
+            });
+        }
+        finally
+        {
+            view.Window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
+            clip.Timeline.IsSlipMode.Value = false;
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task SecondDragKeepsItsPreviewWhenThePreviousResizeSettles(bool interruptRefresh)
     {
         using var config = new PreviewConfigScope();
         ElementViewModel clip = await OpenAudioClip(startSeconds: 1, lengthSeconds: 2, offsetSeconds: 1, sourceSeconds: 6);
@@ -411,6 +468,8 @@ public class TimelineEditModeThumbnailPreviewTests
         clip.UpdateMediaPreview(0);
         clip.Width.Value += MediaTime.FromSeconds(1).TimeToPixel(view.Scale);
         Task resize = clip.SubmitViewModelChanges();
+        int probeIndex = baseCount + 10;
+        WaveformChunk previewChunk = default;
         try
         {
             HeadlessTestHelpers.Settle();
@@ -421,13 +480,22 @@ public class TimelineEditModeThumbnailPreviewTests
                 Assert.That(view.Waveform.GetMissingIndices(0, baseCount - 1), Is.Empty,
                     "The original waveform stays visible until the first replacement chunk arrives.");
             });
-            pause.Release();
-            await HeadlessTestHelpers.WaitUntilAsync(() => clip.WaveformChunkCount.Value > baseCount);
-            await WaitForWaveformReady(clip, view.Waveform);
+            if (!interruptRefresh)
+            {
+                pause.Release();
+                await HeadlessTestHelpers.WaitUntilAsync(() => clip.WaveformChunkCount.Value > baseCount);
+                await WaitForWaveformReady(clip, view.Waveform);
+            }
 
             clip.UpdateMediaPreview(-10);
             double width = clip.ThumbnailContentWidth.Value;
             Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
+            if (interruptRefresh)
+            {
+                pause.Release();
+                await HeadlessTestHelpers.WaitUntilAsync(() => view.Waveform.TryGetChunk(probeIndex, out previewChunk));
+                Assert.That(clip.WaveformChunkCount.Value, Is.EqualTo(baseCount));
+            }
 
             settle.SetResult();
             await resize;
@@ -437,6 +505,15 @@ public class TimelineEditModeThumbnailPreviewTests
                 Assert.That(clip.ThumbnailContentWidth.Value, Is.EqualTo(width));
                 Assert.That(clip.ThumbnailContentOffsetX.Value, Is.EqualTo(-10));
             });
+
+            clip.EndMediaPreview(committed: false);
+            if (interruptRefresh)
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(() => clip.WaveformChunkCount.Value > baseCount);
+                await WaitForWaveformReady(clip, view.Waveform);
+                Assert.That(view.Waveform.TryGetChunk(probeIndex, out var committedChunk), Is.True);
+                Assert.That(committedChunk.MaxValue, Is.EqualTo(previewChunk.MaxValue).Within(0.01f));
+            }
         }
         finally
         {

@@ -9,7 +9,7 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class ThumbnailStripControl : Control
 {
-    private readonly Dictionary<int, WriteableBitmap?> _thumbnails = new();
+    private readonly TimelineMediaSlots<WriteableBitmap?> _thumbnails = new(static bitmap => bitmap?.Dispose());
     private ScrollViewer? _scrollViewer;
     private int _lastNotifiedStart = -1;
     private int _lastNotifiedEnd = -1;
@@ -41,23 +41,13 @@ public sealed partial class ThumbnailStripControl : Control
 
     public void SetThumbnail(int index, WriteableBitmap? thumbnail)
     {
-        if (_thumbnails.TryGetValue(index, out var old))
-        {
-            old?.Dispose();
-        }
-
-        _thumbnails[index] = thumbnail;
+        _thumbnails.Set(index, thumbnail, IsPreviewActive);
 
         InvalidateVisual();
     }
 
     public void ClearThumbnails()
     {
-        foreach (var kvp in _thumbnails)
-        {
-            kvp.Value?.Dispose();
-        }
-
         _thumbnails.Clear();
         _lastNotifiedStart = -1;
         _lastNotifiedEnd = -1;
@@ -65,28 +55,9 @@ public sealed partial class ThumbnailStripControl : Control
         InvalidateVisual();
     }
 
-    public void PruneOutOfRangeThumbnails()
+    internal void ClearPreview()
     {
-        int count = ThumbnailCount;
-        List<int>? toRemove = null;
-        foreach (var kvp in _thumbnails)
-        {
-            if (kvp.Key < 0 || kvp.Key >= count)
-            {
-                toRemove ??= [];
-                toRemove.Add(kvp.Key);
-            }
-        }
-
-        if (toRemove != null)
-        {
-            foreach (int key in toRemove)
-            {
-                if (_thumbnails.Remove(key, out var old))
-                    old?.Dispose();
-            }
-        }
-
+        _thumbnails.ClearPreview();
         _lastNotifiedStart = -1;
         _lastNotifiedEnd = -1;
         InvalidateVisual();
@@ -122,16 +93,7 @@ public sealed partial class ThumbnailStripControl : Control
             ContentOffsetX,
             allowOutOfRange ?? IsPreviewActive);
 
-    public List<int> GetMissingIndices(int start, int end)
-    {
-        var missing = new List<int>();
-        for (int i = start; i <= end; i++)
-        {
-            if (!_thumbnails.ContainsKey(i))
-                missing.Add(i);
-        }
-        return missing;
-    }
+    public List<int> GetMissingIndices(int start, int end) => _thumbnails.GetMissingIndices(start, end);
 
     private void NotifyVisibleRangeIfChanged()
     {
@@ -189,12 +151,9 @@ public sealed partial class ThumbnailStripControl : Control
         double contentOffsetX,
         double height)
     {
-        foreach (var kvp in _thumbnails)
+        for (int i = startIndex; i <= endIndex; i++)
         {
-            int i = kvp.Key;
-            var img = kvp.Value;
-
-            if (img == null || i < startIndex || i > endIndex)
+            if (!_thumbnails.TryGetValue(i, out var img) || img == null)
                 continue;
 
             double slotX = contentOffsetX + i * slotWidth;

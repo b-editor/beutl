@@ -28,7 +28,11 @@ public sealed partial class ElementViewModel
     private bool _isEditPreviewActive;
     private bool _holdPreviewUntilThumbnailsRefresh;
     private bool _thumbnailRefreshPending;
+    private bool _previewHasPublished;
     private MediaTime? _previewSourceOffsetDelta;
+    private MediaTime? _decodingPreviewSourceOffsetDelta;
+    private MediaTime? _displayedPreviewSourceOffsetDelta;
+    private MediaTime _previewLayoutDuration;
     private double _previewInitialOffsetX;
     private DispatcherTimer? _previewTimer;
     private (int Start, int End) _previewRange;
@@ -46,13 +50,17 @@ public sealed partial class ElementViewModel
         if (_isDisposed || _isEditPreviewActive) return;
 
         _isEditPreviewActive = true;
+        _previewHasPublished = false;
         _previewInitialOffsetX = ThumbnailContentOffsetX.Value;
         _thumbnailRefreshPending |= _thumbnailsCts != null || _scrollThumbnailsCts != null;
         CancelThumbnailsLoading();
         CancelScrollThumbnailsLoading();
 
-        // A pending strip still belongs to the preceding edit's media range.
-        if (_holdPreviewUntilThumbnailsRefresh) return;
+        if (_holdPreviewUntilThumbnailsRefresh)
+        {
+            IsThumbnailPreviewActive.Value = !double.IsNaN(ThumbnailContentWidth.Value);
+            return;
+        }
 
         double contentWidth = GetMediaViewportWidth?.Invoke() ?? 0;
         if (contentWidth <= 0)
@@ -60,6 +68,7 @@ public sealed partial class ElementViewModel
 
         if ((VideoThumbnailCount.Value > 0 || WaveformChunkCount.Value > 0) && contentWidth > 0)
         {
+            _previewLayoutDuration = (_currentThumbnailsProvider as EngineObject)?.TimeRange.Value.Duration ?? Model.Length.Value;
             ThumbnailContentWidth.Value = contentWidth;
             ThumbnailContentOffsetX.Value = 0;
             IsThumbnailPreviewActive.Value = true;
@@ -70,13 +79,14 @@ public sealed partial class ElementViewModel
     {
         if (_isDisposed) return;
 
+        bool firstUpdate = !_isEditPreviewActive;
         BeginMediaPreview();
         if (!double.IsNaN(ThumbnailContentWidth.Value))
         {
             ThumbnailContentOffsetX.Value = _previewInitialOffsetX + (sourceOffsetDelta.HasValue ? 0 : contentOffsetX);
         }
 
-        if (!IsThumbnailPreviewActive.Value || _previewSourceOffsetDelta == sourceOffsetDelta) return;
+        if (!IsThumbnailPreviewActive.Value || !firstUpdate && _previewSourceOffsetDelta == sourceOffsetDelta) return;
 
         _previewSourceOffsetDelta = sourceOffsetDelta;
         var range = _currentThumbnailsProvider switch
@@ -100,11 +110,23 @@ public sealed partial class ElementViewModel
             {
                 Interval = TimeSpan.FromMilliseconds(30)
             };
+            MediaTime? waitingDelta = null;
             timer.Tick += (_, _) =>
             {
-                // A decode may take longer than one interval. Let it publish before starting the latest request.
-                if (_scrollThumbnailsCts != null) return;
+                if (_scrollThumbnailsCts != null)
+                {
+                    MediaTime? requested = _previewSourceOffsetDelta;
+                    // Let a decode make progress during continuous input. A settled request can supersede it.
+                    if (requested == _decodingPreviewSourceOffsetDelta || requested != waitingDelta)
+                    {
+                        waitingDelta = requested;
+                        return;
+                    }
 
+                    CancelScrollThumbnailsLoading();
+                }
+
+                waitingDelta = null;
                 timer.Stop();
                 _ = UpdatePreviewMediaAsync(_previewRange.Start, _previewRange.End);
             };
@@ -116,12 +138,11 @@ public sealed partial class ElementViewModel
             _previewTimer.Start();
     }
 
-    internal void EndMediaPreview(bool committed, double? finalContentOffsetX = null)
+    internal void EndMediaPreview(bool committed, double? finalContentOffsetX = null, MediaTime? appliedSourceOffsetDelta = null)
     {
         if (_isDisposed || !_isEditPreviewActive) return;
 
-        bool resampled = _previewSourceOffsetDelta.HasValue;
-        bool needsRefresh = _thumbnailRefreshPending || resampled;
+        bool resampled = _previewSourceOffsetDelta.HasValue || appliedSourceOffsetDelta.HasValue;
         _isEditPreviewActive = false;
         _previewSourceOffsetDelta = null;
         _previewTimer?.Stop();
@@ -129,6 +150,10 @@ public sealed partial class ElementViewModel
 
         if (committed || _holdPreviewUntilThumbnailsRefresh)
         {
+            bool discardHeldPreview = _holdPreviewUntilThumbnailsRefresh && (committed ? !_previewHasPublished : _previewHasPublished);
+            if (discardHeldPreview || committed && _displayedPreviewSourceOffsetDelta is { } displayed && displayed != appliedSourceOffsetDelta)
+                ClearDisplayedPreview();
+
             IsThumbnailPreviewActive.Value = false;
             if (!committed)
                 ThumbnailContentOffsetX.Value = _previewInitialOffsetX;
@@ -142,10 +167,14 @@ public sealed partial class ElementViewModel
         }
 
         ResetMediaPreviewVisuals();
-        ThumbnailsPruneOutOfRange?.Invoke();
-        WaveformPruneOutOfRange?.Invoke();
-        if (needsRefresh)
+        if (_thumbnailRefreshPending)
             UpdateThumbnailsAsync();
+    }
+
+    private void ClearDisplayedPreview()
+    {
+        _displayedPreviewSourceOffsetDelta = null;
+        MediaPreviewClear?.Invoke();
     }
 
     private void ResetMediaPreviewVisuals()
@@ -153,6 +182,7 @@ public sealed partial class ElementViewModel
         _holdPreviewUntilThumbnailsRefresh = false;
         if (_isDisposed) return;
 
+        ClearDisplayedPreview();
         IsThumbnailPreviewActive.Value = false;
         ThumbnailContentWidth.Value = double.NaN;
         ThumbnailContentOffsetX.Value = 0;
@@ -560,12 +590,15 @@ public sealed partial class ElementViewModel
             return;
 
         MediaTime? offsetDelta = _previewSourceOffsetDelta;
-        IReadOnlyList<int>? indices = offsetDelta.HasValue
-            ? CreateRangeIndices(Math.Max(0, start), end)
+        // A new drag can interrupt a refresh. Keep the old slot spacing and sample the current model inside it.
+        TimeRange layout = new(_previewInitialOffsetX.PixelToTime(Timeline.Options.Value.Scale), _previewLayoutDuration);
+        IReadOnlyList<int>? indices = _holdPreviewUntilThumbnailsRefresh || offsetDelta.HasValue
+            ? CreateRangeIndices(_holdPreviewUntilThumbnailsRefresh ? start : Math.Max(0, start), end)
             : getMissing?.Invoke(start, end);
         if (indices is not { Count: > 0 })
             return;
 
+        _decodingPreviewSourceOffsetDelta = offsetDelta;
         _scrollThumbnailsCts = new CancellationTokenSource();
         var ct = _scrollThumbnailsCts.Token;
 
@@ -578,14 +611,14 @@ public sealed partial class ElementViewModel
                 await foreach (var (index, _, thumbnail) in video.GetPreviewThumbnailStripAsync(
                                    Timeline.EditorContext.GetRequiredService<FontManager>(),
                                    count, height, indices, _thumbnailCacheService, ct, PreferProxyForThumbnails,
-                                   PreferredProxyPresetForThumbnails, decoders, offsetDelta.GetValueOrDefault()))
+                                   PreferredProxyPresetForThumbnails, decoders, offsetDelta.GetValueOrDefault(), layout))
                 {
                     using (thumbnail)
                     {
                         if (ct.IsCancellationRequested) break;
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            if (!ct.IsCancellationRequested)
+                            if (PrepareToPublish())
                                 ThumbnailReady?.Invoke(index, thumbnail is { IsDisposed: false } ? thumbnail.ToAvaWriteableBitmap(null) : null);
                         });
                     }
@@ -594,12 +627,12 @@ public sealed partial class ElementViewModel
             else if (provider is Beutl.Audio.SourceSound sound)
             {
                 await foreach (var chunk in sound.GetPreviewWaveformChunksAsync(
-                                   count, MaxWaveformSamplesPerChunk, indices, ct, decoders, offsetDelta.GetValueOrDefault()))
+                                   count, MaxWaveformSamplesPerChunk, indices, ct, decoders, offsetDelta.GetValueOrDefault(), layout))
                 {
                     if (ct.IsCancellationRequested) break;
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        if (!ct.IsCancellationRequested)
+                        if (PrepareToPublish())
                             WaveformChunkReady?.Invoke(chunk);
                     });
                 }
@@ -619,6 +652,20 @@ public sealed partial class ElementViewModel
                 _scrollThumbnailsCts = null;
                 cts.Dispose();
             }
+        }
+
+        bool PrepareToPublish()
+        {
+            if (ct.IsCancellationRequested) return false;
+
+            if (!_previewHasPublished && _holdPreviewUntilThumbnailsRefresh || _displayedPreviewSourceOffsetDelta != offsetDelta)
+            {
+                ClearDisplayedPreview();
+                _displayedPreviewSourceOffsetDelta = offsetDelta;
+            }
+
+            _previewHasPublished = true;
+            return true;
         }
     }
 

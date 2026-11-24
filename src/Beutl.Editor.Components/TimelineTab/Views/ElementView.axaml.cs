@@ -299,10 +299,9 @@ public sealed partial class ElementView : UserControl
 
         obj.ThumbnailReady -= OnThumbnailReady;
         obj.ThumbnailsClear -= OnThumbnailsClear;
-        obj.ThumbnailsPruneOutOfRange -= OnThumbnailsPruneOutOfRange;
+        obj.MediaPreviewClear -= OnMediaPreviewClear;
         obj.WaveformChunkReady -= OnWaveformChunkReady;
         obj.WaveformClear -= OnWaveformClear;
-        obj.WaveformPruneOutOfRange -= OnWaveformPruneOutOfRange;
 
         obj.SetTimelineViewAttached(false);
         thumbnailStrip.ClearThumbnails();
@@ -357,10 +356,9 @@ public sealed partial class ElementView : UserControl
 
         obj.ThumbnailReady += OnThumbnailReady;
         obj.ThumbnailsClear += OnThumbnailsClear;
-        obj.ThumbnailsPruneOutOfRange += OnThumbnailsPruneOutOfRange;
+        obj.MediaPreviewClear += OnMediaPreviewClear;
         obj.WaveformChunkReady += OnWaveformChunkReady;
         obj.WaveformClear += OnWaveformClear;
-        obj.WaveformPruneOutOfRange += OnWaveformPruneOutOfRange;
         obj.SetTimelineViewAttached(true);
     }
 
@@ -374,9 +372,10 @@ public sealed partial class ElementView : UserControl
         thumbnailStrip.ClearThumbnails();
     }
 
-    private void OnThumbnailsPruneOutOfRange()
+    private void OnMediaPreviewClear()
     {
-        thumbnailStrip.PruneOutOfRangeThumbnails();
+        thumbnailStrip.ClearPreview();
+        waveformControl.ClearPreview();
     }
 
     private void OnWaveformChunkReady(WaveformChunk chunk)
@@ -387,11 +386,6 @@ public sealed partial class ElementView : UserControl
     private void OnWaveformClear()
     {
         waveformControl.ClearChunks();
-    }
-
-    private void OnWaveformPruneOutOfRange()
-    {
-        waveformControl.PruneOutOfRangeChunks();
     }
 
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)

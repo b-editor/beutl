@@ -10,7 +10,7 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 public sealed partial class WaveformControl : Control
 {
     private static readonly IImmutableBrush s_highlightBrush = new ImmutableSolidColorBrush(Color.FromArgb(90, 245, 150, 45));
-    private readonly Dictionary<int, WaveformChunk> _chunks = new();
+    private readonly TimelineMediaSlots<WaveformChunk> _chunks = new();
     private ScrollViewer? _scrollViewer;
     private IReadOnlyList<(double Start, double End)> _highlights = [];
     private int _lastNotifiedStart = -1;
@@ -28,7 +28,7 @@ public sealed partial class WaveformControl : Control
     {
         ChunkCount = chunks.Count;
         _chunks.Clear();
-        foreach (var chunk in chunks) _chunks[chunk.Index] = chunk;
+        foreach (var chunk in chunks) _chunks.Set(chunk.Index, chunk);
         InvalidateVisual();
     }
 
@@ -67,7 +67,7 @@ public sealed partial class WaveformControl : Control
 
     public void SetChunk(WaveformChunk chunk)
     {
-        _chunks[chunk.Index] = chunk;
+        _chunks.Set(chunk.Index, chunk, IsPreviewActive);
 
         InvalidateVisual();
     }
@@ -81,25 +81,9 @@ public sealed partial class WaveformControl : Control
         InvalidateVisual();
     }
 
-    public void PruneOutOfRangeChunks()
+    internal void ClearPreview()
     {
-        int count = ChunkCount;
-        List<int>? toRemove = null;
-        foreach (int key in _chunks.Keys)
-        {
-            if (key < 0 || key >= count)
-            {
-                toRemove ??= [];
-                toRemove.Add(key);
-            }
-        }
-
-        if (toRemove != null)
-        {
-            foreach (int key in toRemove)
-                _chunks.Remove(key);
-        }
-
+        _chunks.ClearPreview();
         _lastNotifiedStart = -1;
         _lastNotifiedEnd = -1;
         InvalidateVisual();
@@ -115,16 +99,9 @@ public sealed partial class WaveformControl : Control
             ContentOffsetX,
             allowOutOfRange: IsPreviewActive);
 
-    public List<int> GetMissingIndices(int start, int end)
-    {
-        var missing = new List<int>();
-        for (int i = start; i <= end; i++)
-        {
-            if (!_chunks.ContainsKey(i))
-                missing.Add(i);
-        }
-        return missing;
-    }
+    public List<int> GetMissingIndices(int start, int end) => _chunks.GetMissingIndices(start, end);
+
+    internal bool TryGetChunk(int index, out WaveformChunk chunk) => _chunks.TryGetValue(index, out chunk);
 
     private void NotifyVisibleRangeIfChanged()
     {
@@ -229,12 +206,9 @@ public sealed partial class WaveformControl : Control
         double contentOffsetX,
         double centerY)
     {
-        foreach (var kvp in _chunks)
+        for (int i = startIndex; i <= endIndex; i++)
         {
-            int i = kvp.Key;
-            var chunk = kvp.Value;
-
-            if (i < startIndex || i > endIndex)
+            if (!TryGetChunk(i, out var chunk))
                 continue;
 
             double slotX = contentOffsetX + i * slotWidth;

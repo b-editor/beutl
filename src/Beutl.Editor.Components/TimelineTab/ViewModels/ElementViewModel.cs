@@ -361,13 +361,11 @@ public sealed partial class ElementViewModel : IDisposable
 
     public event Action? ThumbnailsClear;
 
-    public event Action? ThumbnailsPruneOutOfRange;
+    internal event Action? MediaPreviewClear;
 
     public event Action<WaveformChunk>? WaveformChunkReady;
 
     public event Action? WaveformClear;
-
-    public event Action? WaveformPruneOutOfRange;
 
     public IReadOnlyList<ElementViewModel> GetGroupOrSelectedElements()
     {
