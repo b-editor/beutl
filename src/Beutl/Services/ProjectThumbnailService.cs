@@ -113,35 +113,32 @@ internal sealed class ProjectThumbnailService
 
     private void OnPushSucceeded(object? sender, VersionControlCoordinator.PushSucceededEventArgs args)
     {
-        if (_projectService.CurrentProject.Value is not { Uri: { IsFile: true } projectUri } project
+        if (args.PushUrls.Count == 0
+            || _projectService.CurrentProject.Value is not { Uri: { IsFile: true } projectUri } project
             || _editorService.ApiApplication is not { AuthenticatedUser.Value: { } owner } api)
         {
             return;
         }
 
-        Task sync = SyncRepositoryThumbnailAsync(project, projectUri.LocalPath, args.Service, api, owner, args.PushUrls);
+        Task sync = SyncRepositoryThumbnailAsync(project, projectUri.LocalPath, api, owner, args.PushUrls);
         Volatile.Write(ref _pendingSync, sync);
     }
 
     internal async Task SyncRepositoryThumbnailAsync(
         Project project,
         string projectFile,
-        IProjectVersionControlService service,
         BeutlApiApplication api,
         AuthenticatedUser owner,
-        IReadOnlyList<string>? pushUrls = null)
+        IReadOnlyList<string>? pushUrls)
     {
+        if (pushUrls is not { Count: > 0 })
+            return;
+
         try
         {
             using var resolveTimeout = new CancellationTokenSource(s_uploadLimit);
-            IReadOnlyList<string> destinationUrls = pushUrls is not null
-                ? pushUrls
-                : (await service.GetRemotesAsync(resolveTimeout.Token).ConfigureAwait(false))
-                    .Select(static remote => remote.Url)
-                    .ToArray();
-
             var repositoryIds = new HashSet<Guid>();
-            foreach (string url in destinationUrls)
+            foreach (string url in pushUrls)
             {
                 (HostedGitRemoteUrl? remote, _) = await HostedGitRemoteUrl.ResolveAsync(url, api, resolveTimeout.Token)
                     .ConfigureAwait(false);

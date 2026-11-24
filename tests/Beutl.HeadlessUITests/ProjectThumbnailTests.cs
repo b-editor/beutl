@@ -10,7 +10,6 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.Services;
-using Beutl.Editor.VersionControl;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -256,9 +255,8 @@ public class ProjectThumbnailTests
         string projectFile = project.Uri!.LocalPath;
 
         var thumbnailService = new ProjectThumbnailService(TestShell.Project, TestShell.Editor);
-        var hostedVc = new StubVersionControlService($"{BeutlApiApplication.BaseUrl}/api/v3/git/{repoId}.git");
         await thumbnailService.SyncRepositoryThumbnailAsync(
-            project, projectFile, hostedVc, api, owner,
+            project, projectFile, api, owner,
             pushUrls: [$"{BeutlApiApplication.BaseUrl}/api/v3/git/{pushRepoId}.git"]);
 
         Assert.Multiple(() =>
@@ -269,11 +267,16 @@ public class ProjectThumbnailTests
             Assert.That(File.Exists(ProjectThumbnailService.GetPath(projectFile)), Is.True);
         });
 
-        var nonHostedVc = new StubVersionControlService("https://github.com/example/demo.git");
         await thumbnailService.SyncRepositoryThumbnailAsync(
-            project, projectFile, nonHostedVc, api, owner,
+            project, projectFile, api, owner,
             pushUrls: ["https://github.com/example/demo.git"]);
-        Assert.That(uploadedPaths, Has.Count.EqualTo(1), "Non-Beutl remotes must not trigger thumbnail uploads.");
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, api, owner,
+            pushUrls: null);
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, api, owner,
+            pushUrls: []);
+        Assert.That(uploadedPaths, Has.Count.EqualTo(1), "Non-Beutl or unknown push destinations must not trigger thumbnail uploads.");
 
         // A failure on one hosted destination must not skip uploading to another destination.
         const string rejectedRepoId = "11111111-1111-4111-8111-111111111111";
@@ -294,7 +297,7 @@ public class ProjectThumbnailTests
             static () => new HttpClient(), persistAuthenticatedUser: _ => { });
         AuthenticatedUser multiOwner = await SignInTestUserAsync(multiApi);
         await thumbnailService.SyncRepositoryThumbnailAsync(
-            project, projectFile, hostedVc, multiApi, multiOwner,
+            project, projectFile, multiApi, multiOwner,
             pushUrls: [
                 $"{BeutlApiApplication.BaseUrl}/api/v3/git/{rejectedRepoId}.git",
                 $"{BeutlApiApplication.BaseUrl}/api/v3/git/{pushRepoId}.git",
@@ -400,19 +403,5 @@ public class ProjectThumbnailTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => respond(request);
-    }
-
-    private sealed class StubVersionControlService(string originUrl) : IProjectVersionControlService
-    {
-        public RepositoryInfo? Repository => null;
-        public Task<GitAvailability> GetAvailabilityAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<WorkspaceStatus> GetStatusAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<CommitInfo>> GetHistoryAsync(int skip, int take, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<FileChange>> GetCommitFilesAsync(string sha, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<string> GetDiffAsync(string sha, string? path, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<BranchInfo>> GetBranchesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<RemoteInfo>>([new RemoteInfo("origin", originUrl)]);
-        public event EventHandler<WorkspaceStatus>? StatusChanged { add { } remove { } }
     }
 }

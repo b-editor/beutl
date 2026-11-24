@@ -136,9 +136,7 @@ internal sealed partial class VersionControlCoordinator :
 
     internal event EventHandler<PushSucceededEventArgs>? PushSucceeded;
 
-    internal sealed record PushSucceededEventArgs(
-        IProjectVersionControlService Service,
-        IReadOnlyList<string>? PushUrls);
+    internal sealed record PushSucceededEventArgs(IReadOnlyList<string> PushUrls);
 
     public RepositoryAdoptionRequest? PendingRepositoryAdoption => _pendingRepositoryAdoption;
 
@@ -280,19 +278,14 @@ internal sealed partial class VersionControlCoordinator :
         return RunOnUiThreadAsync(async () =>
         {
             RemoteOpResult result;
-            IProjectVersionControlService? pushedService = null;
             using (OperationLease operation = await BeginOperationAsync(cancellationToken))
             {
                 result = await GetTrackedBackend().PushAsync(progress, operation.CancellationToken);
-                if (result is RemoteOpResult.Success)
-                {
-                    pushedService = _state.VisibleService;
-                }
             }
 
-            if (result is RemoteOpResult.Success success && pushedService is not null)
+            if (result is RemoteOpResult.Success { PushUrls: { Count: > 0 } pushUrls })
             {
-                PushSucceeded?.Invoke(this, new PushSucceededEventArgs(pushedService, success.PushUrls));
+                PushSucceeded?.Invoke(this, new PushSucceededEventArgs(pushUrls));
             }
 
             return result;
