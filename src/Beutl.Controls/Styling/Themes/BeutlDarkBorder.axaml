@@ -126,8 +126,6 @@
     <SolidColorBrush x:Key="AcrylicInAppFillColorDefaultBrush" Color="#17181A" />
     <SolidColorBrush x:Key="AcrylicBackgroundFillColorBaseBrush" Color="#0E0E0F" />
     <SolidColorBrush x:Key="AcrylicInAppFillColorBaseBrush" Color="#0E0E0F" />
-    <SolidColorBrush x:Key="OverlayCardBackgroundBrush" Color="#CC0E0E0F" />
-    <BlurEffect x:Key="OverlayCardBackdropEffect" Radius="24" />
     <BlurEffect x:Key="PreviewOverlayBackdropEffect" Radius="12" />
 
     <!-- ===== LinearGradientBrushes ===== -->

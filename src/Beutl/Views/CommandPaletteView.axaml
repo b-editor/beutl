@@ -27,7 +27,6 @@
                 Padding="0"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top">
-            <Border Classes="OverlayCardSurface">
             <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
                 <TextBlock Margin="16,12,16,0"
                            FontWeight="SemiBold"
@@ -170,7 +169,6 @@
                             IsEnabled="{Binding Prompt.Value.CanConfirm.Value}" />
                 </StackPanel>
             </Grid>
-            </Border>
         </Border>
     </Panel>
 </UserControl>

@@ -260,14 +260,18 @@ public class ThemeServiceTests
     }
 
     [AvaloniaTest]
-    public void OverlayCardBackdropEffect_BlursInStandardThemes_AndDisablesInHighContrast()
+    [TestCase(BuiltinThemeIds.Light)]
+    [TestCase(BuiltinThemeIds.Dark)]
+    [TestCase(FirstPartyThemeIds.DarkBorder)]
+    [TestCase(BuiltinThemeIds.HighContrast)]
+    public void OverlayCard_HasAnOpaqueThemeBackgroundWithoutBlur(string themeId)
     {
         using var scope = new ThemeScope();
-        scope.Config.Theme.Value = BuiltinThemeIds.Dark;
+        scope.Config.Theme.Value = themeId;
         scope.Service.Start();
         Dispatcher.UIThread.RunJobs();
 
-        // Sharp red/blue vertical split down the center of the window so a real backdrop blur bleeds across the seam.
+        // A sharp split behind the card reveals any background showing through its fill.
         var backdrop = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,*"),
@@ -277,18 +281,13 @@ public class ThemeServiceTests
                 new Border { [Grid.ColumnProperty] = 1, Background = Brushes.Blue },
             }
         };
-        var surface = new Border
-        {
-            Classes = { "OverlayCardSurface" },
-            Width = 120,
-            Height = 80,
-        };
         var card = new Border
         {
             Classes = { "OverlayCard" },
+            Width = 120,
+            Height = 80,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            Child = surface
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
         };
         var window = new Window
         {
@@ -302,50 +301,17 @@ public class ThemeServiceTests
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            // Point just left of the x=120 red|blue seam inside the card.
-            var nearEdge = new PixelPoint(116, 80);
-            var rightOfEdge = new PixelPoint(124, 80);
-
-            using WriteableBitmap blurredFrame = window.CaptureRenderedFrame()!;
-            (int blurR, _, int blurB) = HeadlessTestHelpers.ReadPixel(blurredFrame, nearEdge);
+            Assert.That(card.Background, Is.InstanceOf<ISolidColorBrush>());
+            Color fill = ((ISolidColorBrush)card.Background!).Color;
+            var expected = ((int)fill.R, (int)fill.G, (int)fill.B);
+            using WriteableBitmap frame = window.CaptureRenderedFrame()!;
 
             Assert.Multiple(() =>
             {
-                Assert.That(surface.BackdropEffect, Is.InstanceOf<IBlurEffect>());
-                Assert.That(((IBlurEffect)surface.BackdropEffect!).Radius, Is.GreaterThan(0));
-                Assert.That(surface.Background, Is.InstanceOf<ISolidColorBrush>());
-                Assert.That(((ISolidColorBrush)surface.Background!).Color.A, Is.LessThan(255));
-            });
-
-            // Disabling BackdropEffect removes the blue bleed across the seam onto the red side.
-            surface.BackdropEffect = null;
-            Dispatcher.UIThread.RunJobs();
-
-            using WriteableBitmap unblurredFrame = window.CaptureRenderedFrame()!;
-            (int sharpR, _, int sharpB) = HeadlessTestHelpers.ReadPixel(unblurredFrame, nearEdge);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(blurB, Is.GreaterThan(sharpB), "backdrop blur should bleed blue across the seam");
-                Assert.That(blurR, Is.LessThan(sharpR), "backdrop blur should soften red near the seam");
-            });
-
-            surface.ClearValue(Visual.BackdropEffectProperty);
-            scope.Config.Theme.Value = BuiltinThemeIds.HighContrast;
-            Dispatcher.UIThread.RunJobs();
-
-            using WriteableBitmap highContrastFrame = window.CaptureRenderedFrame()!;
-            (int hcLeftR, int hcLeftG, int hcLeftB) = HeadlessTestHelpers.ReadPixel(highContrastFrame, nearEdge);
-            (int hcRightR, int hcRightG, int hcRightB) = HeadlessTestHelpers.ReadPixel(highContrastFrame, rightOfEdge);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(surface.BackdropEffect, Is.InstanceOf<IBlurEffect>());
-                Assert.That(((IBlurEffect)surface.BackdropEffect!).Radius, Is.EqualTo(0));
-                Assert.That(surface.Background, Is.InstanceOf<ISolidColorBrush>());
-                Assert.That(((ISolidColorBrush)surface.Background!).Color.A, Is.EqualTo(255));
-                Assert.That((hcLeftR, hcLeftG, hcLeftB), Is.EqualTo((hcRightR, hcRightG, hcRightB)),
-                    "high contrast overlay surface must remain opaque with no backdrop bleed");
+                Assert.That(card.BackdropEffect, Is.Null);
+                Assert.That(fill.A, Is.EqualTo(255));
+                Assert.That(HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(116, 80)), Is.EqualTo(expected));
+                Assert.That(HeadlessTestHelpers.ReadPixel(frame, new PixelPoint(124, 80)), Is.EqualTo(expected));
             });
         }
         finally
