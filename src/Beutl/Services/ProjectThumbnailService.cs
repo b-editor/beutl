@@ -1,4 +1,5 @@
-﻿using Avalonia.Threading;
+﻿using System.Collections.Concurrent;
+using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
@@ -30,9 +31,14 @@ internal sealed class ProjectThumbnailService
 
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
-    private readonly SemaphoreSlim _syncGate = new(1, 1);
-    private CancellationTokenSource? _syncCancellation;
+    private readonly ConcurrentDictionary<Guid, RepositorySyncSlot> _repositorySyncSlots = new();
     private Task _pendingSync = Task.CompletedTask;
+
+    private sealed class RepositorySyncSlot
+    {
+        public SemaphoreSlim Gate { get; } = new(1, 1);
+        public CancellationTokenSource? Current;
+    }
 
     public ProjectThumbnailService(
         ProjectService projectService,
@@ -113,57 +119,32 @@ internal sealed class ProjectThumbnailService
             return;
         }
 
-        // Cancel any in-flight sync so an older push cannot overwrite a newer thumbnail.
-        var cancellation = new CancellationTokenSource(s_uploadLimit);
-        CancellationTokenSource? previous = Interlocked.Exchange(ref _syncCancellation, cancellation);
-        try
-        {
-            previous?.Cancel();
-        }
-        catch (ObjectDisposedException)
-        {
-        }
-
-        Task sync = SyncRepositoryThumbnailAsync(project, projectUri.LocalPath, args.Service, api, owner, args.PushUrls, cancellation);
+        Task sync = SyncRepositoryThumbnailAsync(project, projectUri.LocalPath, args.Service, api, owner, args.PushUrls);
         Volatile.Write(ref _pendingSync, sync);
     }
 
-    internal Task SyncRepositoryThumbnailAsync(
+    internal async Task SyncRepositoryThumbnailAsync(
         Project project,
         string projectFile,
         IProjectVersionControlService service,
         BeutlApiApplication api,
         AuthenticatedUser owner,
         IReadOnlyList<string>? pushUrls = null)
-        => SyncRepositoryThumbnailAsync(
-            project, projectFile, service, api, owner, pushUrls, new CancellationTokenSource(s_uploadLimit));
-
-    private async Task SyncRepositoryThumbnailAsync(
-        Project project,
-        string projectFile,
-        IProjectVersionControlService service,
-        BeutlApiApplication api,
-        AuthenticatedUser owner,
-        IReadOnlyList<string>? pushUrls,
-        CancellationTokenSource timeout)
     {
-        CancellationToken token = timeout.Token;
-        bool entered = false;
         try
         {
-            await _syncGate.WaitAsync(token).ConfigureAwait(false);
-            entered = true;
-
+            using var resolveTimeout = new CancellationTokenSource(s_uploadLimit);
             IReadOnlyList<string> destinationUrls = pushUrls is not null
                 ? pushUrls
-                : (await service.GetRemotesAsync(token).ConfigureAwait(false))
+                : (await service.GetRemotesAsync(resolveTimeout.Token).ConfigureAwait(false))
                     .Select(static remote => remote.Url)
                     .ToArray();
 
             var repositoryIds = new HashSet<Guid>();
             foreach (string url in destinationUrls)
             {
-                (HostedGitRemoteUrl? remote, _) = await HostedGitRemoteUrl.ResolveAsync(url, api, token).ConfigureAwait(false);
+                (HostedGitRemoteUrl? remote, _) = await HostedGitRemoteUrl.ResolveAsync(url, api, resolveTimeout.Token)
+                    .ConfigureAwait(false);
                 if (remote is not null && Guid.TryParseExact(remote.RepositoryId, "D", out Guid repositoryId))
                 {
                     repositoryIds.Add(repositoryId);
@@ -173,31 +154,68 @@ internal sealed class ProjectThumbnailService
             if (repositoryIds.Count == 0)
                 return;
 
-            await TryCaptureOpenProjectAsync(project, projectFile, token).ConfigureAwait(false);
+            await TryCaptureOpenProjectAsync(project, projectFile, resolveTimeout.Token).ConfigureAwait(false);
 
-            byte[]? pngBytes = await Task.Run(() => TryReadThumbnailBytes(projectFile), token).ConfigureAwait(false);
+            byte[]? pngBytes = await Task.Run(() => TryReadThumbnailBytes(projectFile), resolveTimeout.Token)
+                .ConfigureAwait(false);
             if (pngBytes is null)
                 return;
 
             HostedGitRepositoryService hosted = api.GetResource<HostedGitRepositoryService>();
             foreach (Guid repositoryId in repositoryIds)
             {
-                await hosted.UploadThumbnailAsync(repositoryId, pngBytes, owner, token).ConfigureAwait(false);
+                await UploadToRepositoryAsync(hosted, repositoryId, pngBytes, owner, projectFile).ConfigureAwait(false);
             }
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
         }
         catch (Exception ex)
         {
             // Pushing already succeeded; a failed thumbnail sync never blocks or errors the push.
             s_logger.LogDebug(ex, "Failed to sync the hosted repository thumbnail for {Project}.", projectFile);
         }
+    }
+
+    private async Task UploadToRepositoryAsync(
+        HostedGitRepositoryService hosted,
+        Guid repositoryId,
+        byte[] pngBytes,
+        AuthenticatedUser owner,
+        string projectFile)
+    {
+        RepositorySyncSlot slot = _repositorySyncSlots.GetOrAdd(repositoryId, static _ => new RepositorySyncSlot());
+        var timeout = new CancellationTokenSource(s_uploadLimit);
+        CancellationTokenSource? previous = Interlocked.Exchange(ref slot.Current, timeout);
+        try
+        {
+            previous?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        CancellationToken token = timeout.Token;
+        bool entered = false;
+        try
+        {
+            await slot.Gate.WaitAsync(token).ConfigureAwait(false);
+            entered = true;
+            await hosted.UploadThumbnailAsync(repositoryId, pngBytes, owner, token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogDebug(
+                ex,
+                "Failed to upload the hosted repository thumbnail for {Project} to {RepositoryId}.",
+                projectFile,
+                repositoryId);
+        }
         finally
         {
             if (entered)
-                _syncGate.Release();
-            Interlocked.CompareExchange(ref _syncCancellation, null, timeout);
+                slot.Gate.Release();
+            Interlocked.CompareExchange(ref slot.Current, null, timeout);
             timeout.Dispose();
         }
     }

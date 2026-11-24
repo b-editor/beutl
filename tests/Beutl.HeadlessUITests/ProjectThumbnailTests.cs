@@ -274,6 +274,36 @@ public class ProjectThumbnailTests
             project, projectFile, nonHostedVc, api, owner,
             pushUrls: ["https://github.com/example/demo.git"]);
         Assert.That(uploadedPaths, Has.Count.EqualTo(1), "Non-Beutl remotes must not trigger thumbnail uploads.");
+
+        // A failure on one hosted destination must not skip uploading to another destination.
+        const string rejectedRepoId = "11111111-1111-4111-8111-111111111111";
+        var multiPaths = new List<string>();
+        using var multiHttp = new HttpClient(new StubHttpHandler(request =>
+        {
+            multiPaths.Add(request.RequestUri!.AbsolutePath);
+            if (request.RequestUri.AbsolutePath.Contains(rejectedRepoId, StringComparison.Ordinal))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+            var now = DateTimeOffset.UtcNow;
+            var summary = new GitRepositorySummary(
+                pushRepoId, "Demo", $"{BeutlApiApplication.BaseUrl}/api/v3/git/{pushRepoId}.git", now, now, now);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(summary) });
+        }));
+        await using var multiApi = new BeutlApiApplication(
+            multiHttp, new ExtensionProvider(new ExtensionConfig()), new ViewConfig(), new UpdateConfig(),
+            static () => new HttpClient(), persistAuthenticatedUser: _ => { });
+        AuthenticatedUser multiOwner = await SignInTestUserAsync(multiApi);
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, hostedVc, multiApi, multiOwner,
+            pushUrls: [
+                $"{BeutlApiApplication.BaseUrl}/api/v3/git/{rejectedRepoId}.git",
+                $"{BeutlApiApplication.BaseUrl}/api/v3/git/{pushRepoId}.git",
+            ]);
+        Assert.That(multiPaths, Is.EqualTo(new[]
+        {
+            $"/api/v3/repos/{rejectedRepoId}/thumbnail",
+            $"/api/v3/repos/{pushRepoId}/thumbnail",
+        }));
     }
 
     [AvaloniaTest]
