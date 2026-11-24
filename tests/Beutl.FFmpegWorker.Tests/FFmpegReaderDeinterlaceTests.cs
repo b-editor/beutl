@@ -110,7 +110,7 @@ public sealed class FFmpegReaderDeinterlaceTests
 
     [TestCase(DeinterlaceFrameRateMode.Frame, 1)]
     [TestCase(DeinterlaceFrameRateMode.Field, 2)]
-    public void AutoDeinterlacesAfterProgressiveLeadIn(DeinterlaceFrameRateMode rate, int samplesPerFrame)
+    public void AutoFollowsFrameFlagsInAnInterlacedContainer(DeinterlaceFrameRateMode rate, int samplesPerFrame)
     {
         string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "deinterlace-mixed.mkv");
         var options = new VideoDeinterlaceOptions(DeinterlaceMode.Auto, DeinterlaceFieldOrder.Auto,
@@ -122,7 +122,7 @@ public sealed class FFmpegReaderDeinterlaceTests
         Assert.That(mixed.VideoInfo.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.Applied));
         Assert.That(mixed.VideoInfo.FrameRate, Is.EqualTo(new Rational(25 * samplesPerFrame, 1)));
         Assert.That(mixed.VideoInfo.Duration, Is.EqualTo(original.VideoInfo.Duration));
-        int frameCount = 12 * samplesPerFrame;
+        int frameCount = 16 * samplesPerFrame;
         Assert.That(mixed.VideoInfo.NumFrames, Is.EqualTo(frameCount));
 
         var progressive = Read(original, 5);
@@ -131,6 +131,9 @@ public sealed class FFmpegReaderDeinterlaceTests
 
         Assert.That(CombEnergy(Read(mixed, 8 * samplesPerFrame), mixed.VideoInfo.FrameSize),
             Is.LessThan(CombEnergy(Read(original, 8), original.VideoInfo.FrameSize) / 3));
+        var progressiveTail = Read(original, 13);
+        for (int i = 0; i < samplesPerFrame; i++)
+            Assert.That(Read(mixed, 13 * samplesPerFrame + i), Is.EqualTo(progressiveTail));
         Assert.That(Read(mixed, frameCount - 1), Is.Not.Empty);
         Assert.That(mixed.ReadVideo(frameCount, out _), Is.False);
         Assert.That(Read(mixed, 5 * samplesPerFrame), Is.EqualTo(progressive), "seeking back keeps the progressive frame intact");

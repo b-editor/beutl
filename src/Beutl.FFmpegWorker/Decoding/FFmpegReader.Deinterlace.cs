@@ -9,7 +9,6 @@ public sealed partial class FFmpegReader
     private Queue<MediaFrame>? _videoProbeFrames;
     private VideoDeinterlaceOptions _deinterlace;
     private VideoFieldOrder _streamFieldOrder;
-    private bool _useStreamInterlacing;
     private MediaDemuxer? _deinterlaceAudioDemuxer;
     private bool _filterHasInput;
     private bool _filterInputClosed;
@@ -61,11 +60,7 @@ public sealed partial class FFmpegReader
             _videoNowFrame = _firstVideoFrame;
         }
 
-        // Some formats declare ordering only at stream level. When frames carry their own interlace
-        // flags, trust them so progressive frames in a mixed stream pass through unchanged.
-        _useStreamInterlacing = observed == VideoFieldOrder.Progressive
-            && _streamFieldOrder is VideoFieldOrder.TopFieldFirst or VideoFieldOrder.BottomFieldFirst;
-        return _useStreamInterlacing ? _streamFieldOrder : observed;
+        return observed;
     }
 
     private static unsafe VideoFieldOrder GetFrameFieldOrder(AVFrame* frame)
@@ -148,15 +143,14 @@ public sealed partial class FFmpegReader
         if (frame->duration <= 0) frame->duration = _nominalInputDuration;
         _nextInputPts = frame->pts + frame->duration;
 
+        // In forced mode the stream order supplies parity for unflagged frames. Auto passes
+        // the decoded scan flags straight to the filter for each frame.
         bool useStreamParity = _deinterlace.Mode == DeinterlaceMode.On
             && _deinterlace.FieldOrder == DeinterlaceFieldOrder.Auto && _streamFieldOrder == VideoFieldOrder.BottomFieldFirst;
-        if ((_useStreamInterlacing || useStreamParity) && (frame->flags & ffmpeg.AV_FRAME_FLAG_INTERLACED) == 0)
+        if (useStreamParity && (frame->flags & ffmpeg.AV_FRAME_FLAG_INTERLACED) == 0)
         {
             frame->flags |= ffmpeg.AV_FRAME_FLAG_INTERLACED;
-            if (_streamFieldOrder == VideoFieldOrder.TopFieldFirst)
-                frame->flags |= ffmpeg.AV_FRAME_FLAG_TOP_FIELD_FIRST;
-            else
-                frame->flags &= ~ffmpeg.AV_FRAME_FLAG_TOP_FIELD_FIRST;
+            frame->flags &= ~ffmpeg.AV_FRAME_FLAG_TOP_FIELD_FIRST;
         }
 
         _bufferSrcCtx!.WriteFrame(input, KeepFrameReference);

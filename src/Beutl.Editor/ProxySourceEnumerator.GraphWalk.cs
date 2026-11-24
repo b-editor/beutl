@@ -144,9 +144,17 @@ public static partial class ProxySourceEnumerator
 
     private static IEnumerable<VideoDeinterlaceOptions?> EnumerateInputVideoSettings(
         GraphNode node, IInputPort input, HashSet<IOutputPort>? visited)
-        => node is GroupNode group && group.FindInnerInput(input) is { } boundary
-            ? EnumerateConnectedVideoSettings(boundary, visited)
+    {
+        IOutputPort? output = node switch
+        {
+            GroupNode group => group.FindInnerInput(input),
+            GroupOutput boundary => boundary.FindHierarchicalParent<GroupNode>()?.FindOuterOutput(input),
+            _ => null,
+        };
+        return output != null
+            ? EnumerateConnectedVideoSettings(output, visited)
             : [GetVideoSettings(input.Property?.GetEngineProperty())];
+    }
 
     private static IEnumerable<FileSourceUse> WithVideoSettings(FileSourceUse use, VideoDeinterlaceOptions?[] settings)
     {

@@ -824,6 +824,53 @@ public class ProxySourceEnumeratorTests
         Assert.That(use.Deinterlace, Is.EqualTo(clip.GetDeinterlaceOptions()));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void FindsVideoSettingsThroughGroupOutputs(bool nestedGroup)
+    {
+        var drawable = new NodeGraphDrawable();
+        Element element = ElementWith(drawable);
+        ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(element);
+        GraphModel graph = drawable.Model.Value!;
+        var group = new GroupNode();
+        graph.Nodes.Add(group);
+        var sourceGroup = group;
+        if (nestedGroup)
+        {
+            sourceGroup = new GroupNode();
+            group.Group.Value.Nodes.Add(sourceGroup);
+        }
+
+        var layer = new LayerInputNode();
+        var boundary = new GroupOutput();
+        sourceGroup.Group.Value.Nodes.AddRange([layer, boundary]);
+        var media = new LayerInputNode.LayerInputPort<VideoSource?>();
+        media.SetupProperty(nameof(SourceVideo.Source));
+        media.Property!.SetValue(CreateVideoSource("group-output.mov"));
+        layer.Items.Add(media);
+        Assert.That(boundary.AddNodePort(media, out _), Is.True);
+        var output = sourceGroup.Items.OfType<IOutputPort>().Single();
+        if (nestedGroup)
+        {
+            var outerBoundary = new GroupOutput();
+            group.Group.Value.Nodes.Add(outerBoundary);
+            Assert.That(outerBoundary.AddNodePort(output, out _), Is.True);
+            output = group.Items.OfType<IOutputPort>().Single();
+        }
+
+        var node = new FactoryNode<DrawableGroup>();
+        var clip = new SourceVideo();
+        node.Object.Value.Children.Add(clip);
+        clip.DeinterlaceMode.Value = DeinterlaceMode.On;
+        clip.DeinterlaceFieldOrder.Value = DeinterlaceFieldOrder.BottomFieldFirst;
+        graph.Nodes.Add(node);
+        graph.Connect(NestedPort(node, clip.Source), output);
+
+        var use = ProxySourceEnumerator.EnumerateVideoSourceUses(element).Single();
+        Assert.That(FileName(use.Source), Is.EqualTo("group-output.mov"));
+        Assert.That(use.Deinterlace, Is.EqualTo(clip.GetDeinterlaceOptions()));
+    }
+
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]
