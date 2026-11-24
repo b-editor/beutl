@@ -46,6 +46,9 @@ public sealed partial class MeshWarp
         (float[] Xs, float[] Ys)? sharedGrid = sharedSpace
             ? data.Mesh.CreateSharedSamples(context.Targets, sharedBounds)
             : null;
+        Rect[]? tiles = sharedSpace
+            ? context.Targets.Where(target => target.IsMaterialized).Select(target => target.Bounds).ToArray()
+            : null;
         for (int i = 0; i < context.Targets.Count; i++)
         {
             EffectTarget target = context.Targets[i];
@@ -53,6 +56,9 @@ public sealed partial class MeshWarp
 
             Tessellation? tileMesh = data.Mesh;
             Rect warpBounds = target.Bounds;
+            TriangleWarpRenderer.Sides edges = tiles is null
+                ? TriangleWarpRenderer.Sides.All
+                : FindContentEdges(target.Bounds, tiles, sharedBounds);
             if (sharedSpace)
             {
                 float subLeft = Normalize(target.Bounds.X, sharedBounds.X, sharedBounds.Width);
@@ -97,7 +103,8 @@ public sealed partial class MeshWarp
             try
             {
                 if (!output.IsEmpty && TriangleWarpRenderer.Draw(
-                        warpBounds, tileMesh.Rest, tileMesh.Warped, tileMesh.Indices, context, target, output, s_logger))
+                        warpBounds, tileMesh.Rest, tileMesh.Warped, tileMesh.Indices, tileMesh.GetOutline(edges),
+                        context, target, output, s_logger))
                     context.Targets[i] = output;
             }
             finally
@@ -108,20 +115,91 @@ public sealed partial class MeshWarp
         }
     }
 
+    // A side of a target that another target meets is a seam inside the shared warp, not an edge of its content.
+    private static TriangleWarpRenderer.Sides FindContentEdges(Rect bounds, Rect[] tiles, Rect sharedBounds)
+    {
+        float toleranceX = Tessellation.SampleMergeEpsilon * sharedBounds.Width;
+        float toleranceY = Tessellation.SampleMergeEpsilon * sharedBounds.Height;
+        TriangleWarpRenderer.Sides edges = TriangleWarpRenderer.Sides.All;
+        foreach (Rect tile in tiles)
+        {
+            bool sharesRows = tile.Top < bounds.Bottom - toleranceY && bounds.Top < tile.Bottom - toleranceY;
+            bool sharesColumns = tile.Left < bounds.Right - toleranceX && bounds.Left < tile.Right - toleranceX;
+            if (sharesRows && MathF.Abs(tile.Right - bounds.Left) <= toleranceX)
+                edges &= ~TriangleWarpRenderer.Sides.Left;
+            if (sharesRows && MathF.Abs(tile.Left - bounds.Right) <= toleranceX)
+                edges &= ~TriangleWarpRenderer.Sides.Right;
+            if (sharesColumns && MathF.Abs(tile.Bottom - bounds.Top) <= toleranceY)
+                edges &= ~TriangleWarpRenderer.Sides.Top;
+            if (sharesColumns && MathF.Abs(tile.Top - bounds.Bottom) <= toleranceY)
+                edges &= ~TriangleWarpRenderer.Sides.Bottom;
+        }
+
+        return edges;
+    }
+
     private sealed class Tessellation(
         MeshWarpGrid grid,
         float strength,
         MeshWarpInterpolation interpolation,
-        int count,
-        int indexCount)
+        int rows,
+        int columns)
     {
-        private const float SampleMergeEpsilon = 1e-6f;
+        internal const float SampleMergeEpsilon = 1e-6f;
+        private readonly int _rows = rows;
+        private readonly int _columns = columns;
 
-        public Point[] Rest { get; } = new Point[count];
-        public Point[] Warped { get; } = new Point[count];
-        public ushort[] Indices { get; } = new ushort[indexCount];
+        public Point[] Rest { get; } = new Point[(rows + 1) * (columns + 1)];
+        public Point[] Warped { get; } = new Point[(rows + 1) * (columns + 1)];
+        public ushort[] Indices { get; } = new ushort[rows * columns * 6];
         public Point Minimum { get; private set; }
         public Point Maximum { get; private set; }
+
+        // The edges along the given sides of the lattice, each with the third corner of the triangle it belongs to.
+        // Each cell is two triangles in row-major order, the first holding its top and left edges.
+        public TriangleWarpRenderer.OutlineEdge[] GetOutline(TriangleWarpRenderer.Sides sides)
+        {
+            int stride = _columns + 1;
+            var outline = new List<TriangleWarpRenderer.OutlineEdge>(2 * (_rows + _columns));
+            if (sides.HasFlag(TriangleWarpRenderer.Sides.Top))
+            {
+                for (int column = 0; column < _columns; column++)
+                    outline.Add(new(column, column + 1, column + stride, Triangle(0, column, second: false)));
+            }
+
+            if (sides.HasFlag(TriangleWarpRenderer.Sides.Right))
+            {
+                for (int row = 0; row < _rows; row++)
+                {
+                    int vertex = row * stride + _columns - 1;
+                    outline.Add(new(vertex + 1, vertex + stride + 1, vertex + stride,
+                        Triangle(row, _columns - 1, second: true)));
+                }
+            }
+
+            if (sides.HasFlag(TriangleWarpRenderer.Sides.Bottom))
+            {
+                for (int column = 0; column < _columns; column++)
+                {
+                    int vertex = (_rows - 1) * stride + column;
+                    outline.Add(new(vertex + stride + 1, vertex + stride, vertex + 1,
+                        Triangle(_rows - 1, column, second: true)));
+                }
+            }
+
+            if (sides.HasFlag(TriangleWarpRenderer.Sides.Left))
+            {
+                for (int row = 0; row < _rows; row++)
+                {
+                    int vertex = row * stride;
+                    outline.Add(new(vertex + stride, vertex, vertex + 1, Triangle(row, 0, second: false)));
+                }
+            }
+
+            return outline.ToArray();
+
+            int Triangle(int row, int column, bool second) => (row * _columns + column) * 2 + (second ? 1 : 0);
+        }
 
         public (float[] Xs, float[] Ys)? CreateSharedSamples(EffectTargets targets, Rect sharedBounds)
         {
@@ -215,7 +293,7 @@ public sealed partial class MeshWarp
             int rows = ys.Length - 1;
             int columns = xs.Length - 1;
             int stride = columns + 1;
-            var result = new Tessellation(grid, strength, interpolation, (rows + 1) * stride, rows * columns * 6);
+            var result = new Tessellation(grid, strength, interpolation, rows, columns);
             float left = float.PositiveInfinity, top = float.PositiveInfinity;
             float right = float.NegativeInfinity, bottom = float.NegativeInfinity;
             int nextIndex = 0;
