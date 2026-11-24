@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
@@ -52,37 +53,40 @@ internal sealed class HostedGitRemoteUrl
         return true;
     }
 
-    internal static async Task<HostedGitRemoteUrl?> ResolveAsync(
+    internal static async Task<(HostedGitRemoteUrl? Remote, bool RetryOnRefresh)> ResolveAsync(
         string? remoteUrl, BeutlApiApplication? api, CancellationToken cancellationToken)
     {
         if (TryParse(remoteUrl, out HostedGitRemoteUrl? hosted))
-            return hosted;
+            return (hosted, false);
         if (!Uri.TryCreate(remoteUrl, UriKind.Absolute, out Uri? remote) || !TryGetRepositoryId(remote, out Guid id))
-            return null;
+            return default;
 
-        GitRepositorySummary? advertised = await GetAdvertisedRepositoryAsync(api, id, cancellationToken).ConfigureAwait(false);
-        return TryParseAdvertised(remoteUrl, advertised, out hosted) ? hosted : null;
+        var (advertised, retry) = await GetAdvertisedRepositoryAsync(api, id, cancellationToken).ConfigureAwait(false);
+        return (TryParseAdvertised(remoteUrl, advertised, out hosted) ? hosted : null, retry);
     }
 
-    internal static async Task<GitRepositorySummary?> GetAdvertisedRepositoryAsync(
+    internal static async Task<(GitRepositorySummary? Repository, bool RetryOnRefresh)> GetAdvertisedRepositoryAsync(
         BeutlApiApplication? api, Guid id, CancellationToken cancellationToken)
     {
         if (api?.AuthenticatedUser.Value is not { } owner)
-            return null;
+            return default;
 
         try
         {
             GitRepositorySummary repository = await api.GetResource<HostedGitRepositoryService>()
                 .GetAsync(id, cancellationToken, owner).ConfigureAwait(false);
-            return ReferenceEquals(api.AuthenticatedUser.Value, owner) ? repository : null;
+            return (ReferenceEquals(api.AuthenticatedUser.Value, owner) ? repository : null, false);
         }
-        catch (HostedGitApiException)
+        catch (HostedGitApiException ex)
         {
-            return null;
+            bool retry = ex.Error == HostedGitError.Unavailable
+                || ex.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
+                || (int?)ex.StatusCode >= 500;
+            return (null, retry);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return null;
+            return (null, true);
         }
     }
 

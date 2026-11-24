@@ -51,7 +51,7 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
         string[] paths, Guid repositoryId, CancellationToken cancellationToken, string? revision)
     {
         string id = repositoryId.ToString("D");
-        Task<GitRepositorySummary?>? advertisement = null;
+        Task<(GitRepositorySummary? Repository, bool RetryOnRefresh)>? advertisement = null;
         await foreach ((string path, string origin) in ReadOriginsAsync(paths, cancellationToken, revision).ConfigureAwait(false))
         {
             if (HostedGitRemoteUrl.TryParse(origin, out HostedGitRemoteUrl? remote) && remote.RepositoryId == id)
@@ -62,7 +62,8 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
                 && candidate == repositoryId)
             {
                 advertisement ??= HostedGitRemoteUrl.GetAdvertisedRepositoryAsync(api, repositoryId, cancellationToken);
-                if (HostedGitRemoteUrl.TryParseAdvertised(origin, await advertisement.ConfigureAwait(false), out _))
+                var (repository, _) = await advertisement.ConfigureAwait(false);
+                if (HostedGitRemoteUrl.TryParseAdvertised(origin, repository, out _))
                     return path;
             }
         }

@@ -32,9 +32,9 @@ internal sealed class HostedGitRemoteLookup
     {
         try
         {
-            HostedGitRemoteUrl? remote = await HostedGitRemoteUrl.ResolveAsync(request.Origin, api, request.Lifetime)
+            var (remote, retry) = await HostedGitRemoteUrl.ResolveAsync(request.Origin, api, request.Lifetime)
                 .ConfigureAwait(false);
-            if (remote is null)
+            if (remote is null && !retry)
                 return;
 
             postToUi(() =>
@@ -42,7 +42,10 @@ internal sealed class HostedGitRemoteLookup
                 if (ReferenceEquals(_request, request) && !request.Lifetime.IsCancellationRequested
                     && ReferenceEquals(request.Owner, api.AuthenticatedUser.Value))
                 {
-                    apply(remote);
+                    if (retry)
+                        _request = null;
+                    else
+                        apply(remote);
                 }
             });
         }
