@@ -172,6 +172,13 @@ public sealed partial class SchemaGenerator
             [typeof(Blur)] = Metadata(["soften", "glow", "depth"], ["Use inside FilterEffectGroup before shadow/color effects for soft halos."]),
             [typeof(RadialBlur)] = Metadata(["blur", "radial", "zoom", "spin", "motion"], ["Amount is zoom expansion in percent or the total spin angle in degrees; Center sets the origin and Samples controls smoothness."]),
             [typeof(MotionBlur)] = Metadata(["blur", "motion", "temporal", "shutter"], ["Samples the owning drawable's animation and preceding effects. Following effects apply after averaging, in parent coordinates. ShutterAngle sets exposure relative to the frame rate; Samples controls quality and cost."]),
+            [typeof(Echo)] = Metadata(["echo", "trail", "temporal", "motion", "ghost"],
+            [
+                "Samples the owning drawable in seconds using Interval. Negative values sample earlier times, positive values sample later times, and zero repeats the current time.",
+                "Count includes the current-time copy. More copies increase rendering time and memory use.",
+                "StartingIntensity sets the current-time copy's opacity. Decay is the percentage of opacity retained at each successive step away from the current time.",
+                "BlendMode uses NewestOnTop to draw the chronologically newest copy on top or Add to add overlapping colors. Following effects apply once to the composite.",
+            ]),
             [typeof(Bokeh)] = Metadata(["blur", "lens", "depth"], []),
             [typeof(DropShadow)] = Metadata(["shadow", "glow", "depth"], ["Use zero offset for neon glow, non-zero offset for cast shadows."]),
             [typeof(InnerShadow)] = Metadata(["shadow", "depth", "inset"], []),

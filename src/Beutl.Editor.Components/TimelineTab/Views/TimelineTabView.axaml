@@ -182,6 +182,7 @@
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsRazorMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
@@ -189,6 +190,7 @@
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorSuccessBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsSlipMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
@@ -196,6 +198,7 @@
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorCautionBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsRollMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
@@ -203,9 +206,9 @@
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorAttentionBrush}"
+                controls:RevealMotion.Mode="Fade"
                 IsVisible="{CompiledBinding IsSlideMode.Value}"
                 Theme="{StaticResource TimelineToolModeFrameTheme}" />
-
         <ScrollViewer x:Name="ContentScroll"
                       Grid.Row="1"
                       Grid.Column="2"
@@ -350,7 +353,7 @@
                     </ui:FAMenuFlyout>
                 </Panel.ContextFlyout>
 
-                <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{DynamicResource LayerHeight}" />
+                <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{CompiledBinding LayerRowHeight.Value}" />
 
                 <ecv:BpmGridOverlay x:Name="BpmGrid"
                                     VerticalAlignment="Stretch"

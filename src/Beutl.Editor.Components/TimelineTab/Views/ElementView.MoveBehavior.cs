@@ -397,7 +397,7 @@ public sealed partial class ElementView
                     Background = new ImmutableSolidColorBrush(vm.Color.Value),
                     Opacity = 0.4,
                     Width = width,
-                    Height = FrameNumberHelper.LayerHeight,
+                    Height = vm.Timeline.LayerRowHeight.Value,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     VerticalAlignment = VerticalAlignment.Top,
                     Margin = new Thickness(left, top, 0, 0),

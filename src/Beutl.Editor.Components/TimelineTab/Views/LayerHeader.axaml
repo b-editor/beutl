@@ -19,7 +19,7 @@
              x:DataType="vm:LayerHeaderViewModel"
              PositionY="{Binding PosY.Value}"
              mc:Ignorable="d">
-    <Grid RowDefinitions="25,*">
+    <Grid RowDefinitions="Auto,*">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
@@ -29,6 +29,7 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" MinWidth="100" />
         </Grid.ColumnDefinitions>
+        <Control Height="{CompiledBinding Timeline.LayerRowHeight.Value}" IsHitTestVisible="False" />
         <Border x:Name="border"
                 CornerRadius="{DynamicResource ControlCornerRadius}"
                 Cursor="SizeNorthSouth"
@@ -113,7 +114,6 @@
         </ToggleButton>
 
         <pe:SimpleColorPickerButton Grid.Column="5"
-                                    MinHeight="{DynamicResource LayerHeight}"
                                     ColorConfirmed="OnColorConfirmed"
                                     IsAlphaEnabled="False"
                                     Theme="{StaticResource LayerHeaderColorPickerButtonTheme}"

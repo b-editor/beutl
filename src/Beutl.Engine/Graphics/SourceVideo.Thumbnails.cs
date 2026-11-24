@@ -168,8 +168,13 @@ public partial class SourceVideo : IThumbnailsProvider
                     && cacheService!.TryGet(cacheKey, time, cacheThreshold, out var cached)
                     && cached != null)
                 {
-                    yield return (i, count, cached);
-                    continue;
+                    if (cached.Height == maxHeight)
+                    {
+                        yield return (i, count, cached);
+                        continue;
+                    }
+
+                    cached.Dispose();
                 }
 
                 var thumbnail = await RenderThread.Dispatcher.InvokeAsync(() =>

@@ -54,7 +54,7 @@ Beutl.Utilities
   abstract
 [Beutl.Configuration]:EditorConfig
   sealed
-  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, DisplayPeakLuminance, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsPreviewCheckerboardEnabled, IsPreviewGuideEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewGuideAspectRatios, PreviewGuideColor, PreviewGuideGridColumns, PreviewGuideGridRows, PreviewGuideKinds, PreviewGuideOpacity, PreviewSourceMode, SeekOnTimelineClick, ShowTimelineThumbnailsByDefault, SwapTimelineScrollDirection, TimeDisplayFormat, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
+  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, DisplayPeakLuminance, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsPreviewCheckerboardEnabled, IsPreviewGuideEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewGuideAspectRatios, PreviewGuideColor, PreviewGuideGridColumns, PreviewGuideGridRows, PreviewGuideKinds, PreviewGuideOpacity, PreviewSourceMode, SeekOnTimelineClick, ShowTimelineThumbnailsByDefault, SwapTimelineScrollDirection, TimeDisplayFormat, TimelineAutoScrollMode, TimelineLayerSize, ToneMappingExposure, ToneMappingMode, UseHdrPreview
 [Beutl.Configuration]:ExtensionConfig
   sealed
   keys: DecoderPriority, EditorExtensions
@@ -477,6 +477,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:DropShadow
   sealed
   keys: Animations, Color, Expressions, Id, IsEnabled, Name, Position, ShadowOnly, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:Echo
+  sealed
+  keys: Animations, BlendMode, Count, Decay, Expressions, Id, Interval, IsEnabled, Name, StartingIntensity
 [Beutl.Engine]Beutl.Graphics.Effects:EdgeDetection
   sealed
   keys: Animations, Color, Expressions, Id, IsEnabled, Name, Original, Strength, Target, Thickness, Threshold

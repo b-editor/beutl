@@ -2067,6 +2067,48 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>End</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>Echo</value>
+  </data>
+  <data name="Echo_Description" xml:space="preserve">
+    <value>Draws copies of the object at earlier or later times with decreasing opacity. Following effects apply once to the combined result.</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>Interval (s)</value>
+  </data>
+  <data name="Echo_Interval_Description" xml:space="preserve">
+    <value>Time between copies in seconds. Negative values sample earlier times, positive values sample later times, and zero repeats the current time.</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>Count</value>
+  </data>
+  <data name="Echo_Count_Description" xml:space="preserve">
+    <value>Total number of copies, including the current time (1–64). More copies use more rendering time and memory.</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>Start Intensity</value>
+  </data>
+  <data name="Echo_StartingIntensity_Description" xml:space="preserve">
+    <value>Opacity of the current-time copy. At 0%, all copies are transparent.</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>Decay</value>
+  </data>
+  <data name="Echo_Decay_Description" xml:space="preserve">
+    <value>Percentage of opacity retained by each successive copy. At 0%, only the current-time copy is drawn. At 100%, all copies use the same opacity.</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>Blend Mode</value>
+  </data>
+  <data name="Echo_BlendMode_Description" xml:space="preserve">
+    <value>Draw the chronologically newest copy on top or add the colors where copies overlap.</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>Newest on top</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>Alpha Mode</value>
   </data>
@@ -2216,6 +2258,9 @@
   </data>
   <data name="MotionBlur_LibraryDescription" xml:space="preserve">
     <value>Blurs motion by blending the object's appearance over a short time (motion trails, shutter blur).</value>
+  </data>
+  <data name="Echo_LibraryDescription" xml:space="preserve">
+    <value>Draws fading copies from earlier or later moments over the current frame (afterimage, ghost trail, motion trails).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>Softens the image using the shape of a lens aperture (lens blur, defocus).</value>

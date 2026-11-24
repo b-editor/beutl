@@ -2066,6 +2066,48 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>结束</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>回声</value>
+  </data>
+  <data name="Echo_Description" xml:space="preserve">
+    <value>绘制对象在较早或较晚时刻的多个副本，并逐步降低不透明度。后续效果对合成结果应用一次。</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>间隔（秒）</value>
+  </data>
+  <data name="Echo_Interval_Description" xml:space="preserve">
+    <value>副本之间的时间间隔，以秒为单位。负值采样较早的时刻，正值采样较晚的时刻，零重复当前时刻。</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>数量</value>
+  </data>
+  <data name="Echo_Count_Description" xml:space="preserve">
+    <value>副本总数（1–64），包括当前时刻的副本。副本越多，渲染时间和内存开销越大。</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>初始强度</value>
+  </data>
+  <data name="Echo_StartingIntensity_Description" xml:space="preserve">
+    <value>当前时刻副本的不透明度。设为 0% 时，所有副本均为透明。</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>衰减</value>
+  </data>
+  <data name="Echo_Decay_Description" xml:space="preserve">
+    <value>每个后续副本保留的不透明度比例。设为 0% 时仅绘制当前时刻的副本，设为 100% 时所有副本的不透明度相同。</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>混合模式</value>
+  </data>
+  <data name="Echo_BlendMode_Description" xml:space="preserve">
+    <value>将时间上最新的副本绘制在顶层，或在副本重叠处将颜色相加。</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>最新时刻在上</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>相加</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>透明度模式</value>
   </data>
@@ -2215,6 +2257,9 @@
   </data>
   <data name="MotionBlur_LibraryDescription" xml:space="preserve">
     <value>叠加对象在短时间内的画面来模糊运动（运动模糊、快门模糊 / motion trails, shutter blur）。</value>
+  </data>
+  <data name="Echo_LibraryDescription" xml:space="preserve">
+    <value>在当前帧上叠加较早或较晚时刻逐渐淡出的副本（残影、重影、运动拖尾 / afterimage, ghost trail, motion trails）。</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>按镜头光圈的形状模糊图像（镜头模糊、散焦 / lens blur, defocus）。</value>

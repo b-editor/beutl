@@ -330,6 +330,22 @@
     <value>타임라인 클립에 필름스트립과 파형을 표시합니다. 끄면 클립의 컨텍스트 메뉴에서 클립별로 켤 수 있으며, 미디어가 많은 타임라인의 확대/축소가 가벼워집니다.</value>
     <comment />
   </data>
+  <data name="TimelineLayerSize" xml:space="preserve">
+    <value>타임라인 레이어 높이</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Small" xml:space="preserve">
+    <value>작게</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Medium" xml:space="preserve">
+    <value>보통</value>
+    <comment />
+  </data>
+  <data name="TimelineLayerSize_Large" xml:space="preserve">
+    <value>크게</value>
+    <comment />
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>그래픽</value>
     <comment />

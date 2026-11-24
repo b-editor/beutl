@@ -13,6 +13,10 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public sealed partial class NodePortPoint : Control
 {
+    private const double BaseRadius = 5;
+    private const double HoverRadius = 6.2;
+    private const double SnapRadius = 6.8;
+
     private ConnectionLine? _line;
     private bool _captured;
     private bool _doubleClick;
@@ -23,9 +27,12 @@ public sealed partial class NodePortPoint : Control
     private bool _connected;
     private DragSession? _drag;
     private NodePortPoint? _feedbackTarget;
+    private bool _isSnapHighlighted;
+    private double _visualRadius = BaseRadius;
 
     static NodePortPoint()
     {
+        ClipToBoundsProperty.OverrideDefaultValue<NodePortPoint>(false);
         AffectsRender<NodePortPoint>(BrushProperty, IsConnectedProperty);
     }
 
@@ -34,6 +41,8 @@ public sealed partial class NodePortPoint : Control
 
     [GeneratedStyledProperty]
     public partial bool IsConnected { get; set; }
+
+    internal double VisualRadius => _visualRadius;
 
     public event EventHandler<NodePortConnectRequestedEventArgs>? ConnectRequested;
 
@@ -48,11 +57,56 @@ public sealed partial class NodePortPoint : Control
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        UiMotion.Cancel(this);
+        _visualRadius = BaseRadius;
+        _isSnapHighlighted = false;
         if (_drag is { } drag)
             drag.Confirm();
         else if (_captured)
             CancelDrag();
         _canvas = null;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsPointerOverProperty || change.Property == IsEnabledProperty)
+            AnimateEmphasis();
+    }
+
+    private void SetSnapHighlighted(bool value)
+    {
+        if (_isSnapHighlighted == value)
+            return;
+
+        _isSnapHighlighted = value;
+        AnimateEmphasis();
+    }
+
+    private void AnimateEmphasis()
+    {
+        double target = !IsEnabled
+            ? BaseRadius
+            : _isSnapHighlighted
+                ? SnapRadius
+                : IsPointerOver
+                    ? HoverRadius
+                    : BaseRadius;
+
+        if (Math.Abs(_visualRadius - target) < 0.01)
+        {
+            UiMotion.Cancel(this);
+            _visualRadius = target;
+            InvalidateVisual();
+            return;
+        }
+
+        double from = _visualRadius;
+        UiMotion.Run(this, UiMotion.Fast, progress =>
+        {
+            _visualRadius = from + ((target - from) * progress);
+            InvalidateVisual();
+        });
     }
 
     protected override Size MeasureCore(Size availableSize)
@@ -135,8 +189,13 @@ public sealed partial class NodePortPoint : Control
                 _line.StartPoint = end;
             }
 
-            if (snap != null && snap != _feedbackTarget)
-                NativeHapticFeedback.PerformAlignment(this, e.Timestamp);
+            if (snap != _feedbackTarget)
+            {
+                _feedbackTarget?.SetSnapHighlighted(false);
+                snap?.SetSnapHighlighted(true);
+                if (snap != null)
+                    NativeHapticFeedback.PerformAlignment(this, e.Timestamp);
+            }
             _feedbackTarget = snap;
             e.Handled = true;
         }
@@ -236,6 +295,7 @@ public sealed partial class NodePortPoint : Control
         _line = null;
         _captured = false;
         _dragCoordinateSpace = null;
+        _feedbackTarget?.SetSnapHighlighted(false);
         _feedbackTarget = null;
     }
 
@@ -289,21 +349,30 @@ public sealed partial class NodePortPoint : Control
     {
         base.Render(context);
         IBrush brush = Brush ?? Brushes.Teal;
-        if (IsConnected)
+        var center = new Point(BaseRadius, BaseRadius);
+        double radius = _visualRadius;
+
+        if (_isSnapHighlighted)
         {
-            context.FillRectangle(brush, new Rect(0, 0, 10, 10), 5);
+            using (context.PushOpacity(0.32))
+                context.DrawEllipse(brush, null, center, radius + 3, radius + 3);
+        }
+
+        if (IsConnected || _isSnapHighlighted)
+        {
+            context.DrawEllipse(brush, null, center, radius, radius);
         }
         else
         {
             if (brush is ISolidColorBrush solidColorBrush)
             {
                 var color = (Color2)solidColorBrush.Color;
-                color = color.WithSatf(color.Saturationf * 0.2f);
-                context.FillRectangle(new ImmutableSolidColorBrush(color), new Rect(0, 0, 10, 10), 5);
+                color = color.WithSatf(color.Saturationf * (IsPointerOver ? 0.55f : 0.2f));
+                context.DrawEllipse(new ImmutableSolidColorBrush(color), null, center, radius, radius);
             }
             else
             {
-                context.FillRectangle(Brushes.Gray, new Rect(0, 0, 10, 10), 5);
+                context.DrawEllipse(Brushes.Gray, null, center, radius, radius);
             }
         }
     }

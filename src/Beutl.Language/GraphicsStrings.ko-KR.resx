@@ -2066,6 +2066,48 @@
   <data name="MotionBlur_End" xml:space="preserve">
     <value>끝</value>
   </data>
+  <data name="Echo" xml:space="preserve">
+    <value>에코</value>
+  </data>
+  <data name="Echo_Description" xml:space="preserve">
+    <value>이전 또는 이후 시점의 개체 복사본을 불투명도를 낮추면서 겹쳐 그립니다. 후속 효과는 합성 결과에 한 번 적용됩니다.</value>
+  </data>
+  <data name="Echo_Interval" xml:space="preserve">
+    <value>간격 (초)</value>
+  </data>
+  <data name="Echo_Interval_Description" xml:space="preserve">
+    <value>복사본 사이의 시간 간격입니다. 음수는 이전 시점, 양수는 이후 시점을 사용하며 0은 현재 시점을 반복합니다.</value>
+  </data>
+  <data name="Echo_Count" xml:space="preserve">
+    <value>개수</value>
+  </data>
+  <data name="Echo_Count_Description" xml:space="preserve">
+    <value>현재 시점을 포함한 전체 복사본 수(1~64)입니다. 복사본이 많을수록 렌더링 시간과 메모리 사용량이 늘어납니다.</value>
+  </data>
+  <data name="Echo_StartingIntensity" xml:space="preserve">
+    <value>시작 강도</value>
+  </data>
+  <data name="Echo_StartingIntensity_Description" xml:space="preserve">
+    <value>현재 시점 복사본의 불투명도입니다. 0%에서는 모든 복사본이 투명합니다.</value>
+  </data>
+  <data name="Echo_Decay" xml:space="preserve">
+    <value>감쇠</value>
+  </data>
+  <data name="Echo_Decay_Description" xml:space="preserve">
+    <value>다음 복사본이 유지할 불투명도의 비율입니다. 0%에서는 현재 시점의 복사본만 그리며 100%에서는 모든 복사본의 불투명도가 같습니다.</value>
+  </data>
+  <data name="Echo_BlendMode" xml:space="preserve">
+    <value>혼합 모드</value>
+  </data>
+  <data name="Echo_BlendMode_Description" xml:space="preserve">
+    <value>시간상 가장 최근 복사본을 맨 위에 그리거나 복사본이 겹치는 부분의 색을 더합니다.</value>
+  </data>
+  <data name="EchoBlendMode_NewestOnTop" xml:space="preserve">
+    <value>최근 시점을 맨 위에</value>
+  </data>
+  <data name="EchoBlendMode_Add" xml:space="preserve">
+    <value>더하기</value>
+  </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>알파 모드</value>
   </data>
@@ -2215,6 +2257,9 @@
   </data>
   <data name="MotionBlur_LibraryDescription" xml:space="preserve">
     <value>짧은 시간 동안의 오브젝트 모습을 합쳐 움직임을 흐리게 합니다 (모션 블러, 움직임 잔상 / motion trails, shutter blur).</value>
+  </data>
+  <data name="Echo_LibraryDescription" xml:space="preserve">
+    <value>이전 또는 이후 시점의 복사본을 점점 투명하게 현재 프레임 위에 겹쳐 그립니다 (잔상, 고스트 트레일 / afterimage, ghost trail, motion trails).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>렌즈 조리개 모양으로 이미지를 흐리게 합니다 (렌즈 흐림, 디포커스 / lens blur, defocus).</value>

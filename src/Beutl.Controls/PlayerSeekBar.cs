@@ -24,6 +24,8 @@ public sealed partial class PlayerSeekBar : Slider
     private const double TrackThickness = 4;
     private const double MarkWidth = 2;
     private const double MarkHeight = 8;
+    private const double HoveredMarkWidth = 3;
+    private const double HoveredMarkHeight = 12;
 
     // A pointer no farther than this from a mark's center points at its marker.
     private const double MarkReach = 4;
@@ -32,6 +34,7 @@ public sealed partial class PlayerSeekBar : Slider
     private readonly TextBlock _tipTime = new() { FontFeatures = new FontFeatureCollection { FontFeature.Parse("+tnum") } };
     private Mark[] _marks = [];
     private PlayerMarkerEntry? _heldMarker;
+    private PlayerMarkerEntry? _hoveredMarker;
     private double? _pointerX;
     private bool _reopenTip;
 
@@ -85,13 +88,16 @@ public sealed partial class PlayerSeekBar : Slider
 
         // Whole device pixels keep a mark this thin sharp.
         double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
-        double markTop = box.Center.Y - (MarkHeight / 2);
         foreach (Mark mark in _marks)
         {
             if (TryGetMarkX(mark, out double x))
             {
-                double left = Math.Round((x - (MarkWidth / 2)) * scaling) / scaling;
-                context.DrawRectangle(mark.Brush, null, new RoundedRect(new Rect(left, markTop, MarkWidth, MarkHeight), MarkWidth / 2));
+                bool emphasized = ReferenceEquals(mark.Entry, _hoveredMarker) || ReferenceEquals(mark.Entry, _heldMarker);
+                double width = emphasized ? HoveredMarkWidth : MarkWidth;
+                double height = emphasized ? HoveredMarkHeight : MarkHeight;
+                double markTop = box.Center.Y - (height / 2);
+                double left = Math.Round((x - (width / 2)) * scaling) / scaling;
+                context.DrawRectangle(mark.Brush, null, new RoundedRect(new Rect(left, markTop, width, height), width / 2));
             }
         }
     }
@@ -106,6 +112,7 @@ public sealed partial class PlayerSeekBar : Slider
                 .Where(entry => entry.Time.HasValue)
                 .Select(entry => new Mark(entry, entry.Time!.Value.ToSeconds(), new ImmutableSolidColorBrush(entry.Color)))];
             _heldMarker = null;
+            _hoveredMarker = null;
             RefreshTip();
         }
         else if (change.Property == MinimumProperty
@@ -126,6 +133,7 @@ public sealed partial class PlayerSeekBar : Slider
         {
             _pointerX = null;
             _reopenTip = false;
+            SetHoveredMarker(null);
         }
     }
 
@@ -200,10 +208,20 @@ public sealed partial class PlayerSeekBar : Slider
         return false;
     }
 
+    private void SetHoveredMarker(PlayerMarkerEntry? marker)
+    {
+        if (ReferenceEquals(_hoveredMarker, marker))
+            return;
+
+        _hoveredMarker = marker;
+        InvalidateVisual();
+    }
+
     // The tip stands over the pointer, or over the mark it points at, and tells the time there.
     private void UpdateTip(double x)
     {
         PlayerMarkerEntry? marker = FindMarker(x);
+        SetHoveredMarker(marker);
         double value = marker?.Time?.ToSeconds() ?? ValueAt(x);
         if (!double.IsFinite(value))
             return;
@@ -230,7 +248,9 @@ public sealed partial class PlayerSeekBar : Slider
         if (point.Properties.IsLeftButtonPressed && FindMarker(point.Position.X) is { Time: { } time } marker)
         {
             _heldMarker = marker;
+            SetHoveredMarker(marker);
             SetCurrentValue(ValueProperty, time.ToSeconds());
+            InvalidateVisual();
         }
     }
 
@@ -243,9 +263,17 @@ public sealed partial class PlayerSeekBar : Slider
             // A press on a mark keeps its marker's time until the pointer leaves the mark, so a click that slips a
             // pixel still lands on the marker.
             if (_heldMarker is { Time: { } time } held && IsDragging && IsWithinReach(held, x))
+            {
                 SetCurrentValue(ValueProperty, time.ToSeconds());
+            }
             else
+            {
+                bool hadHeld = _heldMarker is not null;
                 _heldMarker = null;
+                SetHoveredMarker(null);
+                if (hadHeld)
+                    InvalidateVisual();
+            }
 
             return;
         }
@@ -262,7 +290,12 @@ public sealed partial class PlayerSeekBar : Slider
 
     private void OnPointerReleasedOnBar(object? sender, PointerReleasedEventArgs e)
     {
+        bool hadHeld = _heldMarker is not null;
         _heldMarker = null;
+        PointerPoint point = e.GetCurrentPoint(this);
+        SetHoveredMarker(new Rect(Bounds.Size).Contains(point.Position) ? FindMarker(point.Position.X) : null);
+        if (hadHeld)
+            InvalidateVisual();
     }
 
     // The tip waits while the bar is dragged, when the frame and the current time follow the pointer, and while

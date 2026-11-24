@@ -50,6 +50,7 @@
     "SeekOnTimelineClick": false,
     "ClampResizeToOriginalLength": true,
     "ShowTimelineThumbnailsByDefault": true,
+    "TimelineLayerSize": 64,
     "IsTimelineSnapEnabled": true,
     "IsRippleEnabled": false,
     "TimelineAutoScrollMode": 1,

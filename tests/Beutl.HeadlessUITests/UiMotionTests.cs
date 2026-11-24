@@ -3,9 +3,14 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Beutl.Controls;
+using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Testing.Headless;
 
@@ -273,6 +278,188 @@ public sealed class UiMotionTests
             toggle.IsChecked = false;
             await WaitUntil(() => !content.IsVisible, "The content did not hide.");
             Assert.That(content.Opacity, Is.EqualTo(1));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Pop_scales_and_fades_target_then_clears_its_transform()
+    {
+        var badge = new Border { Width = 60, Height = 24, Background = Brushes.Gray };
+        var window = new Window { Content = badge, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            UiMotion.Pop(badge, UiMotion.Fast);
+            Assert.That(badge.Opacity, Is.EqualTo(0));
+            Assert.That(badge.RenderTransform, Is.TypeOf<ScaleTransform>());
+            await WaitUntil(() => badge.Opacity == 1 && badge.RenderTransform is null, "The popped visual did not settle.");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task RevealMotion_animates_only_when_visibility_turns_on_in_a_window()
+    {
+        var initiallyShown = new Border { Width = 60, Height = 24, Background = Brushes.Gray, IsVisible = true };
+        RevealMotion.SetMode(initiallyShown, RevealMotionMode.Pop);
+        var popTarget = new Border { Width = 60, Height = 24, Background = Brushes.Gray, IsVisible = false };
+        RevealMotion.SetMode(popTarget, RevealMotionMode.Pop);
+        var slideTarget = new Border { Width = 60, Height = 24, Background = Brushes.Gray, IsVisible = false };
+        RevealMotion.SetMode(slideTarget, RevealMotionMode.Slide);
+        var fadeTarget = new Border { Width = 60, Height = 24, Background = Brushes.Gray, IsVisible = false };
+        RevealMotion.SetMode(fadeTarget, RevealMotionMode.Fade);
+
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { initiallyShown, popTarget, slideTarget, fadeTarget } },
+            Width = 200,
+            Height = 200,
+        };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(initiallyShown.Opacity, Is.EqualTo(1), "A visual already visible at attach must not replay.");
+            Assert.That(initiallyShown.RenderTransform, Is.Null);
+
+            popTarget.IsVisible = true;
+            Assert.That(popTarget.Opacity, Is.EqualTo(0));
+            Assert.That(popTarget.RenderTransform, Is.TypeOf<ScaleTransform>());
+            await WaitUntil(() => popTarget.Opacity == 1 && popTarget.RenderTransform is null, "Pop target did not settle.");
+
+            slideTarget.IsVisible = true;
+            Assert.That(slideTarget.Opacity, Is.EqualTo(0));
+            Assert.That(slideTarget.RenderTransform, Is.TypeOf<TranslateTransform>());
+            await WaitUntil(() => slideTarget.Opacity == 1 && slideTarget.RenderTransform is null, "Slide target did not settle.");
+
+            fadeTarget.IsVisible = true;
+            Assert.That(fadeTarget.Opacity, Is.EqualTo(0));
+            Assert.That(fadeTarget.RenderTransform, Is.Null);
+            await WaitUntil(() => fadeTarget.Opacity == 1, "Fade target did not settle.");
+
+            // Hiding mid-reveal cancels cleanly and restores opacity and transform.
+            popTarget.IsVisible = false;
+            popTarget.IsVisible = true;
+            Assert.That(popTarget.Opacity, Is.EqualTo(0));
+            popTarget.IsVisible = false;
+            Assert.That(popTarget.Opacity, Is.EqualTo(1));
+            Assert.That(popTarget.RenderTransform, Is.Null);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void RevealMotion_outside_a_window_does_not_dim_the_control()
+    {
+        var target = new Border { IsVisible = false };
+        RevealMotion.SetMode(target, RevealMotionMode.Pop);
+
+        target.IsVisible = true;
+        Assert.That(target.Opacity, Is.EqualTo(1));
+        Assert.That(target.RenderTransform, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public void Clearing_RevealMotion_mode_mid_reveal_restores_opacity_and_transform()
+    {
+        var target = new Border { Width = 60, Height = 24, Background = Brushes.Gray, IsVisible = false };
+        RevealMotion.SetMode(target, RevealMotionMode.Pop);
+        var window = new Window { Content = target, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            target.IsVisible = true;
+            Assert.That(target.Opacity, Is.EqualTo(0));
+            Assert.That(target.RenderTransform, Is.TypeOf<ScaleTransform>());
+
+            RevealMotion.SetMode(target, RevealMotionMode.None);
+            Assert.That(target.Opacity, Is.EqualTo(1));
+            Assert.That(target.RenderTransform, Is.Null);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task NodePortPoint_cancels_pending_hover_animation_when_pointer_leaves_before_a_frame()
+    {
+        var port = new NodePortPoint
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var window = new Window { Content = port, Width = 120, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            Point center = HeadlessTestHelpers.Center(port, window);
+            // Enter and leave before any animation frame runs: the pending hover run must be cancelled.
+            window.MouseMove(center);
+            window.MouseMove(new Point(2, 2));
+
+            await Task.Delay(150);
+            HeadlessTestHelpers.Render(4);
+            Assert.That(port.VisualRadius, Is.EqualTo(5.0).Within(0.01));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ColorPaletteItem_edge_press_keeps_fixed_hit_target_and_fires_click_after_press_animation()
+    {
+        var swatch = new ColorPaletteItem
+        {
+            Width = 20,
+            Height = 20,
+            Color = Colors.CornflowerBlue,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        int clicks = 0;
+        swatch.Click += (_, _) => clicks++;
+
+        var window = new Window { Content = swatch, Width = 120, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(2);
+
+            Point origin = swatch.TranslatePoint(default, window)!.Value;
+            // Press 0.3px inside the left edge (would fall outside a 0.95x RenderTransform shrink).
+            var edgePoint = new Point(origin.X + 0.3, origin.Y + 10);
+            window.MouseMove(edgePoint);
+            window.MouseDown(edgePoint, MouseButton.Left);
+
+            // Let the press animation complete while holding on the edge.
+            await Task.Delay(150);
+            HeadlessTestHelpers.Render(4);
+            Assert.That(swatch.Classes.Contains(":pressed"), Is.True);
+
+            window.MouseUp(edgePoint, MouseButton.Left);
+            HeadlessTestHelpers.Render(2);
+            Assert.That(clicks, Is.EqualTo(1));
+            Assert.That(swatch.Classes.Contains(":pressed"), Is.False);
         }
         finally
         {
