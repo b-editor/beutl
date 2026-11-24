@@ -1,4 +1,4 @@
-using Beutl.Api;
+﻿using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;

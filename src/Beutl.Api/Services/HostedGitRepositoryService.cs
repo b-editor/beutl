@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;

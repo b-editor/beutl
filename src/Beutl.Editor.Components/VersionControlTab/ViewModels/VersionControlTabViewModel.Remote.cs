@@ -16,7 +16,8 @@ internal partial class VersionControlTabViewModel
 
     internal Dictionary<(string Owner, string Name), Guid> RepositoryCreationIds { get; } = [];
     internal Func<ConnectRemoteContext, Func<GitRemoteUrl, CancellationToken, Task>, CancellationToken, Task<bool>>?
-        RequestRemoteConnectionAsync { get; set; }
+        RequestRemoteConnectionAsync
+    { get; set; }
 
     public async Task SetRemoteAsync()
     {

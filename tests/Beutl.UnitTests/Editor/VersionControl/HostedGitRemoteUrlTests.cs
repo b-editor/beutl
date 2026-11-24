@@ -1,4 +1,4 @@
-using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor.VersionControl;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 

@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.ViewModels.Dialogs;
 using FluentAvalonia.UI.Controls;

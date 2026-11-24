@@ -1,4 +1,4 @@
-using Beutl.Configuration;
+﻿using Beutl.Configuration;
 using Beutl.Language;
 
 namespace Beutl.Editor.VersionControl;

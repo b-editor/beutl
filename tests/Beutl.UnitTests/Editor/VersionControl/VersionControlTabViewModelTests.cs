@@ -1,10 +1,10 @@
 ﻿using System.Globalization;
 using Beutl.Api;
-using Beutl.UnitTests.Api;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.UnitTests.Api;
 using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Time.Testing;
 using Moq;

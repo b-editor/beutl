@@ -1,4 +1,4 @@
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;

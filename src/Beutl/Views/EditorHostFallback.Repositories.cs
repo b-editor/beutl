@@ -1,4 +1,4 @@
-using Beutl.Api.Clients;
+﻿using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.VersionControl;

@@ -1,4 +1,4 @@
-using Avalonia.Interactivity;
+﻿using Avalonia.Interactivity;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using FluentAvalonia.UI.Controls;
 
