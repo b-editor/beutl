@@ -4,6 +4,8 @@ public interface IDecoderInfo
 {
     string Name { get; }
 
+    DecoderCapabilities Capabilities => DecoderCapabilities.None;
+
     MediaReader? Open(string file, MediaOptions options);
 
     bool IsSupported(string file)

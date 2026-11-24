@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.FFmpegWorker.Decoding;
 
-public sealed class FFmpegReader : MediaReader
+public sealed partial class FFmpegReader : MediaReader
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReader>();
     private static readonly AVRational s_time_base = new() { num = 1, den = ffmpeg.AV_TIME_BASE };
@@ -22,6 +22,7 @@ public sealed class FFmpegReader : MediaReader
     // Every reader lives in the same worker process, and frame threading keeps a decoded frame and
     // decoder state alive per thread, so the automatic count stays below FFmpeg's own limit of 16.
     private const int AutoThreadCountLimit = 8;
+    private const int KeepFrameReference = 8; // AV_BUFFERSRC_FLAG_KEEP_REF
 
     // Fixed at open, even if a later decoded frame changes its layout.
     private AVChannelLayout _audioOutputLayout;
@@ -121,17 +122,31 @@ public sealed class FFmpegReader : MediaReader
             {
                 GrabVideo();
                 _firstVideoFrame = _videoNowFrame;
-                GetPacketColorSpace();
+                VideoColorTags colorTags = GetPacketColorSpace(out bool hasIccProfile);
+                VideoFieldOrder fieldOrder = ProbeFieldOrder(options.Deinterlace);
+                DeinterlaceApplicationStatus deinterlaceStatus = ConfigureDeinterlacing(file, options.Deinterlace);
 
                 var codec = _videoDecoder!.GetCodec();
+                var duration = new Rational(_demuxer.Duration, ffmpeg.AV_TIME_BASE);
+                var frameRate = new Rational(_videoStream!.AvgFrameRate.num, _videoStream.AvgFrameRate.den);
+                if (_deinterlace.FrameRateMode == DeinterlaceFrameRateMode.Field)
+                    frameRate = (frameRate * 2).Simplify();
+
+                long frameCount = _deinterlace.Mode == DeinterlaceMode.Off
+                    ? (_videoStream.NbFrames > 0 ? GetVideoFrameCount() : 0)
+                    : GetDeinterlacedFrameCount(frameRate.ToDouble(), duration.ToDouble());
+
                 VideoInfo = new VideoStreamInfo(
                     codec?.LongName ?? "Unknown",
-                    // Counted from the container start; an unknown count stays 0 so callers use the duration.
-                    _videoStream!.NbFrames > 0 ? GetVideoFrameCount() : 0,
+                    frameCount,
                     new PixelSize(_videoDecoder.Width, _videoDecoder.Height),
-                    new Rational(_videoStream.AvgFrameRate.num, _videoStream.AvgFrameRate.den))
+                    frameRate)
                 {
-                    Duration = new Rational(_demuxer.Duration, ffmpeg.AV_TIME_BASE)
+                    Duration = duration,
+                    ColorTags = colorTags,
+                    HasIccProfile = hasIccProfile,
+                    DetectedFieldOrder = fieldOrder,
+                    DeinterlaceStatus = deinterlaceStatus,
                 };
             }
 
@@ -527,6 +542,9 @@ public sealed class FFmpegReader : MediaReader
 
     private MediaFrame? ReadVideoCore(int frame)
     {
+        if (_deinterlace.Mode != DeinterlaceMode.Off)
+            return ReadDeinterlacedVideo(frame);
+
         if (_videoStream == null || _videoDecoder == null || _shownVideoFrame == null)
             return null;
 
@@ -567,8 +585,7 @@ public sealed class FFmpegReader : MediaReader
         InitFilterGraph(videoFrame);
 
         // フレームをフィルタグラフに送信
-        const int AV_BUFFERSRC_FLAG_KEEP_REF = 8;
-        _bufferSrcCtx!.WriteFrame(videoFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
+        _bufferSrcCtx!.WriteFrame(videoFrame, KeepFrameReference);
 
         // フィルタグラフから変換済みフレームを取得
         _filterFrame ??= new MediaFrame();
@@ -582,14 +599,14 @@ public sealed class FFmpegReader : MediaReader
         return _filterFrame;
     }
 
-    private void InitFilterGraph(MediaFrame videoFrame)
+    private unsafe void InitFilterGraph(MediaFrame videoFrame)
     {
         int width = videoFrame.Width;
         int height = videoFrame.Height;
         var srcPixFmt = (AVPixelFormat)videoFrame.Format;
 
         // 入力パラメータが変わっていなければ再構築不要
-        if (_filterGraph != null && _filterWidth == width && _filterHeight == height && _filterSrcPixFmt == srcPixFmt)
+        if (MatchesFilterInput(videoFrame))
             return;
 
         // Invalidate the cache before rebuilding so that if the build below throws, the next
@@ -612,6 +629,9 @@ public sealed class FFmpegReader : MediaReader
 
         _bufferSrcCtx =
             _filterGraph.AddVideoSrcFilter(bufferSrc, width, height, srcPixFmt, timeBase, aspect, frameRate);
+        var filterInput = _bufferSrcCtx;
+        if (_deinterlace.Mode != DeinterlaceMode.Off)
+            filterInput = AddDeinterlaceFilter(filterInput);
 
         var dstPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
         _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [dstPixFmt]);
@@ -631,17 +651,19 @@ public sealed class FFmpegReader : MediaReader
         if (!_isHdr && (width % 16 != 0 || height % 2 != 0))
         {
             var scaleCtx = _filterGraph.AddFilter(new MediaFilter("scale"), "flags=accurate_rnd+full_chroma_int");
-            _bufferSrcCtx.LinkTo(0, scaleCtx);
+            filterInput.LinkTo(0, scaleCtx);
             scaleCtx.LinkTo(0, formatCtx);
         }
         else
         {
-            _bufferSrcCtx.LinkTo(0, formatCtx);
+            filterInput.LinkTo(0, formatCtx);
         }
 
         formatCtx.LinkTo(0, _bufferSinkCtx);
 
         _filterGraph.Initialize();
+        if (_deinterlace.Mode != DeinterlaceMode.Off)
+            _filteredTimeBase = ffmpeg.av_q2d(ffmpeg.av_buffersink_get_time_base(_bufferSinkCtx));
 
         _filterWidth = width;
         _filterHeight = height;
@@ -652,6 +674,10 @@ public sealed class FFmpegReader : MediaReader
     {
         if (disposing)
         {
+            ClearVideoProbeFrames();
+            _filteredNextFrame?.Dispose();
+            _filteredShownFrame?.Dispose();
+            _deinterlaceAudioDemuxer?.Dispose();
             _filterFrame?.Dispose();
             _filterFrame = null;
 
@@ -702,7 +728,7 @@ public sealed class FFmpegReader : MediaReader
 
         _currentAudioFrame.Unref();
 
-        foreach (var packet in _demuxer.ReadPackets(_packet))
+        foreach (var packet in (_deinterlaceAudioDemuxer ?? _demuxer).ReadPackets(_packet))
         {
             if (packet.StreamIndex == _audioStream.Index)
             {
@@ -759,7 +785,7 @@ public sealed class FFmpegReader : MediaReader
         if (_demuxer == null || _audioDecoder == null) return;
 
         long timestamp = sample_pos * 1000000 / _audioDecoder.SampleRate + AudioOriginTime;
-        _demuxer.Seek(timestamp, -1);
+        (_deinterlaceAudioDemuxer ?? _demuxer).Seek(timestamp, -1);
         ffmpeg.avcodec_flush_buffers(_audioDecoder);
         _audioSeek = true;
 
@@ -794,6 +820,19 @@ public sealed class FFmpegReader : MediaReader
     }
 
     private bool GrabVideo()
+    {
+        if (_videoProbeFrames?.TryDequeue(out var probed) == true)
+        {
+            MoveVideoFrame(probed, ActiveVideoFrame!);
+            probed.Dispose();
+            _videoNowFrame = GetNowFrame();
+            return true;
+        }
+
+        return DecodeNextVideoFrame();
+    }
+
+    private bool DecodeNextVideoFrame()
     {
         if (_demuxer == null || _videoDecoder == null || _packet == null || _videoStream == null)
             return false;
@@ -934,6 +973,7 @@ public sealed class FFmpegReader : MediaReader
                 MidpointRounding.AwayFromZero);
             _demuxer.Seek(timestamp, -1);
             ffmpeg.avcodec_flush_buffers(_videoDecoder);
+            ClearVideoProbeFrames();
             DiscardPendingVideoPacket();
             _videoDecodedPts = long.MinValue;
             _shownVideoFrame!.Unref();
@@ -1103,39 +1143,28 @@ public sealed class FFmpegReader : MediaReader
         _audioSeek = true;
     }
 
-    private unsafe void GetPacketColorSpace()
+    private unsafe VideoColorTags GetPacketColorSpace(out bool hasIccProfile)
     {
-        if (_videoStream == null) return;
-
-        // HDR判定: PQ (HDR10) または HLG の場合はHDR
-        var trc = _videoStream.Codecpar->color_trc;
-        _isHdr = ColorSpaceHelper.IsHdrTransfer(trc);
+        AVCodecParameters* codec = _videoStream!.Codecpar;
+        VideoColorTags tags = ColorSpaceHelper.ReadTags(codec);
+        _isHdr = BitmapColorSpaceMapping.IsHdrTransfer(tags.Transfer);
 
         AVPacketSideData* psd = ffmpeg.av_packet_side_data_get(
-            _videoStream.Codecpar->coded_side_data,
-            _videoStream.Codecpar->nb_coded_side_data,
+            codec->coded_side_data,
+            codec->nb_coded_side_data,
             AVPacketSideDataType.AV_PKT_DATA_ICC_PROFILE);
         if (psd != null)
         {
             _colorspace = BitmapColorSpace.CreateIcc(new ReadOnlySpan<byte>(psd->data, (int)psd->size));
         }
+        hasIccProfile = _colorspace != null;
 
-        if (_colorspace == null)
-        {
-            if (_isHdr)
-            {
-                // HDR: 輝度スケーリング付き色空間（エンコードと対称）
-                _colorspace = ColorSpaceHelper.BuildHdrColorSpace(
-                    _videoStream.Codecpar->color_trc, _videoStream.Codecpar->color_primaries);
-            }
-            else
-            {
-                _colorspace = ColorSpaceHelper.BuildTargetColorSpace(
-                    _videoStream.Codecpar->color_trc, _videoStream.Codecpar->color_primaries);
-            }
-        }
+        _colorspace ??= _isHdr
+            ? BitmapColorSpaceMapping.BuildHdrColorSpace(tags.Transfer, tags.Primaries)
+            : BitmapColorSpaceMapping.BuildTargetColorSpace(tags.Transfer, tags.Primaries);
 
         _logger.LogInformation("Video color space: {ColorSpace} ({Hdr})", _colorspace, _isHdr ? "HDR" : "SDR");
+        return tags;
     }
 }
 

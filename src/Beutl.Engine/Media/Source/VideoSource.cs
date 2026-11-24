@@ -21,10 +21,13 @@ public sealed class VideoSource : MediaSource
     }
 
     public override Resource ToResource(CompositionContext context)
+        => ToResource(context, VideoDeinterlaceOptions.Default);
+
+    internal Resource ToResource(CompositionContext context, VideoDeinterlaceOptions deinterlace)
     {
         var resource = new Resource();
         bool versionBumped = true;
-        resource.Reconcile(this, context, ref versionBumped);
+        resource.Reconcile(this, context, deinterlace, ref versionBumped);
         return resource;
     }
 
@@ -43,6 +46,7 @@ public sealed class VideoSource : MediaSource
         private DecoderRegistry? _loadedDecoders;
         private bool _loadedPreferProxy;
         private ProxyPreset _loadedPreferredProxyPreset;
+        private VideoDeinterlaceOptions _loadedDeinterlace;
         private long _loadedProxyResolverVersion;
         // Normalized source key (ProxyFingerprint.AbsolutePath) used to observe proxy-version bumps for
         // this source. Kept as the path key, not a live fingerprint, so a missing original still tracks
@@ -59,6 +63,12 @@ public sealed class VideoSource : MediaSource
         public PixelSize LogicalFrameSize { get; private set; }
 
         public ProxyResolution? ProxyResolution { get; private set; }
+
+        public VideoColorTags OriginalColorTags => ProxyResolution?.OriginalColorTags ?? _reader?.VideoInfo.ColorTags ?? default;
+
+        public VideoFieldOrder DetectedFieldOrder => _reader?.VideoInfo.DetectedFieldOrder ?? VideoFieldOrder.Unknown;
+
+        public DeinterlaceApplicationStatus DeinterlaceStatus => _reader?.VideoInfo.DeinterlaceStatus ?? DeinterlaceApplicationStatus.Off;
 
         public float SupplyDensity => ProxyResolution?.SupplyDensity ?? 1f;
 
@@ -80,7 +90,9 @@ public sealed class VideoSource : MediaSource
 
             // Keep nearest-frame sampling, but the last frame remains visible for its whole interval.
             // At higher output rates, rounding alone would request EOF half a source frame too early.
-            if (frameCount > 0 && frame == frameCount && position < MediaTime.FromFrames(frameCount, FrameRate))
+            if (frameCount > 0 && frame == frameCount
+                && (position < MediaTime.FromFrames(frameCount, FrameRate)
+                    || DeinterlaceStatus == DeinterlaceApplicationStatus.Applied && position < Duration))
                 frame--;
 
             return (int)frame;
@@ -103,9 +115,12 @@ public sealed class VideoSource : MediaSource
         }
 
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
+            => Reconcile((VideoSource)obj, context, VideoDeinterlaceOptions.Default, ref versionBumped);
+
+        internal void Reconcile(VideoSource videoSource, CompositionContext context, VideoDeinterlaceOptions deinterlace, ref bool versionBumped)
         {
-            base.Reconcile(obj, context, ref versionBumped);
-            var videoSource = (VideoSource)obj;
+            base.Reconcile(videoSource, context, ref versionBumped);
+            deinterlace = deinterlace.Normalize();
             IProxyResolver? proxyResolver = context.PreferProxy ? context.Decoders?.ProxyResolver : null;
             RefreshProxyVersionSource(videoSource, proxyResolver);
             // Compare only THIS source's proxy version so a proxy change to another
@@ -113,7 +128,7 @@ public sealed class VideoSource : MediaSource
             long proxyResolverVersion = GetSourceVersion(proxyResolver, _proxyVersionSource);
 
             // Load media reader if URI or proxy preference changed.
-            if (NeedsReload(videoSource, context, proxyResolverVersion))
+            if (NeedsReload(videoSource, context, proxyResolverVersion, deinterlace))
             {
                 var decoders = context.Decoders ?? throw new InvalidOperationException("Opening video requires a decoder registry.");
                 _reader?.Dispose();
@@ -129,8 +144,9 @@ public sealed class VideoSource : MediaSource
                 _proxyVersionSource = ResolveProxyVersionSource(videoSource, context);
                 proxyResolverVersion = GetSourceVersion(proxyResolver, _proxyVersionSource);
 
-                if (!TryOpenReader(videoSource, context, proxyResolverVersion, decoders))
+                if (!TryOpenReader(videoSource, context, proxyResolverVersion, decoders, deinterlace))
                 {
+                    versionBumped = true;
                     return;
                 }
 
@@ -139,7 +155,8 @@ public sealed class VideoSource : MediaSource
                 // the reader before reading metadata.
                 if (!reader.HasVideo)
                 {
-                    SetOffline(videoSource, context, proxyResolverVersion);
+                    SetOffline(videoSource, context, proxyResolverVersion, deinterlace);
+                    versionBumped = true;
                     return;
                 }
 
@@ -149,7 +166,7 @@ public sealed class VideoSource : MediaSource
                 FrameRate = reader.VideoInfo.FrameRate;
                 FrameSize = reader.VideoInfo.FrameSize;
                 LogicalFrameSize = ProxyResolution?.OriginalLogicalFrameSize ?? FrameSize;
-                RecordLoadedState(videoSource, context, proxyResolverVersion);
+                RecordLoadedState(videoSource, context, proxyResolverVersion, deinterlace);
 
                 if (!versionBumped)
                 {
@@ -181,13 +198,14 @@ public sealed class VideoSource : MediaSource
                 : 0;
         }
 
-        private bool NeedsReload(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
+        private bool NeedsReload(VideoSource videoSource, CompositionContext context, long proxyResolverVersion, VideoDeinterlaceOptions deinterlace)
         {
             return videoSource.HasUri && (_loadedUri != videoSource.Uri
                     || _loadedDecoders != context.Decoders
                     || ReloadRequested
                     || _loadedPreferProxy != context.PreferProxy
                     || _loadedPreferredProxyPreset != context.PreferredProxyPreset
+                    || _loadedDeinterlace != deinterlace
                     || _loadedProxyResolverVersion != proxyResolverVersion);
         }
 
@@ -203,7 +221,8 @@ public sealed class VideoSource : MediaSource
         // A failed open still records the inputs it was attempted with, so an unchanged source is not
         // reopened on every update.
         [MemberNotNullWhen(true, nameof(_reader))]
-        private bool TryOpenReader(VideoSource videoSource, CompositionContext context, long proxyResolverVersion, DecoderRegistry decoders)
+        private bool TryOpenReader(VideoSource videoSource, CompositionContext context, long proxyResolverVersion,
+            DecoderRegistry decoders, VideoDeinterlaceOptions deinterlace)
         {
             try
             {
@@ -211,6 +230,7 @@ public sealed class VideoSource : MediaSource
                 {
                     PreferProxy = context.PreferProxy,
                     PreferredProxyPreset = context.PreferredProxyPreset,
+                    Deinterlace = deinterlace,
                 };
                 string path = videoSource.Uri.LocalPath;
                 // Encoding keeps its own reader; other resources share the file's readers. The key includes this
@@ -220,20 +240,20 @@ public sealed class VideoSource : MediaSource
                     ? MediaReader.Open(path, options, decoders)
                     : SharedMediaReaders.Shared.Open(
                         SharedMediaReaders.Key.ForFile(decoders, path, MediaMode.Video, context.PreferProxy,
-                            context.PreferProxy ? context.PreferredProxyPreset : default, proxyResolverVersion),
+                            context.PreferProxy ? context.PreferredProxyPreset : default, proxyResolverVersion, deinterlace),
                         () => MediaReader.Open(path, options, decoders),
                         opened => opened.HasVideo);
             }
             catch
             {
-                SetOffline(videoSource, context, proxyResolverVersion);
+                SetOffline(videoSource, context, proxyResolverVersion, deinterlace);
                 return false;
             }
 
             return true;
         }
 
-        private void SetOffline(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
+        private void SetOffline(VideoSource videoSource, CompositionContext context, long proxyResolverVersion, VideoDeinterlaceOptions deinterlace)
         {
             _reader?.Dispose();
             _reader = null;
@@ -242,15 +262,16 @@ public sealed class VideoSource : MediaSource
             Duration = MediaTime.Zero;
             FrameRate = new Rational(30, 1);
             Version++;
-            RecordLoadedState(videoSource, context, proxyResolverVersion);
+            RecordLoadedState(videoSource, context, proxyResolverVersion, deinterlace);
         }
 
-        private void RecordLoadedState(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
+        private void RecordLoadedState(VideoSource videoSource, CompositionContext context, long proxyResolverVersion, VideoDeinterlaceOptions deinterlace)
         {
             _loadedUri = videoSource.Uri;
             _loadedDecoders = context.Decoders;
             _loadedPreferProxy = context.PreferProxy;
             _loadedPreferredProxyPreset = context.PreferredProxyPreset;
+            _loadedDeinterlace = deinterlace;
             _loadedProxyResolverVersion = proxyResolverVersion;
         }
 

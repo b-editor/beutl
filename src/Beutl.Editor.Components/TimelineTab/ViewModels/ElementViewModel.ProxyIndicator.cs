@@ -1,7 +1,7 @@
 ﻿using System.Reactive;
 using Avalonia.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
-using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Reactive.Bindings.Extensions;
 
@@ -88,25 +88,23 @@ public sealed partial class ElementViewModel
     private static string? GetChangedSourceKey(ProxyStoreChangedEventArgs e)
         => e.Kind == ProxyStoreChangeKind.Reset ? null : e.Source.AbsolutePath;
 
-    private IReadOnlyList<ProxyFingerprint> ResolveProxyFingerprints(bool invalidateCache)
+    private IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions Deinterlace)> ResolveProxyFingerprints(bool invalidateCache)
     {
-        // Cover every proxy-aware holder (VideoSourceNode graph inputs, referenced scenes, animated
-        // values) so an element that uses video through any of those paths contributes to the badge,
-        // not just a top-level SourceVideo's current value. Dedup file URIs in a stable order.
-        List<Uri> uris = [];
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(Model))
+        // Keep separate entries for the same file used with different decode settings.
+        List<(Uri Uri, VideoDeinterlaceOptions Deinterlace)> sources = [];
+        var seen = new HashSet<(string, VideoDeinterlaceOptions)>();
+        foreach (var (source, deinterlace) in ProxySourceEnumerator.EnumerateVideoSourceUses(Model))
         {
             if (source is { HasUri: true }
                 && source.Uri is { IsFile: true } uri
-                && seen.Add(uri.LocalPath))
+                && seen.Add((uri.LocalPath, deinterlace)))
             {
-                uris.Add(uri);
+                sources.Add((uri, deinterlace));
             }
         }
 
         return ResolveCachedFingerprints(
-            uris,
+            sources,
             invalidateCache,
             ref _proxySourceKey,
             ref _proxyFingerprints,
@@ -146,28 +144,26 @@ public sealed partial class ElementViewModel
         return ProxyFingerprint.ForPathKey(uri.LocalPath);
     }
 
-    // Keyed on the ordered set of source URIs so high-frequency store/queue refreshes never re-stat
-    // the files; an in-place overwrite keeps the same URIs, so those callers pass invalidateCache to
-    // force one re-stat.
-    internal static IReadOnlyList<ProxyFingerprint> ResolveCachedFingerprints(
-        IReadOnlyList<Uri> currentUris,
+    // A source edit keeps the same URI when its file changes on disk. Invalidation re-stats it;
+    // otherwise reuse the cached fingerprints until the set of sources or their settings changes.
+    internal static IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions Deinterlace)> ResolveCachedFingerprints(
+        IReadOnlyList<(Uri Uri, VideoDeinterlaceOptions Deinterlace)> sources,
         bool invalidateCache,
-        ref string? cachedKey,
-        ref IReadOnlyList<ProxyFingerprint> cachedFingerprints,
+        ref IReadOnlyList<(Uri Uri, VideoDeinterlaceOptions Deinterlace)>? cachedKey,
+        ref IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions Deinterlace)> cachedFingerprints,
         Func<Uri, ProxyFingerprint?> stat)
     {
-        string key = string.Join("\n", currentUris.Select(static u => u.LocalPath));
-        if (!invalidateCache && string.Equals(key, cachedKey, StringComparison.Ordinal))
+        if (!invalidateCache && cachedKey?.SequenceEqual(sources) == true)
             return cachedFingerprints;
 
-        var fingerprints = new List<ProxyFingerprint>(currentUris.Count);
-        foreach (Uri uri in currentUris)
+        var fingerprints = new List<(ProxyFingerprint, VideoDeinterlaceOptions)>(sources.Count);
+        foreach (var (uri, deinterlace) in sources)
         {
             if (stat(uri) is { } fingerprint)
-                fingerprints.Add(fingerprint);
+                fingerprints.Add((fingerprint, deinterlace.Normalize()));
         }
 
-        cachedKey = key;
+        cachedKey = sources;
         cachedFingerprints = fingerprints;
         return fingerprints;
     }
@@ -182,7 +178,7 @@ public sealed partial class ElementViewModel
     // the UI thread.
     private bool ElementUsesChangedSourceCached(string changedSourceKey)
     {
-        foreach (ProxyFingerprint fingerprint in ResolveProxyFingerprints(invalidateCache: false))
+        foreach (var (fingerprint, _) in ResolveProxyFingerprints(invalidateCache: false))
         {
             if (string.Equals(fingerprint.AbsolutePath, changedSourceKey, StringComparison.Ordinal))
                 return true;
@@ -193,7 +189,7 @@ public sealed partial class ElementViewModel
 
     private void RefreshProxyState(bool invalidateFingerprintCache = false)
     {
-        IReadOnlyList<ProxyFingerprint> fingerprints = ResolveProxyFingerprints(invalidateFingerprintCache);
+        var fingerprints = ResolveProxyFingerprints(invalidateFingerprintCache);
         if (_proxyStore is not { } store || fingerprints.Count == 0)
         {
             ShowProxyIndicator.Value = false;
@@ -206,7 +202,7 @@ public sealed partial class ElementViewModel
     }
 
     internal static ProxyState AggregateProxyState(
-        IProxyStore store, IProxyJobQueue? queue, IReadOnlyList<ProxyFingerprint> fingerprints)
+        IProxyStore store, IProxyJobQueue? queue, IReadOnlyList<(ProxyFingerprint Fingerprint, VideoDeinterlaceOptions Deinterlace)> fingerprints)
     {
         ArgumentNullException.ThrowIfNull(store);
 
@@ -217,9 +213,9 @@ public sealed partial class ElementViewModel
         IReadOnlyList<ProxyJob> pending = queue?.Pending() ?? [];
 
         ProxyState? aggregate = null;
-        foreach (ProxyFingerprint fingerprint in fingerprints)
+        foreach (var (fingerprint, deinterlace) in fingerprints)
         {
-            ProxyState state = ResolveProxyState(entries, pending, fingerprint);
+            ProxyState state = ResolveProxyState(entries, pending, fingerprint, deinterlace.Normalize());
             aggregate = aggregate is { } current ? CombineProxyStates(current, state) : state;
         }
 
@@ -240,11 +236,11 @@ public sealed partial class ElementViewModel
     }
 
     private static ProxyState ResolveProxyState(
-        IReadOnlyList<ProxyEntry> entries, IReadOnlyList<ProxyJob> pending, ProxyFingerprint fingerprint)
+        IReadOnlyList<ProxyEntry> entries, IReadOnlyList<ProxyJob> pending, ProxyFingerprint fingerprint, VideoDeinterlaceOptions deinterlace)
     {
         foreach (ProxyJob job in pending)
         {
-            if (string.Equals(job.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
+            if (job.Deinterlace == deinterlace && string.Equals(job.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
                 return ProxyState.Generating;
         }
 
@@ -252,7 +248,7 @@ public sealed partial class ElementViewModel
         bool bestIsExact = false;
         foreach (ProxyEntry entry in entries)
         {
-            if (!string.Equals(entry.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
+            if (entry.Deinterlace != deinterlace || !string.Equals(entry.Source.AbsolutePath, fingerprint.AbsolutePath, StringComparison.Ordinal))
                 continue;
 
             bool isExact = entry.Source == fingerprint;

@@ -2,10 +2,11 @@
 using System.Text.Json.Serialization;
 
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 
 using Microsoft.Extensions.Logging;
 
-using ProxyKey = (Beutl.Media.Proxy.ProxyFingerprint Source, Beutl.Media.Proxy.ProxyPreset Preset);
+using ProxyKey = (Beutl.Media.Proxy.ProxyFingerprint Source, Beutl.Media.Proxy.ProxyPreset Preset, Beutl.Media.Decoding.VideoDeinterlaceOptions Deinterlace);
 
 namespace Beutl.Media.Proxy;
 
@@ -60,11 +61,11 @@ public sealed partial class ProxyStore : IProxyStore
 
     public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
 
-    public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset)
+    public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
     {
         lock (_lock)
         {
-            return _entries.GetValueOrDefault((source, preset));
+            return _entries.GetValueOrDefault((source, preset, deinterlace.Normalize()));
         }
     }
 
@@ -102,7 +103,7 @@ public sealed partial class ProxyStore : IProxyStore
             FlushCore();
         }
 
-        OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Registered);
+        OnChanged(entry.Source, entry.Preset, entry.Deinterlace, ProxyStoreChangeKind.Registered);
         ReclaimRetiredProxyFiles();
     }
 
@@ -113,7 +114,7 @@ public sealed partial class ProxyStore : IProxyStore
         string path = ProxyFingerprint.NormalizeAbsolutePath(resolution.AbsoluteProxyFilePath);
         lock (_lock)
         {
-            ProxyEntry? entry = _entries.GetValueOrDefault((resolution.Source, resolution.Preset));
+            ProxyEntry? entry = _entries.GetValueOrDefault((resolution.Source, resolution.Preset, resolution.Deinterlace));
             if (entry is not { State: ProxyState.Ready }
                 || ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(entry)) != path)
             {
@@ -208,12 +209,14 @@ public sealed partial class ProxyStore : IProxyStore
         ProxyFingerprint source,
         ProxyPreset preset,
         ProxyState newState,
-        string? failureReason = null)
+        string? failureReason = null,
+        VideoDeinterlaceOptions deinterlace = default)
     {
         ProxyEntry updated;
+        var key = (source, preset, deinterlace.Normalize());
         lock (_lock)
         {
-            if (!_entries.TryGetValue((source, preset), out ProxyEntry? entry))
+            if (!_entries.TryGetValue(key, out ProxyEntry? entry))
                 return false;
 
             if (!ProxyStateTransitions.IsLegal(entry.State, newState))
@@ -226,27 +229,27 @@ public sealed partial class ProxyStore : IProxyStore
                 LastUsedUtc = DateTime.UtcNow,
                 FailureReason = newState == ProxyState.Failed ? failureReason : null,
             };
-            var key = (source, preset);
             _entries[key] = updated;
             FlushCore();
         }
 
-        OnChanged(source, preset, ProxyStoreChangeKind.StateChanged);
+        OnChanged(source, preset, deinterlace, ProxyStoreChangeKind.StateChanged);
         return true;
     }
 
-    public bool Delete(ProxyFingerprint source, ProxyPreset preset)
+    public bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
     {
         ProxyEntry removed;
         string proxyPath;
+        var key = (source, preset, deinterlace.Normalize());
         lock (_lock)
         {
-            if (!_entries.TryGetValue((source, preset), out ProxyEntry? existing))
+            if (!_entries.TryGetValue(key, out ProxyEntry? existing))
                 return false;
 
             removed = existing;
             proxyPath = GetAbsolutePath(removed);
-            _entries.Remove((source, preset));
+            _entries.Remove(key);
             if (!IsProxyFileReferenced(proxyPath))
                 _retiredFiles[ProxyFingerprint.NormalizeAbsolutePath(proxyPath)] = removed;
             FlushCore();
@@ -260,7 +263,7 @@ public sealed partial class ProxyStore : IProxyStore
             RemoveMetadataEntry(removed);
         }
 
-        OnChanged(source, preset, ProxyStoreChangeKind.Deleted);
+        OnChanged(source, preset, deinterlace, ProxyStoreChangeKind.Deleted);
         return true;
     }
 
@@ -281,17 +284,18 @@ public sealed partial class ProxyStore : IProxyStore
         return false;
     }
 
-    public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+    public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc, VideoDeinterlaceOptions deinterlace = default)
     {
         if (nowUtc.Kind != DateTimeKind.Utc)
             nowUtc = nowUtc.ToUniversalTime();
 
         bool touched = false;
+        var key = (source, preset, deinterlace.Normalize());
         lock (_lock)
         {
-            if (_entries.TryGetValue((source, preset), out ProxyEntry? entry))
+            if (_entries.TryGetValue(key, out ProxyEntry? entry))
             {
-                _entries[(source, preset)] = entry with { LastUsedUtc = nowUtc };
+                _entries[key] = entry with { LastUsedUtc = nowUtc };
                 _touchDirty = true;
                 touched = true;
             }
@@ -300,7 +304,7 @@ public sealed partial class ProxyStore : IProxyStore
         if (touched)
         {
             ScheduleTouchFlush();
-            OnChanged(source, preset, ProxyStoreChangeKind.Touched);
+            OnChanged(source, preset, deinterlace, ProxyStoreChangeKind.Touched);
         }
     }
 
@@ -347,7 +351,7 @@ public sealed partial class ProxyStore : IProxyStore
 
     private static ProxyKey GetKey(ProxyEntry entry)
     {
-        return (entry.Source, entry.Preset);
+        return (entry.Source, entry.Preset, entry.Deinterlace);
     }
 
     private bool TryValidateEntry(ProxyEntry entry)
@@ -388,7 +392,7 @@ public sealed partial class ProxyStore : IProxyStore
         }
     }
 
-    private void OnChanged(ProxyFingerprint source, ProxyPreset preset, ProxyStoreChangeKind kind)
+    private void OnChanged(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace, ProxyStoreChangeKind kind)
     {
         if (Changed is not { } handlers)
             return;
@@ -397,6 +401,7 @@ public sealed partial class ProxyStore : IProxyStore
         {
             Source = source,
             Preset = preset,
+            Deinterlace = deinterlace.Normalize(),
             Kind = kind,
         };
         // Changed is an invalidation notification, not part of the mutation result: a throwing

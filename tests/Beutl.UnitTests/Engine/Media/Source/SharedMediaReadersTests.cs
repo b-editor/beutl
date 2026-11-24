@@ -51,6 +51,24 @@ public class SharedMediaReadersTests
     }
 
     [Test]
+    public void OpensOneGroupPerEffectiveDeinterlacingConfiguration()
+    {
+        var options = new VideoDeinterlaceOptions(DeinterlaceMode.Off, DeinterlaceFieldOrder.BottomFieldFirst,
+            DeinterlaceMethod.Yadif, DeinterlaceFrameRateMode.Field);
+        var key = new SharedMediaReaders.Key(s_key.Path, MediaMode.Video, false, default, 0, Deinterlace: options);
+        using var original = Open();
+        using var off = Open(key);
+        Assert.That(key, Is.EqualTo(s_key));
+        Assert.That(_opened, Has.Count.EqualTo(1));
+
+        var fields = new SharedMediaReaders.Key(s_key.Path, MediaMode.Video, false, default, 0,
+            Deinterlace: options with { Mode = DeinterlaceMode.Auto });
+        using var deinterlaced = Open(fields);
+        using var secondDeinterlaced = Open(fields);
+        Assert.That(_opened, Has.Count.EqualTo(2));
+    }
+
+    [Test]
     public void PiecesOfASplitClip_ContinueOnTheReaderThePreviousPieceLeft()
     {
         using MediaReader first = Open();

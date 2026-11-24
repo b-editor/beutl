@@ -1,4 +1,5 @@
 ﻿using Beutl.Logging;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 
 using Microsoft.Extensions.Logging;
@@ -54,18 +55,18 @@ internal sealed class StableProxyStoreFacade(IProxyStore initial) : IProxyStore
 
     public string StoreRootPath => _inner.StoreRootPath;
 
-    public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _inner.TryGet(source, preset);
+    public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => _inner.TryGet(source, preset, deinterlace);
 
     public IReadOnlyList<ProxyEntry> Enumerate() => _inner.Enumerate();
 
     public void Register(ProxyEntry entry) => _inner.Register(entry);
 
-    public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
-        => _inner.TryTransition(source, preset, newState, failureReason);
+    public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null, VideoDeinterlaceOptions deinterlace = default)
+        => _inner.TryTransition(source, preset, newState, failureReason, deinterlace);
 
-    public bool Delete(ProxyFingerprint source, ProxyPreset preset) => _inner.Delete(source, preset);
+    public bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default) => _inner.Delete(source, preset, deinterlace);
 
-    public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc) => _inner.Touch(source, preset, nowUtc);
+    public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc, VideoDeinterlaceOptions deinterlace = default) => _inner.Touch(source, preset, nowUtc, deinterlace);
 
     public long GetTotalBytes() => _inner.GetTotalBytes();
 
@@ -112,8 +113,8 @@ internal sealed class StableProxyQueueFacade(IProxyJobQueue initial) : IProxyJob
 
     public int MaxConcurrency => _inner.MaxConcurrency;
 
-    public ValueTask<ProxyJob> EnqueueAsync(ProxyFingerprint source, ProxyPreset preset, int priority = 0, CancellationToken cancellationToken = default)
-        => _inner.EnqueueAsync(source, preset, priority, cancellationToken);
+    public ValueTask<ProxyJob> EnqueueAsync(ProxyFingerprint source, ProxyPreset preset, int priority = 0, CancellationToken cancellationToken = default, VideoDeinterlaceOptions deinterlace = default)
+        => _inner.EnqueueAsync(source, preset, priority, cancellationToken, deinterlace);
 
     public IReadOnlyList<ProxyJob> Pending() => _inner.Pending();
 
@@ -146,6 +147,9 @@ internal sealed class StableProxyResolverFacade(IProxyResolver initial) : IProxy
     public void Swap(IProxyResolver next) => _inner = next;
 
     public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset) => _inner.Resolve(sourceUri, preferredPreset);
+
+    public ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset, VideoDeinterlaceOptions deinterlace)
+        => _inner.Resolve(sourceUri, preferredPreset, deinterlace);
 
     public long GetSourceVersion(string absolutePath) => _inner.GetSourceVersion(absolutePath);
 

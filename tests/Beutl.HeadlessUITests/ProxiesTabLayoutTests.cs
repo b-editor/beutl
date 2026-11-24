@@ -13,6 +13,7 @@ using Beutl.Editor.Components.ProxiesTab.Views;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Language;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -66,7 +67,9 @@ public class ProxiesTabLayoutTests
             Assert.That(view.FindControl<EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.True);
             Capture("empty");
 
-            string readyPath = AddSource("forest-a-long-descriptive-clip-name-for-layout.mov", ProxyState.Ready);
+            var fields = new VideoDeinterlaceOptions(DeinterlaceMode.On, DeinterlaceFieldOrder.TopFieldFirst,
+                DeinterlaceMethod.Bwdif, DeinterlaceFrameRateMode.Field);
+            string readyPath = AddSource("forest-a-long-descriptive-clip-name-for-layout.mov", ProxyState.Ready, fields);
             AddSource("city.mov", ProxyState.Stale);
             AddSource("interview.mov", null);
             AddSource("failed.mov", ProxyState.Failed);
@@ -95,6 +98,9 @@ public class ProxiesTabLayoutTests
 
             ProxyClipViewModel clip = FindClip();
             Border row = FindRow(clip);
+            var settings = Part<TextBlock>(row, "DeinterlaceSummaryText");
+            Assert.That(settings.IsEffectivelyVisible, Is.True);
+            Assert.That(settings.Text, Does.Contain("BWDIF 2× TFF"));
             Click(Part<TextBlock>(row, "FileNameText"));
             Assert.That(clip.IsSelected.Value, Is.True);
             Assert.That(model.HasSelection.Value, Is.True);
@@ -104,6 +110,7 @@ public class ProxiesTabLayoutTests
             Click(generateSelected);
             Assert.That(queue.Enqueued, Has.Count.EqualTo(1));
             Assert.That(queue.Enqueued[0].Source, Is.EqualTo(ProxyFingerprint.FromFile(readyPath)));
+            Assert.That(queue.Enqueued[0].Deinterlace, Is.EqualTo(fields));
             Assert.That(queue.Enqueued[0].Priority, Is.EqualTo(1));
 
             queue.ReportProgress(queue.Enqueued[0], 0.42);
@@ -152,7 +159,7 @@ public class ProxiesTabLayoutTests
             Assert.That(queue.Enqueued, Has.Count.EqualTo(2));
             Click(more);
             Click(actions.Single(x => ReferenceEquals(x.Command, model.DeleteSelectedCommand)));
-            Assert.That(store.TryGet(ProxyFingerprint.FromFile(readyPath), ProxyPreset.Quarter), Is.Null);
+            Assert.That(store.TryGet(ProxyFingerprint.FromFile(readyPath), ProxyPreset.Quarter, fields), Is.Null);
             Assert.That(File.Exists(readyPath), Is.True);
 
             int confirmations = 0;
@@ -236,7 +243,7 @@ public class ProxiesTabLayoutTests
             window.Close();
         }
 
-        string AddSource(string name, ProxyState? state)
+        string AddSource(string name, ProxyState? state, VideoDeinterlaceOptions deinterlace = default)
         {
             string path = Path.Combine(root, name);
             File.WriteAllBytes(path, new byte[4096]);
@@ -244,6 +251,10 @@ public class ProxiesTabLayoutTests
             source.ReadFrom(new Uri(path));
             var video = new SourceVideo();
             video.Source.Value = source;
+            video.DeinterlaceMode.Value = deinterlace.Mode;
+            video.DeinterlaceFieldOrder.Value = deinterlace.FieldOrder;
+            video.DeinterlaceMethod.Value = deinterlace.Method;
+            video.DeinterlaceFrameRateMode.Value = deinterlace.FrameRateMode;
             var element = new Element { Uri = new Uri(Path.Combine(root, name + ".layer")), Length = { Value = MediaTime.FromSeconds(1) } };
             element.AddObject(video);
             scene.Children.Add(element);
@@ -254,7 +265,12 @@ public class ProxiesTabLayoutTests
                 File.WriteAllBytes(Path.Combine(store.StoreRootPath, relative), new byte[2048]);
                 store.Register(new ProxyEntry(ProxyFingerprint.FromFile(path), ProxyPreset.Quarter, value, relative,
                     2048, new PixelSize(1920, 1080), new PixelSize(480, 270), DateTime.UtcNow, DateTime.UtcNow,
-                    value == ProxyState.Failed ? "The media could not be decoded. Try generating the proxy again." : null));
+                    value == ProxyState.Failed ? "The media could not be decoded. Try generating the proxy again." : null)
+                {
+                    Deinterlace = deinterlace,
+                    DeinterlaceStatus = deinterlace.Mode == DeinterlaceMode.Off
+                        ? DeinterlaceApplicationStatus.Off : DeinterlaceApplicationStatus.Applied,
+                });
             }
             return path;
         }
@@ -293,9 +309,9 @@ public class ProxiesTabLayoutTests
         public IReadOnlyList<ProxyJob> Pending() => _pending.ToArray();
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         public void CancelAll() { foreach (ProxyJob job in _pending.ToArray()) Cancel(job.JobId); }
-        public ValueTask<ProxyJob> EnqueueAsync(ProxyFingerprint source, ProxyPreset preset, int priority = 0, CancellationToken cancellationToken = default)
+        public ValueTask<ProxyJob> EnqueueAsync(ProxyFingerprint source, ProxyPreset preset, int priority = 0, CancellationToken cancellationToken = default, VideoDeinterlaceOptions deinterlace = default)
         {
-            var job = new ProxyJob(source, preset, priority: priority);
+            var job = new ProxyJob(source, preset, priority: priority, deinterlace: deinterlace);
             _pending.Add(job);
             Enqueued.Add(job);
             JobChanged?.Invoke(this, new ProxyJobChangedEventArgs { Job = job, Kind = ProxyJobChangeKind.Enqueued });

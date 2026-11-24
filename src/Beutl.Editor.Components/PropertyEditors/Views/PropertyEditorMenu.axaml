@@ -1,10 +1,12 @@
 <UserControl x:Class="Beutl.Editor.Components.PropertyEditors.Views.PropertyEditorMenu"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:decoding="using:Beutl.Media.Decoding"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:media="using:Beutl.Media"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.Editor.PropertyEditors"
              Margin="0,0,4,0"
@@ -24,7 +26,7 @@
             ToolTip.Tip="{Binding ValueDifference.Value}"
             Theme="{StaticResource TransparentButton}">
         <Button.ContextFlyout>
-            <ui:FAMenuFlyout>
+            <ui:FAMenuFlyout Opening="Menu_Opening">
                 <ui:FAMenuFlyoutItem x:Name="resetItem" Command="{Binding Reset}"
                                    Text="{x:Static lang:Strings.Reset}">
                     <ui:FAMenuFlyoutItem.IsEnabled>
@@ -79,6 +81,74 @@
                                                                        Mode=TwoWay}"
                                          IsVisible="False"
                                          Text="{x:Static lang:Strings.UniformValue}" />
+                <ui:FAMenuFlyoutSubItem x:Name="transferInterpretationMenu"
+                                      IsVisible="False"
+                                      IsEnabled="{Binding CanEditProperty.Value}"
+                                      Text="{x:Static lang:GraphicsStrings.SourceVideo_TransferInterpretation}">
+                    <ui:FARadioMenuFlyoutItem Click="TransferInterpretation_Click"
+                                            GroupName="TransferInterpretation"
+                                            Tag="{x:Static media:VideoTransferInterpretation.Auto}"
+                                            Text="{x:Static lang:GraphicsStrings.VideoTransfer_Auto}" />
+                    <ui:FARadioMenuFlyoutItem Click="TransferInterpretation_Click"
+                                            GroupName="TransferInterpretation"
+                                            Tag="{x:Static media:VideoTransferInterpretation.QuickTime}"
+                                            Text="{x:Static lang:GraphicsStrings.VideoTransfer_QuickTime}" />
+                    <ui:FARadioMenuFlyoutItem Click="TransferInterpretation_Click"
+                                            GroupName="TransferInterpretation"
+                                            Tag="{x:Static media:VideoTransferInterpretation.Bt1886}"
+                                            Text="{x:Static lang:GraphicsStrings.VideoTransfer_Bt1886}" />
+                    <ui:FARadioMenuFlyoutItem Click="TransferInterpretation_Click"
+                                            GroupName="TransferInterpretation"
+                                            Tag="{x:Static media:VideoTransferInterpretation.Srgb}"
+                                            Text="{x:Static lang:GraphicsStrings.VideoTransfer_Srgb}" />
+                    <ui:FARadioMenuFlyoutItem Click="TransferInterpretation_Click"
+                                            GroupName="TransferInterpretation"
+                                            Tag="{x:Static media:VideoTransferInterpretation.Bt709Scene}"
+                                            Text="{x:Static lang:GraphicsStrings.VideoTransfer_Bt709Scene}" />
+                </ui:FAMenuFlyoutSubItem>
+                <ui:FAMenuFlyoutSubItem x:Name="deinterlaceMenu"
+                                      IsVisible="False"
+                                      IsEnabled="{Binding CanEditProperty.Value}"
+                                      Text="{x:Static lang:GraphicsStrings.SourceVideo_Deinterlace}">
+                    <ui:FAMenuFlyoutItem x:Name="deinterlaceStatusItem" IsEnabled="False" IsVisible="False" />
+                    <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceMode"
+                                            Tag="{x:Static decoding:DeinterlaceMode.Off}"
+                                            Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_Off}" />
+                    <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceMode"
+                                            Tag="{x:Static decoding:DeinterlaceMode.Auto}"
+                                            Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_Auto}" />
+                    <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceMode"
+                                            Tag="{x:Static decoding:DeinterlaceMode.On}"
+                                            Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_On}" />
+                    <ui:FAMenuFlyoutSeparator />
+                    <ui:FAMenuFlyoutSubItem x:Name="deinterlaceFieldOrderMenu" Text="{x:Static lang:GraphicsStrings.SourceVideo_DeinterlaceFieldOrder}">
+                        <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceFieldOrder"
+                                                Tag="{x:Static decoding:DeinterlaceFieldOrder.Auto}"
+                                                Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_Auto}" />
+                        <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceFieldOrder"
+                                                Tag="{x:Static decoding:DeinterlaceFieldOrder.TopFieldFirst}"
+                                                Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_TopFieldFirst}" />
+                        <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceFieldOrder"
+                                                Tag="{x:Static decoding:DeinterlaceFieldOrder.BottomFieldFirst}"
+                                                Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_BottomFieldFirst}" />
+                    </ui:FAMenuFlyoutSubItem>
+                    <ui:FAMenuFlyoutSubItem x:Name="deinterlaceMethodMenu" Text="{x:Static lang:GraphicsStrings.SourceVideo_DeinterlaceMethod}">
+                        <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceMethod"
+                                                Tag="{x:Static decoding:DeinterlaceMethod.Bwdif}"
+                                                Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_Bwdif}" />
+                        <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceMethod"
+                                                Tag="{x:Static decoding:DeinterlaceMethod.Yadif}"
+                                                Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_Yadif}" />
+                    </ui:FAMenuFlyoutSubItem>
+                    <ui:FAMenuFlyoutSubItem x:Name="deinterlaceFrameRateMenu" Text="{x:Static lang:GraphicsStrings.SourceVideo_DeinterlaceFrameRate}">
+                        <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceFrameRateMode"
+                                                Tag="{x:Static decoding:DeinterlaceFrameRateMode.Frame}"
+                                                Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_Frame}" />
+                        <ui:FARadioMenuFlyoutItem Click="DeinterlaceOption_Click" GroupName="DeinterlaceFrameRateMode"
+                                                Tag="{x:Static decoding:DeinterlaceFrameRateMode.Field}"
+                                                Text="{x:Static lang:GraphicsStrings.VideoDeinterlace_Field}" />
+                    </ui:FAMenuFlyoutSubItem>
+                </ui:FAMenuFlyoutSubItem>
                 <ui:FAMenuFlyoutSeparator x:Name="expressionSeparator" IsVisible="False" />
                 <ui:FAMenuFlyoutItem x:Name="editExpressionItem"
                                    IsEnabled="{Binding CanEditProperty.Value}"

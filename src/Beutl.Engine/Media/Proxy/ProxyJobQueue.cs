@@ -2,6 +2,7 @@
 using System.Threading.Channels;
 
 using Beutl.Logging;
+using Beutl.Media.Decoding;
 
 using Microsoft.Extensions.Logging;
 
@@ -19,7 +20,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     private readonly IProxyStore? _store;
     private readonly Channel<WorkItem> _channel;
     private readonly CancellationTokenSource _disposeCts = new();
-    private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), WorkItem> _itemsByKey = [];
+    private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset, VideoDeinterlaceOptions Deinterlace), WorkItem> _itemsByKey = [];
     private readonly List<WorkItem> _items = [];
     private readonly Lock _lock = new();
     private readonly Task _drainTask;
@@ -164,11 +165,12 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         ProxyFingerprint source,
         ProxyPreset preset,
         int priority = 0,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        VideoDeinterlaceOptions deinterlace = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = (source, preset);
+        var key = (source, preset, Deinterlace: deinterlace.Normalize());
         WorkItem? newItem = null;
         ProxyJob? existingJob = null;
         bool promoted = false;
@@ -209,7 +211,8 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
                     preset,
                     progress,
                     cts.Token,
-                    priority);
+                    priority,
+                    key.Deinterlace);
 
                 newItem = new WorkItem(job, cts);
                 _itemsByKey.Add(key, newItem);
@@ -263,21 +266,15 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     }
 
     // Allocation-free membership test for the eviction sweep, which queries it once per candidate: a
-    // non-terminal job whose (source, preset) matches. Prefer this over Pending() there, which would
+    // non-terminal job whose (source, preset, deinterlace) matches. Prefer this over Pending() there, which would
     // rebuild a filtered snapshot per candidate.
-    public bool IsGenerating(ProxyFingerprint source, ProxyPreset preset)
+    public bool IsGenerating(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
     {
         lock (_lock)
         {
-            foreach (WorkItem item in _items)
-            {
-                ProxyJob job = item.Job;
-                if (!IsTerminal(job.Status) && job.Source == source && job.Preset == preset)
-                    return true;
-            }
+            return _itemsByKey.TryGetValue((source, preset, deinterlace.Normalize()), out WorkItem? item)
+                && !IsTerminal(item.Job.Status);
         }
-
-        return false;
     }
 
     public void Cancel(Guid jobId)
@@ -746,7 +743,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     {
         lock (_lock)
         {
-            var key = (item.Job.Source, item.Job.Preset);
+            var key = (item.Job.Source, item.Job.Preset, item.Job.Deinterlace);
             if (_itemsByKey.TryGetValue(key, out WorkItem? current)
                 && ReferenceEquals(current, item))
             {

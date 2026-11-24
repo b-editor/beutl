@@ -116,7 +116,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
                 $"Evicted {result.RemovedCount} proxy file(s), reclaimed {MediaFileInfo.FormatFileSize(result.ReclaimedBytes)}."),
             minFreeDiskBytes: DefaultMinFreeDiskBytes,
             openProjectSourceProvider: CollectOpenProjectSources,
-            isGenerationActive: (source, preset) => queue.IsGenerating(source, preset));
+            isGenerationActive: (source, preset, deinterlace) => queue.IsGenerating(source, preset, deinterlace));
         queue = new ProxyJobQueue(ResolveGeneratorFactory(store, eviction), store);
         return (store, resolver, queue, eviction);
     }

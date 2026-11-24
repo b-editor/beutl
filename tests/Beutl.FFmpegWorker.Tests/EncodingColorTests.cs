@@ -1,6 +1,8 @@
 ﻿using Beutl.FFmpegIpc;
+using Beutl.FFmpegWorker.Decoding;
 using Beutl.FFmpegWorker.Encoding;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 
@@ -48,6 +50,14 @@ public sealed class EncodingColorTests
             Assert.That(frame.Colorspace, Is.EqualTo(explicitSettings ? AVColorSpace.AVCOL_SPC_BT470BG : AVColorSpace.AVCOL_SPC_BT709));
             Assert.That(frame.ColorRange, Is.EqualTo(explicitSettings ? AVColorRange.AVCOL_RANGE_JPEG : AVColorRange.AVCOL_RANGE_MPEG));
         });
+        using (var reader = new FFmpegReader(controller.OutputFile, new MediaOptions(MediaMode.Video), new FFmpegDecodingSettings()))
+        {
+            var expectedTags = explicitSettings
+                ? new VideoColorTags(BitmapColorTransfer.Srgb, BitmapColorPrimaries.Bt709, VideoColorMatrix.Bt601, VideoColorRange.Full)
+                : new VideoColorTags(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709, VideoColorMatrix.Bt709, VideoColorRange.Limited);
+            Assert.That(reader.VideoInfo.ColorTags, Is.EqualTo(expectedTags));
+            Assert.That(reader.VideoInfo.HasIccProfile, Is.False);
+        }
 
         // Independent reference values for red, green, blue, sRGB mid-gray, black and white.
         // sRGB 128 becomes BT.709 R'G'B' 117, which QuickTime reads back as 128, before limited-range YUV conversion.

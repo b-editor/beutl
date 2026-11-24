@@ -12,7 +12,7 @@ public sealed partial class FFmpegProxyGenerator
     {
         string metadataPath = GetMetadataPath(finalPath);
         ProxyEntry[] entries = ReadMetadataEntries(metadataPath, entry.Source)
-            .Where(existing => existing.Preset != entry.Preset)
+            .Where(existing => existing.Preset != entry.Preset || existing.Deinterlace != entry.Deinterlace)
             .Append(entry)
             .ToArray();
         WriteMetadataFile(metadataPath, entry.Source, entries);
@@ -27,7 +27,8 @@ public sealed partial class FFmpegProxyGenerator
                 return;
 
             ProxyEntry[] entries = ReadMetadataEntries(metadataPath, entry.Source)
-                .Where(existing => existing.Preset != entry.Preset || existing.ProxyFileRelative != entry.ProxyFileRelative)
+                .Where(existing => existing.Preset != entry.Preset || existing.Deinterlace != entry.Deinterlace
+                    || existing.ProxyFileRelative != entry.ProxyFileRelative)
                 .ToArray();
             if (entries.Length == 0)
             {

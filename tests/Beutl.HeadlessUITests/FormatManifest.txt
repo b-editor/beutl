@@ -828,7 +828,7 @@ Beutl.Utilities
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Source, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Graphics:SourceVideo
   unsealed
-  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, IsLoop, Name, OffsetPosition, Opacity, Source, Speed, Transform, TransformOrigin
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, DeinterlaceFieldOrder, DeinterlaceFrameRateMode, DeinterlaceMethod, DeinterlaceMode, Expressions, FilterEffect, Id, IsEnabled, IsLoop, Name, OffsetPosition, Opacity, Source, Speed, TransferInterpretation, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Graphics:TrackMattePresenter
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
