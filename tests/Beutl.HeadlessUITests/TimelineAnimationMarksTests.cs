@@ -427,6 +427,15 @@ public class TimelineAnimationMarksTests
     }
 
     [Test]
+    public void A_value_line_normalizes_large_finite_values()
+    {
+        var line = new InlineEasingGraphControl.ValueLine([0, 1, 2], [-1e308, 0, 1e308]);
+        Assert.That(InlineEasingGraphControl.ValueLine.TryGetRange([line], out double min, out double max), Is.True);
+        Assert.That(line.Values.Select(value => InlineEasingGraphControl.ValueLine.ToHeight(value, min, max)),
+            Is.EqualTo(new[] { 1.0, 0.5, 0.0 }));
+    }
+
+    [Test]
     public void A_held_value_jumps_at_the_next_key_rather_than_ramping_to_it()
     {
         KeyFrameAnimation<float> animation = Animation((0.0, 0f), (1.0, 100f));

@@ -405,7 +405,16 @@ public sealed class InlineEasingGraphControl : Control
         // Where value lies from the top of the drawn height, 0 at the top and 1 at the bottom, or halfway when every
         // value is the same.
         public static double ToHeight(double value, double min, double max)
-            => max - min < 1e-9 ? 0.5 : (max - value) / (max - min);
+        {
+            double range = max - min;
+            if (double.IsPositiveInfinity(range))
+            {
+                // Halve the operands before subtracting so both differences fit in a double.
+                return (max * 0.5 - value * 0.5) / (max * 0.5 - min * 0.5);
+            }
+
+            return range < 1e-9 ? 0.5 : (max - value) / range;
+        }
     }
 
     // The values a key frame animation of some value type gives, as objects.
