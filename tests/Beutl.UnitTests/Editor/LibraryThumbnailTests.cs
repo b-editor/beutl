@@ -5,6 +5,7 @@ using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Graphics.Transitions;
@@ -232,12 +233,14 @@ public class LibraryThumbnailTests
 
     // An effect picker shows effects on the object it adds to, cropped to what it draws, at the size it has in the
     // project, with room around it in the thumbnail.
-    [Test]
-    public async Task An_element_is_captured_alone_at_its_size_in_the_project()
+    [TestCase(1920, 1080)]
+    [TestCase(3840, 2160)]
+    [TestCase(7680, 4320)]
+    public async Task An_element_is_captured_alone_at_its_size_in_the_project(int width, int height)
     {
         TestGpu.RequireAnyDevice();
-        Scene scene = CreateScene();
-        AddElement(scene, CreateRect(1920, 1080, Colors.Blue), 0, 4, 0);
+        Scene scene = CreateScene(width, height);
+        AddElement(scene, CreateRect(width, height, Colors.Blue), 0, 4, 0);
         Element small = AddElement(scene, CreateRect(400, 200, Colors.Red), 0, 4, 1);
 
         using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(TestFonts.Manager, small, MediaTime.FromSeconds(1));
@@ -257,6 +260,98 @@ public class LibraryThumbnailTests
             Assert.That(center.R, Is.GreaterThan(200), "The element itself, without the layer beneath.");
             Assert.That(corner.R, Is.GreaterThan(200), "Nothing is kept around what it draws.");
         });
+    }
+
+    [TestCase(1f)]
+    [TestCase(0.75f)]
+    public async Task A_region_render_matches_the_frame_at_a_fractional_edge(float scale)
+    {
+        TestGpu.RequireAnyDevice();
+        Scene scene = CreateScene();
+        RectShape shape = CreateRect(400, 200, Colors.Red);
+        shape.AlignmentX.Value = AlignmentX.Right;
+        shape.AlignmentY.Value = AlignmentY.Bottom;
+        shape.Transform.Value = new TranslateTransform(40.5f, -15.25f);
+        shape.FilterEffect.Value = new DropShadow
+        {
+            Position = { Value = new Point(-35, 45) },
+            Sigma = { Value = new Size(6, 6) },
+            Color = { Value = Colors.Blue },
+        };
+        AddElement(scene, shape, 0, 4, 0);
+
+        await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            using var renderer = LibraryThumbnailRenderer.CreateRenderer(scene, TestFonts.Manager, scale);
+            CompositionFrame frame = renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(1));
+            var targets = new RecordingTargetFactory();
+            using RenderNodeRasterization raster = LibraryThumbnailSubject.RasterizeObject(frame, scale, targets);
+            using Bitmap region = ToBgra(raster.Bitmap!);
+            var bounds = new PixelRect(
+                (int)MathF.Round(raster.Bounds.X * scale), (int)MathF.Round(raster.Bounds.Y * scale), region.Width, region.Height);
+            Assert.That(bounds.Right, Is.EqualTo(renderer.DeviceSize.Width));
+            Assert.That(targets.Sizes, Does.Contain(bounds.Size));
+            Assert.That(targets.Sizes, Has.All.Matches<PixelSize>(size => size.Width <= 512 && size.Height <= 512));
+
+            renderer.Render(frame);
+            using Bitmap snapshot = renderer.Snapshot();
+            using Bitmap reference = ToBgra(snapshot);
+            using Bitmap expectedRegion = reference.ExtractSubset(bounds);
+            Assert.That(Difference(region, expectedRegion), Is.LessThanOrEqualTo(0.1));
+
+            // Include alpha and verify the entire frame so clipping the shadow cannot pass the cropped comparison.
+            int largestAlphaDifference = 0;
+            for (int y = 0; y < reference.Height; y++)
+            {
+                ReadOnlySpan<Bgra8888> row = reference.GetRow<Bgra8888>(y);
+                ReadOnlySpan<Bgra8888> cropped = y >= bounds.Y && y < bounds.Bottom ? region.GetRow<Bgra8888>(y - bounds.Y) : [];
+                for (int x = 0; x < row.Length; x++)
+                {
+                    byte alpha = !cropped.IsEmpty && x >= bounds.X && x < bounds.Right ? cropped[x - bounds.X].A : (byte)0;
+                    largestAlphaDifference = Math.Max(largestAlphaDifference, Math.Abs(row[x].A - alpha));
+                }
+            }
+
+            Assert.That(largestAlphaDifference, Is.LessThanOrEqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task A_frame_sized_image_with_small_coverage_keeps_the_probe_when_detail_would_be_too_large()
+    {
+        TestGpu.RequireAnyDevice();
+        Scene scene = CreateScene(3840, 2160);
+        using var image = new Bitmap(640, 360, BitmapColorType.Bgra8888, BitmapAlphaType.Premul);
+        for (int y = 170; y < 190; y++)
+            image.GetRow<Bgra8888>(y).Slice(300, 40).Fill(new Bgra8888(255, 0, 0, 255));
+
+        string path = Path.Combine(_directory, "transparent.png");
+        Assert.That(image.Save(path, EncodedImageFormat.Png), Is.True);
+        var source = new SourceImage
+        {
+            Source = { Value = ImageSource.Open(new Uri(path)) },
+            Transform = { Value = new ScaleTransform(600, 600) },
+        };
+        Element element = AddElement(scene, source, 0, 4, 0);
+        await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            using var compositor = new SceneCompositor(scene, TestFonts.Manager);
+            CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.FromSeconds(1));
+            var targets = new RecordingTargetFactory();
+            Assert.Throws<RenderTargetAllocationException>(() =>
+            {
+                using var raster = LibraryThumbnailSubject.RasterizeObject(frame, 1f, targets);
+            });
+            Assert.That(targets.Sizes, Is.Empty);
+        });
+
+        using LibraryThumbnailSubject? subject = await LibraryThumbnailSubject.CaptureElementAsync(
+            TestFonts.Manager, element, MediaTime.FromSeconds(1));
+        LibraryThumbnailSubject.Picture picture = subject!.EffectPicture!;
+        // The probe's sampling can cover a neighboring pixel at the edge of the patch.
+        Assert.That(picture.Pixels.Width, Is.EqualTo(40).Within(2));
+        Assert.That(picture.Pixels.Height, Is.EqualTo(20).Within(2));
+        Assert.That(picture.Size, Is.EqualTo(picture.Pixels.ToSize(640f / 3840)));
     }
 
     // An effect applies to content at the size it has in the project and to its own bounds, and only the result is
@@ -448,9 +543,9 @@ public class LibraryThumbnailTests
             .OrderBy(type => type.FullName);
     }
 
-    private Scene CreateScene()
+    private Scene CreateScene(int width = 1920, int height = 1080)
     {
-        return new Scene(1920, 1080, string.Empty)
+        return new Scene(width, height, string.Empty)
         {
             Duration = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(Path.Combine(_directory, $"{Guid.NewGuid():N}.scene")),
@@ -531,6 +626,20 @@ public class LibraryThumbnailTests
     {
         using Bitmap converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
         return converted.GetRow<Bgra8888>(y)[x];
+    }
+
+    private static Bitmap ToBgra(Bitmap bitmap)
+        => bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+
+    private sealed class RecordingTargetFactory : IRenderTargetFactory
+    {
+        public List<PixelSize> Sizes { get; } = [];
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            Sizes.Add(allocation.DeviceSize);
+            return RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+        }
     }
 
     // The mean absolute difference of the color channels, from 0 to 255.
