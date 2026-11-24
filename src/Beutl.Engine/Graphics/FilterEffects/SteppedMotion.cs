@@ -8,17 +8,17 @@ using Beutl.Language;
 namespace Beutl.Graphics.Effects;
 
 /// <summary>Holds the drawable's input between samples spaced from the drawable's start.</summary>
-[Display(Name = nameof(GraphicsStrings.PosterizeTime), Description = nameof(GraphicsStrings.PosterizeTime_Description),
+[Display(Name = nameof(GraphicsStrings.SteppedMotion), Description = nameof(GraphicsStrings.SteppedMotion_Description),
     ResourceType = typeof(GraphicsStrings))]
-public sealed partial class PosterizeTime : FilterEffect
+public sealed partial class SteppedMotion : FilterEffect
 {
     private const double MinimumRate = 0.01;
     private const float MaximumRate = 240f;
 
-    public PosterizeTime() => ScanProperties<PosterizeTime>();
+    public SteppedMotion() => ScanProperties<SteppedMotion>();
 
-    [Display(Name = nameof(GraphicsStrings.PosterizeTime_FrameRate),
-        Description = nameof(GraphicsStrings.PosterizeTime_FrameRate_Description), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.SteppedMotion_FrameRate),
+        Description = nameof(GraphicsStrings.SteppedMotion_FrameRate_Description), ResourceType = typeof(GraphicsStrings))]
     [Range(MinimumRate, MaximumRate)]
     public IExpressionProperty<float> FrameRate { get; } = Property.CreateAnimatable(12f);
 
@@ -45,7 +45,7 @@ public sealed partial class PosterizeTime : FilterEffect
         public override void RenderInput(GraphicsContext2D context, FilterEffectInputContext input)
             => Sample?.Draw(context);
 
-        partial void PostReconcile(PosterizeTime obj, CompositionContext context) => Sample = null;
+        partial void PostReconcile(SteppedMotion obj, CompositionContext context) => Sample = null;
 
         partial void PostDispose(bool disposing) => Sample = null;
 

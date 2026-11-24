@@ -14,7 +14,7 @@ namespace Beutl.HeadlessUITests;
 
 [TestFixture]
 [NonParallelizable]
-public sealed class PosterizeTimeEditorTests
+public sealed class SteppedMotionEditorTests
 {
     [AvaloniaTest]
     [TestCase("en", "Stepped Motion", "Rate (fps)")]
@@ -25,13 +25,13 @@ public sealed class PosterizeTimeEditorTests
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
         try
         {
-            var effect = new PosterizeTime();
+            var effect = new SteppedMotion();
             using var history = new PropertyEditorTestHost.HistoryScope(effect);
             var (model, control) = PropertyEditorTestHost.CreateControl(PropertyAdapterFactory.CreateAdapter(effect.FrameRate, effect));
             using var propertyModel = model;
             model.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
             var editor = (NumberEditor<float>)control;
-            var title = new TextBlock { Text = GraphicsStrings.PosterizeTime, Focusable = true };
+            var title = new TextBlock { Text = GraphicsStrings.SteppedMotion, Focusable = true };
             var panel = new StackPanel { Children = { title, editor } };
             using var host = new ControlHost(panel, width: 280, height: 120);
             HeadlessTestHelpers.Render(3);
@@ -56,12 +56,12 @@ public sealed class PosterizeTimeEditorTests
                 Assert.That(effect.FrameRate.Value, Is.EqualTo(0.01f));
             }
 
-            if (Environment.GetEnvironmentVariable("BEUTL_POSTERIZE_TIME_CAPTURE") is { Length: > 0 } directory)
+            if (Environment.GetEnvironmentVariable("BEUTL_STEPPED_MOTION_CAPTURE") is { Length: > 0 } directory)
             {
                 Directory.CreateDirectory(directory);
                 using var image = host.Window.CaptureRenderedFrame();
                 Assert.That(image, Is.Not.Null);
-                image!.Save(Path.Combine(directory, $"posterize-time-{language}.png"), PngBitmapEncoderOptions.Default);
+                image!.Save(Path.Combine(directory, $"stepped-motion-{language}.png"), PngBitmapEncoderOptions.Default);
             }
         }
         finally

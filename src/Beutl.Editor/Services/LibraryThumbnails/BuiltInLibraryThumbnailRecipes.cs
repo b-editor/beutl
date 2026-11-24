@@ -58,7 +58,7 @@ internal static class BuiltInLibraryThumbnailRecipes
             context.Subject?.Transform.Value = move;
         });
 
-        LibraryThumbnailRecipes.Register<PosterizeTime>(LibraryThumbnailSample.Object, (effect, context) =>
+        LibraryThumbnailRecipes.Register<SteppedMotion>(LibraryThumbnailSample.Object, (effect, context) =>
         {
             effect.FrameRate.Value = 4;
             var move = new TranslateTransform();

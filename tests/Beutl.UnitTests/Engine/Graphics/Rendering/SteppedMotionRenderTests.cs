@@ -10,7 +10,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 [TestFixture]
 [NonParallelizable]
-public sealed class PosterizeTimeRenderTests
+public sealed class SteppedMotionRenderTests
 {
     [Test]
     public void PreviewHoldsTheSampleUntilTheBoundaryAndWhenSeekingBack()
@@ -22,7 +22,7 @@ public sealed class PosterizeTimeRenderTests
             var move = new TranslateTransform();
             MotionBlurTests.Animate(move.X, -24, 24);
             shape.Transform.Value = move;
-            var effect = new PosterizeTime { FrameRate = { Value = 2 } };
+            var effect = new SteppedMotion { FrameRate = { Value = 2 } };
             shape.FilterEffect.Value = effect;
 
             using var renderer = new SceneRenderer(MotionBlurTests.SceneWith(shape), TestFonts.Manager, RenderIntent.Preview);

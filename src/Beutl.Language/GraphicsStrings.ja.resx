@@ -2104,16 +2104,16 @@
   <data name="EchoBlendMode_Add" xml:space="preserve">
     <value>加算</value>
   </data>
-  <data name="PosterizeTime" xml:space="preserve">
+  <data name="SteppedMotion" xml:space="preserve">
     <value>コマ撮り風</value>
   </data>
-  <data name="PosterizeTime_Description" xml:space="preserve">
+  <data name="SteppedMotion_Description" xml:space="preserve">
     <value>要素の開始時刻を基準に、一定間隔で画面を切り替えます。</value>
   </data>
-  <data name="PosterizeTime_FrameRate" xml:space="preserve">
+  <data name="SteppedMotion_FrameRate" xml:space="preserve">
     <value>レート (fps)</value>
   </data>
-  <data name="PosterizeTime_FrameRate_Description" xml:space="preserve">
+  <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
     <value>1秒あたりのサンプル数です。値を下げると、同じフレームを長く保持します。</value>
   </data>
   <data name="AlphaMode" xml:space="preserve">
@@ -2269,7 +2269,7 @@
   <data name="Echo_LibraryDescription" xml:space="preserve">
     <value>過去や未来の時刻のコピーを不透明度を下げながら重ねます（残像、ゴースト、軌跡 / afterimage, ghost trail, motion trails）。</value>
   </data>
-  <data name="PosterizeTime_LibraryDescription" xml:space="preserve">
+  <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
     <value>フレームを一定間隔で保持してコマ撮り風の動きにします（ストップモーション、低フレームレート / frame hold, stop motion）。</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">

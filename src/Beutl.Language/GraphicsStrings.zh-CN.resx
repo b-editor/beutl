@@ -2108,16 +2108,16 @@
   <data name="EchoBlendMode_Add" xml:space="preserve">
     <value>相加</value>
   </data>
-  <data name="PosterizeTime" xml:space="preserve">
+  <data name="SteppedMotion" xml:space="preserve">
     <value>定格动画</value>
   </data>
-  <data name="PosterizeTime_Description" xml:space="preserve">
+  <data name="SteppedMotion_Description" xml:space="preserve">
     <value>从元素的起始时间开始，按固定间隔对输入采样并保持画面。</value>
   </data>
-  <data name="PosterizeTime_FrameRate" xml:space="preserve">
+  <data name="SteppedMotion_FrameRate" xml:space="preserve">
     <value>帧率 (fps)</value>
   </data>
-  <data name="PosterizeTime_FrameRate_Description" xml:space="preserve">
+  <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
     <value>每秒采样次数。数值越低，每帧保持的时间越长。</value>
   </data>
   <data name="AlphaMode" xml:space="preserve">
@@ -2273,7 +2273,7 @@
   <data name="Echo_LibraryDescription" xml:space="preserve">
     <value>在当前帧上叠加较早或较晚时刻逐渐淡出的副本（残影、重影、运动拖尾 / afterimage, ghost trail, motion trails）。</value>
   </data>
-  <data name="PosterizeTime_LibraryDescription" xml:space="preserve">
+  <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
     <value>以较低帧率保持画面，营造定格动画效果（帧保持、低帧率 / frame hold, stop motion）。</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">

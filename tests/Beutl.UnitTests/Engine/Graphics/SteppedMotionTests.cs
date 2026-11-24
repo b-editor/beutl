@@ -8,7 +8,7 @@ using Beutl.UnitTests.TestInfrastructure;
 namespace Beutl.UnitTests.Engine.Graphics;
 
 [TestFixture]
-public sealed class PosterizeTimeTests
+public sealed class SteppedMotionTests
 {
     [TestCase(2f, 2, 1, 1)]
     [TestCase(0.01f, 1, 100, 1)]
@@ -17,7 +17,7 @@ public sealed class PosterizeTimeTests
     [TestCase(240f, 240, 1, 1)]
     public void SamplesSwitchAtTheElementRelativeBoundary(float fps, int numerator, int denominator, int frame)
     {
-        var shape = new RectShape { FilterEffect = { Value = new PosterizeTime { FrameRate = { Value = fps } } } };
+        var shape = new RectShape { FilterEffect = { Value = new SteppedMotion { FrameRate = { Value = fps } } } };
         var element = new Element
         {
             Start = { Value = MediaTime.FromSeconds(0.3) },
@@ -30,7 +30,7 @@ public sealed class PosterizeTimeTests
         MediaTime boundary = element.Start.Value + MediaTime.FromFrames(frame, rate);
         var context = new CompositionContext(boundary - flick);
         using var resource = shape.ToResource(context);
-        var effect = (PosterizeTime.Resource)resource.FilterEffect!;
+        var effect = (SteppedMotion.Resource)resource.FilterEffect!;
         FilterEffectInputSample first = effect.Sample!;
         var sampledDrawable = first.Resource;
         Assert.That(first.Time, Is.EqualTo(earlier));
@@ -52,7 +52,7 @@ public sealed class PosterizeTimeTests
     public void MovingTheElementKeepsTheHeldAnimationAtTheSameLocalTime()
     {
         RectShape shape = MotionBlurTests.Rectangle();
-        shape.FilterEffect.Value = new PosterizeTime { FrameRate = { Value = 2 } };
+        shape.FilterEffect.Value = new SteppedMotion { FrameRate = { Value = 2 } };
         Scene scene = MotionBlurTests.SceneWith(shape);
         var project = new Project();
         new TestHierarchicalRoot().HierarchicalChildren.Add(project);
@@ -61,7 +61,7 @@ public sealed class PosterizeTimeTests
         element.Start.Value = MediaTime.FromSeconds(0.3);
         var context = new CompositionContext(MediaTime.FromSeconds(1.1));
         using var resource = shape.ToResource(context);
-        var effect = (PosterizeTime.Resource)resource.FilterEffect!;
+        var effect = (SteppedMotion.Resource)resource.FilterEffect!;
         float width = ((RectShape.Resource)effect.Sample!.Resource!).Width;
         Assert.That(effect.Sample.Time, Is.EqualTo(MediaTime.FromSeconds(0.8)));
         Assert.That(width, Is.EqualTo(15f));
@@ -75,14 +75,14 @@ public sealed class PosterizeTimeTests
     [Test]
     public void RestoresTheFractionalRateAndKeyframesWhenLoaded()
     {
-        var effect = new PosterizeTime { FrameRate = { Value = 29.97f } };
+        var effect = new SteppedMotion { FrameRate = { Value = 29.97f } };
         MotionBlurTests.Animate(effect.FrameRate, 1, 2);
         var shape = new RectShape { FilterEffect = { Value = effect } };
         var restored = (RectShape)CoreSerializer.DeserializeFromJsonObject(CoreSerializer.SerializeToJsonObject(shape), typeof(RectShape));
-        Assert.That(((PosterizeTime)restored.FilterEffect.Value!).FrameRate.Value, Is.EqualTo(29.97f));
+        Assert.That(((SteppedMotion)restored.FilterEffect.Value!).FrameRate.Value, Is.EqualTo(29.97f));
 
         using var resource = restored.ToResource(new CompositionContext(MediaTime.FromSeconds(1)));
-        var evaluated = (PosterizeTime.Resource)resource.FilterEffect!;
+        var evaluated = (SteppedMotion.Resource)resource.FilterEffect!;
         Assert.That(evaluated.FrameRate, Is.EqualTo(1.5f));
         Assert.That(evaluated.Sample!.Time, Is.EqualTo(MediaTime.FromFrames(1, new Rational(3, 2))));
     }
@@ -90,11 +90,11 @@ public sealed class PosterizeTimeTests
     [Test]
     public void InvalidRateReleasesTheOldSampleAndSamplingCanResume()
     {
-        var effect = new PosterizeTime();
+        var effect = new SteppedMotion();
         var shape = new RectShape { FilterEffect = { Value = effect } };
         var context = new CompositionContext(MediaTime.FromSeconds(0.1));
         using var resource = shape.ToResource(context);
-        var evaluated = (PosterizeTime.Resource)resource.FilterEffect!;
+        var evaluated = (SteppedMotion.Resource)resource.FilterEffect!;
         FilterEffectInputSample first = evaluated.Sample!;
 
         EchoTests.SetUnvalidated(effect.FrameRate, float.NaN);
