@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using System.Reflection;
+using Beutl.Engine.Expressions;
 using Beutl.Language;
 
 namespace Beutl.Animation;
@@ -10,6 +11,7 @@ public static class ComponentAnimations
     private static readonly Dictionary<Type, (Func<IProperty, IComponentAnimation> Separate, Action<IProperty, MediaTime> Unseparate)> s_operations = [];
     private static readonly Dictionary<Type, object> s_definitions = [];
     private static readonly Dictionary<Type, object> s_offsets = [];
+    private static readonly Dictionary<Type, object> s_wiggles = [];
     private static readonly Dictionary<Type, object> s_replacements = [];
     private static readonly Dictionary<Type, object> s_maskedReplacements = [];
     private static readonly Dictionary<Type, Func<object, int, object?>> s_componentValues = [];
@@ -77,7 +79,7 @@ public static class ComponentAnimations
             new("R", v => v.R, (v, n) => Media.Color.FromArgb(v.A, n, v.G, v.B)),
             new("G", v => v.G, (v, n) => Media.Color.FromArgb(v.A, v.R, n, v.B)),
             new("B", v => v.B, (v, n) => Media.Color.FromArgb(v.A, v.R, v.G, n)),
-            new("A", v => v.A, (v, n) => Media.Color.FromArgb(n, v.R, v.G, v.B)));
+            new("A", v => v.A, (v, n) => Media.Color.FromArgb(n, v.R, v.G, v.B), Wiggles: false));
         Register<Media.GradingColor, float>(
             new("R", v => v.R, (v, n) => new(n, v.G, v.B)),
             new("G", v => v.G, (v, n) => new(v.R, n, v.B)),
@@ -112,6 +114,20 @@ public static class ComponentAnimations
 
             foreach (var component in components)
                 value = component.Set(value, NumericOffset.AddScaled(component.Get(value), component.Get(from), component.Get(to), scale));
+            return value;
+        });
+        s_wiggles[typeof(T)] = (Func<T, double, double, int, ulong, T>)((value, x, amplitude, octaves, seed) =>
+        {
+            for (int i = 0; i < components.Length; i++)
+            {
+                var component = components[i];
+                if (!component.Wiggles)
+                    continue;
+
+                double offset = WiggleNoise.SampleComponent(x, octaves, seed, i) * amplitude;
+                TComponent adjusted = NumericOffset.AddFractional(component.Get(value), ExpressionEvaluationState<double>.RequireFinite(offset));
+                value = component.Set(value, ExpressionEvaluationState<TComponent>.RequireFinite(adjusted));
+            }
             return value;
         });
         s_replacements[typeof(T)] = (Func<T, T, T, T>)((value, shown, input) =>
@@ -193,22 +209,40 @@ public static class ComponentAnimations
             throw new ExpressionException($"Loop modes Offset and Continue are not supported for {typeof(T).Name}.");
     }
 
+    internal static Func<T, double, double, int, ulong, T> GetWiggle<T>()
+        => s_wiggles.TryGetValue(typeof(T), out object? wiggle)
+            ? (Func<T, double, double, int, ulong, T>)wiggle
+            : ScalarOffset<T>.Wiggle ?? throw new ExpressionException($"WiggleValue is not supported for {typeof(T).Name}.");
+
+    private static T WiggleScalar<T>(T value, double x, double amplitude, int octaves, ulong seed) where T : INumber<T>
+    {
+        double offset = WiggleNoise.Sample(x, octaves, seed) * amplitude;
+        // Conversion can swallow NaN. The property itself only checks float and double results.
+        if (typeof(T) != typeof(float) && typeof(T) != typeof(double))
+            ExpressionEvaluationState<double>.RequireFinite(offset);
+        return NumericOffset.AddFractional(value, offset);
+    }
+
     private static class ScalarOffset<T>
     {
-        public static readonly Func<T, T, T, double, T>? Add = Bind();
+        public static readonly Func<T, T, T, double, T>? Add;
+        public static readonly Func<T, double, double, int, ulong, T>? Wiggle;
 
-        private static Func<T, T, T, double, T>? Bind()
+        static ScalarOffset()
         {
             Type type = typeof(T);
             if (!type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(INumber<>)
                 && i.GenericTypeArguments[0] == type))
             {
-                return null;
+                return;
             }
 
-            return typeof(NumericOffset).GetMethod(nameof(NumericOffset.AddScaled), BindingFlags.Static | BindingFlags.NonPublic)!
+            Add = typeof(NumericOffset).GetMethod(nameof(NumericOffset.AddScaled), BindingFlags.Static | BindingFlags.NonPublic)!
                 .MakeGenericMethod(type)
                 .CreateDelegate<Func<T, T, T, double, T>>();
+            Wiggle = typeof(ComponentAnimations).GetMethod(nameof(WiggleScalar), BindingFlags.Static | BindingFlags.NonPublic)!
+                .MakeGenericMethod(type)
+                .CreateDelegate<Func<T, double, double, int, ulong, T>>();
         }
     }
 
@@ -263,7 +297,7 @@ public static class ComponentAnimations
 }
 
 internal sealed record ComponentDefinition<T, TComponent>(
-    string Name, Func<T, TComponent> Get, Func<T, TComponent, T> Set);
+    string Name, Func<T, TComponent> Get, Func<T, TComponent, T> Set, bool Wiggles = true);
 
 internal sealed record ComponentSet<T, TComponent>(
     ComponentDefinition<T, TComponent>[] Components, Func<T, T, bool>? UnitChanged);

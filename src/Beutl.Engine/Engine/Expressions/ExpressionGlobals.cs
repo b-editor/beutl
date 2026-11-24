@@ -145,12 +145,14 @@ public class ExpressionGlobals
         if (amplitude == 0 || octaves <= 0)
             return 0;
 
-        ulong noiseSeed = seed is int explicitSeed ? unchecked((ulong)explicitSeed) : GetWiggleSeed();
-        return WiggleNoise.Sample(Time * frequency, octaves, noiseSeed) * amplitude;
+        return WiggleNoise.Sample(Time * frequency, octaves, GetWiggleSeed(seed)) * amplitude;
     }
 
-    private ulong GetWiggleSeed()
+    private protected ulong GetWiggleSeed(int? seed)
     {
+        if (seed is int explicitSeed)
+            return unchecked((ulong)explicitSeed);
+
         IProperty property = Context.CurrentProperty;
         Guid ownerId = property.GetOwnerObject()?.Id.Value ?? Guid.Empty;
         string name;
