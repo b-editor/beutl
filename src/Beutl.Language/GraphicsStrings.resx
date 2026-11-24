@@ -2200,7 +2200,7 @@
     <value>Rate (fps)</value>
   </data>
   <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
-    <value>The number of samples per second. Lower values hold each frame for longer.</value>
+    <value>The number of samples per second. Lower values hold each frame for longer. To change the rate over time, use keyframes: a rate from an expression applies to the whole time since the start.</value>
   </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>Alpha Mode</value>

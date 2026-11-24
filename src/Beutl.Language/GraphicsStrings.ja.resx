@@ -2195,7 +2195,7 @@
     <value>レート (fps)</value>
   </data>
   <data name="SteppedMotion_FrameRate_Description" xml:space="preserve">
-    <value>1秒あたりのサンプル数です。値を下げると、同じフレームを長く保持します。</value>
+    <value>1秒あたりのサンプル数です。値を下げると、同じフレームを長く保持します。時間とともに変えるときはキーフレームを使ってください。式によるレートは、開始からの時間全体に適用されます。</value>
   </data>
   <data name="AlphaMode" xml:space="preserve">
     <value>アルファモード</value>
