@@ -54,6 +54,8 @@ public sealed class NodePortPoint : Control
         set => SetValue(IsConnectedProperty, value);
     }
 
+    internal double VisualRadius => _visualRadius;
+
     public event EventHandler<NodePortConnectRequestedEventArgs>? ConnectRequested;
 
     public event EventHandler<NodePortConnectRequestedEventArgs>? DisconnectRequested;
@@ -105,6 +107,7 @@ public sealed class NodePortPoint : Control
 
         if (Math.Abs(_visualRadius - target) < 0.01)
         {
+            UiMotion.Cancel(this);
             _visualRadius = target;
             InvalidateVisual();
             return;

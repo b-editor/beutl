@@ -54,6 +54,8 @@ public static class RevealMotion
         public void Dispose()
         {
             UiMotion.Cancel(_owner);
+            if (_owner.Opacity < 1)
+                _owner.Opacity = 1;
             _owner.PropertyChanged -= OnPropertyChanged;
             _owner.AttachedToVisualTree -= OnAttached;
             _owner.DetachedFromVisualTree -= OnDetached;

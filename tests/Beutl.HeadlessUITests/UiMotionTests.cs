@@ -3,9 +3,14 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Beutl.Controls;
+using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Testing.Headless;
 
@@ -364,5 +369,101 @@ public sealed class UiMotionTests
         target.IsVisible = true;
         Assert.That(target.Opacity, Is.EqualTo(1));
         Assert.That(target.RenderTransform, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public void Clearing_RevealMotion_mode_mid_reveal_restores_opacity_and_transform()
+    {
+        var target = new Border { Width = 60, Height = 24, Background = Brushes.Gray, IsVisible = false };
+        RevealMotion.SetMode(target, RevealMotionMode.Pop);
+        var window = new Window { Content = target, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            target.IsVisible = true;
+            Assert.That(target.Opacity, Is.EqualTo(0));
+            Assert.That(target.RenderTransform, Is.TypeOf<ScaleTransform>());
+
+            RevealMotion.SetMode(target, RevealMotionMode.None);
+            Assert.That(target.Opacity, Is.EqualTo(1));
+            Assert.That(target.RenderTransform, Is.Null);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task NodePortPoint_cancels_pending_hover_animation_when_pointer_leaves_before_a_frame()
+    {
+        var port = new NodePortPoint
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var window = new Window { Content = port, Width = 120, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            Point center = HeadlessTestHelpers.Center(port, window);
+            // Enter and leave before any animation frame runs: the pending hover run must be cancelled.
+            window.MouseMove(center);
+            window.MouseMove(new Point(2, 2));
+
+            await Task.Delay(150);
+            HeadlessTestHelpers.Render(4);
+            Assert.That(port.VisualRadius, Is.EqualTo(5.0).Within(0.01));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ColorPaletteItem_edge_press_keeps_fixed_hit_target_and_fires_click_after_press_animation()
+    {
+        var swatch = new ColorPaletteItem
+        {
+            Width = 20,
+            Height = 20,
+            Color = Colors.CornflowerBlue,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        int clicks = 0;
+        swatch.Click += (_, _) => clicks++;
+
+        var window = new Window { Content = swatch, Width = 120, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(2);
+
+            Point origin = swatch.TranslatePoint(default, window)!.Value;
+            // Press 0.3px inside the left edge (would fall outside a 0.95x RenderTransform shrink).
+            var edgePoint = new Point(origin.X + 0.3, origin.Y + 10);
+            window.MouseMove(edgePoint);
+            window.MouseDown(edgePoint, MouseButton.Left);
+
+            // Let the press animation complete while holding on the edge.
+            await Task.Delay(150);
+            HeadlessTestHelpers.Render(4);
+            Assert.That(swatch.Classes.Contains(":pressed"), Is.True);
+
+            window.MouseUp(edgePoint, MouseButton.Left);
+            HeadlessTestHelpers.Render(2);
+            Assert.That(clicks, Is.EqualTo(1));
+            Assert.That(swatch.Classes.Contains(":pressed"), Is.False);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 }

@@ -260,7 +260,9 @@ public sealed class PlayerSeekBar : Slider
         if (point.Properties.IsLeftButtonPressed && FindMarker(point.Position.X) is { Time: { } time } marker)
         {
             _heldMarker = marker;
+            SetHoveredMarker(marker);
             SetCurrentValue(ValueProperty, time.ToSeconds());
+            InvalidateVisual();
         }
     }
 
@@ -273,9 +275,17 @@ public sealed class PlayerSeekBar : Slider
             // A press on a mark keeps its marker's time until the pointer leaves the mark, so a click that slips a
             // pixel still lands on the marker.
             if (_heldMarker is { Time: { } time } held && IsDragging && IsWithinReach(held, x))
+            {
                 SetCurrentValue(ValueProperty, time.ToSeconds());
+            }
             else
+            {
+                bool hadHeld = _heldMarker is not null;
                 _heldMarker = null;
+                SetHoveredMarker(null);
+                if (hadHeld)
+                    InvalidateVisual();
+            }
 
             return;
         }
@@ -292,7 +302,12 @@ public sealed class PlayerSeekBar : Slider
 
     private void OnPointerReleasedOnBar(object? sender, PointerReleasedEventArgs e)
     {
+        bool hadHeld = _heldMarker is not null;
         _heldMarker = null;
+        PointerPoint point = e.GetCurrentPoint(this);
+        SetHoveredMarker(new Rect(Bounds.Size).Contains(point.Position) ? FindMarker(point.Position.X) : null);
+        if (hadHeld)
+            InvalidateVisual();
     }
 
     // The tip waits while the bar is dragged, when the frame and the current time follow the pointer, and while
