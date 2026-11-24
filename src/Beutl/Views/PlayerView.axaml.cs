@@ -16,6 +16,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
@@ -284,6 +285,7 @@ public partial class PlayerView : UserControl
         _imageConfigSubscription?.Dispose();
         _imageConfigSubscription = null;
         SetupImageControl();
+        puppetPlacementHint.IsVisible = false;
 
         InvalidateTransformHandleResource();
 
@@ -328,6 +330,9 @@ public partial class PlayerView : UserControl
                 .DisposeWith(_disposables);
 
             SubscribeCursor(vm);
+            vm.SelectedPuppetPin.ObserveOnUIDispatcher()
+                .Subscribe(pin => transformHandlesOverlay.SetSelectedPuppetPin(pin?.Id.Value.ToString()))
+                .DisposeWith(_disposables);
 
             var selection = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorSelection>();
             selection.SelectedObject
@@ -357,6 +362,7 @@ public partial class PlayerView : UserControl
             {
                 framePanel.RenderTransformOrigin = Avalonia.RelativePoint.TopLeft;
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
+                transformHandlesOverlay.SetEditingHandleZoom(matrix.M11);
                 guideOverlay.Zoom = matrix.M11;
                 UpdateFrameOutline(matrix.M11);
                 UpdateZoomDisplay();
@@ -367,11 +373,17 @@ public partial class PlayerView : UserControl
 
     private void SubscribeCursor(PlayerViewModel vm)
     {
-        vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode, vm.PointPick.Select(pick => pick != null))
+        var picking = vm.PointPick.CombineLatest(vm.PuppetPlacementEffect, static (point, effect) => (point, effect));
+        vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode, picking)
             .ObserveOnUIDispatcher()
             .Subscribe(t =>
             {
-                if (t.Fourth)
+                var (point, puppet) = t.Fourth;
+                puppetPlacementHint.IsVisible = puppet is not null;
+                puppetPlacementMessage.Text = puppet is null ? null : ReferenceEquals(point?.LocalOwner, puppet)
+                    ? GraphicsStrings.Puppet_PlacementHint
+                    : GraphicsStrings.Puppet_PreparingPlacement;
+                if (point is not null || puppet is not null)
                     framePanel.Cursor = Cursors.Cross;
                 else if (t.First)
                     framePanel.Cursor = Cursors.Hand;

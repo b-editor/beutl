@@ -13,7 +13,7 @@
              d:DesignWidth="300"
              x:CompileBindings="False"
              mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,Auto">
+    <Grid x:Name="layout" RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
                       Content="{Binding Header, FallbackValue=List}"
@@ -21,31 +21,56 @@
                       IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.Tag>
-                <Button Padding="0"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Classes="size-24x24"
-                        Click="Add_Click"
-                        Theme="{StaticResource TransparentButton}">
-                    <Button.ContextFlyout>
-                        <ui:FAMenuFlyout>
-                            <ui:FAMenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.Initialize}" />
-                            <ui:FAMenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
-                        </ui:FAMenuFlyout>
-                    </Button.ContextFlyout>
-                    <icons:FluentIcon Classes.add="{Binding List.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <icons:FluentIcon.Styles>
-                            <Style Selector="icons|FluentIcon">
-                                <Setter Property="Icon" Value="MoreVertical" />
-                            </Style>
-                            <Style Selector="icons|FluentIcon.add">
-                                <Setter Property="Icon" Value="Add" />
-                            </Style>
-                        </icons:FluentIcon.Styles>
-                    </icons:FluentIcon>
-                </Button>
+                <StackPanel x:Name="headerActions"
+                            Grid.Column="1"
+                            Orientation="Horizontal">
+                    <Button x:Name="addButton"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Classes="size-24x24"
+                            Click="Add_Click"
+                            Theme="{StaticResource TransparentButton}">
+                        <Button.ContextFlyout>
+                            <ui:FAMenuFlyout>
+                                <ui:FAMenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.Initialize}" />
+                                <ui:FAMenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
+                            </ui:FAMenuFlyout>
+                        </Button.ContextFlyout>
+                        <icons:FluentIcon x:Name="addIcon" Classes.add="{Binding List.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <icons:FluentIcon.Styles>
+                                <Style Selector="icons|FluentIcon">
+                                    <Setter Property="Icon" Value="MoreVertical" />
+                                </Style>
+                                <Style Selector="icons|FluentIcon.add">
+                                    <Setter Property="Icon" Value="Add" />
+                                </Style>
+                            </icons:FluentIcon.Styles>
+                        </icons:FluentIcon>
+                    </Button>
+                    <Button x:Name="removeButton"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Classes="size-24x24"
+                            IsEnabled="False"
+                            IsVisible="False"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:FluentIcon Icon="Subtract" />
+                    </Button>
+                </StackPanel>
             </ToggleButton.Tag>
         </ToggleButton>
+
+        <Grid x:Name="fixedHeader"
+              Margin="8,4"
+              ColumnDefinitions="*,Auto"
+              IsVisible="False">
+            <TextBlock x:Name="headerLabel"
+                       VerticalAlignment="Center"
+                       Text="{Binding Header, FallbackValue=List}"
+                       ToolTip.Tip="{Binding HoverInfo.Value}" />
+        </Grid>
 
         <Grid x:Name="expandItem"
               Grid.Row="1"

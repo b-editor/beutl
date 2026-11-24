@@ -245,6 +245,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<DisplacementMapEffect>(GraphicsStrings.DisplacementMapEffect,
                     GraphicsStrings.DisplacementMapEffect_LibraryDescription)
                 .AddFilterEffect<MeshWarp>(GraphicsStrings.MeshWarp, GraphicsStrings.MeshWarp_LibraryDescription)
+                .AddFilterEffect<Puppet>(GraphicsStrings.Puppet, GraphicsStrings.Puppet_LibraryDescription)
                 .AddFilterEffect<PathFollowEffect>(GraphicsStrings.PathFollowEffect,
                     GraphicsStrings.PathFollowEffect_LibraryDescription)
                 .AddFilterEffect<LayerEffect>(GraphicsStrings.LayerEffect,

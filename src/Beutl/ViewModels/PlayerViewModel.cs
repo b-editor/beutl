@@ -84,6 +84,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         _editorSelection = editViewModel.GetRequiredService<IEditorSelection>();
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
+        InitializePuppetPinEditor();
 
         // Reapply panel-derived cache size to every rebuilt FrameCacheManager instance.
         editViewModel.FrameCacheManager
@@ -893,6 +894,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // never disposed under the request holding its token. Pause then drains the compose and render
         // dispatchers, so the render thread cannot call OnNext on the subjects disposed below.
         renderCts?.Cancel();
+        StopPuppetPinPlacement();
+        SetSelectedPuppetPin(null);
         Disposing?.Invoke(this, EventArgs.Empty);
         UpdateCleanPreviewConsumers(0);
         await Pause();

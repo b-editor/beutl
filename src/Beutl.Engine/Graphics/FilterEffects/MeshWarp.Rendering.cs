@@ -1,9 +1,7 @@
 ﻿using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Shaders;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -11,8 +9,7 @@ public sealed partial class MeshWarp
 {
     private static readonly ILogger s_logger = Log.CreateLogger(nameof(MeshWarp));
 
-    private static bool HasArea(Rect bounds) => RenderRectValidation.IsFiniteNonNegative(bounds)
-        && bounds.Width > 0 && bounds.Height > 0 && float.IsFinite(bounds.Right) && float.IsFinite(bounds.Bottom);
+    private static bool HasArea(Rect bounds) => EffectEditingFrames.HasArea(bounds);
 
     private static Point MapPoint(Rect bounds, Point normalized)
         => new(bounds.X + (double)normalized.X * bounds.Width, bounds.Y + (double)normalized.Y * bounds.Height);
@@ -99,7 +96,8 @@ public sealed partial class MeshWarp
             EffectTarget output = context.CreateTarget(bounds);
             try
             {
-                if (!output.IsEmpty && Draw(tileMesh, warpBounds, context, target, output))
+                if (!output.IsEmpty && TriangleWarpRenderer.Draw(
+                        warpBounds, tileMesh.Rest, tileMesh.Warped, tileMesh.Indices, context, target, output, s_logger))
                     context.Targets[i] = output;
             }
             finally
@@ -108,89 +106,6 @@ public sealed partial class MeshWarp
                     output.Dispose();
             }
         }
-    }
-
-    private static bool Draw(
-        Tessellation mesh,
-        Rect warpBounds,
-        CustomFilterEffectContext context,
-        EffectTarget target,
-        EffectTarget output)
-    {
-        RenderTarget source = target.RenderTarget!;
-        source.PrepareForSampling(
-            RenderTargetSamplingIntent.SameContextTextureSampling(output.RenderTarget!.RawValue.Context));
-        using SurfaceSnapshot.Lease snapshot = SurfaceSnapshot.Take(source.Value);
-
-        RenderPlacement src = target.Placement;
-        RenderPlacement dst = output.Placement;
-        float srcScale = src.Scale.Value;
-        float dstScale = dst.Scale.Value;
-        SKSamplingOptions sampling = RasterShaderMapping.SamplingFor(srcScale, dstScale);
-        using SKShader? shader = CreateSourceShader(
-            snapshot.Image, source.RawValue.Context, target.Bounds, src, sampling, out Rect srcRasterBounds);
-        if (shader is null)
-        {
-            CustomFilterEffectContext.ThrowIfDeliveryReadbackFailure(context.Intent, src.DeviceBounds);
-            context.RenderTargetLeaseSession?.MarkContentDropped();
-            s_logger.LogWarning("Mesh Warp could not sample the source surface; the preview keeps the source pixels.");
-            return false;
-        }
-
-        var texs = new SKPoint[mesh.Rest.Length];
-        var positions = new SKPoint[mesh.Rest.Length];
-        Point srcOrigin = target.Bounds.Position - srcRasterBounds.Position;
-        Point dstOrigin = warpBounds.Position - dst.RasterBounds.Position;
-        for (int i = 0; i < positions.Length; i++)
-        {
-            texs[i] = ToDevice(mesh.Rest[i], target.Bounds.Size, srcOrigin, srcScale);
-            positions[i] = ToDevice(mesh.Warped[i], warpBounds.Size, dstOrigin, dstScale);
-        }
-
-        using SKVertices vertices = SKVertices.CreateCopy(SKVertexMode.Triangles, positions, texs, colors: null, mesh.Indices);
-        using var paint = new SKPaint { Shader = shader, IsAntialias = true };
-        using ImmediateCanvas canvas = context.Open(output);
-        using (canvas.PushDeviceSpace())
-        {
-            canvas.Clear();
-            canvas.Canvas.DrawVertices(vertices, SKBlendMode.Modulate, paint);
-        }
-        return true;
-
-        static SKPoint ToDevice(Point point, Size size, Point origin, float scale)
-            => new((float)((origin.X + (double)point.X * size.Width) * scale),
-                (float)((origin.Y + (double)point.Y * size.Height) * scale));
-    }
-
-    // Subset to the semantic source footprint when the backing buffer includes an apron so Clamp never bleeds apron pixels.
-    private static SKShader? CreateSourceShader(
-        SKImage? image,
-        GRRecordingContext? recordingContext,
-        Rect sourceBounds,
-        RenderPlacement src,
-        SKSamplingOptions sampling,
-        out Rect rasterBounds)
-    {
-        rasterBounds = src.RasterBounds;
-        if (image is null) return null;
-
-        var imageBounds = new PixelRect(new PixelSize(image.Width, image.Height));
-        (_, PixelRect semanticSubset, Rect semanticRasterBounds) = RasterShaderMapping.ResolveSemanticSubset(
-            sourceBounds, src.Scale.Value, src.DeviceBounds, src.RasterBounds);
-
-        if (semanticSubset != imageBounds
-            && semanticSubset.Width > 0 && semanticSubset.Height > 0
-            && imageBounds.Contains(semanticSubset))
-        {
-            using SKImage? subset = RasterShaderMapping.SubsetImage(image, recordingContext, semanticSubset);
-            if (subset is not null)
-            {
-                rasterBounds = semanticRasterBounds;
-                return subset.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, sampling);
-            }
-        }
-
-        return image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, sampling);
     }
 
     private sealed class Tessellation(

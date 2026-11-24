@@ -2165,6 +2165,39 @@
   <data name="MeshWarp_Point" xml:space="preserve">
     <value>网格控制点（第 {0} 行，第 {1} 列）</value>
   </data>
+  <data name="Puppet" xml:space="preserve">
+    <value>木偶变形</value>
+  </data>
+  <data name="Puppet_Pins" xml:space="preserve">
+    <value>图钉</value>
+  </data>
+  <data name="Puppet_Pin" xml:space="preserve">
+    <value>图钉</value>
+  </data>
+  <data name="Puppet_AddPin" xml:space="preserve">
+    <value>添加图钉</value>
+  </data>
+  <data name="Puppet_FinishPlacement" xml:space="preserve">
+    <value>结束放置</value>
+  </data>
+  <data name="Puppet_PlacementHint" xml:space="preserve">
+    <value>点击图像放置图钉。按 Esc 结束。</value>
+  </data>
+  <data name="Puppet_PreparingPlacement" xml:space="preserve">
+    <value>正在准备放置图钉…</value>
+  </data>
+  <data name="Puppet_PlacementUnavailable" xml:space="preserve">
+    <value>此帧中没有可放置图钉的可见图像。</value>
+  </data>
+  <data name="Puppet_RemovePin" xml:space="preserve">
+    <value>删除所选图钉</value>
+  </data>
+  <data name="Puppet_PositionDescription" xml:space="preserve">
+    <value>相对于图像的坐标。左上角是 (0, 0)，右下角是 (1, 1)。</value>
+  </data>
+  <data name="Puppet_LibraryDescription" xml:space="preserve">
+    <value>放置并移动图钉来弯曲图像。</value>
+  </data>
   <data name="EllipseShape_LibraryDescription" xml:space="preserve">
     <value>绘制可用作遮罩的圆形或椭圆（椭圆、形状、纯色层、蒙版、轨道遮罩 / ellipse, shape, solid, mask, track matte）。</value>
   </data>

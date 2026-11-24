@@ -11,6 +11,7 @@ using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using FluentIcons.Avalonia.Fluent;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -39,11 +40,32 @@ public partial class ListEditor : UserControl
 {
     private INotificationService Notifications => ControlNotifications.FromDataContextOrDefault(this);
 
-    public ListEditor()
+    public ListEditor() : this(alwaysExpanded: false)
+    {
+    }
+
+    internal ListEditor(bool alwaysExpanded)
     {
         InitializeComponent();
-        ExpandTransitionHelper.Attach(expandToggle, expandItem);
+        if (alwaysExpanded)
+        {
+            expandToggle.Tag = null;
+            layout.Children.Remove(expandToggle);
+            fixedHeader.Children.Add(headerActions);
+            fixedHeader.IsVisible = true;
+            expandItem.IsVisible = true;
+        }
+        else
+        {
+            ExpandTransitionHelper.Attach(expandToggle, expandItem);
+        }
     }
+
+    internal Button AddButton => addButton;
+
+    internal FluentIcon AddIcon => addIcon;
+
+    internal Button RemoveButton => removeButton;
 
     private void InitializeClick(object? sender, RoutedEventArgs e)
     {
@@ -99,17 +121,21 @@ public partial class ListEditor : UserControl
             }
             else if (!viewModel.IsListNull)
             {
-                Type itemType = viewModel.ItemType;
-                if (itemType.IsSealed
-                    && (itemType.GetConstructor([]) != null || itemType.GetConstructors().Length == 0))
-                {
-                    viewModel.AddItem(itemType);
-                }
-                else if (await SelectTypeOrReference(sender as Control) is Type selectedType)
-                {
-                    viewModel.AddItem(selectedType);
-                }
+                await AddItemAsync(viewModel, sender as Control);
             }
+        }
+    }
+
+    internal virtual async Task AddItemAsync(IListEditorViewModel viewModel, Control? button)
+    {
+        Type itemType = viewModel.ItemType;
+        if (itemType.IsSealed && (itemType.GetConstructor([]) != null || itemType.GetConstructors().Length == 0))
+        {
+            viewModel.AddItem(itemType);
+        }
+        else if (await SelectTypeOrReference(button) is Type selectedType)
+        {
+            viewModel.AddItem(selectedType);
         }
     }
 }
