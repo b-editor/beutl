@@ -50,6 +50,14 @@ public class EditorHostViewModel
             ProjectLifecycleActivity.EnablingVersionControl => new ProjectLifecycleProgress(
                 MessageStrings.EnablingVersionControl,
                 MessageStrings.EnablingVersionControlMessage),
+            ProjectLifecycleActivity.CommittingVersion => new ProjectLifecycleProgress(
+                Strings.VersionControl, Strings.VersionControl_Committing),
+            ProjectLifecycleActivity.RestoringVersion => new ProjectLifecycleProgress(
+                Strings.VersionControl, Strings.VersionControl_Restoring),
+            ProjectLifecycleActivity.SwitchingBranch => new ProjectLifecycleProgress(
+                Strings.VersionControl, Strings.VersionControl_SwitchingBranch),
+            ProjectLifecycleActivity.ApplyingPull => new ProjectLifecycleProgress(
+                Strings.VersionControl, Strings.VersionControl_ApplyingPull),
             _ => null,
         };
     }

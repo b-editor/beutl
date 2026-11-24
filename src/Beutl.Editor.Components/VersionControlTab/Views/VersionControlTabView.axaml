@@ -249,11 +249,25 @@
                                     </MenuFlyout>
                                 </SplitButton.Flyout>
                             </SplitButton>
-                            <TextBlock Grid.Row="2"
-                                       Classes="secondary"
-                                       IsVisible="{Binding IsRemoteOperationRunning.Value}"
-                                       Text="{Binding RemoteProgress.Value}"
-                                       TextTrimming="CharacterEllipsis" />
+                            <StackPanel Grid.Row="2"
+                                        IsVisible="{Binding IsRemoteOperationRunning.Value}"
+                                        Spacing="4">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBlock x:Name="RemoteProgressText"
+                                               Classes="secondary"
+                                               Text="{Binding RemoteProgress.Value.Text}" />
+                                    <TextBlock Grid.Column="1"
+                                               Classes="secondary"
+                                               IsVisible="{Binding !RemoteProgress.Value.IsIndeterminate}"
+                                               Text="{Binding RemoteProgress.Value.Percentage, StringFormat='{}{0}%'}" />
+                                </Grid>
+                                <ProgressBar x:Name="RemoteProgressBar"
+                                             Height="4"
+                                             AutomationProperties.Name="{Binding RemoteProgress.Value.Text}"
+                                             IsIndeterminate="{Binding RemoteProgress.Value.IsIndeterminate}"
+                                             Maximum="100"
+                                             Value="{Binding RemoteProgress.Value.ProgressBarValue}" />
+                            </StackPanel>
                         </Grid>
 
                         <GridSplitter Grid.Column="1"

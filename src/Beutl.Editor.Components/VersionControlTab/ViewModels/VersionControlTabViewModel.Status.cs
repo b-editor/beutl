@@ -98,7 +98,7 @@ internal partial class VersionControlTabViewModel
         CommitMessage.Value = string.Empty;
         RemoteUrl.Value = string.Empty;
         HasRemote.Value = false;
-        RemoteProgress.Value = string.Empty;
+        RemoteProgress.Value = new(string.Empty);
         IsNestedRepository.Value = _service?.Repository?.IsNestedInForeignRepo == true;
         RepositoryScopeText.Value = GetRepositoryScopeText(_service);
         UpdatePrimaryAction();

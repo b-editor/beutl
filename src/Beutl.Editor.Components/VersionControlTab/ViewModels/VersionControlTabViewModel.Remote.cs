@@ -169,7 +169,7 @@ internal partial class VersionControlTabViewModel
     public Task PullAsync()
     {
         return RunRemoteOperationAsync(
-            (_, cancellationToken) => _versionControlCoordinator!.PullAsync(cancellationToken),
+            (progress, cancellationToken) => _versionControlCoordinator!.PullAsync(progress, cancellationToken),
             Strings.VersionControl_Pulling);
     }
 
@@ -262,8 +262,8 @@ internal partial class VersionControlTabViewModel
         Debug.Assert(_remoteOperationCancellation is null);
         _remoteOperationCancellation = operationCancellation;
         Volatile.Write(ref _remoteOperationUserCancellation, 0);
+        RemoteProgress.Value = new(initialProgress);
         IsRemoteOperationRunning.Value = true;
-        RemoteProgress.Value = initialProgress;
         CancellationToken serviceBindingToken = _serviceBindingCancellation!.Token;
         bool IsCurrentOperation() =>
             !operationFinished
@@ -285,7 +285,7 @@ internal partial class VersionControlTabViewModel
                 {
                     if (IsCurrentOperation())
                     {
-                        RemoteProgress.Value = value;
+                        RemoteProgress.Value = VersionControlRemoteProgress.FromOutput(value);
                     }
                 });
             }

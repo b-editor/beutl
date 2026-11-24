@@ -32,6 +32,7 @@ using Beutl.Views;
 using Dock.Model.Core;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
+using Moq;
 using static Beutl.HeadlessUITests.GitTestSupport;
 
 namespace Beutl.HeadlessUITests;
@@ -39,6 +40,86 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class VersionControlTabViewTests
 {
+    [AvaloniaTest]
+    public async Task Pull_progress_shows_transfer_percentages_and_disappears_when_canceled()
+    {
+        var started = new TaskCompletionSource<IProgress<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PullAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
+            .Returns<IProgress<string>, CancellationToken>(async (progress, cancellationToken) =>
+            {
+                started.SetResult(progress);
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return new RemoteOpResult.Success();
+            });
+        using MockedVersionControlTab tab = await MockedVersionControlTab.CreateAsync(
+            Path.GetTempPath(),
+            [new CommitInfo("0123456789abcdef", "0123456", "Update project", "Editor", DateTimeOffset.UtcNow, SnapshotKind.Manual)],
+            [],
+            string.Empty,
+            status: new WorkspaceStatus("main", 0, 2, [], false),
+            coordinator: coordinator.Object,
+            remote: new RemoteInfo("origin", "https://example.invalid/project.git"));
+        var view = new VersionControlTabView { DataContext = tab.ViewModel };
+        var window = new Window { Content = view, Width = 380, Height = 460, RequestedThemeVariant = ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var bar = view.FindControl<ProgressBar>("RemoteProgressBar")!;
+            var label = view.FindControl<TextBlock>("RemoteProgressText")!;
+            Assert.That(bar.IsEffectivelyVisible, Is.False);
+
+            tab.ViewModel.PullCommand.Execute();
+            IProgress<string> progress = await started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            HeadlessTestHelpers.Render(3);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bar.IsEffectivelyVisible, Is.True);
+                Assert.That(bar.IsIndeterminate, Is.True);
+                Assert.That(label.Text, Is.EqualTo(Strings.VersionControl_Pulling));
+            });
+            if (HeadlessCapture.IsRequested)
+            {
+                // Let the indeterminate indicator move into the visible part of the track.
+                await Task.Delay(250);
+                HeadlessTestHelpers.Render();
+                HeadlessCapture.SaveIfRequested(window, nameof(VersionControlTabViewTests), "pull-connecting");
+            }
+
+            progress.Report("remote: Receiving objects:  64% (64/100)");
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(bar.IsIndeterminate, Is.False);
+                Assert.That(bar.Value, Is.EqualTo(64));
+                Assert.That(label.Text, Is.EqualTo("Receiving objects"));
+            });
+            HeadlessCapture.SaveIfRequested(window, nameof(VersionControlTabViewTests), "pull-receiving");
+
+            progress.Report(Strings.VersionControl_FetchingLfs);
+            Assert.That(bar.IsIndeterminate, Is.True);
+            progress.Report("Downloading LFS objects: 50% (1/2), 12 MB | 4 MB/s");
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(bar.IsIndeterminate, Is.False);
+                Assert.That(bar.Value, Is.EqualTo(50));
+                Assert.That(label.Text, Is.EqualTo("Downloading LFS objects · 12 MB | 4 MB/s"));
+            });
+            HeadlessCapture.SaveIfRequested(window, nameof(VersionControlTabViewTests), "pull-downloading-lfs");
+
+            tab.ViewModel.CancelRemoteOperationCommand.Execute();
+            await tab.ViewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
+            HeadlessTestHelpers.Render();
+            Assert.That(bar.IsEffectivelyVisible, Is.False);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public async Task Title_bar_branch_widget_is_hidden_until_a_tracked_project_is_ready()
     {

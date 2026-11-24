@@ -271,8 +271,13 @@ internal sealed partial class VersionControlCoordinator :
     }
 
     public Task<RemoteOpResult> PullAsync(CancellationToken cancellationToken = default)
+        => PullAsync(progress: null, cancellationToken);
+
+    public Task<RemoteOpResult> PullAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
     {
-        return RunOnUiThreadAsync(() => RunPullCycleAsync(cancellationToken));
+        return RunOnUiThreadAsync(() => RunPullCycleAsync(progress, cancellationToken));
     }
 
     public void Dispose()
