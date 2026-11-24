@@ -188,23 +188,17 @@ public partial class SourceVideo : IThumbnailsProvider
                 ? CreateThumbnailContext(MediaTime.Zero, startDelta, conditions, durationDelta)
                 : new CompositionContext(MediaTime.Zero) { Conditions = conditions }), DispatchPriority.Low, cancellationToken);
 
-            if (resource.Source is not { } source)
-                yield break;
-
-            if (source.Duration <= MediaTime.Zero)
-                yield break;
             var duration = previewLayout?.Duration ?? TimeRange.Value.Duration;
 
             // Rendering draws the video into LogicalFrameSize; sizing the strip from the (possibly
-            // smaller) proxy decode size would clip the frame. LogicalFrameSize equals FrameSize when
-            // no proxy is active, so the non-proxy path stays byte-identical.
-            var frameSize = source.LogicalFrameSize;
+            // smaller) proxy decode size would clip the frame. A preview already has its slot count.
+            PixelSize frameSize = resource.Source is { } source && source.Duration > MediaTime.Zero
+                ? source.LogicalFrameSize
+                : default;
             int count = previewIndices != null ? previewCount : GetVideoThumbnailCount(frameSize, maxWidth, maxHeight);
-            // A degenerate frame size (e.g. corrupt metadata with Height == 0) makes the division below
-            // produce Infinity, which then overflows TimeSpan.FromSeconds. Bail out instead.
-            if (count <= 0 || frameSize.Width <= 0 || frameSize.Height <= 0 || maxHeight <= 0)
+            if (count <= 0 || maxHeight <= 0)
                 yield break;
-            float thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
+            float thumbWidth = 0;
             double interval = duration.ToSeconds() / count;
 
             string? baseKey = offsetDelta == MediaTime.Zero && startDelta == MediaTime.Zero && durationDelta == MediaTime.Zero && cacheService != null
@@ -220,17 +214,6 @@ public partial class SourceVideo : IThumbnailsProvider
 
             int effectiveStart = Math.Max(0, startIndex);
             int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
-
-            node = new DrawableRenderNode(resource);
-            renderer = new RenderNodeRenderer(
-                node,
-                new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
-                    OutputScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                });
 
             IEnumerable<int> indices = (IEnumerable<int>?)previewIndices ?? Enumerable.Range(
                 effectiveStart, Math.Max(0, effectiveEnd - effectiveStart + 1));
@@ -273,7 +256,26 @@ public partial class SourceVideo : IThumbnailsProvider
                         previewPosition = sourcePosition;
                     }
 
-                    using (var gctx = new GraphicsContext2D(node, new Size((int)thumbWidth, maxHeight)))
+                    if (renderer == null)
+                    {
+                        // An animated source can first become available partway through the requested slots.
+                        if (frameSize.Width <= 0 || frameSize.Height <= 0)
+                            frameSize = resource.Source?.LogicalFrameSize ?? default;
+                        if (frameSize.Width <= 0 || frameSize.Height <= 0)
+                            return (false, (Bitmap?)null);
+
+                        thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
+                        node = new DrawableRenderNode(resource);
+                        renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+                        {
+                            Intent = RenderIntent.Preview,
+                            TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
+                            OutputScale = 1,
+                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                        });
+                    }
+
+                    using (var gctx = new GraphicsContext2D(node!, new Size((int)thumbWidth, maxHeight)))
                     using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width,
                                (float)maxHeight / frameSize.Height)))
                     {

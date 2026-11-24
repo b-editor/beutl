@@ -10,6 +10,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
@@ -203,6 +204,40 @@ public class TimelineThumbnailPreviewTests
             Assert.That(preview, Is.Not.EqualTo(original.RequestedPosition + original.OffsetPosition));
             Assert.That(video.GetThumbnailsCacheKey(), Is.Not.EqualTo(originalKey));
         });
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task VideoThumbnailPreview_ContinuesAfterAnEmptyInPoint()
+    {
+        TestGpu.RequireAnyDevice();
+        var decoders = TestMediaHelper.CreateRegistry();
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(64, 36, new Rational(30, 1), 180)));
+        var video = new SourceVideo
+        {
+            Source = { Value = source },
+            TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2)) },
+        };
+        new TestHierarchicalRoot().HierarchicalChildren.Add(video);
+        video.Source.Expression = Expression.Create<VideoSource?>("Start + Time >= 1.5 && Start + Time < 2 ? null : Value");
+        MediaTime delta = MediaTime.FromSeconds(0.5);
+        var conditions = CompositionConditions.Default with { Decoders = decoders };
+        using var atStart = video.ToResource(video.CreateThumbnailContext(MediaTime.Zero, delta, conditions, -delta));
+        Assert.That(atStart.Source, Is.Null);
+
+        var slots = new List<(int Index, int Count, bool HasThumbnail)>();
+        await foreach (var (index, count, thumbnail) in video.GetPreviewThumbnailStripAsync(
+                           TestFonts.Manager, count: 4, maxHeight: 25, indices: [0, 1], cacheService: null,
+                           cancellationToken: default, preferProxy: false, preferredProxyPreset: ProxyPreset.Quarter,
+                           decoders, offsetDelta: MediaTime.Zero, previewLayout: new TimeRange(MediaTime.Zero, video.Duration),
+                           startDelta: delta, durationDelta: -delta))
+        {
+            using (thumbnail)
+                slots.Add((index, count, thumbnail != null));
+        }
+
+        Assert.That(slots, Is.EqualTo(new[] { (0, 4, false), (1, 4, true) }));
     }
 
     [TestCase("none")]
