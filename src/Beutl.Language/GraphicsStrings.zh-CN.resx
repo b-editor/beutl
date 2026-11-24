@@ -2109,10 +2109,10 @@
     <value>相加</value>
   </data>
   <data name="PosterizeTime" xml:space="preserve">
-    <value>时间色调分离</value>
+    <value>定格动画</value>
   </data>
   <data name="PosterizeTime_Description" xml:space="preserve">
-    <value>从剪辑起点开始，按固定间隔对输入采样并保持画面。</value>
+    <value>从元素的起始时间开始，按固定间隔对输入采样并保持画面。</value>
   </data>
   <data name="PosterizeTime_FrameRate" xml:space="preserve">
     <value>帧率 (fps)</value>

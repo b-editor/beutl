@@ -2105,10 +2105,10 @@
     <value>加算</value>
   </data>
   <data name="PosterizeTime" xml:space="preserve">
-    <value>時間のポスタリゼーション</value>
+    <value>コマ撮り風</value>
   </data>
   <data name="PosterizeTime_Description" xml:space="preserve">
-    <value>クリップの開始を基準に、一定の間隔で入力をサンプリングして保持します。</value>
+    <value>要素の開始時刻を基準に、一定間隔で画面を切り替えます。</value>
   </data>
   <data name="PosterizeTime_FrameRate" xml:space="preserve">
     <value>レート (fps)</value>

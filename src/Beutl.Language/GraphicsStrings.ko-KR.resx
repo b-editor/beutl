@@ -2109,10 +2109,10 @@
     <value>더하기</value>
   </data>
   <data name="PosterizeTime" xml:space="preserve">
-    <value>시간 포스터화</value>
+    <value>스톱 모션</value>
   </data>
   <data name="PosterizeTime_Description" xml:space="preserve">
-    <value>클립 시작 시점부터 일정한 간격으로 입력을 샘플링하여 유지합니다.</value>
+    <value>요소의 시작 시점부터 일정한 간격으로 입력을 샘플링하여 유지합니다.</value>
   </data>
   <data name="PosterizeTime_FrameRate" xml:space="preserve">
     <value>프레임률 (fps)</value>

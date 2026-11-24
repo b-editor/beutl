@@ -15,14 +15,19 @@ public sealed class PosterizeTimeTests
     [TestCase(0.1f, 1, 10, 1)]
     [TestCase(29.97f, 2997, 100, 2)]
     [TestCase(240f, 240, 1, 1)]
-    public void SamplesSwitchAtTheClipRelativeBoundary(float fps, int numerator, int denominator, int frame)
+    public void SamplesSwitchAtTheElementRelativeBoundary(float fps, int numerator, int denominator, int frame)
     {
         var shape = new RectShape { FilterEffect = { Value = new PosterizeTime { FrameRate = { Value = fps } } } };
-        var clip = MotionBlurTests.Clip(0.3, 102, 0, shape);
+        var element = new Element
+        {
+            Start = { Value = MediaTime.FromSeconds(0.3) },
+            Length = { Value = MediaTime.FromSeconds(102) },
+            Objects = { shape },
+        };
         var rate = new Rational(numerator, denominator);
         var flick = new MediaTime(1);
-        MediaTime earlier = clip.Start.Value + MediaTime.FromFrames(frame - 1, rate);
-        MediaTime boundary = clip.Start.Value + MediaTime.FromFrames(frame, rate);
+        MediaTime earlier = element.Start.Value + MediaTime.FromFrames(frame - 1, rate);
+        MediaTime boundary = element.Start.Value + MediaTime.FromFrames(frame, rate);
         var context = new CompositionContext(boundary - flick);
         using var resource = shape.ToResource(context);
         var effect = (PosterizeTime.Resource)resource.FilterEffect!;
@@ -44,7 +49,7 @@ public sealed class PosterizeTimeTests
     }
 
     [Test]
-    public void MovingTheClipKeepsTheHeldAnimationAtTheSameLocalTime()
+    public void MovingTheElementKeepsTheHeldAnimationAtTheSameLocalTime()
     {
         RectShape shape = MotionBlurTests.Rectangle();
         shape.FilterEffect.Value = new PosterizeTime { FrameRate = { Value = 2 } };
@@ -52,8 +57,8 @@ public sealed class PosterizeTimeTests
         var project = new Project();
         new TestHierarchicalRoot().HierarchicalChildren.Add(project);
         project.Items.Add(scene);
-        Element clip = scene.Children[0];
-        clip.Start.Value = MediaTime.FromSeconds(0.3);
+        Element element = scene.Children[0];
+        element.Start.Value = MediaTime.FromSeconds(0.3);
         var context = new CompositionContext(MediaTime.FromSeconds(1.1));
         using var resource = shape.ToResource(context);
         var effect = (PosterizeTime.Resource)resource.FilterEffect!;
@@ -61,7 +66,7 @@ public sealed class PosterizeTimeTests
         Assert.That(effect.Sample.Time, Is.EqualTo(MediaTime.FromSeconds(0.8)));
         Assert.That(width, Is.EqualTo(15f));
 
-        clip.Start.Value = MediaTime.FromSeconds(1.3);
+        element.Start.Value = MediaTime.FromSeconds(1.3);
         Reconcile(resource, shape, context, MediaTime.FromSeconds(2.1));
         Assert.That(effect.Sample!.Time, Is.EqualTo(MediaTime.FromSeconds(1.8)));
         Assert.That(((RectShape.Resource)effect.Sample.Resource!).Width, Is.EqualTo(width));

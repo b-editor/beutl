@@ -17,8 +17,8 @@ namespace Beutl.HeadlessUITests;
 public sealed class PosterizeTimeEditorTests
 {
     [AvaloniaTest]
-    [TestCase("en", "Posterize Time", "Rate (fps)")]
-    [TestCase("ja", "時間のポスタリゼーション", "レート (fps)")]
+    [TestCase("en", "Stepped Motion", "Rate (fps)")]
+    [TestCase("ja", "コマ撮り風", "レート (fps)")]
     public void FractionalFrameRateCanBeEditedAtNarrowWidth(string language, string effectName, string propertyName)
     {
         CultureInfo previous = CultureInfo.CurrentUICulture;

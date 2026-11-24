@@ -2109,10 +2109,10 @@
     <value>Aditivo</value>
   </data>
   <data name="PosterizeTime" xml:space="preserve">
-    <value>Posterizar tiempo</value>
+    <value>Movimiento a saltos</value>
   </data>
   <data name="PosterizeTime_Description" xml:space="preserve">
-    <value>Mantiene cada muestra durante un intervalo fijo a partir del inicio del clip.</value>
+    <value>Mantiene cada muestra durante un intervalo fijo a partir del inicio del elemento.</value>
   </data>
   <data name="PosterizeTime_FrameRate" xml:space="preserve">
     <value>Cadencia (fps)</value>

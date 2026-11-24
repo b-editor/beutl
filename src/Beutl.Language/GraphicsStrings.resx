@@ -2110,10 +2110,10 @@
     <value>Add</value>
   </data>
   <data name="PosterizeTime" xml:space="preserve">
-    <value>Posterize Time</value>
+    <value>Stepped Motion</value>
   </data>
   <data name="PosterizeTime_Description" xml:space="preserve">
-    <value>Holds the drawable at evenly spaced times starting from the beginning of its clip.</value>
+    <value>Holds each sampled frame until the next, with timing measured from the start of the element.</value>
   </data>
   <data name="PosterizeTime_FrameRate" xml:space="preserve">
     <value>Rate (fps)</value>
