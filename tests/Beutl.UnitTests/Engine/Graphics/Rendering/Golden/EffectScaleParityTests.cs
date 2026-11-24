@@ -35,7 +35,10 @@ public class EffectScaleParityTests
             e.BlueOffset.Value = new PixelPoint(-18, -6);
             return e;
         }));
-        yield return new TestCaseData("LensChromaticAberration", (Func<FilterEffect>)MakeLensChromaticAberration);
+        yield return new TestCaseData("LensChromaticAberration",
+            (Func<FilterEffect>)(() => MakeLensChromaticAberration(repeatEdgePixels: false)));
+        yield return new TestCaseData("LensChromaticAberration-RepeatEdgePixels",
+            (Func<FilterEffect>)(() => MakeLensChromaticAberration(repeatEdgePixels: true)));
         yield return new TestCaseData("SplitEffect", (Func<FilterEffect>)(() =>
         {
             var e = new SplitEffect();
@@ -620,7 +623,7 @@ public class EffectScaleParityTests
         {
             var region = new Rect(179, 94, 10, 14);
             PixelRect deviceRegion = PixelRect.FromRect(region, scale);
-            using Drawable.Resource resource = RotatedRect(MakeLensChromaticAberration);
+            using Drawable.Resource resource = RotatedRect(() => MakeLensChromaticAberration(repeatEdgePixels: false));
             using Drawable.Resource controlResource = RotatedRect(() => new FilterEffectGroup());
             using Bitmap full = RenderAtScale(resource, Frame, scale, clearColor: Colors.Transparent);
             using Bitmap partial = RenderAtScale(resource, Frame, scale, requestedRegion: region, clearColor: Colors.Transparent);
@@ -638,16 +641,20 @@ public class EffectScaleParityTests
         });
     }
 
-    private static LensChromaticAberration MakeLensChromaticAberration() => new()
+    private static LensChromaticAberration MakeLensChromaticAberration(bool repeatEdgePixels) => new()
     {
         Amount = { Value = 10f },
         Center = { Value = new RelativePoint(0.38f, 0.62f, RelativeUnit.Relative) },
+        RepeatEdgePixels = { Value = repeatEdgePixels },
     };
 
     private static Drawable.Resource MakeForCase(string name, Func<FilterEffect> makeEffect)
     {
         if (name.StartsWith("InnerShadow", StringComparison.Ordinal))
             return MakeInnerShadowFixture(makeEffect);
+        // Repeated edge pixels matter where a picture fills its bounds.
+        if (name.StartsWith("LensChromaticAberration-RepeatEdgePixels", StringComparison.Ordinal))
+            return MakeFullFrameFixture(makeEffect, MakeStripes(20));
         if (name.StartsWith("PolarCoordinates", StringComparison.Ordinal))
             return RotatedRect(makeEffect, MakePolarCoordinatesGradient());
         if (name.StartsWith("Vignette", StringComparison.Ordinal))
@@ -660,6 +667,18 @@ public class EffectScaleParityTests
                 ? MakeStripes(20)
                 : Brushes.White;
         return RotatedRect(makeEffect, fill);
+    }
+
+    private static Drawable.Resource MakeFullFrameFixture(Func<FilterEffect> makeEffect, Brush fill)
+    {
+        var shape = new RectShape();
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = Frame.Width;
+        shape.Height.Value = Frame.Height;
+        shape.Fill.Value = fill;
+        shape.FilterEffect.Value = makeEffect();
+        return shape.ToResource(CompositionContext.Default);
     }
 
     private static Drawable.Resource MakeInnerShadowFixture(Func<FilterEffect> makeEffect)
@@ -685,7 +704,8 @@ public class EffectScaleParityTests
     public static IEnumerable<TestCaseData> RepresentativeEffectsWithScales()
     {
         float[] scales = [1.5f, 3f];
-        string[] names = ["InnerShadow", "StrokeEffect-Offset", "Mosaic-AbsoluteOrigin", "FlatShadow", "Vignette-Darken", "LensChromaticAberration"];
+        string[] names = ["InnerShadow", "StrokeEffect-Offset", "Mosaic-AbsoluteOrigin", "FlatShadow", "Vignette-Darken", "LensChromaticAberration",
+            "LensChromaticAberration-RepeatEdgePixels"];
         Dictionary<string, Func<FilterEffect>> effects = Effects().ToDictionary(
             static testCase => (string)testCase.Arguments[0]!,
             static testCase => (Func<FilterEffect>)testCase.Arguments[1]!);

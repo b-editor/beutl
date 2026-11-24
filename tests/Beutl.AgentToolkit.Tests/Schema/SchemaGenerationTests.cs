@@ -308,8 +308,15 @@ public sealed class SchemaGenerationTests
         TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(LensChromaticAberration).FullName);
         PropertyDescriptor amount = descriptor.Properties.Single(property => property.Name == nameof(LensChromaticAberration.Amount));
         PropertyDescriptor center = descriptor.Properties.Single(property => property.Name == nameof(LensChromaticAberration.Center));
+        PropertyDescriptor repeatEdgePixels = descriptor.Properties.Single(
+            property => property.Name == nameof(LensChromaticAberration.RepeatEdgePixels));
         EffectSummary summary = generator.ListEffects(intent: "lens").Single(effect => effect.Name == nameof(LensChromaticAberration));
-        string[] properties = [nameof(LensChromaticAberration.Amount), nameof(LensChromaticAberration.Center)];
+        string[] properties =
+        [
+            nameof(LensChromaticAberration.Amount),
+            nameof(LensChromaticAberration.Center),
+            nameof(LensChromaticAberration.RepeatEdgePixels),
+        ];
 
         using (Assert.EnterMultipleScope())
         {
@@ -317,11 +324,13 @@ public sealed class SchemaGenerationTests
             Assert.That(summary.IntentTags, Is.SupersetOf(new[] { "chromatic", "aberration", "lens", "stylize" }));
             Assert.That(summary.Notes, Has.Some.Contains("percentage change in scale"));
             Assert.That(summary.Notes, Has.Some.Contains("relative to the input bounds"));
+            Assert.That(summary.Notes, Has.Some.Contains("RepeatEdgePixels (default true)"));
             Assert.That(descriptor.Properties.Select(property => property.Name), Is.EquivalentTo(properties));
             Assert.That(amount.Default, Is.EqualTo(1f));
             Assert.That(amount.Range, Is.EqualTo(new RangeDescriptor(-10, 10)));
             Assert.That(amount.Unit, Is.EqualTo("percent"));
             Assert.That(center.Default, Is.EqualTo(RelativePoint.Center));
+            Assert.That(repeatEdgePixels.Default, Is.EqualTo(true));
             foreach (PropertyDescriptor property in descriptor.Properties)
             {
                 Assert.That(property.Animatable, Is.True, property.Name);

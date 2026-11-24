@@ -384,6 +384,12 @@
   <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
     <value>Scales the red channel by (1 + Amount/100) and the blue channel by (1 - Amount/100) around the center. The green channel stays in place. Negative values swap the fringe colors.</value>
   </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels" xml:space="preserve">
+    <value>Repeat edge pixels</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels_Description" xml:space="preserve">
+    <value>Where a channel reads past the picture's edge, it repeats the edge pixels, so the edges keep their colors and the result stays within the picture. When off, the fringes spread past the picture, which suits an object on a transparent background.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>Curves</value>
   </data>

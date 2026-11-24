@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -15,6 +16,7 @@ public sealed class LensChromaticAberrationTests
 {
     private static readonly Rect s_bounds = new(10, 20, 100, 60);
     private static readonly PixelSize s_patternSize = new(101, 21);
+    private static readonly PixelSize s_frame = new(200, 200);
 
     [Test]
     public void SeparationGrowsAwayFromTheCenter()
@@ -88,6 +90,7 @@ public sealed class LensChromaticAberrationTests
         {
             Amount = 10f,
             Center = new RelativePoint(centerX, centerY, RelativeUnit.Relative),
+            RepeatEdgePixels = false,
         };
         using var context = new FilterEffectContext(s_bounds);
         context.ApplyTransactional(resource);
@@ -105,11 +108,135 @@ public sealed class LensChromaticAberrationTests
     [TestCase(40f)]
     public void DetachedAmountIsClamped(float amount)
     {
-        using var resource = new LensChromaticAberration.Resource { Amount = amount, Center = RelativePoint.Center };
+        using var resource = new LensChromaticAberration.Resource
+        {
+            Amount = amount,
+            Center = RelativePoint.Center,
+            RepeatEdgePixels = false,
+        };
         using var context = new FilterEffectContext(s_bounds);
         context.ApplyTransactional(resource);
 
         Assert.That(context.Bounds.Width, Is.EqualTo(110f).Within(0.001f));
+    }
+
+    [Test]
+    public void DefaultSettingsKeepTheInputBounds()
+    {
+        using FilterEffect.Resource resource = new LensChromaticAberration().ToResource(CompositionContext.Default);
+        using var context = new FilterEffectContext(s_bounds);
+        context.ApplyTransactional(resource);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(context.GetOrderedItems(), Is.Not.Empty);
+            Assert.That(context.Bounds, Is.EqualTo(s_bounds));
+        }
+    }
+
+    [TestCase(10f, 0.25f, 0.75f)]
+    [TestCase(-10f, 1.5f, -0.5f)]
+    public void RepeatedEdgePixelsKeepTheInputBounds(float amount, float centerX, float centerY)
+    {
+        using var resource = new LensChromaticAberration.Resource
+        {
+            Amount = amount,
+            Center = new RelativePoint(centerX, centerY, RelativeUnit.Relative),
+            RepeatEdgePixels = true,
+        };
+        using var context = new FilterEffectContext(s_bounds);
+        context.ApplyTransactional(resource);
+
+        Assert.That(context.Bounds, Is.EqualTo(s_bounds));
+    }
+
+    [Test]
+    public void RepeatsTheOutermostPixelsPastTheEdges()
+    {
+        // Yellow between two white columns. The blue that the outward channel reads past either edge is that column's.
+        using Bitmap bitmap = Render(10f, repeatEdgePixels: true, DrawYellowBetweenWhiteColumns, out Rect raster);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(raster, Is.EqualTo(new Rect(0, 0, s_patternSize.Width, s_patternSize.Height)));
+            foreach (int x in (int[])[0, 4, 96, 100])
+                Assert.That(PixelAt(bitmap, x, 10, raster), Is.EqualTo(new Rgba(1, 1, 1, 1)), $"x = {x}");
+            Assert.That(PixelAt(bitmap, 50, 10, raster), Is.EqualTo(new Rgba(1, 1, 0, 1)));
+        }
+    }
+
+    [Test]
+    public void DefaultSettingsKeepAnOpaquePictureInItsBoundsWithItsEdgeColors()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            const int surface = 1000;
+            var content = new Rect(100, 100, 800, 800);
+            using var fill = (Brush.Resource)new SolidColorBrush(Color.FromRgb(220, 170, 120))
+                .ToResource(CompositionContext.Default);
+            using Bitmap bitmap = FilteredShapeHarness.Render(content, new LensChromaticAberration(), fullBleed: true,
+                surface, new Rect(0, 0, surface, surface), fill);
+            Rgba color = PixelAt(bitmap, 500, 500);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(MathF.Min(color.Red, MathF.Min(color.Green, color.Blue)), Is.GreaterThan(0.1f));
+                // At 1 %, the channel that reads outward found nothing within four pixels of each edge.
+                foreach (int inset in (int[])[0, 1, 2, 3, 6])
+                {
+                    AssertColor(PixelAt(bitmap, 100 + inset, 500), color, $"{inset} px inside the left edge");
+                    AssertColor(PixelAt(bitmap, 899 - inset, 500), color, $"{inset} px inside the right edge");
+                    AssertColor(PixelAt(bitmap, 500, 100 + inset), color, $"{inset} px inside the top edge");
+                    AssertColor(PixelAt(bitmap, 500, 899 - inset), color, $"{inset} px inside the bottom edge");
+                }
+
+                // The channel that reads inward used to draw a fringe there.
+                foreach (int gap in (int[])[1, 3])
+                {
+                    Assert.That(PixelAt(bitmap, 100 - gap, 500), Is.EqualTo(default(Rgba)), $"{gap} px left of the picture");
+                    Assert.That(PixelAt(bitmap, 899 + gap, 500), Is.EqualTo(default(Rgba)), $"{gap} px right of the picture");
+                    Assert.That(PixelAt(bitmap, 500, 100 - gap), Is.EqualTo(default(Rgba)), $"{gap} px above the picture");
+                    Assert.That(PixelAt(bitmap, 500, 899 + gap), Is.EqualTo(default(Rgba)), $"{gap} px below the picture");
+                }
+            }
+        });
+    }
+
+    [TestCase(false, 1.5f)]
+    [TestCase(false, 2f)]
+    [TestCase(true, 1.5f)]
+    [TestCase(true, 2f)]
+    public void PartialRequestMatchesTheWhole(bool repeatEdgePixels, float scale)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            // Inside the picture's left edge, where the blue channel reads past the edge.
+            var region = new Rect(24, 80, 10, 24);
+            PixelRect deviceRegion = PixelRect.FromRect(region, scale);
+            using Drawable.Resource resource = StripedPicture(new LensChromaticAberration
+            {
+                Amount = { Value = 10f },
+                Center = { Value = new RelativePoint(0.85f, 0.4f, RelativeUnit.Relative) },
+                RepeatEdgePixels = { Value = repeatEdgePixels },
+            });
+            using Drawable.Resource controlResource = StripedPicture(new FilterEffectGroup());
+            using Bitmap full = GoldenImageHarness.RenderAtScale(resource, s_frame, scale, clearColor: Colors.Transparent);
+            using Bitmap partial = GoldenImageHarness.RenderAtScale(
+                resource, s_frame, scale, requestedRegion: region, clearColor: Colors.Transparent);
+            using Bitmap control = GoldenImageHarness.RenderAtScale(controlResource, s_frame, scale, clearColor: Colors.Transparent);
+            using Bitmap expected = full.ExtractSubset(deviceRegion);
+            using Bitmap actual = partial.ExtractSubset(deviceRegion);
+            using Bitmap unfiltered = control.ExtractSubset(deviceRegion);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual).Maximum, Is.LessThanOrEqualTo(0.005));
+                Assert.That(ImageMetrics.MeanAbsoluteError(expected, unfiltered), Is.GreaterThan(0.02),
+                    "the requested region must show the effect");
+            }
+        });
     }
 
     [Test]
@@ -123,6 +250,7 @@ public sealed class LensChromaticAberrationTests
             {
                 Amount = { Value = 10f },
                 Center = { Value = new RelativePoint(-55, 5, RelativeUnit.Absolute) },
+                RepeatEdgePixels = { Value = false },
             };
             using Bitmap bitmap = FilteredShapeHarness.Render(content, effect, fullBleed: true);
 
@@ -165,20 +293,59 @@ public sealed class LensChromaticAberrationTests
         }
     }
 
+    private static void AssertColor(Rgba actual, Rgba expected, string message)
+    {
+        float difference = MathF.Max(
+            MathF.Max(MathF.Abs(actual.Red - expected.Red), MathF.Abs(actual.Green - expected.Green)),
+            MathF.Max(MathF.Abs(actual.Blue - expected.Blue), MathF.Abs(actual.Alpha - expected.Alpha)));
+        Assert.That(difference, Is.LessThanOrEqualTo(0.002f), $"{message}: {actual} instead of {expected}");
+    }
+
+    // A 160 x 120 picture of vertical stripes in the middle of the frame.
+    private static Drawable.Resource StripedPicture(FilterEffect effect)
+    {
+        var stripes = new LinearGradientBrush
+        {
+            StartPoint = { Value = new RelativePoint(0, 0, RelativeUnit.Absolute) },
+            EndPoint = { Value = new RelativePoint(12, 0, RelativeUnit.Absolute) },
+            SpreadMethod = { Value = GradientSpreadMethod.Repeat },
+        };
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Gray, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Gray, 1));
+        var shape = new RectShape();
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 160;
+        shape.Height.Value = 120;
+        shape.Fill.Value = stripes;
+        shape.FilterEffect.Value = effect;
+        return shape.ToResource(CompositionContext.Default);
+    }
+
+    // The fringe tests keep the transparent edges they were written for.
     private static Bitmap RenderPattern(float amount, SKColor color, out Rect rasterBounds)
+        => Render(amount, repeatEdgePixels: false, canvas => DrawPattern(canvas, color), out rasterBounds);
+
+    private static Bitmap Render(float amount, bool repeatEdgePixels, Action<SKCanvas> draw, out Rect rasterBounds)
     {
         VulkanTestEnvironment.EnsureAvailable();
         (Bitmap bitmap, Rect raster) = VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget backing = RenderTarget.Create(s_patternSize.Width, s_patternSize.Height)!;
-            DrawPattern(backing.Value.Canvas, color);
+            draw(backing.Value.Canvas);
             backing.Value.Canvas.Flush();
             var bounds = new Rect(0, 0, s_patternSize.Width, s_patternSize.Height);
             using var targets = new EffectTargets
             {
                 new EffectTarget(backing, bounds, EffectiveScale.At(1), PixelRect.FromRect(bounds, 1)),
             };
-            var effect = new LensChromaticAberration { Amount = { Value = amount } };
+            var effect = new LensChromaticAberration
+            {
+                Amount = { Value = amount },
+                RepeatEdgePixels = { Value = repeatEdgePixels },
+            };
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(bounds);
             context.ApplyTransactional(resource);
@@ -202,6 +369,14 @@ public sealed class LensChromaticAberrationTests
         canvas.DrawRect(0, 0, s_patternSize.Width, 3, paint);
         foreach (int x in new[] { 9, 49, 89 })
             canvas.DrawRect(x, 3, 3, s_patternSize.Height - 3, paint);
+    }
+
+    private static void DrawYellowBetweenWhiteColumns(SKCanvas canvas)
+    {
+        canvas.Clear(SKColors.Yellow);
+        using var paint = new SKPaint { Color = SKColors.White };
+        canvas.DrawRect(0, 0, 1, s_patternSize.Height, paint);
+        canvas.DrawRect(s_patternSize.Width - 1, 0, 1, s_patternSize.Height, paint);
     }
 
     private static Rgba PixelAt(Bitmap bitmap, int x, int y, Rect raster = default)

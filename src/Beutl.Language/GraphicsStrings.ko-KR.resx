@@ -383,6 +383,12 @@
   <data name="LensChromaticAberration_Amount_Description" xml:space="preserve">
     <value>중심을 기준으로 빨간색 채널의 배율은 (1 + 양/100), 파란색 채널의 배율은 (1 - 양/100)입니다. 녹색 채널의 위치는 그대로 유지됩니다. 음수 값을 사용하면 색 번짐의 빨간색과 파란색이 서로 바뀝니다.</value>
   </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels" xml:space="preserve">
+    <value>가장자리 픽셀 반복</value>
+  </data>
+  <data name="LensChromaticAberration_RepeatEdgePixels_Description" xml:space="preserve">
+    <value>채널이 이미지 가장자리 바깥을 읽을 때 가장자리 픽셀을 반복합니다. 가장자리의 색이 유지되고 결과가 이미지 안에 머뭅니다. 끄면 색 번짐이 이미지 바깥까지 퍼지므로 투명한 배경 위의 개체에 적합합니다.</value>
+  </data>
   <data name="Curves" xml:space="preserve">
     <value>곡선</value>
   </data>
