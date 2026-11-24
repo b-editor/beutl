@@ -267,9 +267,11 @@ public sealed class PuppetTests
         Assert.That(targets, Is.Empty);
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void DownsamplingTheMaskPreservesAThinUnpinnedIsland(bool vulkan)
+    [TestCase(false, 4096, 256, 100, 255)]
+    [TestCase(true, 4096, 256, 100, 255)]
+    [TestCase(false, 1920, 1080, 7, 64)]
+    [TestCase(true, 1920, 1080, 7, 64)]
+    public void DownsamplingTheMaskPreservesAThinUnpinnedIsland(bool vulkan, int width, int height, int lineX, int lineAlpha)
     {
         if (vulkan)
         {
@@ -281,14 +283,14 @@ public sealed class PuppetTests
             Verify(CpuRenderTargets.Create);
         }
 
-        static void Verify(Func<int, int, RenderTarget> createTarget)
+        void Verify(Func<int, int, RenderTarget> createTarget)
         {
-            var bounds = new Rect(0, 0, 4096, 256);
-            using RenderTarget input = createTarget(4096, 256);
+            var bounds = new Rect(0, 0, width, height);
+            using RenderTarget input = createTarget(width, height);
             var canvas = input.Value.Canvas;
             canvas.Clear(SKColors.Transparent);
-            Fill(canvas, new SKRect(100, 20, 101, 236), SKColors.White);
-            Fill(canvas, new SKRect(1200, 40, 2100, 200), SKColors.White);
+            Fill(canvas, new SKRect(lineX, height / 8, lineX + 1, height * 7 / 8), SKColors.White.WithAlpha((byte)lineAlpha));
+            Fill(canvas, new SKRect(width * 0.3f, height * 0.15f, width * 0.5f, height * 0.8f), SKColors.White);
             var effect = new Puppet { Pins = { Pin(new Point(0.4f, 0.5f), new Point(0.5f, 0.5f)) } };
             using var targets = new EffectTargets { new EffectTarget(input, bounds) };
             using var resource = effect.ToResource(CompositionContext.Default);
@@ -302,12 +304,16 @@ public sealed class PuppetTests
 
             EffectTarget output = targets.Single();
             using Bitmap alpha = output.RenderTarget!.SnapshotAlpha();
-            Assert.That(AlphaAt(new Point(100.5f, 80.5f)), Is.GreaterThan(200), "the thin unpinned island stays in place");
-            Assert.That(AlphaAt(new Point(2350.5f, 100.5f)), Is.EqualTo(255), "the pinned rectangle was translated");
+            // A fractional output origin splits a source pixel between two samples with separate 8-bit alpha rounding.
+            float lineY = height / 2f + 0.5f;
+            int opacity = AlphaAt(new Point(lineX - 0.5f, lineY)) + AlphaAt(new Point(lineX + 0.5f, lineY))
+                + AlphaAt(new Point(lineX + 1.5f, lineY));
+            Assert.That(opacity, Is.EqualTo(lineAlpha).Within(2), "the thin unpinned island stays in place with its original opacity");
+            Assert.That(AlphaAt(new Point(width * 0.55f, height / 2f)), Is.EqualTo(255), "the pinned rectangle was translated");
 
             byte AlphaAt(Point point)
             {
-                Assert.That(output.Placement.RasterBounds.Contains(point), Is.True);
+                if (!output.Placement.RasterBounds.Contains(point)) return 0;
                 Point local = point - output.Placement.RasterBounds.Position;
                 return alpha.GetRow((int)local.Y)[(int)local.X];
             }

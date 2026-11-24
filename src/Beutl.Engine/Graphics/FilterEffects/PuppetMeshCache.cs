@@ -8,8 +8,6 @@ internal sealed class PuppetMeshCache
 {
     private const int AnalysisLongestSide = 1024;
     private const int SamplesPerBatch = 8;
-    private static readonly byte[] s_alphaThreshold = Enumerable.Range(0, 256)
-        .Select(alpha => alpha < AlphaOutlineTracer.BackgroundAlpha ? (byte)0 : (byte)255).ToArray();
     private static readonly Lazy<SKRuntimeEffect> s_coverageEffect = new(CreateCoverageEffect);
     private Size _size;
     private PixelSize _maskSize;
@@ -19,13 +17,10 @@ internal sealed class PuppetMeshCache
 
     public (PuppetMesh Mesh, PuppetDeformer Deformer)? GetOrCreate(EffectTarget source, Point[] anchors)
     {
-        RenderTarget input = source.RenderTarget!;
-        GRRecordingContext? graphicsContext = input.RawValue.Context;
-        input.PrepareForSampling(RenderTargetSamplingIntent.SameContextTextureSampling(graphicsContext));
-        using SurfaceSnapshot.Lease snapshot = SurfaceSnapshot.Take(input.Value);
         Size size = source.Bounds.Size;
-        using Bitmap mask = SampleMask(snapshot.Image, source, graphicsContext, AnalysisLongestSide);
-        var maskSize = new PixelSize(mask.Width, mask.Height);
+        float scale = source.Placement.Scale.Value;
+        PixelSize maskSize = CalculateMaskSize(size, scale, AnalysisLongestSide);
+        using Bitmap mask = SampleMask(source, maskSize);
         if (_size == size && _maskSize == maskSize && anchors.AsSpan().SequenceEqual(_anchors)
             && _coverage is { } cachedCoverage && HasCoverage(mask, cachedCoverage))
             return _prepared;
@@ -57,7 +52,7 @@ internal sealed class PuppetMeshCache
 
             longestSide /= 2;
             // Every retry is a reduction of the same coverage used as the cache key.
-            using Bitmap reduced = ReduceMask(mask, CalculateMaskSize(size, longestSide));
+            using Bitmap reduced = ReduceMask(mask, CalculateMaskSize(size, scale, longestSide));
             outlines = AlphaOutlineTracer.Trace(reduced);
             maskSize = new PixelSize(reduced.Width, reduced.Height);
         }
@@ -73,13 +68,12 @@ internal sealed class PuppetMeshCache
         return true;
     }
 
-    // Read back only the small Alpha8 mask. For wider footprints a single bilinear sample can miss a source pixel.
-    private static Bitmap SampleMask(
-        SKImage image, EffectTarget source, GRRecordingContext? graphicsContext, int longestSide)
+    // Reduce coverage on the GPU before reading back. Raster targets can scan their Alpha8 pixels directly.
+    private static Bitmap SampleMask(EffectTarget source, PixelSize size)
     {
+        RenderTarget input = source.RenderTarget!;
         Rect bounds = source.Bounds;
         RenderPlacement placement = source.Placement;
-        PixelSize size = CalculateMaskSize(bounds.Size, longestSide);
         float scale = placement.Scale.Value;
         var origin = new SKPoint((bounds.X - placement.RasterBounds.X) * scale,
             (bounds.Y - placement.RasterBounds.Y) * scale);
@@ -87,31 +81,23 @@ internal sealed class PuppetMeshCache
         var mask = CreateMask(size);
         try
         {
-            if (graphicsContext is null)
+            if (input.RawValue.Context is { } graphicsContext)
             {
-                using var canvas = new SKCanvas(mask.SKBitmap);
-                DrawCoverage(canvas, image, origin, footprint);
-                return mask;
-            }
-
-            SKImageInfo maskInfo = mask.SKBitmap.Info;
-            using (SKSurface? gpuMask = SKSurface.Create(graphicsContext, true, maskInfo)
-                                        ?? SKSurface.Create(graphicsContext, true, maskInfo.WithColorType(SKColorType.Rgba8888)))
-            {
+                input.PrepareForSampling(RenderTargetSamplingIntent.SameContextTextureSampling(graphicsContext));
+                using SurfaceSnapshot.Lease snapshot = SurfaceSnapshot.Take(input.Value);
+                SKImageInfo maskInfo = mask.SKBitmap.Info;
+                using SKSurface? gpuMask = SKSurface.Create(graphicsContext, true, maskInfo)
+                    ?? SKSurface.Create(graphicsContext, true, maskInfo.WithColorType(SKColorType.Rgba8888));
                 if (gpuMask is not null)
                 {
-                    DrawCoverage(gpuMask.Canvas, image, origin, footprint);
+                    DrawCoverage(gpuMask.Canvas, snapshot.Image, origin, footprint);
                     if (gpuMask.ReadPixels(maskInfo, mask.Data, mask.RowBytes, 0, 0))
                         return mask;
                 }
             }
 
-            // If the analysis surface cannot be rendered or read, sample a raster alpha snapshot instead.
-            using Bitmap alpha = source.RenderTarget!.SnapshotAlpha();
-            alpha.SKBitmap.SetImmutable();
-            using SKImage rasterImage = SKImage.FromBitmap(alpha.SKBitmap);
-            using var rasterCanvas = new SKCanvas(mask.SKBitmap);
-            DrawCoverage(rasterCanvas, rasterImage, origin, footprint);
+            using Bitmap alpha = input.SnapshotAlpha();
+            CopyCoverage(alpha, mask, origin, footprint);
             return mask;
         }
         catch
@@ -121,9 +107,10 @@ internal sealed class PuppetMeshCache
         }
     }
 
-    private static PixelSize CalculateMaskSize(Size size, int longestSide)
+    private static PixelSize CalculateMaskSize(Size size, float scale, int longestSide)
     {
-        double density = Math.Min(1, longestSide / (double)Math.Max(size.Width, size.Height));
+        // Keep the extra edge precision of a supersampled input when it fits in the analysis grid.
+        double density = Math.Min(Math.Max(1, scale), longestSide / (double)Math.Max(size.Width, size.Height));
         return new PixelSize(Math.Max(1, (int)Math.Ceiling(size.Width * density)),
             Math.Max(1, (int)Math.Ceiling(size.Height * density)));
     }
@@ -134,34 +121,47 @@ internal sealed class PuppetMeshCache
     private static Bitmap ReduceMask(Bitmap mask, PixelSize size)
     {
         var reduced = CreateMask(size);
-        reduced.GetPixelSpan().Clear();
-        for (int y = 0; y < mask.Height; y++)
+        CopyCoverage(mask, reduced, default, new SKSize(mask.Width / (float)size.Width, mask.Height / (float)size.Height));
+        return reduced;
+    }
+
+    private static void CopyCoverage(Bitmap source, Bitmap mask, SKPoint origin, SKSize footprint)
+    {
+        mask.GetPixelSpan().Clear();
+        const byte backgroundMax = AlphaOutlineTracer.BackgroundAlpha - 1;
+        for (int y = 0; y < source.Height; y++)
         {
-            Span<byte> source = mask.GetRow(y);
-            Span<byte> destination = reduced.GetRow((2 * y + 1) * size.Height / (2 * mask.Height));
-            for (int x = 0; x < source.Length; x++)
+            var (top, bottom) = MaskCells(y, y + 1, origin.Y, footprint.Height, source.Height, mask.Height);
+            if (top == bottom) continue;
+
+            Span<byte> pixels = source.GetRow(y);
+            int x = 0;
+            while (x < pixels.Length)
             {
-                if (source[x] != 0)
-                    destination[(2 * x + 1) * size.Width / (2 * mask.Width)] = 255;
+                int offset = pixels[x..].IndexOfAnyExceptInRange((byte)0, backgroundMax);
+                if (offset < 0) break;
+
+                int start = x + offset;
+                int length = pixels[start..].IndexOfAnyInRange((byte)0, backgroundMax);
+                int end = length < 0 ? pixels.Length : start + length;
+                var (left, right) = MaskCells(start, end, origin.X, footprint.Width, source.Width, mask.Width);
+                for (int row = top; row < bottom; row++)
+                    mask.GetRow(row)[left..right].Fill(255);
+                x = end;
             }
         }
-        return reduced;
+
+        // Project each covered run onto the overlapping mask cells. The edge pixels clamp as on the GPU.
+        static (int First, int End) MaskCells(int start, int end, float origin, float footprint, int sourceLength, int maskLength)
+        {
+            int first = start == 0 ? 0 : Math.Clamp((int)MathF.Floor((start - origin) / footprint), 0, maskLength);
+            int last = end == sourceLength ? maskLength : Math.Clamp((int)MathF.Ceiling((end - origin) / footprint), 0, maskLength);
+            return (first, last);
+        }
     }
 
     private static void DrawCoverage(SKCanvas canvas, SKImage image, SKPoint origin, SKSize footprint)
     {
-        if (footprint is { Width: <= 2, Height: <= 2 })
-        {
-            var transform = SKMatrix.CreateScaleTranslation(1 / footprint.Width, 1 / footprint.Height,
-                -origin.X / footprint.Width, -origin.Y / footprint.Height);
-            using SKShader shader = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,
-                new SKSamplingOptions(SKFilterMode.Linear), transform);
-            using var threshold = SKColorFilter.CreateTable(s_alphaThreshold);
-            using var linear = new SKPaint { Shader = shader, ColorFilter = threshold, BlendMode = SKBlendMode.Src };
-            canvas.DrawPaint(linear);
-            return;
-        }
-
         SKRuntimeEffect effect = s_coverageEffect.Value;
         using SKShader source = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,
             new SKSamplingOptions(SKFilterMode.Nearest));
@@ -196,10 +196,9 @@ internal sealed class PuppetMeshCache
             half4 main(float2 p)
             {
                 float2 cell = floor(p);
-                float2 first = ceil(origin + cell * footprint - 0.5);
-                float2 end = ceil(origin + (cell + 1.0) * footprint - 0.5);
-                // A cell that is smaller than a raster pixel can contain no pixel center.
-                // In that dimension sample the pixel containing the center of the cell.
+                // A partially covered source pixel can contribute to both of its neighbors in the mask.
+                float2 first = floor(origin + cell * footprint);
+                float2 end = ceil(origin + (cell + 1.0) * footprint);
                 float2 centerPixel = floor(origin + (cell + 0.5) * footprint);
                 if (first.x >= end.x) { first.x = centerPixel.x; end.x = first.x + 1.0; }
                 if (first.y >= end.y) { first.y = centerPixel.y; end.y = first.y + 1.0; }
