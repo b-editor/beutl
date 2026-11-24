@@ -199,7 +199,10 @@ internal sealed class PuppetDeformer
                 Vector2 current = original + displacement[vertex] - displacement[other];
                 cosine += (double)original.X * current.X + (double)original.Y * current.Y;
                 sine += (double)original.X * current.Y - (double)original.Y * current.X;
-                squares += (double)original.LengthSquared() + current.LengthSquared();
+                // Squared in double: the energies compared to accept an accelerated step can differ by less than a float
+                // squared length rounds away.
+                squares += (double)original.X * original.X + (double)original.Y * original.Y
+                    + (double)current.X * current.X + (double)current.Y * current.Y;
             }
 
             double length = Math.Sqrt(cosine * cosine + sine * sine);
