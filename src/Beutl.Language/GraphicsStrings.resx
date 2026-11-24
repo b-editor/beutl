@@ -448,7 +448,19 @@
     <value>Order</value>
   </data>
   <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
-    <value>Which part starts first. The position orders sweep across the parts one part size per delay step, so parts level with each other start together.</value>
+    <value>Which part starts first. Position orders advance one typical part size per delay step. From center uses the distance to the center of the combined bounds. Parts at the same distance along the sweep start together.</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode" xml:space="preserve">
+    <value>Delay mode</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
+    <value>Per step uses Delay for each step, in milliseconds. Total uses Delay for the time from the first part's start to the last part's start.</value>
+  </data>
+  <data name="DelayAnimationMode_PerStep" xml:space="preserve">
+    <value>Per step</value>
+  </data>
+  <data name="DelayAnimationMode_Total" xml:space="preserve">
+    <value>Total</value>
   </data>
   <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
     <value>Random seed</value>

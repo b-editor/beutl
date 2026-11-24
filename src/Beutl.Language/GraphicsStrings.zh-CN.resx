@@ -447,7 +447,19 @@
     <value>顺序</value>
   </data>
   <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
-    <value>决定哪个部分先开始。按位置排序时，每经过一个延迟间隔就推进一个部分的尺寸，因此在该方向上位置相同的部分会同时开始。</value>
+    <value>决定哪个部分先开始。按位置排序时，每个延迟步长约为一个部分的尺寸。从中心开始按到所有部分的包围框中心的距离排序。沿推进方向距离相同的部分会同时开始。</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode" xml:space="preserve">
+    <value>延迟模式</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
+    <value>每步模式以毫秒为单位设置每一步的延迟。总时长模式设置从第一个部分开始到最后一个部分开始的时间。</value>
+  </data>
+  <data name="DelayAnimationMode_PerStep" xml:space="preserve">
+    <value>每步</value>
+  </data>
+  <data name="DelayAnimationMode_Total" xml:space="preserve">
+    <value>总时长</value>
   </data>
   <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
     <value>随机种子</value>

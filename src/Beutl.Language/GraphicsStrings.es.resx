@@ -447,7 +447,19 @@
     <value>Orden</value>
   </data>
   <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
-    <value>Determina qué parte empieza primero. En los órdenes por posición, el barrido avanza el tamaño de una parte por cada intervalo de retardo. Las partes que comparten la misma posición en el eje del barrido empiezan al mismo tiempo.</value>
+    <value>Determina qué parte empieza primero. Los órdenes por posición avanzan el tamaño típico de una parte por paso de retardo. Desde el centro usa la distancia al centro del rectángulo que engloba todas las partes. Las partes a la misma distancia a lo largo del barrido empiezan juntas.</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode" xml:space="preserve">
+    <value>Modo de retardo</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
+    <value>Por paso aplica el retardo en milisegundos a cada paso. Total mide el retardo desde el inicio de la primera parte hasta el inicio de la última.</value>
+  </data>
+  <data name="DelayAnimationMode_PerStep" xml:space="preserve">
+    <value>Por paso</value>
+  </data>
+  <data name="DelayAnimationMode_Total" xml:space="preserve">
+    <value>Total</value>
   </data>
   <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
     <value>Semilla aleatoria</value>

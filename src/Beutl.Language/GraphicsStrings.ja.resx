@@ -443,7 +443,19 @@
     <value>順序</value>
   </data>
   <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
-    <value>どのパーツから動き始めるか。位置による順はパーツの大きさ1つ分を1ステップとして端から動かすので、同じ高さや同じ位置にあるパーツは同時に動き始めます。</value>
+    <value>動き始める順番を指定します。位置による順番では、パーツの大きさを基準に間隔を決めます。「中央から」では、全パーツを囲む矩形の中央からの距離が等しいパーツが同時に動き始めます。上下左右からの場合は、進行方向の位置が同じパーツが同時に動き始めます。</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode" xml:space="preserve">
+    <value>ディレイの基準</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
+    <value>「1ステップごと」では、1ステップあたりの遅延をミリ秒で指定します。「全体」では、最初のパーツが動き始めてから最後のパーツが動き始めるまでの時間を指定します。</value>
+  </data>
+  <data name="DelayAnimationMode_PerStep" xml:space="preserve">
+    <value>1ステップごと</value>
+  </data>
+  <data name="DelayAnimationMode_Total" xml:space="preserve">
+    <value>全体</value>
   </data>
   <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
     <value>乱数シード</value>
