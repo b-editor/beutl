@@ -67,6 +67,31 @@ public sealed class GitRepositoryClonerTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Clone_preserves_the_namespace_of_an_explicit_branch()
+    {
+        await CommitFileAsync("Project.bep", "tag", "Tag the initial project");
+        await RunGitAsync("tag", "release");
+        string output = CreateTemporaryDirectory();
+        string destination = Path.Combine(output, "clone");
+        Directory.CreateDirectory(destination);
+        var cloner = new GitRepositoryCloner(CreateInstalledLocator(), _ => Runner);
+
+        const string branchRef = "refs/heads/release";
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => cloner.CloneAsync(Root, destination, branchRef));
+        Assert.That(failure!.Message, Is.EqualTo(Strings.HostedGit_InvalidRevision));
+        Assert.That(Directory.GetFileSystemEntries(destination), Is.Empty);
+        Assert.That(Directory.EnumerateDirectories(output), Is.EqualTo(new[] { destination }));
+
+        await cloner.CloneAsync(Root, Path.Combine(output, "tag"), "release");
+        Assert.That(await File.ReadAllTextAsync(Path.Combine(output, "tag", "Project.bep")), Is.EqualTo("tag"));
+
+        await CommitFileAsync("Project.bep", "branch", "Advance the project");
+        await RunGitAsync("branch", "release");
+        await cloner.CloneAsync(Root, destination, branchRef);
+        Assert.That(await File.ReadAllTextAsync(Path.Combine(destination, "Project.bep")), Is.EqualTo("branch"));
+    }
+
+    [Test]
     public async Task Authenticated_clone_sends_secret_to_helper_before_git_and_saves_only_clean_configuration()
     {
         await CommitFileAsync("Project.bproj", "project", "initial");

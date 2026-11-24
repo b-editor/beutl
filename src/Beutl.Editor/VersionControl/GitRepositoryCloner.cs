@@ -56,13 +56,12 @@ internal sealed class GitRepositoryCloner(
 
             arguments.AddRange(["clone", "--progress", "--no-hardlinks", "--no-checkout"]);
             const string headsPrefix = "refs/heads/";
-            string? branch = revision?.StartsWith(headsPrefix, StringComparison.Ordinal) == true
-                ? revision[headsPrefix.Length..]
-                : revision;
+            bool explicitBranch = revision?.StartsWith(headsPrefix, StringComparison.Ordinal) == true;
+            string? branch = explicitBranch ? revision![headsPrefix.Length..] : revision;
             bool hexadecimalRevision = GitRevisionValidator.IsHexadecimalRevision(revision);
-            bool checkoutRevision = branch == revision && revision is not null
+            bool checkoutRevision = !explicitBranch && revision is not null
                 && (revision.StartsWith("refs/", StringComparison.Ordinal) || hexadecimalRevision);
-            if (!checkoutRevision && branch is not null and not "HEAD")
+            if (!checkoutRevision && branch is not null && (explicitBranch || branch != "HEAD"))
                 arguments.Add($"--branch={branch}");
 
             arguments.AddRange(["--", source, checkout]);
@@ -73,6 +72,14 @@ internal sealed class GitRepositoryCloner(
                 .ConfigureAwait(false);
 
             var repository = new RepositoryInfo(checkout, checkout);
+            if (explicitBranch)
+            {
+                // --branch can select a tag, which leaves HEAD detached.
+                GitCommandResult selected = await runner.RunAsync(repository, ["branch", "--show-current"], local,
+                    cancellationToken).ConfigureAwait(false);
+                if (!string.Equals(selected.Stdout.TrimEnd('\r', '\n'), branch, StringComparison.Ordinal))
+                    throw new InvalidOperationException(Strings.HostedGit_InvalidRevision);
+            }
             if (remote.HasCredentials)
                 await remote.ConfigureLocalCredentialsAsync(repository, runner, helper, cancellationToken, local)
                     .ConfigureAwait(false);
