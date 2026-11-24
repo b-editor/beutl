@@ -98,7 +98,7 @@ public class TimelineAnimationMarksTests
         IReadOnlyList<MediaTime> times = model.KeyFrameMarkTimes.Value;
         var keyFrameMarks = view.FindControl<ElementKeyFrameMarks>("keyFrameMarks")!;
         Border clip = view.FindControl<Border>("border")!;
-        var name = view.FindControl<TextBlock>("textBlock")!;
+        var name = view.FindControl<Avalonia.Controls.TextBlock>("textBlock")!;
         Assert.Multiple(() =>
         {
             // The two keys of the position are at one time, and the fill's key on the scene's clock is 1.75 s into the clip.
