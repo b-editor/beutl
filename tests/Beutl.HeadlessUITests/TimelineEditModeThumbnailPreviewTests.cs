@@ -201,11 +201,28 @@ public class TimelineEditModeThumbnailPreviewTests
     }
 
     [AvaloniaTest]
-    public async Task VideoResize_PausesPendingStripRebuildUntilDragEnds()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task VideoResize_PausesPendingStripRebuildUntilDragEnds(bool reverse)
     {
         using var config = new PreviewConfigScope();
         ElementViewModel clip = await OpenVideoClip();
         TimelineTabViewModel timeline = clip.Timeline;
+        if (reverse)
+        {
+            // The speed curve overshoots below zero before reaching its second keyframe.
+            var animation = new KeyFrameAnimation<float>();
+            animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 0 } });
+            animation.KeyFrames.Add(new KeyFrame<float>
+            {
+                KeyTime = { Value = MediaTime.FromSeconds(4) },
+                Value = { Value = 100 },
+                Easing = { Value = new BackEaseIn() },
+            });
+            clip.Model.Objects.OfType<SourceVideo>().Single().Speed.SetKeyFrameAnimation(animation);
+            TestShell.Configuration.EditorConfig.ClampResizeToOriginalLength.Value = false;
+        }
+        string captureName = reverse ? "reverse-video" : "video";
         using var view = new TimelineViewScope(clip, width: 1200);
         var strip = view.Element.FindControl<ThumbnailStripControl>("thumbnailStrip")!;
         await HeadlessTestHelpers.WaitUntilAsync(() => clip.VideoThumbnailCount.Value > 0
@@ -219,7 +236,7 @@ public class TimelineEditModeThumbnailPreviewTests
         HeadlessTestHelpers.Render(3);
         clip.InvalidateAndUpdateThumbnails();
         double baseWidth = strip.Bounds.Width;
-        HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "video-before");
+        HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), $"{captureName}-before");
 
         Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width - 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
         Point release = press.WithX(press.X + MediaTime.FromSeconds(0.75).TimeToPixel(1.5f));
@@ -234,7 +251,7 @@ public class TimelineEditModeThumbnailPreviewTests
                 Assert.That(clip.ThumbnailContentWidth.Value, Is.EqualTo(baseWidth));
             });
             HeadlessTestHelpers.Render(3);
-            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "video-drag");
+            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), $"{captureName}-drag");
             view.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
         });
 

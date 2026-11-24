@@ -84,6 +84,17 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
         return new MediaTime((long)Math.Round((time - start).Flicks * (double)(resource.Speed / 100f)));
     }
 
+    private static MediaTime NormalizeRequestedPosition(Resource resource, MediaTime requested, MediaTime offset, bool normalizeReverse)
+    {
+        // Loop boundaries are measured in source time, including the offset.
+        if (resource.IsLoop && resource.Source is { IsDisposed: false } source && source.Duration > MediaTime.Zero)
+            return SpeedAdjustedTime.WrapIntoDuration(requested + offset, source.Duration) - offset;
+
+        return normalizeReverse && requested < MediaTime.Zero
+            ? (resource.Source?.Duration ?? MediaTime.Zero) + requested
+            : requested;
+    }
+
     public MediaTime? CalculateOriginalTime(Resource resource)
     {
         if (resource.Source == null) return null;
@@ -182,19 +193,8 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
 
         partial void PostReconcile(SourceVideo obj, CompositionContext context)
         {
-            RequestedPosition = obj.CalculateRequestedPosition(context.Time, this);
-
-            if (IsLoop && Source?.IsDisposed == false && Source.Duration > MediaTime.Zero)
-            {
-                // A frame is read at RequestedPosition + OffsetPosition, so the loop wraps that sum; wrapping the
-                // requested position alone read past the end of the source for the last OffsetPosition of each loop.
-                RequestedPosition = SpeedAdjustedTime.WrapIntoDuration(RequestedPosition + OffsetPosition, Source.Duration)
-                                    - OffsetPosition;
-            }
-            else if (RequestedPosition < MediaTime.Zero)
-            {
-                RequestedPosition = (Source?.Duration ?? MediaTime.Zero) + RequestedPosition;
-            }
+            RequestedPosition = NormalizeRequestedPosition(this, obj.CalculateRequestedPosition(context.Time, this),
+                OffsetPosition, normalizeReverse: true);
 
             if (RequestedPosition != RenderedPosition)
             {

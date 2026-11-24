@@ -302,12 +302,9 @@ public partial class SourceVideo : IThumbnailsProvider
             requested = CalculateRequestedPosition(start + relativeTime, resource);
         }
 
-        MediaTime position = requested + resource.OffsetPosition + offsetDelta;
-        if (resource.IsLoop)
-        {
-            sourcePosition = SpeedAdjustedTime.WrapIntoDuration(position, source.Duration);
-            return true;
-        }
+        // Playback can move backwards after the in-point. Extending before it can also expose empty media space.
+        MediaTime offset = resource.OffsetPosition + offsetDelta;
+        MediaTime position = NormalizeRequestedPosition(resource, requested, offset, normalizeReverse: relativeTime >= MediaTime.Zero) + offset;
 
         if (position < MediaTime.Zero || position >= source.Duration)
             return false;
