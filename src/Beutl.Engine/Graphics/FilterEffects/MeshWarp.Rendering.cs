@@ -156,6 +156,7 @@ public sealed partial class MeshWarp
         public Point Maximum { get; private set; }
 
         // The edges along the given sides of the lattice, each with the third corner of the triangle it belongs to.
+        // Each cell is two triangles in row-major order, the first holding its top and left edges.
         public TriangleWarpRenderer.OutlineEdge[] GetOutline(TriangleWarpRenderer.Sides sides)
         {
             int stride = _columns + 1;
@@ -163,7 +164,7 @@ public sealed partial class MeshWarp
             if (sides.HasFlag(TriangleWarpRenderer.Sides.Top))
             {
                 for (int column = 0; column < _columns; column++)
-                    outline.Add(new(column, column + 1, column + stride));
+                    outline.Add(new(column, column + 1, column + stride, Triangle(0, column, second: false)));
             }
 
             if (sides.HasFlag(TriangleWarpRenderer.Sides.Right))
@@ -171,7 +172,8 @@ public sealed partial class MeshWarp
                 for (int row = 0; row < _rows; row++)
                 {
                     int vertex = row * stride + _columns - 1;
-                    outline.Add(new(vertex + 1, vertex + stride + 1, vertex + stride));
+                    outline.Add(new(vertex + 1, vertex + stride + 1, vertex + stride,
+                        Triangle(row, _columns - 1, second: true)));
                 }
             }
 
@@ -180,7 +182,8 @@ public sealed partial class MeshWarp
                 for (int column = 0; column < _columns; column++)
                 {
                     int vertex = (_rows - 1) * stride + column;
-                    outline.Add(new(vertex + stride + 1, vertex + stride, vertex + 1));
+                    outline.Add(new(vertex + stride + 1, vertex + stride, vertex + 1,
+                        Triangle(_rows - 1, column, second: true)));
                 }
             }
 
@@ -189,11 +192,13 @@ public sealed partial class MeshWarp
                 for (int row = 0; row < _rows; row++)
                 {
                     int vertex = row * stride;
-                    outline.Add(new(vertex + stride, vertex, vertex + 1));
+                    outline.Add(new(vertex + stride, vertex, vertex + 1, Triangle(row, 0, second: false)));
                 }
             }
 
             return outline.ToArray();
+
+            int Triangle(int row, int column, bool second) => (row * _columns + column) * 2 + (second ? 1 : 0);
         }
 
         public (float[] Xs, float[] Ys)? CreateSharedSamples(EffectTargets targets, Rect sharedBounds)

@@ -135,8 +135,8 @@ public sealed class WarpEdgeAntialiasingTests
         {
             float edge = 140 + 0.3f * (y + 0.5f);
             float[] alphas = ReadAlphas(bitmap, y, 0, Surface);
-            // The seam between the halves stays as opaque as the rest of the inside.
-            for (int x = 0; x + 0.5f <= edge - 1.5f; x++)
+            // The seam between the halves stays as opaque as the rest of the inside, from a pixel in from the left side.
+            for (int x = 1; x + 0.5f <= edge - 1.5f; x++)
             {
                 if (alphas[x] != 1)
                     problems.Add($"({x}, {y}) inside has alpha {alphas[x]}");
@@ -149,6 +149,46 @@ public sealed class WarpEdgeAntialiasingTests
         Assert.Multiple(() =>
         {
             Assert.That(targets, Has.Count.EqualTo(2));
+            Assert.That(problems, Is.Empty, Summarize(problems));
+        });
+    }
+
+    [Test]
+    public void FoldedMeshKeepsThePictureUnderItsFadingSide()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            // The first column stretches from x = 0 to 200, and the second folds back over it, so the source's right
+            // side fades out at x = 100 on top of the first column, which covers everything around it.
+            MeshWarpGrid grid = MeshWarpGrid.CreateIdentity(1, 2)
+                .WithPoint(0, 1, new Point(1, 0))
+                .WithPoint(1, 1, new Point(1, 1))
+                .WithPoint(0, 2, new Point(0.5f, 0))
+                .WithPoint(1, 2, new Point(0.5f, 1));
+            var effect = new MeshWarp
+            {
+                Rows = { Value = 1 },
+                Columns = { Value = 2 },
+                Interpolation = { Value = MeshWarpInterpolation.Linear },
+                Mesh = { Value = grid },
+            };
+            using Bitmap bitmap = FilteredShapeHarness.Render(
+                new Rect(0, 0, Surface, Surface), effect, fullBleed: true, surface: Surface,
+                targetDomain: new Rect(0, 0, Surface, Surface));
+
+            var problems = new List<string>();
+            for (int y = 10; y < 190; y++)
+            {
+                // From a pixel in from the left side to the fold at the right.
+                for (int x = 1; x < Surface; x++)
+                {
+                    float alpha = ImageMetrics.AlphaAt(bitmap, x, y);
+                    if (alpha < 0.998f)
+                        problems.Add($"({x}, {y}) has alpha {alpha}");
+                }
+            }
+
             Assert.That(problems, Is.Empty, Summarize(problems));
         });
     }

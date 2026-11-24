@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Buffers;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
@@ -16,7 +17,9 @@ internal static class TriangleWarpRenderer
     private const float MaxMiter = 4;
     // How far inside a side that does not fade every point lies, in output pixels.
     private const float FarInside = -1e4f;
-    private static readonly Lazy<SKRuntimeEffect> s_coverageEffect = new(CreateCoverageEffect);
+    // A side covers all of a pixel centered this far inside it, in output pixels, and none of one this far outside.
+    private const float HalfPixel = 0.5f;
+    private static readonly float[] s_fadeEnds = [-HalfPixel, HalfPixel];
 
     /// <summary>The sides of the source rectangle.</summary>
     [Flags]
@@ -30,8 +33,11 @@ internal static class TriangleWarpRenderer
         All = Left | Top | Right | Bottom,
     }
 
-    /// <summary>An edge of a mesh's outline, and the third corner of the triangle it belongs to.</summary>
-    internal readonly record struct OutlineEdge(int Start, int End, int Opposite);
+    /// <summary>
+    /// An edge of a mesh's outline, the third corner of the triangle it belongs to, and that triangle's position in
+    /// draw order.
+    /// </summary>
+    internal readonly record struct OutlineEdge(int Start, int End, int Opposite, int Triangle);
 
     public static bool Draw(
         Rect warpBounds,
@@ -76,18 +82,18 @@ internal static class TriangleWarpRenderer
         }
 
         // Triangles have no coverage anti-aliasing. The outline moves out onto pixels where the source is
-        // transparent, and where it runs along a side of the source, the source fades out over one output pixel.
-        (Sides fading, float reach) = ExtendOutline(ref texs, ref positions, ref indices, outline, sourceSize);
+        // transparent, and along a side of the source each triangle fades the source out over one output pixel in its
+        // own colors. A triangle drawn later still lays over it, and what a fold lays it over still shows through.
+        Mesh mesh = ExtendOutline(texs, positions, indices, outline, sourceSize) is { } extended
+            ? new Fader(extended, sourceSize).Build()
+            : new Mesh(texs, positions, null, Array.ConvertAll(indices, static index => (int)index));
 
-        using SKVertices vertices = SKVertices.CreateCopy(SKVertexMode.Triangles, positions, texs, colors: null, indices);
         using var paint = new SKPaint { Shader = shader, IsAntialias = true };
         using ImmediateCanvas canvas = context.Open(output);
         using (canvas.PushDeviceSpace())
         {
             canvas.Clear();
-            canvas.Canvas.DrawVertices(vertices, SKBlendMode.Modulate, paint);
-            Fade(canvas.Canvas, texs, positions, indices, sourceSize, fading, reach, columns: true);
-            Fade(canvas.Canvas, texs, positions, indices, sourceSize, fading, reach, columns: false);
+            mesh.Draw(canvas.Canvas, paint);
         }
         return true;
 
@@ -96,18 +102,18 @@ internal static class TriangleWarpRenderer
                 (float)((origin.Y + (double)point.Y * size.Height) * scale));
     }
 
-    // Moves each corner of the outline out along its miter, as far as the source can still show past it, and joins
-    // it to the outline with a strip that continues the map of the triangle beside it. The strip's own aliased edges
-    // then fall where the source is transparent, or past a side of the source that fades. Returns those sides and how
-    // far inside them, in source pixels, a fade can reach; no sides when the outline cannot move.
-    private static (Sides Fading, float Reach) ExtendOutline(
-        ref SKPoint[] texs,
-        ref SKPoint[] positions,
-        ref ushort[] indices,
+    // Moves each corner of the outline out along its miter, as far as the source can still show past it, and joins it
+    // to the outline with strips that continue the map of the triangle beside them, drawn right after that triangle.
+    // The strips' own aliased edges then fall where the source is transparent, or past a side of the source that fades
+    // it out. Null when no corner can move.
+    private static Extension? ExtendOutline(
+        SKPoint[] texs,
+        SKPoint[] positions,
+        ushort[] indices,
         ReadOnlySpan<OutlineEdge> outline,
         SKSizeI size)
     {
-        if (outline.IsEmpty) return default;
+        if (outline.IsEmpty) return null;
 
         Sides fading = Sides.None;
         var corners = new Dictionary<int, Corner>(outline.Length);
@@ -173,30 +179,41 @@ internal static class TriangleWarpRenderer
             movedPositions.Add(new SKPoint(position.X, position.Y));
         }
 
-        if (moved.Count == 0 || count + moved.Count > ushort.MaxValue + 1)
-            return default;
+        if (moved.Count == 0) return null;
 
-        var strips = new List<ushort>(outline.Length * 6);
+        var strips = new List<(int Triangle, int A, int B, int C)>(outline.Length * 2);
         foreach (OutlineEdge edge in outline)
         {
             int start = moved.GetValueOrDefault(edge.Start, edge.Start);
             int end = moved.GetValueOrDefault(edge.End, edge.End);
             if (end != edge.End)
-                AddTriangle(edge.Start, edge.End, end);
+                strips.Add((edge.Triangle, edge.Start, edge.End, end));
             if (start != edge.Start)
-                AddTriangle(edge.Start, end, start);
+                strips.Add((edge.Triangle, edge.Start, end, start));
         }
 
-        texs = [.. texs, .. movedTexs];
-        positions = [.. positions, .. movedPositions];
-        indices = [.. indices, .. strips];
-        return (fading, reach);
-
-        void AddTriangle(int a, int b, int c)
+        strips.Sort(static (x, y) => x.Triangle.CompareTo(y.Triangle));
+        var ordered = new List<int>(indices.Length + strips.Count * 3);
+        int next = 0;
+        for (int i = 0; i + 2 < indices.Length; i += 3)
         {
-            strips.Add((ushort)a);
-            strips.Add((ushort)b);
-            strips.Add((ushort)c);
+            ordered.Add(indices[i]);
+            ordered.Add(indices[i + 1]);
+            ordered.Add(indices[i + 2]);
+            for (; next < strips.Count && strips[next].Triangle <= i / 3; next++)
+                AddStrip(strips[next]);
+        }
+
+        for (; next < strips.Count; next++)
+            AddStrip(strips[next]);
+
+        return new Extension([.. texs, .. movedTexs], [.. positions, .. movedPositions], ordered.ToArray(), fading, reach);
+
+        void AddStrip((int Triangle, int A, int B, int C) strip)
+        {
+            ordered.Add(strip.A);
+            ordered.Add(strip.B);
+            ordered.Add(strip.C);
         }
     }
 
@@ -229,79 +246,6 @@ internal static class TriangleWarpRenderer
         return float.IsFinite(margin) ? margin : 0;
     }
 
-    // Multiplies what the triangles drew by how much of each output pixel the source covers between one pair of
-    // opposite sides. Each triangle measures the distance to a side at its own scale, so the side fades over one
-    // output pixel however the warp stretches the source along it.
-    private static void Fade(
-        SKCanvas canvas,
-        SKPoint[] texs,
-        SKPoint[] positions,
-        ushort[] indices,
-        SKSizeI size,
-        Sides fading,
-        float reach,
-        bool columns)
-    {
-        Sides near = fading & (columns ? Sides.Left : Sides.Top);
-        Sides far = fading & (columns ? Sides.Right : Sides.Bottom);
-        if (near == Sides.None && far == Sides.None) return;
-
-        float extent = columns ? size.Width : size.Height;
-        var fadePositions = new List<SKPoint>();
-        var distances = new List<SKPoint>();
-        for (int i = 0; i + 2 < indices.Length; i += 3)
-        {
-            int a = indices[i];
-            int b = indices[i + 1];
-            int c = indices[i + 2];
-            // A triangle that keeps to the inside of the reach is left as drawn.
-            if (!Reaches(texs[a]) && !Reaches(texs[b]) && !Reaches(texs[c])) continue;
-            if (!TryMap(positions, texs, a, b, c, out Matrix3x2 toSource)) continue;
-
-            (float acrossColumns, float acrossRows) = Across(toSource);
-            float across = columns ? acrossColumns : acrossRows;
-            if (!(across > 0) || !float.IsFinite(across)) continue;
-
-            SKPoint distanceA = Outside(texs[a], across);
-            SKPoint distanceB = Outside(texs[b], across);
-            SKPoint distanceC = Outside(texs[c], across);
-            // A distance is affine over the triangle, so a triangle a half pixel or more inside at its corners is too.
-            if (MathF.Max(MathF.Max(distanceA.X, distanceB.X), distanceC.X) <= -0.5f
-                && MathF.Max(MathF.Max(distanceA.Y, distanceB.Y), distanceC.Y) <= -0.5f)
-                continue;
-
-            fadePositions.Add(positions[a]);
-            fadePositions.Add(positions[b]);
-            fadePositions.Add(positions[c]);
-            distances.Add(distanceA);
-            distances.Add(distanceB);
-            distances.Add(distanceC);
-        }
-
-        if (fadePositions.Count == 0) return;
-
-        using SKVertices fade = SKVertices.CreateCopy(
-            SKVertexMode.Triangles, fadePositions.ToArray(), distances.ToArray(), colors: null);
-        using SKShader coverage = s_coverageEffect.Value.ToShader();
-        using var paint = new SKPaint { Shader = coverage, BlendMode = SKBlendMode.DstIn };
-        canvas.DrawVertices(fade, SKBlendMode.Modulate, paint);
-
-        bool Reaches(SKPoint point)
-        {
-            float position = columns ? point.X : point.Y;
-            return (near != Sides.None && position < reach) || (far != Sides.None && position > extent - reach);
-        }
-
-        // How far outside the near and the far side a source point lies, in output pixels.
-        SKPoint Outside(SKPoint point, float across)
-        {
-            float position = columns ? point.X : point.Y;
-            return new SKPoint(
-                near != Sides.None ? -position / across : FarInside,
-                far != Sides.None ? (position - extent) / across : FarInside);
-        }
-    }
-
     // Source pixels one output pixel crosses toward a side between columns, and toward a side between rows.
     private static (float Columns, float Rows) Across(Matrix3x2 toSource)
         => (new Vector2(toSource.M11, toSource.M21).Length(), new Vector2(toSource.M12, toSource.M22).Length());
@@ -322,17 +266,6 @@ internal static class TriangleWarpRenderer
     }
 
     private static Vector2 ToVector(SKPoint point) => new(point.X, point.Y);
-
-    private static SKRuntimeEffect CreateCoverageEffect()
-        => SKRuntimeEffect.CreateShader("""
-            // How much of an output pixel centered this far outside the two sides the source covers.
-            half4 main(float2 outside)
-            {
-                float2 coverage = saturate(0.5 - outside);
-                return half4(coverage.x * coverage.y);
-            }
-            """, out string? error)
-            ?? throw new InvalidOperationException($"Could not compile the warp edge coverage shader: {error}");
 
     // Subset to the semantic source footprint when the backing buffer includes an apron so Clamp never bleeds apron pixels.
     private static SKShader? CreateSourceShader(
@@ -376,5 +309,335 @@ internal static class TriangleWarpRenderer
         public Sides Sides;
         public Matrix3x2 ToOutput;
         public int Maps;
+    }
+
+    // The mesh with its outline moved out: its vertices followed by the moved corners, its triangles in draw order with
+    // the strips among them, the sides of the source the outline runs along, and how far inside those sides, in source
+    // pixels, a fade can reach.
+    private sealed record Extension(SKPoint[] Texs, SKPoint[] Positions, int[] Indices, Sides Fading, float Reach);
+
+    // Vertices and the triangles to draw, in order. The alpha of a vertex's color is how much of a pixel there the
+    // source covers.
+    private sealed record Mesh(SKPoint[] Texs, SKPoint[] Positions, SKColor[]? Colors, int[] Indices)
+    {
+        public void Draw(SKCanvas canvas, SKPaint paint)
+        {
+            if (Positions.Length <= ushort.MaxValue + 1)
+            {
+                using SKVertices all = SKVertices.CreateCopy(SKVertexMode.Triangles, Positions, Texs, Colors,
+                    Array.ConvertAll(Indices, static index => (ushort)index));
+                canvas.DrawVertices(all, SKBlendMode.Modulate, paint);
+                return;
+            }
+
+            // Draws the triangles in order in parts whose vertices fit 16-bit indices.
+            var local = new Dictionary<int, ushort>();
+            var positions = new List<SKPoint>();
+            var texs = new List<SKPoint>();
+            List<SKColor>? colors = Colors is null ? null : [];
+            var indices = new List<ushort>();
+            for (int i = 0; i + 2 < Indices.Length; i += 3)
+            {
+                if (positions.Count + 3 > ushort.MaxValue + 1)
+                    Flush();
+
+                for (int corner = 0; corner < 3; corner++)
+                {
+                    int vertex = Indices[i + corner];
+                    if (!local.TryGetValue(vertex, out ushort index))
+                    {
+                        index = (ushort)positions.Count;
+                        local.Add(vertex, index);
+                        positions.Add(Positions[vertex]);
+                        texs.Add(Texs[vertex]);
+                        colors?.Add(Colors![vertex]);
+                    }
+
+                    indices.Add(index);
+                }
+            }
+
+            Flush();
+
+            void Flush()
+            {
+                if (indices.Count > 0)
+                {
+                    using SKVertices part = SKVertices.CreateCopy(SKVertexMode.Triangles, positions.ToArray(),
+                        texs.ToArray(), colors?.ToArray(), indices.ToArray());
+                    canvas.DrawVertices(part, SKBlendMode.Modulate, paint);
+                }
+
+                local.Clear();
+                positions.Clear();
+                texs.Clear();
+                colors?.Clear();
+                indices.Clear();
+            }
+        }
+    }
+
+    // Puts the coverage of the sides that fade into the colors of each triangle's own vertices, so that source-over
+    // still shows whatever a triangle lies over where it fades. A color only changes linearly across a triangle, so a
+    // triangle is cut first where its coverage starts and stops changing. Each vertex has one distance to each side,
+    // and an edge two triangles share is cut once, so both keep the same vertices along it.
+    private sealed class Fader
+    {
+        private readonly Extension _mesh;
+        private readonly List<SKPoint> _texs;
+        private readonly List<SKPoint> _positions;
+        // How far a vertex lies outside the left, top, right and bottom side, in output pixels.
+        private readonly List<Vector4> _outside;
+        private readonly List<SKColor> _colors;
+        private readonly List<int> _indices = [];
+        private readonly Dictionary<(int, int), int[]> _cuts = [];
+
+        public Fader(Extension mesh, SKSizeI size)
+        {
+            _mesh = mesh;
+            int count = mesh.Texs.Length;
+            _texs = new List<SKPoint>(mesh.Texs);
+            _positions = new List<SKPoint>(mesh.Positions);
+            _outside = new List<Vector4>(count);
+            _colors = new List<SKColor>(count);
+            if (mesh.Fading == Sides.None) return;
+
+            // Each vertex near a side that fades measures the distance to it at the average scale of its triangles.
+            Vector3[] scales = ArrayPool<Vector3>.Shared.Rent(count);
+            try
+            {
+                Array.Clear(scales, 0, count);
+                int[] indices = mesh.Indices;
+                for (int i = 0; i + 2 < indices.Length; i += 3)
+                {
+                    int a = indices[i];
+                    int b = indices[i + 1];
+                    int c = indices[i + 2];
+                    if (!Reaches(a) && !Reaches(b) && !Reaches(c)) continue;
+                    if (!TryMap(mesh.Positions, mesh.Texs, a, b, c, out Matrix3x2 toSource)) continue;
+
+                    (float columns, float rows) = Across(toSource);
+                    if (!(columns > 0) || !(rows > 0) || !float.IsFinite(columns) || !float.IsFinite(rows)) continue;
+
+                    var scale = new Vector3(columns, rows, 1);
+                    scales[a] += scale;
+                    scales[b] += scale;
+                    scales[c] += scale;
+                }
+
+                for (int vertex = 0; vertex < count; vertex++)
+                {
+                    var outside = new Vector4(FarInside);
+                    Vector3 scale = scales[vertex];
+                    if (scale.Z > 0)
+                    {
+                        float columns = scale.X / scale.Z;
+                        float rows = scale.Y / scale.Z;
+                        SKPoint tex = mesh.Texs[vertex];
+                        if (mesh.Fading.HasFlag(Sides.Left)) outside.X = -tex.X / columns;
+                        if (mesh.Fading.HasFlag(Sides.Top)) outside.Y = -tex.Y / rows;
+                        if (mesh.Fading.HasFlag(Sides.Right)) outside.Z = (tex.X - size.Width) / columns;
+                        if (mesh.Fading.HasFlag(Sides.Bottom)) outside.W = (tex.Y - size.Height) / rows;
+                    }
+
+                    _outside.Add(outside);
+                    _colors.Add(ColorOf(outside));
+                }
+            }
+            finally
+            {
+                ArrayPool<Vector3>.Shared.Return(scales);
+            }
+
+            bool Reaches(int vertex)
+            {
+                SKPoint tex = mesh.Texs[vertex];
+                float reach = mesh.Reach;
+                return (mesh.Fading.HasFlag(Sides.Left) && tex.X < reach)
+                       || (mesh.Fading.HasFlag(Sides.Top) && tex.Y < reach)
+                       || (mesh.Fading.HasFlag(Sides.Right) && tex.X > size.Width - reach)
+                       || (mesh.Fading.HasFlag(Sides.Bottom) && tex.Y > size.Height - reach);
+            }
+        }
+
+        public Mesh Build()
+        {
+            if (_mesh.Fading == Sides.None)
+                return new Mesh(_mesh.Texs, _mesh.Positions, null, _mesh.Indices);
+
+            int[] indices = _mesh.Indices;
+            for (int i = 0; i + 2 < indices.Length; i += 3)
+                Add(indices[i], indices[i + 1], indices[i + 2]);
+
+            return new Mesh(_texs.ToArray(), _positions.ToArray(), _colors.ToArray(), _indices.ToArray());
+        }
+
+        private void Add(int a, int b, int c)
+        {
+            // Away from the sides the source covers the whole triangle, which is affine in the distances.
+            if (Farthest(_outside[a]) <= -HalfPixel && Farthest(_outside[b]) <= -HalfPixel
+                && Farthest(_outside[c]) <= -HalfPixel)
+            {
+                _indices.Add(a);
+                _indices.Add(b);
+                _indices.Add(c);
+                return;
+            }
+
+            List<List<int>> pieces = [[a, .. Cuts(a, b), b, .. Cuts(b, c), c, .. Cuts(c, a)]];
+            for (int side = 0; side < 4; side++)
+            {
+                if (!_mesh.Fading.HasFlag(SideAt(side))) continue;
+
+                foreach (float level in s_fadeEnds)
+                    pieces = Cut(pieces, side, level);
+            }
+
+            foreach (List<int> piece in pieces)
+            {
+                if (IsBeyond(piece)) continue;
+
+                for (int k = 1; k + 1 < piece.Count; k++)
+                {
+                    _indices.Add(piece[0]);
+                    _indices.Add(piece[k]);
+                    _indices.Add(piece[k + 1]);
+                }
+            }
+        }
+
+        // Where an edge starts and stops fading, from its lower vertex up. Made once for both triangles that share it.
+        private int[] Cuts(int a, int b)
+        {
+            (int low, int high) = a < b ? (a, b) : (b, a);
+            if (!_cuts.TryGetValue((low, high), out int[]? points))
+            {
+                var crossings = new List<(float T, int Side, float Level)>();
+                for (int side = 0; side < 4; side++)
+                {
+                    if (!_mesh.Fading.HasFlag(SideAt(side))) continue;
+
+                    foreach (float level in s_fadeEnds)
+                    {
+                        float from = Get(_outside[low], side) - level;
+                        float to = Get(_outside[high], side) - level;
+                        if ((from < 0 && to > 0) || (from > 0 && to < 0))
+                            crossings.Add((from / (from - to), side, level));
+                    }
+                }
+
+                crossings.Sort(static (x, y) => x.T.CompareTo(y.T));
+                points = new int[crossings.Count];
+                for (int i = 0; i < points.Length; i++)
+                    points[i] = Between(low, high, crossings[i].T, crossings[i].Side, crossings[i].Level);
+                _cuts.Add((low, high), points);
+            }
+
+            if (a == low) return points;
+
+            var reversed = new int[points.Length];
+            for (int i = 0; i < points.Length; i++)
+                reversed[i] = points[points.Length - 1 - i];
+            return reversed;
+        }
+
+        // Splits each piece where its distance to one side passes a level. Only the inside of a triangle is crossed
+        // here: its edges already have a vertex at every such point.
+        private List<List<int>> Cut(List<List<int>> pieces, int side, float level)
+        {
+            var result = new List<List<int>>(pieces.Count + 1);
+            foreach (List<int> piece in pieces)
+            {
+                var below = new List<int>(piece.Count + 1);
+                var above = new List<int>(piece.Count + 1);
+                bool hasBelow = false;
+                bool hasAbove = false;
+                for (int i = 0; i < piece.Count; i++)
+                {
+                    int p = piece[i];
+                    int q = piece[(i + 1) % piece.Count];
+                    float fp = Get(_outside[p], side) - level;
+                    float fq = Get(_outside[q], side) - level;
+                    if (fp <= 0) below.Add(p);
+                    if (fp >= 0) above.Add(p);
+                    hasBelow |= fp < 0;
+                    hasAbove |= fp > 0;
+                    if ((fp < 0 && fq > 0) || (fp > 0 && fq < 0))
+                    {
+                        int point = Between(p, q, fp / (fp - fq), side, level);
+                        below.Add(point);
+                        above.Add(point);
+                    }
+                }
+
+                if (hasBelow && below.Count >= 3) result.Add(below);
+                if (hasAbove && above.Count >= 3) result.Add(above);
+            }
+
+            return result;
+        }
+
+        // A piece entirely a half pixel or more outside a side has no coverage.
+        private bool IsBeyond(List<int> piece)
+        {
+            for (int side = 0; side < 4; side++)
+            {
+                if (!_mesh.Fading.HasFlag(SideAt(side))) continue;
+
+                bool beyond = true;
+                foreach (int vertex in piece)
+                    beyond &= Get(_outside[vertex], side) >= HalfPixel;
+                if (beyond) return true;
+            }
+
+            return false;
+        }
+
+        private int Between(int p, int q, float t, int side, float level)
+        {
+            Vector4 outside = Set(Vector4.Lerp(_outside[p], _outside[q], t), side, level);
+            _texs.Add(Lerp(_texs[p], _texs[q], t));
+            _positions.Add(Lerp(_positions[p], _positions[q], t));
+            _outside.Add(outside);
+            _colors.Add(ColorOf(outside));
+            return _texs.Count - 1;
+        }
+
+        private static SKPoint Lerp(SKPoint from, SKPoint to, float t)
+            => new(from.X + (to.X - from.X) * t, from.Y + (to.Y - from.Y) * t);
+
+        // How much of a pixel centered this far outside the sides the source covers, as the alpha of white.
+        private static SKColor ColorOf(Vector4 outside)
+        {
+            Vector4 covered = Vector4.Clamp(new Vector4(HalfPixel) - outside, Vector4.Zero, Vector4.One);
+            float coverage = covered.X * covered.Y * covered.Z * covered.W;
+            return new SKColor(255, 255, 255, (byte)MathF.Round(coverage * 255));
+        }
+
+        private static float Farthest(Vector4 outside)
+            => MathF.Max(MathF.Max(outside.X, outside.Y), MathF.Max(outside.Z, outside.W));
+
+        private static Sides SideAt(int side) => (Sides)(1 << side);
+
+        private static float Get(Vector4 outside, int side) => side switch
+        {
+            0 => outside.X,
+            1 => outside.Y,
+            2 => outside.Z,
+            _ => outside.W,
+        };
+
+        private static Vector4 Set(Vector4 outside, int side, float value)
+        {
+            switch (side)
+            {
+                case 0: outside.X = value; break;
+                case 1: outside.Y = value; break;
+                case 2: outside.Z = value; break;
+                default: outside.W = value; break;
+            }
+
+            return outside;
+        }
     }
 }
