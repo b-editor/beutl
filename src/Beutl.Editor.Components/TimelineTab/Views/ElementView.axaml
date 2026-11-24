@@ -260,7 +260,7 @@
             </Panel>
             <!-- The lock and recovery (part of the clip could not be loaded) glyphs own columns; the label clears them.
                  None of them takes pointer input, so a long name does not cover the transition handles. -->
-            <Grid Height="21" ColumnDefinitions="Auto,Auto,Auto,*" VerticalAlignment="Top">
+            <Grid Height="21" ColumnDefinitions="Auto,Auto,Auto,*" VerticalAlignment="Center">
                 <icons:FluentIcon x:Name="lockIcon"
                                   Grid.Column="0"
                                   Margin="6,0,0,0"
@@ -300,7 +300,7 @@
                          Height="21"
                          MinHeight="0"
                          HorizontalAlignment="Stretch"
-                         VerticalAlignment="Top"
+                         VerticalAlignment="Center"
                          IsEnabled="{Binding IsEditable.Value}"
                          IsVisible="False"
                          Text="{Binding Name.Value, UpdateSourceTrigger=LostFocus}"

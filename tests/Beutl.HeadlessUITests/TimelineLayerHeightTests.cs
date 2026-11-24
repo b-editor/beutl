@@ -93,7 +93,7 @@ public sealed class TimelineLayerHeightTests
     }
 
     [AvaloniaTest]
-    public async Task The_label_and_rename_editor_stay_on_the_same_top_row()
+    public async Task The_label_and_rename_editor_stay_centered_on_the_same_row()
     {
         await TestReset.ResetShellAsync();
         var size = TestShell.Configuration.EditorConfig.TimelineLayerSize;
@@ -102,7 +102,7 @@ public sealed class TimelineLayerHeightTests
         {
             size.Value = TimelineLayerSize.Small;
             using var host = await TimelineTestHost.CreateAsync(
-                "timeline-top-label", MediaTime.FromSeconds(10), [Clip(0)]);
+                "timeline-centered-label", MediaTime.FromSeconds(10), [Clip(0)]);
             ElementView clip = FindClip(host, 0);
             var model = (ElementViewModel)clip.DataContext!;
             // A matte adds a leading column that the rename text must also clear.
@@ -111,20 +111,20 @@ public sealed class TimelineLayerHeightTests
             var label = clip.FindControl<TextBlock>("textBlock")!;
             var row = (Grid)label.Parent!;
             var editor = clip.FindControl<TextBox>("textBox")!;
-            Point labelPosition = label.TranslatePoint(default, clip)!.Value;
-            double rowTop = row.TranslatePoint(default, clip)!.Value.Y;
             Assert.That(clip.FindControl<TextBlock>("matteIndicator")!.IsVisible, Is.True);
-            Assert.That(rowTop, Is.EqualTo(2), "The label row starts after the clip's padding and border.");
 
             foreach (TimelineLayerSize preset in Enum.GetValues<TimelineLayerSize>())
             {
                 size.Value = preset;
                 HeadlessTestHelpers.Render(3);
+                double rowHeight = (int)preset;
+                Point labelPosition = label.TranslatePoint(default, clip)!.Value;
+                double rowCenterY = row.TranslatePoint(new Point(0, row.Bounds.Height / 2), clip)!.Value.Y;
+                double rowTop = row.TranslatePoint(default, clip)!.Value.Y;
                 Assert.Multiple(() =>
                 {
                     Assert.That(row.Bounds.Height, Is.EqualTo(21));
-                    Assert.That(row.TranslatePoint(default, clip)!.Value.Y, Is.EqualTo(rowTop));
-                    Assert.That(label.TranslatePoint(default, clip)!.Value, Is.EqualTo(labelPosition));
+                    Assert.That(rowCenterY, Is.EqualTo(rowHeight / 2).Within(0.5));
                 });
 
                 model.RenameRequested();
@@ -135,7 +135,7 @@ public sealed class TimelineLayerHeightTests
                 Assert.Multiple(() =>
                 {
                     Assert.That(editor.Bounds.Height, Is.EqualTo(21));
-                    Assert.That(editor.TranslatePoint(default, clip)!.Value.Y, Is.EqualTo(rowTop));
+                    Assert.That(editor.TranslatePoint(default, clip)!.Value.Y, Is.EqualTo(rowTop).Within(0.5));
                     Assert.That(editPosition.X, Is.EqualTo(labelPosition.X).Within(0.5));
                     Assert.That(editPosition.Y, Is.EqualTo(labelPosition.Y).Within(0.5));
                 });
