@@ -916,6 +916,9 @@
   <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
     <value>プログレッシブのため解除不要</value>
   </data>
+  <data name="VideoDeinterlace_Automatic" xml:space="preserve">
+    <value>フレームごとに自動判定</value>
+  </data>
   <data name="VideoDeinterlace_Applied" xml:space="preserve">
     <value>インターレース解除を適用</value>
   </data>

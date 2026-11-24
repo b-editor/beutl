@@ -104,7 +104,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         if (probeVersion != _deinterlaceProbeVersion || sender is not FAMenuFlyout { IsOpen: true } || info == null)
             return;
 
-        string? status = FormatDeinterlaceStatus(info);
+        string? status = FormatDeinterlaceStatus(info, model.SelectedDeinterlaceMode == DeinterlaceMode.Auto);
         deinterlaceStatusItem.Text = status;
         deinterlaceStatusItem.IsVisible = status != null;
     }
@@ -115,7 +115,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             item.IsChecked = item.Tag is T value && selected is { } choice && EqualityComparer<T>.Default.Equals(choice, value);
     }
 
-    private static string? FormatDeinterlaceStatus(VideoStreamInfo info)
+    private static string? FormatDeinterlaceStatus(VideoStreamInfo info, bool auto)
     {
         string? order = info.DetectedFieldOrder switch
         {
@@ -127,6 +127,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         };
         return info.DeinterlaceStatus switch
         {
+            DeinterlaceApplicationStatus.Applied when auto => GraphicsStrings.VideoDeinterlace_Automatic,
             DeinterlaceApplicationStatus.Applied when order != null => $"{order} · {GraphicsStrings.VideoDeinterlace_Applied}",
             DeinterlaceApplicationStatus.Applied => GraphicsStrings.VideoDeinterlace_Applied,
             DeinterlaceApplicationStatus.NotNeededProgressive => GraphicsStrings.VideoDeinterlace_ProgressiveNoProcessing,

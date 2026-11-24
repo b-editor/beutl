@@ -1,8 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -26,12 +27,12 @@ public sealed class DecoderRegistryDeinterlaceTests
     public void TearDown() => File.Delete(_path);
 
     [TestCase(DeinterlaceMode.Off, VideoFieldOrder.TopFieldFirst, false, DeinterlaceApplicationStatus.Off)]
-    [TestCase(DeinterlaceMode.Auto, VideoFieldOrder.Progressive, false, DeinterlaceApplicationStatus.NotNeededProgressive)]
+    [TestCase(DeinterlaceMode.Auto, VideoFieldOrder.Progressive, true, DeinterlaceApplicationStatus.Applied)]
     [TestCase(DeinterlaceMode.Auto, VideoFieldOrder.TopFieldFirst, true, DeinterlaceApplicationStatus.Applied)]
     [TestCase(DeinterlaceMode.Auto, VideoFieldOrder.Mixed, true, DeinterlaceApplicationStatus.Applied)]
     [TestCase(DeinterlaceMode.Auto, VideoFieldOrder.Unknown, true, DeinterlaceApplicationStatus.Applied)]
     [TestCase(DeinterlaceMode.On, VideoFieldOrder.Progressive, true, DeinterlaceApplicationStatus.Applied)]
-    public void RoutesByModeAndDetectedScanType(DeinterlaceMode mode, VideoFieldOrder nativeOrder,
+    public void PrefersCapableDecoderWhenDeinterlacingIsEnabled(DeinterlaceMode mode, VideoFieldOrder nativeOrder,
         bool usesCapableDecoder, DeinterlaceApplicationStatus status)
     {
         var decoders = new DecoderRegistry(new());
@@ -49,19 +50,19 @@ public sealed class DecoderRegistryDeinterlaceTests
         {
             Assert.That(reader.VideoInfo.CodecName, Is.EqualTo(usesCapableDecoder ? capable.Name : native.Name));
             Assert.That(reader.VideoInfo.DeinterlaceStatus, Is.EqualTo(status));
-            Assert.That(native.Opens.Count, Is.EqualTo(mode == DeinterlaceMode.On ? 0 : 1));
+            Assert.That(native.Opens.Count, Is.EqualTo(usesCapableDecoder ? 0 : 1));
             Assert.That(capable.Opens.Count, Is.EqualTo(usesCapableDecoder ? 1 : 0));
-            if (mode == DeinterlaceMode.Auto && usesCapableDecoder)
-                Assert.That(native.LastOpened!.IsDisposed, Is.True);
         });
     }
 
-    [TestCase(DeinterlaceMode.On)]
-    [TestCase(DeinterlaceMode.Auto)]
-    public void KeepsTheNativeReaderWithAWarningWhenCapableDecodeFails(DeinterlaceMode mode)
+    [TestCase(DeinterlaceMode.On, VideoFieldOrder.BottomFieldFirst, DeinterlaceApplicationStatus.UnsupportedByBackend)]
+    [TestCase(DeinterlaceMode.Auto, VideoFieldOrder.BottomFieldFirst, DeinterlaceApplicationStatus.UnsupportedByBackend)]
+    [TestCase(DeinterlaceMode.Auto, VideoFieldOrder.Progressive, DeinterlaceApplicationStatus.NotNeededProgressive)]
+    public void KeepsTheNativeReaderWhenCapableDecodeFails(DeinterlaceMode mode, VideoFieldOrder nativeOrder,
+        DeinterlaceApplicationStatus status)
     {
         var decoders = new DecoderRegistry(new());
-        var native = new Decoder("native", VideoFieldOrder.BottomFieldFirst);
+        var native = new Decoder("native", nativeOrder);
         decoders.Register(native);
         decoders.Register(new Decoder("capable", VideoFieldOrder.BottomFieldFirst, Capabilities) { CanOpen = false });
 
@@ -70,15 +71,15 @@ public sealed class DecoderRegistryDeinterlaceTests
             Deinterlace = s_fields with { Mode = mode },
         }, decoders);
         Assert.That(reader.VideoInfo.CodecName, Is.EqualTo(native.Name));
-        Assert.That(reader.VideoInfo.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.UnsupportedByBackend));
-        Assert.That(reader.VideoInfo.DetectedFieldOrder, Is.EqualTo(VideoFieldOrder.BottomFieldFirst));
+        Assert.That(reader.VideoInfo.DeinterlaceStatus, Is.EqualTo(status));
+        Assert.That(reader.VideoInfo.DetectedFieldOrder, Is.EqualTo(nativeOrder));
         Assert.That(native.LastOpened!.IsDisposed, Is.False);
         reader.Dispose();
         Assert.That(native.LastOpened.IsDisposed, Is.True);
     }
 
     [Test]
-    public void AutoUsesCapableProgressiveDetectionWhenNativeScanOrderIsUnknown()
+    public void AutoAcceptsProgressiveResultFromCapableDecoder()
     {
         var decoders = new DecoderRegistry(new());
         var native = new Decoder("native", VideoFieldOrder.Unknown);
@@ -88,11 +89,12 @@ public sealed class DecoderRegistryDeinterlaceTests
         using var reader = MediaReader.Open(_path, new MediaOptions(MediaMode.Video) { Deinterlace = s_fields }, decoders);
         Assert.That(reader.VideoInfo.CodecName, Is.EqualTo("capable"));
         Assert.That(reader.VideoInfo.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.NotNeededProgressive));
-        Assert.That(native.LastOpened!.IsDisposed, Is.True);
+        Assert.That(native.Opens, Is.Empty);
     }
 
-    [Test]
-    public void ForcedDeinterlacingFallsBackToNativeWhenTheCapableBackendIgnoresTheOptions()
+    [TestCase(DeinterlaceMode.On)]
+    [TestCase(DeinterlaceMode.Auto)]
+    public void FallsBackToNativeWhenTheCapableDecoderIgnoresTheOptions(DeinterlaceMode mode)
     {
         var decoders = new DecoderRegistry(new());
         var native = new Decoder("native", VideoFieldOrder.TopFieldFirst);
@@ -102,11 +104,31 @@ public sealed class DecoderRegistryDeinterlaceTests
 
         using var reader = MediaReader.Open(_path, new MediaOptions(MediaMode.Video)
         {
-            Deinterlace = s_fields with { Mode = DeinterlaceMode.On },
+            Deinterlace = s_fields with { Mode = mode },
         }, decoders);
         Assert.That(reader.VideoInfo.CodecName, Is.EqualTo(native.Name));
         Assert.That(reader.VideoInfo.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.UnsupportedByBackend));
         Assert.That(oldWorker.LastOpened!.IsDisposed, Is.True);
+    }
+
+    [Test]
+    public void RetriesVideoWithoutDeinterlacingBeforeReturningAudioOnly()
+    {
+        var decoders = new DecoderRegistry(new());
+        var audioOnly = new Decoder("audio only", VideoFieldOrder.Unknown) { AudioOnly = true };
+        var capable = new Decoder("video", VideoFieldOrder.TopFieldFirst, Capabilities) { FailWithDeinterlacing = true };
+        decoders.Register(audioOnly);
+        decoders.Register(capable);
+
+        using var reader = MediaReader.Open(_path, new MediaOptions(MediaMode.AudioVideo) { Deinterlace = s_fields }, decoders);
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.HasVideo, Is.True);
+            Assert.That(reader.HasAudio, Is.True);
+            Assert.That(reader.VideoInfo.CodecName, Is.EqualTo(capable.Name));
+            Assert.That(reader.VideoInfo.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.UnsupportedByBackend));
+            Assert.That(audioOnly.LastOpened!.IsDisposed, Is.True);
+        });
     }
 
     [Test]
@@ -145,6 +167,28 @@ public sealed class DecoderRegistryDeinterlaceTests
             Assert.That(audioDuration, Is.EqualTo(duration));
             Assert.That(decoder.Opens.Last(), Is.EqualTo(new MediaOptions(MediaMode.Audio)));
         });
+    }
+
+    [Test]
+    public void CanceledInputPreparationClosesTheClipsReader()
+    {
+        var decoders = new DecoderRegistry(new());
+        var decoder = new Decoder("native", VideoFieldOrder.Progressive);
+        decoders.Register(decoder);
+        var source = new SourceVideo
+        {
+            Source = { Value = VideoSource.Open(_path) },
+            FilterEffect = { Value = new SteppedMotion() },
+        };
+        var context = new CompositionContext(MediaTime.Zero)
+        {
+            Decoders = decoders,
+            DisableResourceShare = true,
+            CancellationToken = new CancellationToken(canceled: true),
+        };
+
+        Assert.Throws<OperationCanceledException>(() => source.ToResource(context));
+        Assert.That(decoder.LastOpened?.IsDisposed, Is.True);
     }
 
     [Test]
@@ -187,14 +231,20 @@ public sealed class DecoderRegistryDeinterlaceTests
         public MediaReader? LastOpened { get; private set; }
         public bool CanOpen { get; init; } = true;
         public bool IgnoreDeinterlacing { get; init; }
+        public bool AudioOnly { get; init; }
+        public bool FailWithDeinterlacing { get; init; }
         public IEnumerable<string> VideoExtensions() => [".tmp"];
         public IEnumerable<string> AudioExtensions() => [".tmp"];
 
         public MediaReader? Open(string file, MediaOptions options)
         {
             Opens.Add(options);
+            if (FailWithDeinterlacing && options.Deinterlace.Mode != DeinterlaceMode.Off)
+                return null;
             if (IgnoreDeinterlacing)
                 options = options with { Deinterlace = default };
+            if (AudioOnly)
+                options = options with { StreamsToLoad = MediaMode.Audio };
             return LastOpened = CanOpen ? new Reader(name, options, order, capabilities) : null;
         }
     }

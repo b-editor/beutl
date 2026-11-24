@@ -1,4 +1,4 @@
-namespace Beutl.Media.Decoding;
+﻿namespace Beutl.Media.Decoding;
 
 [Flags]
 public enum DecoderCapabilities

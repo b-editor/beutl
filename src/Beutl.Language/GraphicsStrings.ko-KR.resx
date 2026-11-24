@@ -938,6 +938,9 @@
   <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
     <value>프로그레시브 · 디인터레이스 불필요</value>
   </data>
+  <data name="VideoDeinterlace_Automatic" xml:space="preserve">
+    <value>프레임별 자동 감지</value>
+  </data>
   <data name="VideoDeinterlace_Applied" xml:space="preserve">
     <value>디인터레이스 적용됨</value>
   </data>

@@ -1,4 +1,4 @@
-namespace Beutl.Media;
+﻿namespace Beutl.Media;
 
 /// <summary>How to read the color code values of an SDR video element.</summary>
 public enum VideoTransferInterpretation

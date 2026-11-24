@@ -56,8 +56,16 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
     {
         var resource = new Resource();
         bool versionBumped = true;
-        resource.Reconcile(this, context, ref versionBumped);
-        return resource;
+        try
+        {
+            resource.Reconcile(this, context, ref versionBumped);
+            return resource;
+        }
+        catch
+        {
+            resource.Dispose();
+            throw;
+        }
     }
 
     public bool HasOriginalDuration()

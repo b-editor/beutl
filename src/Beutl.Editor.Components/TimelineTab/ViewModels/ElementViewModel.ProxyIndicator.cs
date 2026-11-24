@@ -1,7 +1,7 @@
 ﻿using System.Reactive;
 using Avalonia.Media;
-using Beutl.Media.Proxy;
 using Beutl.Media.Decoding;
+using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 using Reactive.Bindings.Extensions;
 

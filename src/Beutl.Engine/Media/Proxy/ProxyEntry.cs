@@ -1,5 +1,5 @@
-﻿using Beutl.Media.Decoding;
-using Beutl.Media;
+﻿using Beutl.Media;
+using Beutl.Media.Decoding;
 
 namespace Beutl.Media.Proxy;
 

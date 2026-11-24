@@ -1,6 +1,6 @@
 ﻿using Beutl.FFmpegIpc;
-using Beutl.FFmpegWorker.Encoding;
 using Beutl.FFmpegWorker.Decoding;
+using Beutl.FFmpegWorker.Encoding;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using FFmpeg.AutoGen.Abstractions;

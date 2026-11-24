@@ -97,6 +97,16 @@ public partial class GroupNode : GraphNode
         return (node, source);
     }
 
+    /// <summary>Finds the boundary output that receives the value of this group's external input.</summary>
+    internal IOutputPort? FindInnerInput(IInputPort input)
+    {
+        if (Group.Value.Input.Value is not { } boundary || !MirrorsBoundary(out int outputCount))
+            return null;
+
+        int index = Items.IndexOf(input) - outputCount;
+        return index >= 0 && index < boundary.Items.Count ? boundary.Items[index] as IOutputPort : null;
+    }
+
     /// <summary>Ports a subclass adds of its own, after the ones mirroring the group's boundary.</summary>
     private protected virtual int FixedPortCount => 0;
 

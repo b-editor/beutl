@@ -120,7 +120,7 @@ public sealed class RestoreFileOnDeleteStore(IProxyStore inner) : DelegatingProx
 {
     public override bool Delete(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace = default)
     {
-        ProxyEntry? entry = TryGet(source, preset);
+        ProxyEntry? entry = TryGet(source, preset, deinterlace);
         string? path = entry is null
             ? null
             : Path.Combine(StoreRootPath, entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));

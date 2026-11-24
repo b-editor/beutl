@@ -939,6 +939,9 @@
   <data name="VideoDeinterlace_ProgressiveNoProcessing" xml:space="preserve">
     <value>Progressive · No deinterlacing needed</value>
   </data>
+  <data name="VideoDeinterlace_Automatic" xml:space="preserve">
+    <value>Checking each frame</value>
+  </data>
   <data name="VideoDeinterlace_Applied" xml:space="preserve">
     <value>Deinterlacing applied</value>
   </data>

@@ -1,4 +1,4 @@
-using Beutl.Extensions.FFmpeg.Proxy;
+﻿using Beutl.Extensions.FFmpeg.Proxy;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;

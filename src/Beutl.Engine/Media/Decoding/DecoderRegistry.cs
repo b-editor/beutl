@@ -113,12 +113,10 @@ public sealed class DecoderRegistry
             return null;
         }
 
-        // Auto gives the first working decoder a chance to identify progressive footage. On goes
-        // straight to capable decoders, even if a higher-priority native decoder could play the file.
+        // Native metadata can describe the opening frames of mixed footage. Prefer a decoder that
+        // can honor the selected mode throughout the stream.
         bool force = deinterlace.Mode == DeinterlaceMode.On;
-        var candidates = force
-            ? decoders.OrderByDescending(decoder => decoder.Capabilities.Supports(deinterlace))
-            : decoders.AsEnumerable();
+        var candidates = decoders.OrderByDescending(decoder => decoder.Capabilities.Supports(deinterlace));
         MediaReader? fallback = null;
         foreach (IDecoderInfo decoder in candidates)
         {
@@ -128,28 +126,19 @@ public sealed class DecoderRegistry
             if (TryOpenDecoder(decoder, file, options) is not { } reader)
                 continue;
 
-            if (reader.HasVideo)
+            if (capable && reader.HasVideo)
             {
                 var info = reader.VideoInfo;
-                if (capable && (info.DeinterlaceStatus == DeinterlaceApplicationStatus.Applied
-                    || (!force && info.DeinterlaceStatus == DeinterlaceApplicationStatus.NotNeededProgressive)))
+                if (info.DeinterlaceStatus == DeinterlaceApplicationStatus.Applied
+                    || (!force && info.DeinterlaceStatus == DeinterlaceApplicationStatus.NotNeededProgressive))
                 {
                     fallback?.Dispose();
                     return reader;
                 }
 
-                if (!force && fallback is not { HasVideo: true } && info.DetectedFieldOrder == VideoFieldOrder.Progressive)
-                {
-                    fallback?.Dispose();
-                    return WithFallbackStatus(reader, deinterlace);
-                }
-
-                // A capable decoder that did not apply a forced setting failed this attempt.
-                if (force && capable)
-                {
-                    reader.Dispose();
-                    continue;
-                }
+                // Try the next decoder when the requested processing could not be configured.
+                reader.Dispose();
+                continue;
             }
 
             if (fallback == null || (reader.HasVideo && !fallback.HasVideo))
@@ -163,18 +152,27 @@ public sealed class DecoderRegistry
             }
         }
 
-        if (fallback != null)
+        if (fallback is { HasVideo: true })
             return WithFallbackStatus(fallback, deinterlace);
 
         // A filter can fail to initialize for a file that the same decoder can play unfiltered.
         var unfiltered = options with { Deinterlace = VideoDeinterlaceOptions.Default };
         foreach (IDecoderInfo decoder in decoders)
         {
-            if (decoder.Capabilities.Supports(deinterlace) && TryOpenDecoder(decoder, file, unfiltered) is { } reader)
+            if (!decoder.Capabilities.Supports(deinterlace) || TryOpenDecoder(decoder, file, unfiltered) is not { } reader)
+                continue;
+            if (reader.HasVideo)
+            {
+                fallback?.Dispose();
                 return WithFallbackStatus(reader, deinterlace);
+            }
+            if (fallback is null)
+                fallback = reader;
+            else
+                reader.Dispose();
         }
 
-        return null;
+        return fallback;
     }
 
     private static MediaReader? TryOpenDecoder(IDecoderInfo decoder, string file, MediaOptions options)

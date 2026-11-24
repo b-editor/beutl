@@ -44,12 +44,12 @@ ffmpeg -y -ss 0.5 -i trim-source.mp4 -c copy edit-list-trim.mp4
 
 ## `deinterlace-mixed.mkv`
 
-An FFV1 clip with one progressive frame followed by eleven TFF frames. The stream header reports
+An FFV1 clip with six progressive frames followed by six TFF frames. The stream header reports
 the first frame's order, while FFV1 preserves the scan flag on each frame.
 
 ```sh
 ffmpeg -y -nostdin -f lavfi \
-  -i "color=c=black:s=96x48:r=25:d=0.48,geq=lum='if(between(X,8+4*N+if(eq(N,0),0,4*mod(Y,2)),22+4*N+if(eq(N,0),0,4*mod(Y,2))),220,16)':cb=128:cr=128" \
-  -filter_complex '[0:v]split[a][b];[a]trim=end_frame=1,setfield=prog[p];[b]trim=start_frame=1,setpts=PTS-STARTPTS,setfield=tff[i];[p][i]concat=n=2:v=1:a=0,setpts=N/(25*TB)' \
+  -i "color=c=black:s=96x48:r=25:d=0.48,geq=lum='if(between(X,8+4*N+if(lt(N,6),0,4*mod(Y,2)),22+4*N+if(lt(N,6),0,4*mod(Y,2))),220,16)':cb=128:cr=128" \
+  -filter_complex '[0:v]split[a][b];[a]trim=end_frame=6,setfield=prog[p];[b]trim=start_frame=6,setpts=PTS-STARTPTS,setfield=tff[i];[p][i]concat=n=2:v=1:a=0,setpts=N/(25*TB)' \
   -r 25 -c:v ffv1 -level 3 deinterlace-mixed.mkv
 ```

@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Audio;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;

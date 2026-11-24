@@ -1,4 +1,4 @@
-using Beutl.Media.Decoding;
+﻿using Beutl.Media.Decoding;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 
@@ -19,7 +19,8 @@ public sealed partial class FFmpegReader
     private double _videoOrigin;
     private MediaFrame? _filteredNextFrame;
     private MediaFrame? _filteredShownFrame;
-    private bool _filteredNextReady;
+    // Null means the lookahead must be rebuilt. False means the filter reached EOF.
+    private bool? _filteredNextReady;
     private double _filteredTimeBase;
     private long _filteredNextNumber;
     private long _filteredNextEnd;
@@ -44,7 +45,7 @@ public sealed partial class FFmpegReader
         VideoFieldOrder observed = GetFrameFieldOrder(ActiveVideoFrame);
         if (options.Mode != DeinterlaceMode.Off)
         {
-            // Sample several frames so a progressive opening frame does not hide nearby interlaced frames.
+            // Report the scan order observed near the start. Auto still checks flags throughout the stream.
             // Replay the sample from the decoder's original position, including on inputs with sparse seek tables.
             using var first = ActiveVideoFrame.Clone();
             _videoProbeFrames = new Queue<MediaFrame>(3);
@@ -86,16 +87,18 @@ public sealed partial class FFmpegReader
         _videoProbeFrames = null;
     }
 
-    private unsafe DeinterlaceApplicationStatus ConfigureDeinterlacing(
-        string file, VideoDeinterlaceOptions options, VideoFieldOrder detected)
+    private unsafe DeinterlaceApplicationStatus ConfigureDeinterlacing(string file, VideoDeinterlaceOptions options)
     {
-        var status = options.GetFallbackStatus(detected);
-        if (status != DeinterlaceApplicationStatus.UnsupportedByBackend || !IsUsableVideoFrame(ActiveVideoFrame)
+        if (options.Mode == DeinterlaceMode.Off)
+            return DeinterlaceApplicationStatus.Off;
+        if (!IsUsableVideoFrame(ActiveVideoFrame)
             || !double.IsFinite(_videoAvgFrameRateDouble) || _videoAvgFrameRateDouble <= 0)
         {
-            return status;
+            return DeinterlaceApplicationStatus.UnsupportedByBackend;
         }
 
+        // The filter passes progressive frames through in Auto. Configure the output rate at
+        // open so later interlaced frames, seeks, and proxy generation stay on the same grid.
         _deinterlace = options;
         long origin = _demuxer!.StartTime == ffmpeg.AV_NOPTS_VALUE ? 0 : _demuxer.StartTime;
         _videoOrigin = origin / (double)ffmpeg.AV_TIME_BASE;
@@ -224,8 +227,12 @@ public sealed partial class FFmpegReader
 
     private void GrabFilteredFrame()
     {
-        _filteredNextReady = PumpFilteredFrame(_filteredNextFrame!);
-        if (!_filteredNextReady) return;
+        _filteredNextReady = null;
+        if (!PumpFilteredFrame(_filteredNextFrame!))
+        {
+            _filteredNextReady = false;
+            return;
+        }
 
         var output = _filteredNextFrame!;
         long number = GetDeinterlacedFrameNumber(output.Pts, _filteredTimeBase, OutputFrameRate);
@@ -236,6 +243,7 @@ public sealed partial class FFmpegReader
         _previousFilteredNumber = _filteredNextNumber = number;
         _filteredNextEnd = Math.Max(number + 1,
             GetDeinterlacedFrameNumber(output.Pts + output.Duration, _filteredTimeBase, OutputFrameRate));
+        _filteredNextReady = true;
     }
 
     private unsafe MediaFrame? ReadDeinterlacedVideo(int frame)
@@ -250,8 +258,8 @@ public sealed partial class FFmpegReader
             _filteredShownFrame = new MediaFrame();
             GrabFilteredFrame();
         }
-        if (target < _filteredShownNumber
-            || (_filteredNextReady && target - _filteredNextNumber > 0
+        if (_filteredNextReady is null || target < _filteredShownNumber
+            || (_filteredNextReady == true && target - _filteredNextNumber > 0
                 && FFmpegSeekDecision.ShouldReseek(true, target - _filteredNextNumber)))
         {
             SeekDeinterlacedVideo(target);
@@ -259,7 +267,7 @@ public sealed partial class FFmpegReader
 
         // Progressive frames in mixed input can cover both field ticks. Like the unfiltered
         // path, retain the most recent frame up to the timestamp of the next one.
-        while (_filteredNextReady && (target >= _filteredNextNumber || !IsUsableVideoFrame(_filteredShownFrame)))
+        while (_filteredNextReady == true && (target >= _filteredNextNumber || !IsUsableVideoFrame(_filteredShownFrame)))
         {
             (_filteredShownFrame, _filteredNextFrame) = (_filteredNextFrame, _filteredShownFrame);
             _filteredShownNumber = _filteredNextNumber;
@@ -267,7 +275,7 @@ public sealed partial class FFmpegReader
             GrabFilteredFrame();
         }
 
-        if (!IsUsableVideoFrame(_filteredShownFrame) || (!_filteredNextReady && target >= _filteredShownEnd))
+        if (!IsUsableVideoFrame(_filteredShownFrame) || (_filteredNextReady == false && target >= _filteredShownEnd))
             return null;
 
         _filterFrame ??= new MediaFrame();
@@ -277,6 +285,7 @@ public sealed partial class FFmpegReader
 
     private unsafe void SeekDeinterlacedVideo(long target)
     {
+        _filteredNextReady = null;
         ResetVideoFilter();
         _filteredNextFrame!.Unref();
         _filteredShownFrame!.Unref();

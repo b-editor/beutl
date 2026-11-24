@@ -124,7 +124,7 @@ public sealed partial class FFmpegReader : MediaReader
                 _firstVideoFrame = _videoNowFrame;
                 VideoColorTags colorTags = GetPacketColorSpace(out bool hasIccProfile);
                 VideoFieldOrder fieldOrder = ProbeFieldOrder(options.Deinterlace);
-                DeinterlaceApplicationStatus deinterlaceStatus = ConfigureDeinterlacing(file, options.Deinterlace, fieldOrder);
+                DeinterlaceApplicationStatus deinterlaceStatus = ConfigureDeinterlacing(file, options.Deinterlace);
 
                 var codec = _videoDecoder!.GetCodec();
                 var duration = new Rational(_demuxer.Duration, ffmpeg.AV_TIME_BASE);

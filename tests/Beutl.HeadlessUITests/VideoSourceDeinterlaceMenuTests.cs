@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -30,10 +30,10 @@ namespace Beutl.HeadlessUITests;
 public sealed class VideoSourceDeinterlaceMenuTests
 {
     [AvaloniaTest]
-    [TestCase("en", "Deinterlace", "Off", "Auto", "On", "Decoder does not support deinterlacing")]
-    [TestCase("ja", "インターレース解除", "無効", "自動", "有効", "デコーダーがインターレース解除に非対応")]
+    [TestCase("en", "Deinterlace", "Off", "Auto", "On", "Decoder does not support deinterlacing", "Checking each frame")]
+    [TestCase("ja", "インターレース解除", "無効", "自動", "有効", "デコーダーがインターレース解除に非対応", "フレームごとに自動判定")]
     public async Task SourceMenuAppliesSettingsAndReportsUnsupportedDecoder(
-        string culture, string label, string offLabel, string autoLabel, string onLabel, string warning)
+        string culture, string label, string offLabel, string autoLabel, string onLabel, string warning, string autoStatus)
     {
         CultureInfo previous = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
@@ -45,7 +45,8 @@ public sealed class VideoSourceDeinterlaceMenuTests
         element.Objects.Add(video);
         using var history = new PropertyEditorTestHost.HistoryScope(element);
         var decoders = new DecoderRegistry(new());
-        decoders.Register(new NativeDecoder());
+        var decoder = new TestDecoder();
+        decoders.Register(decoder);
         var (model, control) = PropertyEditorTestHost.CreateControl(PropertyAdapterFactory.CreateAdapter(video.Source, video));
         using var vm = (VideoSourceEditorViewModel)model;
         vm.Accept(new PropertyEditorTestHost.ServiceVisitor(
@@ -124,6 +125,15 @@ public sealed class VideoSourceDeinterlaceMenuTests
             vm.SetDeinterlaceOption(DeinterlaceMode.Off);
             Assert.That(video.GetDeinterlaceOptions(), Is.EqualTo(edited));
             flyout.Hide();
+
+            element.IsLocked.Value = false;
+            decoder.SupportsAuto = true;
+            video.DeinterlaceMode.Value = DeinterlaceMode.Auto;
+            OpenMenu(button);
+            await HeadlessTestHelpers.WaitUntilAsync(() => status.IsVisible && status.Text == autoStatus);
+            OpenSubmenu(submenu);
+            Capture(TopLevel.GetTopLevel(status)!, $"deinterlace-auto-{culture}.png");
+            flyout.Hide();
         }
         finally
         {
@@ -201,19 +211,26 @@ public sealed class VideoSourceDeinterlaceMenuTests
         image!.Save(Path.Combine(directory, name), PngBitmapEncoderOptions.Default);
     }
 
-    private sealed class NativeDecoder : IDecoderInfo
+    private sealed class TestDecoder : IDecoderInfo
     {
-        public string Name => "Native test decoder";
+        public string Name => "Test decoder";
+        public bool SupportsAuto { get; set; }
+        public DecoderCapabilities Capabilities => SupportsAuto
+            ? DecoderCapabilities.DeinterlaceAuto | DecoderCapabilities.DeinterlaceYadif
+                | DecoderCapabilities.DeinterlaceFieldOrderOverride | DecoderCapabilities.DeinterlaceDoubleRate
+            : DecoderCapabilities.None;
         public IEnumerable<string> VideoExtensions() => [".mp4"];
         public IEnumerable<string> AudioExtensions() => [];
-        public MediaReader Open(string file, MediaOptions options) => new NativeReader();
+        public MediaReader Open(string file, MediaOptions options)
+            => new TestReader(SupportsAuto && options.Deinterlace.Mode == DeinterlaceMode.Auto);
     }
 
-    private sealed class NativeReader : MediaReader
+    private sealed class TestReader(bool automatic) : MediaReader
     {
         public override VideoStreamInfo VideoInfo { get; } = new("test", 60, new PixelSize(64, 32), new Rational(30, 1))
         {
-            DetectedFieldOrder = VideoFieldOrder.TopFieldFirst,
+            DetectedFieldOrder = automatic ? VideoFieldOrder.Progressive : VideoFieldOrder.TopFieldFirst,
+            DeinterlaceStatus = automatic ? DeinterlaceApplicationStatus.Applied : DeinterlaceApplicationStatus.Off,
         };
 
         public override bool HasVideo => true;

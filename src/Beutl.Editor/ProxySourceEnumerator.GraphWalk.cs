@@ -3,9 +3,9 @@ using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
-using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
@@ -87,28 +87,19 @@ public static partial class ProxySourceEnumerator
             if (member is not (IInputPort or LayerInputNode.ILayerInputPort) || member.Property is not { } property)
                 continue;
 
-            VideoDeinterlaceOptions?[] settings;
-            if (member is LayerInputNode.ILayerInputPort output)
-            {
-                settings = output.Connections.Select(reference => reference.Value?.Input.Value.Value)
-                    .OfType<IInputPort>()
-                    .Where(consumer => consumer.FindHierarchicalParent<GraphNode>()?.CanConnectInput(consumer) == true)
-                    .Select(consumer => GetVideoSettings(consumer.Property?.GetEngineProperty()))
-                    .Distinct()
-                    .ToArray();
-                if (settings.Length == 0) continue;
-            }
-            else
-            {
-                settings = [GetVideoSettings(property.GetEngineProperty())];
-            }
-
             // Accepted connections supply the input from upstream. Rejected retained connections
             // use local values again, just as GraphSnapshot does.
             if (member is IInputPort inputPort && inputPort.Connection.Value.Value is not null && node.CanConnectInput(inputPort)
                 || property.GetEngineProperty() is { } engineProperty
                 && walkContext.ConnectedNodeInputs?.Contains(engineProperty) == true)
                 continue;
+
+            var settings = (member is LayerInputNode.ILayerInputPort output
+                    ? EnumerateConnectedVideoSettings(output)
+                    : EnumerateInputVideoSettings(node, (IInputPort)member, visited: null))
+                .Distinct()
+                .ToArray();
+            if (settings.Length == 0) continue;
 
             IKeyFrameAnimation? animation = (property as IAnimatablePropertyAdapter)?.Animation;
 
@@ -133,6 +124,29 @@ public static partial class ProxySourceEnumerator
             }
         }
     }
+
+    private static IEnumerable<VideoDeinterlaceOptions?> EnumerateConnectedVideoSettings(
+        IOutputPort output, HashSet<IOutputPort>? visited = null)
+    {
+        visited ??= new(ReferenceEqualityComparer.Instance);
+        if (!visited.Add(output)) yield break;
+
+        foreach (var reference in output.Connections)
+        {
+            if (reference.Value?.Input.Value.Value is not IInputPort input
+                || input.FindHierarchicalParent<GraphNode>() is not { } node || !node.CanConnectInput(input))
+                continue;
+
+            foreach (var setting in EnumerateInputVideoSettings(node, input, visited))
+                yield return setting;
+        }
+    }
+
+    private static IEnumerable<VideoDeinterlaceOptions?> EnumerateInputVideoSettings(
+        GraphNode node, IInputPort input, HashSet<IOutputPort>? visited)
+        => node is GroupNode group && group.FindInnerInput(input) is { } boundary
+            ? EnumerateConnectedVideoSettings(boundary, visited)
+            : [GetVideoSettings(input.Property?.GetEngineProperty())];
 
     private static IEnumerable<FileSourceUse> WithVideoSettings(FileSourceUse use, VideoDeinterlaceOptions?[] settings)
     {

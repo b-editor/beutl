@@ -1,3 +1,4 @@
+﻿using System.Reflection;
 using Beutl.FFmpegWorker.Decoding;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -81,48 +82,84 @@ public sealed class FFmpegReaderDeinterlaceTests
         Assert.That(expected[^2].AsSpan().SequenceEqual(expected[^1]), Is.False, "the final output must not just repeat the previous frame");
     }
 
-    [Test]
-    public void AutoLeavesProgressiveVideoAtItsSourceRate()
+    [TestCase(DeinterlaceFrameRateMode.Frame, 1)]
+    [TestCase(DeinterlaceFrameRateMode.Field, 2)]
+    public void AutoKeepsProgressivePixelsAndUsesTheSelectedRate(DeinterlaceFrameRateMode rate, int samplesPerFrame)
     {
         string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "marker-bframes-no-edit.mp4");
         using var original = new FFmpegReader(path, new MediaOptions(MediaMode.Video), new FFmpegDecodingSettings());
         using var automatic = new FFmpegReader(path, new MediaOptions(MediaMode.Video)
         {
-            Deinterlace = new(DeinterlaceMode.Auto, DeinterlaceFieldOrder.Auto, DeinterlaceMethod.Bwdif, DeinterlaceFrameRateMode.Field),
+            Deinterlace = new(DeinterlaceMode.Auto, DeinterlaceFieldOrder.Auto, DeinterlaceMethod.Bwdif, rate),
         }, new FFmpegDecodingSettings());
 
         Assert.Multiple(() =>
         {
             Assert.That(automatic.VideoInfo.DetectedFieldOrder, Is.EqualTo(VideoFieldOrder.Progressive));
-            Assert.That(automatic.VideoInfo.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.NotNeededProgressive));
-            Assert.That(automatic.VideoInfo.FrameRate, Is.EqualTo(original.VideoInfo.FrameRate));
-            Assert.That(automatic.VideoInfo.NumFrames, Is.EqualTo(original.VideoInfo.NumFrames));
+            Assert.That(automatic.VideoInfo.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.Applied));
+            Assert.That(automatic.VideoInfo.FrameRate, Is.EqualTo(original.VideoInfo.FrameRate * samplesPerFrame));
+            Assert.That(automatic.VideoInfo.NumFrames, Is.EqualTo(original.VideoInfo.NumFrames * samplesPerFrame));
+            Assert.That(automatic.VideoInfo.Duration, Is.EqualTo(original.VideoInfo.Duration));
             Assert.That(Read(automatic, 0), Is.EqualTo(Read(original, 0)));
-            Assert.That(Read(automatic, 3), Is.EqualTo(Read(original, 3)));
         });
+
+        var progressive = Read(original, 3);
+        for (int i = 0; i < samplesPerFrame; i++)
+            Assert.That(Read(automatic, 3 * samplesPerFrame + i), Is.EqualTo(progressive));
+    }
+
+    [TestCase(DeinterlaceFrameRateMode.Frame, 1)]
+    [TestCase(DeinterlaceFrameRateMode.Field, 2)]
+    public void AutoDeinterlacesAfterProgressiveLeadIn(DeinterlaceFrameRateMode rate, int samplesPerFrame)
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "deinterlace-mixed.mkv");
+        var options = new VideoDeinterlaceOptions(DeinterlaceMode.Auto, DeinterlaceFieldOrder.Auto,
+            DeinterlaceMethod.Bwdif, rate);
+        var settings = new FFmpegDecodingSettings();
+        using var original = new FFmpegReader(path, new MediaOptions(MediaMode.Video), settings);
+        using var mixed = new FFmpegReader(path, new MediaOptions(MediaMode.Video) { Deinterlace = options }, settings);
+
+        Assert.That(mixed.VideoInfo.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.Applied));
+        Assert.That(mixed.VideoInfo.FrameRate, Is.EqualTo(new Rational(25 * samplesPerFrame, 1)));
+        Assert.That(mixed.VideoInfo.Duration, Is.EqualTo(original.VideoInfo.Duration));
+        int frameCount = 12 * samplesPerFrame;
+        Assert.That(mixed.VideoInfo.NumFrames, Is.EqualTo(frameCount));
+
+        var progressive = Read(original, 5);
+        for (int i = 0; i < samplesPerFrame; i++)
+            Assert.That(Read(mixed, 5 * samplesPerFrame + i), Is.EqualTo(progressive));
+
+        Assert.That(CombEnergy(Read(mixed, 8 * samplesPerFrame), mixed.VideoInfo.FrameSize),
+            Is.LessThan(CombEnergy(Read(original, 8), original.VideoInfo.FrameSize) / 3));
+        Assert.That(Read(mixed, frameCount - 1), Is.Not.Empty);
+        Assert.That(mixed.ReadVideo(frameCount, out _), Is.False);
+        Assert.That(Read(mixed, 5 * samplesPerFrame), Is.EqualTo(progressive), "seeking back keeps the progressive frame intact");
     }
 
     [Test]
-    public void AutoPassesProgressiveFramesThroughInMixedFootage()
+    public void AFailedInitialLookaheadCanBeRetried()
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "deinterlace-mixed.mkv");
-        var fields = new VideoDeinterlaceOptions(DeinterlaceMode.Auto, DeinterlaceFieldOrder.Auto,
+        var options = new VideoDeinterlaceOptions(DeinterlaceMode.On, DeinterlaceFieldOrder.Auto,
             DeinterlaceMethod.Bwdif, DeinterlaceFrameRateMode.Field);
-        var settings = new FFmpegDecodingSettings();
-        using var original = new FFmpegReader(path, new MediaOptions(MediaMode.Video), settings);
-        using var mixed = new FFmpegReader(path, new MediaOptions(MediaMode.Video) { Deinterlace = fields }, settings);
+        using var expected = Open("tff", options);
+        using var reader = Open("tff", options);
 
-        Assert.That(mixed.VideoInfo.DetectedFieldOrder, Is.EqualTo(VideoFieldOrder.Mixed));
-        Assert.That(mixed.VideoInfo.DeinterlaceStatus, Is.EqualTo(DeinterlaceApplicationStatus.Applied));
-        Assert.That(mixed.VideoInfo.FrameRate, Is.EqualTo(new Rational(50, 1)));
-        Assert.That(mixed.VideoInfo.NumFrames, Is.EqualTo(24));
-        var progressive = Read(original, 0);
-        Assert.That(Read(mixed, 0), Is.EqualTo(progressive));
-        Assert.That(Read(mixed, 1), Is.EqualTo(progressive), "one progressive frame covers both field intervals");
-        Assert.That(CombEnergy(Read(mixed, 10), mixed.VideoInfo.FrameSize),
-            Is.LessThan(CombEnergy(Read(original, 5), original.VideoInfo.FrameSize) / 3));
-        Assert.That(Read(mixed, 23), Is.Not.Empty);
-        Assert.That(mixed.ReadVideo(24, out _), Is.False);
+        // Force the first filter feed to throw so the next request must rebuild its lookahead.
+        var field = typeof(FFmpegReader).GetField("_bufferSrcCtx", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object? input = field.GetValue(reader);
+        Assert.That(input, Is.Not.Null);
+        field.SetValue(reader, null);
+        try
+        {
+            Assert.Throws<NullReferenceException>(() => reader.ReadVideo(0, out _));
+        }
+        finally
+        {
+            field.SetValue(reader, input);
+        }
+
+        Assert.That(Read(reader, 0), Is.EqualTo(Read(expected, 0)));
+        Assert.That(Read(reader, 1), Is.EqualTo(Read(expected, 1)));
     }
 
     [Test]

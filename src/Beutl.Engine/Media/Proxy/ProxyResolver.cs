@@ -1,5 +1,5 @@
-﻿using Beutl.Media.Decoding;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
+using Beutl.Media.Decoding;
 
 namespace Beutl.Media.Proxy;
 
