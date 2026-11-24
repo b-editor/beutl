@@ -10,7 +10,7 @@
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="12.0.0" />
     <PackageVersion Include="Avalonia.Controls.WebView" Version="12.1.2" />
-    <PackageVersion Include="PanAndZoom" Version="12.1.1" />
+    <PackageVersion Include="PanAndZoom" Version="12.2.0" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.2.0" />
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
     <PackageVersion Include="Avalonia.Headless" Version="12.2.0" />
