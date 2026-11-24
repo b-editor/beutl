@@ -53,6 +53,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     private readonly CaptionDocumentSerializer _captionSerializer;
     private readonly ICaptionDraftStore _captionDraftStore;
     private readonly IObservable<CaptionDraftScope?> _captionDraftScopes;
+    private readonly AiRequestRecoveryContext? _requestRecoveryContext;
     private bool _disposed;
     private bool _updatingAudioSources;
     private readonly OnceAsyncDisposal _disposal;
@@ -69,7 +70,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         CaptionCatalog captionCatalog,
         ICaptionDraftStore captionDraftStore,
         IObservable<CaptionDraftScope?> captionDraftScopes,
-        IAiJobResultEditorContext? editor = null, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null)
+        IAiJobResultEditorContext? editor = null, EditorConfig? editorConfig = null, ProxyStoreConfig? proxyConfig = null,
+        AiRequestRecoveryContext? requestRecoveryContext = null)
     {
         _notifications = notifications;
         _disposal = new OnceAsyncDisposal(_disposeGate);
@@ -88,6 +90,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             ?? throw new ArgumentNullException(nameof(captionDraftStore));
         _captionDraftScopes = captionDraftScopes
             ?? throw new ArgumentNullException(nameof(captionDraftScopes));
+        _requestRecoveryContext = requestRecoveryContext;
         _captionCodecs = captionCatalog.Codecs;
         _captionTemplates = captionCatalog.Templates;
         _captionSerializer = captionCatalog.Serializer;
@@ -432,15 +435,6 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         return items;
     }
 
-    /// <summary>
-    /// The token the request in flight runs under: the tab's lifetime, plus the
-    /// person's own request to stop.
-    /// </summary>
-    private CancellationToken RequestToken => _requestCts?.Token ?? _lifetimeCts.Token;
-
-    private bool IsRequestCanceled
-        => _lifetimeCts.IsCancellationRequested || _requestCts?.IsCancellationRequested == true;
-
     private async Task TranscribeCore()
     {
         using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
@@ -452,16 +446,26 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         }
 
         long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
-        Error.Value = null;
-        IsTranscribing.Value = true;
         using CancellationTokenSource requestCts =
             CancellationTokenSource.CreateLinkedTokenSource(
                 operation.CancellationToken,
                 _lifetimeCts.Token);
         _requestCts = requestCts;
+        AiAccountJobScope? account = null;
         try
         {
-            await TranscribeSelectedSourceAsync(source, operation);
+            using var job = account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = job.Link(requestCts.Token);
+            if (!IsCurrentCaptionDraftScope(draftScopeRevision))
+                return;
+
+            Error.Value = null;
+            IsTranscribing.Value = true;
+            await TranscribeSelectedSourceAsync(source, operation, job, cancellation.Token);
+        }
+        catch (Exception) when (account?.AccountChanged == true)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiAuthenticationRequired);
         }
         catch (Exception ex) when (KnownRunFailureMessage(ex) is { } message)
         {
@@ -473,7 +477,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         }
         // This execution's name belongs to another request (scene-mixed audio can change whenever it
         // is recomposed, so a restored execution can arrive here), or the job it made is gone.
-        catch (Exception ex) when (ex is AiRequestChangedException or AiRequestWasDeletedException)
+        catch (Exception ex) when ((ex is AiRequestChangedException or AiRequestWasDeletedException)
+            && IsCurrentCaptionDraftScope(draftScopeRevision))
         {
             RetireTranscriptionRunNames();
             SetCaptionErrorIfCurrent(
@@ -488,7 +493,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message);
         }
-        catch (OperationCanceledException) when (IsRequestCanceled)
+        catch (OperationCanceledException) when (requestCts.IsCancellationRequested)
         {
         }
         catch (Exception ex)
@@ -498,7 +503,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         }
         finally
         {
-            _requestCts = null;
+            if (ReferenceEquals(_requestCts, requestCts))
+                _requestCts = null;
             operation.TryPublish(() =>
             {
                 if (IsCurrentCaptionDraftScope(draftScopeRevision))

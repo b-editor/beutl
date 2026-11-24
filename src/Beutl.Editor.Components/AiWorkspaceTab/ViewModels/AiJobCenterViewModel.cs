@@ -34,6 +34,7 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
     private readonly IAiJobKindRegistry _jobKinds;
     private readonly AiJobResultRegistry _resultHandlers;
     private readonly AiJobResultContext _resultContext;
+    private readonly AiRequestRecoveryContext _requestRecoveryContext;
     // Names each retry by its source job, so a retry whose answer was lost is asked for again, not bought again.
     private readonly AiRequestKey _retryKey;
     private readonly ObservableCollection<AiJobItemViewModel> _jobs = [];
@@ -66,6 +67,7 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         _jobKinds = jobKinds ?? throw new ArgumentNullException(nameof(jobKinds));
         _resultHandlers = resultHandlers ?? throw new ArgumentNullException(nameof(resultHandlers));
         _resultContext = new AiJobResultContext(_editor, _content, openCaptionResult);
+        _requestRecoveryContext = requestRecoveryContext;
         _retryKey = new AiRequestKey(recoveryContext: requestRecoveryContext, operation: RetryOperation);
         Jobs = new ReadOnlyObservableCollection<AiJobItemViewModel>(_jobs);
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
@@ -143,22 +145,29 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         if (operation is null)
             return;
 
+        AiAccountJobScope? account = null;
         try
         {
-            await _jobClient.DeleteAsync(new AiJobId(item.Id), lifetimeOperation.CancellationToken);
+            using var job = account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = job.Link(lifetimeOperation.CancellationToken);
+            CancellationToken token = cancellation.Token;
+            try
+            {
+                using IDisposable scope = job.Enter(token);
+                await _jobClient.DeleteAsync(new AiJobId(item.Id), token);
+            }
+            catch (AiJobNotFoundException)
+            {
+                // A different tab may have already removed the job. Re-read the list.
+            }
             if (!IsDisposed)
             {
-                await _jobMonitor.RefreshAsync(lifetimeOperation.CancellationToken);
+                using IDisposable scope = job.Enter(token);
+                await _jobMonitor.RefreshAsync(token);
             }
         }
-        catch (AiJobNotFoundException)
+        catch (Exception) when (account?.AccountChanged == true)
         {
-            // A different tab or a concurrent refresh already removed it. Re-read the
-            // authoritative list instead of presenting an idempotent delete as a failure.
-            if (!IsDisposed)
-            {
-                await _jobMonitor.RefreshAsync(lifetimeOperation.CancellationToken);
-            }
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
@@ -185,15 +194,23 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         if (operation is null)
             return;
 
+        AiAccountJobScope? account = null;
         try
         {
-            await SubmitRetryAsync(item, lifetimeOperation.CancellationToken);
+            using var job = account = new AiAccountJobScope(_requestRecoveryContext);
+            using CancellationTokenSource cancellation = job.Link(lifetimeOperation.CancellationToken);
+            CancellationToken token = cancellation.Token;
+            await SubmitRetryAsync(item, job, token);
             item.MarkRetrySubmitted();
 
             if (!IsDisposed)
             {
-                await RefreshAfterRetryAsync(item, lifetimeOperation.CancellationToken);
+                using IDisposable scope = job.Enter(token);
+                await RefreshAfterRetryAsync(item, token);
             }
+        }
+        catch (Exception) when (account?.AccountChanged == true)
+        {
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
@@ -210,27 +227,29 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
     }
 
     // The server checks the model, the request and the balance again before it charges for the new job.
-    private async Task SubmitRetryAsync(AiJobItemViewModel item, CancellationToken cancellationToken)
+    private async Task SubmitRetryAsync(AiJobItemViewModel item, AiAccountJobScope account, CancellationToken cancellationToken)
     {
         AiJobId source = item.Job.Id;
-        AiRequestName name = _retryKey.NameFor(source.Value);
-        using IDisposable scope = _retryKey.EnterAuthenticatedScope(name);
+        AiRequestName name;
+        using (account.Enter(cancellationToken))
+            name = _retryKey.NameFor(source.Value);
         try
         {
             await AiMeteredDispatch.SendAsync(
-                _retryKey,
+                account,
                 name,
                 _ => Task.FromResult(true),
                 token => _jobClient.RetryAsync(source, name.Key, token),
                 withdrawn => _retryKey.WithdrawAfterNoReservation(withdrawn),
                 cancellationToken);
         }
-        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { RetiresName: true })
+        catch (Exception ex) when (!account.AccountChanged && AiRequestFailure.Classify(ex) is { RetiresName: true })
         {
             _retryKey.Retire(name);
             throw;
         }
 
+        account.ThrowIfInvalid(cancellationToken);
         _retryKey.Retire(name);
     }
 
@@ -241,7 +260,7 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         {
             await _jobMonitor.RefreshAsync(cancellationToken);
         }
-        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }

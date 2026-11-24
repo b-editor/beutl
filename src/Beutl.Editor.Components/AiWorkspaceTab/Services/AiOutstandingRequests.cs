@@ -13,40 +13,42 @@ internal sealed class AiOutstandingRequests
 {
     // Keep requests in dispatch order. A task can have more than one uncollected request; choosing
     // an arbitrary one in that case would make the model shown after reopening vary by call.
-    private readonly List<(string Key, string?[] Request)> _held = [];
+    private readonly List<(string? AccountId, string Key, string?[] Request)> _held = [];
 
     public void Remember(AiRequestName name, string?[] request)
     {
         if (string.IsNullOrEmpty(name.Key))
             return;
         Forget(name);
-        _held.Add((name.Key, request));
+        _held.Add((name.AccountId, name.Key, request));
     }
 
     public void Forget(AiRequestName name)
     {
         if (!string.IsNullOrEmpty(name.Key))
-            _held.RemoveAll(held => string.Equals(held.Key, name.Key, StringComparison.Ordinal));
+            _held.RemoveAll(held => (held.AccountId, held.Key) == name.AccountAndKey);
     }
 
-    /// <summary>Every request being held, oldest first.</summary>
-    public IEnumerable<string?[]> All() => _held.Select(held => held.Request);
+    /// <summary>The account's held requests, oldest first.</summary>
+    public IEnumerable<string?[]> All(string? accountId)
+        => _held.Where(held => held.AccountId == accountId).Select(held => held.Request);
 
-    /// <summary>Whether any request being held matches <paramref name="predicate"/>.</summary>
-    public bool Any(Func<string?[], bool> predicate)
-        => _held.Exists(held => predicate(held.Request));
+    /// <summary>Whether any request held by the account matches <paramref name="predicate"/>.</summary>
+    public bool Any(string? accountId, Func<string?[], bool> predicate)
+        => _held.Exists(held => held.AccountId == accountId && predicate(held.Request));
 
     /// <summary>
     /// The newest held request that matches <paramref name="predicate"/>, so a list fetched later lands on
     /// the model that request named, and coming back lands where the screen was left.
     /// </summary>
-    public bool TryFind(Func<string?[], bool> predicate, out string?[] request)
+    public bool TryFind(string? accountId, Func<string?[], bool> predicate, out string?[] request)
     {
         for (int index = _held.Count - 1; index >= 0; index--)
         {
-            if (predicate(_held[index].Request))
+            var held = _held[index];
+            if (held.AccountId == accountId && predicate(held.Request))
             {
-                request = _held[index].Request;
+                request = held.Request;
                 return true;
             }
         }

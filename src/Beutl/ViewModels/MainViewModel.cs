@@ -97,15 +97,6 @@ public sealed partial class MainViewModel : BasePageViewModel
             CaptionPresentationDefaults.ElementFactory);
         _aiJobResultHandlers = BuiltInAiJobResultCapabilities.CreateRegistry();
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider, Configuration.ViewConfig, Configuration.UpdateConfig, AppServices);
-        // Agents generate with the signed-in account and the AI nodes' executor.
-        _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService, new AgentHostAiBackend(
-            () => _beutlClients.AuthenticatedUser.Value,
-            _beutlClients.GetResource<IAiEntitlementService>(),
-            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
-            _beutlClients.GetResource<IAiTranscriptionService>(),
-            CreateGenerativeModelCatalog,
-            CreateGenerativeNodeExecutor,
-            _beutlClients.GetResource<IAiModelCatalogService>(), appServices.GetRequiredService<DecoderRegistry>()));
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestKeyMap(Path.Combine(
@@ -118,6 +109,15 @@ public sealed partial class MainViewModel : BasePageViewModel
                 (user => user is { } authenticated
                     ? new AiAuthenticatedRequestIdentity(authenticated.Profile.Id, authenticated)
                     : null));
+        // Agents generate with the signed-in account and the AI nodes' executor.
+        _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService, new AgentHostAiBackend(
+            _aiRequestRecoveryContext,
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
+            _beutlClients.GetResource<IAiTranscriptionService>(),
+            CreateGenerativeModelCatalog,
+            CreateGenerativeNodeExecutor,
+            _beutlClients.GetResource<IAiModelCatalogService>(), appServices.GetRequiredService<DecoderRegistry>()));
         _aiPlanCoordinator = new AiPlanCoordinator(
             _beutlClients.GetResource<IAiEntitlementService>(), Configuration.ViewConfig);
         _editorService.BrowserSettingsHost = new BrowserSettingsHost(CreateSettingsDialog);

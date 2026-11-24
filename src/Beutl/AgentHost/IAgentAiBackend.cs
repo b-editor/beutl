@@ -1,4 +1,5 @@
-﻿using Beutl.NodeGraph.Generative;
+﻿using Beutl.Editor.Components.AiWorkspaceTab.Services;
+using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentHost;
@@ -20,6 +21,8 @@ public sealed record AgentTranscript(
 /// </summary>
 internal interface IAgentAiBackend
 {
+    AiRequestRecoveryContext? RecoveryContext { get; }
+
     /// <summary>Null when the account can run AI generations; otherwise why it cannot.</summary>
     Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken);
 
