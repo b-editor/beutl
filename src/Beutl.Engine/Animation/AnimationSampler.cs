@@ -18,9 +18,11 @@ public sealed class AnimationSampler
     internal static bool IsAnimated(IProperty property)
         => property is IExpressionProperty { HasExpression: true } || property.GetKeyFrameAnimation() is not null;
 
-    internal static bool DependsOnTimelineStart(IProperty property)
+    internal static bool RequiresPreviewResampling(IProperty property, bool? keyFrameGlobalClock)
         => property is IExpressionProperty { HasExpression: true }
-            || property.GetKeyFrameAnimation() is { KeyFrames.Count: > 0, UseGlobalClock.Value: true };
+            || keyFrameGlobalClock is { } clock
+                && property.GetKeyFrameAnimation() is { KeyFrames.Count: > 0 } animation
+                && animation.UseGlobalClock.Value == clock;
 
     public void SampleBuffer<T>(
         IProperty<T> property,

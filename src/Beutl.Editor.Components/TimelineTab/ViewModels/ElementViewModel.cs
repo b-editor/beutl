@@ -513,22 +513,26 @@ public sealed partial class ElementViewModel : IDisposable
             : (modelStart, roundedLength);
     }
 
+    internal TimeRange GetResizeRange(bool ripple, bool leftEdge, float scale, Rational rate)
+    {
+        MediaTime roundedStart = BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        MediaTime roundedLength = Width.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        (MediaTime start, MediaTime length) = ripple || leftEdge
+            ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start.Value, Model.Range.End)
+            : (roundedStart, roundedLength);
+        return new TimeRange(start, length);
+    }
+
     public async Task SubmitViewModelChanges(bool ripple = false, bool leftEdge = false)
     {
         PrepareAnimationContext context = PrepareAnimation();
         MediaTime beforeStart = Model.Start.Value;
         MediaTime beforeEnd = Model.Range.End;
 
-        float scale = Timeline.Options.Value.Scale;
-        Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
-        MediaTime roundedStart = BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-        MediaTime roundedLength = Width.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-        (MediaTime start, MediaTime length) = ripple || leftEdge
-            ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start.Value, Model.Range.End)
-            : (roundedStart, roundedLength);
+        TimeRange range = GetResizeRange(ripple, leftEdge, Timeline.Options.Value.Scale, SceneTimeRangeService.GetFrameRate(Scene));
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
-        var request = new ElementResizeRequest(Model, start, length, zindex);
+        var request = new ElementResizeRequest(Model, range.Start, range.Duration, zindex);
         Timeline.EditorContext.GetRequiredService<IElementResizeService>()
             .Resize(Scene, [request], ripple);
 

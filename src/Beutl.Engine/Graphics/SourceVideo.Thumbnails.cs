@@ -87,16 +87,19 @@ public partial class SourceVideo : IThumbnailsProvider
         }
 
         string? key = ThumbnailsCacheKey.Compute(CoreSerializer.SerializeToJsonObject(this), properties);
-        return key != null && RequiresResampledStartPreview
+        return key != null && RequiresResampledRangePreview(startChanges: true)
             ? $"{key}|start:{TimeRange.Value.Start.Flicks}|duration:{TimeRange.Value.Duration.Flicks}"
             : key;
     }
 
-    internal bool RequiresResampledStartPreview
-        => AnimationSampler.DependsOnTimelineStart(Speed)
-            || AnimationSampler.DependsOnTimelineStart(OffsetPosition)
-            || AnimationSampler.DependsOnTimelineStart(Source)
-            || AnimationSampler.DependsOnTimelineStart(IsLoop);
+    internal bool RequiresResampledRangePreview(bool startChanges)
+    {
+        bool? keyFrameGlobalClock = startChanges ? true : null;
+        return AnimationSampler.RequiresPreviewResampling(Speed, keyFrameGlobalClock)
+            || AnimationSampler.RequiresPreviewResampling(OffsetPosition, keyFrameGlobalClock)
+            || AnimationSampler.RequiresPreviewResampling(Source, keyFrameGlobalClock)
+            || AnimationSampler.RequiresPreviewResampling(IsLoop, keyFrameGlobalClock);
+    }
 
     public IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         FontManager fonts,

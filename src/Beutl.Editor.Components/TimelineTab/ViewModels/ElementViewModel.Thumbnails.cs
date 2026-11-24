@@ -522,11 +522,11 @@ public sealed partial class ElementViewModel
         return null;
     }
 
-    internal bool RequiresResampledStartPreview()
+    internal bool RequiresResampledRangePreview(bool startChanges)
         => FindThumbnailsProvider() switch
         {
-            Beutl.Graphics.SourceVideo video => video.RequiresResampledStartPreview,
-            Beutl.Audio.SourceSound sound => sound.RequiresResampledStartPreview,
+            Beutl.Graphics.SourceVideo video => video.RequiresResampledRangePreview(startChanges),
+            Beutl.Audio.SourceSound sound => sound.RequiresResampledRangePreview(startChanges),
             _ => false
         };
 

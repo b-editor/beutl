@@ -45,7 +45,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
         string? key = ThumbnailsCacheKey.Compute(
             CoreSerializer.SerializeToJsonObject(this),
             ["Source", "ChannelMap", "OffsetPosition", "Gain", "Pan", "Speed", "Effect"]);
-        return key != null && RequiresResampledStartPreview
+        return key != null && RequiresResampledRangePreview(startChanges: true)
             ? $"{key}|start:{TimeRange.Value.Start.Flicks}|duration:{TimeRange.Value.Duration.Flicks}"
             : key;
     }
@@ -55,11 +55,12 @@ public sealed partial class SourceSound : IThumbnailsProvider
         => Properties.Any(AnimationSampler.IsAnimated) || HasEnabledEffect(Effect.Value);
 
     internal bool RequiresResampledTrimPreview
-        => Properties.Any(property => property.GetKeyFrameAnimation() is { KeyFrames.Count: > 0, UseGlobalClock.Value: false })
+        => Properties.Any(property => AnimationSampler.RequiresPreviewResampling(property, keyFrameGlobalClock: false))
             || HasEnabledEffect(Effect.Value);
 
-    internal bool RequiresResampledStartPreview
-        => Properties.Any(AnimationSampler.DependsOnTimelineStart) || HasEnabledEffect(Effect.Value);
+    internal bool RequiresResampledRangePreview(bool startChanges)
+        => Properties.Any(property => AnimationSampler.RequiresPreviewResampling(property, startChanges ? true : null))
+            || HasEnabledEffect(Effect.Value);
 
     private static bool HasEnabledEffect(AudioEffect? effect)
         => effect is { IsEnabled.Value: true }

@@ -91,21 +91,29 @@ public class TimelineEditModeThumbnailPreviewTests
     }
 
     [AvaloniaTest]
-    public async Task LeftResize_PreviewsGlobalGainAtTheNewStart()
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task Resize_PreviewsAnimatedGainAtTheNewRange(bool leftEdge)
     {
         using var config = new PreviewConfigScope();
         ElementViewModel clip = await OpenAudioClip(startSeconds: 1, lengthSeconds: 2, offsetSeconds: 1, sourceSeconds: 6);
         var sound = clip.Model.Objects.OfType<SourceSound>().Single();
-        Animate(sound.Gain, 0, 100, clip.Model.Start.Value, global: true);
+        if (leftEdge)
+            Animate(sound.Gain, 0, 100, clip.Model.Start.Value, global: true);
+        else
+            sound.Gain.Expression = Expression.Create<float>("(float)(100 * (1 - Progress))");
         using var view = new TimelineViewScope(clip, width: 1200);
         await WaitForWaveformReady(clip, view.Waveform);
 
         int baseChunkCount = clip.WaveformChunkCount.Value;
-        int index = baseChunkCount / 4;
+        int index = leftEdge ? baseChunkCount / 4 : baseChunkCount * 3 / 4;
         Assert.That(view.Waveform.TryGetChunk(index, out var original), Is.True);
         double y = view.Border.Bounds.Height / 2;
-        Point press = view.Border.TranslatePoint(new Point(2, y), view.Window)!.Value;
-        Point release = view.Border.TranslatePoint(new Point(MediaTime.FromSeconds(0.5).TimeToPixel(view.Scale), y), view.Window)!.Value;
+        double pressX = leftEdge ? 2 : view.Border.Bounds.Width - 2;
+        double releaseX = MediaTime.FromSeconds(leftEdge ? 0.5 : 3).TimeToPixel(view.Scale);
+        Point press = view.Border.TranslatePoint(new Point(pressX, y), view.Window)!.Value;
+        Point release = view.Border.TranslatePoint(new Point(releaseX, y), view.Window)!.Value;
+        MediaTime expectedLength = MediaTime.FromSeconds(leftEdge ? 1.5 : 3);
         WaveformChunk preview = default;
 
         await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
@@ -113,20 +121,25 @@ public class TimelineEditModeThumbnailPreviewTests
             Assert.Multiple(() =>
             {
                 Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
-                Assert.That(clip.Width.Value, Is.LessThan(MediaTime.FromSeconds(2).TimeToPixel(view.Scale)));
+                Assert.That(clip.Width.Value, Is.EqualTo(expectedLength.TimeToPixel(view.Scale)).Within(0.5));
                 Assert.That(clip.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             });
             await HeadlessTestHelpers.WaitUntilAsync(() => view.Waveform.TryGetChunk(index, out preview) && preview != original);
             Assert.That(preview.MaxValue, Is.GreaterThan(original.MaxValue + 0.015f));
+            if (!leftEdge)
+                await HeadlessTestHelpers.WaitUntilAsync(() =>
+                    view.Waveform.TryGetChunk(baseChunkCount, out var revealed) && revealed.MaxValue > 0f);
             HeadlessTestHelpers.Render(3);
-            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), "left-resize-global-gain");
+            HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests),
+                leftEdge ? "left-resize-global-gain" : "right-resize-duration-gain");
         });
 
-        await HeadlessTestHelpers.WaitUntilAsync(() => clip.WaveformChunkCount.Value < baseChunkCount);
+        await HeadlessTestHelpers.WaitUntilAsync(() => clip.WaveformChunkCount.Value == (int)expectedLength.TimeToPixel(view.Scale));
         await WaitForWaveformReady(clip, view.Waveform);
         Assert.Multiple(() =>
         {
-            Assert.That(clip.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(clip.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 1.5 : 1)));
+            Assert.That(clip.Model.Length.Value, Is.EqualTo(expectedLength));
             Assert.That(view.Waveform.TryGetChunk(index, out var moved), Is.True);
             Assert.That(moved.MaxValue, Is.EqualTo(preview.MaxValue).Within(0.01f));
         });
@@ -140,6 +153,8 @@ public class TimelineEditModeThumbnailPreviewTests
     [TestCase(false, "gain")]
     [TestCase(true, "gain")]
     [TestCase(true, "middle gain")]
+    [TestCase(false, "expression")]
+    [TestCase(true, "front duration")]
     public async Task TrimEdit_AnchorsFrontAndBackContent(bool slide, string animation)
     {
         using var config = new PreviewConfigScope();
@@ -151,9 +166,10 @@ public class TimelineEditModeThumbnailPreviewTests
         ElementViewModel front = clips[0];
         ElementViewModel back = clips[^1];
         ElementViewModel dragged = slide ? clips[1] : front;
+        bool resampleFront = animation == "front duration";
         bool resampleMiddle = animation == "middle gain";
-        bool resampleBack = animation is "speed" or "gain";
-        ElementViewModel waveformClip = resampleMiddle ? dragged : back;
+        bool resampleBack = animation is "speed" or "gain" or "expression";
+        ElementViewModel waveformClip = resampleFront ? front : resampleMiddle ? dragged : back;
         var sound = waveformClip.Model.Objects.OfType<SourceSound>().Single();
         if (animation == "speed")
             Animate(sound.Speed, 100, 200);
@@ -166,6 +182,14 @@ public class TimelineEditModeThumbnailPreviewTests
         {
             Animate(sound.Gain, 0, 100, dragged.Model.Start.Value, global: true);
             sound.Gain.Expression = Expression.Create<float>("Value + (float)(Duration * Time * 50)");
+        }
+        else if (animation == "expression")
+        {
+            sound.Gain.Expression = Expression.Create<float>("(float)(Time * 30)");
+        }
+        else if (resampleFront)
+        {
+            sound.Gain.Expression = Expression.Create<float>("(float)(Duration * 30)");
         }
 
         timeline.ClearSelected();
@@ -192,8 +216,8 @@ public class TimelineEditModeThumbnailPreviewTests
             int baseCount = waveformClip.WaveformChunkCount.Value;
             probeIndex = baseCount / 4;
             WaveformChunk original = default;
-            if (resampleMiddle)
-                Assert.That(view.Waveform.TryGetChunk(probeIndex, out original), Is.True);
+            if (resampleFront || resampleMiddle)
+                Assert.That(view.GetWaveformFor(waveformClip).TryGetChunk(probeIndex, out original), Is.True);
             MediaTime delta = MediaTime.FromSeconds(slide ? 0.5 : -0.5);
             double deltaPixels = delta.TimeToPixel(view.Scale);
             double pressX = slide ? view.Border.Bounds.Width / 2 : view.Border.Bounds.Width - 2;
@@ -212,10 +236,10 @@ public class TimelineEditModeThumbnailPreviewTests
                         Assert.That(dragged.IsThumbnailPreviewActive.Value, Is.EqualTo(resampleMiddle));
                 });
 
-                if (resampleBack || resampleMiddle)
+                if (resampleFront || resampleMiddle || resampleBack)
                 {
-                    await HeadlessTestHelpers.WaitUntilAsync(() => observedChunk is { } chunk && (!resampleMiddle || chunk != original));
-                    if (!slide)
+                    await HeadlessTestHelpers.WaitUntilAsync(() => observedChunk is { } chunk && chunk != original);
+                    if (resampleBack && !slide)
                         await HeadlessTestHelpers.WaitUntilAsync(() => backWave.GetMissingIndices(baseCount, baseCount + 5).Count == 0);
                     previewChunk = observedChunk;
                     observedChunk = null;
