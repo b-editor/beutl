@@ -790,13 +790,20 @@ public sealed class ColorGradingTabTests
         HeadlessTestHelpers.Render(3);
         HeadlessCapture.SaveIfRequested(host.View, nameof(ColorGradingTabTests), $"overflow-{mode}-bottom");
 
-        AvaPoint fieldCenter = lastField.TranslatePoint(new Rect(lastField.Bounds.Size).Center, host.Window)!.Value;
         Assert.Multiple(() =>
         {
-            Assert.That(scroller.Offset.Y, Is.Positive);
-            Assert.That(host.Window.InputHitTest(fieldCenter) is Visual hit && (hit == lastField || lastField.IsVisualAncestorOf(hit)),
-                Is.True, $"The last wheel's RGB field at {fieldCenter} should be reachable.");
+            Assert.That(scroller.Offset.Y, Is.EqualTo(scroller.Extent.Height - scroller.Viewport.Height));
+            AssertReachable(lastField, "The last wheel's RGB field");
             Assert.That(toolbar.TranslatePoint(default, host.Window), Is.EqualTo(toolbarPosition));
+
+            if (mode == 0)
+            {
+                foreach (string name in new[] { "LowRangeEditor", "HighRangeEditor" })
+                {
+                    var rangeEditor = host.View.FindControl<NumberEditor<float>>(name)!;
+                    AssertReachable(rangeEditor.GetVisualDescendants().OfType<TextBox>().Single(), name);
+                }
+            }
         });
 
         host.Window.Width = 1080;
@@ -807,6 +814,13 @@ public sealed class ColorGradingTabTests
             Assert.That(scroller.Extent.Height, Is.LessThanOrEqualTo(scroller.Viewport.Height));
             Assert.That(scroller.Offset.Y, Is.Zero);
         });
+
+        void AssertReachable(TextBox field, string description)
+        {
+            AvaPoint center = field.TranslatePoint(new Rect(field.Bounds.Size).Center, host.Window)!.Value;
+            Assert.That(host.Window.InputHitTest(center) is Visual hit && (hit == field || field.IsVisualAncestorOf(hit)),
+                Is.True, $"{description} at {center} should be reachable.");
+        }
     }
 
     [AvaloniaTest]
