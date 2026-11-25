@@ -280,4 +280,85 @@ public class TimelineThumbnailPreviewTests
             }
         });
     }
+
+    [TestCase(0f, 800, null)]
+    [TestCase(50f, 800, null)]
+    [TestCase(0f, 400, null)]
+    [TestCase(0f, 4096, "expression")]
+    [TestCase(0f, 4096, "keyframes")]
+    public async Task ScrolledSlipWaveform_MatchesTheCommittedEffectHistory(
+        float feedback, int samplesPerChunk, string? speedAnimation)
+    {
+        var decoders = TestMediaHelper.CreateRegistry();
+        var sound = new SourceSound
+        {
+            Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(sampleRate: 8000, durationSeconds: 4)) },
+            TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2)) },
+            Effect =
+            {
+                Value = new DelayEffect
+                {
+                    DelayTime = { Value = 500 },
+                    Feedback = { Value = feedback },
+                    DryMix = { Value = 0 },
+                    WetMix = { Value = 100 },
+                },
+            },
+        };
+        if (speedAnimation == "expression")
+        {
+            new TestHierarchicalRoot().HierarchicalChildren.Add(sound);
+            // The larger warm-up block starts while the source is playing, then crosses into the frozen segment.
+            sound.Speed.Expression = Expression.Create<float>("Time < 0.15 ? 100 : 0");
+        }
+        else if (speedAnimation == "keyframes")
+        {
+            var speed = new KeyFrameAnimation<float>();
+            speed.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 50f } });
+            speed.KeyFrames.Add(new KeyFrame<float>
+            {
+                KeyTime = { Value = MediaTime.FromSeconds(0.65) },
+                Value = { Value = 200f },
+                Easing = { Value = new LinearEasing() },
+            });
+            sound.Speed.SetKeyFrameAnimation(speed);
+        }
+
+        MediaTime delta = MediaTime.FromSeconds(0.25);
+        // Narrow slots expose differences between per-slot and batched variable-speed resampling.
+        int chunkCount = speedAnimation == "keyframes" ? 200 : 20;
+        int[] requested = speedAnimation == "keyframes" ? [60, 61, 123, 161] : [6, 7, 12, 16];
+        var preview = new List<WaveformChunk>();
+        await foreach (var chunk in sound.GetPreviewWaveformChunksAsync(
+                           chunkCount, samplesPerChunk, requested, decoders: decoders, offsetDelta: delta))
+        {
+            preview.Add(chunk);
+        }
+
+        sound.OffsetPosition.Value += delta;
+        var committed = new List<WaveformChunk>();
+        await foreach (var chunk in sound.GetWaveformChunksAsync(chunkCount, samplesPerChunk, null, decoders: decoders))
+        {
+            if (requested.Contains(chunk.Index))
+                committed.Add(chunk);
+        }
+
+        Assert.That(preview.Select(chunk => chunk.Index), Is.EqualTo(requested));
+        Assert.That(committed.Select(chunk => chunk.Index), Is.EqualTo(requested));
+        Assert.That(committed[0].MaxValue, samplesPerChunk >= 800 ? Is.GreaterThan(0.1f) : Is.Zero);
+        for (int i = 0; i < requested.Length; i++)
+        {
+            TestContext.Out.WriteLine(FormattableString.Invariant(
+                $"Chunk {requested[i]} preview {preview[i].MinValue:F4} {preview[i].MaxValue:F4} committed {committed[i].MinValue:F4} {committed[i].MaxValue:F4}"));
+        }
+
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < requested.Length; i++)
+            {
+                Assert.That(preview[i].MinValue, Is.EqualTo(committed[i].MinValue).Within(1e-5), $"Minimum of chunk {requested[i]}");
+                Assert.That(preview[i].MaxValue, Is.EqualTo(committed[i].MaxValue).Within(1e-5), $"Maximum of chunk {requested[i]}");
+            }
+        });
+    }
 }

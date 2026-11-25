@@ -223,7 +223,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
             long totalSamples = layout.Duration.ToSamples(sampleRate, MidpointRounding.ToZero);
             long origin = layout.Start.ToSamples(sampleRate, MidpointRounding.ToZero);
             using var audioContext = new AudioContext(sampleRate, AudioChannelLayout.Stereo);
-            var (output, finiteEndSample) = await ComposeThread.Dispatcher.InvokeAsync(() =>
+            var (output, finiteEndSample, historySamples) = await ComposeThread.Dispatcher.InvokeAsync(() =>
             {
                 var output = ComposeForWaveformPreview(audioContext, resource, offsetDelta);
                 if (startDelta != MediaTime.Zero)
@@ -231,11 +231,17 @@ public sealed partial class SourceSound : IThumbnailsProvider
                     foreach (IAudioTimeMappingNode node in audioContext.Nodes.OfType<IAudioTimeMappingNode>())
                         node.SetPreviewStartDelta(startDelta);
                 }
-                return (output, output?.GetFiniteSourceEndSample(sampleRate));
+                long? requiredHistory = GetPreviewEffectHistory(Effect.Value, sampleRate);
+                // Speed expressions and keyframed speeds depend on processing window boundaries.
+                // The resampler carries state between windows, so replay the original slots from the last seek.
+                if (requiredHistory > 0 && AnimationSampler.IsAnimated(Speed))
+                    requiredHistory = null;
+
+                return (output, output?.GetFiniteSourceEndSample(sampleRate), requiredHistory);
             }, DispatchPriority.Low, cancellationToken);
             var sampler = new AnimationSampler { PreviewStartDelta = startDelta, PreviewDurationDelta = durationDelta };
 
-            // Sparse requests have different processing history from a normal, sequential waveform.
+            long? processedUntil = null;
             foreach (int index in indices)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -248,13 +254,12 @@ public sealed partial class SourceSound : IThumbnailsProvider
                     continue;
                 }
 
-                var range = new TimeRange(
-                    MediaTime.FromSamples(start, sampleRate),
-                    AudioProcessContext.GetDurationForSampleCount(count, sampleRate));
+                if (historySamples != 0 && start > 0 && processedUntil != start)
+                    await WarmUpAsync(output, index, start);
+
                 yield return await ComposeThread.Dispatcher.InvokeAsync(() =>
                 {
-                    using var buffer = output.Process(new AudioProcessContext(
-                        range, sampleRate, sampler, range.AddStart(clipRange.Start + startDelta)));
+                    using var buffer = Process(output, start, count);
                     for (int ch = 0; ch < buffer.ChannelCount; ch++)
                     {
                         var data = buffer.GetChannelData(ch);
@@ -265,6 +270,67 @@ public sealed partial class SourceSound : IThumbnailsProvider
                     var (min, max) = MeasureMonoRange(buffer, count);
                     return new WaveformChunk(index, min, max);
                 }, DispatchPriority.Low, cancellationToken);
+                processedUntil = start + count;
+            }
+
+            AudioBuffer Process(AudioNode node, long start, int count)
+            {
+                var range = new TimeRange(MediaTime.FromSamples(start, sampleRate),
+                    AudioProcessContext.GetDurationForSampleCount(count, sampleRate));
+                return node.Process(new AudioProcessContext(
+                    range, sampleRate, sampler, range.AddStart(clipRange.Start + startDelta)));
+            }
+
+            async Task WarmUpAsync(AudioNode node, int index, long start)
+            {
+                long earliest = historySamples is { } span ? Math.Max(0, start - span) : 0;
+                if (processedUntil is { } previousEnd && previousEnd > earliest && previousEnd < start)
+                    earliest = previousEnd;
+
+                // The normal waveform also has seeks where the sample cap leaves a gap.
+                // Start at the latest such boundary, or at the beginning of the needed history.
+                int first = index;
+                long firstStart = start;
+                while (firstStart > earliest)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    long precedingStart = origin + GetSamplePosition(first - 1);
+                    if (firstStart - precedingStart > samplesPerChunk)
+                        break;
+
+                    first--;
+                    firstStart = precedingStart;
+                }
+
+                if (historySamples.HasValue)
+                {
+                    // A chain of feedback-free delays is sample-wise, so warm it in larger blocks.
+                    long from = Math.Max(firstStart, earliest);
+                    while (from < start)
+                    {
+                        int count = (int)Math.Min(start - from, samplesPerChunk);
+                        await ProcessHistoryBlockAsync(from, count);
+                        from += count;
+                    }
+                    return;
+                }
+
+                for (int slot = first; slot < index; slot++)
+                {
+                    long next = origin + GetSamplePosition(slot + 1);
+                    long from = Math.Max(firstStart, earliest);
+                    if (next > from)
+                    {
+                        await ProcessHistoryBlockAsync(from, (int)(next - from));
+                    }
+                    firstStart = next;
+                }
+
+                async Task ProcessHistoryBlockAsync(long from, int count)
+                    => await ComposeThread.Dispatcher.InvokeAsync(() =>
+                    {
+                        using var buffer = Process(node, from, count);
+                    }, DispatchPriority.Low, cancellationToken);
             }
 
             long GetSamplePosition(int index)
@@ -276,6 +342,37 @@ public sealed partial class SourceSound : IThumbnailsProvider
         {
             WaveformGate.Release();
         }
+    }
+
+    // A feedback-free delay has a finite history. Other effects may depend on every sample since a seek.
+    private static long? GetPreviewEffectHistory(AudioEffect? effect, int sampleRate)
+    {
+        if (effect is not { IsEnabled.Value: true })
+            return 0;
+
+        if (effect is AudioEffectGroup group)
+        {
+            long result = 0;
+            foreach (var child in group.Children)
+            {
+                if (GetPreviewEffectHistory(child, sampleRate) is not { } childHistory)
+                    return null;
+                result += childHistory;
+            }
+
+            return result;
+        }
+
+        if (effect is DelayEffect delay && !AnimationSampler.IsAnimated(delay.Feedback) && delay.Feedback.Value == 0)
+        {
+            float milliseconds = AnimationSampler.IsAnimated(delay.DelayTime)
+                ? DelayParameters.DelayTimeMax
+                : Math.Clamp(delay.DelayTime.Value, DelayParameters.DelayTimeMin, DelayParameters.DelayTimeMax);
+            // The delay line reads before writing, so even a zero setting looks back one sample.
+            return (long)Math.Ceiling(milliseconds / 1000d * sampleRate) + 1;
+        }
+
+        return null;
     }
 
     // The extremes of the left/right average over at most sampleCount samples.
