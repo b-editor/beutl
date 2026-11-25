@@ -14,6 +14,7 @@ using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Services.AI;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
@@ -414,6 +415,27 @@ internal sealed class AgentHostAiTools(
     {
         return StartAccountJobAsync(operation, waitSeconds, requestKey, cancellationToken, async (account, token) =>
         {
+            string seed = requestKey is null
+                ? AiRequestKey.NewSeed()
+                : GenerativeFingerprint.Combine([account.AccountId, operation, requestKey])[..32];
+            Scene? scene = null;
+            IGenerativeNodeExecutor? executor = null;
+            if (requestKey is not null && account.AccountId is { } accountId && backend.RecoveryContext is { } context
+                && AgentGenerationRecovery.FindAttempt(context, accountId, operation, seed) is { } attempt)
+            {
+                // An existing service job can be collected without resolving a new model or
+                // rebuilding inputs that may have changed since the job was paid for.
+                scene = await RequireSceneAsync().ConfigureAwait(false);
+                executor = backend.CreateExecutor(scene);
+                if (executor is AiGenerativeNodeExecutor recoveryExecutor
+                    && await recoveryExecutor.FindRecoveryAsync(attempt, account, token).ConfigureAwait(false) is { } found)
+                {
+                    return new PreparedAiJob((progress, jobToken) => RunGenerationAsync(
+                        (status, ct) => recoveryExecutor.RecoverAsync(attempt, found, status, account, ct),
+                        progress, jobToken), scene.Id.Value);
+                }
+            }
+
             if (precheck is not null)
             {
                 using (account.Enter(token))
@@ -421,7 +443,7 @@ internal sealed class AgentHostAiTools(
             }
             using (account.Enter(token))
                 await RequireAvailableAsync(token).ConfigureAwait(false);
-            Scene scene = await RequireSceneAsync().ConfigureAwait(false);
+            scene ??= await RequireSceneAsync().ConfigureAwait(false);
             // Omitted settings are chosen from what this model offers, as the AI tab's controls are.
             GenerativeModelInfo? chosen = await account.SendAsync(
                 ct => ResolveModelAsync(operation, model, ct), token).ConfigureAwait(false);
@@ -429,9 +451,6 @@ internal sealed class AgentHostAiTools(
             GenerativeRequest request;
             try
             {
-                string seed = requestKey is null
-                    ? AiRequestKey.NewSeed()
-                    : GenerativeFingerprint.Combine([account.AccountId, operation, requestKey])[..32];
                 request = build(scene, chosen, seed);
                 if (requestKey is not null)
                     request = request with { HasCallerRequestKey = true };
@@ -441,7 +460,7 @@ internal sealed class AgentHostAiTools(
                 throw Invalid(ex.Message, null);
             }
 
-            IGenerativeNodeExecutor executor = backend.CreateExecutor(scene);
+            executor ??= backend.CreateExecutor(scene);
             // The executor's own checks, so a request it would refuse is the call's error, not a failed job.
             if (await account.SendAsync(ct => executor.ValidateAsync(request, ct), token).ConfigureAwait(false) is { } refusal)
             {
@@ -452,31 +471,29 @@ internal sealed class AgentHostAiTools(
                     $"Call list_ai_models(\"{operation}\") for what each model takes."));
             }
 
-            return new PreparedAiJob(async (progress, jobToken) =>
-            {
-                GenerativeExecutionResult result;
-                try
-                {
-                    result = await executor
-                        .ExecuteAsync(request, new StatusProgress(progress), jobToken)
-                        .ConfigureAwait(false);
-                }
-                catch (GenerativeExecutionException ex)
-                {
-                    // The executor keeps the service's refusal as the inner exception.
-                    string code = ex.Input == nameof(GenerativeRequest.RequestKeySeed)
-                        ? ErrorCode.ValidationRejected
-                        : AgentAiException.CodeFor(ex.InnerException);
-                    throw new AgentAiException(code, ex.Message);
-                }
-
-                return new AgentAiJobOutput(
-                    result.ResultFile.LocalPath,
-                    result.IsVideo ? "video" : "image",
-                    result.ModelId,
-                    result.Seed);
-            }, scene.Id.Value);
+            return new PreparedAiJob((progress, jobToken) => RunGenerationAsync(
+                (status, ct) => executor.ExecuteAsync(request, status, ct), progress, jobToken), scene.Id.Value);
         });
+    }
+
+    private static async Task<AgentAiJobOutput> RunGenerationAsync(
+        Func<IProgress<GenerativeProgress>, CancellationToken, Task<GenerativeExecutionResult>> execute,
+        IProgress<string> progress,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            GenerativeExecutionResult result = await execute(new StatusProgress(progress), cancellationToken).ConfigureAwait(false);
+            return new AgentAiJobOutput(result.ResultFile.LocalPath, result.IsVideo ? "video" : "image", result.ModelId, result.Seed);
+        }
+        catch (GenerativeExecutionException ex)
+        {
+            // The executor keeps the service's refusal as the inner exception.
+            string code = ex.Input == nameof(GenerativeRequest.RequestKeySeed)
+                ? ErrorCode.ValidationRejected
+                : AgentAiException.CodeFor(ex.InnerException);
+            throw new AgentAiException(code, ex.Message);
+        }
     }
 
     private ValueTask<ToolResult<AgentAiJobSnapshot>> StartAccountJobAsync(

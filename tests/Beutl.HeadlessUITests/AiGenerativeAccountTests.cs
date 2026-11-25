@@ -102,7 +102,7 @@ public sealed class AiGenerativeAccountTests
             .Returns((AiImageGenerationRequest request, IProgress<AiImagePreview>? _, CancellationToken _) =>
             {
                 submitted.Add(request);
-                return Task.FromException<AiImageResult>(new AiResultUnavailableException());
+                return Task.FromException<AiImageResult>(new HttpRequestException("The request did not reach the service."));
             });
         using var originalJobs = new AgentAiJobManager();
         var originalTools = new AgentHostAiTools(TestShell.Editor, originalJobs, state.Backend, new AgentSessionManager());
@@ -128,6 +128,60 @@ public sealed class AiGenerativeAccountTests
         await reopenedTools.GenerateImage("a cat", waitSeconds: 10, requestKey: "paid");
         Assert.That(submitted.Select(request => request.IdempotencyKey),
             Is.EqualTo(new[] { submitted[0].IdempotencyKey, submitted[0].IdempotencyKey }));
+    }
+
+    [AvaloniaTest]
+    public async Task APaidGenerationRetryRecoversWithItsServiceKeyWhenNewWorkIsUnavailable()
+    {
+        await TestShell.OpenNewSceneAsync("agent-ai-paid-retry");
+        using var state = new JobState();
+        state.Images.Setup(service => service.GenerateAsync(
+                It.IsAny<AiImageGenerationRequest>(), It.IsAny<IProgress<AiImagePreview>?>(), It.IsAny<CancellationToken>()))
+            .Returns((AiImageGenerationRequest request, IProgress<AiImagePreview>? _, CancellationToken _) =>
+            {
+                state.SubmittedKey = request.IdempotencyKey;
+                return Task.FromException<AiImageResult>(new AiResultUnavailableException());
+            });
+        using var jobs = new AgentAiJobManager();
+        var tools = new AgentHostAiTools(TestShell.Editor, jobs, state.Backend, new AgentSessionManager());
+        var failed = await tools.GenerateImage("a cat", waitSeconds: 10, requestKey: "paid");
+        Assert.That(failed.Value?.Status, Is.EqualTo(AgentAiJobStatus.Failed), failed.Error?.Message);
+        Assert.That(state.SubmittedKey, Is.Not.Null);
+
+        state.RefuseNewWork();
+        state.Calls.Clear();
+        state.Jobs.Setup(service => service.GetByIdempotencyKeyAsync(state.SubmittedKey!, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AiJob(new AiJobId("paid-image"), AiJobKinds.Image, AiJobStatuses.Succeeded,
+                System.Text.Json.JsonSerializer.SerializeToElement(new { seed = 5 }), new AiContentId("file"),
+                JobState.ContentUri, null, false, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)
+            {
+                Model = new AiModelId("original-model"),
+            });
+        byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+        state.Content.Setup(service => service.CopyToAsync(JobState.ContentUri, It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns(async (Uri _, Stream destination, CancellationToken ct) =>
+            {
+                await destination.WriteAsync(png, ct);
+                return new AiContentDownload(null);
+            });
+
+        var recovered = await tools.GenerateImage("a cat", waitSeconds: 10, requestKey: "paid");
+        Assert.That(recovered.Value?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded), recovered.Value?.ErrorMessage ?? recovered.Error?.Message);
+        Assert.That(state.Store.PendingFor("account-a", "image.generate"), Is.Empty);
+
+        using var reopenedJobs = new AgentAiJobManager();
+        var reopenedTools = new AgentHostAiTools(TestShell.Editor, reopenedJobs, state.Backend, new AgentSessionManager());
+        var reopened = await reopenedTools.GenerateImage("a cat", waitSeconds: 10, requestKey: "paid");
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Value?.JobId, Is.Not.EqualTo(failed.Value?.JobId));
+            Assert.That(reopened.Value?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded), reopened.Value?.ErrorMessage ?? reopened.Error?.Message);
+            Assert.That(reopened.Value?.Output?.ModelId, Is.EqualTo("original-model"));
+            Assert.That(reopened.Value?.Output?.Seed, Is.EqualTo(5));
+            Assert.That(state.Calls, Is.Empty, "collecting paid results does not consult the catalog or check the balance");
+            state.Images.Verify(service => service.GenerateAsync(
+                It.IsAny<AiImageGenerationRequest>(), It.IsAny<IProgress<AiImagePreview>?>(), It.IsAny<CancellationToken>()), Times.Once);
+        });
     }
 
     [AvaloniaTest]
@@ -239,10 +293,12 @@ public sealed class AiGenerativeAccountTests
                 });
             var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
             var models = new AiGenerativeModelCatalog(catalog.Object, entitlementService.Object);
+            Jobs.Setup(service => service.GetByIdempotencyKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new AiJobNotFoundException());
             Executor = new AiGenerativeNodeExecutor(
                 scene, models, Images.Object,
                 availability.Object, Content.Object, Library.Object, Mock.Of<IAiImageEditingService>(), Videos.Object,
-                AiJobKindRegistry.CreateBuiltIn(Videos.Object), TestShell.Decoders, _recovery)
+                AiJobKindRegistry.CreateBuiltIn(Videos.Object), TestShell.Decoders, _recovery, Jobs.Object)
             {
                 PollInterval = TimeSpan.FromHours(1),
             };
@@ -255,6 +311,7 @@ public sealed class AiGenerativeAccountTests
         public AgentHostAiBackend Backend { get; }
         public Mock<IAiImageGenerationService> Images { get; } = new(MockBehavior.Strict);
         public Mock<IAiVideoService> Videos { get; } = new(MockBehavior.Strict);
+        public Mock<IAiJobClient> Jobs { get; } = new(MockBehavior.Strict);
         public Mock<IAuthenticatedContentService> Content { get; } = new(MockBehavior.Strict);
         public Mock<IGenerativePromptLibrary> Library { get; } = new(MockBehavior.Strict);
         public List<string> Calls { get; } = [];
@@ -262,6 +319,10 @@ public sealed class AiGenerativeAccountTests
         public Action<string>? AfterCall { get; set; }
 
         public void ChangeAccount(string? id) => _identity.Value = id is null ? null : new(id, User: null);
+
+        public void RefuseNewWork() => _entitlements.Value = new AiEntitlements(
+            null, null, null, null, false, false, new AiBalance(new AiMonthlyUsage(0, 0, false), 0, false),
+            new AiOperationAvailability([]));
 
         public void Record(string call)
         {

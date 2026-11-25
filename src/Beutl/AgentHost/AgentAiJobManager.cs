@@ -99,9 +99,7 @@ internal sealed class AgentAiJobManager : IDisposable
     }
 
     private Job? FindReplayCore(AgentAiRequestKey key)
-        => _jobsByRequest.TryGetValue(key, out Job? job)
-            && (key.Operation != AgentHostAiTools.TranscriptionOperation || job.CanReplayTranscription)
-                ? job : null;
+        => _jobsByRequest.TryGetValue(key, out Job? job) && job.CanReplay ? job : null;
 
     /// <summary>The jobs this app session still holds, newest first.</summary>
     public IReadOnlyList<AgentAiJobSnapshot> List()
@@ -243,7 +241,7 @@ internal sealed class AgentAiJobManager : IDisposable
             }
         }
 
-        public bool CanReplayTranscription
+        public bool CanReplay
         {
             get
             {
