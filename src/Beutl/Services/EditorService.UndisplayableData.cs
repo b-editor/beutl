@@ -1,4 +1,4 @@
-using Beutl.Editor.Services;
+﻿using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Utilities;
 using Beutl.ViewModels;

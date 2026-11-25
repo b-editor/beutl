@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
@@ -9,8 +9,8 @@ using Avalonia.Input.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
-using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
+using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
@@ -102,6 +102,12 @@ public sealed class UndisplayableDataToolTests
             Assert.That(view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.True);
             HeadlessTestHelpers.Click(scopeSwitch);
             var row = tool.Rows.Value.Single(item => item.CanLocate);
+            var otherLayer = new TimelineLayer { ZIndex = { Value = scenes[1].Children.Single().ZIndex.Value }, Name = { Value = "Initial layer" } };
+            scenes[1].Layers.Add(otherLayer);
+            await HeadlessTestHelpers.WaitUntilAsync(() => tool.Rows.Value.Any(item => item.Breadcrumb.Contains("Initial layer")));
+            otherLayer.Name.Value = "Renamed layer";
+            await HeadlessTestHelpers.WaitUntilAsync(() => tool.Rows.Value.Any(item => item.Breadcrumb.Contains("Renamed layer")));
+            row = tool.Rows.Value.Single(item => item.CanLocate);
             HeadlessTestHelpers.Click(RowControl<Button>(window, row, "LocateButton"));
             Assert.That(ActiveEditor.Scene, Is.SameAs(scenes[1]));
             Assert.That(ActiveEditor.GetRequiredService<IEditorSelection>().SelectedObject.Value,

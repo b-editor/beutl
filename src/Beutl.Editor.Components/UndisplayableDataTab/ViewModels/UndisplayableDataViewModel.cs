@@ -1,4 +1,4 @@
-using System.Reactive;
+﻿using System.Reactive;
 using System.Text.Json.Nodes;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
@@ -82,6 +82,10 @@ public sealed class UndisplayableDataViewModel : IToolContext
             .Subscribe(_ => Refresh())
             .DisposeWith(_disposables);
         CurrentSceneOnly.Skip(1).Subscribe(_ => Refresh()).DisposeWith(_disposables);
+        IsSelected.Where(selected => selected).Skip(1)
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => Refresh())
+            .DisposeWith(_disposables);
         Refresh();
     }
 
@@ -117,6 +121,7 @@ public sealed class UndisplayableDataViewModel : IToolContext
         // Keep the displayed rows when an unrelated edit leaves the diagnostics unchanged or shifts indices.
         var oldRows = Rows.Value;
         var reused = new bool[oldRows.Count];
+        Dictionary<RowLookupKey, List<int>>? indexByKey = null;
         var rows = new UndisplayableDataRow[entries.Count];
         for (int i = 0; i < rows.Length; i++)
         {
@@ -126,14 +131,18 @@ public sealed class UndisplayableDataViewModel : IToolContext
             {
                 match = i;
             }
-            else
+            else if (oldRows.Count > 0)
             {
-                for (int j = 0; j < oldRows.Count; j++)
+                indexByKey ??= BuildRowIndex(oldRows);
+                if (indexByKey.TryGetValue(RowLookupKey.From(entry), out var candidates))
                 {
-                    if (!reused[j] && oldRows[j].Matches(entry))
+                    foreach (int j in candidates)
                     {
-                        match = j;
-                        break;
+                        if (!reused[j] && oldRows[j].Matches(entry))
+                        {
+                            match = j;
+                            break;
+                        }
                     }
                 }
             }
@@ -151,6 +160,30 @@ public sealed class UndisplayableDataViewModel : IToolContext
         }
         if (!oldRows.SequenceEqual(rows)) Rows.Value = rows;
         IsEmpty.Value = entries.Count == 0 && !ScanFailed.Value;
+    }
+
+    private static Dictionary<RowLookupKey, List<int>> BuildRowIndex(IReadOnlyList<UndisplayableDataRow> oldRows)
+    {
+        var index = new Dictionary<RowLookupKey, List<int>>(oldRows.Count);
+        for (int i = 0; i < oldRows.Count; i++)
+        {
+            RowLookupKey key = RowLookupKey.From(oldRows[i].Entry);
+            if (!index.TryGetValue(key, out var list))
+                index[key] = list = [];
+            list.Add(i);
+        }
+
+        return index;
+    }
+
+    private readonly record struct RowLookupKey(
+        UndisplayableDataKind Kind,
+        CoreObject? TargetObject,
+        string? PropertyName,
+        string Breadcrumb)
+    {
+        public static RowLookupKey From(UndisplayableDataEntry entry)
+            => new(entry.Kind, entry.TargetObject, entry.PropertyName, entry.Breadcrumb);
     }
 
     public void Locate(UndisplayableDataRow row)
@@ -172,8 +205,35 @@ public sealed class UndisplayableDataViewModel : IToolContext
         => Observable.Merge(
             Observable.FromEventPattern(
                 handler => scene.Edited += handler, handler => scene.Edited -= handler).Select(_ => Unit.Default),
-            scene.Layers.CollectionChangedAsObservable().Select(_ => Unit.Default),
-            scene.Markers.CollectionChangedAsObservable().Select(_ => Unit.Default));
+            scene.Name.GetObservable().Skip(1).Select(_ => Unit.Default),
+            WatchLayers(scene),
+            WatchMarkers(scene));
+
+    private static IObservable<Unit> WatchLayers(Scene scene)
+        => scene.Layers.CollectionChangedAsObservable()
+            .Select(_ => Unit.Default)
+            .StartWith(Unit.Default)
+            .Select(_ => scene.Layers
+                .Select(layer => Observable.Merge(
+                    layer.Name.GetObservable().Skip(1).Select(_ => Unit.Default),
+                    layer.ZIndex.GetObservable().Skip(1).Select(_ => Unit.Default)))
+                .Merge()
+                .StartWith(Unit.Default))
+            .Switch()
+            .Skip(1);
+
+    private static IObservable<Unit> WatchMarkers(Scene scene)
+        => scene.Markers.CollectionChangedAsObservable()
+            .Select(_ => Unit.Default)
+            .StartWith(Unit.Default)
+            .Select(_ => scene.Markers
+                .Select(marker => Observable.Merge(
+                    marker.Name.GetObservable().Skip(1).Select(_ => Unit.Default),
+                    marker.Time.GetObservable().Skip(1).Select(_ => Unit.Default)))
+                .Merge()
+                .StartWith(Unit.Default))
+            .Switch()
+            .Skip(1);
 
     public void Dispose()
     {

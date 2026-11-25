@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Audio;
@@ -378,6 +378,38 @@ public sealed class UndisplayableDataScannerTests
             Assert.That(refSceneMemberEntry.Element, Is.Null);
             Assert.That(refFallbackEntry.Scene, Is.SameAs(referencedScene));
             Assert.That(refFallbackEntry.Element, Is.SameAs(refClip));
+        });
+    }
+
+    [Test]
+    public void ForeignSubgraphIsPrunedBeforeBounceBackCanMarkLocalDescendantsVisited()
+    {
+        var scene = NewScene();
+        var localClip = NewElement("LocalClip");
+        var foreignClip = NewElement("ForeignClip");
+
+        var localFallback = new FallbackTransform { Json = new JsonObject { ["$type"] = Missing } };
+        var localGroup = new TransformGroup { Children = { localFallback } };
+        var foreignGroup = new TransformGroup
+        {
+            Children = { new TransformPresenter { Target = { Value = localGroup } } },
+        };
+        foreignClip.AddObject(new RectShape { Transform = { Value = foreignGroup } });
+
+        // First object presents the foreign group (which bounces back to localGroup); second object owns localGroup.
+        localClip.AddObject(new RectShape { Transform = { Value = new TransformPresenter { Target = { Value = foreignGroup } } } });
+        localClip.AddObject(new RectShape { Transform = { Value = localGroup } });
+        scene.Children.Add(localClip);
+        scene.Children.Add(foreignClip);
+
+        var entries = UndisplayableDataScanner.Scan(scene);
+        Assert.Multiple(() =>
+        {
+            Assert.That(entries, Has.Count.EqualTo(1));
+            Assert.That(entries[0].Element, Is.SameAs(localClip));
+            Assert.That(entries[0].TargetObject, Is.SameAs(localFallback));
+            Assert.That(UndisplayableDataScanner.CountIssues(localClip)[UndisplayableDataKind.TypeNotFound], Is.EqualTo(1));
+            Assert.That(UndisplayableDataScanner.CountIssues(foreignClip), Is.Empty);
         });
     }
 

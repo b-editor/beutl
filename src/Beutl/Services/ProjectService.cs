@@ -528,7 +528,8 @@ public sealed partial class ProjectService
         {
             if (ReferenceEquals(CurrentProject.Value, project))
                 editorService.OpenUndisplayableData(project);
-        } : null;
+        }
+        : null;
         Notification[] notices = new[]
             {
                 Beutl.Editor.Services.UnmigratedNodeTreeNotice.Create(project, showDetails),

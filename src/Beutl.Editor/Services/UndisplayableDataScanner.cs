@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
@@ -172,7 +172,7 @@ internal static class UndisplayableDataScanner
         CoreSerializer.Visit(root, visit =>
         {
             if (CrossedOwnershipBoundary(visit, root, scene, element))
-                return false;
+                return CoreSerializationVisitAction.SkipChildren;
 
             if (recoveryLocations is not null && visit.Value is CoreObject core)
                 recoveryLocations.TryAdd(core, visit);
@@ -197,7 +197,7 @@ internal static class UndisplayableDataScanner
                 }
             }
 
-            return false;
+            return CoreSerializationVisitAction.Continue;
         });
 
         if (element is { IsRecoveryProtected: true } && recoveryLocations is not null)
@@ -209,15 +209,16 @@ internal static class UndisplayableDataScanner
     }
 
     // Reference properties (such as SceneDrawable.ReferencedScene or BrushPresenter.Target) serialize their
-    // target object directly, so CoreSerializer.Visit walks across ownership boundaries. Skip targets owned
-    // by another element or scene so each issue is reported only under its real owner.
+    // target object directly, so CoreSerializer.Visit would otherwise walk across ownership boundaries.
+    // Prune foreign targets before they or their descendants are visited so each issue is reported only
+    // under its real owner and bounce-back references never mark local descendants visited early.
     private static bool CrossedOwnershipBoundary(CoreSerializationVisit visit, CoreObject root, Scene? scene, Element? element)
     {
-        for (CoreSerializationVisit? item = visit; item is not null && !ReferenceEquals(item.Value, root); item = item.Parent)
-        {
-            if (item.Value is Scene or Element or Project)
-                return true;
-        }
+        if (ReferenceEquals(visit.Value, root))
+            return false;
+
+        if (visit.Value is Scene or Element or Project)
+            return true;
 
         if (visit.Value is IHierarchical hierarchical)
         {

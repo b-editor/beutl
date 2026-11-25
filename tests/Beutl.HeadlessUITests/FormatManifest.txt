@@ -1709,6 +1709,8 @@ Beutl.Utilities
   id: Beutl.Editor.Components.TerminalTab.TerminalTabExtension#<guid>
 [Beutl.Editor.Components].TransitionTab:TransitionTabExtension
   id: Beutl.Editor.Components.TransitionTab.TransitionTabExtension#<guid>
+[Beutl.Editor.Components].UndisplayableDataTab:UndisplayableDataTabExtension
+  id: Beutl.Editor.Components.UndisplayableDataTab.UndisplayableDataTabExtension
 [Beutl.Editor.Components].VersionControlTab:VersionControlTabExtension
   id: Beutl.Editor.Components.VersionControlTab.VersionControlTabExtension
 [Beutl.Editor.Components].WebBrowserTab:WebBrowserTabExtension
