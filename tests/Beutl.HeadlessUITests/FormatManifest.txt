@@ -151,6 +151,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:TextAnimationUnit>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:BlendMode>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -247,6 +250,9 @@ Beutl.Utilities
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:RepeatEffectMirror>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:TextAnimationUnit>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:BlendMode>
@@ -465,7 +471,7 @@ Beutl.Utilities
   keys: Animations, BlueCurve, Expressions, GreenCurve, HueVsHue, HueVsLuminance, HueVsSaturation, Id, IsEnabled, LuminanceVsSaturation, MasterCurve, Name, RedCurve, SaturationVsSaturation
 [Beutl.Engine]Beutl.Graphics.Effects:DelayAnimationEffect
   unsealed
-  keys: Animations, Delay, DelayMode, Effect, Expressions, Id, IsEnabled, Name, Order, RandomSeed
+  keys: Animations, Delay, DelayMode, Effect, Expressions, Id, IsEnabled, Name, Order, RandomSeed, Unit
 [Beutl.Engine]Beutl.Graphics.Effects:DiagonalClipping
   sealed
   keys: Angle, Animations, Expressions, Id, IsEnabled, Name, Position, Width
@@ -592,7 +598,7 @@ Beutl.Utilities
   keys: Amount, Animations, Center, Expressions, Id, IsEnabled, Mode, Name, Samples
 [Beutl.Engine]Beutl.Graphics.Effects:RangeAnimatorEffect
   sealed
-  keys: Animations, Blur, Color, ColorAmount, Expressions, Id, IsEnabled, Name, Opacity, Order, Position, RandomSeed, RangeEnd, RangeOffset, RangeStart, Rotation, Scale, Shape, Smoothness
+  keys: Animations, Blur, Color, ColorAmount, Expressions, Id, IsEnabled, Name, Opacity, Order, Position, RandomSeed, RangeEnd, RangeOffset, RangeStart, Rotation, Scale, Shape, Smoothness, Unit
 [Beutl.Engine]Beutl.Graphics.Effects:RepeatEffect
   sealed
   keys: Animations, Columns, Expressions, Id, IsEnabled, Mirror, Name, Offset, Rows, Spacing

@@ -665,11 +665,13 @@ public sealed partial class SchemaGenerator
                 break;
             case DelayAnimationEffect delay:
                 delay.Delay.Value = 55;
+                delay.Unit.Value = TextAnimationUnit.Lines;
                 delay.Effect.Value = CreateDropShadow(0, 0, 18, "#9936f0ff");
                 break;
             case RangeAnimatorEffect range:
                 range.RangeStart.Value = 20;
                 range.RangeEnd.Value = 65;
+                range.Unit.Value = TextAnimationUnit.Words;
                 range.Position.Value = new Point(0, -30);
                 range.Opacity.Value = 55;
                 break;

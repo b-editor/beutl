@@ -23,6 +23,9 @@ public partial class DelayAnimationEffect : FilterEffect
         ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<DelayAnimationMode> DelayMode { get; } = Property.CreateAnimatable(DelayAnimationMode.PerStep);
 
+    [Display(Name = nameof(GraphicsStrings.TextAnimationUnit), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<TextAnimationUnit> Unit { get; } = Property.CreateAnimatable(TextAnimationUnit.Characters);
+
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Order), Description = nameof(GraphicsStrings.DelayAnimationEffect_Order_Description),
         ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<DelayAnimationOrder> Order { get; } = Property.CreateAnimatable(DelayAnimationOrder.Forward);
@@ -37,14 +40,14 @@ public partial class DelayAnimationEffect : FilterEffect
     /// Applies the child effect to each target at its delayed time, keeping one child resource per target.
     /// </summary>
     private static void ApplyDelayed(
-        (float delay, DelayAnimationMode delayMode, DelayAnimationOrder order, int randomSeed, MediaTime globalTime,
+        (float delay, DelayAnimationMode delayMode, TextAnimationUnit unit, DelayAnimationOrder order, int randomSeed, MediaTime globalTime,
             FilterEffect childEffect, List<FilterEffect.Resource> cache,
             bool disableResourceShare, CompositionConditions conditions) data,
         CustomFilterEffectContext effectContext)
     {
         int targetCount = effectContext.Targets.Count;
         Span<float> ranks = targetCount <= 128 ? stackalloc float[targetCount] : new float[targetCount];
-        DelayAnimationOrdering.ComputeTargetRanks(data.order, data.randomSeed, effectContext.Targets, ranks);
+        DelayAnimationOrdering.ComputeTargetRanks(data.order, data.randomSeed, effectContext.Targets, ranks, data.unit);
         if (data.delayMode == DelayAnimationMode.Total)
             NormalizeTotalRanks(data.order, effectContext.Targets, ranks);
 
@@ -114,7 +117,7 @@ public partial class DelayAnimationEffect : FilterEffect
         float last = 0;
         for (int i = 0; i < ranks.Length; i++)
         {
-            if (order != DelayAnimationOrder.FromCenter || !targets[i].IsEmpty)
+            if (ranks[i] >= 0 && (order != DelayAnimationOrder.FromCenter || !targets[i].IsEmpty))
                 first = Math.Min(first, ranks[i]);
             last = Math.Max(last, ranks[i]);
         }
@@ -132,7 +135,7 @@ public partial class DelayAnimationEffect : FilterEffect
 
     private static MediaTime GetDelayedTime(MediaTime globalTime, float delay, float rank)
     {
-        float milliseconds = delay * rank;
+        float milliseconds = delay * Math.Max(rank, 0);
         return float.IsFinite(milliseconds) ? globalTime - MediaTime.FromSeconds(milliseconds / 1000d) : globalTime;
     }
 
@@ -161,6 +164,7 @@ public partial class DelayAnimationEffect : FilterEffect
     {
         private float _delay;
         private DelayAnimationMode _delayMode;
+        private TextAnimationUnit _unit;
         private DelayAnimationOrder _order;
         private int _randomSeed;
         private FilterEffect.Resource? _effect;
@@ -172,6 +176,8 @@ public partial class DelayAnimationEffect : FilterEffect
 
         public float Delay => _delay;
         public DelayAnimationMode DelayMode => _delayMode;
+
+        public TextAnimationUnit Unit => _unit;
 
         public DelayAnimationOrder Order => _order;
 
@@ -196,6 +202,7 @@ public partial class DelayAnimationEffect : FilterEffect
             var typed = (DelayAnimationEffect)obj;
             ResourceReconciler.ReconcileValue(this, context, typed.Delay, ref _delay, ref versionBumped);
             ResourceReconciler.ReconcileValue(this, context, typed.DelayMode, ref _delayMode, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, typed.Unit, ref _unit, ref versionBumped);
             ResourceReconciler.ReconcileValue(this, context, typed.Order, ref _order, ref versionBumped);
             ResourceReconciler.ReconcileValue(this, context, typed.RandomSeed, ref _randomSeed, ref versionBumped);
             ResourceReconciler.ReconcileChild(this, context, typed.Effect, ref _effect, ref versionBumped);
@@ -248,7 +255,7 @@ public partial class DelayAnimationEffect : FilterEffect
             FilterEffect childEffect = Effect.RequireOriginal();
 
             context.CustomEffect(
-                (delay: Delay, delayMode: DelayMode, order: Order, randomSeed: RandomSeed, globalTime: GlobalTime,
+                (delay: Delay, delayMode: DelayMode, unit: Unit, order: Order, randomSeed: RandomSeed, globalTime: GlobalTime,
                  childEffect, cache: DelayedResources,
                  disableResourceShare: DisableResourceShare,
                  conditions: _conditions),
@@ -259,8 +266,15 @@ public partial class DelayAnimationEffect : FilterEffect
 
 internal static class DelayAnimationOrdering
 {
-    internal static void ComputeTargetRanks(DelayAnimationOrder order, int seed, EffectTargets targets, Span<float> ranks)
+    internal static void ComputeTargetRanks(DelayAnimationOrder order, int seed, EffectTargets targets, Span<float> ranks,
+        TextAnimationUnit unit = TextAnimationUnit.Characters)
     {
+        if (targets.Any(static target => target.TextPart.HasValue))
+        {
+            TextAnimationOrdering.ComputeUnitRanks(order, seed, unit, targets, ranks);
+            return;
+        }
+
         Rect?[]? bounds = null;
         if (ranks.Length > 1 && order is DelayAnimationOrder.FromCenter
             or DelayAnimationOrder.LeftToRight or DelayAnimationOrder.RightToLeft

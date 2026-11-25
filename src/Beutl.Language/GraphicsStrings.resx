@@ -456,6 +456,18 @@
   <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
     <value>Per step uses Delay for each step, in milliseconds. Total uses Delay for the time from the first part's start to the last part's start.</value>
   </data>
+  <data name="TextAnimationUnit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="TextAnimationUnit_Characters" xml:space="preserve">
+    <value>Characters</value>
+  </data>
+  <data name="TextAnimationUnit_Words" xml:space="preserve">
+    <value>Words</value>
+  </data>
+  <data name="TextAnimationUnit_Lines" xml:space="preserve">
+    <value>Lines</value>
+  </data>
   <data name="DelayAnimationMode_PerStep" xml:space="preserve">
     <value>Per step</value>
   </data>
