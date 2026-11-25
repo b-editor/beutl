@@ -16,6 +16,8 @@ public sealed partial class FFmpegProxyGenerator
     {
         private long _nextFrame;
 
+        public BitmapColorSpace? OriginalIccColorSpace { get; private set; }
+
         public long FrameCount => frameCount;
 
         public Rational FrameRate => reader.VideoInfo.FrameRate;
@@ -31,6 +33,9 @@ public sealed partial class FFmpegProxyGenerator
 
             using (bitmapRef)
             {
+                if (frame == 0 && reader.VideoInfo.HasIccProfile)
+                    OriginalIccColorSpace = bitmapRef.Value.ColorSpace;
+
                 _nextFrame++;
                 progress?.Report(new ProxyJobProgress(
                     Math.Clamp((frame + 1) / (double)FrameCount, 0, 1),

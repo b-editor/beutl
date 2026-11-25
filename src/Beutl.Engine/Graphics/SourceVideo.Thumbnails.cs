@@ -78,6 +78,9 @@ public partial class SourceVideo : IThumbnailsProvider
         }
 
         string key = ThumbnailsCacheKey.Compute(CoreSerializer.SerializeToJsonObject(this), properties);
+        if (TransferInterpretation.Value != VideoTransferInterpretation.Auto)
+            key += "|icc-transfer";
+
         return RequiresResampledRangePreview(startChanges: true)
             ? $"{key}|start:{TimeRange.Value.Start.Flicks}|duration:{TimeRange.Value.Duration.Flicks}"
             : key;

@@ -19,7 +19,8 @@ public sealed partial class FFmpegProxyGenerator
         CancellationToken ct,
         Func<string, string, bool>? moveAttempt = null,
         Func<string, string?>? metadataBackupAttempt = null,
-        VideoStreamInfo? sourceVideo = null)
+        VideoStreamInfo? sourceVideo = null,
+        BitmapColorSpace? originalIccColorSpace = null)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -56,6 +57,9 @@ public sealed partial class FFmpegProxyGenerator
                 null)
             {
                 OriginalColorTags = sourceVideo?.ColorTags ?? default,
+                OriginalColorSpace = sourceVideo is { } video && !BitmapColorSpaceMapping.IsHdrTransfer(video.ColorTags.Transfer)
+                    ? originalIccColorSpace ?? BitmapColorSpaceMapping.BuildTargetColorSpace(video.ColorTags.Transfer, video.ColorTags.Primaries)
+                    : null,
                 Deinterlace = job.Deinterlace,
                 DetectedFieldOrder = sourceVideo?.DetectedFieldOrder ?? default,
                 DeinterlaceStatus = sourceVideo?.DeinterlaceStatus ?? default,

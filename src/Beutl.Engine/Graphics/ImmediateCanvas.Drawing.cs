@@ -188,8 +188,8 @@ public partial class ImmediateCanvas
         if (BitmapColorSpaceMapping.IsHdrTransfer(tags.Transfer))
             return null;
 
-        BitmapColorSpace original = BitmapColorSpaceMapping.BuildTargetColorSpace(tags.Transfer, tags.Primaries);
-        BitmapColorSpace target = BitmapColorSpaceMapping.BuildTargetColorSpace(chosen, tags.Primaries);
+        BitmapColorSpace original = source.GetOriginalColorSpace(bitmap.ColorSpace);
+        BitmapColorSpace target = BitmapColorSpaceMapping.BuildTargetColorSpace(chosen, original.ToColorSpaceXyz());
         if (bitmap.ColorSpace == original)
         {
             if (original != target)
@@ -197,8 +197,8 @@ public partial class ImmediateCanvas
             return null;
         }
 
-        // Proxies and ICC-profiled frames can arrive in another space. Convert back to the original tag's
-        // code values at half-float precision before applying the chosen curve to those values.
+        // A proxy can be encoded in a different color space. Recover the original code values
+        // at half-float precision before interpreting them with the chosen curve.
         colorSpaceOverride = target;
         return bitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, original);
     }

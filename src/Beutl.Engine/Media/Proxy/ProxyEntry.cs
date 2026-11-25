@@ -1,4 +1,6 @@
-﻿using Beutl.Media;
+﻿using System.Text.Json.Serialization;
+
+using Beutl.Media;
 using Beutl.Media.Decoding;
 
 namespace Beutl.Media.Proxy;
@@ -22,6 +24,12 @@ public sealed record ProxyEntry(
     public DeinterlaceApplicationStatus DeinterlaceStatus { get; init; }
 
     public VideoColorTags OriginalColorTags { get; init; }
+
+    [JsonInclude]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonConverter(typeof(ProxyColorSpaceJsonConverter))]
+    internal BitmapColorSpace? OriginalColorSpace { get; init; }
+
 
     public Rational? OriginalDuration { get; init; }
 }

@@ -47,6 +47,7 @@ public sealed record ProxyResolution(
     public DeinterlaceApplicationStatus DeinterlaceStatus { get; init; }
 
     public VideoColorTags OriginalColorTags { get; init; }
+    internal BitmapColorSpace? OriginalColorSpace { get; init; }
 
     public Rational? OriginalDuration { get; init; }
 
