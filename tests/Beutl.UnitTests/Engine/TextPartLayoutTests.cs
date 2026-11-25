@@ -143,8 +143,8 @@ public class TextPartLayoutTests
         var layout = text.GetTextPartLayout();
         var glyphs = new List<TextPartIndices>();
         foreach (var line in text.GetTextElements().Lines)
-        foreach (var run in line)
-            glyphs.AddRange(layout.GetGlyphs(run).ToArray());
+            foreach (var run in line)
+                glyphs.AddRange(layout.GetGlyphs(run).ToArray());
         return glyphs.ToArray();
     }
 

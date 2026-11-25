@@ -148,7 +148,7 @@ internal sealed partial class RenderRequestExecutor
                     case RenderFragmentKind.Layer:
                         return TextPartTag.GetCommon(fragment.Inputs, GetReplayTextPart);
                     case RenderFragmentKind.TargetScope when fragment.Payload is TargetScopeRenderFragmentPayload
-                        { Description.IsValueReplayMap: true }:
+                    { Description.IsValueReplayMap: true }:
                     case RenderFragmentKind.FilterEffectSegment when fragment.Inputs.Length == 1
                         && fragment.Payload is FilterEffectSegmentRenderFragmentPayload { HasImperativeItem: false }:
                     case RenderFragmentKind.ContributeValues:
