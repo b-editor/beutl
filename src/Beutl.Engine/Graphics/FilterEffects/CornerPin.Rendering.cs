@@ -1,4 +1,4 @@
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Logging;
 using Beutl.Media;
@@ -70,10 +70,17 @@ public sealed partial class CornerPin
             (float)(xx * scale), (float)(xy * scale), (float)(xw * scale),
             (float)(yx * scale), (float)(yy * scale), (float)(yw * scale),
             (float)(tx * scale), (float)(ty * scale), (float)(tw * scale));
-        return float.IsFinite(matrix.M11) && float.IsFinite(matrix.M12) && float.IsFinite(matrix.M13)
+        bool finite = float.IsFinite(matrix.M11) && float.IsFinite(matrix.M12) && float.IsFinite(matrix.M13)
             && float.IsFinite(matrix.M21) && float.IsFinite(matrix.M22) && float.IsFinite(matrix.M23)
-            && float.IsFinite(matrix.M31) && float.IsFinite(matrix.M32) && float.IsFinite(matrix.M33)
-            && float.IsFinite(matrix.GetDeterminant()) && matrix.HasInverse;
+            && float.IsFinite(matrix.M31) && float.IsFinite(matrix.M32) && float.IsFinite(matrix.M33);
+        if (!finite) return false;
+
+        // The quad has already passed the degeneracy checks. Check that rounding to float preserved the
+        // matrix's rank without imposing an absolute determinant cutoff on a valid minification.
+        double matrixDeterminant = matrix.M11 * ((double)matrix.M22 * matrix.M33 - (double)matrix.M23 * matrix.M32)
+            - matrix.M12 * ((double)matrix.M21 * matrix.M33 - (double)matrix.M23 * matrix.M31)
+            + matrix.M13 * ((double)matrix.M21 * matrix.M32 - (double)matrix.M22 * matrix.M31);
+        return matrixDeterminant != 0;
     }
 
     private static bool TryCreateHomography(Rect bounds, Corners<Point> corners, out Matrix matrix)
@@ -144,97 +151,180 @@ public sealed partial class CornerPin
             Rect[] byTop = context.Targets.Where(t => t.IsMaterialized).Select(t => t.Bounds).OrderBy(t => t.Top).ToArray();
             tiles = (byTop, byTop.OrderBy(t => t.Left).ToArray());
         }
-        for (int i = 0; i < context.Targets.Count; i++)
+        var outputBounds = new Rect[context.Targets.Count];
+        for (int i = 0; i < outputBounds.Length; i++)
         {
             EffectTarget target = context.Targets[i];
-            if (!target.IsMaterialized || !EffectEditingFrames.HasArea(target.Bounds))
-            {
-                context.Targets.RemoveAt(i--);
-                continue;
-            }
+            if (!target.IsMaterialized || !EffectEditingFrames.HasArea(target.Bounds)) continue;
 
-            Rect outputBounds = sharedSpace
+            Rect projected = sharedSpace
                 ? target.Bounds.TransformToDeliveredAABB(homography, context.TargetDomain)
                 : quadBounds;
-            if (!EffectEditingFrames.HasArea(outputBounds))
-            {
-                context.Targets.RemoveAt(i--);
-                continue;
-            }
-
-            if (sharedSpace)
-            {
-                // Give all tiles the same sample centers in the output, including at fractional frame origins.
-                float scale = context.WorkingScale;
-                Vector offset = context.DeviceGridOffset;
-                Rect snapped = PixelRect.FromRect(outputBounds.Translate(offset), scale).ToRect(scale).Translate(-offset);
-                if (EffectEditingFrames.HasArea(snapped)) outputBounds = snapped;
-            }
-
-            EffectTarget output = context.CreateTarget(outputBounds, target, coverEdgePixels: true);
-            try
-            {
-                if (output.IsEmpty) continue;
-
-                (Rect drawBounds, Rect? clip) = GetTileDrawBounds(target.Bounds, sharedBounds, tiles);
-                if (Draw(context, target, output, homography, drawBounds, clip))
-                    context.Targets[i] = output;
-            }
-            finally
-            {
-                if (output.Owner is null)
-                    output.Dispose();
-            }
+            if (EffectEditingFrames.HasArea(projected))
+                outputBounds[i] = projected;
         }
+
+        float scale = sharedSpace ? ResolveTileScale(context, outputBounds) : context.WorkingScale;
+        using var replacements = new EffectTargets();
+        for (int i = 0; i < outputBounds.Length; i++)
+        {
+            Rect projected = outputBounds[i];
+            if (projected.IsEmpty) continue;
+
+            EffectTarget target = context.Targets[i];
+            // Allocate on the device grid while keeping the projected bounds for subsequent effects.
+            EffectTarget output = context.CreateTarget(projected, target, deviceAlignedScale: scale);
+            replacements.Add(output);
+            if (output.IsEmpty || !Draw(context, target, output, homography, sharedBounds, tiles))
+                return;
+        }
+
+        // The preview keeps the whole original group if allocating or sampling any replacement fails.
+        context.Targets.Clear();
+        context.Targets.AddRange(replacements);
     }
 
-    private static (Rect Draw, Rect? Clip) GetTileDrawBounds(Rect bounds, Rect shared, (Rect[] ByTop, Rect[] ByLeft)? tiles)
+    private static float ResolveTileScale(CustomFilterEffectContext context, Rect[] outputBounds)
     {
-        if (tiles is not { } ordered) return (bounds, null);
+        BufferDimensionBudget budget = context.Budget;
+        Vector offset = context.DeviceGridOffset;
+        float scale = context.WorkingScale;
+        float previous;
+        do
+        {
+            previous = scale;
+            foreach (Rect bounds in outputBounds)
+            {
+                if (!bounds.IsEmpty)
+                    scale = budget.ClampWorkingScaleToExactFootprint(bounds.Translate(offset), scale);
+            }
+        }
+        // A reduced density changes pixel phase. Recheck earlier tiles on that same grid.
+        while (scale < previous);
+        return scale;
+    }
+
+    private static void DrawTile(SKCanvas canvas, SKPaint paint, Rect bounds, Rect shared,
+        (Rect[] ByTop, Rect[] ByLeft)? tiles, Matrix homography, float density)
+    {
+        if (tiles is not { } ordered)
+        {
+            canvas.DrawRect(bounds.ToSKRect(), paint);
+            return;
+        }
 
         float toleranceX = MathF.Min(shared.Width * 1e-6f, bounds.Width * 0.01f);
         float toleranceY = MathF.Min(shared.Height * 1e-6f, bounds.Height * 0.01f);
-        bool left = IsCovered(ordered.ByTop, bounds.Left, bounds.Top, bounds.Bottom, vertical: true, leading: true);
-        bool right = IsCovered(ordered.ByTop, bounds.Right, bounds.Top, bounds.Bottom, vertical: true, leading: false);
-        bool top = IsCovered(ordered.ByLeft, bounds.Top, bounds.Left, bounds.Right, vertical: false, leading: true);
-        bool bottom = IsCovered(ordered.ByLeft, bounds.Bottom, bounds.Left, bounds.Right, vertical: false, leading: false);
-
-        if (!(left || top || right || bottom)) return (bounds, null);
-
-        // Adjacent tiles must assign a sample to exactly one side of a shared edge. Extend the clamped shader
-        // across those edges and use a hard clip at the seam. Exposed edges keep the draw's antialiasing.
-        Rect draw = new(new Point(left ? shared.Left : bounds.Left, top ? shared.Top : bounds.Top),
-            new Point(right ? shared.Right : bounds.Right, bottom ? shared.Bottom : bounds.Bottom));
         Rect margin = shared.Inflate(new Thickness(shared.Width, shared.Height));
-        Rect clip = new(new Point(left ? bounds.Left : margin.Left, top ? bounds.Top : margin.Top),
-            new Point(right ? bounds.Right : margin.Right, bottom ? bounds.Bottom : margin.Bottom));
-        return (draw, clip);
+        List<(Rect Draw, Rect Clip)>? partialEdges = null;
+        bool left = FindSharedEdge(ordered.ByTop, bounds.Left, bounds.Right, bounds.Top, bounds.Bottom,
+            shared.Left, margin.Left, vertical: true, leading: true);
+        bool right = FindSharedEdge(ordered.ByTop, bounds.Right, bounds.Left, bounds.Top, bounds.Bottom,
+            shared.Right, margin.Right, vertical: true, leading: false);
+        bool top = FindSharedEdge(ordered.ByLeft, bounds.Top, bounds.Bottom, bounds.Left, bounds.Right,
+            shared.Top, margin.Top, vertical: false, leading: true);
+        bool bottom = FindSharedEdge(ordered.ByLeft, bounds.Bottom, bounds.Top, bounds.Left, bounds.Right,
+            shared.Bottom, margin.Bottom, vertical: false, leading: false);
 
-        // Several shorter tiles can meet the same edge. Extend the covered interval in order without spanning gaps.
-        bool IsCovered(Rect[] neighbors, float edge, float start, float end, bool vertical, bool leading)
+        // Extend the clamped shader over shared edges and clip at those edges without antialiasing, so a
+        // pixel center belongs to exactly one tile. The draw keeps antialiasing where the edges are exposed.
+        Rect draw = bounds;
+        if (left || right || top || bottom)
+        {
+            draw = new Rect(new Point(left ? shared.Left : bounds.Left, top ? shared.Top : bounds.Top),
+                new Point(right ? shared.Right : bounds.Right, bottom ? shared.Bottom : bounds.Bottom));
+            Rect clip = new(
+                new Point(left ? OffsetSeam(bounds.Left, vertical: true) : margin.Left,
+                    top ? OffsetSeam(bounds.Top, vertical: false) : margin.Top),
+                new Point(right ? OffsetSeam(bounds.Right, vertical: true) : margin.Right,
+                    bottom ? OffsetSeam(bounds.Bottom, vertical: false) : margin.Bottom));
+            canvas.ClipRect(clip.ToSKRect(), SKClipOperation.Intersect, antialias: false);
+        }
+        if (partialEdges is null)
+        {
+            canvas.DrawRect(draw.ToSKRect(), paint);
+            return;
+        }
+
+        using var builder = new SKPathBuilder();
+        builder.AddRect(draw.ToSKRect());
+        foreach (var (extension, clip) in partialEdges)
+        {
+            builder.AddRect(extension.ToSKRect());
+            canvas.ClipRect(clip.ToSKRect(), SKClipOperation.Difference, antialias: false);
+        }
+        using SKPath path = builder.Detach();
+        canvas.DrawPath(path, paint);
+
+        bool FindSharedEdge(Rect[] neighbors, float edge, float opposite, float start, float end,
+            float extensionEnd, float clipEnd, bool vertical, bool leading)
         {
             float edgeTolerance = vertical ? toleranceX : toleranceY;
             float spanTolerance = vertical ? toleranceY : toleranceX;
-            float covered = start;
+            float spanStart = start;
+            float spanEnd = start;
             foreach (Rect neighbor in neighbors)
             {
                 float neighborStart = vertical ? neighbor.Top : neighbor.Left;
-                if (neighborStart > covered + spanTolerance) break;
+                if (neighborStart >= end) break;
 
                 float neighborEdge = vertical
                     ? (leading ? neighbor.Right : neighbor.Left)
                     : (leading ? neighbor.Bottom : neighbor.Top);
                 if (MathF.Abs(neighborEdge - edge) > edgeTolerance) continue;
 
-                covered = MathF.Max(covered, vertical ? neighbor.Bottom : neighbor.Right);
-                if (covered >= end - spanTolerance) return true;
+                float neighborEnd = MathF.Min(end, vertical ? neighbor.Bottom : neighbor.Right);
+                if (neighborEnd <= start) continue;
+
+                // Merge adjoining spans while keeping the gaps between disjoint neighbors exposed.
+                if (neighborStart > spanEnd + spanTolerance)
+                {
+                    AddPartialSpan();
+                    spanStart = neighborStart;
+                }
+                spanEnd = MathF.Max(spanEnd, neighborEnd);
+                if (spanStart == start && spanEnd >= end - spanTolerance) return true;
             }
+
+            AddPartialSpan();
             return false;
+
+            void AddPartialSpan()
+            {
+                if (spanEnd <= spanStart) return;
+                Rect extension = Strip(opposite, extensionEnd);
+                Rect clip = Strip(OffsetSeam(edge, vertical), clipEnd);
+                (partialEdges ??= []).Add((extension, clip));
+            }
+
+            Rect Strip(float from, float to)
+            {
+                float min = MathF.Min(from, to);
+                float max = MathF.Max(from, to);
+                return vertical
+                    ? new Rect(new Point(min, spanStart), new Point(max, spanEnd))
+                    : new Rect(new Point(spanStart, min), new Point(spanEnd, max));
+            }
+        }
+
+        float OffsetSeam(float edge, bool vertical)
+        {
+            // GPU clips can include the pixel center on both sides of a tie. Move both copies of
+            // the edge a small fraction of a pixel toward the positive input axis to break the tie.
+            Point point = vertical ? new Point(edge, shared.Center.Y) : new Point(shared.Center.X, edge);
+            Point projected = homography.Transform(point);
+            Vector dx = new(homography.M11 - projected.X * homography.M13, homography.M12 - projected.Y * homography.M13);
+            Vector dy = new(homography.M21 - projected.X * homography.M23, homography.M22 - projected.Y * homography.M23);
+            float tangent = vertical ? dy.Length : dx.Length;
+            float cross = MathF.Abs(dx.X * dy.Y - dx.Y * dy.X);
+            float shift = tangent * homography.GetTransformDivisor(point) / (64 * cross * density);
+            float maxShift = (vertical ? shared.Width : shared.Height) * 0.01f;
+            return float.IsFinite(shift) ? edge + MathF.Min(shift, maxShift) : edge;
         }
     }
 
     private static bool Draw(CustomFilterEffectContext context, EffectTarget target, EffectTarget output, Matrix homography,
-        Rect drawBounds, Rect? clip)
+        Rect shared, (Rect[] ByTop, Rect[] ByLeft)? tiles)
     {
         RenderTarget source = target.RenderTarget!;
         source.PrepareForSampling(RenderTargetSamplingIntent.SameContextTextureSampling(output.RenderTarget!.RawValue.Context));
@@ -276,9 +366,7 @@ public sealed partial class CornerPin
             canvas.Clear();
             using (canvas.PushTransform(logicalToDevice))
             {
-                if (clip is { } tileClip)
-                    canvas.Canvas.ClipRect(tileClip.ToSKRect(), SKClipOperation.Intersect, antialias: false);
-                canvas.Canvas.DrawRect(drawBounds.ToSKRect(), paint);
+                DrawTile(canvas.Canvas, paint, target.Bounds, shared, tiles, homography, dstScale);
             }
         }
         return true;

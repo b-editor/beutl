@@ -1,13 +1,15 @@
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Serialization;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 using Beutl.UnitTests.TestInfrastructure;
 using SkiaSharp;
@@ -215,13 +217,32 @@ public sealed class CornerPinTests
         }
     }
 
+    [Test]
+    public void StrongMinificationStillDrawsAValidQuad()
+    {
+        var input = new Rect(0, 0, 3840, 2160);
+        var expected = new Rect(0, 0, 4, 2);
+        CornerPin effect = CreateAbsolute(expected);
+        using FilterEffectContext context = Record(effect, input);
+        using var targets = new EffectTargets { CreateSource(input) };
+        Execute(context, targets);
+
+        Assert.That(context.Bounds, Is.EqualTo(expected));
+        EffectTarget output = targets.Single();
+        using Bitmap bitmap = output.RenderTarget!.Snapshot();
+        Assert.That(output.Bounds, Is.EqualTo(expected));
+        Assert.That(ImageMetrics.ReadPixel(bitmap, 1, 1).Alpha, Is.EqualTo(1f));
+    }
+
     private static void AssertMinification(bool gpu)
     {
         var input = new Rect(0, 0, 128, 128);
         var effect = new CornerPin
         {
-            TopLeft = { Value = Absolute(8, 5) }, TopRight = { Value = Absolute(24, 6) },
-            BottomRight = { Value = Absolute(29, 31) }, BottomLeft = { Value = Absolute(2, 32) },
+            TopLeft = { Value = Absolute(8, 5) },
+            TopRight = { Value = Absolute(24, 6) },
+            BottomRight = { Value = Absolute(29, 31) },
+            BottomLeft = { Value = Absolute(2, 32) },
         };
         using var targets = new EffectTargets
         {
@@ -238,8 +259,9 @@ public sealed class CornerPinTests
         Execute(context, targets);
         EffectTarget output = targets.Single();
         using Bitmap bitmap = output.RenderTarget!.Snapshot();
-        float[] levels = (from y in Enumerable.Range(12, 12) from x in Enumerable.Range(11, 10)
-            select Pixel(bitmap, output, x, y).Red).ToArray();
+        float[] levels = (from y in Enumerable.Range(12, 12)
+                          from x in Enumerable.Range(11, 10)
+                          select Pixel(bitmap, output, x, y).Red).ToArray();
         Assert.That(levels, Has.All.InRange(0.35f, 0.65f));
     }
 
@@ -283,6 +305,141 @@ public sealed class CornerPinTests
         // The seam projects to y = 30.34. The single bottom tile owns the centers of the pixels in row 30.
         Assert.That(Enumerable.Range(32, 36).Select(x => ImageMetrics.ReadPixel(bitmap, x, 30).Alpha),
             Has.All.GreaterThan(0.98f));
+    }
+
+    [Test]
+    public void ChainedWarpsUseTheLogicalTileBoundsAtFractionalOffsets()
+    {
+        var input = new Rect(0, 0, 100, 80);
+        CornerPin translate = CreateAbsolute(new Rect(0.25f, 0.25f, 100, 80));
+        CornerPin scale = Create(new(0, 0), new(2, 0), new(2, 2), new(0, 2));
+        var group = new FilterEffectGroup { Children = { new SplitEffect(), translate, scale } };
+        var expected = new Rect(0.25f, 0.25f, 200, 160);
+        using FilterEffectContext context = Record(group, input);
+        using var targets = new EffectTargets { CreateSource(input) };
+        Execute(context, targets);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(context.Bounds, Is.EqualTo(expected));
+            Assert.That(targets, Has.Count.EqualTo(4));
+            Assert.That(targets.CalculateBounds(), Is.EqualTo(expected));
+            foreach (EffectTarget tile in targets)
+            {
+                Assert.That(tile.Placement.DeviceBounds, Is.EqualTo(PixelRect.FromRect(tile.Bounds, 1)));
+            }
+        }
+    }
+
+    [Test]
+    public void TilesShareOnePixelGridWhenOnlyOneTileExceedsTheBudget()
+    {
+        var input = new Rect(0, 0, 96, 32);
+        CornerPin translate = CreateAbsolute(new Rect(0.75f, 0, 96, 32));
+        using FilterEffectContext context = Record(translate, input);
+        using var targets = new EffectTargets
+        {
+            CreateSource(new Rect(0, 0, 64, 32)),
+            CreateSource(new Rect(64, 0, 32, 32)),
+        };
+        Execute(context, targets, budget: BufferDimensionBudget.Named(64));
+
+        Assert.That(targets, Has.Count.EqualTo(2));
+        float scale = targets[0].Placement.Scale.Value;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(scale, Is.GreaterThan(0.95f).And.LessThan(1f));
+            Assert.That(targets[1].Placement.Scale.Value, Is.EqualTo(scale));
+            foreach (EffectTarget tile in targets)
+            {
+                Assert.That(tile.Placement.DeviceBounds, Is.EqualTo(PixelRect.FromRect(tile.Bounds, scale)));
+            }
+        }
+    }
+
+    [TestCase(RenderIntent.Preview)]
+    [TestCase(RenderIntent.Delivery)]
+    public void DeclinedSecondTileLeavesBothOriginalTargetsInPlace(RenderIntent intent)
+    {
+        var input = new Rect(0, 0, 100, 80);
+        CornerPin translate = CreateAbsolute(new Rect(20, 0, 100, 80));
+        using FilterEffectContext context = Record(translate, input);
+        EffectTarget first = CreateSource(new Rect(0, 0, 50, 80));
+        EffectTarget second = CreateSource(new Rect(50, 0, 50, 80));
+        using var targets = new EffectTargets { first, second };
+        using var factory = new FailureTestTargetFactory(failAt: 1);
+        using var pool = new RenderTargetPool(factory);
+        using RenderTargetLeaseSession session = pool.BeginSession(intent);
+
+        if (intent == RenderIntent.Delivery)
+            Assert.Throws<RenderTargetAllocationException>(() => Execute(context, targets, intent: intent, session: session));
+        else
+            Execute(context, targets, intent: intent, session: session);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(factory.CreateCalls, Is.EqualTo(2));
+            Assert.That(session.ContentDropObserved, Is.EqualTo(intent == RenderIntent.Preview));
+            Assert.That(targets.ToArray(), Is.EqualTo(new[] { first, second }));
+        }
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void PartiallySharedEdgesKeepTheirInteriorOpaqueAndExposedPortionsAntialiased(bool horizontalEdge, bool gpu)
+    {
+        if (gpu)
+        {
+            TestGpu.RequireAnyDevice();
+            RenderThread.Dispatcher.Invoke(() => AssertPartiallySharedEdge(horizontalEdge, gpu: true));
+        }
+        else
+        {
+            AssertPartiallySharedEdge(horizontalEdge, gpu: false);
+        }
+    }
+
+    private static void AssertPartiallySharedEdge(bool horizontalEdge, bool gpu)
+    {
+        var input = horizontalEdge ? new Rect(0, 0, 80, 100) : new Rect(0, 0, 100, 80);
+        var split = new SplitEffect
+        {
+            HorizontalDivisions = { Value = horizontalEdge ? 1 : 2 },
+            VerticalDivisions = { Value = horizontalEdge ? 2 : 1 },
+        };
+        var shiftSecondTile = new RangeAnimatorEffect
+        {
+            RangeStart = { Value = 50 },
+            Position = { Value = horizontalEdge ? new Point(20, 0) : new Point(0, 20) },
+        };
+        CornerPin translate = CreateAbsolute(horizontalEdge
+            ? new Rect(0, 0.5f, 100, 100)
+            : new Rect(0.5f, 0, 100, 100));
+        var group = new FilterEffectGroup { Children = { split, shiftSecondTile, translate } };
+        using EffectTargets targets = Render(group, input, gpu: gpu);
+        using Bitmap bitmap = CompositeTiles(targets, new PixelSize(101, 101), gpu);
+        float[] owners = targets.Select(InteriorAlpha).ToArray();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Enumerable.Range(25, 50).Select(AlongSeam), Has.All.GreaterThan(0.98f));
+            Assert.That(AlongSeam(10), Is.InRange(0.4f, 0.6f));
+            Assert.That(AlongSeam(90), Is.InRange(0.4f, 0.6f));
+            Assert.That(owners, Has.Exactly(1).GreaterThan(0.98f));
+            Assert.That(owners, Has.Exactly(1).EqualTo(0f));
+        }
+
+        float AlongSeam(int index) => horizontalEdge
+            ? ImageMetrics.ReadPixel(bitmap, index, 50).Alpha
+            : ImageMetrics.ReadPixel(bitmap, 50, index).Alpha;
+
+        float InteriorAlpha(EffectTarget tile)
+        {
+            using Bitmap pixels = tile.RenderTarget!.Snapshot();
+            return Pixel(pixels, tile, 50, 50).Alpha;
+        }
     }
 
     [Test]
@@ -482,6 +639,14 @@ public sealed class CornerPinTests
         BottomLeft = { Value = new RelativePoint(bl, RelativeUnit.Relative) },
     };
 
+    private static CornerPin CreateAbsolute(Rect offsets) => new()
+    {
+        TopLeft = { Value = Absolute(offsets.Left, offsets.Top) },
+        TopRight = { Value = Absolute(offsets.Right, offsets.Top) },
+        BottomRight = { Value = Absolute(offsets.Right, offsets.Bottom) },
+        BottomLeft = { Value = Absolute(offsets.Left, offsets.Bottom) },
+    };
+
     private static KeyFrame<RelativePoint> Key(MediaTime time, RelativePoint value)
         => new() { KeyTime = { Value = time }, Value = { Value = value } };
 
@@ -494,19 +659,25 @@ public sealed class CornerPinTests
     }
 
     private static void Execute(FilterEffectContext context, EffectTargets targets, float workingScale = 1,
-        RenderIntent intent = RenderIntent.Preview)
+        RenderIntent intent = RenderIntent.Preview, BufferDimensionBudget? budget = null, RenderTargetLeaseSession? session = null)
     {
         using var builder = new SKImageFilterBuilder();
-        using var executor = new FilterEffectExecutor(targets, builder, intent, RenderRequestPurpose.Auxiliary,
-            drawableBrushMaterializer: null, workingScale: workingScale, maxWorkingScale: workingScale);
+        using var executor = new FilterEffectExecutor(targets, builder, new(intent, RenderRequestPurpose.Auxiliary)
+        {
+            WorkingScale = workingScale,
+            MaxWorkingScale = workingScale,
+            Budget = budget,
+            RenderTargetLeaseSession = session,
+        });
         executor.Apply(context);
         executor.Flush(false);
     }
 
-    private static EffectTargets Render(FilterEffect effect, Rect bounds, float sourceScale = 1, float workingScale = 1, int apron = 0)
+    private static EffectTargets Render(FilterEffect effect, Rect bounds, float sourceScale = 1, float workingScale = 1,
+        int apron = 0, bool gpu = false)
     {
         using FilterEffectContext context = Record(effect, bounds);
-        var targets = new EffectTargets { CreateSource(bounds, sourceScale, apron) };
+        var targets = new EffectTargets { CreateSource(bounds, sourceScale, apron, gpu: gpu) };
         try
         {
             Execute(context, targets, workingScale);
@@ -548,9 +719,11 @@ public sealed class CornerPinTests
         canvas.DrawRect(area.X + w, area.Y + h, area.Width - w, area.Height - h, paint);
     }
 
-    private static Bitmap CompositeTiles(EffectTargets tiles, PixelSize size)
+    private static Bitmap CompositeTiles(EffectTargets tiles, PixelSize size, bool gpu = false)
     {
-        using RenderTarget backing = CpuRenderTargets.Create(size.Width, size.Height);
+        using RenderTarget backing = gpu
+            ? RenderTarget.Create(size.Width, size.Height)!
+            : CpuRenderTargets.Create(size.Width, size.Height);
         SKCanvas canvas = backing.Value.Canvas;
         canvas.Clear(SKColors.Transparent);
         foreach (EffectTarget tile in tiles)

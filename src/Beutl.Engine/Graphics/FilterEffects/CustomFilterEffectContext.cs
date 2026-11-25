@@ -227,9 +227,9 @@ public class CustomFilterEffectContext
     public EffectTarget CreateTarget(Rect bounds)
         => CreateTargetCore(bounds);
 
-    internal EffectTarget CreateTarget(Rect bounds, EffectTarget source, bool coverEdgePixels = false)
+    internal EffectTarget CreateTarget(Rect bounds, EffectTarget source, float? deviceAlignedScale = null)
     {
-        EffectTarget target = CreateTargetCore(bounds, coverEdgePixels: coverEdgePixels);
+        EffectTarget target = CreateTargetCore(bounds, deviceAlignedScale: deviceAlignedScale);
         target.TextPart = source.TextPart;
         return target;
     }
@@ -238,9 +238,10 @@ public class CustomFilterEffectContext
     internal EffectTarget CreateNativeTarget(Rect bounds)
         => CreateTargetCore(bounds, native: true);
 
-    private EffectTarget CreateTargetCore(Rect bounds, bool native = false, bool coverEdgePixels = false)
+    private EffectTarget CreateTargetCore(Rect bounds, bool native = false, float? deviceAlignedScale = null)
     {
-        float w = WorkingScale;
+        bool coverEdgePixels = deviceAlignedScale.HasValue;
+        float w = deviceAlignedScale ?? WorkingScale;
         // Re-clamp at allocation site: bounds may exceed what node-level clamps saw, and planning's budget
         // is the engine ceiling rather than what this device can attach.
         BufferDimensionBudget budget = Budget;
