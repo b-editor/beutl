@@ -67,7 +67,7 @@ public sealed class LibraryEffectCategoryTests
         }
     }
 
-    [AvaloniaTest]
+    [AvaloniaTest, SetUICulture("en-US")]
     public async Task The_filter_effect_picker_accepts_a_category_and_search_from_the_keyboard()
     {
         using var library = new LibraryService();
@@ -107,7 +107,7 @@ public sealed class LibraryEffectCategoryTests
 
             Press(Key.Tab, PhysicalKey.Tab);
             Press(Key.F, PhysicalKey.F, RawInputModifiers.Control);
-            window.KeyTextInput(GraphicsStrings.RadialBlur);
+            window.KeyTextInput(nameof(RadialBlur));
             Press(Key.Down, PhysicalKey.ArrowDown);
             Press(Key.Enter, PhysicalKey.Enter);
             Assert.That(await picked.WaitAsync(TimeSpan.FromSeconds(5)), Is.EqualTo(typeof(RadialBlur)));
