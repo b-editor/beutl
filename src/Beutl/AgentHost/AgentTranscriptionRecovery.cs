@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Beutl.AgentToolkit.Common;
+using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.NodeGraph.Generative;
 using Beutl.Serialization;
 
@@ -12,23 +13,28 @@ internal sealed record AgentTranscriptionCheckpoint(
     long NextSample,
     string? PendingPartKey,
     bool IsComplete,
-    AgentTranscript Transcript);
+    AgentTranscript? Transcript);
 
 /// <summary>Stores a keyed transcription under the account that paid for it.</summary>
 internal sealed class AgentTranscriptionRecovery : IDisposable
 {
+    private const string CompletedExtension = ".completed";
     private readonly string _path;
+    private readonly string _completedPath;
     private readonly FileStream _lease;
 
     public AgentTranscriptionRecovery(string recoveryStorePath, string accountId, string requestKey)
     {
         _path = CheckpointPath(recoveryStorePath, accountId, requestKey);
-        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        _completedPath = Path.ChangeExtension(_path, CompletedExtension);
+        string directory = Path.GetDirectoryName(_path)!;
+        Directory.CreateDirectory(directory);
+        PruneExpiredResults(directory);
 
         // Keep the lease until the job exits so two app instances cannot resume one checkpoint at once.
         try
         {
-            _lease = File.Open(Path.ChangeExtension(_path, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            _lease = OpenLease(_path);
         }
         catch (IOException)
         {
@@ -46,11 +52,27 @@ internal sealed class AgentTranscriptionRecovery : IDisposable
 
     public async Task<AgentTranscriptionCheckpoint?> LoadAsync(CancellationToken cancellationToken)
     {
+        AgentTranscriptionCheckpoint? checkpoint = await ReadAsync<AgentTranscriptionCheckpoint>(_path, cancellationToken)
+            .ConfigureAwait(false);
+        if (checkpoint is { IsComplete: true, Transcript: null }
+            && File.GetLastWriteTimeUtc(_completedPath) > DateTime.UtcNow - AiTemporaryFileStore.StaleAge)
+        {
+            checkpoint = checkpoint with
+            {
+                Transcript = await ReadAsync<AgentTranscript>(_completedPath, cancellationToken).ConfigureAwait(false),
+            };
+        }
+
+        return checkpoint;
+    }
+
+    private static async Task<T?> ReadAsync<T>(string path, CancellationToken cancellationToken) where T : class
+    {
         try
         {
-            await using var stream = File.OpenRead(_path);
-            return await JsonSerializer.DeserializeAsync<AgentTranscriptionCheckpoint>(stream, cancellationToken: cancellationToken)
-                .ConfigureAwait(false) ?? throw new InvalidDataException("The transcription checkpoint is empty.");
+            await using var stream = File.OpenRead(path);
+            return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: cancellationToken)
+                .ConfigureAwait(false) ?? throw new InvalidDataException("The saved transcription is empty.");
         }
         catch (FileNotFoundException)
         {
@@ -60,20 +82,58 @@ internal sealed class AgentTranscriptionRecovery : IDisposable
 
     public async Task SaveAsync(AgentTranscriptionCheckpoint checkpoint, CancellationToken cancellationToken)
     {
-        string temporary = $"{_path}.{Guid.NewGuid():N}.tmp";
+        if (checkpoint is { IsComplete: true, Transcript: { } result })
+        {
+            // Save the result before marking the key complete. The smaller checkpoint survives
+            // expiry so replaying a spent key cannot submit the audio again.
+            await WriteAsync(_completedPath, result, cancellationToken).ConfigureAwait(false);
+            checkpoint = checkpoint with { Transcript = null };
+        }
+
+        await WriteAsync(_path, checkpoint, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task WriteAsync<T>(string path, T value, CancellationToken cancellationToken)
+    {
+        string temporary = $"{path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            await using (FileStream stream = StorageWriteTransaction.CreateTemporaryFile(temporary, _path, privateContents: true))
+            await using (FileStream stream = StorageWriteTransaction.CreateTemporaryFile(temporary, path, privateContents: true))
             {
-                await JsonSerializer.SerializeAsync(stream, checkpoint, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await JsonSerializer.SerializeAsync(stream, value, cancellationToken: cancellationToken).ConfigureAwait(false);
                 stream.Flush(flushToDisk: true);
             }
 
-            StorageWriteTransaction.MoveIntoPlace(temporary, _path, overwrite: true);
+            StorageWriteTransaction.MoveIntoPlace(temporary, path, overwrite: true);
         }
         finally
         {
             AgentHostAiBackend.TryDelete(temporary);
+        }
+    }
+
+    private static FileStream OpenLease(string path)
+        => File.Open(Path.ChangeExtension(path, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+
+    private static void PruneExpiredResults(string directory)
+    {
+        DateTime cutoff = DateTime.UtcNow - AiTemporaryFileStore.StaleAge;
+        foreach (string path in Directory.EnumerateFiles(directory, "*" + CompletedExtension))
+        {
+            if (File.GetLastWriteTimeUtc(path) > cutoff)
+                continue;
+
+            try
+            {
+                using FileStream lease = OpenLease(path);
+                // The previous writer may have replaced the file before we acquired its lease.
+                if (File.GetLastWriteTimeUtc(path) <= cutoff)
+                    AgentHostAiBackend.TryDelete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A result in another app's use can be pruned on a later call.
+            }
         }
     }
 

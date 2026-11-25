@@ -334,7 +334,7 @@ internal sealed class AgentHostAiTools(
         string? model = null,
         [Description(WaitDescription)]
         int waitSeconds = 45,
-        [Description(RequestKeyDescription + " For a failed or cancelled transcription, the same key resumes from saved progress, including after restarting Beutl.")]
+        [Description(RequestKeyDescription + " The same key resumes unfinished transcription across restarts. Completed transcripts can be recovered from disk for 24 hours. Expired files are removed when the recovery store is opened.")]
         string? requestKey = null,
         CancellationToken cancellationToken = default)
     {

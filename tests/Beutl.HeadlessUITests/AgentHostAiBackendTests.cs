@@ -236,6 +236,46 @@ public sealed class AgentHostAiBackendTests
         Assert.That(fresh.IsSuccess, Is.False, "a new request still checks whether the model is available");
     }
 
+    [Test]
+    public async Task CompletedTranscriptsExpireWithoutRechargingOrRemovingPendingProgress()
+    {
+        const int sampleRate = 8_000;
+        string path = WriteSource("retention" + Extension);
+        _decoders.Register(new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 2L)));
+        var completedKey = new AgentTranscriptionRetry("completed", RequestedModel: null);
+        var pendingKey = new AgentTranscriptionRetry("pending", RequestedModel: null);
+        var pendingService = new StubTranscription { OnRequest = () => throw new AiResultUnavailableException() };
+        var transcription = new StubTranscription();
+        var progress = new RecordingProgress();
+        await CreateBackend(transcription: transcription).TranscribeAsync(
+            path, null, null, progress, CancellationToken.None, completedKey);
+        await Assert.ThrowsAsync<AgentAiException>(() => CreateBackend(transcription: pendingService).TranscribeAsync(
+            path, null, null, progress, CancellationToken.None, pendingKey));
+
+        string directory = Path.Combine(_directory, "agent-transcriptions");
+        string completedPath = Directory.EnumerateFiles(directory, "*.completed").Single();
+        foreach (string savedPath in Directory.EnumerateFiles(directory))
+            File.SetLastWriteTimeUtc(savedPath, DateTime.UtcNow.AddDays(-2));
+
+        var availability = new StubAvailability { Allowed = false };
+        AgentHostAiBackend backend = CreateBackend(availability: availability, transcription: transcription);
+        AgentAiException? expired = await Assert.ThrowsAsync<AgentAiException>(() => backend.TranscribeAsync(
+            path, null, null, progress, CancellationToken.None, completedKey));
+        Assert.That(expired?.Code, Is.EqualTo(ErrorCode.AiJobNotFound));
+        Assert.That(File.Exists(completedPath), Is.False);
+        Assert.That(transcription.Requests, Has.Count.EqualTo(1), "an expired key cannot buy another transcript");
+
+        AgentTranscriptionResult recovered = await backend.TranscribeAsync(
+            path, null, null, progress, CancellationToken.None, pendingKey);
+        Assert.Multiple(() =>
+        {
+            Assert.That(availability.Requests, Is.Empty);
+            Assert.That(transcription.Requests, Has.Count.EqualTo(2));
+            Assert.That(transcription.Requests[1].IdempotencyKey, Is.EqualTo(pendingService.Requests.Single().IdempotencyKey));
+            Assert.That(recovered.Transcript.Segments, Has.Count.EqualTo(1));
+        });
+    }
+
     [TestCase("account-b")]
     [TestCase(null)]
     public async Task IdentityChangeAfterTheFirstPartStopsTranscription(string? nextAccount)

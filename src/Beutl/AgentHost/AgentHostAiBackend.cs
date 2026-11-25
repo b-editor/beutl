@@ -177,7 +177,8 @@ internal sealed class AgentHostAiBackend(
                     "requestKey already names a transcription with a different source or options. Use the original arguments or a new requestKey.");
             }
             if (checkpoint.NextSample < 0 || checkpoint.NextSample > totalSamples
-                || checkpoint.CompletedParts < 0 || checkpoint.CompletedParts > maxParts || checkpoint.Transcript?.Segments is null)
+                || checkpoint.CompletedParts < 0 || checkpoint.CompletedParts > maxParts
+                || (checkpoint.Transcript is null ? !checkpoint.IsComplete : checkpoint.Transcript.Segments is null))
             {
                 throw new InvalidDataException("The transcription checkpoint has invalid progress.");
             }
@@ -186,15 +187,18 @@ internal sealed class AgentHostAiBackend(
             if (checkpoint.IsComplete)
             {
                 account.ThrowIfInvalid(cancellationToken);
-                return new AgentTranscriptionResult(WithLanguageFallback(checkpoint.Transcript, language), modelId);
+                AgentTranscript saved = checkpoint.Transcript ?? throw new AgentAiException(ErrorCode.AiJobNotFound,
+                    "The saved transcript for this requestKey has expired. Use a new requestKey to transcribe the audio again.");
+                return new AgentTranscriptionResult(WithLanguageFallback(saved, language), modelId);
             }
         }
 
         AiModelId? model = modelId is null ? null : new AiModelId(modelId);
-        List<AgentTranscriptSegment> segments = checkpoint?.Transcript.Segments.ToList() ?? [];
-        List<AgentTranscriptWord> words = checkpoint?.Transcript.Words?.ToList() ?? [];
-        bool hasWords = checkpoint?.Transcript.Words is not null;
-        string? detected = checkpoint?.Transcript.Language;
+        AgentTranscript? savedTranscript = checkpoint?.Transcript;
+        List<AgentTranscriptSegment> segments = savedTranscript?.Segments.ToList() ?? [];
+        List<AgentTranscriptWord> words = savedTranscript?.Words?.ToList() ?? [];
+        bool hasWords = savedTranscript?.Words is not null;
+        string? detected = savedTranscript?.Language;
         // Each part starts where the last one stopped reading; a short read can come mid-file.
         long start = checkpoint?.NextSample ?? 0;
         int part = checkpoint?.CompletedParts ?? 0;
