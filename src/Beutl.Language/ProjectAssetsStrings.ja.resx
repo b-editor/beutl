@@ -25,6 +25,7 @@
   <data name="Working" xml:space="preserve"><value>処理を適用しています…</value></data>
   <data name="Finished" xml:space="preserve"><value>処理が完了しました。</value></data>
   <data name="Canceled" xml:space="preserve"><value>処理をキャンセルしました。</value></data>
+  <data name="DeleteCanceled" xml:space="preserve"><value>削除をキャンセルしました（{0} 件削除済み）。</value></data>
   <data name="PlanChanged" xml:space="preserve"><value>プロジェクトまたはファイルが変わりました。更新した一覧を確認してください。</value></data>
   <data name="Missing" xml:space="preserve"><value>素材ファイルまたは依存ファイルが見つかりません。</value></data>
   <data name="ValidationFailed" xml:space="preserve"><value>{0} のコピーを読み込めませんでした。</value></data>

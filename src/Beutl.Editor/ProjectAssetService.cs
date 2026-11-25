@@ -106,9 +106,11 @@ internal sealed partial class ProjectAssetService(DecoderRegistry decoders)
                     ProjectAssetIssue? issue = incomplete || shared ? cleanupIssue
                         : used.Contains(identity) ? ProjectAssetIssue.InUse
                         : retained.Contains(identity) ? ProjectAssetIssue.EditHistory
+                        : null;
+                    ProjectAssetIssue? restoreIssue = issue != null ? null
                         : !paths.IsWritable(destination) ? ProjectAssetIssue.UnsafePath
                         : ProjectAssetPaths.GetAttributes(destination) != null ? ProjectAssetIssue.DestinationExists : null;
-                    quarantined.Add(PlanMove(path, destination, issue));
+                    quarantined.Add(PlanMove(path, destination, issue) with { RestoreIssue = restoreIssue });
                 }
             }
         }
@@ -247,7 +249,8 @@ internal sealed partial class ProjectAssetService(DecoderRegistry decoders)
 
                     string file = uri.LocalPath;
                     if (IsProjectDocument(file)) pending.Enqueue(file);
-                    if (paths.IsInside(file)) used.Add(canonical.ResolveCanonicalPath(file));
+                    string identity = canonical.ResolveCanonicalPath(file);
+                    if (paths.IsInside(identity)) used.Add(identity);
                     // Also protect model files stored in extension data. A filename in an arbitrary
                     // string only counts as a model when it resolves to an existing file.
                     if ((modelReference || (s_modelExtensions.Contains(Path.GetExtension(file)) && File.Exists(file)))

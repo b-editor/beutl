@@ -8,6 +8,12 @@ namespace Beutl.Editor;
 
 internal sealed class ProjectAssetPlanChangedException : IOException;
 
+internal sealed class ProjectAssetDeleteCanceledException(int deletedCount, CancellationToken token)
+    : OperationCanceledException(token)
+{
+    internal int DeletedCount { get; } = deletedCount;
+}
+
 internal sealed class ProjectAssetValidationException(string path, Exception cause)
     : IOException($"Could not validate the copy of {path}: {cause.Message}", cause)
 {
@@ -19,7 +25,7 @@ internal sealed partial class ProjectAssetService
     private static readonly ILogger s_logger = Log.CreateLogger<ProjectAssetService>();
     private readonly MissingMediaService _validator = new(static _ => false, decoders);
 
-    internal async Task ApplyAsync(Project project, ProjectAssetPaths paths, Analysis current, ProjectAssetAction action,
+    internal async Task<IReadOnlyCollection<CoreObject>> ApplyAsync(Project project, ProjectAssetPaths paths, Analysis current, ProjectAssetAction action,
         IReadOnlyList<ProjectAssetItem> selected, CancellationToken token)
     {
         var rows = current.Preview.ForAction(action).ToDictionary(item => item.Path, StringComparer.Ordinal);
@@ -32,18 +38,23 @@ internal sealed partial class ProjectAssetService
             approved.Add(latest);
         }
 
-        if (approved.Count == 0) return;
+        if (approved.Count == 0) return [];
         if (action == ProjectAssetAction.Collect)
         {
-            await CollectAsync(project, paths, approved, current.Sources, token);
+            return await CollectAsync(project, paths, approved, current.Sources, token);
+        }
+        if (action == ProjectAssetAction.Delete)
+        {
+            await Task.Run(() => Delete(paths, approved, token), token);
         }
         else
         {
-            await Task.Run(() => MoveOrDelete(paths, action, approved, token), token);
+            await Task.Run(() => Move(paths, approved, token), token);
         }
+        return [];
     }
 
-    private async Task CollectAsync(Project project, ProjectAssetPaths paths, List<ProjectAssetItem> items,
+    private async Task<IReadOnlyCollection<CoreObject>> CollectAsync(Project project, ProjectAssetPaths paths, List<ProjectAssetItem> items,
         Dictionary<string, List<Relink>> sources, CancellationToken token)
     {
         var temporary = new List<(string Path, ProjectAssetFile File)>();
@@ -72,6 +83,7 @@ internal sealed partial class ProjectAssetService
                 {
                     token.ThrowIfCancellationRequested();
                     paths.RequireWritable(file.Destination);
+                    RequireUnchanged(file);
                     File.Move(stagingPath, file.Destination);
                     published.Add(file.Destination);
                 }
@@ -128,7 +140,7 @@ internal sealed partial class ProjectAssetService
                     }
                 }
 
-                await StoreDocumentsAsync(paths, documents, token);
+                await StoreDocumentsAsync(paths, documents, items.SelectMany(item => item.Files), token);
                 transaction.Commit();
                 preserveCopies = true;
             }
@@ -151,6 +163,7 @@ internal sealed partial class ProjectAssetService
                 foreach ((Scene scene, var fingerprints) in sceneFingerprints) scene.SetMediaFingerprints(fingerprints);
                 throw;
             }
+            return documents;
         }
         finally
         {
@@ -166,7 +179,8 @@ internal sealed partial class ProjectAssetService
         }
     }
 
-    private static Task StoreDocumentsAsync(ProjectAssetPaths paths, HashSet<CoreObject> documents, CancellationToken token)
+    private static Task StoreDocumentsAsync(ProjectAssetPaths paths, HashSet<CoreObject> documents,
+        IEnumerable<ProjectAssetFile> sources, CancellationToken token)
     {
         var pending = new HashSet<string>(StringComparer.Ordinal);
         var writes = new List<(string Path, Action Write)>();
@@ -186,11 +200,28 @@ internal sealed partial class ProjectAssetService
                 paths.RequireWritable(path);
                 write();
             }
+            foreach (ProjectAssetFile file in sources)
+            {
+                token.ThrowIfCancellationRequested();
+                RequireUnchanged(file);
+            }
         }, token);
     }
 
-    private static void MoveOrDelete(ProjectAssetPaths paths, ProjectAssetAction action, List<ProjectAssetItem> items,
-        CancellationToken token)
+    private static void Delete(ProjectAssetPaths paths, List<ProjectAssetItem> items, CancellationToken token)
+    {
+        int deleted = 0;
+        foreach (ProjectAssetFile file in items.SelectMany(item => item.Files))
+        {
+            if (token.IsCancellationRequested) throw new ProjectAssetDeleteCanceledException(deleted, token);
+            paths.RequireWritable(file.Path);
+            RequireUnchanged(file);
+            File.Delete(file.Path);
+            deleted++;
+        }
+    }
+
+    private static void Move(ProjectAssetPaths paths, List<ProjectAssetItem> items, CancellationToken token)
     {
         var moved = new Stack<ProjectAssetFile>();
         var createdDirectories = new Stack<string>();
@@ -201,12 +232,6 @@ internal sealed partial class ProjectAssetService
                 token.ThrowIfCancellationRequested();
                 paths.RequireWritable(file.Path);
                 RequireUnchanged(file);
-                if (action == ProjectAssetAction.Delete)
-                {
-                    File.Delete(file.Path);
-                    continue;
-                }
-
                 paths.RequireWritable(file.Destination);
                 CreateParentDirectories(file.Destination, createdDirectories);
                 File.Move(file.Path, file.Destination);
@@ -244,12 +269,16 @@ internal sealed partial class ProjectAssetService
 
     private static void CreateParentDirectories(string file, Stack<string> created)
     {
-        string directory = Path.GetDirectoryName(file)!;
+        string directory = Path.GetDirectoryName(file) ?? throw new IOException($"No parent directory for '{file}'.");
         var missing = new Stack<string>();
-        for (string parent = directory; !Directory.Exists(parent); parent = Path.GetDirectoryName(parent)!)
+        string parent = directory;
+        while (!Directory.Exists(parent))
+        {
             missing.Push(parent);
+            parent = Path.GetDirectoryName(parent) ?? throw new IOException($"No existing parent directory for '{directory}'.");
+        }
         Directory.CreateDirectory(directory);
-        foreach (string parent in missing) created.Push(parent);
+        foreach (string missingDirectory in missing) created.Push(missingDirectory);
     }
 
     private static void RemoveEmptyDirectories(ProjectAssetPaths paths, Stack<string> directories)

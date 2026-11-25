@@ -25,6 +25,7 @@
   <data name="Working" xml:space="preserve"><value>Applying changes…</value></data>
   <data name="Finished" xml:space="preserve"><value>Operation complete.</value></data>
   <data name="Canceled" xml:space="preserve"><value>Operation canceled.</value></data>
+  <data name="DeleteCanceled" xml:space="preserve"><value>Deletion canceled ({0} deleted).</value></data>
   <data name="PlanChanged" xml:space="preserve"><value>The project or its files changed. Review the refreshed list before applying again.</value></data>
   <data name="Missing" xml:space="preserve"><value>The source file or a dependency is missing.</value></data>
   <data name="ValidationFailed" xml:space="preserve"><value>Could not read the copy of {0}.</value></data>

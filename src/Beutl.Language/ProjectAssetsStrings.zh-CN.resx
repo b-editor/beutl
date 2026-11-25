@@ -25,6 +25,7 @@
   <data name="Working" xml:space="preserve"><value>正在应用更改…</value></data>
   <data name="Finished" xml:space="preserve"><value>操作完成。</value></data>
   <data name="Canceled" xml:space="preserve"><value>操作已取消。</value></data>
+  <data name="DeleteCanceled" xml:space="preserve"><value>删除已取消（已删除 {0} 项）。</value></data>
   <data name="PlanChanged" xml:space="preserve"><value>项目或文件已更改。请检查更新后的列表，再次应用更改。</value></data>
   <data name="Missing" xml:space="preserve"><value>找不到源文件或其依赖文件。</value></data>
   <data name="ValidationFailed" xml:space="preserve"><value>无法读取 {0} 的副本。</value></data>

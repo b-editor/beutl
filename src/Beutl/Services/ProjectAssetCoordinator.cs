@@ -74,11 +74,14 @@ internal sealed class ProjectAssetCoordinator(ProjectService projects, EditorSer
             var current = await Task.Run(() => _assets.Analyze(paths, references, preview.Batch, token), token);
             using var suppressRecording = new CompositeDisposable(openEditors.Where(editor => editors.TryGetTabItem(editor.Scene, out _))
                 .Select(editor => editor.HistoryManager.SuppressRecording()));
-            await _assets.ApplyAsync(project, paths, current, action, selected, token);
+            var savedDocuments = await _assets.ApplyAsync(project, paths, current, action, selected, token);
             if (action == ProjectAssetAction.Collect)
             {
+                var savedByScene = savedDocuments.ToLookup(
+                    document => document as Scene ?? (document as IHierarchical)?.FindHierarchicalParent<Scene>(),
+                    ReferenceEqualityComparer.Instance);
                 foreach (EditViewModel editor in openEditors.Where(editor => editors.TryGetTabItem(editor.Scene, out _)))
-                    editor.OnProjectAssetsRelinked();
+                    editor.OnProjectAssetsRelinked(savedByScene[editor.Scene]);
             }
             AssetsChanged?.Invoke();
         }, token);
