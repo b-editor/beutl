@@ -25,7 +25,7 @@ internal sealed partial class ProjectAssetService
     private static readonly ILogger s_logger = Log.CreateLogger<ProjectAssetService>();
     private readonly MissingMediaService _validator = new(static _ => false, decoders);
 
-    internal async Task ApplyAsync(Project project, ProjectAssetPaths paths, Analysis current, ProjectAssetAction action,
+    internal async Task<IReadOnlyCollection<CoreObject>> ApplyAsync(Project project, ProjectAssetPaths paths, Analysis current, ProjectAssetAction action,
         IReadOnlyList<ProjectAssetItem> selected, CancellationToken token)
     {
         var rows = current.Preview.ForAction(action).ToDictionary(item => item.Path, StringComparer.Ordinal);
@@ -38,12 +38,12 @@ internal sealed partial class ProjectAssetService
             approved.Add(latest);
         }
 
-        if (approved.Count == 0) return;
+        if (approved.Count == 0) return [];
         if (action == ProjectAssetAction.Collect)
         {
-            await CollectAsync(project, paths, approved, current.Sources, token);
+            return await CollectAsync(project, paths, approved, current.Sources, token);
         }
-        else if (action == ProjectAssetAction.Delete)
+        if (action == ProjectAssetAction.Delete)
         {
             await Task.Run(() => Delete(paths, approved, token), token);
         }
@@ -51,9 +51,10 @@ internal sealed partial class ProjectAssetService
         {
             await Task.Run(() => Move(paths, approved, token), token);
         }
+        return [];
     }
 
-    private async Task CollectAsync(Project project, ProjectAssetPaths paths, List<ProjectAssetItem> items,
+    private async Task<IReadOnlyCollection<CoreObject>> CollectAsync(Project project, ProjectAssetPaths paths, List<ProjectAssetItem> items,
         Dictionary<string, List<Relink>> sources, CancellationToken token)
     {
         var temporary = new List<(string Path, ProjectAssetFile File)>();
@@ -162,6 +163,7 @@ internal sealed partial class ProjectAssetService
                 foreach ((Scene scene, var fingerprints) in sceneFingerprints) scene.SetMediaFingerprints(fingerprints);
                 throw;
             }
+            return documents;
         }
         finally
         {

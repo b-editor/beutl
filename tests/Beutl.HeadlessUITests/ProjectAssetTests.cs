@@ -119,6 +119,36 @@ public sealed class ProjectAssetTests
     }
 
     [AvaloniaTest]
+    public async Task Collection_records_fingerprints_for_other_references_saved_in_the_same_element()
+    {
+        (Project project, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("Asset fingerprint update");
+        var paths = new ProjectAssetPaths(project);
+        string outside = MakeImage(Path.Combine(Path.GetDirectoryName(paths.Root)!, "external.png"), SKColors.Blue);
+        string original = MakeImage(Path.Combine(paths.Resources, "original.png"), SKColors.Red);
+        string changed = MakeImage(Path.Combine(paths.Resources, "changed.png"), SKColors.Green);
+        var other = NewImage(original);
+        ImageSource collected;
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            collected = AddImage(scene, outside);
+            scene.Children.Single().AddObject(new SourceImage { Source = { Value = other } });
+        }
+        await editor.FlushMediaFingerprintsAsync();
+        Assert.That(await editor.SaveAsync(), Is.True);
+        await editor.WaitForMediaFingerprintsAsync();
+
+        using (editor.HistoryManager.SuppressRecording()) other.ReadFrom(UriHelper.CreateFromPath(changed));
+        ProjectAssetPreview preview = await Assets.PreviewAsync(project, CancellationToken.None);
+        Assert.That(preview.External.Single().Path, Is.EqualTo(outside));
+        await Assets.ApplyAsync(project, preview, ProjectAssetAction.Collect, preview.External, CancellationToken.None);
+        await editor.WaitForMediaFingerprintsAsync();
+
+        Scene saved = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        Assert.That(MissingMediaService.GetFileUris(saved), Is.EquivalentTo(new[] { collected.Uri, other.Uri }));
+        Assert.That(saved.MediaFingerprints.Keys, Does.Contain(other.Uri.AbsoluteUri));
+    }
+
+    [AvaloniaTest]
     public async Task Collection_copies_model_dependencies_and_keeps_edited_geometry()
     {
         (Project project, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("Asset model");

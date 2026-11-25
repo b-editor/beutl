@@ -4,6 +4,7 @@ using Beutl.Editor.Components.MissingMediaTab.ViewModels;
 using Beutl.Graphics3D.Models;
 using Beutl.IO;
 using Beutl.Media.Source;
+using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -142,13 +143,23 @@ public sealed partial class EditViewModel : IMediaRepairHost
         Player.QueuePreviewRender();
     }
 
-    internal void OnProjectAssetsRelinked(IEnumerable<string> savedMediaUris)
+    internal void OnProjectAssetsRelinked(IEnumerable<CoreObject> savedDocuments)
     {
         if (_disposed) return;
         ((IMediaRepairHost)this).ClearRenderCaches();
-        // Collection writes the owners of the relinked sources, so other elements can
-        // still have unsaved edits. Keep their previous saved references.
-        _savedMediaUris.UnionWith(savedMediaUris);
+        // A saved document can include other changed sources. Separately stored
+        // documents keep their previous media baseline until they are saved.
+        foreach (CoreObject document in savedDocuments)
+        {
+            CoreSerializer.Visit(document, visit =>
+            {
+                if (visit.Parent != null && visit.Value is CoreObject { Uri: not null })
+                    return CoreSerializationVisitAction.SkipChildren;
+                if (MissingMediaService.GetUri(visit.Value) is { IsFile: true } uri)
+                    _savedMediaUris.Add(uri.AbsoluteUri);
+                return CoreSerializationVisitAction.Continue;
+            });
+        }
         ScheduleMediaFingerprints(force: true);
         NotifyMissingMedia();
     }
