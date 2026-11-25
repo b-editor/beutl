@@ -226,6 +226,35 @@ public class SourceVideoSpeedTest
         Assert.That(resource.RequestedPosition.ToSeconds(), Is.EqualTo(1.3667).Within(0.05));
     }
 
+    [TestCase(true, 200f, 5.0)]
+    [TestCase(true, 50f, 20.0)]
+    [TestCase(false, 200f, 10.0)]
+    public void TryGetOriginalDuration_WithOffsetClip_ReachesTheSourceEnd(
+        bool useGlobalClock, float speedAfterStart, double expectedDuration)
+    {
+        MediaTime start = MediaTime.FromSeconds(10);
+        _sourceVideo!.TimeRange.Value = new TimeRange(start, MediaTime.FromSeconds(30));
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = useGlobalClock } };
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f } });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = start },
+            Value = { Value = speedAfterStart },
+            Easing = { Value = new HoldEasing() }
+        });
+        _sourceVideo.Speed.SetKeyFrameAnimation(animation);
+
+        Assert.That(_sourceVideo.TryGetOriginalDuration(out MediaTime duration, _decoders), Is.True);
+        SourceVideo.Resource resource = EvaluateAt(start + duration);
+        TestContext.Out.WriteLine($"Fitted duration: {duration.ToSeconds():F6}s; playback endpoint: {resource.RequestedPosition.ToSeconds():F6}s");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(duration.ToSeconds(), Is.EqualTo(expectedDuration).Within(1.0 / 30));
+            Assert.That(resource.RequestedPosition.ToSeconds(), Is.EqualTo(10.0).Within(1.0 / 60));
+        });
+    }
+
     [Test]
     public void CalculateOriginalTime_WithVerySlowSpeed_ShouldExpandUpperBound()
     {
