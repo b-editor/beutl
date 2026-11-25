@@ -98,13 +98,12 @@ public sealed partial class FilterEffectExecutor
         // A buffer laid on the device grid covers every pixel the bounds touch, which a fractional origin can widen
         // by one.
         bool aligned = AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid);
-        Rect budgetBounds = aligned
-            ? target.Bounds
-            : hasFilter
-                ? ResolveDeviceRoundingSource(target, flushTarget)
-                : new Rect(default, target.Bounds.Size);
+        bool exactFootprint = aligned || hasFilter || target.KeepDeviceFootprintOnFlush;
+        Rect budgetBounds = hasFilter && !aligned
+            ? ResolveDeviceRoundingSource(target, flushTarget)
+            : exactFootprint ? target.Bounds : new Rect(default, target.Bounds.Size);
         BufferDimensionBudget budget = Budget;
-        float fit = aligned || hasFilter
+        float fit = exactFootprint
             ? budget.ClampWorkingScaleToExactFootprint(
                 budgetBounds.Translate(target.Allocation.DeviceGridOffset),
                 WorkingScale)
@@ -188,6 +187,7 @@ public sealed partial class FilterEffectExecutor
             newTarget.OriginalBounds = target.OriginalBounds;
             newTarget.CompleteBounds = target.CompleteBounds;
             newTarget.TextPart = target.TextPart;
+            newTarget.KeepDeviceFootprintOnFlush = target.KeepDeviceFootprintOnFlush;
             if (alignToDeviceGrid)
                 (placements ??= []).Add(new TargetPlacement(target.Bounds, newTarget.Bounds));
             if (AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid))
@@ -365,13 +365,13 @@ public sealed partial class FilterEffectExecutor
                 PreserveImperativeRasterPlacement: true);
         }
 
-        bool preserveImperativeRasterPlacement = !hasFilter;
+        bool preserveImperativeRasterPlacement = !hasFilter && !target.KeepDeviceFootprintOnFlush;
         Vector allocationGridOffset = preserveImperativeRasterPlacement
             ? _settings.DeviceGridOffset ?? default
             : target.Allocation.DeviceGridOffset;
-        Rect deviceRoundingSource = preserveImperativeRasterPlacement
-            ? target.Bounds
-            : ResolveDeviceRoundingSource(target, flushTarget);
+        Rect deviceRoundingSource = hasFilter
+            ? ResolveDeviceRoundingSource(target, flushTarget)
+            : target.Bounds;
         PixelRect canonicalDeviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
             deviceRoundingSource.Translate(allocationGridOffset), w);
         PixelRect deviceBounds;
@@ -394,7 +394,7 @@ public sealed partial class FilterEffectExecutor
             outputDeviceGridOffset = target.Allocation.DeviceGridOffset;
         }
 
-        if (!preserveImperativeRasterPlacement)
+        if (hasFilter)
             VerifyFilteredDeviceBounds(target, deviceBounds, w);
 
         return new FlushGeometry(

@@ -588,6 +588,7 @@ public class CustomFilterEffectContext
             clearContents: !native);
         if (allocated != null)
         {
+            allocated.KeepDeviceFootprintOnFlush = coverEdgePixels;
             return allocated;
         }
         else

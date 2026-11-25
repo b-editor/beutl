@@ -126,6 +126,9 @@ public sealed class EffectTarget : IDisposable
 
     internal bool PreserveImperativeRasterPlacement { get; }
 
+    /// <summary>Rebuilds this target on its device grid so fractional edge pixels stay in the buffer.</summary>
+    internal bool KeepDeviceFootprintOnFlush { get; set; }
+
     /// <summary>
     /// Gets or sets where the content lies, when a flush laid it on whole device pixels for a callback that keeps it in
     /// place; <see langword="null"/> when <see cref="Bounds"/> are the content's own.
@@ -224,6 +227,7 @@ public sealed class EffectTarget : IDisposable
             OriginalBounds = OriginalBounds,
             CompleteBounds = CompleteBounds,
             TextPart = TextPart,
+            KeepDeviceFootprintOnFlush = KeepDeviceFootprintOnFlush,
         };
     }
 
@@ -245,6 +249,7 @@ public sealed class EffectTarget : IDisposable
         {
             CompleteBounds = CompleteBounds,
             TextPart = TextPart,
+            KeepDeviceFootprintOnFlush = KeepDeviceFootprintOnFlush,
         };
         _target = null;
         return result;

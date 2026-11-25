@@ -75,6 +75,14 @@ public sealed partial class CornerPin
             && float.IsFinite(matrix.M31) && float.IsFinite(matrix.M32) && float.IsFinite(matrix.M33);
         if (!finite) return false;
 
+        // The large translation in an offset input can cancel a positive divisor after rounding.
+        ReadOnlySpan<Point> inputCorners = [bounds.TopLeft, bounds.TopRight, bounds.BottomRight, bounds.BottomLeft];
+        foreach (Point corner in inputCorners)
+        {
+            float divisor = matrix.GetTransformDivisor(corner);
+            if (!float.IsFinite(divisor) || divisor <= 0) return false;
+        }
+
         // The quad has already passed the degeneracy checks. Check that rounding to float preserved the
         // matrix's rank without imposing an absolute determinant cutoff on a valid minification.
         double matrixDeterminant = matrix.M11 * ((double)matrix.M22 * matrix.M33 - (double)matrix.M23 * matrix.M32)

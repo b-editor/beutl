@@ -50,6 +50,14 @@ public sealed class CornerPinTests
         }
     }
 
+    [Test]
+    public void HomographyRejectsAStoredDivisorThatRoundsToZero()
+    {
+        var input = new Rect(8192, 0, 2, 16);
+        Assert.That(CornerPin.TryCreateHomography(input, new Point(128, 0), new Point(0.015625f, 0),
+            new Point(0.015625f, 0.015625f), new Point(128, 128), out _), Is.False);
+    }
+
     private static IEnumerable<TestCaseData> InvalidQuads()
     {
         yield return Quad("Concave", [new(0.6f, 0.7f), new(1, 0), new(1, 1), new(0, 1)]);
@@ -179,6 +187,35 @@ public sealed class CornerPinTests
             Assert.That(Pixel(bitmap, output, 17, 47), Is.EqualTo(s_blue));
             Assert.That(Pixel(bitmap, output, 54, 47), Is.EqualTo(s_yellow));
             Assert.That(ImageMetrics.ReadPixel(bitmap, bitmap.Width - 1, bitmap.Height - 1).Alpha, Is.GreaterThan(0.05f));
+        }
+    }
+
+    [Test]
+    public void ForcedFlushKeepsFractionalCornerPinEdgePixels()
+    {
+        var input = new Rect(0, 0, 50, 32);
+        var expected = new Rect(0.75f, 0.75f, 50, 32);
+        using FilterEffectContext context = Record(CreateAbsolute(expected), input);
+        using var targets = new EffectTargets { CreateSource(input) };
+        using var builder = new SKImageFilterBuilder();
+        using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Delivery, RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null);
+        executor.Apply(context);
+
+        EffectTarget warped = targets.Single();
+        Rect rasterBounds = warped.Placement.RasterBounds;
+        using Bitmap before = warped.RenderTarget!.Snapshot();
+        Assert.That(ImageMetrics.ReadPixel(before, 50, 15).Alpha, Is.GreaterThan(0.5f));
+
+        for (int i = 0; i < 2; i++)
+        {
+            executor.Flush();
+            EffectTarget rebuilt = targets.Single();
+            Assert.That(rebuilt.Bounds, Is.EqualTo(expected));
+            Assert.That(rebuilt.Placement.DeviceBounds, Is.EqualTo(PixelRect.FromRect(expected, 1)));
+            Assert.That(rebuilt.Placement.RasterBounds, Is.EqualTo(rasterBounds));
+            using Bitmap after = rebuilt.RenderTarget!.Snapshot();
+            Assert.That(after.GetPixelSpan<ushort>().ToArray(), Is.EqualTo(before.GetPixelSpan<ushort>().ToArray()));
         }
     }
 
