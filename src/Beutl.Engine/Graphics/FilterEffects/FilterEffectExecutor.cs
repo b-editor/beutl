@@ -238,10 +238,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
                     break;
                 case IFEItem_Custom custom:
                     // Flush pending filters, preserving existing rasters when the callback accepts their placement.
-                    AlignedPlacement? placement = Flush(
-                        force: true,
-                        alignToDeviceGrid: custom.Options.HasFlag(CustomFilterEffectOptions.KeepsPlacement),
-                        reuseMaterializedTargets: custom.Options.HasFlag(CustomFilterEffectOptions.AcceptsMaterializedTargets));
+                    AlignedPlacement? placement = Flush(force: true, callbackOptions: custom.Options);
                     if (CurrentTargets.Count == 0) return;
                     bool controlsContinuation = custom.Options.HasFlag(CustomFilterEffectOptions.ControlsContinuation);
                     RunCustomEffectItem(custom, controlsContinuation ? items.Skip(index + 1).ToArray() : null, placement);

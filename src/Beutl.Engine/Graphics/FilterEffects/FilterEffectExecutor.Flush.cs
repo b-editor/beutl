@@ -14,16 +14,14 @@ public sealed partial class FilterEffectExecutor
     /// </remarks>
     private const int StackFlushPlanLimit = 16;
 
-    public void Flush(bool force = true) => Flush(force, alignToDeviceGrid: false);
+    public void Flush(bool force = true) => Flush(force, callbackOptions: null);
 
     /// <param name="force">Whether to materialize the targets even without a pending Skia chain.</param>
-    /// <param name="alignToDeviceGrid">
-    /// Whether the custom effect this flush runs ahead of keeps its content where it is, which lays the targets on
-    /// the device grid (see <see cref="AlignsToDeviceGrid"/>).
+    /// <param name="callbackOptions">
+    /// Placement options for a custom effect receiving the materialized targets, or <see langword="null"/> outside a callback.
     /// </param>
     /// <returns>Where the content was laid on the device grid, or <see langword="null"/> when none of it was.</returns>
-    /// <param name="reuseMaterializedTargets">Whether the callback can accept the existing raster placement.</param>
-    private AlignedPlacement? Flush(bool force, bool alignToDeviceGrid, bool reuseMaterializedTargets = false)
+    private AlignedPlacement? Flush(bool force, CustomFilterEffectOptions? callbackOptions)
     {
         bool hasFilter = Builder.HasFilter();
         if (!force && !hasFilter)
@@ -36,16 +34,15 @@ public sealed partial class FilterEffectExecutor
         using var paint = hasFilter ? new SKPaint() : null;
         paint?.ImageFilter = Builder.GetFilter();
 
-        // A forced flush without pending Skia work is the effect-item CustomEffect compatibility
-        // boundary. A forced materialization of a Skia chain must retain its canonical device
-        // footprint; otherwise unchanged color effects lose edge coverage at fractional scales.
         int count = CurrentTargets.Count;
         Span<FlushTarget?> plan = count <= StackFlushPlanLimit
             ? stackalloc FlushTarget?[StackFlushPlanLimit]
             : new FlushTarget?[count];
         plan = plan[..count];
-        bool reuseRasters = reuseMaterializedTargets && !hasFilter;
-        PlanFlush(plan, hasFilter, alignToDeviceGrid, reuseRasters);
+        CustomFilterEffectOptions options = callbackOptions.GetValueOrDefault();
+        bool alignToDeviceGrid = options.HasFlag(CustomFilterEffectOptions.KeepsPlacement);
+        bool reuseRasters = options.HasFlag(CustomFilterEffectOptions.AcceptsMaterializedTargets) && !hasFilter;
+        PlanFlush(plan, hasFilter, alignToDeviceGrid, reuseRasters, keepDeviceFootprint: callbackOptions is null);
         AlignedPlacement? placement = MaterializeFlush(plan, paint, hasFilter, alignToDeviceGrid, reuseRasters);
 
         _pendingSkiaTargets = null;
@@ -64,7 +61,8 @@ public sealed partial class FilterEffectExecutor
     /// positional - slot <c>i</c> answers for the target at index <c>i</c> - which is what lets
     /// materialization read it while removing entries from the list it was measured against.
     /// </remarks>
-    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter, bool alignToDeviceGrid, bool reuseRasters)
+    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter, bool alignToDeviceGrid, bool reuseRasters,
+        bool keepDeviceFootprint)
     {
         for (int i = 0; i < plan.Length; i++)
         {
@@ -79,7 +77,7 @@ public sealed partial class FilterEffectExecutor
                 || !RenderScaleUtilities.IsAllocatableBounds(allocationBounds))
                 continue;
 
-            FlushTarget flushTarget = ResolveFlushTarget(target, hasFilter);
+            FlushTarget flushTarget = ResolveFlushTarget(target, hasFilter, keepDeviceFootprint);
             if (!RenderScaleUtilities.IsAllocatableBounds(flushTarget.PhysicalBounds))
                 continue;
 
@@ -98,7 +96,7 @@ public sealed partial class FilterEffectExecutor
         // A buffer laid on the device grid covers every pixel the bounds touch, which a fractional origin can widen
         // by one.
         bool aligned = AlignsToDeviceGrid(target, hasFilter, alignToDeviceGrid);
-        bool exactFootprint = aligned || hasFilter || target.KeepDeviceFootprintOnFlush;
+        bool exactFootprint = aligned || hasFilter || flushTarget.KeepDeviceFootprint;
         Rect budgetBounds = hasFilter && !aligned
             ? ResolveDeviceRoundingSource(target, flushTarget)
             : exactFootprint ? target.Bounds : new Rect(default, target.Bounds.Size);
@@ -365,7 +363,7 @@ public sealed partial class FilterEffectExecutor
                 PreserveImperativeRasterPlacement: true);
         }
 
-        bool preserveImperativeRasterPlacement = !hasFilter && !target.KeepDeviceFootprintOnFlush;
+        bool preserveImperativeRasterPlacement = !hasFilter && !flushTarget.KeepDeviceFootprint;
         Vector allocationGridOffset = preserveImperativeRasterPlacement
             ? _settings.DeviceGridOffset ?? default
             : target.Allocation.DeviceGridOffset;
@@ -540,14 +538,14 @@ public sealed partial class FilterEffectExecutor
         Flush(materializationRequired && !_customEffectBoundaryMaterialized);
     }
 
-    private FlushTarget ResolveFlushTarget(EffectTarget target, bool hasFilter)
+    private FlushTarget ResolveFlushTarget(EffectTarget target, bool hasFilter, bool keepDeviceFootprint)
     {
         if (!hasFilter)
         {
-            // A forced no-filter flush is the compatibility boundary for imperative CustomEffect
-            // callbacks. Materialize semantic input without exposing a renderer-owned apron;
-            // callback-created targets keep their separate effect-item local-buffer contract.
-            return new FlushTarget(target.Bounds, target.Bounds, null);
+            // Custom effects can read the buffer in bounds-local coordinates. An ordinary flush can keep
+            // the device footprint of effects that rendered partial coverage beyond the logical origin.
+            return new FlushTarget(target.Bounds, target.Bounds, null,
+                KeepDeviceFootprint: keepDeviceFootprint && target.KeepDeviceFootprintOnFlush);
         }
 
         Rect inputBounds;
@@ -627,5 +625,6 @@ public sealed partial class FilterEffectExecutor
     private readonly record struct FlushTarget(
         Rect InputBounds,
         Rect PhysicalBounds,
-        Point? InputOrigin);
+        Point? InputOrigin,
+        bool KeepDeviceFootprint = false);
 }

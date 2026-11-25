@@ -220,6 +220,31 @@ public sealed class CornerPinTests
     }
 
     [Test]
+    public void CenteredClippingReadsTheWarpFromItsLogicalOrigin()
+    {
+        var input = new Rect(0, 0, 50, 32);
+        CornerPin translate = CreateAbsolute(new Rect(0.75f, 0.75f, 50, 32));
+        var clip = new Clipping
+        {
+            AutoCenter = { Value = true },
+            Right = { Value = 8 },
+            Bottom = { Value = 6 },
+        };
+        var group = new FilterEffectGroup { Children = { translate, clip } };
+        using EffectTargets targets = Render(group, input);
+        EffectTarget output = targets.Single();
+        using Bitmap bitmap = output.RenderTarget!.Snapshot();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(output.Bounds, Is.EqualTo(new Rect(4.75f, 3.75f, 42, 26)));
+            // The first pixel in the right or bottom half should favor that half's color.
+            Assert.That(ImageMetrics.ReadPixel(bitmap, 25, 8).Green, Is.GreaterThan(0.5f));
+            Assert.That(ImageMetrics.ReadPixel(bitmap, 10, 16).Blue, Is.GreaterThan(0.5f));
+        }
+    }
+
+    [Test]
     public void MagnificationKeepsEdgesSharpAndDoesNotSampleTheSourceApron()
     {
         var input = new Rect(10, 20, 32, 24);
