@@ -249,6 +249,8 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<Puppet>(GraphicsStrings.Puppet, GraphicsStrings.Puppet_LibraryDescription)
                 .AddFilterEffect<PathFollowEffect>(GraphicsStrings.PathFollowEffect,
                     GraphicsStrings.PathFollowEffect_LibraryDescription)
+                .AddFilterEffect<TextOnPathEffect>(GraphicsStrings.TextOnPathEffect,
+                    GraphicsStrings.TextOnPathEffect_LibraryDescription)
                 .AddFilterEffect<LayerEffect>(GraphicsStrings.LayerEffect,
                     GraphicsStrings.LayerEffect_LibraryDescription)
                 .AddFilterEffect<DelayAnimationEffect>(GraphicsStrings.DelayAnimationEffect,

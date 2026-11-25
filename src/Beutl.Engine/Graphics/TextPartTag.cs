@@ -6,6 +6,10 @@ namespace Beutl.Graphics;
 internal readonly record struct TextPartTag(
     long OccurrenceId, int LayoutRevision, TextPartIndices Indices, TextPartCounts Counts, WritingMode WritingMode)
 {
+    public TextPartPositions? Positions { get; init; }
+
+    public bool IncludeHiddenUnits { get; init; }
+
     public static TextPartTag? GetCommon<T>(IEnumerable<T> values, Func<T, TextPartTag?> getTag)
     {
         using IEnumerator<T> enumerator = values.GetEnumerator();

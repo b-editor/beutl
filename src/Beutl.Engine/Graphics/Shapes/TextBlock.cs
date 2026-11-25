@@ -61,8 +61,7 @@ public partial class TextBlock : Drawable
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
     public IExpressionProperty<Brush?> Fill { get; } = Property.CreateExpression<Brush?>();
 
-    private static void DrawVertical(GraphicsContext2D context, Resource resource, bool strokesBelowFill,
-        TextPartLayout? parts, long occurrence)
+    private static void DrawVertical(GraphicsContext2D context, Resource resource, bool strokesBelowFill)
     {
         VerticalTextLayout layout = resource.GetVerticalLayout();
         float right = layout.Size.Width;
@@ -80,19 +79,7 @@ public partial class TextBlock : Drawable
                 }
 
                 using var transform = context.PushTransform(VerticalTextLayout.GetTransform(run, center, top));
-                if (parts is null)
-                {
-                    context.DrawText(text, fill, pen);
-                }
-                else
-                {
-                    ReadOnlySpan<Geometry.Resource> geometries = text.ToGeometries();
-                    ReadOnlySpan<TextPartIndices> indices = parts.GetGlyphs(text);
-                    for (int i = 0; i < geometries.Length; i++)
-                    {
-                        DrawSplitGlyph(context, text, geometries[i], i, fill, pen, parts.CreateTag(occurrence, indices[i]));
-                    }
-                }
+                context.DrawText(text, fill, pen);
             }
             right -= column.Width;
         }
@@ -138,45 +125,24 @@ public partial class TextBlock : Drawable
         }
     }
 
-    private static void DrawSplitted(GraphicsContext2D context, Resource resource, float width, bool strokesBelowFill,
+    private static void DrawSplit(GraphicsContext2D context, Resource resource, bool strokesBelowFill,
         TextPartLayout parts, long occurrence)
     {
-        var elements = resource.GetTextElements();
-        float prevBottom = 0;
-        foreach (Span<FormattedText> line in elements.Lines)
+        foreach (TextPartLayout.Run run in parts.Runs)
         {
-            Size lineBounds = MeasureLine(line);
-            float ascent = MinAscent(line);
-            float yPosition = prevBottom - ascent;
-
-            float prevRight = GetLineOffset(resource.TextAlignment, width, lineBounds.Width);
-            foreach (FormattedText item in line)
+            FormattedText text = run.Text;
+            if (!TrySelectPaint(strokesBelowFill, text.Brush ?? resource.Fill, text.Pen ?? resource.Pen,
+                    out Brush.Resource? fill, out Pen.Resource? pen))
             {
-                if (item.Text.Length > 0)
-                {
-                    Rect elementBounds = item.Bounds;
-
-                    if (TrySelectPaint(strokesBelowFill, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen,
-                            out Brush.Resource? fill, out Pen.Resource? pen))
-                    {
-                        ReadOnlySpan<Geometry.Resource> geometries = item.ToGeometries();
-                        ReadOnlySpan<TextPartIndices> indices = parts.GetGlyphs(item);
-                        var offset = Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition);
-                        for (int i = 0; i < geometries.Length; i++)
-                        {
-                            using (context.PushTransform(offset))
-                            {
-                                DrawSplitGlyph(context, item, geometries[i], i, fill, pen,
-                                    parts.CreateTag(occurrence, indices[i]));
-                            }
-                        }
-                    }
-
-                    prevRight += elementBounds.Width + item.Spacing;
-                }
+                continue;
             }
 
-            prevBottom += lineBounds.Height;
+            using var transform = context.PushTransform(run.Transform);
+            ReadOnlySpan<Geometry.Resource> geometries = text.ToGeometries();
+            for (int i = 0; i < geometries.Length; i++)
+            {
+                DrawSplitGlyph(context, text, geometries[i], i, fill, pen, parts.CreateTag(occurrence, run.Glyphs[i]));
+            }
         }
     }
 
@@ -209,7 +175,7 @@ public partial class TextBlock : Drawable
         return !strokesBelowFill || below;
     }
 
-    private static float GetLineOffset(TextAlignment alignment, float width, float lineWidth)
+    internal static float GetLineOffset(TextAlignment alignment, float width, float lineWidth)
     {
         return alignment switch
         {
@@ -219,7 +185,7 @@ public partial class TextBlock : Drawable
         };
     }
 
-    private static Size MeasureLine(Span<FormattedText> items)
+    internal static Size MeasureLine(Span<FormattedText> items)
     {
         float width = 0;
         float height = 0;
@@ -239,7 +205,7 @@ public partial class TextBlock : Drawable
         return new Size(width, height);
     }
 
-    private static float MinAscent(Span<FormattedText> items)
+    internal static float MinAscent(Span<FormattedText> items)
     {
         float ascent = 0;
         foreach (FormattedText item in items)
@@ -275,14 +241,16 @@ public partial class TextBlock : Drawable
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             long fontRevision = _fonts?.Revision ?? 0;
             // FormattedText can reshape on a font revision before the drawable reconciles again.
-            if (_textPartLayout is { } layout && layout.WritingMode == WritingMode && _textPartFontRevision == fontRevision)
+            if (_textPartLayout is { } layout && layout.WritingMode == WritingMode
+                && layout.Positions.Alignment == TextAlignment && _textPartFontRevision == fontRevision)
                 return layout;
 
+            VerticalTextLayout? vertical = WritingMode == Media.WritingMode.VerticalRl ? GetVerticalLayout() : null;
+            float width = vertical is null && TextAlignment != Media.TextAlignment.Start
+                ? MeasureCore(Graphics.Size.Infinity).Width
+                : 0;
             layout = TextPartLayout.Create(
-                GetTextElements(),
-                WritingMode == Media.WritingMode.VerticalRl ? GetVerticalLayout() : null,
-                WritingMode,
-                ++_textPartLayoutRevision);
+                GetTextElements(), vertical, WritingMode, TextAlignment, width, ++_textPartLayoutRevision);
             _textPartFontRevision = fontRevision;
             return _textPartLayout = layout;
         }
@@ -333,19 +301,17 @@ public partial class TextBlock : Drawable
 
         private void DrawText(GraphicsContext2D context, bool strokesBelowFill, TextPartLayout? parts, long occurrence)
         {
-            if (WritingMode == Media.WritingMode.VerticalRl)
-            {
-                DrawVertical(context, this, strokesBelowFill, parts, occurrence);
-                return;
-            }
-            float width = TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size).Width;
-
             if (parts is not null)
             {
-                DrawSplitted(context, this, width, strokesBelowFill, parts, occurrence);
+                DrawSplit(context, this, strokesBelowFill, parts, occurrence);
+            }
+            else if (WritingMode == Media.WritingMode.VerticalRl)
+            {
+                DrawVertical(context, this, strokesBelowFill);
             }
             else
             {
+                float width = TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size).Width;
                 DrawGrouped(context, this, width, strokesBelowFill);
             }
         }

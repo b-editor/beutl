@@ -2688,4 +2688,16 @@
   <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
     <value>Smooth</value>
   </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>Text on Path</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>Path Offset (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>Lay out text along a path. Enable Split by characters on the text.</value>
+  </data>
 </root>

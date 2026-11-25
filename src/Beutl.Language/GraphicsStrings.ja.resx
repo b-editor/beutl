@@ -2683,4 +2683,16 @@
   <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
     <value>滑らか</value>
   </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>パスに沿うテキスト</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>パス</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>パスのオフセット (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>文字をパスに沿って配置します。テキストの「文字ごとに分割」をオンにしてください。</value>
+  </data>
 </root>

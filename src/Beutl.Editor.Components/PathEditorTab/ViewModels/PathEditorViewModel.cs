@@ -5,6 +5,7 @@ using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -47,13 +48,17 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
             .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c), EditorContext.GetRequiredService<FontManager>(), ExtensionGuard.FindService<DecoderRegistry>(EditorContext))
             .Publish(null).RefCount();
 
-        GeometryResource = drawableResource
-            .Select(h => h?.Project(r => (r as GeometryShape.Resource)?.Data as PathGeometry.Resource))
+        GeometryResource = drawableResource.CombineLatest(Geometry, (handle, geometry) => handle?.Project(resource => resource switch
+            {
+                GeometryShape.Resource shape => shape.Data as PathGeometry.Resource,
+                TextBlock.Resource text => FindTextPath(text.FilterEffect, geometry),
+                _ => null,
+            }))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Matrix = drawableResource
-            .Select(h => h?.Read(CalculateMatrix, Graphics.Matrix.Identity) ?? Graphics.Matrix.Identity)
+        Matrix = drawableResource.CombineLatest(Geometry, (handle, geometry) =>
+                handle?.Read(resource => CalculateMatrix(resource, geometry), Graphics.Matrix.Identity) ?? Graphics.Matrix.Identity)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
         AvaMatrix = Matrix.Select(v => v.ToAvaMatrix())
@@ -82,9 +87,15 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
             .DisposeWith(_disposables);
     }
 
-    private Matrix CalculateMatrix(Drawable.Resource drawable)
+    private Matrix CalculateMatrix(Drawable.Resource drawable, Geometry? editedGeometry = null)
     {
         Size frameSize = _scene.FrameSize.Value.ToSize(1);
+        if (drawable is TextBlock.Resource text && FindTextPath(text.FilterEffect, editedGeometry) is { } path)
+        {
+            Matrix pathTransform = path.Transform?.Matrix ?? Graphics.Matrix.Identity;
+            return pathTransform * text.GetTransformMatrix(frameSize, text.Measure(frameSize));
+        }
+
         Matrix matrix = Graphics.Matrix.Identity;
 
         // Same transform as Shape's rendering.
@@ -105,6 +116,26 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         }
 
         return matrix;
+    }
+
+    private static PathGeometry.Resource? FindTextPath(FilterEffect.Resource? effect, Geometry? geometry)
+    {
+        if (geometry is null)
+            return null;
+
+        if (effect is TextOnPathEffect.Resource { Path: PathGeometry.Resource path } && ReferenceEquals(path.GetOriginal(), geometry))
+            return path;
+
+        if (effect is FilterEffectGroup.Resource group)
+        {
+            foreach (FilterEffect.Resource child in group.Children)
+            {
+                if (FindTextPath(child, geometry) is { } childPath)
+                    return childPath;
+            }
+        }
+
+        return null;
     }
 
     public IEditorContext EditorContext { get; }
