@@ -97,6 +97,24 @@ public readonly struct BrushConstructor(
         }
     }
 
+    internal static bool TrySamplePaintColor(Brush.Resource brush, Rect bounds, Point point, out Color color)
+    {
+        color = default;
+        using var surface = SKSurface.Create(new SKImageInfo(1, 1, SKColorType.Bgra8888, SKAlphaType.Premul));
+        if (surface is null) return false;
+
+        surface.Canvas.Translate(0.5f - point.X, 0.5f - point.Y);
+        using var paint = new SKPaint();
+        new BrushConstructor(bounds, brush, BlendMode.SrcOver, RenderIntent.Preview, drawableBrushMaterializer: null)
+            .ConfigurePaint(paint);
+        surface.Canvas.DrawPaint(paint);
+
+        using SKPixmap pixels = surface.PeekPixels();
+        SKColor sample = pixels.GetPixelColor(0, 0);
+        color = Color.FromArgb(sample.Alpha, sample.Red, sample.Green, sample.Blue);
+        return true;
+    }
+
     public SKShader? CreateShader()
     {
         Brush.Resource? brush = ResolvePresentedBrush();

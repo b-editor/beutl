@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Language;
 
 namespace Beutl.Media;
@@ -26,4 +27,10 @@ public abstract partial class GradientBrush : Brush
 
     [Display(Name = nameof(GraphicsStrings.GradientBrush_GradientStops), ResourceType = typeof(GraphicsStrings))]
     public IListProperty<GradientStop> GradientStops { get; } = Property.CreateList<GradientStop>();
+
+    public partial class Resource
+    {
+        public override bool TrySampleColor(Rect bounds, Point point, out Color color)
+            => BrushConstructor.TrySamplePaintColor(this, bounds, point, out color);
+    }
 }
