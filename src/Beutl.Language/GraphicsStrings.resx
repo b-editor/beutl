@@ -2274,6 +2274,24 @@
   <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
     <value>Editing mesh points. Later effects are hidden in the preview.</value>
   </data>
+  <data name="CornerPin" xml:space="preserve">
+    <value>Corner Pin</value>
+  </data>
+  <data name="CornerPin_TopLeft" xml:space="preserve">
+    <value>Top left</value>
+  </data>
+  <data name="CornerPin_TopRight" xml:space="preserve">
+    <value>Top right</value>
+  </data>
+  <data name="CornerPin_BottomRight" xml:space="preserve">
+    <value>Bottom right</value>
+  </data>
+  <data name="CornerPin_BottomLeft" xml:space="preserve">
+    <value>Bottom left</value>
+  </data>
+  <data name="CornerPin_EditingPreviewHint" xml:space="preserve">
+    <value>Drag the corners to adjust perspective. Later effects are hidden in the preview.</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>Puppet</value>
   </data>
@@ -2552,6 +2570,9 @@
   </data>
   <data name="MeshWarp_LibraryDescription" xml:space="preserve">
     <value>Deforms the image by moving control points on a grid (mesh distortion, grid warp).</value>
+  </data>
+  <data name="CornerPin_LibraryDescription" xml:space="preserve">
+    <value>Maps the image to four movable corners (perspective warp, four-point transform, CC Power Pin).</value>
   </data>
   <data name="PathFollowEffect_LibraryDescription" xml:space="preserve">
     <value>Moves an object along a path and can turn it to follow the path (motion path, path animation).</value>

@@ -224,6 +224,11 @@ public sealed partial class SchemaGenerator
             [typeof(ShakeEffect)] = Metadata(["motion", "glitch", "shake"], ["Time-dependent effect; useful for animated jitter without explicit keyframes."]),
             [typeof(DisplacementMapEffect)] = Metadata(["distort", "map", "motion"], ["Pair with a map source or generated texture for visible displacement."]),
             [typeof(MeshWarp)] = Metadata(["distort", "warp", "mesh", "motion"], ["Rows and Columns count mesh cells. Keyframe Mesh to animate the control points together, and use Strength as a percentage of the deformation."]),
+            [typeof(CornerPin)] = Metadata(["distort", "perspective", "corner-pin", "quad", "warp", "tracking", "homography"],
+            [
+                "Animate the four RelativePoint corners in percentages of the input size or in absolute pixels from the input's top-left corner.",
+                "A non-convex or degenerate quadrilateral produces empty output. Mirrored convex quadrilaterals are supported.",
+            ]),
             [typeof(Puppet)] = Metadata(["puppet", "pin", "bend", "deform", "distort", "warp", "motion"],
             [
                 "Pins is a list of PuppetPin. RestPosition is where a pin sits on the undeformed picture and Position is where that point is dragged to; both are normalized to the effect's input bounds, (0,0) top-left to (1,1) bottom-right. RestPosition is a plain value; keyframe Position to animate the pose.",

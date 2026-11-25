@@ -363,6 +363,12 @@ internal static class BuiltInLibraryThumbnailRecipes
                 .WithPoint(4, 2, new Point(0.5f, 1 - 0.22f * Wave(p))));
         });
 
+        LibraryThumbnailRecipes.Register<CornerPin>(LibraryThumbnailSample.Shapes, (effect, context) =>
+        {
+            context.Animate(effect.TopLeft, p => new RelativePoint(0.28f * Wave(p), 0.24f * Wave(p), RelativeUnit.Relative));
+            context.Animate(effect.TopRight, p => new RelativePoint(1 - 0.16f * Wave(p), 0.12f * Wave(p), RelativeUnit.Relative));
+        });
+
         // The picture travels once around an ellipse.
         LibraryThumbnailRecipes.Register<PathFollowEffect>(LibraryThumbnailSample.Object, (effect, context) =>
         {

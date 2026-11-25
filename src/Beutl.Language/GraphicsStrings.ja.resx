@@ -2269,6 +2269,24 @@
   <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
     <value>メッシュの制御点を編集中。プレビューでは後続のエフェクトを一時的に非表示にしています。</value>
   </data>
+  <data name="CornerPin" xml:space="preserve">
+    <value>コーナーピン</value>
+  </data>
+  <data name="CornerPin_TopLeft" xml:space="preserve">
+    <value>左上</value>
+  </data>
+  <data name="CornerPin_TopRight" xml:space="preserve">
+    <value>右上</value>
+  </data>
+  <data name="CornerPin_BottomRight" xml:space="preserve">
+    <value>右下</value>
+  </data>
+  <data name="CornerPin_BottomLeft" xml:space="preserve">
+    <value>左下</value>
+  </data>
+  <data name="CornerPin_EditingPreviewHint" xml:space="preserve">
+    <value>四隅をドラッグして遠近感を調整できます。後続のエフェクトはプレビューで非表示になります。</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>パペット</value>
   </data>
@@ -2547,6 +2565,9 @@
   </data>
   <data name="MeshWarp_LibraryDescription" xml:space="preserve">
     <value>格子の制御点を動かして画像を変形します（メッシュ変形、グリッドワープ / mesh distortion, grid warp）。</value>
+  </data>
+  <data name="CornerPin_LibraryDescription" xml:space="preserve">
+    <value>画像の四隅を動かして遠近感を変えます（4点変形、パース、遠近法、perspective、CC Power Pin）。</value>
   </data>
   <data name="PathFollowEffect_LibraryDescription" xml:space="preserve">
     <value>オブジェクトをパスに沿って移動させ、向きもパスに合わせられます（モーションパス、パスアニメーション / motion path, path animation）。</value>

@@ -653,6 +653,10 @@ public sealed partial class SchemaGenerator
                 Point center = grid.GetRestPoint(grid.Rows / 2, grid.Columns / 2);
                 meshWarp.Mesh.Value = grid.WithPoint(grid.Rows / 2, grid.Columns / 2, new Point(center.X + 0.04f, center.Y - 0.06f));
                 break;
+            case CornerPin cornerPin:
+                cornerPin.TopLeft.Value = new RelativePoint(0.23f, 0.22f, RelativeUnit.Relative);
+                cornerPin.TopRight.Value = new RelativePoint(0.83f, 0.07f, RelativeUnit.Relative);
+                break;
             case Puppet puppet:
                 // Pins left at their rest positions render as a pass-through. Hold the left and the middle, and lift the right.
                 puppet.Pins.Add(CreatePuppetPin(new Point(0.2f, 0.5f), new Point(0.2f, 0.5f)));

@@ -2273,6 +2273,24 @@
   <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
     <value>메시 제어점 편집 중입니다. 미리 보기에서 이후 효과를 일시적으로 숨깁니다.</value>
   </data>
+  <data name="CornerPin" xml:space="preserve">
+    <value>코너 핀</value>
+  </data>
+  <data name="CornerPin_TopLeft" xml:space="preserve">
+    <value>왼쪽 위</value>
+  </data>
+  <data name="CornerPin_TopRight" xml:space="preserve">
+    <value>오른쪽 위</value>
+  </data>
+  <data name="CornerPin_BottomRight" xml:space="preserve">
+    <value>오른쪽 아래</value>
+  </data>
+  <data name="CornerPin_BottomLeft" xml:space="preserve">
+    <value>왼쪽 아래</value>
+  </data>
+  <data name="CornerPin_EditingPreviewHint" xml:space="preserve">
+    <value>모서리를 드래그해 원근을 조정합니다. 후속 효과는 미리 보기에서 숨겨집니다.</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>퍼펫</value>
   </data>
@@ -2551,6 +2569,9 @@
   </data>
   <data name="MeshWarp_LibraryDescription" xml:space="preserve">
     <value>격자의 제어점을 움직여 이미지를 변형합니다 (메시 왜곡, 격자 워프 / mesh distortion, grid warp).</value>
+  </data>
+  <data name="CornerPin_LibraryDescription" xml:space="preserve">
+    <value>이미지의 네 모서리를 움직여 원근을 바꿉니다(원근 왜곡, 4점 변형, four-point, CC Power Pin).</value>
   </data>
   <data name="PathFollowEffect_LibraryDescription" xml:space="preserve">
     <value>오브젝트를 경로를 따라 이동시키고 경로 방향으로 회전시킬 수 있습니다 (모션 패스, 경로 애니메이션 / motion path, path animation).</value>

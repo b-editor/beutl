@@ -227,9 +227,9 @@ public class CustomFilterEffectContext
     public EffectTarget CreateTarget(Rect bounds)
         => CreateTargetCore(bounds);
 
-    internal EffectTarget CreateTarget(Rect bounds, EffectTarget source)
+    internal EffectTarget CreateTarget(Rect bounds, EffectTarget source, float? deviceAlignedScale = null)
     {
-        EffectTarget target = CreateTargetCore(bounds);
+        EffectTarget target = CreateTargetCore(bounds, deviceAlignedScale: deviceAlignedScale);
         target.TextPart = source.TextPart;
         return target;
     }
@@ -238,13 +238,17 @@ public class CustomFilterEffectContext
     internal EffectTarget CreateNativeTarget(Rect bounds)
         => CreateTargetCore(bounds, native: true);
 
-    private EffectTarget CreateTargetCore(Rect bounds, bool native = false)
+    private EffectTarget CreateTargetCore(Rect bounds, bool native = false, float? deviceAlignedScale = null)
     {
-        float w = WorkingScale;
+        bool coverEdgePixels = deviceAlignedScale.HasValue;
+        float w = deviceAlignedScale ?? WorkingScale;
         // Re-clamp at allocation site: bounds may exceed what node-level clamps saw, and planning's budget
         // is the engine ceiling rather than what this device can attach.
         BufferDimensionBudget budget = Budget;
-        float fit = budget.ClampWorkingScale(new Rect(default, bounds.Size), w);
+        Rect onDevice = bounds.Translate(DeviceGridOffset);
+        float fit = coverEdgePixels
+            ? budget.ClampWorkingScaleToExactFootprint(onDevice, w)
+            : budget.ClampWorkingScale(new Rect(default, bounds.Size), w);
         if (fit < w)
         {
             s_logger.LogWarning(
@@ -253,7 +257,10 @@ public class CustomFilterEffectContext
             w = fit;
         }
 
-        Rect onDevice = bounds.Translate(DeviceGridOffset);
+        // Projected edges can cover a fraction of a pixel at either end. Preserve the complete device footprint.
+        if (coverEdgePixels)
+            return AllocateTarget(bounds, w, DeviceBufferBounds(onDevice, w), native, coverEdgePixels: true);
+
         PixelPoint covering = DeviceBufferBounds(onDevice, w).Position;
         var deviceOrigin = new PixelPoint(
             StartPastRounding(covering.X, onDevice.X, w),
@@ -564,22 +571,24 @@ public class CustomFilterEffectContext
         Rect bounds,
         float density,
         PixelRect deviceBounds,
-        bool native = false)
+        bool native = false,
+        bool coverEdgePixels = false)
     {
-        Vector effectItemGridOffset = deviceBounds
-            .ToRect(density)
-            .Position - bounds.Position;
+        Vector effectItemGridOffset = coverEdgePixels
+            ? DeviceGridOffset
+            : deviceBounds.ToRect(density).Position - bounds.Position;
         EffectTarget? allocated = EffectTargetAllocation.Allocate(
             RenderTargetLeaseSession,
             bounds,
             density,
             deviceBounds,
             effectItemGridOffset,
-            preserveImperativeRasterPlacement: true,
+            preserveImperativeRasterPlacement: !coverEdgePixels,
             preferLease: native,
             clearContents: !native);
         if (allocated != null)
         {
+            allocated.KeepDeviceFootprintOnFlush = coverEdgePixels;
             return allocated;
         }
         else

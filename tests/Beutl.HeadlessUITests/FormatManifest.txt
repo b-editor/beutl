@@ -466,6 +466,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:ColorShift
   unsealed
   keys: AlphaOffset, Animations, BlueOffset, Expressions, GreenOffset, Id, IsEnabled, Name, RedOffset
+[Beutl.Engine]Beutl.Graphics.Effects:CornerPin
+  sealed
+  keys: Animations, BottomLeft, BottomRight, Expressions, Id, IsEnabled, Name, TopLeft, TopRight
 [Beutl.Engine]Beutl.Graphics.Effects:Curves
   sealed
   keys: Animations, BlueCurve, Expressions, GreenCurve, HueVsHue, HueVsLuminance, HueVsSaturation, Id, IsEnabled, LuminanceVsSaturation, MasterCurve, Name, RedCurve, SaturationVsSaturation
