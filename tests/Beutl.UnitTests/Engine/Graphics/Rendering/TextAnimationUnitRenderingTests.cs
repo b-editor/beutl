@@ -248,6 +248,37 @@ public sealed class TextAnimationUnitRenderingTests
         Assert.That(YOffsets(before, after), Is.EqualTo(new[] { 24f, 0f }).Within(0.001));
     }
 
+    [TestCase(DelayAnimationMode.PerStep, 180f)]
+    [TestCase(DelayAnimationMode.Total, 540f)]
+    public void DelayTimingUsesOriginalCharacterSlotsWhenTextCrossesPathEndpoints(
+        DelayAnimationMode mode, float milliseconds)
+    {
+        TextBlock block = CreateText("A A A A", new FilterEffectGroup());
+        using var resource = block.ToResource(AtTime(0));
+        var characters = resource.GetTextPartLayout().Positions.Characters;
+        float advance = characters[1].Distance - characters[0].Distance;
+        TextOnPathEffect path = AlongLine(characters[^1].Distance + advance / 2);
+        var probe = new Probe(readAlpha: true);
+        block.FilterEffect.Value = Chain(path, FadeDelay(milliseconds, mode), probe.Effect);
+
+        (float Offset, int[] VisibleCharacters)[] samples =
+        [
+            (0, [0, 1, 2, 3]),
+            (advance, [0, 1, 2]),
+            (-advance, [1, 2, 3]),
+        ];
+        foreach (var (offset, visibleCharacters) in samples)
+        {
+            path.PathOffset.Value = offset;
+            Render(block, 0.8);
+
+            Assert.That(probe.Parts.Select(part => part.Tag?.Indices.Character), Is.EqualTo(visibleCharacters), $"Offset {offset} px");
+            // 180 ms per step across the original four characters, even when the last one is hidden.
+            Assert.That(probe.Parts.Select(part => part.PeakAlpha),
+                Is.EqualTo(visibleCharacters.Select(character => 0.8f - 0.18f * character)).Within(0.004), $"Offset {offset} px");
+        }
+    }
+
     [Test]
     public void AClosedPathShowsOnlyTheFirstLap()
     {
