@@ -95,21 +95,30 @@ public partial class ColorGradingTabView : UserControl
 
     private void OnRangeDragStarted(object? sender, TonalRangeEventArgs e)
     {
-        _rangeStart = RangeEditor(e.Handle).Value;
+        NumberEditor<float> editor = RangeEditor(e.Handle);
+        if (editor.IsReadOnly || editor.ValueDragOwner != null || TonalRangeSlider.DragPointer is not { } pointer)
+            return;
+
+        editor.EndTextEditing();
+        _rangeStart = editor.Value;
+        editor.BeginValueDrag(TonalRangeSlider, pointer, TonalRangeSlider.StopDrag);
     }
 
     // The slider has already put the value on a step and stopped it at the other handle.
     private void OnRangeDragDelta(object? sender, TonalRangeEventArgs e)
     {
         NumberEditor<float> editor = RangeEditor(e.Handle);
-        if (!editor.IsReadOnly)
+        if (!editor.IsReadOnly && editor.ValueDragOwner == TonalRangeSlider)
             editor.ApplyValue((float)e.Value);
     }
 
     private void OnRangeDragCompleted(object? sender, TonalRangeEventArgs e)
     {
         NumberEditor<float> editor = RangeEditor(e.Handle);
-        if (!editor.IsReadOnly)
+        if (editor.ValueDragOwner == TonalRangeSlider)
+        {
             editor.ConfirmValue(_rangeStart);
+            editor.CompleteValueDrag();
+        }
     }
 }

@@ -378,11 +378,8 @@ public abstract class VectorEditorBase : PropertyEditor
             && _scrub.IsActive
             && sender is TextBlock header)
         {
-            Values!.Scrub(Array.IndexOf(_componentHeaders, header), ref _scrub, header, e);
-
+            ScrubComponent(Array.IndexOf(_componentHeaders, header), ref _scrub, header, e);
             e.Handled = true;
-
-            UpdateErrors();
         }
     }
 
@@ -406,14 +403,24 @@ public abstract class VectorEditorBase : PropertyEditor
         if (!_scrub.IsActive) return;
 
         // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
-        _scrub.End();
+        StopScrub();
         Values!.RaiseConfirmedIfChanged();
+        CompleteValueDrag();
+    }
+
+    private void StopScrub()
+    {
+        if (_scrub.IsActive)
+            _scrub.End();
     }
 
     // Scrubs the component of box, or every component while they are one value.
     private void ScrubBoxComponent(ref HeaderScrubGesture gesture, Control box, PointerEventArgs e)
+        => ScrubComponent(IsUniformValue ? -1 : Array.IndexOf(_textBoxes, box as TextBox), ref gesture, box, e);
+
+    private void ScrubComponent(int index, ref HeaderScrubGesture gesture, Control part, PointerEventArgs e)
     {
-        Values!.Scrub(IsUniformValue ? -1 : Array.IndexOf(_textBoxes, box as TextBox), ref gesture, box, e);
+        Values!.Scrub(index, ref gesture, part, e);
         UpdateErrors();
     }
 
@@ -423,11 +430,14 @@ public abstract class VectorEditorBase : PropertyEditor
         {
             PointerPoint pointerPoint = e.GetCurrentPoint(header);
             if (pointerPoint.Properties.IsLeftButtonPressed
+                && ValueDragOwner is null
                 && !IsReadOnly
                 && !DataValidationErrors.GetHasErrors(this))
             {
+                EndTextEditing();
                 Values!.Snapshot();
                 _scrub.Begin(header, pointerPoint.Position);
+                BeginValueDrag(header, e.Pointer, StopScrub);
                 e.Handled = true;
             }
         }

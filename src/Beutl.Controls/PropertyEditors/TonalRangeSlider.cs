@@ -47,7 +47,7 @@ public partial class TonalRangeSlider : Control
         GradientStops = { new GradientStop(Colors.Black, 0), new GradientStop(Colors.White, 1) },
     }.ToImmutable();
 
-    private TonalRangeHandle? _dragging;
+    private (TonalRangeHandle Handle, IPointer Pointer)? _dragging;
     private double _grabOffset;
     private StreamGeometry? _grip;
 
@@ -104,6 +104,10 @@ public partial class TonalRangeSlider : Control
 
     private Rect Bar => new(Inset, 2, Math.Max(Bounds.Width - (2 * Inset), 0), BarHeight);
 
+    internal IPointer? DragPointer => _dragging?.Pointer;
+
+    internal void StopDrag() => _dragging = null;
+
     internal double XOf(double value) => SliderTrack.XOf(value, Minimum, Maximum, Inset, Bar.Width);
 
     private double ValueAt(double x) => SliderTrack.ValueAt(x, Minimum, Maximum, Inset, Bar.Width);
@@ -156,7 +160,7 @@ public partial class TonalRangeSlider : Control
     {
         base.OnPointerPressed(e);
         PointerPoint point = e.GetCurrentPoint(this);
-        if (!point.Properties.IsLeftButtonPressed || !IsEffectivelyEnabled)
+        if (!point.Properties.IsLeftButtonPressed || !IsEffectivelyEnabled || _dragging.HasValue)
             return;
 
         e.Handled = true;
@@ -169,22 +173,22 @@ public partial class TonalRangeSlider : Control
             : TonalRangeHandle.High;
         double handleX = handle == TonalRangeHandle.Low ? lowX : highX;
         bool onHandle = Math.Abs(x - handleX) <= (GripSize / 2) + 2;
-        _dragging = handle;
+        _dragging = (handle, e.Pointer);
         _grabOffset = onHandle ? x - handleX : 0;
         e.Pointer.Capture(this);
         RaiseEvent(new TonalRangeEventArgs(DragStartedEvent, handle, ValueOf(handle)));
-        if (!onHandle)
+        if (!onHandle && _dragging.HasValue)
             RaiseDelta(handle, ValueAt(x));
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (_dragging is not { } handle)
+        if (_dragging is not { } drag)
             return;
 
         e.Handled = true;
-        RaiseDelta(handle, ValueAt(e.GetPosition(this).X - _grabOffset));
+        RaiseDelta(drag.Handle, ValueAt(e.GetPosition(this).X - _grabOffset));
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -205,11 +209,11 @@ public partial class TonalRangeSlider : Control
 
     private void EndDrag()
     {
-        if (_dragging is not { } handle)
+        if (_dragging is not { } drag)
             return;
 
-        _dragging = null;
-        RaiseEvent(new TonalRangeEventArgs(DragCompletedEvent, handle, ValueOf(handle)));
+        StopDrag();
+        RaiseEvent(new TonalRangeEventArgs(DragCompletedEvent, drag.Handle, ValueOf(drag.Handle)));
     }
 
     private double ValueOf(TonalRangeHandle handle) => handle == TonalRangeHandle.Low ? Low : High;

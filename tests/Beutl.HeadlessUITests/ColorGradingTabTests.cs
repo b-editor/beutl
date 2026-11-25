@@ -26,6 +26,7 @@ using Moq;
 using Reactive.Bindings;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using AvaPoint = Avalonia.Point;
+using AvaTextBlock = Avalonia.Controls.TextBlock;
 
 namespace Beutl.HeadlessUITests;
 
@@ -142,23 +143,7 @@ public sealed class ColorGradingTabTests
         Assert.That(host.Property.Value, Is.EqualTo(live ? reached : GradingColor.Zero));
         Assert.That(host.History.IsEditing, Is.True, "The drag must hold an edit session.");
 
-        switch (end)
-        {
-            case DragEnd.CaptureLoss:
-                pointer!.Capture(null);
-                break;
-            case DragEnd.Playback:
-                host.Playing.Value = true;
-                host.Playing.Value = false;
-                break;
-            case DragEnd.Escape:
-                host.Window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
-                host.Window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
-                break;
-            case DragEnd.Undo:
-                Assert.That(host.History.TryCancelGesture(), Is.True);
-                break;
-        }
+        InterruptDrag(end, host.Window, host.History, host.Playing, pointer);
 
         HeadlessTestHelpers.Render();
         Assert.That(host.History.IsEditing, Is.False, "The end closes the session before any release.");
@@ -174,6 +159,85 @@ public sealed class ColorGradingTabTests
             Assert.That(host.Wheel.Color, Is.EqualTo(host.Property.Value), "The puck shows what the effect holds.");
             Assert.That(host.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
             Assert.That(host.History.IsEditing, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(DragEnd.Escape, true)]
+    [TestCase(DragEnd.Undo, true)]
+    [TestCase(DragEnd.Playback, true)]
+    [TestCase(DragEnd.Escape, false)]
+    [TestCase(DragEnd.Playback, false)]
+    public void The_blue_field_ends_its_scrub_with_the_same_history_as_the_wheel(DragEnd end, bool live)
+    {
+        var initial = new GradingColor(0.11f, -0.897f, 0.2f);
+        using var host = new WheelHost(effect => effect.Lift, initial, "Value * 2f");
+        host.IsLivePreviewEnabled.Value = live;
+        TextBox box = host.Boxes()[2];
+        AvaPoint start = HeadlessTestHelpers.Center(box, host.Window);
+        TimelineTestHost.WaitForHitTest(host.Window, box, start);
+        int scrubs = HeaderScrubGesture.ActiveCount;
+        host.Window.MouseMove(start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.Window.MouseMove(start + new Vector(4, 0), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseMove(start + new Vector(14, 0), RawInputModifiers.LeftMouseButton);
+        var reached = new GradingColor(initial.R, initial.G, 0.3f);
+        Assert.That(host.Property.Value, Is.EqualTo(live ? reached : initial));
+        Assert.That(host.History.IsEditing, Is.True);
+
+        InterruptDrag(end, host.Window, host.History, host.Playing);
+        Assert.That(HeaderScrubGesture.ActiveCount, Is.EqualTo(scrubs));
+        host.Window.MouseMove(start + new Vector(30, 0), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseUp(start + new Vector(30, 0), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+
+        GradingColor expected = end == DragEnd.Playback ? reached : initial;
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(expected));
+            Assert.That(host.Wheel.Color, Is.EqualTo(expected * 2f));
+            Assert.That(host.History.IsEditing, Is.False);
+            Assert.That(host.History.UndoCount, Is.EqualTo(end == DragEnd.Playback ? 1 : 0));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(DragEnd.Escape, true)]
+    [TestCase(DragEnd.Undo, true)]
+    [TestCase(DragEnd.Playback, true)]
+    [TestCase(DragEnd.Escape, false)]
+    [TestCase(DragEnd.Undo, false)]
+    [TestCase(DragEnd.Playback, false)]
+    public void A_number_header_or_rail_drag_stops_while_the_button_is_still_down(DragEnd end, bool header)
+    {
+        using var host = new SliderHost(effect => effect.Temperature, start: 20);
+        using var pointerLock = PointerLockScope.Off(TestShell.Configuration.EditorConfig);
+        Visual part = header
+            ? host.Editor.GetVisualDescendants().OfType<AvaTextBlock>().Single(text => text.Name == "PART_HeaderTextBlock")
+            : host.Slider;
+        AvaPoint start = header ? HeadlessTestHelpers.Center(part, host.Window) : host.PointAt(20);
+        int scrubs = HeaderScrubGesture.ActiveCount;
+        host.Window.MouseMove(start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.Window.MouseMove(start + new Vector(24, 0), RawInputModifiers.LeftMouseButton);
+        float reached = host.Property.Value;
+        Assert.That(reached, Is.GreaterThan(20f));
+        Assert.That(host.History.IsEditing, Is.True);
+
+        InterruptDrag(end, host.Window, host.History, host.Playing);
+        Assert.That(HeaderScrubGesture.ActiveCount, Is.EqualTo(scrubs));
+        Assert.That(host.Editor.Classes, Does.Not.Contain(":sliding"));
+        host.Window.MouseMove(start + new Vector(48, 0), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseUp(start + new Vector(48, 0), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+
+        float expected = end == DragEnd.Playback ? reached : 20f;
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(expected));
+            Assert.That(host.Editor.Value, Is.EqualTo(expected));
+            Assert.That(host.History.IsEditing, Is.False);
+            Assert.That(host.History.UndoCount, Is.EqualTo(end == DragEnd.Playback ? 1 : 0));
         });
     }
 
@@ -716,6 +780,69 @@ public sealed class ColorGradingTabTests
         });
     }
 
+    [AvaloniaTest]
+    [TestCase(DragEnd.Escape)]
+    [TestCase(DragEnd.Undo)]
+    [TestCase(DragEnd.Playback)]
+    public async Task A_tonal_range_drag_ends_before_the_pointer_is_released(DragEnd end)
+    {
+        using TabHost host = await TabHost.OpenAsync($"grading-range-interrupt-{end}", 960, 640, mode: 0,
+            setup: (editor, grading) => editor.HistoryManager.ExecuteInTransaction(() => grading.Temperature.Value = 20, "Setup"));
+        HistoryManager history = host.Editor.HistoryManager;
+        int before = history.UndoCount;
+        TonalRangeSlider range = host.View.FindControl<TonalRangeSlider>("TonalRangeSlider")!;
+        AvaPoint PointAt(double value) => range.TranslatePoint(new AvaPoint(range.XOf(value), 18), host.Window)!.Value;
+        host.Window.MouseDown(PointAt(40), MouseButton.Left);
+        host.Window.MouseMove(PointAt(52), RawInputModifiers.LeftMouseButton);
+        Assert.That(host.Grading.LowRange.Value, Is.EqualTo(52f));
+        Assert.That(history.IsEditing, Is.True);
+
+        if (end == DragEnd.Escape)
+            HeadlessCapture.SaveIfRequested(host.Window, nameof(ColorGradingTabTests), "tonal-range-dragging");
+
+        if (end == DragEnd.Undo)
+            Assert.That(await host.Editor.UndoAsync(), Is.True);
+        else
+            InterruptDrag(end, host.Window, history, host.Editor.Player.IsPlaying);
+
+        Assert.That(history.IsEditing, Is.False);
+        host.Window.MouseMove(PointAt(58), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseUp(PointAt(58), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        HeadlessCapture.SaveIfRequested(host.Window, nameof(ColorGradingTabTests), $"tonal-range-{end}");
+
+        float expected = end == DragEnd.Playback ? 52 : 40;
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Grading.LowRange.Value, Is.EqualTo(expected));
+            Assert.That(range.Low, Is.EqualTo(expected));
+            Assert.That(host.Grading.HighRange.Value, Is.EqualTo(60f));
+            Assert.That(host.Grading.Temperature.Value, Is.EqualTo(20f));
+            Assert.That(history.UndoCount, Is.EqualTo(before + (end == DragEnd.Playback ? 1 : 0)));
+        });
+    }
+
+    private static void InterruptDrag(DragEnd end, Window window, HistoryManager history, ReactivePropertySlim<bool> playing, IPointer? pointer = null)
+    {
+        switch (end)
+        {
+            case DragEnd.CaptureLoss:
+                pointer!.Capture(null);
+                break;
+            case DragEnd.Playback:
+                playing.Value = true;
+                playing.Value = false;
+                break;
+            case DragEnd.Escape:
+                window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+                break;
+            case DragEnd.Undo:
+                Assert.That(history.TryCancelGesture(), Is.True);
+                break;
+        }
+    }
+
     // A tab docked at the bottom is wide and low: the sliders stand in a column beside the wheels, which keep one row
     // as the tonal wheels do. In a low tab too narrow for that column only the sliders' names and boxes stand beside
     // the wheels, and elsewhere the sliders stay above. In every shape the wheels stay inside the tab.
@@ -990,10 +1117,12 @@ public sealed class ColorGradingTabTests
 
             _history = new HistoryScope(effect);
             _viewModel = new NumberEditorViewModel<float>(new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)Property, effect));
-            _viewModel.Accept(ServiceVisitor.For(_history.History));
+            var player = new Mock<IPreviewPlayer>();
+            player.SetupGet(x => x.IsPlaying).Returns(Playing);
+            _viewModel.Accept(new ServiceVisitor((typeof(HistoryManager), _history.History), (typeof(IPreviewPlayer), player.Object)));
             Editor = new NumberSliderEditor<float> { Theme = (ControlTheme)Application.Current!.FindResource("NumberSliderEditorTheme")! };
             PropertyEditorControls.Attach(_viewModel, Editor);
-            Window = new Window { Content = Editor, Width = 420, Height = 80 };
+            Window = new Window { Content = new Border { Focusable = true, Child = Editor }, Width = 420, Height = 80 };
             Beutl.Controls.ControlConfiguration.SetConfiguration(Window, TestShell.Configuration);
             Beutl.Controls.ControlFonts.SetFonts(Window, TestShell.FontManager);
             Beutl.Controls.ControlNotifications.SetNotifications(Window, TestShell.Notifications);
@@ -1005,6 +1134,8 @@ public sealed class ColorGradingTabTests
         public IProperty<float> Property { get; }
 
         public HistoryManager History => _history.History;
+
+        public ReactivePropertySlim<bool> Playing { get; } = new(false);
 
         public NumberSliderEditor<float> Editor { get; }
 
