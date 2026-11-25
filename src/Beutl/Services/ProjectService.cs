@@ -17,6 +17,7 @@ namespace Beutl.Services;
 public sealed partial class ProjectService
 {
     private readonly INotificationService _notifications;
+    private readonly EditorService? _editorService;
     internal INotificationService Notifications => _notifications;
 
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
@@ -48,6 +49,12 @@ public sealed partial class ProjectService
         CurrentProject = _app.Project.GetObservable()
             .ToReadOnlyReactivePropertySlim();
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
+    }
+
+    internal ProjectService(ViewConfig configuration, Media.FontManager fonts, INotificationService notifications,
+        EditorService editorService) : this(configuration, fonts, notifications)
+    {
+        _editorService = editorService;
     }
 
     /// <summary>
@@ -517,10 +524,15 @@ public sealed partial class ProjectService
 
     private void ShowProjectNotices(Project project)
     {
+        Action? showDetails = _editorService is { } editorService ? () =>
+        {
+            if (ReferenceEquals(CurrentProject.Value, project))
+                editorService.OpenUndisplayableData(project);
+        } : null;
         Notification[] notices = new[]
             {
-                Beutl.Editor.Services.UnmigratedNodeTreeNotice.Create(project),
-                Beutl.Editor.Services.KeptUnknownDataNotice.Create(project),
+                Beutl.Editor.Services.UnmigratedNodeTreeNotice.Create(project, showDetails),
+                Beutl.Editor.Services.KeptUnknownDataNotice.Create(project, showDetails),
             }
             .OfType<Notification>()
             .ToArray();

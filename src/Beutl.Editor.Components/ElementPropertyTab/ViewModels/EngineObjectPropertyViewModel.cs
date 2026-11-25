@@ -2,6 +2,7 @@
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -154,7 +155,8 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         if (ReferenceEquals(target, Model) && propertyName is null)
             return null;
 
-        foreach (IPropertyEditorContext? context in Properties)
+        foreach (IPropertyEditorContext? context in Properties.SelectMany(
+                     context => context is PropertyEditorGroupContext group ? group.Properties : [context]))
         {
             foreach (IProperty property in GetEngineProperties(context))
             {

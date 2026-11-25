@@ -361,6 +361,9 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     // Asks the view to flash an element so an edit made outside the timeline is easy to spot.
     public ReactiveCommand<Element> HighlightElement { get; } = new();
 
+    // Other tools may take this dock before a location's timeline has been laid out.
+    internal ReactivePropertySlim<(TimeRange Range, int? ZIndex, Element? Element)?> PendingLocate { get; } = new();
+
     public ReactiveCommandSlim SetStartTimeToPointerPosition { get; } = new();
 
     public ReactiveCommandSlim SetEndTimeToPointerPosition { get; } = new();
@@ -474,6 +477,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         _layerHeightChanged.Dispose();
         _canExecuteChangedSubject.Dispose();
+        PendingLocate.Dispose();
 
         Inlines.Clear();
         LayerHeaders.Clear();

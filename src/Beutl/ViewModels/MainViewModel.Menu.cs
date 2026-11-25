@@ -163,6 +163,7 @@ public sealed partial class MainViewModel
                 new(Strings.Remove) { Command = MenuBar.RemoveFromProject },
                 new(Strings.SceneSettings) { Command = MenuBar.ShowSceneSettings },
                 new(MissingMediaStrings.Title) { Command = MenuBar.RelinkMedia },
+                new(UndisplayableDataStrings.Title) { Command = MenuBar.ShowUndisplayableData },
                 new(Strings.Element)
                 {
                     Items =

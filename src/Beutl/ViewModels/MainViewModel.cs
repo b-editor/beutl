@@ -81,8 +81,9 @@ public sealed partial class MainViewModel : BasePageViewModel
         // Composition root: own the editor-session services here and thread the instances
         // down to child view models and services.
         _extensionProvider = new ExtensionProvider(Configuration.ExtensionConfig, appServices.GetRequiredService<INotificationService>());
-        _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(), appServices.GetRequiredService<INotificationService>());
         _editorService = new EditorService(_extensionProvider, AppServices);
+        _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(),
+            appServices.GetRequiredService<INotificationService>(), _editorService);
         _editorService.ProjectFonts = _projectService.GetFonts;
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.

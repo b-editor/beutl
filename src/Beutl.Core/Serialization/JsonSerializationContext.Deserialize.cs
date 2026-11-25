@@ -41,6 +41,7 @@ public partial class JsonSerializationContext
 
     private static object? DeserializeWithJsonSerializer(JsonNode node, Type baseType)
     {
+        using var source = DeserializationIncidents.PreserveSource(node);
         return node.Deserialize(baseType, JsonHelper.SerializerOptions);
     }
 

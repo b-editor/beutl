@@ -25,6 +25,7 @@ using Beutl.Editor.Components.SilenceSplitTab;
 using Beutl.Editor.Components.SoundPannerProperties;
 using Beutl.Editor.Components.TerminalTab;
 using Beutl.Editor.Components.TransitionTab;
+using Beutl.Editor.Components.UndisplayableDataTab;
 using Beutl.Editor.Components.VersionControlTab;
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Logging;
@@ -78,6 +79,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         SilenceSplitTabExtension.Instance,
         VersionControlTabExtension.Instance,
         MissingMediaTabExtension.Instance,
+        UndisplayableDataTabExtension.Instance,
         DockLayoutTabExtension.Instance,
         TerminalTabExtension.Instance,
         WebBrowserTabExtension.Instance,

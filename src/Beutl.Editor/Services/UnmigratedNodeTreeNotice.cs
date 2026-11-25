@@ -11,7 +11,7 @@ namespace Beutl.Editor.Services;
 internal static class UnmigratedNodeTreeNotice
 {
     // Null when no element of the project holds a node tree that was not migrated.
-    public static Notification? Create(Project project)
+    public static Notification? Create(Project project, Action? showDetails = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         if (ElementNoticeFormatting.FormatNames(project.Items
@@ -28,6 +28,7 @@ internal static class UnmigratedNodeTreeNotice
             MessageStrings.UnmigratedNodeTreeTitle,
             string.Format(CultureInfo.CurrentCulture, MessageStrings.UnmigratedNodeTreeMessage, listed),
             NotificationType.Warning,
-            Expiration: Timeout.InfiniteTimeSpan);
+            Expiration: Timeout.InfiniteTimeSpan,
+            Actions: showDetails is null ? null : [new(UndisplayableDataStrings.ShowDetails, showDetails)]);
     }
 }

@@ -4,6 +4,8 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -33,17 +35,28 @@ public sealed partial class ElementPropertyTabView : UserControl
                 () => Reveal(request.Item, request.Property), DispatcherPriority.Background));
     }
 
-    private void Reveal(EngineObjectPropertyViewModel item, IPropertyEditorContext? property)
+    private void Reveal(EngineObjectPropertyViewModel item, IPropertyEditorContext? property, bool retry = true)
     {
         if (itemsControl.ContainerFromItem(item) is not { } container)
             return;
 
         Control target = container;
-        if (property is not null
-            && container.GetVisualDescendants().OfType<EngineObjectPropertyView>().FirstOrDefault()
-                ?.propertiesList.ContainerFromItem(property) is { } row)
+        if (property is not null)
         {
-            target = row;
+            Control? row = container.GetVisualDescendants().OfType<EngineObjectPropertyView>().FirstOrDefault()
+                ?.propertiesList.ContainerFromItem(property);
+            row ??= container.GetVisualDescendants().OfType<PropertyEditorGroup>()
+                .FirstOrDefault(group => group.DataContext is PropertyEditorGroupContext context && context.Properties.Contains(property))
+                ?.Reveal(property);
+            if (row is not null)
+            {
+                target = row;
+            }
+            else if (retry)
+            {
+                Dispatcher.UIThread.Post(() => Reveal(item, property, retry: false), DispatcherPriority.Background);
+                return;
+            }
         }
 
         target.BringIntoView();

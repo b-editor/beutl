@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>Undisplayable data</value></data>
+  <data name="WholeProject" xml:space="preserve"><value>Whole project</value></data>
+  <data name="CurrentScene" xml:space="preserve"><value>Current scene</value></data>
+  <data name="Scope" xml:space="preserve"><value>Scan scope</value></data>
+  <data name="NoIssues" xml:space="preserve"><value>No undisplayable data found</value></data>
+  <data name="EmptyDescription" xml:space="preserve"><value>Missing types and data the editor cannot display will appear here.</value></data>
+  <data name="Locate" xml:space="preserve"><value>Locate</value></data>
+  <data name="ShowDetails" xml:space="preserve"><value>Show details</value></data>
+  <data name="TypeNotFound" xml:space="preserve"><value>Missing type</value></data>
+  <data name="DeserializationFailed" xml:space="preserve"><value>Load failed</value></data>
+  <data name="UnreadableElement" xml:space="preserve"><value>Unreadable clip file</value></data>
+  <data name="LegacyNodeTree" xml:space="preserve"><value>Beutl 1.x node tree</value></data>
+  <data name="LegacyOperator" xml:space="preserve"><value>Beutl 1.x operator</value></data>
+  <data name="UnknownMembers" xml:space="preserve"><value>Unknown members</value></data>
+  <data name="UnknownAnimations" xml:space="preserve"><value>Unknown animations</value></data>
+  <data name="UnknownExpressions" xml:space="preserve"><value>Unknown expressions</value></data>
+  <data name="LossyEasing" xml:space="preserve"><value>Substituted easing</value></data>
+  <data name="DroppedValue" xml:space="preserve"><value>Dropped value</value></data>
+  <data name="TypeName" xml:space="preserve"><value>Serialized type ($type)</value></data>
+  <data name="UnknownKeys" xml:space="preserve"><value>Unknown keys</value></data>
+  <data name="JsonPreview" xml:space="preserve"><value>Original JSON</value></data>
+  <data name="OriginalFileContents" xml:space="preserve"><value>Original file contents</value></data>
+  <data name="RecoveryProtected" xml:space="preserve"><value>Recovery protected</value></data>
+  <data name="ClipLocation" xml:space="preserve"><value>{0} ({1}, {2}–{3})</value></data>
+  <data name="LayerLocation" xml:space="preserve"><value>Layer {0}</value></data>
+  <data name="Marker" xml:space="preserve"><value>Marker</value></data>
+  <data name="MarkerLocation" xml:space="preserve"><value>{0} at {1}</value></data>
+  <data name="KeyframeLocation" xml:space="preserve"><value>Keyframe at {0}</value></data>
+  <data name="ClipIssueSummary" xml:space="preserve"><value>Undisplayable data in this clip&#10;{0}</value></data>
+  <data name="IssueCount" xml:space="preserve"><value>{0} ({1})</value></data>
+  <data name="ScanFailed" xml:space="preserve"><value>Could not scan for undisplayable data.</value></data>
+  <data name="LegacyContent" xml:space="preserve"><value>Unmigrated Beutl 1.x content</value></data>
+</root>

@@ -160,7 +160,17 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     public ReactiveProperty<Matrix> Matrix { get; } = new(Avalonia.Matrix.Identity);
 
+    internal ReactivePropertySlim<GraphNodeViewModel?> PendingReveal { get; } = new();
+
     public GraphModel NodeGraph { get; }
+
+    internal void RevealNode(GraphNode node)
+    {
+        if (Nodes.FirstOrDefault(item => item.GraphNode == node) is not { } target) return;
+        foreach (GraphNodeViewModel item in Nodes)
+            item.IsSelected.Value = item == target;
+        PendingReveal.Value = target;
+    }
 
     public NodePortViewModel? FindNodePortViewModel(INodePort port)
     {
@@ -254,6 +264,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
         Nodes.Clear();
 
+        PendingReveal.Dispose();
         _disposables.Dispose();
     }
 

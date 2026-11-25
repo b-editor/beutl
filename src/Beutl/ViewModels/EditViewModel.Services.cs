@@ -72,6 +72,7 @@ public partial class EditViewModel
         .Add<Beutl.Editor.Components.OutputTab.IOutputRunHost>(() => EditorService)
         .Add<Beutl.Editor.Components.OutputTab.IOutputPresetStore>(() => OutputPresetService.Instance)
         .Add<Beutl.Editor.Components.MissingMediaTab.IMediaRepairHost>(() => this)
+        .Add<Beutl.Editor.Components.UndisplayableDataTab.IUndisplayableDataNavigator>(() => this)
         .Add<PathEditorViewModel>(() => Player?.PathEditor)
         .Add<FrameCacheManager>(() => FrameCacheManager.Value)
         .Add<IBufferStatus>(() => BufferStatus)

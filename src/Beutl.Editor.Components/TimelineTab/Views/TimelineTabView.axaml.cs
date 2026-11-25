@@ -208,6 +208,10 @@ public sealed partial class TimelineTabView : UserControl
             })
             .DisposeWith(_disposables);
 
+        vm.PendingLocate.CombineLatest(ContentScroll.GetObservable(ScrollViewer.ViewportProperty))
+            .Subscribe(_ => TryScrollToPendingLocation(vm))
+            .DisposeWith(_disposables);
+
         vm.CurrentTime
             .ObserveOnUIDispatcher()
             .Subscribe(OnCurrentTimeChangedForAutoScroll)
@@ -243,6 +247,20 @@ public sealed partial class TimelineTabView : UserControl
             .DisposeWith(_disposables);
 
         InvalidateElementViewport();
+        TryScrollToPendingLocation(viewModel);
+    }
+
+    private void TryScrollToPendingLocation(TimelineTabViewModel viewModel)
+    {
+        if (ViewModel != viewModel || !IsEffectivelyVisible || ContentScroll.Viewport.Width <= 0
+            || viewModel.PendingLocate.Value is not { } location)
+            return;
+
+        viewModel.PendingLocate.Value = null;
+        int layer = location.ZIndex ?? viewModel.ToLayerNumber(ContentScroll.Offset.Y);
+        viewModel.ScrollTo.Execute((location.Range, layer));
+        if (location.Element is { } element && viewModel.Scene.Children.Contains(element))
+            viewModel.HighlightElement.Execute(element);
     }
 
     internal TimelineTabViewModel? ViewModel { get; private set; }

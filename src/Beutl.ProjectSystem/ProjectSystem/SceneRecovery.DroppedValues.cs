@@ -12,11 +12,13 @@ internal sealed partial class SceneRecovery
     private static readonly ConditionalWeakTable<Element, CoreObject[]> s_droppedValueOwners = new();
 
     // Records, for each fallback that saving the element does not write, the member of the nearest saved object it sat in.
-    private static void RecordDroppedValues(
+    private static Dictionary<DeserializationIncidents.DeserializationIncident, (CoreObject Owner, string? Member)?> RecordDroppedValues(
         Element element,
         IReadOnlyList<DeserializationIncidents.DeserializationIncident> incidents)
     {
-        if (!incidents.Any(static incident => incident.Fallback is not null)) return;
+        var locations = new Dictionary<DeserializationIncidents.DeserializationIncident, (CoreObject, string?)?>(
+            ReferenceEqualityComparer.Instance);
+        if (!incidents.Any(static incident => incident.Fallback is not null)) return locations;
 
         DeserializationIncidents.DeserializationIncident[] dropped;
         var savedById = new Dictionary<Guid, CoreObject?>();
@@ -38,9 +40,11 @@ internal sealed partial class SceneRecovery
         var members = new Dictionary<CoreObject, List<string?>>(ReferenceEqualityComparer.Instance);
         foreach (DeserializationIncidents.DeserializationIncident incident in dropped)
         {
-            if (FindDroppedValueOwner(element, incident.Json, savedById, incidentJson) is not { } location) continue;
+            var location = FindDroppedValueOwner(element, incident.Json, incident.SourceJson, savedById, incidentJson);
+            locations.Add(incident, location);
+            if (location is null) continue;
 
-            (CoreObject owner, string? member) = location;
+            (CoreObject owner, string? member) = location.Value;
             if (!members.TryGetValue(owner, out List<string?>? list))
             {
                 members[owner] = list = [];
@@ -49,7 +53,7 @@ internal sealed partial class SceneRecovery
             if (!list.Contains(member)) list.Add(member);
         }
 
-        if (members.Count == 0) return;
+        if (members.Count == 0) return locations;
 
         foreach ((CoreObject owner, List<string?> list) in members)
         {
@@ -57,13 +61,15 @@ internal sealed partial class SceneRecovery
         }
 
         s_droppedValueOwners.AddOrUpdate(element, members.Keys.ToArray());
+        return locations;
     }
 
     // The nearest saved object above json and the member of it json sat in, or null when json sits inside the JSON of
     // another fallback, which then covers it. Past an object that is not saved, the record covers the whole owner.
     private static (CoreObject Owner, string? Member)? FindDroppedValueOwner(
         Element element,
-        JsonObject? json,
+        JsonNode? json,
+        JsonNode? source,
         Dictionary<Guid, CoreObject?> savedById,
         HashSet<JsonNode> incidentJson)
     {
@@ -81,7 +87,9 @@ internal sealed partial class SceneRecovery
             passedUnsavedObject = true;
         }
 
-        return (element, null);
+        return source is not null && !ReferenceEquals(json, source)
+            ? FindDroppedValueOwner(element, source, null, savedById, incidentJson)
+            : (element, null);
     }
 
     // Saves what each object of element that held a dropped value holds now, unless that was saved before.
@@ -99,6 +107,20 @@ internal sealed partial class SceneRecovery
     internal static bool HoldsUnresolvedDroppedValue(CoreObject owner)
     {
         return s_droppedValues.TryGetValue(owner, out DroppedValues? values) && values.IsUnresolved(owner);
+    }
+
+    internal static IEnumerable<(CoreObject Owner, string? Member)> GetUnresolvedDroppedValues(
+        Element element, Func<CoreObject, bool> isInGraph)
+    {
+        if (!s_droppedValueOwners.TryGetValue(element, out CoreObject[]? owners)) yield break;
+        foreach (CoreObject owner in owners)
+        {
+            if (!isInGraph(owner) || !s_droppedValues.TryGetValue(owner, out DroppedValues? values)) continue;
+            foreach (string? member in values.GetUnresolvedMembers(owner))
+            {
+                yield return (owner, member);
+            }
+        }
     }
 
     // Whether loading dropped the value property held, so that an edit replacing it repairs; saves it before that edit.
@@ -151,6 +173,22 @@ internal sealed partial class SceneRecovery
             }
 
             return false;
+        }
+
+        public IEnumerable<string?> GetUnresolvedMembers(CoreObject owner)
+        {
+            if (CoversTheOwner)
+            {
+                yield return null;
+                yield break;
+            }
+
+            JsonNode?[] current = Save(owner);
+            _saved ??= current;
+            for (int i = 0; i < current.Length; i++)
+            {
+                if (JsonNode.DeepEquals(current[i], _saved[i])) yield return members[i];
+            }
         }
 
         // What each member saves: its value, and its animation and expression for an engine property.
