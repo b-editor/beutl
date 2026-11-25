@@ -58,6 +58,9 @@ public sealed partial class FrameCacheManager : IDisposable
     public PixelSize FrameSize { get; }
 
     public void Add(int frame, Ref<Bitmap> bitmap)
+        => Add(frame, bitmap, previewWarning: null);
+
+    internal void Add(int frame, Ref<Bitmap> bitmap, string? previewWarning)
     {
         if (!IsEnabled) return;
 
@@ -69,18 +72,18 @@ public sealed partial class FrameCacheManager : IDisposable
                 {
                     // Locked pins an entry against eviction and deletion; it does not freeze the
                     // picture. Locked entries are excluded from _size (see Lock).
-                    old.SetBitmap(bitmap, Options);
+                    old.SetBitmap(bitmap, Options, previewWarning);
                 }
                 else
                 {
                     _size -= old.ByteCount;
-                    old.SetBitmap(bitmap, Options);
+                    old.SetBitmap(bitmap, Options, previewWarning);
                     _size += old.ByteCount;
                 }
             }
             else
             {
-                var entry = new CacheEntry(bitmap, Options);
+                var entry = new CacheEntry(bitmap, Options, previewWarning);
                 _size += entry.ByteCount;
                 _entries.Add(frame, entry);
             }
@@ -93,7 +96,11 @@ public sealed partial class FrameCacheManager : IDisposable
     }
 
     public bool TryGet(int frame, [MaybeNullWhen(false)] out Ref<Bitmap> bitmap)
+        => TryGet(frame, out bitmap, out _);
+
+    internal bool TryGet(int frame, [MaybeNullWhen(false)] out Ref<Bitmap> bitmap, out string? previewWarning)
     {
+        previewWarning = null;
         if (!IsEnabled)
         {
             bitmap = null;
@@ -105,6 +112,7 @@ public sealed partial class FrameCacheManager : IDisposable
             if (_entries.TryGetValue(frame, out CacheEntry? e))
             {
                 bitmap = e.GetBitmap();
+                previewWarning = e.PreviewWarning;
                 return true;
             }
             else

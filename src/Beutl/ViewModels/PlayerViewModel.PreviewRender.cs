@@ -40,23 +40,6 @@ public partial class PlayerViewModel
         previous?.Dispose();
     }
 
-    private void ReportPreviewRenderError(CancellationToken token)
-    {
-        UpdatePreviewRenderError(
-            MessageStrings.FrameDrawingException,
-            () => !token.IsCancellationRequested);
-    }
-
-    private void ClearPreviewRenderError(CancellationToken token)
-    {
-        UpdatePreviewRenderError(null, () => !token.IsCancellationRequested);
-    }
-
-    private void ClearPreviewRenderError(int generation)
-    {
-        UpdatePreviewRenderError(null, () => _sessionGuard.Owns(generation));
-    }
-
     internal bool ApplyPlaybackRenderFailure(
         BufferedPlayer.RenderFailure failure,
         Rational rate,
@@ -69,30 +52,31 @@ public partial class PlayerViewModel
 
         _editorClock.Seek(MediaTime.FromFrames(failure.Frame, rate));
         EditViewModel.FrameCacheManager.Value.CurrentFrame = failure.Frame;
-        UpdatePreviewRenderError(MessageStrings.FrameDrawingException, isCurrent);
+        UpdatePreviewRenderStatus(MessageStrings.FrameDrawingException, warning: null, isCurrent);
         IsPlaying.Value = false;
         return true;
     }
 
-    private void UpdatePreviewRenderError(string? message, Func<bool> isCurrent)
+    private void UpdatePreviewRenderStatus(string? error, string? warning, Func<bool> isCurrent)
     {
         if (!isCurrent())
             return;
 
-        long version = Interlocked.Increment(ref _previewRenderErrorIssuedVersion);
+        long version = Interlocked.Increment(ref _previewRenderStatusIssuedVersion);
 
         void Update()
         {
             // A queued update may run after this view model was disposed or its render/playback
-            // request was superseded. Keep the error scoped to the preview that still owns it.
+            // request was superseded. Keep the status scoped to the preview that still owns it.
             // Invalid newer updates do not advance the applied version, so they cannot suppress
             // an older update that is still valid for the current request.
             if (Scene is not null
                 && isCurrent()
-                && version > _previewRenderErrorAppliedVersion)
+                && version > _previewRenderStatusAppliedVersion)
             {
-                _previewRenderErrorAppliedVersion = version;
-                _previewRenderError.Value = message;
+                _previewRenderStatusAppliedVersion = version;
+                _previewRenderError.Value = error;
+                _previewRenderWarning.Value = warning;
             }
         }
 
@@ -282,7 +266,7 @@ public partial class PlayerViewModel
             }
 
             using Ref<Bitmap> bitmapRef = GetPreviewFrame(renderer, cacheManager, time, frame, disabledEffects,
-                useCache: !useOnionSkin && disabledEffects is null);
+                useCache: !useOnionSkin && disabledEffects is null, out string? warning);
             Bitmap bitmap = bitmapRef.Value;
             using Ref<Bitmap>? cleanFrame = CopyCleanFrame(renderer, bitmap);
             using (var canvas = new SKCanvas(bitmap.SKBitmap))
@@ -302,7 +286,7 @@ public partial class PlayerViewModel
             if (!token.IsCancellationRequested)
             {
                 AfterRendered.OnNext(Unit.Default);
-                ClearPreviewRenderError(token);
+                UpdatePreviewRenderStatus(error: null, warning, () => !token.IsCancellationRequested);
             }
         }
         catch (ObjectDisposedException) when (token.IsCancellationRequested)
@@ -315,7 +299,8 @@ public partial class PlayerViewModel
             _logger.LogError(ex,
                 "An exception occurred while drawing the frame. onionSkin={UseOnionSkin}, sampleCount={Count}, frame={Frame}.",
                 useOnionSkin, onionSampleCount, frame);
-            ReportPreviewRenderError(token);
+            UpdatePreviewRenderStatus(MessageStrings.FrameDrawingException, warning: null,
+                () => !token.IsCancellationRequested);
         }
     }
 
@@ -340,10 +325,11 @@ public partial class PlayerViewModel
 
     private static Ref<Bitmap> GetPreviewFrame(
         SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame,
-        IReadOnlySet<EngineObject>? disabledEffects, bool useCache)
+        IReadOnlySet<EngineObject>? disabledEffects, bool useCache, out string? warning)
     {
+        warning = null;
         CompositionFrame compositionFrame = EvaluatePreviewFrame(renderer, time, disabledEffects);
-        if (useCache && cacheManager.TryGet(frame, out var cache))
+        if (useCache && cacheManager.TryGet(frame, out var cache, out warning))
         {
             using (cache)
             {
@@ -353,12 +339,12 @@ public partial class PlayerViewModel
             }
         }
 
-        renderer.Render(compositionFrame);
+        warning = renderer.RenderWithWarning(compositionFrame);
         using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
         // Onion skin and an editing stage bypass the normal frame cache.
         if (useCache && cacheManager.IsEnabled)
         {
-            cacheManager.Add(frame, bitmap);
+            cacheManager.Add(frame, bitmap, warning);
             cacheManager.UpdateBlocks();
         }
         return bitmap.Clone();
