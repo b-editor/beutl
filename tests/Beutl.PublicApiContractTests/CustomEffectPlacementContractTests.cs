@@ -50,6 +50,8 @@ public sealed class CustomEffectPlacementContractTests
             Rect content = source.ContentBounds ?? throw new AssertionException("Expected fractional content bounds.");
             Assert.That(content.Size, Is.EqualTo(s_contentBounds.Size));
             Assert.That(source.Placement.DeviceBounds, Is.EqualTo(source.Placement.ToDevice(content)));
+            using EffectTarget clone = source.Clone();
+            Assert.That(clone.ContentBounds, Is.EqualTo(content));
             Replace(execution, source, content, source.Bounds.Size);
         }
     }

@@ -165,24 +165,20 @@ public sealed class EffectTarget : IDisposable
 
     public EffectTarget Clone()
     {
-        if (_target is EffectTargetRenderTargetLease renderTargetLease)
+        EffectTarget clone = _target switch
         {
-            return CreateReplacement(renderTargetLease.Retain());
-        }
-        else if (RenderTarget != null)
-        {
-            return CreateReplacement(RenderTarget);
-        }
-        else
-        {
-            return new EffectTarget
+            EffectTargetRenderTargetLease renderTargetLease => CreateReplacement(renderTargetLease.Retain()),
+            RenderTarget renderTarget => CreateReplacement(renderTarget),
+            _ => new EffectTarget
             {
                 OriginalBounds = OriginalBounds,
                 Bounds = Bounds,
                 CompleteBounds = CompleteBounds,
                 TextPart = TextPart,
-            };
-        }
+            },
+        };
+        clone.ContentBounds = ContentBounds;
+        return clone;
     }
 
     /// <summary>
