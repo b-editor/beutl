@@ -448,7 +448,19 @@
     <value>Order</value>
   </data>
   <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
-    <value>Which part starts first. The position orders sweep across the parts one part size per delay step, so parts level with each other start together.</value>
+    <value>Which part starts first. Position orders advance one typical part size per delay step. From center uses the distance to the center of the combined bounds. Parts at the same distance along the sweep start together.</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode" xml:space="preserve">
+    <value>Delay mode</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
+    <value>Per step uses Delay for each step, in milliseconds. Total uses Delay for the time from the first part's start to the last part's start.</value>
+  </data>
+  <data name="DelayAnimationMode_PerStep" xml:space="preserve">
+    <value>Per step</value>
+  </data>
+  <data name="DelayAnimationMode_Total" xml:space="preserve">
+    <value>Total</value>
   </data>
   <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
     <value>Random seed</value>
@@ -2600,5 +2612,47 @@
   </data>
   <data name="LightLeakTransition_LibraryDescription" xml:space="preserve">
     <value>Sweeps a warm light leak and a flare across the cut (film burn, light flash).</value>
+  </data>
+  <data name="RangeAnimatorEffect" xml:space="preserve">
+    <value>Range animator</value>
+  </data>
+  <data name="RangeAnimatorEffect_LibraryDescription" xml:space="preserve">
+    <value>Animates a selected range of split text characters or parts produced by Split by parts.</value>
+  </data>
+  <data name="RangeAnimatorEffect_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="RangeAnimatorEffect_End" xml:space="preserve">
+    <value>End</value>
+  </data>
+  <data name="RangeAnimatorEffect_Shape" xml:space="preserve">
+    <value>Shape</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness" xml:space="preserve">
+    <value>Smoothness</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness_Description" xml:space="preserve">
+    <value>Softens the edges of the Square shape. At 100%, each part gets the fraction of its slot covered by the range. At 0%, its center decides whether it is selected.</value>
+  </data>
+  <data name="RangeAnimatorEffect_ColorAmount" xml:space="preserve">
+    <value>Color amount</value>
+  </data>
+  <data name="RangeAnimatorShape_Square" xml:space="preserve">
+    <value>Square</value>
+  </data>
+  <data name="RangeAnimatorShape_RampUp" xml:space="preserve">
+    <value>Ramp up</value>
+  </data>
+  <data name="RangeAnimatorShape_RampDown" xml:space="preserve">
+    <value>Ramp down</value>
+  </data>
+  <data name="RangeAnimatorShape_Triangle" xml:space="preserve">
+    <value>Triangle</value>
+  </data>
+  <data name="RangeAnimatorShape_Round" xml:space="preserve">
+    <value>Round</value>
+  </data>
+  <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
+    <value>Smooth</value>
   </data>
 </root>

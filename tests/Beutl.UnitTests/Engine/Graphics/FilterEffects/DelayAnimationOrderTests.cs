@@ -13,10 +13,8 @@ public sealed class DelayAnimationOrderTests
 {
     [TestCase(DelayAnimationOrder.Forward, new float[] { 0, 1, 2, 3, 4 })]
     [TestCase(DelayAnimationOrder.Reverse, new float[] { 4, 3, 2, 1, 0 })]
-    [TestCase(DelayAnimationOrder.FromCenter, new float[] { 2, 1, 0, 1, 2 })]
     [TestCase(DelayAnimationOrder.Forward, new float[] { 0, 1, 2, 3 })]
     [TestCase(DelayAnimationOrder.Reverse, new float[] { 3, 2, 1, 0 })]
-    [TestCase(DelayAnimationOrder.FromCenter, new float[] { 1.5f, 0.5f, 0.5f, 1.5f })]
     public void IndexOrdersUseTheOriginalPartIndices(DelayAnimationOrder order, float[] expected)
     {
         var ranks = new float[expected.Length];
@@ -168,28 +166,95 @@ public sealed class DelayAnimationOrderTests
         Assert.That(ranks, Is.EqualTo(new float[] { 0, 0, 2 }));
     }
 
+    [Test]
+    public void FromCenterUsesTwoDimensionalDistanceAndSkipsEmptyTargets()
+    {
+        Rect?[] bounds =
+        [
+            new Rect(20, 30, 10, 10),
+            new Rect(10, 20, 10, 10),
+            new Rect(10, 30, 10, 10),
+            null,
+            new Rect(20, 40, 10, 10),
+            new Rect(30, 30, 10, 10),
+            new Rect(30, 40, 10, 10),
+        ];
+        var ranks = new float[bounds.Length];
+        float diagonal = MathF.Sqrt(2);
+
+        DelayAnimationOrdering.ComputeRanks(DelayAnimationOrder.FromCenter, 0, bounds, ranks);
+
+        Assert.That(ranks, Is.EqualTo(new float[] { 0, diagonal, 1, 0, 1, 1, diagonal }).Within(0.0001f));
+    }
+
+    [Test]
+    public void FromCenterUsesTheCombinedBoundsAndMedianSideLength()
+    {
+        Rect?[] bounds = [new Rect(60, 0, 20, 20), new Rect(0, 0, 10, 20), new Rect(20, 0, 40, 20)];
+        var ranks = new float[bounds.Length];
+
+        DelayAnimationOrdering.ComputeRanks(DelayAnimationOrder.FromCenter, 0, bounds, ranks);
+
+        Assert.That(ranks, Is.EqualTo(new float[] { 1.5f, 1.75f, 0 }));
+    }
+
     [TestCase(DelayAnimationOrder.Forward, 250f, new float[] { 0.5f, 0.25f, 0, 0 })]
     [TestCase(DelayAnimationOrder.Reverse, 250f, new float[] { 0, 0, 0.25f, 0.5f })]
     [TestCase(DelayAnimationOrder.Forward, float.NaN, new float[] { 0.5f, 0.5f, 0.5f, 0.5f })]
     [TestCase(DelayAnimationOrder.Reverse, float.PositiveInfinity, new float[] { 0.5f, 0.5f, 0.5f, 0.5f })]
     public void RunsAnimatedOpacityAtTheRankedTime(DelayAnimationOrder order, float delay, float[] expected)
     {
-        var opacity = new OpacityEffect();
-        opacity.Opacity.SetKeyFrameAnimation(
-            TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1), useGlobalClock: true));
         var effect = new DelayAnimationEffect
         {
             Delay = { Value = delay },
             Order = { Value = order },
-            Effect = { Value = opacity },
         };
-        using var targets = new EffectTargets
+
+        Assert.That(RenderAnimatedOpacity(effect, expected.Length), Is.EqualTo(expected).Within(0.001f));
+    }
+
+    [TestCase(DelayAnimationOrder.Forward, new float[] { 0.5f, 0 })]
+    [TestCase(DelayAnimationOrder.Reverse, new float[] { 0, 1f / 6, 1f / 3, 0.5f })]
+    [TestCase(DelayAnimationOrder.LeftToRight, new float[] { 0.5f, 0.375f, 0.25f, 0.125f, 0 })]
+    [TestCase(DelayAnimationOrder.FromCenter, new float[] { 0, 0.5f, 0.5f, 0 })]
+    public void TotalDelaySpansTheSameDurationAcrossOrdersAndCounts(DelayAnimationOrder order, float[] expected)
+    {
+        var effect = new DelayAnimationEffect
         {
-            FilterEffectTestHarness.CreateSolidTarget(new Rect(0, 0, 2, 2)),
-            FilterEffectTestHarness.CreateSolidTarget(new Rect(2, 0, 2, 2)),
-            FilterEffectTestHarness.CreateSolidTarget(new Rect(4, 0, 2, 2)),
-            FilterEffectTestHarness.CreateSolidTarget(new Rect(6, 0, 2, 2)),
+            Delay = { Value = 500 },
+            DelayMode = { Value = DelayAnimationMode.Total },
+            Order = { Value = order },
         };
+
+        Assert.That(RenderAnimatedOpacity(effect, expected.Length), Is.EqualTo(expected).Within(0.001f));
+    }
+
+    [TestCase(DelayAnimationOrder.Reverse, 1)]
+    [TestCase(DelayAnimationOrder.TopToBottom, 3)]
+    [TestCase(DelayAnimationOrder.FromCenter, 2)]
+    public void TotalDelayDoesNotWaitWhenAllPartsStartTogether(DelayAnimationOrder order, int count)
+    {
+        var effect = new DelayAnimationEffect
+        {
+            Delay = { Value = 500 },
+            DelayMode = { Value = DelayAnimationMode.Total },
+            Order = { Value = order },
+        };
+
+        Assert.That(RenderAnimatedOpacity(effect, count), Is.All.EqualTo(0.5f).Within(0.001f));
+    }
+
+    private static float[] RenderAnimatedOpacity(DelayAnimationEffect effect, int count)
+    {
+        var opacity = new OpacityEffect();
+        opacity.Opacity.SetKeyFrameAnimation(
+            TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1), useGlobalClock: true));
+        effect.Effect.Value = opacity;
+
+        using var targets = new EffectTargets();
+        for (int i = 0; i < count; i++)
+            targets.Add(FilterEffectTestHarness.CreateSolidTarget(new Rect(i * 2, 0, 2, 2)));
+
         using DelayAnimationEffect.Resource resource = effect.ToResource(new CompositionContext(MediaTime.FromSeconds(0.5)));
         using var context = new FilterEffectContext(targets.CalculateBounds());
         context.ApplyTransactional(resource);
@@ -207,11 +272,10 @@ public sealed class DelayAnimationOrderTests
         executor.Apply(context);
         executor.Flush(false);
 
-        float[] alpha = targets.Select(target =>
+        return targets.Select(target =>
         {
             using Bitmap bitmap = target.RenderTarget!.Snapshot();
             return (float)BitConverter.UInt16BitsToHalf(bitmap.GetPixelSpan<ushort>()[3]);
         }).ToArray();
-        Assert.That(alpha, Is.EqualTo(expected).Within(0.001f));
     }
 }

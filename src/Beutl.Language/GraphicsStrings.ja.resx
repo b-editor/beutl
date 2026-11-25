@@ -443,7 +443,19 @@
     <value>順序</value>
   </data>
   <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
-    <value>どのパーツから動き始めるか。位置による順はパーツの大きさ1つ分を1ステップとして端から動かすので、同じ高さや同じ位置にあるパーツは同時に動き始めます。</value>
+    <value>動き始める順番を指定します。位置による順番では、パーツの大きさを基準に間隔を決めます。「中央から」では、全パーツを囲む矩形の中央からの距離が等しいパーツが同時に動き始めます。上下左右からの場合は、進行方向の位置が同じパーツが同時に動き始めます。</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode" xml:space="preserve">
+    <value>ディレイの基準</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
+    <value>「1ステップごと」では、1ステップあたりの遅延をミリ秒で指定します。「全体」では、最初のパーツが動き始めてから最後のパーツが動き始めるまでの時間を指定します。</value>
+  </data>
+  <data name="DelayAnimationMode_PerStep" xml:space="preserve">
+    <value>1ステップごと</value>
+  </data>
+  <data name="DelayAnimationMode_Total" xml:space="preserve">
+    <value>全体</value>
   </data>
   <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
     <value>乱数シード</value>
@@ -2595,5 +2607,47 @@
   </data>
   <data name="LightLeakTransition_LibraryDescription" xml:space="preserve">
     <value>暖色の光漏れとフレアを画面に走らせてクリップを切り替えます（フィルムバーン、光漏れ、フラッシュ / film burn, light flash）。</value>
+  </data>
+  <data name="RangeAnimatorEffect" xml:space="preserve">
+    <value>範囲アニメーター</value>
+  </data>
+  <data name="RangeAnimatorEffect_LibraryDescription" xml:space="preserve">
+    <value>文字ごとに分割したテキストや、「パーツごとに分割」で切り分けた画像のうち、指定した範囲をアニメーションさせます。</value>
+  </data>
+  <data name="RangeAnimatorEffect_Start" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="RangeAnimatorEffect_End" xml:space="preserve">
+    <value>終了</value>
+  </data>
+  <data name="RangeAnimatorEffect_Shape" xml:space="preserve">
+    <value>形状</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness" xml:space="preserve">
+    <value>滑らかさ</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness_Description" xml:space="preserve">
+    <value>「四角形」の範囲の境界をなめらかにします。100%では、各パーツの区間が選択範囲に重なる割合だけ効果がかかります。0%では、区間の中央が範囲内にあるパーツだけに効果がかかります。</value>
+  </data>
+  <data name="RangeAnimatorEffect_ColorAmount" xml:space="preserve">
+    <value>色の適用量</value>
+  </data>
+  <data name="RangeAnimatorShape_Square" xml:space="preserve">
+    <value>四角形</value>
+  </data>
+  <data name="RangeAnimatorShape_RampUp" xml:space="preserve">
+    <value>上り傾斜</value>
+  </data>
+  <data name="RangeAnimatorShape_RampDown" xml:space="preserve">
+    <value>下り傾斜</value>
+  </data>
+  <data name="RangeAnimatorShape_Triangle" xml:space="preserve">
+    <value>三角形</value>
+  </data>
+  <data name="RangeAnimatorShape_Round" xml:space="preserve">
+    <value>半円</value>
+  </data>
+  <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
+    <value>滑らか</value>
   </data>
 </root>

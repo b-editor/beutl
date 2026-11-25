@@ -19,6 +19,10 @@ public partial class DelayAnimationEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Delay), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Delay { get; } = Property.CreateAnimatable(0f);
 
+    [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_DelayMode), Description = nameof(GraphicsStrings.DelayAnimationEffect_DelayMode_Description),
+        ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<DelayAnimationMode> DelayMode { get; } = Property.CreateAnimatable(DelayAnimationMode.PerStep);
+
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Order), Description = nameof(GraphicsStrings.DelayAnimationEffect_Order_Description),
         ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<DelayAnimationOrder> Order { get; } = Property.CreateAnimatable(DelayAnimationOrder.Forward);
@@ -30,31 +34,19 @@ public partial class DelayAnimationEffect : FilterEffect
     public IExpressionProperty<FilterEffect?> Effect { get; } = Property.CreateExpression<FilterEffect?>();
 
     /// <summary>
-    /// Applies the child effect to each target at a time held back by <c>delay</c> milliseconds multiplied by its rank,
-    /// keeping one child resource per target in <c>cache</c>.
+    /// Applies the child effect to each target at its delayed time, keeping one child resource per target.
     /// </summary>
     private static void ApplyDelayed(
-        (float delay, DelayAnimationOrder order, int randomSeed, MediaTime globalTime,
+        (float delay, DelayAnimationMode delayMode, DelayAnimationOrder order, int randomSeed, MediaTime globalTime,
             FilterEffect childEffect, List<FilterEffect.Resource> cache,
             bool disableResourceShare, CompositionConditions conditions) data,
         CustomFilterEffectContext effectContext)
     {
         int targetCount = effectContext.Targets.Count;
         Span<float> ranks = targetCount <= 128 ? stackalloc float[targetCount] : new float[targetCount];
-        Rect?[]? bounds = null;
-        if (data.order is DelayAnimationOrder.LeftToRight or DelayAnimationOrder.RightToLeft
-            or DelayAnimationOrder.TopToBottom or DelayAnimationOrder.BottomToTop)
-        {
-            bounds = new Rect?[targetCount];
-            for (int i = 0; i < targetCount; i++)
-            {
-                EffectTarget target = effectContext.Targets[i];
-                if (!target.IsEmpty)
-                    bounds[i] = target.Bounds;
-            }
-        }
-
-        DelayAnimationOrdering.ComputeRanks(data.order, data.randomSeed, bounds, ranks);
+        DelayAnimationOrdering.ComputeTargetRanks(data.order, data.randomSeed, effectContext.Targets, ranks);
+        if (data.delayMode == DelayAnimationMode.Total)
+            NormalizeTotalRanks(data.order, effectContext.Targets, ranks);
 
         for (int i = data.cache.Count; i < targetCount; i++)
         {
@@ -115,6 +107,29 @@ public partial class DelayAnimationEffect : FilterEffect
         }
     }
 
+    private static void NormalizeTotalRanks(DelayAnimationOrder order, EffectTargets targets, Span<float> ranks)
+    {
+        // There may be no part at the visual center. Measure the total from the first occupied rank.
+        float first = order == DelayAnimationOrder.FromCenter ? float.PositiveInfinity : 0;
+        float last = 0;
+        for (int i = 0; i < ranks.Length; i++)
+        {
+            if (order != DelayAnimationOrder.FromCenter || !targets[i].IsEmpty)
+                first = Math.Min(first, ranks[i]);
+            last = Math.Max(last, ranks[i]);
+        }
+
+        if (last <= first)
+        {
+            ranks.Clear();
+            return;
+        }
+
+        float range = last - first;
+        for (int i = 0; i < ranks.Length; i++)
+            ranks[i] = Math.Max(ranks[i] - first, 0) / range;
+    }
+
     private static MediaTime GetDelayedTime(MediaTime globalTime, float delay, float rank)
     {
         float milliseconds = delay * rank;
@@ -145,6 +160,7 @@ public partial class DelayAnimationEffect : FilterEffect
     public new class Resource : FilterEffect.Resource
     {
         private float _delay;
+        private DelayAnimationMode _delayMode;
         private DelayAnimationOrder _order;
         private int _randomSeed;
         private FilterEffect.Resource? _effect;
@@ -155,6 +171,7 @@ public partial class DelayAnimationEffect : FilterEffect
         private readonly List<FilterEffect.Resource> _delayedResources = [];
 
         public float Delay => _delay;
+        public DelayAnimationMode DelayMode => _delayMode;
 
         public DelayAnimationOrder Order => _order;
 
@@ -178,6 +195,7 @@ public partial class DelayAnimationEffect : FilterEffect
 
             var typed = (DelayAnimationEffect)obj;
             ResourceReconciler.ReconcileValue(this, context, typed.Delay, ref _delay, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, typed.DelayMode, ref _delayMode, ref versionBumped);
             ResourceReconciler.ReconcileValue(this, context, typed.Order, ref _order, ref versionBumped);
             ResourceReconciler.ReconcileValue(this, context, typed.RandomSeed, ref _randomSeed, ref versionBumped);
             ResourceReconciler.ReconcileChild(this, context, typed.Effect, ref _effect, ref versionBumped);
@@ -230,7 +248,7 @@ public partial class DelayAnimationEffect : FilterEffect
             FilterEffect childEffect = Effect.RequireOriginal();
 
             context.CustomEffect(
-                (delay: Delay, order: Order, randomSeed: RandomSeed, globalTime: GlobalTime,
+                (delay: Delay, delayMode: DelayMode, order: Order, randomSeed: RandomSeed, globalTime: GlobalTime,
                  childEffect, cache: DelayedResources,
                  disableResourceShare: DisableResourceShare,
                  conditions: _conditions),
@@ -241,6 +259,25 @@ public partial class DelayAnimationEffect : FilterEffect
 
 internal static class DelayAnimationOrdering
 {
+    internal static void ComputeTargetRanks(DelayAnimationOrder order, int seed, EffectTargets targets, Span<float> ranks)
+    {
+        Rect?[]? bounds = null;
+        if (ranks.Length > 1 && order is DelayAnimationOrder.FromCenter
+            or DelayAnimationOrder.LeftToRight or DelayAnimationOrder.RightToLeft
+            or DelayAnimationOrder.TopToBottom or DelayAnimationOrder.BottomToTop)
+        {
+            bounds = new Rect?[ranks.Length];
+            for (int i = 0; i < ranks.Length; i++)
+            {
+                EffectTarget target = targets[i];
+                if (!target.IsEmpty)
+                    bounds[i] = target.Bounds;
+            }
+        }
+
+        ComputeRanks(order, seed, bounds, ranks);
+    }
+
     // Positional orders read one bounds entry per rank. Null marks an empty target.
     internal static void ComputeRanks(
         DelayAnimationOrder order, int seed, ReadOnlySpan<Rect?> bounds, Span<float> ranks)
@@ -258,9 +295,7 @@ internal static class DelayAnimationOrdering
                     ranks[i] = ranks.Length - 1 - i;
                 break;
             case DelayAnimationOrder.FromCenter:
-                float center = (ranks.Length - 1) / 2f;
-                for (int i = 0; i < ranks.Length; i++)
-                    ranks[i] = MathF.Abs(i - center);
+                ComputeCenterRanks(bounds, ranks);
                 break;
             case DelayAnimationOrder.Random:
                 ComputeRandomRanks(seed, ranks);
@@ -335,13 +370,66 @@ internal static class DelayAnimationOrdering
                 sizes[sizeCount++] = size;
         }
 
-        sizes[..sizeCount].Sort();
-        double unit = sizeCount == 0 ? 1 : ((double)sizes[(sizeCount - 1) / 2] + sizes[sizeCount / 2]) / 2;
+        double unit = GetMedianSize(sizes[..sizeCount]);
         for (int i = 0; i < ranks.Length; i++)
         {
             double distance = reverse ? (double)edge - ranks[i] : (double)ranks[i] - edge;
-            float rank = (float)(distance / unit);
-            ranks[i] = float.IsFinite(rank) ? rank : 0;
+            ranks[i] = DistanceToRank(distance, unit);
         }
+    }
+
+    private static void ComputeCenterRanks(ReadOnlySpan<Rect?> bounds, Span<float> ranks)
+    {
+        Span<float> sizes = ranks.Length <= 128 ? stackalloc float[ranks.Length] : new float[ranks.Length];
+        int sizeCount = 0;
+        double left = double.PositiveInfinity;
+        double top = double.PositiveInfinity;
+        double right = double.NegativeInfinity;
+        double bottom = double.NegativeInfinity;
+        foreach (Rect? entry in bounds)
+        {
+            if (entry is not { } part || !float.IsFinite(part.X) || !float.IsFinite(part.Y)
+                || !float.IsFinite(part.Width) || !float.IsFinite(part.Height))
+                continue;
+
+            left = Math.Min(left, part.X);
+            top = Math.Min(top, part.Y);
+            right = Math.Max(right, (double)part.X + part.Width);
+            bottom = Math.Max(bottom, (double)part.Y + part.Height);
+
+            // Use the mean side length so a square has the same unit in every position order.
+            float size = (float)(((double)part.Width + part.Height) / 2);
+            if (size > 0)
+                sizes[sizeCount++] = size;
+        }
+
+        double centerX = (left + right) / 2;
+        double centerY = (top + bottom) / 2;
+        double unit = GetMedianSize(sizes[..sizeCount]);
+        for (int i = 0; i < ranks.Length; i++)
+        {
+            if (bounds[i] is not { } part)
+            {
+                ranks[i] = 0;
+                continue;
+            }
+
+            double x = part.X + part.Width / 2d - centerX;
+            double y = part.Y + part.Height / 2d - centerY;
+            ranks[i] = DistanceToRank(Math.Sqrt(x * x + y * y), unit);
+        }
+    }
+
+    private static double GetMedianSize(Span<float> sizes)
+    {
+        sizes.Sort();
+        int count = sizes.Length;
+        return count == 0 ? 1 : ((double)sizes[(count - 1) / 2] + sizes[count / 2]) / 2;
+    }
+
+    private static float DistanceToRank(double distance, double unit)
+    {
+        float rank = (float)(distance / unit);
+        return float.IsFinite(rank) ? rank : 0;
     }
 }

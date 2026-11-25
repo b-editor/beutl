@@ -1110,6 +1110,8 @@ public sealed class SchemaGenerationTests
         IReadOnlyList<EffectSummary> effects = generator.ListEffects();
         IReadOnlyList<EffectRecipeSummary> recipes = generator.ListEffectRecipes();
         EffectRecipe glitchRecipe = generator.GetEffectRecipe("digital-glitch");
+        EffectRecipe rangeAnimatorRecipe = generator.GetEffectRecipe("effect-range-animator-effect");
+        string rangeAnimatorPatch = rangeAnimatorRecipe.Patch.ToJsonString();
 
         Assert.Multiple(() =>
         {
@@ -1120,6 +1122,10 @@ public sealed class SchemaGenerationTests
             Assert.That(glitchRecipe.Patch.ToJsonString(), Does.Contain("ColorShift"));
             Assert.That(glitchRecipe.Patch.ToJsonString(), Does.Contain("MosaicEffect"));
             Assert.That(glitchRecipe.Patch.ToJsonString(), Does.Contain("ShakeEffect"));
+            Assert.That(rangeAnimatorRecipe.Notes, Has.Some.Contains("TextBlock.SplitByCharacters"));
+            Assert.That(rangeAnimatorPatch, Does.Contain("\"RangeStart\":20"));
+            Assert.That(rangeAnimatorPatch, Does.Contain("\"RangeEnd\":65"));
+            Assert.That(rangeAnimatorPatch, Does.Contain("\"RangeOffset\":0"));
         });
     }
 

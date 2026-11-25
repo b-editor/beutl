@@ -447,7 +447,19 @@
     <value>Orden</value>
   </data>
   <data name="DelayAnimationEffect_Order_Description" xml:space="preserve">
-    <value>Determina qué parte empieza primero. En los órdenes por posición, el barrido avanza el tamaño de una parte por cada intervalo de retardo. Las partes que comparten la misma posición en el eje del barrido empiezan al mismo tiempo.</value>
+    <value>Determina qué parte empieza primero. Los órdenes por posición avanzan el tamaño típico de una parte por paso de retardo. Desde el centro usa la distancia al centro del rectángulo que engloba todas las partes. Las partes a la misma distancia a lo largo del barrido empiezan juntas.</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode" xml:space="preserve">
+    <value>Modo de retardo</value>
+  </data>
+  <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
+    <value>Por paso aplica el retardo en milisegundos a cada paso. Total mide el retardo desde el inicio de la primera parte hasta el inicio de la última.</value>
+  </data>
+  <data name="DelayAnimationMode_PerStep" xml:space="preserve">
+    <value>Por paso</value>
+  </data>
+  <data name="DelayAnimationMode_Total" xml:space="preserve">
+    <value>Total</value>
   </data>
   <data name="DelayAnimationEffect_RandomSeed" xml:space="preserve">
     <value>Semilla aleatoria</value>
@@ -2599,5 +2611,47 @@
   </data>
   <data name="LightLeakTransition_LibraryDescription" xml:space="preserve">
     <value>Hace pasar una filtración de luz cálida y un destello sobre el corte (quemadura de película, fuga de luz, destello / film burn, light flash).</value>
+  </data>
+  <data name="RangeAnimatorEffect" xml:space="preserve">
+    <value>Animador de rango</value>
+  </data>
+  <data name="RangeAnimatorEffect_LibraryDescription" xml:space="preserve">
+    <value>Anima un rango de caracteres de un texto dividido o de piezas obtenidas con Dividir por partes.</value>
+  </data>
+  <data name="RangeAnimatorEffect_Start" xml:space="preserve">
+    <value>Inicio</value>
+  </data>
+  <data name="RangeAnimatorEffect_End" xml:space="preserve">
+    <value>Fin</value>
+  </data>
+  <data name="RangeAnimatorEffect_Shape" xml:space="preserve">
+    <value>Forma</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness" xml:space="preserve">
+    <value>Suavidad</value>
+  </data>
+  <data name="RangeAnimatorEffect_Smoothness_Description" xml:space="preserve">
+    <value>Suaviza los bordes de la forma Cuadrada. Al 100%, cada parte recibe un efecto proporcional a la porción de su intervalo que cubre el rango. Al 0%, la selección depende de si su centro cae dentro del rango.</value>
+  </data>
+  <data name="RangeAnimatorEffect_ColorAmount" xml:space="preserve">
+    <value>Cantidad de color</value>
+  </data>
+  <data name="RangeAnimatorShape_Square" xml:space="preserve">
+    <value>Cuadrada</value>
+  </data>
+  <data name="RangeAnimatorShape_RampUp" xml:space="preserve">
+    <value>Rampa ascendente</value>
+  </data>
+  <data name="RangeAnimatorShape_RampDown" xml:space="preserve">
+    <value>Rampa descendente</value>
+  </data>
+  <data name="RangeAnimatorShape_Triangle" xml:space="preserve">
+    <value>Triangular</value>
+  </data>
+  <data name="RangeAnimatorShape_Round" xml:space="preserve">
+    <value>Redonda</value>
+  </data>
+  <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
+    <value>Suave</value>
   </data>
 </root>
