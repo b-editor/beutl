@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Reflection;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -9,6 +10,7 @@ using Beutl.Editor.Components.FileBrowserTab.Views;
 using Beutl.Graphics;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Models;
+using Beutl.Helpers;
 using Beutl.Language;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -476,8 +478,27 @@ public sealed class ProjectAssetTests
         scene.Duration.Value = edited;
         editor.HistoryManager.Commit();
 
-        using (TestShell.Editor.SuspendEditors())
-            Assert.That(await editor.UndoAsync(), Is.False);
+        const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+        var guard = (HistoryMutationPlaybackGuard)typeof(EditViewModel).GetField("_historyMutationPlaybackGuard", fields)!.GetValue(editor)!;
+        var gate = (SemaphoreSlim)typeof(HistoryMutationPlaybackGuard).GetField("_gate", fields)!.GetValue(guard)!;
+        int beforeMutations = 0;
+        using var subscription = editor.HistoryManager.BeforeMutation.Subscribe(_ => beforeMutations++);
+        await gate.WaitAsync();
+        ValueTask<bool> undo;
+        IDisposable suspension;
+        try
+        {
+            undo = editor.UndoAsync();
+            Assert.That(undo.IsCompleted, Is.False);
+            suspension = TestShell.Editor.SuspendEditors();
+        }
+        finally
+        {
+            gate.Release();
+        }
+        using (suspension)
+            Assert.That(await undo, Is.False);
+        Assert.That(beforeMutations, Is.Zero);
         Assert.That(scene.Duration.Value, Is.EqualTo(edited));
         Assert.That(await editor.UndoAsync(), Is.True);
 

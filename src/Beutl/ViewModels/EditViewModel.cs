@@ -521,9 +521,9 @@ public sealed partial class EditViewModel
             Player,
             () =>
             {
-                // Closing may have started while Pause awaited the compose/render barriers.
+                // Closing or suspension can start while the playback guard waits.
                 ObjectDisposedException.ThrowIf(_disposed, this);
-                HistoryManager.FlushPendingMutations();
+                if (IsEnabled.Value) HistoryManager.FlushPendingMutations();
             },
             shouldPause,
             mutate,
@@ -550,7 +550,9 @@ public sealed partial class EditViewModel
                 _logger.LogInformation("{Message}", startMessage);
             }
 
-            bool changed = await ExecuteGuardedHistoryMutationAsync(shouldPause, () => IsEnabled.Value && mutate());
+            bool changed = await ExecuteGuardedHistoryMutationAsync(
+                () => IsEnabled.Value && shouldPause(),
+                () => IsEnabled.Value && mutate());
             if (changed && collect)
                 usage!.Record("editor.history", tool,
                     operationName is "Undo" or "Redo" ? operationName : "JumpTo", epoch: epoch);
