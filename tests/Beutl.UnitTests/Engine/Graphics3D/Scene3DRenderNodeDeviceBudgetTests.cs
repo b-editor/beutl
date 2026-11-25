@@ -131,6 +131,34 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
         Assert.That(renderer.HitTest(s_sceneCenter), Is.False);
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void PreviewFrame_DoesNotWarnWhenThe3DSceneIsCulled(bool supports3D, bool useParentClip)
+    {
+        Rect viewport = new(0, 0, 64, 48);
+        using Scene3D.Resource scene = CreateScene(s_sceneBounds);
+        using ContainerRenderNode root = useParentClip
+            ? new RectClipRenderNode(new Rect(0, 0, 16, 48), ClipOperation.Intersect)
+            : new ContainerRenderNode();
+        var transform = new TransformRenderNode(
+            Matrix.CreateTranslation(useParentClip ? 32 : 80, 0), TransformOperator.Prepend);
+        transform.AddChild(new Scene3DRenderNode(scene));
+        root.AddChild(transform);
+
+        RenderNodeRenderRequest request = CreateRequest(Budget(SceneWidth / 2), viewport) with
+        {
+            Purpose = RenderRequestPurpose.Frame,
+            Supports3DRendering = supports3D,
+        };
+        using var renderer = new RenderNodeRenderer(root, request);
+        using var target = new CpuRenderTarget(new PixelSize(64, 48));
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
+
+        Assert.That(renderer.RenderWithWarning(canvas, null, default), Is.Null);
+    }
+
     // The fixed shadow extents refuse every scene on a device too small for them, however small the scene is,
     // so a footprint check alone would leave exactly the same stale hit answer behind.
     [Test]

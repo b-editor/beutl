@@ -66,23 +66,11 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         Rect bounds = new(0, 0, width, height);
         if (!context.Supports3DRendering)
         {
-            if (context.Intent == RenderIntent.Delivery
-                && context.Purpose is not (RenderRequestPurpose.Bounds or RenderRequestPurpose.HitTest))
+            if (context.Purpose == RenderRequestPurpose.Frame
+                || (context.Intent == RenderIntent.Delivery
+                    && context.Purpose is not (RenderRequestPurpose.Bounds or RenderRequestPurpose.HitTest)))
             {
-                // Fail at execution so clipped-out contributions can still be culled by the request.
-                var unavailable = OpaqueRenderDescription.Create(
-                    state: MessageStrings.Scene3DBackendUnavailable,
-                    execute: static (_, message) => throw new InvalidOperationException(message),
-                    bounds: OpaqueRenderBoundsContract.Source(bounds),
-                    hitTest: RenderHitTestContract.None,
-                    valueCardinality: RenderValueCardinality.ZeroOrOne,
-                    scale: RenderScaleContract.MaterializeAtWorkingScale,
-                    deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive);
-                context.Publish(context.OpaqueSource(unavailable));
-            }
-            else
-            {
-                context.ReportPreviewWarning(MessageStrings.Scene3DBackendUnavailable);
+                RecordUnavailableScene(context, bounds, MessageStrings.Scene3DBackendUnavailable);
             }
 
             return;
@@ -93,9 +81,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             bounds,
             context.OutputScale,
             context.MaxWorkingScale).Value;
-        // A preview does not record a value the device cannot render, whose hit test would swallow clicks meant for
-        // the 2D content beneath; Delivery records it so the refusal is reported. The 2D intermediate can be 1 px
-        // wider, a known gap pinned by Scene3DRenderNodeDeviceBudgetTests.ASceneExactlyAtTheDeviceLimit_IsAKnownGap.
+        // Drop the 3D value before recording a hit test when the preview exceeds the device limit.
+        // The 2D intermediate can be 1 px wider, as covered by ASceneExactlyAtTheDeviceLimit_IsAKnownGap.
         if (context.Intent == RenderIntent.Preview)
         {
             (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(bounds, workingScale);
@@ -105,12 +92,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             if (Renderer3D.FindExceededExtentLimit(context.Device3DExtentBudget, deviceWidth, deviceHeight) is { } exceeded)
             {
                 if (context.Purpose == RenderRequestPurpose.Frame)
-                {
-                    s_logger.LogWarning(
-                        "The {Width}x{Height} px attachment required by a 3D scene exceeds the {Limit} px device limit.",
-                        exceeded.Width, exceeded.Height, exceeded.Limit);
-                    context.ReportPreviewWarning(FormatExtentLimitMessage(exceeded));
-                }
+                    RecordUnavailableScene(context, bounds, FormatExtentLimitMessage(exceeded));
 
                 return;
             }
@@ -418,6 +400,22 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             surface.Flush(true, true);
         });
         session.Publish(output);
+    }
+
+    private static void RecordUnavailableScene(RenderNodeContext context, Rect bounds, string message)
+    {
+        // The request culls this source before executing the callback. Bypass the render cache so
+        // captures and cache hits cannot change whether the warning runs for the requested region.
+        context.DisableRenderCache();
+        var unavailable = OpaqueRenderDescription.Create(
+            state: message,
+            execute: ReportFailure,
+            bounds: OpaqueRenderBoundsContract.Source(bounds),
+            hitTest: RenderHitTestContract.None,
+            valueCardinality: RenderValueCardinality.ZeroOrOne,
+            scale: RenderScaleContract.MaterializeAtWorkingScale,
+            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive);
+        context.Publish(context.OpaqueSource(unavailable));
     }
 
     private static void ReportFailure(OpaqueRenderSession session, string message)

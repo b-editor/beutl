@@ -68,9 +68,13 @@ public class Scene3DRenderWarningTests
                 : MessageStrings.Scene3DBackendUnavailable;
             Border warning = view.FindControl<Border>("previewRenderWarning")!;
             TextBlock message = view.FindControl<TextBlock>("previewRenderWarningMessage")!;
-            editor.FrameCacheManager.Value.Clear();
+            var cache = editor.FrameCacheManager.Value;
+            cache.Clear();
             player.QueuePreviewRender();
-            RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => player.PreviewRenderError.Value is not null
+                      || (player.PreviewRenderWarning.Value is not null && !cache.CalculateBlocks(0, 1).IsEmpty),
+                TimeSpan.FromSeconds(10));
 
             Assert.That(player.PreviewRenderError.Value, Is.Null);
             Assert.That(player.PreviewRenderWarning.Value, Is.EqualTo(expected));
@@ -78,7 +82,7 @@ public class Scene3DRenderWarningTests
             Assert.That(warning.IsVisible, Is.True);
             Assert.That(warning.IsHitTestVisible, Is.False);
             Assert.That(AutomationProperties.GetLiveSetting(message), Is.EqualTo(AutomationLiveSetting.Polite));
-            Assert.That(editor.FrameCacheManager.Value.TryGet(0, out var bitmap, out string? cachedWarning), Is.True);
+            Assert.That(cache.TryGet(0, out var bitmap, out string? cachedWarning), Is.True);
             bitmap?.Dispose();
             Assert.That(cachedWarning, Is.EqualTo(expected));
 

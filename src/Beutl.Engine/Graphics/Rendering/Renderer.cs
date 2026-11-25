@@ -361,6 +361,9 @@ public class Renderer : IRenderer
         InvalidateEntryBounds(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
         _frameContainsScene3D = frame.ContainsScene3D;
+        if (warning is not null)
+            s_logger.LogWarning("A render contribution was skipped. {Reason}", warning);
+
         return warning;
     }
 
