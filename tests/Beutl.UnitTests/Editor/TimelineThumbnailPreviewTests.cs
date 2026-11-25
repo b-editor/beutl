@@ -281,12 +281,13 @@ public class TimelineThumbnailPreviewTests
         });
     }
 
-    [TestCase(0f, 800, false)]
-    [TestCase(50f, 800, false)]
-    [TestCase(0f, 400, false)]
-    [TestCase(0f, 4096, true)]
+    [TestCase(0f, 800, null)]
+    [TestCase(50f, 800, null)]
+    [TestCase(0f, 400, null)]
+    [TestCase(0f, 4096, "expression")]
+    [TestCase(0f, 4096, "keyframes")]
     public async Task ScrolledSlipWaveform_MatchesTheCommittedEffectHistory(
-        float feedback, int samplesPerChunk, bool speedExpression)
+        float feedback, int samplesPerChunk, string? speedAnimation)
     {
         var decoders = TestMediaHelper.CreateRegistry();
         var sound = new SourceSound
@@ -304,16 +305,29 @@ public class TimelineThumbnailPreviewTests
                 },
             },
         };
-        if (speedExpression)
+        if (speedAnimation == "expression")
         {
             new TestHierarchicalRoot().HierarchicalChildren.Add(sound);
             // The larger warm-up block starts while the source is playing, then crosses into the frozen segment.
             sound.Speed.Expression = Expression.Create<float>("Time < 0.15 ? 100 : 0");
         }
+        else if (speedAnimation == "keyframes")
+        {
+            var speed = new KeyFrameAnimation<float>();
+            speed.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 50f } });
+            speed.KeyFrames.Add(new KeyFrame<float>
+            {
+                KeyTime = { Value = MediaTime.FromSeconds(0.65) },
+                Value = { Value = 200f },
+                Easing = { Value = new LinearEasing() },
+            });
+            sound.Speed.SetKeyFrameAnimation(speed);
+        }
 
         MediaTime delta = MediaTime.FromSeconds(0.25);
-        const int chunkCount = 20;
-        int[] requested = [6, 7, 12, 16];
+        // Narrow slots expose differences between per-slot and batched variable-speed resampling.
+        int chunkCount = speedAnimation == "keyframes" ? 200 : 20;
+        int[] requested = speedAnimation == "keyframes" ? [60, 61, 123, 161] : [6, 7, 12, 16];
         var preview = new List<WaveformChunk>();
         await foreach (var chunk in sound.GetPreviewWaveformChunksAsync(
                            chunkCount, samplesPerChunk, requested, decoders: decoders, offsetDelta: delta))

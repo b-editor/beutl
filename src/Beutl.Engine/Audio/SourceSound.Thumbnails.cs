@@ -232,9 +232,9 @@ public sealed partial class SourceSound : IThumbnailsProvider
                         node.SetPreviewStartDelta(startDelta);
                 }
                 long? requiredHistory = GetPreviewEffectHistory(Effect.Value, sampleRate);
-                // A speed expression is evaluated at each slot's start. The resampler keeps state between
-                // slots, so replay from the last seek using the same windows as the committed waveform.
-                if (requiredHistory > 0 && Speed.HasExpression)
+                // Speed expressions and keyframed speeds depend on processing window boundaries.
+                // The resampler carries state between windows, so replay the original slots from the last seek.
+                if (requiredHistory > 0 && AnimationSampler.IsAnimated(Speed))
                     requiredHistory = null;
 
                 return (output, output?.GetFiniteSourceEndSample(sampleRate), requiredHistory);
