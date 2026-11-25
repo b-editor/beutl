@@ -142,11 +142,13 @@ public sealed partial class EditViewModel : IMediaRepairHost
         Player.QueuePreviewRender();
     }
 
-    internal void OnProjectAssetsRelinked()
+    internal void OnProjectAssetsRelinked(IEnumerable<string> savedMediaUris)
     {
         if (_disposed) return;
         ((IMediaRepairHost)this).ClearRenderCaches();
-        CaptureSavedMediaUris();
+        // Collection writes the owners of the relinked sources, so other elements can
+        // still have unsaved edits. Keep their previous saved references.
+        _savedMediaUris.UnionWith(savedMediaUris);
         ScheduleMediaFingerprints(force: true);
         NotifyMissingMedia();
     }

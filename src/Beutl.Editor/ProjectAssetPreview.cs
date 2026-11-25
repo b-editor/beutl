@@ -14,14 +14,17 @@ internal enum ProjectAssetIssue
     Unavailable,
 }
 
-internal sealed record ProjectAssetItem(ProjectAssetFile[] Files, ProjectAssetIssue? Issue = null)
+internal sealed record ProjectAssetItem(ProjectAssetFile[] Files, ProjectAssetIssue? BlockingIssue = null)
 {
     public string Path => Files[0].Path;
     public string Destination => Files[0].Destination;
     public long Size => Files.Sum(file => file.Stamp?.Length ?? 0);
 
+    internal ProjectAssetIssue? RestoreIssue { get; init; }
+    internal ProjectAssetIssue? Issue => BlockingIssue ?? RestoreIssue;
+
     internal bool CanApply(ProjectAssetAction action)
-        => Issue == null || action == ProjectAssetAction.Delete && Issue == ProjectAssetIssue.DestinationExists;
+        => BlockingIssue == null && (action != ProjectAssetAction.Restore || RestoreIssue == null);
 }
 
 internal readonly record struct ProjectAssetFile(string Path, string Destination, ProjectAssetStamp? Stamp);

@@ -1,12 +1,15 @@
 ﻿using System.ComponentModel;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
 internal sealed class ProjectAssetsViewModel : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<ProjectAssetsViewModel>();
     private readonly IProjectAssetHost _host;
     private readonly string _projectDirectory;
     private readonly IDisposable _modeSubscription;
@@ -68,12 +71,15 @@ internal sealed class ProjectAssetsViewModel : IDisposable
             {
                 await _host.ApplyAsync(Project, preview, action, selected, token);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException or ProjectAssetDeleteCanceledException { DeletedCount: > 0 })
             {
                 _preview = null;
                 UpdateRows();
-                try { await LoadAsync(token); }
-                catch (ProjectAssetPlanChangedException) { }
+                try { await LoadAsync(CancellationToken.None); }
+                catch (Exception recoveryError)
+                {
+                    s_logger.LogWarning(recoveryError, "Could not refresh project assets after an operation stopped.");
+                }
                 throw;
             }
 
@@ -125,6 +131,10 @@ internal sealed class ProjectAssetsViewModel : IDisposable
         {
             await operation(cancellation.Token);
             if (Status.Value == status) Status.Value = null;
+        }
+        catch (ProjectAssetDeleteCanceledException ex) when (cancellation.IsCancellationRequested)
+        {
+            Status.Value = string.Format(ProjectAssetsStrings.DeleteCanceled, ex.DeletedCount);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {

@@ -77,8 +77,14 @@ internal sealed class ProjectAssetCoordinator(ProjectService projects, EditorSer
             await _assets.ApplyAsync(project, paths, current, action, selected, token);
             if (action == ProjectAssetAction.Collect)
             {
+                var savedMediaByScene = selected.SelectMany(item => current.Sources[item.Path])
+                    .SelectMany(link => link.Use.Documents.Select(document => (
+                        Scene: document as Scene ?? (document as IHierarchical)?.FindHierarchicalParent<Scene>(),
+                        Uri: MissingMediaService.GetUri(link.Use.Source))))
+                    .Where(use => use.Scene != null && use.Uri is { IsFile: true })
+                    .ToLookup(use => use.Scene!, use => use.Uri!.AbsoluteUri, ReferenceEqualityComparer.Instance);
                 foreach (EditViewModel editor in openEditors.Where(editor => editors.TryGetTabItem(editor.Scene, out _)))
-                    editor.OnProjectAssetsRelinked();
+                    editor.OnProjectAssetsRelinked(savedMediaByScene[editor.Scene]);
             }
             AssetsChanged?.Invoke();
         }, token);

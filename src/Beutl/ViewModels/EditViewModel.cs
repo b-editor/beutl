@@ -449,6 +449,8 @@ public sealed partial class EditViewModel
 
     public ValueTask<bool> UndoAsync()
     {
+        if (_disposed || !IsEnabled.Value) return ValueTask.FromResult(false);
+
         // During a drag, Undo cancels only the drag, as Escape does.
         if (HistoryManager.TryCancelGesture())
             return ValueTask.FromResult(true);
@@ -535,6 +537,8 @@ public sealed partial class EditViewModel
         Func<bool> shouldPause,
         Func<bool> mutate)
     {
+        if (_disposed || !IsEnabled.Value) return false;
+
         UsageTelemetry? usage = UsageTelemetry.Current;
         long epoch = 0;
         bool collect = usage?.TryGetCollectionEpoch(out epoch) == true;
@@ -546,7 +550,7 @@ public sealed partial class EditViewModel
                 _logger.LogInformation("{Message}", startMessage);
             }
 
-            bool changed = await ExecuteGuardedHistoryMutationAsync(shouldPause, mutate);
+            bool changed = await ExecuteGuardedHistoryMutationAsync(shouldPause, () => IsEnabled.Value && mutate());
             if (changed && collect)
                 usage!.Record("editor.history", tool,
                     operationName is "Undo" or "Redo" ? operationName : "JumpTo", epoch: epoch);
