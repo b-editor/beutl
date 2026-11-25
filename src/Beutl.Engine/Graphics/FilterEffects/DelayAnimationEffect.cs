@@ -96,17 +96,10 @@ public partial class DelayAnimationEffect : FilterEffect
             executor.Apply(childFEContext);
             executor.Flush(false);
 
-            if (singleTargets.Count > 0)
-            {
-                effectContext.Targets[i] = singleTargets[0].Clone();
-
-                for (int k = 1; k < singleTargets.Count; k++)
-                {
-                    effectContext.Targets.Insert(i + k, singleTargets[k].Clone());
-                }
-
-                i += singleTargets.Count - 1;
-            }
+            int replacementCount = singleTargets.Count;
+            effectContext.Targets.RemoveAt(i);
+            effectContext.Targets.InsertRange(i, singleTargets);
+            i += replacementCount - 1;
         }
     }
 
