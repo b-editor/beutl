@@ -39,6 +39,7 @@ public sealed partial class TimelineTabView : UserControl
     private IDisposable? _nativeInputRegistration;
     private CancellationTokenSource? _scrollCts;
     private Task _scrollTask = Task.CompletedTask;
+    private ElementView? _dragReadoutOwner;
 
     public TimelineTabView()
         : this(NativeScrollInput.UsesGestureAxes)
@@ -108,11 +109,28 @@ public sealed partial class TimelineTabView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        ClearDragReadout();
         DetachNativeInput();
         base.OnDetachedFromVisualTree(e);
     }
 
     private void OnNativeInputRootClosed(object? sender, EventArgs e) => DetachNativeInput();
+
+    internal void ShowDragReadout(ElementView owner, PointerEventArgs e, string change, string details)
+    {
+        _dragReadoutOwner = owner;
+        // Keep the anchor in viewport coordinates so scrolling leaves it under the pointer.
+        Point position = e.GetPosition(TimelinePanel) - ContentScroll.Offset;
+        overlay.SetDragReadout((position, change, details));
+    }
+
+    internal void ClearDragReadout(ElementView? owner = null)
+    {
+        if (owner != null && _dragReadoutOwner != owner) return;
+
+        _dragReadoutOwner = null;
+        overlay.SetDragReadout(null);
+    }
 
     private void DetachNativeInput()
     {
@@ -124,6 +142,7 @@ public sealed partial class TimelineTabView : UserControl
 
     private void OnDataContextDetached(TimelineTabViewModel obj)
     {
+        ClearDragReadout();
         ViewModel = null;
         ClearElementViewport();
         _recycledElementViews.Clear();

@@ -4105,4 +4105,22 @@ when history recording is enabled.</value>
   <data name="AllEffectCategories" xml:space="preserve">
     <value>All categories</value>
   </data>
+  <data name="TimelineDrag_StartLength" xml:space="preserve">
+    <value>Start {0}   Length {1}</value>
+  </data>
+  <data name="TimelineDrag_EndLength" xml:space="preserve">
+    <value>End {0}   Length {1}</value>
+  </data>
+  <data name="TimelineDrag_StartLayer" xml:space="preserve">
+    <value>Start {0}   Layer {1}</value>
+  </data>
+  <data name="TimelineDrag_RollLengths" xml:space="preserve">
+    <value>Left {0}   Right {1}</value>
+  </data>
+  <data name="TimelineDrag_StartEnd" xml:space="preserve">
+    <value>Start {0}   End {1}</value>
+  </data>
+  <data name="TimelineDrag_MediaOffset" xml:space="preserve">
+    <value>Media offset {0}</value>
+  </data>
 </root>

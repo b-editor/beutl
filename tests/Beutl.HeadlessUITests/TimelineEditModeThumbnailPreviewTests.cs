@@ -16,11 +16,13 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Pixel;
@@ -530,6 +532,9 @@ public class TimelineEditModeThumbnailPreviewTests
                     Assert.That(clip.ThumbnailContentOffsetX.Value, Is.EqualTo(expectedClampedOffsetX).Within(0.5));
                     Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)),
                         "Preview must not mutate the model during drag.");
+                    Assert.That(view.Overlay.DragReadout?.Change, Is.EqualTo("+" + FormatReadoutTime(clip, MediaTime.FromSeconds(1))));
+                    Assert.That(view.Overlay.DragReadout?.Details, Is.EqualTo(string.Format(Strings.TimelineDrag_MediaOffset,
+                        FormatReadoutTime(clip, MediaTime.FromSeconds(2)))));
                 });
 
                 if (animatedGain)
@@ -561,6 +566,7 @@ public class TimelineEditModeThumbnailPreviewTests
             {
                 Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
                 Assert.That(clip.ThumbnailContentOffsetX.Value, Is.Zero);
+                Assert.That(view.Overlay.DragReadout, Is.Null);
             });
         }
         finally
@@ -597,9 +603,11 @@ public class TimelineEditModeThumbnailPreviewTests
             float scale = view.Scale;
             Point press = view.Border.TranslatePoint(new Point(view.Border.Bounds.Width / 2, view.Border.Bounds.Height / 2), view.Window)!.Value;
             Point release = press.WithX(press.X + MediaTime.FromSeconds(1).TimeToPixel(scale));
+            string? offsetReadout = null;
 
             await view.DragAsync(press, release, RawInputModifiers.Alt, async () =>
             {
+                offsetReadout = view.Overlay.DragReadout?.Details;
                 Assert.Multiple(() =>
                 {
                     Assert.That(clip.IsThumbnailPreviewActive.Value, Is.True);
@@ -647,6 +655,8 @@ public class TimelineEditModeThumbnailPreviewTests
 
             await HeadlessTestHelpers.WaitUntilAsync(() => double.IsNaN(clip.ThumbnailContentWidth.Value));
             Assert.That(sound.OffsetPosition.Value, Is.GreaterThan(MediaTime.FromSeconds(1)));
+            Assert.That(offsetReadout, Is.EqualTo(string.Format(Strings.TimelineDrag_MediaOffset,
+                FormatReadoutTime(clip, sound.OffsetPosition.Value))));
         }
         finally
         {
@@ -986,6 +996,13 @@ public class TimelineEditModeThumbnailPreviewTests
         }
     }
 
+    private static string FormatReadoutTime(ElementViewModel clip, MediaTime time)
+    {
+        TimeDisplayFormat format = clip.Timeline.TimeDisplayFormat.Value;
+        string text = TimeDisplayFormatter.Format(time, clip.Timeline.FrameRate, format);
+        return format == TimeDisplayFormat.Frames ? text + "f" : text;
+    }
+
     private sealed class TimelineViewScope : IDisposable
     {
         private readonly TimelineTabView _view;
@@ -1014,6 +1031,7 @@ public class TimelineEditModeThumbnailPreviewTests
         public Window Window { get; }
         public ElementView Element { get; }
         public Border Border { get; }
+        public TimelineOverlay Overlay => _view.FindControl<TimelineOverlay>("overlay")!;
         public WaveformControl Waveform { get; }
         public float Scale { get; }
 

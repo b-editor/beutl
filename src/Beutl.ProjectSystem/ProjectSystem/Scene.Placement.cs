@@ -53,20 +53,39 @@ public partial class Scene
 
     internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(Element element)
     {
-        Element? beforeTmp = null;
-        Element? afterTmp = null;
-        Element? coverTmp = null;
-        TimeRange range = element.Range;
+        var (before, after, cover) = GetPlacementNeighbors(this, element, element.ZIndex.Value, element.Range);
+        return (before?.Element, after?.Element, cover);
+    }
 
-        foreach (Element? item in Children.AsSpan())
+    private readonly record struct PlacementNeighbor(Element Element, TimeRange Range);
+
+    private static (PlacementNeighbor? Before, PlacementNeighbor? After, Element? Cover) GetPlacementNeighbors(
+        Scene? scene, Element element, int layer, TimeRange range,
+        IReadOnlyDictionary<Element, (TimeRange Range, int Layer)>? priorPlacements = null)
+    {
+        if (scene == null) return default;
+
+        PlacementNeighbor? before = null;
+        PlacementNeighbor? after = null;
+        Element? cover = null;
+        foreach (Element item in scene.Children.AsSpan())
         {
-            if (item != element && item.ZIndex.Value == element.ZIndex.Value)
-            {
-                Element.AccumulateNeighbor(item, range, ref beforeTmp, ref afterTmp, ref coverTmp);
-            }
+            if (item == element) continue;
+
+            (TimeRange other, int otherLayer) = priorPlacements != null && priorPlacements.TryGetValue(item, out var placed)
+                ? placed
+                : (item.Range, item.ZIndex.Value);
+            if (otherLayer != layer) continue;
+
+            if (other.Start < range.Start && (before == null || before.Value.Range.Start <= other.Start))
+                before = new PlacementNeighbor(item, other);
+            if (other.End > range.End && (after == null || after.Value.Range.End >= other.End))
+                after = new PlacementNeighbor(item, other);
+            if (range.Contains(other) || range == other)
+                cover = item;
         }
 
-        return (beforeTmp, afterTmp, coverTmp);
+        return (before, after, cover);
     }
 
     private bool IsOverlapping(TimeRange timeRange, int zindex)
@@ -174,33 +193,9 @@ public partial class Scene
 
     private void MoveChildCore(int zIndex, MediaTime newStart, MediaTime newLength, Element element, bool autoAdjustDuration)
     {
-        MediaTime newEnd = newStart + newLength;
-        (Element? before, Element? after, Element? cover) =
-            element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
-
-        if (before != null && before.Range.End >= newStart)
+        if (ResolveChildMoveStart(zIndex, newStart, newLength, element) is { } start)
         {
-            if ((after != null && (after.Start.Value - before.Range.End) >= newLength) || after == null)
-            {
-                element.Start.Value = before.Range.End;
-                element.Length.Value = newLength;
-                element.ZIndex.Value = zIndex;
-            }
-        }
-        else if (after != null && after.Start.Value < newEnd)
-        {
-            MediaTime ns = after.Start.Value - newLength;
-            if (((before != null && (after.Start.Value - before.Range.End) >= newLength) || before == null) &&
-                ns >= MediaTime.Zero)
-            {
-                element.Start.Value = ns;
-                element.Length.Value = newLength;
-                element.ZIndex.Value = zIndex;
-            }
-        }
-        else if (cover == null)
-        {
-            element.Start.Value = newStart;
+            element.Start.Value = start;
             element.Length.Value = newLength;
             element.ZIndex.Value = zIndex;
         }
@@ -208,13 +203,72 @@ public partial class Scene
         ExtendDurationToCover(element.Range.End, autoAdjustDuration);
     }
 
+    internal static MediaTime? ResolveChildMoveStart(int zIndex, MediaTime newStart, MediaTime newLength, Element element,
+        IReadOnlyDictionary<Element, (TimeRange Range, int Layer)>? priorPlacements = null)
+    {
+        MediaTime newEnd = newStart + newLength;
+        var (before, after, cover) = GetPlacementNeighbors(element.HierarchicalParent as Scene, element, zIndex,
+            TimeRange.FromRange(newStart, newEnd), priorPlacements);
+
+        if (before is { Range.End: var beforeEnd } && beforeEnd >= newStart)
+        {
+            return after == null || after.Value.Range.Start - beforeEnd >= newLength ? beforeEnd : null;
+        }
+
+        if (after is { Range.Start: var afterStart } && afterStart < newEnd)
+        {
+            MediaTime start = afterStart - newLength;
+            return start >= MediaTime.Zero && (before == null || afterStart - before.Value.Range.End >= newLength)
+                ? start
+                : null;
+        }
+
+        return cover == null ? newStart : null;
+    }
+
     // Returns whether the elements moved. A drag fits around what it hits, which can move them further than asked;
     // without fitAroundConflicts they move by exactly deltaTime or not at all.
     private bool MoveChildrenCore(Element[] elements, int deltaZIndex, MediaTime deltaTime, bool fitAroundConflicts, bool autoAdjustDuration)
     {
+        if (ResolveGroupMove(elements, deltaZIndex, deltaTime, fitAroundConflicts) is not { } resolvedDelta)
+            return false;
+
+        MediaTime newSceneDuration = Duration.Value;
+        if (autoAdjustDuration)
+        {
+            MediaTime maxEndingTime = elements.Max(i => i.Range.End + resolvedDelta);
+            if (newSceneDuration + Start.Value < maxEndingTime)
+            {
+                newSceneDuration = maxEndingTime - Start.Value;
+            }
+        }
+
+        // A matte follows a source moved with it. Any other layer it names still holds its source.
+        List<(Element Matte, Element Source)> movedMattes = deltaZIndex != 0 ? FindMatteSourcesAmong(elements) : [];
+        foreach (Element item in elements)
+        {
+            item.Start.Value += resolvedDelta;
+            item.ZIndex.Value += deltaZIndex;
+        }
+
+        foreach ((Element matte, Element source) in movedMattes)
+        {
+            matte.MatteSourceZIndex.Value = source.ZIndex.Value;
+        }
+
+        if (autoAdjustDuration)
+        {
+            Duration.Value = newSceneDuration;
+        }
+
+        return true;
+    }
+
+    internal MediaTime? ResolveGroupMove(Element[] elements, int deltaZIndex, MediaTime deltaTime, bool fitAroundConflicts = true)
+    {
         var selected = elements.ToHashSet();
-        var obstacles = new SceneElementIndex(Children.Where(element => !selected.Contains(element)));
-        bool conflict = HasConflict(elements, obstacles, deltaZIndex, deltaTime);
+        SceneElementIndex index = ElementIndex;
+        bool conflict = HasConflict(elements, index, selected, deltaZIndex, deltaTime);
         foreach (Element item in elements)
         {
             if (!conflict || !fitAroundConflicts)
@@ -222,47 +276,15 @@ public partial class Scene
                 break;
             }
 
-            MediaTime? newDeltaStart = DeltaStart(item, obstacles, deltaZIndex, deltaTime);
+            MediaTime? newDeltaStart = DeltaStart(item, index, selected, deltaZIndex, deltaTime);
             if (newDeltaStart.HasValue && newDeltaStart.Value != deltaTime)
             {
                 deltaTime = newDeltaStart.Value;
-                conflict = HasConflict(elements, obstacles, deltaZIndex, deltaTime);
+                conflict = HasConflict(elements, index, selected, deltaZIndex, deltaTime);
             }
         }
 
-        bool adjustSceneDuration = autoAdjustDuration;
-        MediaTime newSceneDuration = Duration.Value;
-        if (adjustSceneDuration)
-        {
-            MediaTime maxEndingTime = elements.Max(i => i.Range.End + deltaTime);
-            if (newSceneDuration + Start.Value < maxEndingTime)
-            {
-                newSceneDuration = maxEndingTime - Start.Value;
-            }
-        }
-
-        if (!conflict)
-        {
-            // A matte follows a source moved with it. Any other layer it names still holds its source.
-            List<(Element Matte, Element Source)> movedMattes = deltaZIndex != 0 ? FindMatteSourcesAmong(elements) : [];
-            foreach (Element item in elements)
-            {
-                item.Start.Value += deltaTime;
-                item.ZIndex.Value += deltaZIndex;
-            }
-
-            foreach ((Element matte, Element source) in movedMattes)
-            {
-                matte.MatteSourceZIndex.Value = source.ZIndex.Value;
-            }
-
-            if (adjustSceneDuration)
-            {
-                Duration.Value = newSceneDuration;
-            }
-        }
-
-        return !conflict;
+        return conflict ? null : deltaTime;
     }
 
     // The elements whose matte names a layer where another of them is at the same time, and that other element.
@@ -284,7 +306,8 @@ public partial class Scene
         return result;
     }
 
-    private static bool HasConflict(Element[] elements, SceneElementIndex obstacles, int deltaZIndex, MediaTime deltaTime)
+    private static bool HasConflict(Element[] elements, SceneElementIndex index, IReadOnlySet<Element> selected,
+        int deltaZIndex, MediaTime deltaTime)
     {
         foreach (Element item in elements)
         {
@@ -293,19 +316,20 @@ public partial class Scene
             if (newLayer < 0 || newRange.Start < MediaTime.Zero)
                 return true;
 
-            if (obstacles.Intersects(newLayer, newRange)) return true;
+            if (index.Intersects(newLayer, newRange, selected)) return true;
         }
 
         return false;
     }
 
-    private static MediaTime? DeltaStart(Element element, SceneElementIndex obstacles, int deltaZIndex, MediaTime deltaTime)
+    private static MediaTime? DeltaStart(Element element, SceneElementIndex index, IReadOnlySet<Element> selected,
+        int deltaZIndex, MediaTime deltaTime)
     {
         MediaTime newStart = element.Start.Value + deltaTime;
 
         MediaTime newEnd = newStart + element.Length.Value;
         int newIndex = element.ZIndex.Value + deltaZIndex;
-        (Element? before, Element? after) = obstacles.Neighbors(newIndex, new TimeRange(newStart, element.Length.Value));
+        (Element? before, Element? after) = index.Neighbors(newIndex, new TimeRange(newStart, element.Length.Value), selected);
 
         if (before != null && before.Range.End >= newStart)
         {

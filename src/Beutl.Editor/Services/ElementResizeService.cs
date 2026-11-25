@@ -1,5 +1,6 @@
 ﻿using Beutl.Configuration;
 using Beutl.Language;
+using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
@@ -24,34 +25,71 @@ public sealed partial class ElementResizeService : IElementResizeService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(requests);
-        if (requests.Count == 0) return;
 
-        // Drop locked targets here, at the single mutation boundary the UI submits to: a clip or its
-        // layer may have been locked mid-drag, after the press-time guard already staged the request.
-        requests = requests.Where(r => !scene.IsElementLocked(r.Element)).ToArray();
-        if (requests.Count == 0) return;
+        var (prepared, rippleRanges) = PrepareResize(scene, requests, ripple);
+        if (prepared.Length == 0) return;
 
-        // Sub-frame original durations and pixel rounding can submit zero length from async UI handlers.
-        MediaTime minLength = GetMinimumLength(scene);
-        requests = NormalizeRequests(requests, ripple, minLength);
-        ResizePeerGroup[] peerGroups = CreatePeerGroups(requests);
-        var mediaConstraints = new Dictionary<Element, SlippableMedia.ResizeConstraints>();
-        requests = ClampToMedia(requests, peerGroups, mediaConstraints, minLength);
-        requests = ClampSharedResizeEdges(requests, peerGroups, mediaConstraints);
-
-        if (ripple)
+        if (rippleRanges != null)
         {
-            ResizeWithRipple(scene, requests, peerGroups, mediaConstraints, minLength);
+            ResizeWithRipple(scene, prepared, rippleRanges);
         }
         else
         {
-            foreach (ElementResizeRequest req in requests)
+            foreach (ElementResizeRequest req in prepared)
             {
                 scene.MoveChild(req.ZIndex, req.NewStart, req.NewLength, req.Element, _configuration.AutoAdjustSceneDuration.Value);
             }
         }
 
         _historyManager.Commit(CommandNames.MoveElement);
+    }
+
+    internal (TimeRange Range, int Layer) PreviewResize(Scene scene, IReadOnlyList<ElementResizeRequest> requests,
+        bool ripple, Element element, IReadOnlyDictionary<Element, SlippableMedia.ResizeConstraints>? cachedConstraints = null)
+    {
+        var (prepared, rippleRanges) = PrepareResize(scene, requests, ripple, cachedConstraints);
+        var result = (element.Range, element.ZIndex.Value);
+        if (rippleRanges != null)
+        {
+            return rippleRanges.TryGetValue(element, out TimeRange range)
+                ? (range, prepared.Last(req => req.Element == element).ZIndex)
+                : result;
+        }
+
+        // Ordinary resizes run in request order, so later requests see the earlier placements.
+        Dictionary<Element, (TimeRange Range, int Layer)>? priorPlacements = prepared.Length > 1 ? [] : null;
+        foreach (ElementResizeRequest req in prepared)
+        {
+            if (Scene.ResolveChildMoveStart(req.ZIndex, req.NewStart, req.NewLength, req.Element, priorPlacements) is not { } start)
+                continue;
+
+            var placement = (new TimeRange(start, req.NewLength), req.ZIndex);
+            if (priorPlacements != null) priorPlacements[req.Element] = placement;
+            if (req.Element == element) result = placement;
+        }
+
+        return result;
+    }
+
+    private (ElementResizeRequest[] Requests, Dictionary<Element, TimeRange>? RippleRanges) PrepareResize(
+        Scene scene, IReadOnlyList<ElementResizeRequest> requests, bool ripple,
+        IReadOnlyDictionary<Element, SlippableMedia.ResizeConstraints>? cachedConstraints = null)
+    {
+        if (requests.Count == 0) return ([], null);
+
+        // Drop locked targets here, at the single mutation boundary the UI submits to: a clip or its
+        // layer may have been locked mid-drag, after the press-time guard already staged the request.
+        requests = requests.Where(r => !scene.IsElementLocked(r.Element)).ToArray();
+        if (requests.Count == 0) return ([], null);
+
+        // Sub-frame original durations and pixel rounding can submit zero length from async UI handlers.
+        MediaTime minLength = GetMinimumLength(scene);
+        requests = NormalizeRequests(requests, ripple, minLength);
+        ResizePeerGroup[] peerGroups = CreatePeerGroups(requests);
+        var mediaConstraints = new Dictionary<Element, SlippableMedia.ResizeConstraints>();
+        requests = ClampToMedia(requests, peerGroups, mediaConstraints, minLength, cachedConstraints);
+        ElementResizeRequest[] prepared = ClampSharedResizeEdges(requests, peerGroups, mediaConstraints);
+        return (prepared, ripple ? ResolveRippleRanges(scene, prepared, peerGroups, mediaConstraints, minLength) : null);
     }
 
     // One frame, but never empty: at a rate of more than a frame a flick, a frame rounds to zero.
@@ -70,27 +108,27 @@ public sealed partial class ElementResizeService : IElementResizeService
 
     private ElementResizeRequest[] ClampToMedia(IReadOnlyList<ElementResizeRequest> requests,
         ResizePeerGroup[] peerGroups, Dictionary<Element, SlippableMedia.ResizeConstraints> mediaConstraints,
-        MediaTime minLength)
+        MediaTime minLength, IReadOnlyDictionary<Element, SlippableMedia.ResizeConstraints>? cachedConstraints)
         => requests.Select(req =>
         {
             if (req.ClampToSource || req.NewLength != req.Element.Length.Value
                 && _configuration.ClampResizeToOriginalLength.Value)
             {
                 var peers = peerGroups.FirstOrDefault(group => group.Elements.Contains(req.Element))?.Elements;
-                var constraints = SlippableMedia.CreateResizeConstraints(req.Element, peers, decoders: _decoders);
+                var constraints = cachedConstraints != null && peers?.SetEquals(cachedConstraints.Keys) == true
+                    ? cachedConstraints[req.Element]
+                    : SlippableMedia.CreateResizeConstraints(req.Element, peers, decoders: _decoders);
                 mediaConstraints[req.Element] = constraints;
                 return ClampMedia(req, constraints, minLength);
             }
             return req;
         }).ToArray();
 
-    private void ResizeWithRipple(Scene scene, IReadOnlyList<ElementResizeRequest> requests,
+    private static Dictionary<Element, TimeRange> ResolveRippleRanges(Scene scene, IReadOnlyList<ElementResizeRequest> requests,
         ResizePeerGroup[] peerGroups, Dictionary<Element, SlippableMedia.ResizeConstraints> mediaConstraints,
         MediaTime minLength)
     {
-        bool autoAdjustSceneDuration = _configuration.AutoAdjustSceneDuration.Value;
-        var oldBounds = new Dictionary<Element, (int ZIndex, MediaTime Start, MediaTime End)>(requests.Count);
-        var clamped = new Dictionary<Element, (MediaTime Start, MediaTime Length)>(requests.Count);
+        var clamped = new Dictionary<Element, TimeRange>(requests.Count);
         var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));
         foreach (ElementResizeRequest req in requests)
         {
@@ -106,25 +144,35 @@ public sealed partial class ElementResizeService : IElementResizeService
                 start = final.NewStart;
                 length = final.NewLength;
             }
-            clamped[req.Element] = (start, length);
-            oldBounds[req.Element] = (req.Element.ZIndex.Value, req.Element.Start.Value, req.Element.Range.End);
+            clamped[req.Element] = new TimeRange(start, length);
         }
         var finalRequests = requests.Select(req => req with
         {
             NewStart = clamped[req.Element].Start,
-            NewLength = clamped[req.Element].Length
+            NewLength = clamped[req.Element].Duration
         }).ToArray();
         foreach (ElementResizeRequest req in ClampSharedResizeEdges(finalRequests, peerGroups, mediaConstraints))
-            clamped[req.Element] = (req.NewStart, req.NewLength);
+            clamped[req.Element] = new TimeRange(req.NewStart, req.NewLength);
+
+        return clamped;
+    }
+
+    private void ResizeWithRipple(Scene scene, IReadOnlyList<ElementResizeRequest> requests,
+        Dictionary<Element, TimeRange> clamped)
+    {
+        bool autoAdjustSceneDuration = _configuration.AutoAdjustSceneDuration.Value;
+        var oldBounds = new Dictionary<Element, (int ZIndex, MediaTime Start, MediaTime End)>(requests.Count);
+        foreach (ElementResizeRequest req in requests)
+            oldBounds[req.Element] = (req.Element.ZIndex.Value, req.Element.Start.Value, req.Element.Range.End);
 
         // MoveChild reverts on follower overlap; ripple needs that overlap, and direct
         // writes are still CoreObjectOperationObserver-recorded for undo.
         foreach (ElementResizeRequest req in requests)
         {
-            (MediaTime start, MediaTime length) = clamped[req.Element];
+            TimeRange range = clamped[req.Element];
             req.Element.ZIndex.Value = req.ZIndex;
-            req.Element.Start.Value = start;
-            req.Element.Length.Value = length;
+            req.Element.Start.Value = range.Start;
+            req.Element.Length.Value = range.Duration;
         }
 
         Element[] resized = requests.Select(r => r.Element).ToArray();
