@@ -6,6 +6,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Pixel;
+using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -43,6 +44,70 @@ public sealed class VideoTransferInterpretationTests
             Assert.That(overridePixels, Is.EqualTo(new[] { shadow, midtone }).Within(1));
             Assert.That(Draw(autoResource), Is.EqualTo(autoPixels), "Reinterpreting a frame must leave the shared bitmap untouched.");
         });
+    }
+
+    [Test]
+    public void IccProfiledVideoKeepsItsCodeValuesAndPrimariesWhenOverridden()
+    {
+        using var scope = ProxyTestScope.CreateWithoutProxy(s_size);
+        var iccSpace = BitmapColorSpace.CreateRgb(BitmapColorSpaceTransferFn.Srgb, BitmapColorSpaceXyz.Dcip3);
+        CompositionContext context = CreateContext(new PatchDecoder(BitmapColorTransfer.Bt709, iccSpace));
+        using var auto = CreateVideo(scope.OriginalPath, VideoTransferInterpretation.Auto).ToResource(context);
+        using var explicitSrgb = CreateVideo(scope.OriginalPath, VideoTransferInterpretation.Srgb).ToResource(context);
+
+        int[] expected = DrawIccPatches(auto);
+        int[] overridden = DrawIccPatches(explicitSrgb);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(expected[..3], Is.EqualTo(new[] { 128, 128, 128 }).Within(1));
+            Assert.That(expected[5], Is.GreaterThan(160), "The Display P3 blue component should be converted for display.");
+            Assert.That(overridden, Is.EqualTo(expected).Within(1));
+            Assert.That(DrawIccPatches(auto), Is.EqualTo(expected), "The shared decoded frame must stay unchanged.");
+        });
+    }
+
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    [TestCase(true, false)]
+    public void ReopenedProxyRecoversIccCodeValues(bool savedColorSpace, bool wideGamut)
+    {
+        using var scope = ProxyTestScope.CreateWithoutProxy(s_size);
+        string originalPath = Path.Combine(scope.RootPath, "icc-source.testvideo");
+        const string proxyRelative = "proxy/icc.testvideo";
+        string proxyPath = Path.GetFullPath(Path.Combine(scope.RootPath, proxyRelative));
+        Directory.CreateDirectory(Path.GetDirectoryName(proxyPath)!);
+        File.WriteAllBytes(originalPath, [1, 2, 3, 4]);
+        File.WriteAllBytes(proxyPath, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(originalPath);
+        BitmapColorSpace iccSpace = wideGamut
+            ? BitmapColorSpace.CreateRgb(BitmapColorSpaceTransferFn.Srgb, BitmapColorSpaceXyz.Dcip3)
+            : BitmapColorSpace.Srgb;
+        var tags = new VideoColorTags(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709, VideoColorMatrix.Bt709, VideoColorRange.Full);
+        DateTime now = DateTime.UtcNow;
+        scope.Store.Register(new ProxyEntry(fingerprint, ProxyPreset.Quarter, ProxyState.Ready, proxyRelative, 4, s_size, s_size, now, now, null)
+        {
+            OriginalColorTags = tags,
+            OriginalColorSpace = savedColorSpace ? iccSpace : null,
+        });
+
+        var decoder = new PatchDecoder(tags.Transfer, iccSpace, proxyPath);
+        CompositionContext context = CreateContext(decoder);
+        var video = CreateVideo(originalPath, VideoTransferInterpretation.Bt1886);
+        int[] expected;
+        using (var original = video.ToResource(context))
+            expected = DrawIccPatches(original);
+
+        // With stored metadata, the reopened proxy can recover the profile even with the original offline.
+        if (savedColorSpace)
+            File.Delete(originalPath);
+        var reopenedStore = new ProxyStore(scope.RootPath);
+        Assert.That(reopenedStore.TryGet(fingerprint, ProxyPreset.Quarter)?.OriginalColorSpace, Is.EqualTo(savedColorSpace ? iccSpace : null));
+        context.Decoders!.ProxyResolver = new ProxyResolver(reopenedStore);
+
+        using var proxy = video.ToResource(new CompositionContext(MediaTime.Zero) { Decoders = context.Decoders, PreferProxy = true });
+        Assert.That(proxy.Source!.ProxyResolution, Is.Not.Null);
+        Assert.That(DrawIccPatches(proxy), Is.EqualTo(expected).Within(1));
     }
 
     [TestCase(BitmapColorTransfer.Pq)]
@@ -129,6 +194,22 @@ public sealed class VideoTransferInterpretationTests
 
     private static int[] Draw(SourceVideo.Resource video)
     {
+        using Bitmap srgb = RenderSrgb(video);
+        Span<Bgra8888> row = srgb.GetRow<Bgra8888>(srgb.Height / 2);
+        return [row[srgb.Width / 4].G, row[srgb.Width * 3 / 4].G];
+    }
+
+    private static int[] DrawIccPatches(SourceVideo.Resource video)
+    {
+        using Bitmap srgb = RenderSrgb(video);
+        Span<Bgra8888> row = srgb.GetRow<Bgra8888>(srgb.Height / 2);
+        Bgra8888 gray = row[srgb.Width / 4];
+        Bgra8888 color = row[srgb.Width * 3 / 4];
+        return [gray.R, gray.G, gray.B, color.R, color.G, color.B];
+    }
+
+    private static Bitmap RenderSrgb(SourceVideo.Resource video)
+    {
         using var target = new CpuRenderTarget(video.Source!.LogicalFrameSize);
         using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview))
         {
@@ -136,12 +217,11 @@ public sealed class VideoTransferInterpretationTests
         }
 
         using Bitmap snapshot = target.Snapshot();
-        using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
-        Span<Bgra8888> row = srgb.GetRow<Bgra8888>(srgb.Height / 2);
-        return [row[srgb.Width / 4].G, row[srgb.Width * 3 / 4].G];
+        return snapshot.Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
     }
 
-    private sealed class PatchDecoder(BitmapColorTransfer transfer) : IDecoderInfo
+    private sealed class PatchDecoder(
+        BitmapColorTransfer transfer, BitmapColorSpace? iccSpace = null, string? proxyPath = null) : IDecoderInfo
     {
         public string Name => "Video transfer test decoder";
 
@@ -154,15 +234,16 @@ public sealed class VideoTransferInterpretationTests
         public MediaReader Open(string file, MediaOptions options)
         {
             OpenCount++;
-            return new PatchReader(transfer);
+            return new PatchReader(transfer, iccSpace, file == proxyPath);
         }
     }
 
-    private sealed class PatchReader(BitmapColorTransfer transfer) : MediaReader
+    private sealed class PatchReader(BitmapColorTransfer transfer, BitmapColorSpace? iccSpace, bool isProxy) : MediaReader
     {
         public override VideoStreamInfo VideoInfo { get; } = new("test", 1L, s_size, new Rational(30, 1))
         {
             ColorTags = new VideoColorTags(transfer, BitmapColorPrimaries.Bt709, VideoColorMatrix.Bt709, VideoColorRange.Full),
+            HasIccProfile = iccSpace != null && !isProxy,
         };
 
         private Ref<Bitmap>? _frame;
@@ -199,15 +280,21 @@ public sealed class VideoTransferInterpretationTests
             BitmapColorSpace colorSpace = hdr
                 ? BitmapColorSpaceMapping.BuildHdrColorSpace(transfer, primaries)
                 : BitmapColorSpaceMapping.BuildTargetColorSpace(transfer, primaries);
-            var bitmap = new Bitmap(s_size.Width, s_size.Height, colorSpace: colorSpace);
+            var bitmap = new Bitmap(s_size.Width, s_size.Height, colorSpace: iccSpace ?? colorSpace);
+            Bgra8888 left = iccSpace == null ? new(30, 30, 30, 255) : new(128, 128, 128, 255);
+            Bgra8888 right = iccSpace == null ? new(128, 128, 128, 255) : new(64, 96, 160, 255);
             for (int y = 0; y < bitmap.Height; y++)
             {
                 Span<Bgra8888> row = bitmap.GetRow<Bgra8888>(y);
-                row[..(bitmap.Width / 2)].Fill(new Bgra8888(30, 30, 30, 255));
-                row[(bitmap.Width / 2)..].Fill(new Bgra8888(128, 128, 128, 255));
+                row[..(bitmap.Width / 2)].Fill(left);
+                row[(bitmap.Width / 2)..].Fill(right);
             }
 
-            return bitmap;
+            if (!isProxy)
+                return bitmap;
+
+            using (bitmap)
+                return bitmap.Convert(BitmapColorType.RgbaF16, colorSpace: colorSpace);
         }
     }
 }

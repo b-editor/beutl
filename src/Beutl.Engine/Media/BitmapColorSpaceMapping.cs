@@ -71,8 +71,10 @@ public static class BitmapColorSpaceMapping
         => BuildTargetColorSpace(GetTransferFunction(transfer), primaries);
 
     internal static BitmapColorSpace BuildTargetColorSpace(BitmapColorSpaceTransferFn transferFn, BitmapColorPrimaries primaries)
+        => BuildTargetColorSpace(transferFn, GetPrimaries(primaries));
+
+    internal static BitmapColorSpace BuildTargetColorSpace(BitmapColorSpaceTransferFn transferFn, BitmapColorSpaceXyz gamut)
     {
-        var gamut = GetPrimaries(primaries);
 
         if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
             return BitmapColorSpace.Srgb;

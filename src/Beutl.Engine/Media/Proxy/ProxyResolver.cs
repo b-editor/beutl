@@ -215,6 +215,7 @@ public sealed class ProxyResolver : IProxyResolver
             entry.ProxyDecodedFrameSize)
         {
             OriginalColorTags = entry.OriginalColorTags,
+            OriginalColorSpace = entry.OriginalColorSpace,
             Deinterlace = entry.Deinterlace,
             DetectedFieldOrder = entry.DetectedFieldOrder,
             DeinterlaceStatus = entry.DeinterlaceStatus,

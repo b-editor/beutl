@@ -97,7 +97,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
             EnsureSourceUnchanged(store, job, sourcePath);
 
             await PublishAsync(tempPath, finalPath, job, relative, originalSize, proxySize, job.CancellationToken,
-                sourceVideo: reader.VideoInfo);
+                sourceVideo: reader.VideoInfo, originalIccColorSpace: frameProvider.OriginalIccColorSpace);
         });
     }
 

@@ -42,6 +42,7 @@ public sealed class VideoSource : MediaSource
     {
         private MediaReader? _reader;
         private Ref<Bitmap>? _offlineBitmap;
+        private Lazy<BitmapColorSpace?>? _legacyProxyIccColorSpace;
         private Uri? _loadedUri;
         private DecoderRegistry? _loadedDecoders;
         private bool _loadedPreferProxy;
@@ -65,6 +66,16 @@ public sealed class VideoSource : MediaSource
         public ProxyResolution? ProxyResolution { get; private set; }
 
         public VideoColorTags OriginalColorTags => ProxyResolution?.OriginalColorTags ?? _reader?.VideoInfo.ColorTags ?? default;
+
+        internal BitmapColorSpace GetOriginalColorSpace(BitmapColorSpace frameColorSpace)
+        {
+            if (ProxyResolution is null && _reader?.VideoInfo.HasIccProfile == true)
+                return frameColorSpace;
+
+            VideoColorTags tags = OriginalColorTags;
+            return ProxyResolution?.OriginalColorSpace ?? _legacyProxyIccColorSpace?.Value
+                ?? BitmapColorSpaceMapping.BuildTargetColorSpace(tags.Transfer, tags.Primaries);
+        }
 
         public DeinterlaceApplicationStatus DeinterlaceStatus => _reader?.VideoInfo.DeinterlaceStatus ?? DeinterlaceApplicationStatus.Off;
 
@@ -132,6 +143,7 @@ public sealed class VideoSource : MediaSource
                 _reader?.Dispose();
                 _reader = null;
                 ProxyResolution = null;
+                _legacyProxyIccColorSpace = null;
                 _offlineBitmap?.Dispose();
                 _offlineBitmap = null;
 
@@ -159,6 +171,11 @@ public sealed class VideoSource : MediaSource
                 }
 
                 ProxyResolution = reader.ProxyResolution;
+                if (ProxyResolution is { OriginalColorSpace: null })
+                {
+                    string originalPath = videoSource.Uri.LocalPath;
+                    _legacyProxyIccColorSpace = new(() => ReadOriginalIccColorSpace(originalPath, decoders, deinterlace));
+                }
 
                 Duration = MediaTime.FromSeconds(reader.VideoInfo.Duration.ToDouble());
                 FrameRate = reader.VideoInfo.FrameRate;
@@ -251,6 +268,31 @@ public sealed class VideoSource : MediaSource
             return true;
         }
 
+        // Older proxy indexes only stored color tags. Read the original profile on the first explicit SDR override.
+        private static BitmapColorSpace? ReadOriginalIccColorSpace(
+            string path, DecoderRegistry decoders, VideoDeinterlaceOptions deinterlace)
+        {
+            try
+            {
+                using MediaReader? original = decoders.OpenMediaFile(path, new MediaOptions(MediaMode.Video)
+                {
+                    Deinterlace = deinterlace,
+                    IsBackground = true,
+                });
+                if (original is { HasVideo: true } && original.VideoInfo.HasIccProfile && original.ReadVideo(0, out var frame))
+                {
+                    using (frame)
+                        return frame.Value.ColorSpace;
+                }
+            }
+            catch
+            {
+                // The proxy stays usable with its saved tags if the original cannot be read.
+            }
+
+            return null;
+        }
+
         private void SetOffline(VideoSource videoSource, CompositionContext context, long proxyResolverVersion, VideoDeinterlaceOptions deinterlace)
         {
             _reader?.Dispose();
@@ -278,6 +320,7 @@ public sealed class VideoSource : MediaSource
             base.Dispose(disposing);
             _reader?.Dispose();
             _reader = null;
+            _legacyProxyIccColorSpace = null;
             _offlineBitmap?.Dispose();
             _offlineBitmap = null;
         }
