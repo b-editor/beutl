@@ -16,6 +16,8 @@ internal static class TextAnimationOrdering
         var units = new List<Unit>(targets.Count);
         Span<int> targetUnits = targets.Count <= 128 ? stackalloc int[targets.Count] : new int[targets.Count];
         int nextOccurrence = 0;
+        // Only positional orders read the units' bounds, so the others skip gathering them.
+        bool readsBounds = DelayAnimationOrdering.ReadsBounds(order);
 
         for (int i = 0; i < targets.Count; i++)
         {
@@ -23,7 +25,7 @@ internal static class TextAnimationOrdering
             if (target.TextPart is not { } text)
             {
                 targetUnits[i] = units.Count;
-                units.Add(new Unit(nextOccurrence++, 0, units.Count, target.IsEmpty ? null : target.Bounds));
+                units.Add(new Unit(nextOccurrence++, 0, units.Count, readsBounds && !target.IsEmpty ? target.Bounds : null));
                 continue;
             }
 
@@ -42,7 +44,7 @@ internal static class TextAnimationOrdering
 
             int index = GetUnitIndex(unit, order, text);
             var key = (occurrence, index);
-            Rect? bounds = target.IsEmpty ? null : target.CompleteBounds ?? target.Bounds;
+            Rect? bounds = readsBounds && !target.IsEmpty ? target.CompleteBounds ?? target.Bounds : null;
             if (ids.TryGetValue(key, out int id))
             {
                 if (bounds is { } part)
@@ -65,10 +67,10 @@ internal static class TextAnimationOrdering
         units.Sort(static (a, b) => a.Occurrence == b.Occurrence
             ? a.Index.CompareTo(b.Index)
             : a.Occurrence.CompareTo(b.Occurrence));
-        var unitBounds = new Rect?[units.Count];
+        Rect?[] unitBounds = readsBounds ? new Rect?[units.Count] : [];
         Span<float> unitRanks = units.Count <= 128 ? stackalloc float[units.Count] : new float[units.Count];
         Span<float> byId = units.Count <= 128 ? stackalloc float[units.Count] : new float[units.Count];
-        for (int i = 0; i < units.Count; i++)
+        for (int i = 0; i < unitBounds.Length; i++)
             unitBounds[i] = units[i].Bounds;
         DelayAnimationOrdering.ComputeRanks(order, seed, unitBounds, unitRanks);
         for (int i = 0; i < units.Count; i++)
