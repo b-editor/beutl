@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Reactive.Disposables;
 using System.Security.Cryptography;
 using System.Text;
 using Beutl.Api.Services;
@@ -175,18 +174,6 @@ internal sealed class AiRequestKey : IDisposable
         lock (_gate)
             Forget((attempt.AccountId, attempt.Key), advance: true);
         RefreshIdentity();
-    }
-
-    public IDisposable EnterAuthenticatedScope(AiRequestName name)
-    {
-        if (_recoveryContext is null)
-            return Disposable.Empty;
-        lock (_gate)
-        {
-            if (!_outstanding.ContainsKey(name.AccountAndKey))
-                throw new InvalidOperationException("The AI request name is not outstanding.");
-        }
-        return _recoveryContext.Enter(name.AccountId!);
     }
 
     /// <summary>

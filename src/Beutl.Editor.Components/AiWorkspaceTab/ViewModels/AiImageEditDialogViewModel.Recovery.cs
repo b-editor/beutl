@@ -51,10 +51,8 @@ internal sealed partial class AiImageEditDialogViewModel
             using var account = new AiAccountJobScope(_requestRecoveryContext);
             using CancellationTokenSource cancellation = account.Link(operation.CancellationToken);
             CancellationToken requestToken = cancellation.Token;
-            (AiPendingJobState state, AiJob? job) = await account.SendAsync(
-                token => AiPendingJobLookup.FindAsync(_jobs, _jobKinds, _requestRecoveryContext, attempt, token),
-                requestToken);
-            account.ThrowIfInvalid(requestToken);
+            (AiPendingJobState state, AiJob? job) = await AiPendingJobLookup.FindAsync(
+                _jobs, _jobKinds, _requestRecoveryContext, attempt, account, requestToken);
             switch (state)
             {
                 case AiPendingJobState.Succeeded:

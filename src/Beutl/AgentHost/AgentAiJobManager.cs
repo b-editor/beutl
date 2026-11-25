@@ -269,4 +269,8 @@ internal sealed class AgentAiException(string code, string message) : Exception(
             or Beutl.Api.Services.AuthenticationRequiredException
             ? Beutl.AgentToolkit.Common.ErrorCode.AiUnavailable
             : Beutl.AgentToolkit.Common.ErrorCode.AiGenerationFailed;
+
+    // The account a request runs on is signed out or was switched.
+    public static AgentAiException AuthenticationRequired()
+        => new(Beutl.AgentToolkit.Common.ErrorCode.AiUnavailable, Beutl.Language.Strings.AiAuthenticationRequired);
 }

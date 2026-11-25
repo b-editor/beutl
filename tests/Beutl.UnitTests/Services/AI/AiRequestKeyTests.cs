@@ -313,14 +313,14 @@ public sealed class AiRequestKeyTests
     public void AccountSwitchBeforeSendFailsWithoutDeletingTheIssuedRecovery()
     {
         string? account = "account-a";
-        var key = new AiRequestKey(
-            recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => account),
-            operation: "image.generate");
+        AiRequestRecoveryContext context = RecoveryContext(new FileAiRequestKeyMap(_directory), () => account);
+        var key = new AiRequestKey(recoveryContext: context, operation: "image.generate");
+        using var startingAccount = new AiAccountJobScope(context);
         AiRequestName issued = key.NameFor("prompt");
         account = "account-b";
 
         Assert.Throws<AuthenticationRequiredException>(() =>
-            key.EnterAuthenticatedScope(issued));
+            startingAccount.Enter(CancellationToken.None));
 
         var accountA = new AiRequestKey(
             recoveryContext: RecoveryContext(new FileAiRequestKeyMap(_directory), () => "account-a"),

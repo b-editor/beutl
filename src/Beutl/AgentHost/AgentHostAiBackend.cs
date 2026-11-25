@@ -2,7 +2,6 @@
 using Beutl.Audio;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Editor.Services.AI;
-using Beutl.Language;
 using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
@@ -19,6 +18,8 @@ internal sealed class AgentHostAiBackend(
     Func<Scene, IGenerativeNodeExecutor> executor,
     IAiModelCatalogService modelCatalog, DecoderRegistry decoders) : IAgentAiBackend
 {
+    internal const string SignInReason = "Sign in to Beutl in the running app to use AI generation.";
+
     // The longest piece of audio sent at once: ten minutes of 16 kHz mono stays under the upload limit.
     private static readonly TimeSpan s_chunkDuration = TimeSpan.FromMinutes(10);
 
@@ -27,7 +28,7 @@ internal sealed class AgentHostAiBackend(
     public async Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken)
     {
         if (recoveryContext.GetCurrentIdentity() is null)
-            return "Sign in to Beutl in the running app to use AI generation.";
+            return SignInReason;
 
         AiEntitlements? current = entitlements.Entitlements.Value;
         if (current is null)
@@ -88,8 +89,7 @@ internal sealed class AgentHostAiBackend(
         }
         catch (Exception ex) when (ex is AuthenticationRequiredException || account?.AccountChanged == true)
         {
-            throw new AgentAiException(
-                AgentAiException.CodeFor(new AuthenticationRequiredException()), Strings.AiAuthenticationRequired);
+            throw AgentAiException.AuthenticationRequired();
         }
         catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
         {

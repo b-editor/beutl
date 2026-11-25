@@ -16,7 +16,23 @@ internal enum AiPendingJobState
 
 internal static class AiPendingJobLookup
 {
+    // Looks the job up on the account the collection started on, and refuses the answer if that account left.
     public static async Task<(AiPendingJobState State, AiJob? Job)> FindAsync(
+        IAiJobClient jobs,
+        IAiJobKindRegistry jobKinds,
+        AiRequestRecoveryContext context,
+        AiPendingAttempt attempt,
+        AiAccountJobScope account,
+        CancellationToken cancellationToken)
+    {
+        (AiPendingJobState State, AiJob? Job) found = await account.SendAsync(
+            token => FindCoreAsync(jobs, jobKinds, context, attempt, token),
+            cancellationToken);
+        account.ThrowIfInvalid(cancellationToken);
+        return found;
+    }
+
+    private static async Task<(AiPendingJobState State, AiJob? Job)> FindCoreAsync(
         IAiJobClient jobs,
         IAiJobKindRegistry jobKinds,
         AiRequestRecoveryContext context,
