@@ -61,7 +61,8 @@ public partial class TextBlock : Drawable
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
     public IExpressionProperty<Brush?> Fill { get; } = Property.CreateExpression<Brush?>();
 
-    private static void DrawVertical(GraphicsContext2D context, Resource resource, bool strokesBelowFill)
+    private static void DrawVertical(GraphicsContext2D context, Resource resource, bool strokesBelowFill,
+        TextPartLayout? parts, long occurrence)
     {
         VerticalTextLayout layout = resource.GetVerticalLayout();
         float right = layout.Size.Width;
@@ -79,19 +80,17 @@ public partial class TextBlock : Drawable
                 }
 
                 using var transform = context.PushTransform(VerticalTextLayout.GetTransform(run, center, top));
-                if (!resource.SplitByCharacters)
+                if (parts is null)
                 {
                     context.DrawText(text, fill, pen);
                 }
                 else
                 {
                     ReadOnlySpan<Geometry.Resource> geometries = text.ToGeometries();
+                    ReadOnlySpan<TextPartIndices> indices = parts.GetGlyphs(text);
                     for (int i = 0; i < geometries.Length; i++)
                     {
-                        if (text.GetNonOutlineGlyph(i) is { } glyph)
-                            context.DrawText(glyph, fill, pen);
-                        else
-                            context.DrawGeometry(geometries[i], fill, pen);
+                        DrawSplitGlyph(context, text, geometries[i], i, fill, pen, parts.CreateTag(occurrence, indices[i]));
                     }
                 }
             }
@@ -139,7 +138,8 @@ public partial class TextBlock : Drawable
         }
     }
 
-    private static void DrawSplitted(GraphicsContext2D context, Resource resource, float width, bool strokesBelowFill)
+    private static void DrawSplitted(GraphicsContext2D context, Resource resource, float width, bool strokesBelowFill,
+        TextPartLayout parts, long occurrence)
     {
         var elements = resource.GetTextElements();
         float prevBottom = 0;
@@ -160,19 +160,14 @@ public partial class TextBlock : Drawable
                             out Brush.Resource? fill, out Pen.Resource? pen))
                     {
                         ReadOnlySpan<Geometry.Resource> geometries = item.ToGeometries();
+                        ReadOnlySpan<TextPartIndices> indices = parts.GetGlyphs(item);
                         var offset = Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition);
                         for (int i = 0; i < geometries.Length; i++)
                         {
                             using (context.PushTransform(offset))
                             {
-                                if (item.GetNonOutlineGlyph(i) is { } glyph)
-                                {
-                                    context.DrawText(glyph, fill, pen);
-                                }
-                                else
-                                {
-                                    context.DrawGeometry(geometries[i], fill, pen);
-                                }
+                                DrawSplitGlyph(context, item, geometries[i], i, fill, pen,
+                                    parts.CreateTag(occurrence, indices[i]));
                             }
                         }
                     }
@@ -183,6 +178,15 @@ public partial class TextBlock : Drawable
 
             prevBottom += lineBounds.Height;
         }
+    }
+
+    private static void DrawSplitGlyph(GraphicsContext2D context, FormattedText text, Geometry.Resource geometry,
+        int index, Brush.Resource? fill, Pen.Resource? pen, TextPartTag tag)
+    {
+        if (text.GetNonOutlineGlyph(index) is { } glyph)
+            context.DrawText(glyph, fill, pen, tag);
+        else
+            context.DrawGeometry(geometry, fill, pen, tag);
     }
 
     private static bool IsStrokeBelowFill(Pen.Resource? pen)
@@ -254,6 +258,7 @@ public partial class TextBlock : Drawable
         private VerticalTextLayout? _verticalLayout;
         private TextPartLayout? _textPartLayout;
         private int _textPartLayoutRevision;
+        private long _textPartFontRevision;
         private Dictionary<(SKTypeface Typeface, string Cluster), bool>? _verticalAlternates;
         private bool _isDirty = true;
         private long _fontRevision;
@@ -268,14 +273,18 @@ public partial class TextBlock : Drawable
         internal TextPartLayout GetTextPartLayout()
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            if (_textPartLayout is { } layout && layout.WritingMode == WritingMode)
+            long fontRevision = _fonts?.Revision ?? 0;
+            // FormattedText can reshape on a font revision before the drawable reconciles again.
+            if (_textPartLayout is { } layout && layout.WritingMode == WritingMode && _textPartFontRevision == fontRevision)
                 return layout;
 
-            return _textPartLayout = TextPartLayout.Create(
+            layout = TextPartLayout.Create(
                 GetTextElements(),
                 WritingMode == Media.WritingMode.VerticalRl ? GetVerticalLayout() : null,
                 WritingMode,
                 ++_textPartLayoutRevision);
+            _textPartFontRevision = fontRevision;
+            return _textPartLayout = layout;
         }
 
         public FontStyle FontStyle { get; private set; }
@@ -312,26 +321,28 @@ public partial class TextBlock : Drawable
 
         protected override void OnDraw(GraphicsContext2D context)
         {
+            TextPartLayout? parts = SplitByCharacters ? GetTextPartLayout() : null;
+            long occurrence = parts is null ? 0 : context.GetTextPartOccurrence();
             // A stroke placed below the fill goes below every fill in the block, not only its own, so all those
             // strokes are drawn in a pass of their own before any fill.
             if (HasStrokeBelowFill())
-                DrawText(context, strokesBelowFill: true);
+                DrawText(context, strokesBelowFill: true, parts, occurrence);
 
-            DrawText(context, strokesBelowFill: false);
+            DrawText(context, strokesBelowFill: false, parts, occurrence);
         }
 
-        private void DrawText(GraphicsContext2D context, bool strokesBelowFill)
+        private void DrawText(GraphicsContext2D context, bool strokesBelowFill, TextPartLayout? parts, long occurrence)
         {
             if (WritingMode == Media.WritingMode.VerticalRl)
             {
-                DrawVertical(context, this, strokesBelowFill);
+                DrawVertical(context, this, strokesBelowFill, parts, occurrence);
                 return;
             }
             float width = TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size).Width;
 
-            if (SplitByCharacters)
+            if (parts is not null)
             {
-                DrawSplitted(context, this, width, strokesBelowFill);
+                DrawSplitted(context, this, width, strokesBelowFill, parts, occurrence);
             }
             else
             {

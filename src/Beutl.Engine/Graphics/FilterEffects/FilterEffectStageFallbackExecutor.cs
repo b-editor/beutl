@@ -177,6 +177,7 @@ internal static class FilterEffectStageFallbackExecutor
             outputBounds,
             density,
             settings,
+            input.TextPart,
             deviceGridOffset: input.Allocation.DeviceGridOffset,
             native: native);
     }
@@ -528,6 +529,7 @@ internal static class FilterEffectStageFallbackExecutor
             source.Bounds,
             density,
             settings,
+            source.TextPart,
             source.Placement.RasterBounds.Union(source.Bounds),
             source.Allocation.DeviceGridOffset);
         if (normalized?.RenderTarget is not { } normalizedTarget)
@@ -574,6 +576,7 @@ internal static class FilterEffectStageFallbackExecutor
             selectedBounds,
             source.Placement.Scale.Value,
             settings,
+            source.TextPart,
             deviceGridOffset: source.Allocation.DeviceGridOffset);
         if (cropped?.RenderTarget is not { } croppedTarget)
         {
@@ -614,6 +617,7 @@ internal static class FilterEffectStageFallbackExecutor
         Rect bounds,
         float density,
         FilterEffectExecutionSettings settings,
+        TextPartTag? textPart,
         Rect? physicalBounds = null,
         Vector deviceGridOffset = default,
         bool native = false)
@@ -640,6 +644,8 @@ internal static class FilterEffectStageFallbackExecutor
             ReportAllocationFailure(bounds, density, deviceBounds, settings.Intent, settings.RenderTargetLeaseSession);
             return null;
         }
+
+        result.TextPart = textPart;
 
         // Graph attachments and the output-copy pass initialize their own pixels. A deferred Skia
         // clear here could otherwise overwrite native output when another target flushes that surface.

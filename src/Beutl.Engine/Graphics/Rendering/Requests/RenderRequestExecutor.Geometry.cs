@@ -61,6 +61,7 @@ internal sealed partial class RenderRequestExecutor
                         outputScale,
                         outputBounds,
                         allowPreviewDrop: true);
+                    output.TextPart = input.TextPart;
                     bool keepOutput = false;
                     try
                     {
@@ -185,6 +186,7 @@ internal sealed partial class RenderRequestExecutor
                 source.CompleteBounds,
                 deviceGridOffset: source.DeviceGridOffset,
                 allowPreviewDrop: allowPreviewDrop);
+            cropped.TextPart = source.TextPart;
             bool succeeded = false;
             try
             {
@@ -310,6 +312,7 @@ internal sealed partial class RenderRequestExecutor
                                     outputBounds,
                                     physicalDeviceBounds,
                                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+                                value.TextPart = ((OpaqueRenderFragmentPayload)fragment.Payload!).TextPart;
                                 var canvas = new RenderCallbackCanvas(
                                     token,
                                     outputDensity,

@@ -62,7 +62,7 @@ public sealed partial class Puppet
             positions[i] = PuppetMesh.Normalize(bounds.Size, deformed[i]);
         }
 
-        EffectTarget output = context.CreateTarget(outputBounds);
+        EffectTarget output = context.CreateTarget(outputBounds, source);
         try
         {
             if (!output.IsEmpty

@@ -28,6 +28,9 @@ internal sealed class TextPartLayout
 
     public ReadOnlySpan<TextPartIndices> GetGlyphs(FormattedText run) => _runs[run];
 
+    public TextPartTag CreateTag(long occurrence, TextPartIndices indices)
+        => new(occurrence, Revision, indices, Counts, WritingMode);
+
     public static TextPartLayout Create(
         TextElements elements, VerticalTextLayout? verticalLayout, WritingMode writingMode, int revision)
     {

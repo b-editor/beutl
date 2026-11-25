@@ -9,10 +9,20 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
     : BrushRenderNode(fill, pen)
 {
     private long _fontRevision = text.Fonts.Revision;
+    private TextPartTag? _textPart;
+
+    internal TextRenderNode(FormattedText text, Brush.Resource? fill, Pen.Resource? pen, TextPartTag? textPart)
+        : this(text, fill, pen)
+    {
+        _textPart = textPart;
+    }
 
     public FormattedText Text { get; private set; } = text;
 
     public bool Update(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
+        => Update(text, fill, pen, null);
+
+    internal bool Update(FormattedText text, Brush.Resource? fill, Pen.Resource? pen, TextPartTag? textPart)
     {
         bool changed = Update(fill, pen);
         var oldText = Text;
@@ -20,8 +30,9 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
         long revision = text.Fonts.Revision;
         bool fontsChanged = _fontRevision != revision;
         _fontRevision = revision;
-        if (changed || fontsChanged || !oldText.Equals(text))
+        if (changed || fontsChanged || _textPart != textPart || !oldText.Equals(text))
         {
+            _textPart = textPart;
             MarkChanged();
             return true;
         }
@@ -85,7 +96,8 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             directReplayAtExactIntegerReduction: false,
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             resources: resources,
-            rasterOutset: rasterOutset));
+            rasterOutset: rasterOutset,
+            textPart: _textPart));
     }
 
     private static bool HitTest(FormattedText text, bool hasFill, Point point)

@@ -48,6 +48,8 @@ internal sealed record RenderNodeCachedValue
 
     public Rect CompleteBounds { get; init; }
 
+    public TextPartTag? TextPart { get; init; }
+
     public EffectiveScale EffectiveScale { get; }
 
     public PixelRect DeviceBounds { get; }

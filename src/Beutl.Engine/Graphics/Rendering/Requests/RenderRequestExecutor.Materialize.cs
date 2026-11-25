@@ -136,5 +136,35 @@ internal sealed partial class RenderRequestExecutor
             return Materialize(fragment.Inputs[0], currentTarget, requestedScale);
         }
 
+        // Replay can paint straight into a new surface without creating a value for the child.
+        private static TextPartTag? GetReplayTextPart(RenderFragmentReference fragment)
+        {
+            while (fragment.ValueCardinality.Equals(RenderValueCardinality.Single))
+            {
+                switch (fragment.Kind)
+                {
+                    case RenderFragmentKind.OpaqueSource:
+                        return ((OpaqueRenderFragmentPayload)fragment.Payload!).TextPart;
+                    case RenderFragmentKind.Layer:
+                        return TextPartTag.GetCommon(fragment.Inputs, GetReplayTextPart);
+                    case RenderFragmentKind.TargetScope when fragment.Payload is TargetScopeRenderFragmentPayload
+                        { Description.IsValueReplayMap: true }:
+                    case RenderFragmentKind.FilterEffectSegment when fragment.Inputs.Length == 1
+                        && fragment.Payload is FilterEffectSegmentRenderFragmentPayload { HasImperativeItem: false }:
+                    case RenderFragmentKind.ContributeValues:
+                    case RenderFragmentKind.Opacity:
+                    case RenderFragmentKind.OpacityMask:
+                    case RenderFragmentKind.Shader:
+                    case RenderFragmentKind.ShaderGraph:
+                    case RenderFragmentKind.Geometry:
+                        fragment = fragment.Inputs[0];
+                        break;
+                    default:
+                        return null;
+                }
+            }
+
+            return null;
+        }
     }
 }

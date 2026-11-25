@@ -214,6 +214,7 @@ internal sealed partial class RenderRequestExecutor
                 fragment.Bounds,
                 deviceBounds,
                 allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+            output.TextPart = GetReplayTextPart(fragment.Inputs[0]);
             bool succeeded = false;
             try
             {
@@ -505,6 +506,7 @@ internal sealed partial class RenderRequestExecutor
                 scale,
                 deviceGridOffset,
                 allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+            value.TextPart = GetReplayTextPart(fragment);
             bool succeeded = false;
             try
             {

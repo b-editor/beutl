@@ -56,6 +56,7 @@ internal sealed partial class RenderRequestExecutor
                         cached.DeviceBounds,
                         cached.DeviceGridOffset,
                         completeBounds: cached.CompleteBounds);
+                    value.TextPart = cached.TextPart;
                     _ownedValues.Add(value);
                     acquired.Add(value);
                 }
@@ -183,6 +184,7 @@ internal sealed partial class RenderRequestExecutor
                 return null;
             }
 
+            capture.TextPart = source.TextPart;
             bool succeeded = false;
             try
             {
@@ -280,6 +282,7 @@ internal sealed partial class RenderRequestExecutor
                         value.DeviceGridOffset)
                     {
                         CompleteBounds = value.CompleteBounds,
+                        TextPart = value.TextPart,
                     });
                     _ownedValues.Remove(value);
                     RemoveCacheCaptureValue(value);

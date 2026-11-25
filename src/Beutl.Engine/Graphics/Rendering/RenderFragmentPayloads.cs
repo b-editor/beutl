@@ -60,7 +60,8 @@ internal sealed record GeometryRenderFragmentPayload(
 internal sealed record OpaqueRenderFragmentPayload(
     OpaqueRenderTopology Topology,
     OpaqueRenderDescription Description,
-    IReadOnlyList<RenderInputReadback> InputReadbacks);
+    IReadOnlyList<RenderInputReadback> InputReadbacks,
+    TextPartTag? TextPart = null);
 
 internal sealed record FilterEffectSegmentRenderFragmentPayload(
     RenderResource<FilterEffectContext> Context,

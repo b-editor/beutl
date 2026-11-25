@@ -65,6 +65,7 @@ internal sealed partial class RenderRequestExecutor
                         outputScale,
                         outputBounds,
                         allowPreviewDrop: true);
+                    output.TextPart = input.TextPart;
                     bool succeeded = false;
                     try
                     {
@@ -120,7 +121,8 @@ internal sealed partial class RenderRequestExecutor
                 input.EffectiveScale,
                 input.DeviceGridOffset,
                 input.CompleteBounds,
-                addRasterApron: false);
+                addRasterApron: false,
+                textPart: input.TextPart);
             if (CanUseAsSemanticShaderInput(normalized))
                 return normalized;
 
@@ -135,7 +137,8 @@ internal sealed partial class RenderRequestExecutor
                 input.EffectiveScale,
                 input.DeviceGridOffset,
                 input.CompleteBounds,
-                addRasterApron: true);
+                addRasterApron: true,
+                textPart: input.TextPart);
         }
 
         // Redraws a source onto a canonical device grid at a density that fits its physical footprint.
@@ -146,7 +149,8 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale scale,
             Vector deviceGridOffset,
             Rect completeBounds,
-            bool addRasterApron)
+            bool addRasterApron,
+            TextPartTag? textPart = null)
         {
             Rect physicalBounds = rasterBounds.Union(bounds);
             Rect alignedPhysicalBounds = physicalBounds.Translate(deviceGridOffset);
@@ -168,6 +172,7 @@ internal sealed partial class RenderRequestExecutor
                 physicalDeviceBounds: normalizedDeviceBounds,
                 deviceGridOffset: deviceGridOffset,
                 allowPreviewDrop: true);
+            normalized.TextPart = textPart;
             bool succeeded = false;
             try
             {

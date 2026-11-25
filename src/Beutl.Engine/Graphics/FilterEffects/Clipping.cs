@@ -120,7 +120,7 @@ public sealed partial class Clipping : FilterEffect
                 Rect targetBounds = autoCenter
                     ? originalRect.CenterRect(clipRect).Translate(target.Bounds.Position)
                     : newBounds;
-                EffectTarget newTarget = context.CreateTarget(targetBounds);
+                EffectTarget newTarget = context.CreateTarget(targetBounds, target);
                 if (newTarget.IsEmpty)
                 {
                     newTarget.Dispose();

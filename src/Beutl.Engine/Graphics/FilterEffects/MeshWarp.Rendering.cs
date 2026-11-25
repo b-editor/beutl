@@ -93,7 +93,7 @@ public sealed partial class MeshWarp
             }
 
             // The renderer clips these local bounds after mapping them into the composition's target domain.
-            EffectTarget output = context.CreateTarget(bounds);
+            EffectTarget output = context.CreateTarget(bounds, target);
             try
             {
                 if (!output.IsEmpty && TriangleWarpRenderer.Draw(
