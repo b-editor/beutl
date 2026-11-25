@@ -904,6 +904,50 @@ public class ElementAddEntryPointTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task FileImport_MovedTemplateLeavesTheWholeAudioTrackOnAFreeLayer()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("file-import-moved-template");
+        MediaTime start = MediaTime.FromSeconds(2);
+        MediaTime second = MediaTime.FromSeconds(1);
+        Assert.That((await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero,
+            start + MediaTime.FromSeconds(0.1), 0)).IsSuccess, Is.True);
+        Assert.That((await TestShell.AddElementAsync(editor, () => new RectShape(), start + MediaTime.FromSeconds(1.5),
+            second, 2)).IsSuccess, Is.True);
+
+        var set = new ElementSet();
+        set.Elements.Add(new Element { Length = { Value = second } });
+        set.Elements.Add(new Element { Start = { Value = second }, Length = { Value = second } });
+        string template = WriteTemplateFile(editor, "template.json", set);
+        string firstSound = Path.ChangeExtension(template, ".wav");
+        string secondSound = Path.Combine(Path.GetDirectoryName(template)!, "track2.wav");
+        WriteSilentWave(firstSound, 44100);
+        WriteSilentWave(secondSound, 44100);
+        var decoder = new WaveDecoderInfo();
+        TestShell.Decoders.Register(decoder);
+        try
+        {
+            var importer = editor.GetRequiredService<SceneFileImporter>();
+            SceneFileImportResult? import = await importer.AddAsync(editor.Scene, [template, firstSound, secondSound], start, 0);
+            Assert.That(import?.AddResult.IsSuccess, Is.True);
+            ElementAddItemResult templateResult = import!.AddResult.Items[0];
+            Element[] audio = [.. import.AddResult.Items.Skip(1).Select(item => item.PrimaryElement)];
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(templateResult.PrimaryElement.Start.Value, Is.GreaterThan(start));
+                Assert.That(templateResult.Elements.Select(element => element.ZIndex.Value), Is.All.EqualTo(1));
+                Assert.That(audio.Select(element => element.ZIndex.Value), Is.EqualTo(new[] { 3, 3 }));
+                Assert.That(audio.Select(element => element.Start.Value), Is.EqualTo(new[] { start, start + second }));
+                Assert.That(audio.Select(element => element.Length.Value), Is.All.EqualTo(second));
+            }
+        }
+        finally
+        {
+            TestShell.Decoders.Unregister(decoder);
+        }
+    }
+
     private static string WriteColorImage(string directory, string fileName, SKColor color)
     {
         string path = Path.Combine(directory, fileName);

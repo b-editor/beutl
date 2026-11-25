@@ -136,6 +136,9 @@ public sealed record ElementDescription
     /// </summary>
     public bool StacksAboveScene { get; init; }
 
+    // A mixed file import reserves one track for its standalone audio after placing the other clips.
+    internal bool PlaceOnSeparateAudioTrack { get; init; }
+
     /// <summary>
     /// Resolves the element name: the explicit <see cref="Name"/> when set, otherwise the
     /// localized display name of <paramref name="fallbackType"/>.

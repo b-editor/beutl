@@ -136,33 +136,9 @@ internal sealed class SceneFileImporter(
         var descriptions = new List<ElementDescription>(clips.Count + sounds.Count);
         foreach ((string file, ObjectTemplateItem? template) in clips)
         {
-            ElementDescription description;
-            if (template is null)
-            {
-                description = new ElementDescription(start, s_defaultLength, layer, new ElementSource.File(file), Position: position);
-            }
-            else
-            {
-                description = ElementTemplateResolver.CreateDescription(template, start, layer);
-                if (sounds.Count > 0 && description.Source is ElementSource.ElementSetTemplate source)
-                {
-                    var set = new Lazy<ElementSet>(source.Factory);
-                    // Leave room for all the template layers. Preflight reuses the instance and reports any load failure.
-                    try
-                    {
-                        if (set.Value.Elements.Count > 0)
-                        {
-                            (_, int first, int last) = DuplicateHelper.ComputePlacementRange(set.Value.Elements);
-                            clipLayerCount = Math.Max(clipLayerCount, checked(last - first + 1));
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        // The adder reports the original failure when it opens the set.
-                    }
-                    description = new ElementDescription(start, null, layer, new ElementSource.ElementSetTemplate(() => set.Value));
-                }
-            }
+            ElementDescription description = template is null
+                ? new ElementDescription(start, s_defaultLength, layer, new ElementSource.File(file), Position: position)
+                : ElementTemplateResolver.CreateDescription(template, start, layer);
             descriptions.Add(description with { FollowsPrevious = true });
         }
 
@@ -171,6 +147,7 @@ internal sealed class SceneFileImporter(
             descriptions.Add(new ElementDescription(start, s_defaultLength, checked(layer + clipLayerCount), new ElementSource.File(sound))
             {
                 FollowsPrevious = true,
+                PlaceOnSeparateAudioTrack = clips.Count > 0,
             });
         }
         return descriptions;

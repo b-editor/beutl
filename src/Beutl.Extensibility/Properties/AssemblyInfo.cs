@@ -3,5 +3,6 @@
 [assembly: InternalsVisibleTo("Beutl")]
 [assembly: InternalsVisibleTo("Beutl.Api")]
 [assembly: InternalsVisibleTo("Beutl.Controls")]
+[assembly: InternalsVisibleTo("Beutl.Editor")]
 [assembly: InternalsVisibleTo("Beutl.Editor.Components")]
 [assembly: InternalsVisibleTo("Beutl.HeadlessUITests")]
