@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Controls;
@@ -19,6 +20,7 @@ using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -87,10 +89,25 @@ public partial class PlayerView : UserControl
 
         Player.CurrentTimeSubmitted += OnPlayerCurrentTimeSubmitted;
         Player.TemplateApplied += OnPlayerTemplateApplied;
+        ConfigurePreviewToolButton(moveToolButton, PreviewTool.Move, SceneEditorExtension.SelectPreviewMoveToolCommandId);
+        ConfigurePreviewToolButton(handToolButton, PreviewTool.Hand, SceneEditorExtension.SelectPreviewHandToolCommandId);
+        ConfigurePreviewToolButton(cropToolButton, PreviewTool.Crop, SceneEditorExtension.SelectPreviewCropToolCommandId);
+        ConfigurePreviewToolButton(cameraToolButton, PreviewTool.Camera3D, SceneEditorExtension.SelectPreviewCameraToolCommandId);
         ShowShortcutInToolTip(guidesToggle, "editor.togglePreviewGuides");
         ShowShortcutInToolTip(onionSkinToggle, "editor.toggleOnionSkin");
         ShowShortcutInToolTip(checkerboardToggle, "editor.togglePreviewCheckerboard");
     }
+
+    private void ConfigurePreviewToolButton(RadioButton button, PreviewTool tool, string commandId)
+    {
+        button.Click += (_, _) => (DataContext as PlayerViewModel)?.SelectPreviewTool(tool);
+        ShowShortcutInToolTip(button, commandId);
+    }
+
+    internal bool CanUsePreviewToolShortcut(Visual source)
+        => _mouseState is null
+            && _temporaryHandPlayer is null
+            && !source.GetSelfAndVisualAncestors().Any(visual => visual == pathEditorView || visual == pathToolsHost);
 
     private async void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)
     {
@@ -239,6 +256,7 @@ public partial class PlayerView : UserControl
 
     protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        EndTemporaryHand();
         Presentation?.Close();
         // The visual parent is already gone during detachment. Use the original subscription source.
         if (_scalingTopLevel is { } topLevel)
@@ -280,6 +298,7 @@ public partial class PlayerView : UserControl
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        EndTemporaryHand();
         Presentation?.Close();
         base.OnDataContextChanged(e);
         _disposables.Clear();

@@ -60,7 +60,7 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
     private void ActivatePuppetPinEditing(Puppet effect)
     {
         PathEditor.FigureContext.Value = null;
-        IsMoveMode.Value = true;
+        SelectPreviewTool(PreviewTool.Move);
         if (!ReferenceEquals(_editorSelection.SelectedObject.Value, effect))
             _editorSelection.Select(effect);
     }

@@ -1767,6 +1767,10 @@ editor.previousMarker
 editor.renameMarker
 editor.seekEnd
 editor.seekStart
+editor.selectPreviewCameraTool
+editor.selectPreviewCropTool
+editor.selectPreviewHandTool
+editor.selectPreviewMoveTool
 editor.shuttleBackward
 editor.shuttleBackwardFine
 editor.shuttleForward

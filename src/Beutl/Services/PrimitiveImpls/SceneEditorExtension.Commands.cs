@@ -1,7 +1,10 @@
 ﻿using System.Runtime.InteropServices;
 using System.Windows.Input;
+using Avalonia;
+using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.ViewModels;
+using Beutl.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -9,6 +12,11 @@ namespace Beutl.Services.PrimitiveImpls;
 
 public sealed partial class SceneEditorExtension
 {
+    internal const string SelectPreviewMoveToolCommandId = "editor.selectPreviewMoveTool";
+    internal const string SelectPreviewHandToolCommandId = "editor.selectPreviewHandTool";
+    internal const string SelectPreviewCropToolCommandId = "editor.selectPreviewCropTool";
+    internal const string SelectPreviewCameraToolCommandId = "editor.selectPreviewCameraTool";
+
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
         new ContextCommandDefinition<EditViewModel>("editor.playPause", Strings.PlayPause, Strings.PlayPause_Description,
@@ -80,6 +88,10 @@ public sealed partial class SceneEditorExtension
             editor => editor.Player.RequestPreviewZoom(PreviewZoomAction.ZoomOut)),
         KeyCommand("editor.previewZoomFit", Strings.PreviewZoomFit, "", [new("Alt+D0")],
             editor => editor.Player.RequestPreviewZoom(PreviewZoomAction.Fit)),
+        PreviewToolCommand(SelectPreviewMoveToolCommandId, Strings.Move, "V", PreviewTool.Move),
+        PreviewToolCommand(SelectPreviewHandToolCommandId, Strings.Hand, "H", PreviewTool.Hand),
+        PreviewToolCommand(SelectPreviewCropToolCommandId, Strings.CropSelection, "Shift+C", PreviewTool.Crop),
+        PreviewToolCommand(SelectPreviewCameraToolCommandId, Strings.Camera3DControl, "Shift+V", PreviewTool.Camera3D),
         // Palette-only: they ask for their arguments, so they have no default gesture.
         PaletteCommand("editor.goToMarker", Strings.GoToMarker,
             (editor, interaction) => editor.GoToMarkerAsync(interaction), editor => editor.Scene.Markers.Count > 0),
@@ -90,6 +102,23 @@ public sealed partial class SceneEditorExtension
     ];
 
     private static bool CanRun(ICommand command) => command.CanExecute(null);
+
+    private static ContextCommandDefinition<EditViewModel> PreviewToolCommand(
+        string id, string name, string gesture, PreviewTool tool)
+        => new(id, $"{Strings.Preview} ({name})", "", [new(gesture)])
+        {
+            CanExecuteOn = (editor, execution) => execution.KeyEventArgs is null
+                || (!execution.IsFromTextInput
+                    && execution.KeyEventArgs.Source is Visual source
+                    && source.FindAncestorOfType<PlayerView>(includeSelf: true) is { } preview
+                    && ReferenceEquals(preview.DataContext, editor.Player)
+                    && preview.CanUsePreviewToolShortcut(source)),
+            ExecuteOnAsync = (editor, _) =>
+            {
+                editor.Player.SelectPreviewTool(tool);
+                return Task.CompletedTask;
+            }
+        };
 
     // A text box leaves an arrow key that cannot move its caret any further, and the key bubbles up to these.
     private static ContextCommandDefinition<EditViewModel> PlayerCommand(
