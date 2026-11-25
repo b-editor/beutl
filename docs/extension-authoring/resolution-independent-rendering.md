@@ -75,6 +75,51 @@ Reading the scale while authoring:
 The built-in effects follow these rules; for example, Mosaic multiplies its tile size by `w`, and the SKSL
 and GLSL script effects pass `w` to shaders.
 
+### Keeping the content's sub-pixel position
+
+Register callbacks that copy, crop, extend, or paint over content in place with
+`FilterEffectContext.CustomEffectKeepingPlacement`. Inputs laid out for the callback cover every device pixel
+the content touches. Their `Bounds` describe that footprint in logical coordinates, and `ContentBounds ?? Bounds`
+gives the logical bounds to use for content-relative drawing. On a canvas from `Open`, subtract `Bounds.Position`
+from the content position to get its origin within the buffer. Keep copies and cuts aligned to whole device pixels.
+A render segment containing a regular custom callback uses the usual grid snapping.
+
+For a same-size replacement, `CreateTargetLike` retains the physical footprint. Set the replacement's
+`ContentBounds` to carry the original logical bounds through to later operations.
+
+```csharp
+context.CustomEffectKeepingPlacement(0, static (_, execution) =>
+{
+    for (int i = 0; i < execution.Targets.Count; i++)
+    {
+        EffectTarget source = execution.Targets[i];
+        EffectTarget replacement = execution.CreateTargetLike(source);
+        if (replacement.IsEmpty)
+        {
+            replacement.Dispose();
+            continue;
+        }
+
+        try
+        {
+            using (ImmediateCanvas canvas = execution.Open(replacement))
+                source.Draw(canvas);
+
+            replacement.ContentBounds = source.ContentBounds;
+            execution.Targets[i] = replacement;
+        }
+        catch
+        {
+            replacement.Dispose();
+            throw;
+        }
+    }
+}, static (_, bounds) => bounds);
+```
+
+The bounds transform receives and returns logical bounds. Use the overload without a bounds transform
+when the output bounds can only be determined during execution.
+
 ### Choosing a different working scale
 
 There is no per-effect policy setting. An effect that needs a different density, such as clamping to the
