@@ -1,6 +1,7 @@
 ﻿using System.Buffers.Binary;
 using System.Text.Json.Nodes;
 using Beutl.NodeGraph.Generative;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -69,7 +70,7 @@ public sealed class ObjectTemplateItem(
 
             // A template saved before AI results were left out still holds the request key of the node it was
             // saved from, and the property editors apply instances as they are, so each one gets a key of its own.
-            ObjectRegenerator.RenewCopiedValues(instance);
+            ObjectRegeneration.RenewCopiedValues(instance);
             return instance;
         }
         catch

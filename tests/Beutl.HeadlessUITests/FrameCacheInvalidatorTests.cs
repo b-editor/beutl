@@ -107,6 +107,53 @@ public sealed class FrameCacheInvalidatorTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Editing_an_exposed_brush_after_removing_its_original_node_drops_cached_frames()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("frame-cache-layer-input");
+        FrameCacheManager cache = editor.FrameCacheManager.Value;
+        bool enabled = cache.IsEnabled;
+        int frame = (int)MediaTime.FromSeconds(1).ToFrame(editor.Player.GetFrameRate(), MidpointRounding.AwayFromZero);
+        var graph = new NodeGraphDrawable();
+        GraphModel model = graph.Model.Value!;
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(2) } };
+        element.Objects.Add(graph);
+        var inputs = new LayerInputNode();
+        var original = new GeometryShapeNode();
+        original.Fill.Property!.SetValue(new SolidColorBrush(Colors.Red));
+        model.Nodes.Add(inputs);
+        model.Nodes.Add(original);
+        Assert.That(inputs.AddNodePort(original.Fill, out _), Is.True);
+        var port = (LayerInputNode.ILayerInputPort)inputs.Items.Single();
+        NodeGraphMutationService.RemoveNodeCore(model, original);
+        var replacement = new GeometryShapeNode();
+        model.Nodes.Add(replacement);
+        model.Connect(replacement.Fill, port);
+        var brush = (SolidColorBrush)port.Property!.GetValue()!;
+
+        cache.IsEnabled = true;
+        try
+        {
+            Add(cache, frame);
+            editor.Scene.Children.Add(element);
+            editor.HistoryManager.Commit();
+            await HeadlessTestHelpers.WaitUntilAsync(() => !Contains(cache, frame), TimeSpan.FromSeconds(10));
+
+            Add(cache, frame);
+            Assert.That(Contains(cache, frame), Is.True);
+            brush.Color.Value = Colors.Blue;
+            editor.HistoryManager.Commit();
+
+            await HeadlessTestHelpers.WaitUntilAsync(() => !Contains(cache, frame), TimeSpan.FromSeconds(10));
+        }
+        finally
+        {
+            cache.Clear();
+            cache.IsEnabled = enabled;
+        }
+    }
+
     private static void Add(FrameCacheManager cache, int frame)
     {
         using Ref<Bitmap> bitmap = Ref<Bitmap>.Create(new Bitmap(16, 16));
