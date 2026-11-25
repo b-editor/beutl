@@ -21,6 +21,7 @@ public partial class MenuBarViewModel
         nameof(SaveAll),
         nameof(EnableVersionControl),
         nameof(CommitVersion),
+        nameof(OrganizeProjectAssets),
         nameof(ExportProject))]
     private void InitializeFilesCommands()
     {
@@ -53,6 +54,8 @@ public partial class MenuBarViewModel
         CommitVersion = new AsyncReactiveCommand(canCommitVersion);
 
         ExportProject = new AsyncReactiveCommand(IsProjectOpened);
+        OrganizeProjectAssets = new ReactiveCommandSlim(IsProjectOpened)
+            .WithSubscribe(() => _editorService.ProjectAssets?.OpenInFileTab());
 
         ViewConfig viewConfig = _editorService.AppServices.GetRequiredService<GlobalConfiguration>().ViewConfig;
         viewConfig.RecentFiles.ForEachItem(
@@ -106,6 +109,8 @@ public partial class MenuBarViewModel
     public ReactiveCommandSlim Exit { get; } = new();
 
     public AsyncReactiveCommand ExportProject { get; private set; } = null!;
+
+    public ReactiveCommandSlim OrganizeProjectAssets { get; private set; } = null!;
 
     public AsyncReactiveCommand ImportProject { get; } = new();
 

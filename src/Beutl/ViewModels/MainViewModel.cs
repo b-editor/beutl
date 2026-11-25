@@ -85,6 +85,8 @@ public sealed partial class MainViewModel : BasePageViewModel
         _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(),
             appServices.GetRequiredService<INotificationService>(), _editorService);
         _editorService.ProjectFonts = _projectService.GetFonts;
+        _editorService.ProjectAssets = new ProjectAssetCoordinator(_projectService, _editorService,
+            appServices.GetRequiredService<DecoderRegistry>());
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
         _ = new ProjectThumbnailService(_projectService, _editorService, _versionControlCoordinator);

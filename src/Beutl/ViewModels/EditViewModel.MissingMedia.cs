@@ -142,6 +142,15 @@ public sealed partial class EditViewModel : IMediaRepairHost
         Player.QueuePreviewRender();
     }
 
+    internal void OnProjectAssetsRelinked()
+    {
+        if (_disposed) return;
+        ((IMediaRepairHost)this).ClearRenderCaches();
+        CaptureSavedMediaUris();
+        ScheduleMediaFingerprints(force: true);
+        NotifyMissingMedia();
+    }
+
     internal async Task OpenMissingMediaAsync(bool refresh = false)
     {
         if (_disposed || _openingMissingMedia) return;

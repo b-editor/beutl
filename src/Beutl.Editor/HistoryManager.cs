@@ -87,6 +87,16 @@ public sealed partial class HistoryManager : IDisposable
         }
     }
 
+    internal ChangeOperation[] GetRetainedOperations()
+    {
+        ThrowIfDisposed();
+        lock (_lock)
+        {
+            return [.. _undoStack.Concat(_redoStack).SelectMany(transaction => transaction.Operations),
+                .. _currentTransaction.Operations, .. _activeSession?.Transaction.Operations ?? []];
+        }
+    }
+
     public int CurrentIndex => _undoStack.Count;
 
     /// <summary>
