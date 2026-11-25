@@ -19,10 +19,7 @@ public sealed partial class FFmpegProxyGenerator
         CancellationToken ct,
         Func<string, string, bool>? moveAttempt = null,
         Func<string, string?>? metadataBackupAttempt = null,
-        VideoColorTags originalColorTags = default,
-        VideoFieldOrder detectedFieldOrder = default,
-        DeinterlaceApplicationStatus deinterlaceStatus = default,
-        Rational? originalDuration = null)
+        VideoStreamInfo? sourceVideo = null)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -58,11 +55,13 @@ public sealed partial class FFmpegProxyGenerator
                 now,
                 null)
             {
-                OriginalColorTags = originalColorTags,
+                OriginalColorTags = sourceVideo?.ColorTags ?? default,
                 Deinterlace = job.Deinterlace,
-                DetectedFieldOrder = detectedFieldOrder,
-                DeinterlaceStatus = deinterlaceStatus,
-                OriginalDuration = originalDuration,
+                DetectedFieldOrder = sourceVideo?.DetectedFieldOrder ?? default,
+                DeinterlaceStatus = sourceVideo?.DeinterlaceStatus ?? default,
+                OriginalDuration = sourceVideo is { DeinterlaceStatus: DeinterlaceApplicationStatus.Applied }
+                    ? sourceVideo.Duration
+                    : null,
             };
 
             metadataBackupPath = TryCopyExistingFileToBackup(GetMetadataPath(finalPath), metadataBackupAttempt);

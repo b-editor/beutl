@@ -297,10 +297,7 @@ public sealed partial class FFmpegReader
         void SeekInput(long pts)
         {
             ffmpeg.avformat_seek_file(_demuxer, _videoStream!.Index, long.MinValue, pts, pts, 0).ThrowIfError();
-            ffmpeg.avcodec_flush_buffers(_videoDecoder);
-            ClearVideoProbeFrames();
-            DiscardPendingVideoPacket();
-            _videoDecodedPts = long.MinValue;
+            ResetVideoDecoder();
             ActiveVideoFrame!.Unref();
             _nextInputPts = pts;
             _filterHasInput = GrabVideo() && IsUsableVideoFrame(ActiveVideoFrame);

@@ -963,6 +963,15 @@ public sealed partial class FFmpegReader : MediaReader
         ffmpeg.av_frame_copy_props(swFrame, hwFrame).ThrowIfError();
     }
 
+    // Both video seek paths run this right after moving the demuxer.
+    private unsafe void ResetVideoDecoder()
+    {
+        ffmpeg.avcodec_flush_buffers(_videoDecoder);
+        ClearVideoProbeFrames();
+        DiscardPendingVideoPacket();
+        _videoDecodedPts = long.MinValue;
+    }
+
     private unsafe void SeekVideo(long frame)
     {
         if (_demuxer == null || _videoDecoder == null) return;
@@ -972,10 +981,7 @@ public sealed partial class FFmpegReader : MediaReader
             long timestamp = (long)Math.Round(targetFrame * 1000000.0 / _videoAvgFrameRateDouble + _demuxer.StartTime,
                 MidpointRounding.AwayFromZero);
             _demuxer.Seek(timestamp, -1);
-            ffmpeg.avcodec_flush_buffers(_videoDecoder);
-            ClearVideoProbeFrames();
-            DiscardPendingVideoPacket();
-            _videoDecodedPts = long.MinValue;
+            ResetVideoDecoder();
             _shownVideoFrame!.Unref();
             _videoEnded = false;
             GrabVideo();
