@@ -36,7 +36,7 @@ internal static class FlowInputDiagnostics
         TimeRange range = element.Range;
         Rational frameRate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         bool graphics = target == CompositionTarget.Graphics;
-        if (graphics && FirstFrameAtOrAfter(range.Start, frameRate) >= range.End)
+        if (graphics && range.Start.RoundToFrame(frameRate, MidpointRounding.ToPositiveInfinity) >= range.End)
         {
             missing.RemoveAll(obj => obj.GetCompositionTarget() == target);
             return;
@@ -92,7 +92,7 @@ internal static class FlowInputDiagnostics
             MediaTime start = boundaries[i - 1];
             MediaTime end = boundaries[i];
             if (start == end) continue;
-            MediaTime time = graphics ? FirstFrameAtOrAfter(start, frameRate) : start;
+            MediaTime time = graphics ? start.RoundToFrame(frameRate, MidpointRounding.ToPositiveInfinity) : start;
             if (time >= end) continue;
 
             pass.InspectInterval(time);
@@ -109,13 +109,6 @@ internal static class FlowInputDiagnostics
             AddBoundary(boundary.Region.Start);
             AddBoundary(boundary.Region.End);
         }
-    }
-
-    private static MediaTime FirstFrameAtOrAfter(MediaTime time, Rational rate)
-    {
-        long frame = time.ToFrame(rate, MidpointRounding.AwayFromZero);
-        MediaTime frameTime = MediaTime.FromFrames(frame, rate);
-        return frameTime >= time ? frameTime : MediaTime.FromFrames(frame + 1, rate);
     }
 
     private static (int First, int Last) InputLayers(PortalObject portal)

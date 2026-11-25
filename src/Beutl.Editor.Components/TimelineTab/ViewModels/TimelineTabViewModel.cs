@@ -628,6 +628,31 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
                 || (engineProperty != null && ReferenceEquals(x.Property.GetEngineProperty(), engineProperty))));
     }
 
+    // Snaps a drag to element edges but exclude's and moving's, the scene's targets and extra, else to the BPM grid.
+    internal SnapResult SnapTime(MediaTime time, float scale, bool disabled, Element? exclude,
+        IEnumerable<ElementViewModel>? moving = null, IEnumerable<MediaTime>? extra = null)
+    {
+        if (disabled || !IsSnapEnabled.Value)
+        {
+            return new SnapResult(time, false);
+        }
+
+        HashSet<Element>? leaving = moving?.Select(item => item.Model).ToHashSet();
+        IEnumerable<Element> others = leaving is null
+            ? Scene.Children
+            : Scene.Children.Where(element => !leaving.Contains(element));
+        IEnumerable<MediaTime> candidates = SnapHelper
+            .CollectElementCandidates(others, exclude)
+            .Concat(SnapHelper.CollectSceneCandidates(Scene, CurrentTime.Value));
+        if (extra != null)
+        {
+            candidates = candidates.Concat(extra);
+        }
+
+        return SnapHelper.Snap(
+            time, candidates, Options.Value.BpmGrid, SceneTimeRangeService.GetFrameRate(Scene), scale);
+    }
+
     private void ReplaceInlines(PropertyPair pair, Element element)
     {
         InlineAnimationLayerViewModel[] layers = [.. Inlines.Where(x => x.Element.Model == element && pair.Contains(x.Property))];
