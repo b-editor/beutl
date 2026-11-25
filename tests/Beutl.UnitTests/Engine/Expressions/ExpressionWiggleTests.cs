@@ -481,6 +481,22 @@ public class ExpressionWiggleTests
     }
 
     [Test]
+    public void StringExpression_WiggleValueReportsANonFiniteOffsetTheExpressionDoesNotReturn()
+    {
+        var context = new CompositionContext(MediaTime.FromSeconds(0.375));
+        var scalar = new AnimatableProperty<double>(32);
+        scalar.SetAttributes("Value", []);
+        // The comparison discards the NaN, so the property's check on the result never sees it.
+        scalar.Expression = new StringExpression<double>("WiggleValue(double.NaN, 10) > 0 ? 1.0 : 2.0");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(scalar.Evaluate(context), Is.EqualTo(32.0));
+            Assert.That(scalar.ExpressionError ?? string.Empty, Does.Contain("finite number"));
+        }
+    }
+
+    [Test]
     public void ComponentExpression_WiggleValueParsesAnEditInTheCombinedContext()
     {
         var transform = new TranslateTransform(10, 20);

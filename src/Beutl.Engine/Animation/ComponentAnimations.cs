@@ -216,10 +216,9 @@ public static class ComponentAnimations
 
     private static T WiggleScalar<T>(T value, double x, double amplitude, int octaves, ulong seed) where T : INumber<T>
     {
-        double offset = WiggleNoise.Sample(x, octaves, seed) * amplitude;
-        // Conversion can swallow NaN. The property itself only checks float and double results.
-        if (typeof(T) != typeof(float) && typeof(T) != typeof(double))
-            ExpressionEvaluationState<double>.RequireFinite(offset);
+        // Check here as the component path does: conversion can swallow NaN, and the property's own check misses an
+        // offset the expression only compares or discards.
+        double offset = ExpressionEvaluationState<double>.RequireFinite(WiggleNoise.Sample(x, octaves, seed) * amplitude);
         return NumericOffset.AddFractional(value, offset);
     }
 
