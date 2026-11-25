@@ -25,6 +25,14 @@ internal static class Program
             return;
         }
 
+        if (OperatingSystem.IsWindows())
+        {
+            // XAudio2 and Media Foundation share these settings, which freeze on first use.
+            SharpGen.Runtime.Configuration.EnableObjectTracking = true;
+            SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = true;
+            SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = true;
+        }
+
         PackageLinkLaunchResult launch = OperatingSystem.IsMacOS()
             ? new(PackageLinkLaunchAction.StartApplication, null, args)
             : PackageLinkLauncher.PrepareAsync(args).GetAwaiter().GetResult();
