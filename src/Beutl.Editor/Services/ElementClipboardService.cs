@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
+using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
@@ -24,7 +25,8 @@ public sealed class ElementClipboardService : IElementClipboardService
     private readonly EditorConfig _configuration;
     private readonly IClipboardGateway _clipboard;
     private readonly IElementDuplicateService _duplicateService;
-    private readonly IElementAdder? _elementAdder;
+    private readonly SceneFileImporter? _fileImporter;
+    private readonly Func<IReadOnlyList<CaptionTemplate>, Task<CaptionTemplate?>>? _chooseCaptionTemplate;
     private readonly Func<Color> _imageAccentColorFactory;
 
     /// <param name="imageAccentColorFactory">Accent color for an element created
@@ -36,13 +38,26 @@ public sealed class ElementClipboardService : IElementClipboardService
         IElementDuplicateService duplicateService,
         Func<Color> imageAccentColorFactory,
         IElementAdder? elementAdder = null)
+        : this(historyManager, configuration, clipboard, duplicateService, imageAccentColorFactory,
+            elementAdder is null ? null : new SceneFileImporter(elementAdder), null)
+    {
+    }
+
+    internal ElementClipboardService(
+        HistoryManager historyManager, EditorConfig configuration,
+        IClipboardGateway clipboard,
+        IElementDuplicateService duplicateService,
+        Func<Color> imageAccentColorFactory,
+        SceneFileImporter? fileImporter,
+        Func<IReadOnlyList<CaptionTemplate>, Task<CaptionTemplate?>>? chooseCaptionTemplate)
     {
         _configuration = configuration;
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
         _duplicateService = duplicateService ?? throw new ArgumentNullException(nameof(duplicateService));
         _imageAccentColorFactory = imageAccentColorFactory ?? throw new ArgumentNullException(nameof(imageAccentColorFactory));
-        _elementAdder = elementAdder;
+        _fileImporter = fileImporter;
+        _chooseCaptionTemplate = chooseCaptionTemplate;
     }
 
     public async Task<bool> CopyAsync(IReadOnlyList<Element> elements)
@@ -250,24 +265,21 @@ public sealed class ElementClipboardService : IElementClipboardService
 
     private async Task<ElementPasteOutcome> PasteFilesAsync(Scene scene, MediaTime clickedFrame, int clickedLayer)
     {
-        if (_elementAdder is null) return ElementPasteOutcome.Empty;
+        if (_fileImporter is null) return ElementPasteOutcome.Empty;
 
         IReadOnlyList<string>? files = await _clipboard.TryGetFilePathsAsync();
         if (files is null || files.Count == 0) return ElementPasteOutcome.Empty;
 
-        ElementAddResult result = await _elementAdder.AddAsync(files
-            .Select(file => new ElementDescription(
-                clickedFrame,
-                MediaTime.FromSeconds(5),
-                clickedLayer,
-                new ElementSource.File(file)))
-            .ToArray(), CancellationToken.None);
-        if (!result.IsSuccess)
+        SceneFileImportResult? imported = await _fileImporter.AddAsync(
+            scene, files, clickedFrame, clickedLayer, chooseCaptionTemplate: _chooseCaptionTemplate);
+        if (imported is null) return ElementPasteOutcome.Empty;
+        if (!imported.AddResult.IsSuccess)
         {
-            return Refused(result.Failure!);
+            return Refused(imported.AddResult.Failure!);
         }
 
-        Element scrollTarget = result.Items[^1].PrimaryElement;
+        Element scrollTarget = imported.FirstCaption ?? imported.AddResult.Items[^1].PrimaryElement;
+        _fileImporter.ReportSkippedCues(imported.FilesWithSkippedCues);
         return new ElementPasteOutcome(
             Pasted: true,
             ScrollTo: scrollTarget.Range,

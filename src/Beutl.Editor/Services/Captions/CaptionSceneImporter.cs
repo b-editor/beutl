@@ -1,16 +1,15 @@
-﻿using Beutl.Editor.Services;
-using Beutl.Editor.Services.Captions;
+﻿using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
-namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
+namespace Beutl.Editor.Services.Captions;
 
 internal readonly record struct CaptionSceneImportResult(
     bool IsSuccess,
     ElementAddFailureId? FailureId);
 
-internal static class AiCaptionSceneImporter
+internal static class CaptionSceneImporter
 {
     public static async Task<CaptionSceneImportResult> AddAsync(
         Scene scene,

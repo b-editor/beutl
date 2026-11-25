@@ -345,17 +345,19 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 if (gatedCommitValidation is not null)
                     return;
 
-                var layerEnds = new Dictionary<int, MediaTime>();
+                var layerEnds = new Dictionary<(int Layer, bool StacksAboveScene), MediaTime>();
                 int? firstFreeLayer = null;
                 for (int index = 0; index < itemResults.Count; index++)
                 {
                     IReadOnlyList<Element> elements = itemResults[index].Elements;
                     ElementDescription description = plans[index].Description;
-                    if (description.FollowsPrevious && layerEnds.TryGetValue(description.Layer, out MediaTime end))
+                    var row = (description.Layer, description.StacksAboveScene);
+                    if (description.FollowsPrevious && layerEnds.TryGetValue(row, out MediaTime end))
                     {
+                        MediaTime firstStart = elements.Min(element => element.Start.Value);
                         foreach (Element element in elements)
                         {
-                            element.Start.Value += end - description.Start;
+                            element.Start.Value += end - firstStart;
                         }
                     }
 
@@ -388,7 +390,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                             _context.GetRequiredService<GlobalConfiguration>().EditorConfig.AutoAdjustSceneDuration.Value);
                     }
 
-                    layerEnds[description.Layer] = elements.Max(element => element.Range.End);
+                    layerEnds[row] = elements.Max(element => element.Range.End);
                 }
 
                 if (groups.Count > 0)

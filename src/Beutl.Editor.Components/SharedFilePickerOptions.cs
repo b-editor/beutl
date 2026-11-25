@@ -1,29 +1,10 @@
 ﻿using Avalonia.Platform.Storage;
+using Beutl.Editor.Services;
 
 namespace Beutl.Editor.Components;
 
 public static class SharedFilePickerOptions
 {
-    // SKEncodedImageFormat; also what an imported file must match to be added as an image.
-    internal static readonly string[] ImagePatterns =
-    [
-        "*.bmp",
-        "*.gif",
-        "*.ico",
-        "*.jpg",
-        "*.jpeg",
-        "*.png",
-        "*.svg",
-        "*.wbmp",
-        "*.webp",
-        "*.pkm",
-        "*.ktx",
-        "*.astc",
-        "*.dng",
-        "*.heif",
-        "*.avif"
-    ];
-
     public static FilePickerOpenOptions OpenImage()
     {
         return new()
@@ -32,7 +13,7 @@ public static class SharedFilePickerOptions
             [
                 new FilePickerFileType("All Images")
                 {
-                    Patterns = ImagePatterns,
+                    Patterns = MediaFileMatcher.ImagePatterns,
                     AppleUniformTypeIdentifiers = ["public.image"],
                     MimeTypes = ["image/*"]
                 }

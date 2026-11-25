@@ -1,27 +1,19 @@
 ﻿using Avalonia;
 using Avalonia.Input;
-using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.Editor.Services.Captions;
-using Beutl.Editor.VersionControl;
-using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
-using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
-    private INotificationService Notifications => ControlNotifications.FromDataContextOrDefault(this);
-
-    private CaptionTemplateId? _captionTemplateId;
+    private readonly CaptionTemplateChooser _captionTemplateChooser = new();
 
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
@@ -30,7 +22,6 @@ public sealed partial class TimelineTabView
         if (ViewModel == null) return;
         TimelinePanel.Cursor = Cursors.Arrow;
         TimelineTabViewModel viewModel = ViewModel;
-        Scene scene = ViewModel.Scene;
         Point pt = e.GetPosition(TimelinePanel);
 
         SetClickedPosition(viewModel, pt);
@@ -38,13 +29,13 @@ public sealed partial class TimelineTabView
         if (storage != null)
         {
             e.Handled = true;
-            await ImportStorageDropAsync(viewModel, scene, storage);
+            await AddDroppedFilesAsync(viewModel, [], storage);
             return;
         }
 
-        ObjectTemplateItem? template = TryResolveDroppedTemplate(viewModel.GetRequiredService<ObjectTemplateService>(), e);
-
-        if (template != null)
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.ObjectTemplate) is { } id
+            && Guid.TryParse(id, out Guid templateId)
+            && viewModel.GetRequiredService<ObjectTemplateService>().FindById(templateId) is { } template)
         {
             if (ElementTemplateResolver.CanCreateDescription(template))
             {
@@ -76,131 +67,17 @@ public sealed partial class TimelineTabView
 
             e.Handled = true;
         }
-        else if (TryGetDroppedFiles(e) is { Length: > 0 } files)
+        else if (SceneFileDrop.GetLocalPaths(e.DataTransfer.TryGetFiles()) is { Length: > 0 } files)
         {
             e.Handled = true;
             await AddDroppedFilesAsync(viewModel, files);
         }
     }
 
-    // The subtitle files among paths and the look to give them, or null when the menu is dismissed: that gives up the
-    // whole drop, along with any files dropped beside the subtitles. With no subtitle files, or only the default look,
-    // there is nothing to ask. The last choice comes first.
-    private async Task<(string[] Captions, CaptionTemplate? Template)?> ChooseDroppedCaptionsAsync(
-        ObjectTemplateService objectTemplates, IEnumerable<string> paths)
-    {
-        string[] captions = [.. paths.Where(CaptionFileDrop.IsCaptionFile)];
-        if (captions.Length == 0) return (captions, null);
-
-        IReadOnlyList<CaptionTemplate> templates = CaptionFileDrop.GetTemplates(objectTemplates);
-        if (templates.Count == 1) return (captions, templates[0]);
-
-        CaptionTemplate? chosen = await CaptionTemplateChooser.ShowAsync(
-            TimelinePanel, templates.OrderByDescending(item => item.Descriptor.Id == _captionTemplateId));
-        if (chosen is null) return null;
-
-        _captionTemplateId = chosen.Descriptor.Id;
-        return (captions, chosen);
-    }
-
-    private static string[]? TryGetDroppedFiles(DragEventArgs e)
-        => e.DataTransfer.TryGetFiles()?
-            .OfType<IStorageFile>()
-            .Select(file => file.TryGetLocalPath())
-            .OfType<string>()
-            .ToArray();
-
-    private async Task AddDroppedFilesAsync(TimelineTabViewModel viewModel, string[] files)
-    {
-        MediaTime frame = viewModel.ClickedFrame;
-        int layer = viewModel.CalculateClickedLayer();
-        try
-        {
-            if (await ChooseDroppedCaptionsAsync(viewModel.GetRequiredService<ObjectTemplateService>(), files) is not { } choice) return;
-            (string[] captions, CaptionTemplate? template) = choice;
-
-            // The layout can have to open the files.
-            var decoders = ExtensionGuard.RequireService<DecoderRegistry>(viewModel);
-            ElementDescription[] descriptions = await Task.Run(
-                () => FileDropLayout.Create(files.Except(captions), frame, s_defaultElementLength, layer, decoders));
-            if (descriptions.Length == 0 && captions.Length == 0)
-            {
-                // With no media among them, adding the first says why it cannot be added.
-                await viewModel.AddElementWithResultAsync(
-                    new ElementDescription(frame, s_defaultElementLength, layer, new ElementSource.File(files[0])));
-            }
-            else
-            {
-                await CaptionFileDrop.AddAsync(viewModel, captions, descriptions, template);
-            }
-        }
-        catch (OperationCanceledException) { }
-        catch (ObjectDisposedException) { }
-        catch (Exception) { Notifications.ShowError(Strings.AddElement, MessageStrings.UnexpectedError); }
-    }
-
-    private async Task ImportStorageDropAsync(TimelineTabViewModel viewModel, Scene scene, StorageDragData storage)
-    {
-        MediaTime dropFrame = viewModel.ClickedFrame;
-        int dropLayer = viewModel.CalculateClickedLayer();
-        using var fileWrite = HostProjectFileWriteAdmission.Resolve(viewModel.EditorContext)?.TryBeginProjectFileWrite();
-        if (fileWrite == null)
-        {
-            Notifications.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
-            return;
-        }
-        try
-        {
-            using var import = await storage.ImportToSceneAsync(scene);
-            // Dismissing the menu gives up the whole drop, as it does for files from the disk.
-            if (await ChooseDroppedCaptionsAsync(viewModel.GetRequiredService<ObjectTemplateService>(), import.Paths) is not { } choice) return;
-            (string[] captions, CaptionTemplate? template) = choice;
-
-            foreach (string path in import.Paths.Except(captions))
-            {
-                ElementAddResult result;
-                if (string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase)
-                    && viewModel.GetRequiredService<ObjectTemplateService>().TryLoadFromFile(path) is { } storageTemplate)
-                {
-                    result = await viewModel.AddElementWithResultAsync(ElementTemplateResolver.CreateDescription(storageTemplate, dropFrame, dropLayer));
-                    if (result.IsSuccess) import.RetainAll();
-                }
-                else
-                {
-                    result = await viewModel.AddElementWithResultAsync(new ElementDescription(dropFrame, s_defaultElementLength,
-                        dropLayer, new ElementSource.File(path)));
-                    if (result.IsSuccess) import.Retain(path);
-                }
-                if (result.IsSuccess) dropLayer = checked(result.Elements.Max(element => element.ZIndex.Value) + 1);
-            }
-
-            // Their text is copied into the clips, so nothing here needs the files once they are read.
-            if (captions.Length > 0)
-                await CaptionFileDrop.AddAsync(viewModel, captions, [], template);
-        }
-        catch (OperationCanceledException) { }
-        catch (ObjectDisposedException) { }
-        catch (Exception) { Notifications.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
-    }
-
-    private static ObjectTemplateItem? TryResolveDroppedTemplate(ObjectTemplateService templates, DragEventArgs e)
-    {
-        ObjectTemplateItem? template = null;
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.ObjectTemplate) is { } idStr
-            && Guid.TryParse(idStr, out Guid templateId))
-        {
-            template = templates.FindById(templateId);
-        }
-
-        // テンプレートファイルのドロップもテンプレート経路で処理
-        if (template == null && e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase))
-        {
-            template = templates.TryLoadFromFile(droppedFile);
-        }
-
-        return template;
-    }
+    private Task AddDroppedFilesAsync(TimelineTabViewModel viewModel, string[] files, StorageDragData? storage = null)
+        => SceneFileDrop.AddAsync(
+            viewModel.EditorContext, viewModel.Scene, files, viewModel.ClickedFrame, viewModel.CalculateClickedLayer(),
+            TimelinePanel, _captionTemplateChooser, viewModel, storage: storage);
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {

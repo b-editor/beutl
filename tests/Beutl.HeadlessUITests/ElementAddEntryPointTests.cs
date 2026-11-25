@@ -36,6 +36,7 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Media.Wave;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -43,6 +44,7 @@ using Beutl.Views;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using SkiaSharp;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.HeadlessUITests;
@@ -653,6 +655,224 @@ public class ElementAddEntryPointTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase("timeline", false)]
+    [TestCase("timeline-storage", false)]
+    [TestCase("preview", false)]
+    [TestCase("preview-storage", false)]
+    [TestCase("clipboard", false)]
+    [TestCase("preview", true)]
+    public async Task FileImport_UsesTheSameLayoutForMixedFilesOnEverySurface(string route, bool useElementSet)
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene($"mixed-import-{route}-{useElementSet}");
+        timeline.Options.Value = timeline.Options.Value with { Scale = 0.23f, Offset = System.Numerics.Vector2.Zero };
+        Scene scene = editor.Scene;
+        var frameSize = new Beutl.Media.PixelSize(640, 360);
+        scene.FrameSize.Value = frameSize;
+        MediaTime start = MediaTime.FromSeconds(2);
+        editor.GetRequiredService<IEditorClock>().Seek(start);
+        editor.Player.PreviewImage.Value ??= Ref<Bitmap>.Create(new Bitmap(frameSize.Width, frameSize.Height));
+
+        var templateElement = new Element
+        {
+            Start = { Value = MediaTime.FromSeconds(20) },
+            Length = { Value = MediaTime.FromSeconds(7) },
+            ZIndex = { Value = 8 },
+            Name = { Value = "Template card" },
+        };
+        templateElement.AddObject(new RectShape
+        {
+            Width = { Value = 120 },
+            Height = { Value = 64 },
+            Fill = { Value = new SolidColorBrush(0xFFF59E0B) },
+            Transform = { Value = new TranslateTransform(20, -15) },
+        });
+        ICoreSerializable template = templateElement;
+        if (useElementSet)
+        {
+            var companion = new Element
+            {
+                Start = { Value = MediaTime.FromSeconds(22) },
+                Length = { Value = MediaTime.FromSeconds(3) },
+                ZIndex = { Value = 10 },
+                Name = { Value = "Template companion" },
+            };
+            companion.AddObject(new RectShape());
+            var set = new ElementSet();
+            set.Elements.AddRange([templateElement, companion]);
+            template = set;
+        }
+
+        string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        string captionFile = Path.Combine(directory, "captions.srt");
+        File.WriteAllText(captionFile, "1\n00:00:05,000 --> 00:00:06,500\nImported subtitle\n");
+        string audioFile = Path.Combine(directory, "music.wav");
+        WriteSilentWave(audioFile, 3 * 44100);
+        string unknown = Path.Combine(directory, "extra.json");
+        File.WriteAllText(unknown, "{}");
+        string[] paths =
+        [
+            WriteTemplateFile(editor, "2.JSON", template),
+            WriteColorImage(directory, "10.png", SKColors.SteelBlue),
+            captionFile,
+            unknown,
+            audioFile,
+            WriteColorImage(directory, "1.png", SKColors.Teal),
+        ];
+
+        var decoder = new WaveDecoderInfo();
+        TestShell.Decoders.Register(decoder);
+        using var notifications = new NotificationCapture(TestShell.Notifications);
+        var scrolls = new List<(TimeRange Range, int ZIndex)>();
+        using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
+        var timelineView = new TimelineTabView { DataContext = timeline };
+        var player = new PlayerView { DataContext = editor.Player };
+        var content = new Grid { RowDefinitions = new RowDefinitions("*,260"), Children = { player, timelineView } };
+        Grid.SetRow(timelineView, 1);
+        var window = new Window { Content = content, Width = 1050, Height = 720 };
+        ObjectTemplateItem? savedCaptionTemplate = null;
+
+        try
+        {
+            if (route == "clipboard") savedCaptionTemplate = await SaveTextTemplateAsync();
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            bool preview = route.StartsWith("preview", StringComparison.Ordinal);
+            bool fromStorage = route.EndsWith("-storage", StringComparison.Ordinal);
+            var clock = editor.GetRequiredService<IEditorClock>();
+            clock.Seek(start);
+            var scenePoint = new AvaPoint(400, 130);
+            Panel surface = preview
+                ? player.FindControl<Panel>("framePanel")!
+                : timelineView.FindControl<Panel>("TimelinePanel")!;
+            var point = preview ? player.ViewportTransform!.ToPreview(scenePoint)
+                : new AvaPoint(start.TimeToPixel(timeline.Options.Value.Scale), timeline.CalculateLayerTop(2) + 5);
+            int layer = preview ? 0 : timeline.ToLayerNumber(point.Y);
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+            using var transfer = new DataTransfer();
+            StorageDragConsumption? consumption = null;
+            if (fromStorage)
+            {
+                consumption = new StorageDragConsumption();
+                transfer.Add(DataTransferItem.Create(StorageDragData.Format,
+                    new StorageDragData("test", new object(), [], paths, () => true, _ => Task.FromResult(false))
+                    {
+                        Consumption = consumption,
+                    }));
+            }
+            else
+            {
+                foreach (string path in paths)
+                    transfer.Add(DataTransferItem.CreateFile(await GetStorageFile(window, path)));
+            }
+
+            if (route == "clipboard")
+            {
+                ClipboardHelper.OverrideClipboard = window.Clipboard;
+                AppHelper.OverrideTopLevel = window;
+                await window.Clipboard!.SetDataAsync(transfer);
+                timeline.ClickedFrame = start;
+                timeline.ClickedPosition = point;
+                Task paste = timeline.Paste.ExecuteAsync();
+                FAMenuFlyoutItem[] choices = await WaitForTemplateMenuAsync(window);
+                Assert.That(choices.Select(item => item.Text), Does.Contain(savedCaptionTemplate!.Name.Value));
+                HeadlessTestHelpers.Click(choices.Single(item => item.Text == Strings.AiSubtitle_DefaultTemplate));
+                await paste.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            else
+            {
+                var args = new DragEventArgs(DragDrop.DropEvent, transfer, preview ? player.image : surface, point, KeyModifiers.None);
+                surface.RaiseEvent(args);
+                Assert.That(args.Handled, Is.True);
+                if (consumption is not null)
+                    await consumption.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+                else
+                    await HeadlessTestHelpers.WaitUntilAsync(() => scrolls.Count != 0 || notifications.All.Count != 0);
+            }
+
+            Assert.That(notifications.All, Is.Empty);
+            Assert.That(scene.Children, Has.Count.EqualTo(useElementSet ? 6 : 5));
+            Element first = scene.Children.Single(element => element.Name.Value == "1.png");
+            Element middle = scene.Children.Single(element => element.Name.Value == "Template card");
+            Element last = scene.Children.Single(element => element.Name.Value == "10.png");
+            Element audio = scene.Children.Single(element => element.Name.Value == "music.wav");
+            Element subtitle = scene.Children.Single(element => element.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(first.Start.Value, Is.EqualTo(start));
+                Assert.That(middle.Start.Value, Is.EqualTo(first.Range.End));
+                Assert.That(middle.Length.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
+                Assert.That(last.Start.Value, Is.EqualTo(middle.Range.End));
+                Assert.That(new[] { first, middle, last }.Select(element => element.ZIndex.Value), Is.All.EqualTo(layer));
+                Assert.That(audio.Start.Value, Is.EqualTo(start));
+                Assert.That(audio.ZIndex.Value, Is.EqualTo(layer + (useElementSet ? 3 : 1)));
+                Assert.That(subtitle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(subtitle.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+                Assert.That(subtitle.ZIndex.Value, Is.EqualTo(audio.ZIndex.Value + 1));
+                Assert.That(scrolls, Is.EqualTo(new[] { (subtitle.Range, subtitle.ZIndex.Value) }));
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+
+                foreach (Element item in new[] { first, last })
+                {
+                    var image = item.Objects.OfType<SourceImage>().Single();
+                    var offset = ((TransformGroup)image.Transform.Value!).Children.OfType<TranslateTransform>().Single();
+                    Assert.That(offset.X.Value, Is.EqualTo(preview ? 80 : 0).Within(0.01));
+                    Assert.That(offset.Y.Value, Is.EqualTo(preview ? -50 : 0).Within(0.01));
+                }
+                var templateOffset = (TranslateTransform)middle.Objects.OfType<RectShape>().Single().Transform.Value!;
+                Assert.That(templateOffset.X.Value, Is.EqualTo(20));
+                Assert.That(templateOffset.Y.Value, Is.EqualTo(-15));
+                if (useElementSet)
+                {
+                    Element companion = scene.Children.Single(element => element.Name.Value == "Template companion");
+                    Assert.That(companion.ZIndex.Value, Is.EqualTo(layer + 2));
+                    Assert.That(companion.Start.Value, Is.EqualTo(middle.Start.Value + MediaTime.FromSeconds(2)));
+                }
+                if (fromStorage)
+                {
+                    string resource = first.Objects.OfType<SourceImage>().Single().Source.Value!.Uri.LocalPath;
+                    Assert.That(resource, Does.StartWith(Path.Combine(directory, "resources", "storage")));
+                    Assert.That(File.Exists(resource), Is.True);
+                }
+            }
+
+            if (HeadlessCapture.IsRequested && !useElementSet)
+            {
+                Ref<Bitmap>? previousFrame = editor.Player.PreviewImage.Value;
+                clock.Seek(MediaTime.FromSeconds(5.5));
+                await HeadlessTestHelpers.WaitUntilAsync(
+                    () => editor.Player.PreviewImage.Value is { } currentFrame && !ReferenceEquals(currentFrame, previousFrame));
+                HeadlessTestHelpers.Render(4);
+                HeadlessCapture.SaveIfRequested(window, nameof(ElementAddEntryPointTests), $"mixed-files-{route}");
+            }
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(scene.Children, Is.Empty);
+        }
+        finally
+        {
+            ClipboardHelper.OverrideClipboard = null;
+            AppHelper.OverrideTopLevel = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            if (savedCaptionTemplate is not null) RemoveTemplate(savedCaptionTemplate);
+            TestShell.Decoders.Unregister(decoder);
+        }
+    }
+
+    private static string WriteColorImage(string directory, string fileName, SKColor color)
+    {
+        string path = Path.Combine(directory, fileName);
+        using var bitmap = new SKBitmap(180, 100);
+        bitmap.Erase(color);
+        using var image = SKImage.FromBitmap(bitmap);
+        using SKData png = image.Encode(SKEncodedImageFormat.Png, 100);
+        using FileStream output = File.Create(path);
+        png.SaveTo(output);
+        return path;
+    }
+
     // Background music in a .webm or .mp4 runs under the pictures like any other sound.
     [AvaloniaTest]
     public async Task TimelineView_SeveralFilesDrop_TreatsAContainerHoldingOnlySoundAsSound()
@@ -806,7 +1026,7 @@ public class ElementAddEntryPointTests
 
             """);
 
-        await CaptionFileDrop.AddAsync(timeline, path);
+        await AddCaptionFilesAsync(timeline, path);
 
         Element[] clips = [.. editor.Scene.Children.OrderBy(child => child.Start.Value)];
         using (Assert.EnterMultipleScope())
@@ -840,7 +1060,7 @@ public class ElementAddEntryPointTests
         var picture = new ElementDescription(
             MediaTime.FromSeconds(1), MediaTime.FromSeconds(5), 0, new ElementSource.EngineObject(() => new RectShape()));
 
-        await CaptionFileDrop.AddAsync(timeline, [path], [picture]);
+        await AddCaptionFilesAsync(timeline, [path], [picture]);
 
         Element text = editor.Scene.Children.Single(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
         using (Assert.EnterMultipleScope())
@@ -864,7 +1084,7 @@ public class ElementAddEntryPointTests
         string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "overlap.srt");
         File.WriteAllText(path, "1\n00:00:01,000 --> 00:00:03,000\nfirst\n\n2\n00:00:02,000 --> 00:00:04,000\nsecond\n");
 
-        await CaptionFileDrop.AddAsync(timeline, path);
+        await AddCaptionFilesAsync(timeline, path);
 
         Element[] texts = [.. editor.Scene.Children
             .Where(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any())
@@ -899,7 +1119,7 @@ public class ElementAddEntryPointTests
         var picture = new ElementDescription(
             MediaTime.FromSeconds(1), MediaTime.FromSeconds(5), 0, new ElementSource.EngineObject(() => new RectShape()));
 
-        await CaptionFileDrop.AddAsync(timeline, [path], [picture]);
+        await AddCaptionFilesAsync(timeline, [path], [picture]);
 
         Element text = editor.Scene.Children.Single(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
         using (Assert.EnterMultipleScope())
@@ -925,7 +1145,7 @@ public class ElementAddEntryPointTests
         ElementDescription[] pictures = [.. Enumerable.Range(0, 10).Select(index => new ElementDescription(
             MediaTime.FromSeconds(10 + index), MediaTime.FromSeconds(1), 0, new ElementSource.EngineObject(() => new RectShape())))];
 
-        await CaptionFileDrop.AddAsync(timeline, [path], pictures);
+        await AddCaptionFilesAsync(timeline, [path], pictures);
 
         Element text = editor.Scene.Children.Single(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
         Assert.That(text.ZIndex.Value, Is.EqualTo(1));
@@ -946,7 +1166,7 @@ public class ElementAddEntryPointTests
         File.WriteAllText(broken, "this is not a subtitle file");
         File.WriteAllText(good, "1\n00:00:01,000 --> 00:00:02,000\ngood\n");
 
-        await CaptionFileDrop.AddAsync(timeline, [broken, missing, good], []);
+        await AddCaptionFilesAsync(timeline, [broken, missing, good], []);
 
         using (Assert.EnterMultipleScope())
         {
@@ -954,26 +1174,6 @@ public class ElementAddEntryPointTests
             Assert.That(notifications.All.Select(item => item.Message), Has.Exactly(1).Contain("broken.srt"));
             Assert.That(notifications.All.Select(item => item.Message), Has.Exactly(1).Contain("missing.srt"));
         }
-    }
-
-    // The picture is where it was dropped, and the file decides where its subtitles go.
-    [AvaloniaTest]
-    public async Task TimelineView_SubtitleFileDroppedWithAPicture_ShowsTheFirstSubtitle()
-    {
-        await TestReset.ResetShellAsync();
-        (EditViewModel editor, TimelineTabViewModel timeline) =
-            await OpenEditorForNewScene("timeline-subtitle-shown");
-        string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "late.srt");
-        File.WriteAllText(path, "1\n00:00:30,000 --> 00:00:31,000\nlate\n");
-        var picture = new ElementDescription(
-            MediaTime.Zero, MediaTime.FromSeconds(5), 0, new ElementSource.EngineObject(() => new RectShape()));
-        (TimeRange Range, int ZIndex)? shown = null;
-        using IDisposable subscription = timeline.ScrollTo.Subscribe(value => shown = value);
-
-        await CaptionFileDrop.AddAsync(timeline, [path], [picture]);
-
-        Element text = editor.Scene.Children.Single(child => child.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
-        Assert.That(shown, Is.EqualTo((text.Range, text.ZIndex.Value)));
     }
 
     [AvaloniaTest]
@@ -1042,7 +1242,7 @@ public class ElementAddEntryPointTests
         string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "broken.srt");
         File.WriteAllText(path, "this is not a subtitle file");
 
-        await CaptionFileDrop.AddAsync(timeline, path);
+        await AddCaptionFilesAsync(timeline, path);
 
         using (Assert.EnterMultipleScope())
         {
@@ -1062,17 +1262,25 @@ public class ElementAddEntryPointTests
         File.WriteAllText(path, "1\n00:00:03,000 --> 00:00:03,200\nshort\n\n2\nnot a time\nskipped\n");
         (TimeRange Range, int ZIndex)? shown = null;
         using IDisposable subscription = timeline.ScrollTo.Subscribe(value => shown = value);
-
-        await CaptionFileDrop.AddAsync(timeline, path);
-
-        Element clip = editor.Scene.Children.Single();
-        using (Assert.EnterMultipleScope())
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 600 };
+        try
         {
-            Assert.That(clip.Start.Value.ToSeconds(), Is.EqualTo(3).Within(0.001));
-            Assert.That(clip.Length.Value.ToSeconds(), Is.EqualTo(0.2).Within(0.001));
-            Assert.That(shown, Is.EqualTo((clip.Range, clip.ZIndex.Value)));
-            Assert.That(notifications.All.Single().Message, Does.Contain("short.srt"));
+            window.Show();
+            HeadlessTestHelpers.Render();
+            await RaiseFileDropAsync(window, view, path);
+            await HeadlessTestHelpers.WaitUntilAsync(() => shown is not null && notifications.All.Count > 0);
+
+            Element clip = editor.Scene.Children.Single();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(clip.Start.Value.ToSeconds(), Is.EqualTo(3).Within(0.001));
+                Assert.That(clip.Length.Value.ToSeconds(), Is.EqualTo(0.2).Within(0.001));
+                Assert.That(shown, Is.EqualTo((clip.Range, clip.ZIndex.Value)));
+                Assert.That(notifications.All.Single().Message, Does.Contain("short.srt"));
+            }
         }
+        finally { window.Close(); HeadlessTestHelpers.Settle(); }
     }
 
     [Test]
@@ -1230,7 +1438,7 @@ public class ElementAddEntryPointTests
     public async Task TimelineView_SubtitleFileDrop_AsksNothingWithOnlyTheDefaultLook()
     {
         await TestReset.ResetShellAsync();
-        Assume.That(CaptionFileDrop.GetTemplates(TestShell.Templates), Has.Count.EqualTo(1));
+        Assume.That(CaptionFileImport.GetTemplates(TestShell.Templates), Has.Count.EqualTo(1));
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("timeline-subtitle-default");
         var view = new TimelineTabView { DataContext = timeline };
@@ -1579,16 +1787,20 @@ public class ElementAddEntryPointTests
             Panel panel = view.FindControl<Panel>(target == "timeline" ? "TimelinePanel" : "framePanel")!;
             using var transfer = new DataTransfer();
             string[] sources = outcome == "partial" ? [image, unsupported] : [outcome == "locked" ? image : unsupported];
-            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], sources, () => true, _ => Task.FromResult(false))));
+            var consumption = new StorageDragConsumption();
+            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], sources, () => true, _ => Task.FromResult(false))
+            {
+                Consumption = consumption,
+            }));
             var args = new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(10, 5), KeyModifiers.None);
             panel.RaiseEvent(args);
-            await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Count == 1);
-            HeadlessTestHelpers.Settle();
+            await consumption.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
             string storage = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage");
             string[] copies = Directory.GetFiles(storage, "*", SearchOption.AllDirectories);
             Assert.That(args.Handled, Is.True);
             Assert.That(editor.Scene.Children, Has.Count.EqualTo(outcome == "partial" ? 1 : 0));
+            Assert.That(notifications.All, Has.Count.EqualTo(outcome == "partial" ? 0 : 1));
             Assert.That(copies.Select(Path.GetFileName), Is.EqualTo(outcome == "partial" ? new[] { "accepted.png" } : Array.Empty<string>()));
             if (outcome != "partial") Assert.That(Directory.GetDirectories(storage), Is.Empty);
             Assert.That(sources.All(File.Exists), Is.True, "The original drag downloads remain untouched.");
@@ -1600,14 +1812,13 @@ public class ElementAddEntryPointTests
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(true, true)]
-    public async Task TimelineStorageDropAdvancesPastAllAddedLayers(bool companions, bool rejectFirst)
+    public async Task TimelineStorageDrop_UsesActualClipEndsAndCommitsAsOneBatch(bool companions, bool rejectOne)
     {
         await TestReset.ResetShellAsync();
-        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("storage-drop-layers");
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene($"storage-drop-layers-{companions}-{rejectOne}");
         var handler = new LayeredFileSourceHandler(companions);
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await using var registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler, ElementSourceHandlerRegistrationMode.Replace);
-        string[] sources = rejectFirst
+        string[] sources = rejectOne
             ? [CreatePngFile(editor, "rejected.png"), CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")]
             : [CreatePngFile(editor, "first.png"), CreatePngFile(editor, "second.png")];
         using var notifications = new NotificationCapture(TestShell.Notifications);
@@ -1619,16 +1830,31 @@ public class ElementAddEntryPointTests
             HeadlessTestHelpers.Render();
             Panel panel = view.FindControl<Panel>("TimelinePanel")!;
             using var transfer = new DataTransfer();
-            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], sources, () => true, _ => Task.FromResult(false))));
+            var consumption = new StorageDragConsumption();
+            transfer.Add(DataTransferItem.Create(StorageDragData.Format, new StorageDragData("test", new object(), [], sources, () => true, _ => Task.FromResult(false))
+            {
+                Consumption = consumption,
+            }));
             var args = new DragEventArgs(DragDrop.DropEvent, transfer, panel, new AvaPoint(180, 5), KeyModifiers.None);
             panel.RaiseEvent(args);
-            int count = companions ? 4 : 2;
-            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == count);
-            HeadlessTestHelpers.Settle();
-            Assert.That(editor.Scene.Children.Select(element => element.ZIndex.Value).Order(), Is.EqualTo(Enumerable.Range(0, count)));
-            Assert.That(editor.Scene.Children.All(element => element.Start.Value == timeline.ClickedFrame), Is.True);
-            Assert.That(handler.RequestedLayers, Is.EqualTo(rejectFirst ? new[] { 0, 0, 2 } : new[] { 0, companions ? 2 : 1 }));
-            Assert.That(notifications.All, Has.Count.EqualTo(rejectFirst ? 1 : 0));
+            await consumption.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(handler.RequestedLayers, Is.EqualTo(new[] { 0, 0 }));
+            Assert.That(notifications.All, Has.Count.EqualTo(rejectOne ? 1 : 0));
+            if (rejectOne)
+            {
+                string storage = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "resources", "storage");
+                Assert.That(Directory.GetFileSystemEntries(storage), Is.Empty);
+                Assert.That(editor.Scene.Children, Is.Empty);
+            }
+            else
+            {
+                Element[] primary = [.. editor.Scene.Children.Where(element => element.ZIndex.Value == 0)];
+                Assert.That(primary, Has.Length.EqualTo(2));
+                Assert.That(primary[0].Start.Value, Is.EqualTo(timeline.ClickedFrame));
+                Assert.That(primary[1].Start.Value, Is.EqualTo(primary[0].Range.End));
+                Assert.That(editor.Scene.Children.Count(element => element.ZIndex.Value == 1), Is.EqualTo(companions ? 2 : 0));
+            }
         }
         finally { window.Close(); HeadlessTestHelpers.Settle(); }
     }
@@ -1639,7 +1865,7 @@ public class ElementAddEntryPointTests
     public async Task TimelineStorageDrop_SubtitleFile_AddsOneTextClipPerCueAndKeepsNoCopy()
     {
         await TestReset.ResetShellAsync();
-        Assume.That(CaptionFileDrop.GetTemplates(TestShell.Templates), Has.Count.EqualTo(1));
+        Assume.That(CaptionFileImport.GetTemplates(TestShell.Templates), Has.Count.EqualTo(1));
         (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("storage-drop-subtitle");
         string directory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
         string subtitle = Path.Combine(directory, "movie.srt");
@@ -1868,6 +2094,21 @@ public class ElementAddEntryPointTests
         });
     }
 
+    private static Task AddCaptionFilesAsync(TimelineTabViewModel timeline, string file)
+        => AddCaptionFilesAsync(timeline, [file], []);
+
+    private static async Task AddCaptionFilesAsync(
+        TimelineTabViewModel timeline, IReadOnlyList<string> files, IReadOnlyList<ElementDescription> others)
+    {
+        List<ElementDescription> descriptions = [.. others];
+        await CaptionFileImport.AppendDescriptionsAsync(
+            timeline.Scene, files, descriptions,
+            CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
+            TestShell.Notifications, CancellationToken.None);
+        if (descriptions.Count > 0)
+            await timeline.AddElementsWithResultAsync(descriptions);
+    }
+
     private static string CreateElementTemplateFile(EditViewModel editor, string fileName)
     {
         var source = new Element
@@ -1878,6 +2119,11 @@ public class ElementAddEntryPointTests
             Name = { Value = "Dropped template" },
         };
         source.AddObject(new RectShape());
+        return WriteTemplateFile(editor, fileName, source);
+    }
+
+    private static string WriteTemplateFile(EditViewModel editor, string fileName, ICoreSerializable source)
+    {
         ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(source, "Drop template");
         string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, fileName);
         File.WriteAllText(

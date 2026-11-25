@@ -342,7 +342,7 @@ internal sealed class CaptionAiJobResultCapabilities(
             TimeSpan.FromSeconds(segment.End),
             segment.Text,
             language: recovered.Language)));
-        CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+        CaptionSceneImportResult result = await CaptionSceneImporter.AddAsync(
             context.Editor.Scene,
             context.Editor.ElementAdder,
             document,

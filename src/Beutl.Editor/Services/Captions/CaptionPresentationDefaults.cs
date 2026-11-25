@@ -1,7 +1,6 @@
-﻿using Beutl.Editor.Services.Captions;
-using Beutl.Media;
+﻿using Beutl.Media;
 
-namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
+namespace Beutl.Editor.Services.Captions;
 
 internal static class CaptionPresentationDefaults
 {
