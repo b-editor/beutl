@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
+using Beutl.Serialization;
 using NUnit.Framework;
 
 namespace Beutl.UnitTests.Configuration;
@@ -66,7 +67,7 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
     }
 
     [Test]
-    public void A_removed_setting_in_an_older_file_is_ignored()
+    public void A_removed_setting_in_an_older_file_is_ignored_and_not_saved_again()
     {
         // ShowExactBoundaries was removed with the preview's selection outline (#4608).
         GlobalConfiguration config = Restore(new JsonObject
@@ -82,6 +83,8 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
         {
             Assert.That(config.ViewConfig.UseCustomAccentColor.Value, Is.True);
             Assert.That(config.RestoreFailures, Is.Empty);
+            Assert.That(CoreSerializer.SerializeToJsonObject(config.ViewConfig).ContainsKey("ShowExactBoundaries"), Is.False,
+                "the retired key is not written back");
         });
     }
 
