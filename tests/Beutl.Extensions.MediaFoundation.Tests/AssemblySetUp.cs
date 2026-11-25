@@ -1,4 +1,4 @@
-namespace Beutl.Extensions.MediaFoundation.Tests;
+﻿namespace Beutl.Extensions.MediaFoundation.Tests;
 
 [SetUpFixture]
 public sealed class AssemblySetUp
