@@ -19,7 +19,8 @@ public class ValueEditorViewModel<T> : PropertyEditorViewModel<T, T>
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is ValueStringEditor<T> editor && !IsDisposed)
+        if (!IsDisposed && visitor is PropertyEditor editor
+            && editor is IValueEditorControl<T> and (ValueStringEditor<T> or VectorEditorBase))
             DragSession.Connect(editor, this, EndValuePreview, CompleteElementRepair);
     }
 
