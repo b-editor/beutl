@@ -196,9 +196,12 @@ public class SelectLibraryItemDialogViewModel
                     .Select(type =>
                     {
                         LibraryItem? item = _libraryService.FindItem(type);
-                        item ??= new SingleTypeLibraryItem(
-                            _format, type,
-                            TypeDisplayHelpers.GetLocalizedName(type));
+                        // Keep the concrete type when the library entry binds it under a different format.
+                        if (item == null || GetImplementationType(item) != type)
+                        {
+                            item = new SingleTypeLibraryItem(
+                                _format, type, item?.DisplayName ?? TypeDisplayHelpers.GetLocalizedName(type), item?.Description);
+                        }
                         return new PinnableLibraryItem(item.DisplayName, false, item, item.Description);
                     })
                     .ToArray();
