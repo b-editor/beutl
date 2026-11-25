@@ -150,11 +150,12 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
             return new MediaTime((long)(duration.Flicks / (Speed.Value / 100.0)));
         }
 
-        // 二分探索で、CalculateVideoTime(t) == duration となる t を求める
+        // Invert the same interval playback integrates, keeping the search bounds clip-relative.
+        MediaTime start = keyFrameAnimation.UseGlobalClock.Value ? TimeRange.Value.Start : MediaTime.Zero;
+        long maxLength = long.MaxValue - Math.Max(0, start.Flicks);
         MediaTime low = MediaTime.Zero;
-        // 上限は、CalculateVideoTime(high) >= duration となるまで徐々に拡大する
-        MediaTime high = duration;
-        MediaTime videoTimeAtHigh = CalculateVideoTime(high, resource);
+        MediaTime high = new(Math.Min(duration.Flicks, maxLength));
+        MediaTime videoTimeAtHigh = CalculateVideoTime(start + high, resource, start);
         const int maxIterations = 50;
         const double toleranceSeconds = 1.0 / 60.0; // 1フレーム以下の精度
 
@@ -163,17 +164,17 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
         int expansionCount = 0;
         while (videoTimeAtHigh < duration
                && expansionCount < maxHighExpansions
-               && high <= new MediaTime(MediaTime.MaxValue.Flicks / 2))
+               && high.Flicks < maxLength)
         {
-            high = new MediaTime(high.Flicks * 2);
-            videoTimeAtHigh = CalculateVideoTime(high, resource);
+            high = new MediaTime(high.Flicks + Math.Min(high.Flicks, maxLength - high.Flicks));
+            videoTimeAtHigh = CalculateVideoTime(start + high, resource, start);
             expansionCount++;
         }
 
         for (int i = 0; i < maxIterations; i++)
         {
             var mid = new MediaTime(low.Flicks + (high.Flicks - low.Flicks) / 2);
-            MediaTime videoTime = CalculateVideoTime(mid, resource);
+            MediaTime videoTime = CalculateVideoTime(start + mid, resource, start);
 
             if (Math.Abs((videoTime - duration).ToSeconds()) < toleranceSeconds)
             {
