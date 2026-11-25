@@ -33,15 +33,7 @@ public static class NumericOffset
         if (T.IsZero(T.CreateTruncating(0.5)))
         {
             double offset = double.CreateChecked(BigInteger.CreateChecked(to) - BigInteger.CreateChecked(from)) * scale;
-            if (!double.IsFinite(offset))
-                return T.CreateSaturating(offset);
-
-            double whole = Math.Floor(offset);
-            double fraction = offset - whole;
-            BigInteger sum = BigInteger.CreateChecked(value) + new BigInteger(whole);
-            if (fraction > 0.5 || (fraction == 0.5 && !sum.IsEven))
-                sum += 1;
-            return T.CreateSaturating(sum);
+            return AddRounded(value, offset);
         }
 
         // A decimal scales in its own arithmetic to keep its digits, and saturates on overflow.
@@ -60,5 +52,38 @@ public static class NumericOffset
         // Binary floating point widens to double, so an intermediate difference does not overflow to infinity.
         return T.CreateSaturating(double.CreateChecked(value)
             + (double.CreateChecked(to) - double.CreateChecked(from)) * scale);
+    }
+
+    internal static T AddFractional<T>(T value, double offset) where T : INumber<T>
+    {
+        if (T.IsZero(T.CreateTruncating(0.5)))
+            return AddRounded(value, offset);
+
+        if (typeof(T) == typeof(decimal))
+        {
+            try
+            {
+                return checked(value + T.CreateChecked(offset));
+            }
+            catch (OverflowException)
+            {
+                // Saturated below.
+            }
+        }
+
+        return T.CreateSaturating(double.CreateChecked(value) + offset);
+    }
+
+    private static T AddRounded<T>(T value, double offset) where T : INumber<T>
+    {
+        if (!double.IsFinite(offset))
+            return T.CreateSaturating(offset);
+
+        double whole = Math.Floor(offset);
+        double fraction = offset - whole;
+        BigInteger sum = BigInteger.CreateChecked(value) + new BigInteger(whole);
+        if (fraction > 0.5 || (fraction == 0.5 && !sum.IsEven))
+            sum += 1;
+        return T.CreateSaturating(sum);
     }
 }

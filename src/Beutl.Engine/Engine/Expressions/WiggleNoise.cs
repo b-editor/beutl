@@ -46,6 +46,12 @@ internal static class WiggleNoise
         return Math.Clamp(sum / weightSum, -1.0, 1.0);
     }
 
+    public static double SampleComponent(double x, int octaves, ulong seed, int component)
+    {
+        // Keep the first component aligned with Wiggle and use stable, distinct salts for the rest.
+        return Sample(x, octaves, component == 0 ? seed : seed ^ Mix((ulong)component));
+    }
+
     private static double PerlinSlice(double x, ulong seed)
     {
         double latticeX = Math.Floor(x);
