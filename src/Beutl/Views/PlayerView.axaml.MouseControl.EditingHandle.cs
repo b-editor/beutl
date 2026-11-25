@@ -42,8 +42,7 @@ public partial class PlayerView
             _time = clock.CurrentTime.Value;
             _start = Local(e);
             _appliedDelta = default;
-            if (provider is Puppet puppet && Guid.TryParse(handle.Id, out Guid pinId)
-                && puppet.Pins.FirstOrDefault(pin => pin?.Id.Value == pinId) is { } pin)
+            if (provider is Puppet puppet && puppet.FindPin(handle.Id) is { } pin)
                 model.SelectPuppetPin(puppet, pin);
 
             if (handle.Property is { } property)

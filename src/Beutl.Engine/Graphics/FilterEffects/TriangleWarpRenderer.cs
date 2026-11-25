@@ -84,9 +84,12 @@ internal static class TriangleWarpRenderer
         // Triangles have no coverage anti-aliasing. The outline moves out onto pixels where the source is
         // transparent, and along a side of the source each triangle fades the source out over one output pixel in its
         // own colors. A triangle drawn later still lays over it, and what a fold lays it over still shows through.
-        Mesh mesh = ExtendOutline(texs, positions, indices, outline, sourceSize) is { } extended
-            ? new Fader(extended, sourceSize).Build()
-            : new Mesh(texs, positions, null, Array.ConvertAll(indices, static index => (int)index));
+        Mesh mesh = ExtendOutline(texs, positions, indices, outline, sourceSize) switch
+        {
+            null => new Mesh(texs, positions, null, Array.ConvertAll(indices, static index => (int)index)),
+            { Fading: Sides.None } extended => new Mesh(extended.Texs, extended.Positions, null, extended.Indices),
+            { } extended => new Fader(extended, sourceSize).Build(),
+        };
 
         using var paint = new SKPaint { Shader = shader, IsAntialias = true };
         using ImmediateCanvas canvas = context.Open(output);
@@ -400,7 +403,6 @@ internal static class TriangleWarpRenderer
             _positions = new List<SKPoint>(mesh.Positions);
             _outside = new List<Vector4>(count);
             _colors = new List<SKColor>(count);
-            if (mesh.Fading == Sides.None) return;
 
             // Each vertex near a side that fades measures the distance to it at the average scale of its triangles.
             Vector3[] scales = ArrayPool<Vector3>.Shared.Rent(count);
@@ -462,9 +464,6 @@ internal static class TriangleWarpRenderer
 
         public Mesh Build()
         {
-            if (_mesh.Fading == Sides.None)
-                return new Mesh(_mesh.Texs, _mesh.Positions, null, _mesh.Indices);
-
             int[] indices = _mesh.Indices;
             for (int i = 0; i + 2 < indices.Length; i += 3)
                 Add(indices[i], indices[i + 1], indices[i + 2]);
@@ -519,8 +518,8 @@ internal static class TriangleWarpRenderer
 
                     foreach (float level in s_fadeEnds)
                     {
-                        float from = Get(_outside[low], side) - level;
-                        float to = Get(_outside[high], side) - level;
+                        float from = _outside[low][side] - level;
+                        float to = _outside[high][side] - level;
                         if ((from < 0 && to > 0) || (from > 0 && to < 0))
                             crossings.Add((from / (from - to), side, level));
                     }
@@ -556,8 +555,8 @@ internal static class TriangleWarpRenderer
                 {
                     int p = piece[i];
                     int q = piece[(i + 1) % piece.Count];
-                    float fp = Get(_outside[p], side) - level;
-                    float fq = Get(_outside[q], side) - level;
+                    float fp = _outside[p][side] - level;
+                    float fq = _outside[q][side] - level;
                     if (fp <= 0) below.Add(p);
                     if (fp >= 0) above.Add(p);
                     hasBelow |= fp < 0;
@@ -586,7 +585,7 @@ internal static class TriangleWarpRenderer
 
                 bool beyond = true;
                 foreach (int vertex in piece)
-                    beyond &= Get(_outside[vertex], side) >= HalfPixel;
+                    beyond &= _outside[vertex][side] >= HalfPixel;
                 if (beyond) return true;
             }
 
@@ -595,7 +594,8 @@ internal static class TriangleWarpRenderer
 
         private int Between(int p, int q, float t, int side, float level)
         {
-            Vector4 outside = Set(Vector4.Lerp(_outside[p], _outside[q], t), side, level);
+            Vector4 outside = Vector4.Lerp(_outside[p], _outside[q], t);
+            outside[side] = level;
             _texs.Add(Lerp(_texs[p], _texs[q], t));
             _positions.Add(Lerp(_positions[p], _positions[q], t));
             _outside.Add(outside);
@@ -618,26 +618,5 @@ internal static class TriangleWarpRenderer
             => MathF.Max(MathF.Max(outside.X, outside.Y), MathF.Max(outside.Z, outside.W));
 
         private static Sides SideAt(int side) => (Sides)(1 << side);
-
-        private static float Get(Vector4 outside, int side) => side switch
-        {
-            0 => outside.X,
-            1 => outside.Y,
-            2 => outside.Z,
-            _ => outside.W,
-        };
-
-        private static Vector4 Set(Vector4 outside, int side, float value)
-        {
-            switch (side)
-            {
-                case 0: outside.X = value; break;
-                case 1: outside.Y = value; break;
-                case 2: outside.Z = value; break;
-                default: outside.W = value; break;
-            }
-
-            return outside;
-        }
     }
 }

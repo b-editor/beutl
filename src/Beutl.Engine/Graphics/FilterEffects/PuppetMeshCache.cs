@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using System.Numerics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -14,6 +15,19 @@ internal sealed class PuppetMeshCache
     private byte[]? _coverage;
     private Point[]? _anchors;
     private (PuppetMesh Mesh, PuppetDeformer Deformer)? _prepared;
+    private (PuppetDeformer Deformer, Size Size, Point[] Targets, Vector2[] Result)? _lastSolve;
+
+    // A solve depends only on the mesh, the size and the destinations, and never starts from an earlier frame.
+    public Vector2[] Deform(PuppetDeformer deformer, Size size, Point[] targets)
+    {
+        if (_lastSolve is { } last && ReferenceEquals(last.Deformer, deformer) && last.Size == size
+            && targets.AsSpan().SequenceEqual(last.Targets))
+            return last.Result;
+
+        Vector2[] result = deformer.Deform(size, targets);
+        _lastSolve = (deformer, size, targets, result);
+        return result;
+    }
 
     public (PuppetMesh Mesh, PuppetDeformer Deformer)? GetOrCreate(EffectTarget source, Point[] anchors)
     {
@@ -33,6 +47,7 @@ internal sealed class PuppetMeshCache
             mask.GetRow(y).CopyTo(_coverage.AsSpan(y * mask.Width));
 
         _prepared = null;
+        _lastSolve = null;
         IReadOnlyList<Point[]> outlines = AlphaOutlineTracer.Trace(mask);
         int longestSide = AnalysisLongestSide;
         while (true)
