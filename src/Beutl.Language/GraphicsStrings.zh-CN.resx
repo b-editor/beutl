@@ -2273,6 +2273,24 @@
   <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
     <value>正在编辑网格控制点。预览会暂时隐藏后续效果。</value>
   </data>
+  <data name="CornerPin" xml:space="preserve">
+    <value>边角定位</value>
+  </data>
+  <data name="CornerPin_TopLeft" xml:space="preserve">
+    <value>左上角</value>
+  </data>
+  <data name="CornerPin_TopRight" xml:space="preserve">
+    <value>右上角</value>
+  </data>
+  <data name="CornerPin_BottomRight" xml:space="preserve">
+    <value>右下角</value>
+  </data>
+  <data name="CornerPin_BottomLeft" xml:space="preserve">
+    <value>左下角</value>
+  </data>
+  <data name="CornerPin_EditingPreviewHint" xml:space="preserve">
+    <value>拖动四角可调整透视。预览中会隐藏后续效果。</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>木偶变形</value>
   </data>
@@ -2551,6 +2569,9 @@
   </data>
   <data name="MeshWarp_LibraryDescription" xml:space="preserve">
     <value>通过移动网格上的控制点使图像变形（网格变形、网格扭曲 / mesh distortion, grid warp）。</value>
+  </data>
+  <data name="CornerPin_LibraryDescription" xml:space="preserve">
+    <value>移动图像的四个角来调整透视（透视变形、四点变形、four-point、CC Power Pin）。</value>
   </data>
   <data name="PathFollowEffect_LibraryDescription" xml:space="preserve">
     <value>让对象沿路径移动，并可随路径方向转动（运动路径、路径动画 / motion path, path animation）。</value>

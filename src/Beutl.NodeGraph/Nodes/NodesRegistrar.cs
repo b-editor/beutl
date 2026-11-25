@@ -86,6 +86,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<ShakeEffect>>(GraphicsStrings.ShakeEffect)
             .Add<FilterEffectNode<DisplacementMapEffect>>(GraphicsStrings.DisplacementMapEffect)
             .Add<FilterEffectNode<MeshWarp>>(GraphicsStrings.MeshWarp)
+            .Add<FilterEffectNode<CornerPin>>(GraphicsStrings.CornerPin)
             .Add<FilterEffectNode<PolarCoordinates>>(GraphicsStrings.PolarCoordinates)
             .Add<FilterEffectNode<PathFollowEffect>>(GraphicsStrings.PathFollowEffect)
             .Add<FilterEffectNode<LayerEffect>>(GraphicsStrings.LayerEffect)

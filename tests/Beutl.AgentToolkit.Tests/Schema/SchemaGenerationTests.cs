@@ -7,11 +7,13 @@ using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Animation.Easings;
 using Beutl.Audio.Effects;
+using Beutl.Composition;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
@@ -22,6 +24,7 @@ using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using SkiaSharp;
 using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 
 namespace Beutl.AgentToolkit.Tests.Schema;
@@ -408,6 +411,51 @@ public sealed class SchemaGenerationTests
             Assert.That(summary.Notes, Has.Some.Contains("over a transparent part of the input is ignored"));
             Assert.That(summary.Notes, Has.Some.Contains("at least two pins are needed to rotate or bend"));
         }
+    }
+
+    [Test]
+    public void CornerPin_IsListedWithNotesOnItsCoordinatesAndValidQuads()
+    {
+        var generator = new SchemaGenerator(_library);
+        EffectSummary summary = generator.ListEffects().Single(effect => effect.Name == nameof(CornerPin));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(summary.IntentTags, Is.SupersetOf(new[]
+                { "distort", "perspective", "corner-pin", "quad", "warp", "tracking", "homography" }));
+            Assert.That(summary.PropertyNames, Is.SupersetOf(new[]
+                { nameof(CornerPin.TopLeft), nameof(CornerPin.TopRight), nameof(CornerPin.BottomRight), nameof(CornerPin.BottomLeft) }));
+            Assert.That(summary.Notes, Has.Some.Contains(nameof(RelativePoint)).And.Contains("percentages").And.Contains("absolute pixels"));
+            Assert.That(summary.Notes, Has.Some.Contains("non-convex").And.Contains("empty output"));
+        }
+    }
+
+    [Test]
+    public void CornerPin_recipe_warps_the_picture()
+    {
+        var generator = new SchemaGenerator(_library);
+        EffectRecipe recipe = generator.GetEffectRecipe("effect-corner-pin");
+        var effect = (CornerPin)CoreSerializer.DeserializeFromJsonObject(
+            FindRequiredEffectObject(recipe.Patch, typeof(CornerPin)), typeof(CornerPin));
+        var bounds = new Rect(0, 0, 100, 80);
+        using RenderTarget source = RenderTarget.Create(100, 80)!;
+        source.Value.Canvas.Clear(SKColors.White);
+        using var targets = new EffectTargets { new EffectTarget(source, bounds) };
+        using var context = new FilterEffectContext(bounds);
+        using var resource = effect.ToResource(CompositionContext.Default);
+        context.Apply(resource);
+        using var builder = new SKImageFilterBuilder();
+        using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Preview, RenderRequestPurpose.Auxiliary,
+            drawableBrushMaterializer: null);
+        executor.Apply(context);
+        executor.Flush(false);
+
+        EffectTarget warped = targets.Single();
+        using Bitmap snapshot = warped.RenderTarget!.Snapshot();
+        using Bitmap alpha = snapshot.Convert(BitmapColorType.Alpha8);
+        Assert.That(warped.Bounds.Top, Is.GreaterThan(0));
+        Assert.That(alpha.GetPixelSpan()[0], Is.Zero);
+        Assert.That(alpha.GetPixelSpan()[alpha.Height / 2 * alpha.RowBytes + alpha.Width / 2], Is.GreaterThan(200));
     }
 
     [Test]

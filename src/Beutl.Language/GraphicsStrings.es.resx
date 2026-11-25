@@ -2273,6 +2273,24 @@
   <data name="MeshWarp_EditingPreviewHint" xml:space="preserve">
     <value>Editando los puntos de malla. La vista previa oculta los efectos posteriores.</value>
   </data>
+  <data name="CornerPin" xml:space="preserve">
+    <value>Anclaje de esquinas</value>
+  </data>
+  <data name="CornerPin_TopLeft" xml:space="preserve">
+    <value>Superior izquierda</value>
+  </data>
+  <data name="CornerPin_TopRight" xml:space="preserve">
+    <value>Superior derecha</value>
+  </data>
+  <data name="CornerPin_BottomRight" xml:space="preserve">
+    <value>Inferior derecha</value>
+  </data>
+  <data name="CornerPin_BottomLeft" xml:space="preserve">
+    <value>Inferior izquierda</value>
+  </data>
+  <data name="CornerPin_EditingPreviewHint" xml:space="preserve">
+    <value>Arrastra las esquinas para ajustar la perspectiva. Los efectos posteriores se ocultan en la vista previa.</value>
+  </data>
   <data name="Puppet" xml:space="preserve">
     <value>Marioneta</value>
   </data>
@@ -2551,6 +2569,9 @@
   </data>
   <data name="MeshWarp_LibraryDescription" xml:space="preserve">
     <value>Deforma la imagen al mover puntos de control en una cuadrícula (deformación de malla, deformación de cuadrícula / mesh distortion, grid warp).</value>
+  </data>
+  <data name="CornerPin_LibraryDescription" xml:space="preserve">
+    <value>Ajusta la imagen a cuatro esquinas móviles (distorsión de perspectiva, transformación de cuatro puntos, four-point, CC Power Pin).</value>
   </data>
   <data name="PathFollowEffect_LibraryDescription" xml:space="preserve">
     <value>Mueve un objeto por un trazado y permite orientarlo en la dirección del movimiento (trazado de movimiento, animación de trazado / motion path, path animation).</value>
