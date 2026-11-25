@@ -44,18 +44,30 @@
                         <Setter Property="Padding" Value="7,6,5,6" />
                     </Style>
                 </StackPanel.Styles>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Move}" IsChecked="{Binding IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
+                <local:PreviewToolButton Name="moveToolButton"
+                                         AutomationProperties.Name="{x:Static lang:Strings.Move}"
+                                         IsChecked="{Binding IsMoveMode.Value, Mode=OneWay}"
+                                         ToolTip.Tip="{x:Static lang:Strings.Move}">
                     <icons:FluentIcon Icon="Cursor" />
-                </RadioButton>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Hand}" IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
+                </local:PreviewToolButton>
+                <local:PreviewToolButton Name="handToolButton"
+                                         AutomationProperties.Name="{x:Static lang:Strings.Hand}"
+                                         IsChecked="{Binding IsHandMode.Value, Mode=OneWay}"
+                                         ToolTip.Tip="{x:Static lang:Strings.Hand}">
                     <icons:FluentIcon Icon="HandLeft" />
-                </RadioButton>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.CropSelection}" IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
+                </local:PreviewToolButton>
+                <local:PreviewToolButton Name="cropToolButton"
+                                         AutomationProperties.Name="{x:Static lang:Strings.CropSelection}"
+                                         IsChecked="{Binding IsCropMode.Value, Mode=OneWay}"
+                                         ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
                     <icons:FluentIcon Icon="Crop" />
-                </RadioButton>
-                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Camera3DControl}" IsChecked="{Binding IsCameraMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Camera3DControl}">
+                </local:PreviewToolButton>
+                <local:PreviewToolButton Name="cameraToolButton"
+                                         AutomationProperties.Name="{x:Static lang:Strings.Camera3DControl}"
+                                         IsChecked="{Binding IsCameraMode.Value, Mode=OneWay}"
+                                         ToolTip.Tip="{x:Static lang:Strings.Camera3DControl}">
                     <icons:FluentIcon Icon="Video" />
-                </RadioButton>
+                </local:PreviewToolButton>
                 <!--  Gizmo Mode Selection  -->
                 <Border Margin="0,8,0,0"
                         BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
