@@ -280,4 +280,62 @@ public class TimelineThumbnailPreviewTests
             }
         });
     }
+
+    [TestCase(0f, 800)]
+    [TestCase(50f, 800)]
+    [TestCase(0f, 400)]
+    public async Task ScrolledSlipWaveform_MatchesTheCommittedEffectHistory(float feedback, int samplesPerChunk)
+    {
+        var decoders = TestMediaHelper.CreateRegistry();
+        var sound = new SourceSound
+        {
+            Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(sampleRate: 8000, durationSeconds: 4)) },
+            TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2)) },
+            Effect =
+            {
+                Value = new DelayEffect
+                {
+                    DelayTime = { Value = 500 },
+                    Feedback = { Value = feedback },
+                    DryMix = { Value = 0 },
+                    WetMix = { Value = 100 },
+                },
+            },
+        };
+        MediaTime delta = MediaTime.FromSeconds(0.25);
+        const int chunkCount = 20;
+        int[] requested = [6, 7, 12, 16];
+        var preview = new List<WaveformChunk>();
+        await foreach (var chunk in sound.GetPreviewWaveformChunksAsync(
+                           chunkCount, samplesPerChunk, requested, decoders: decoders, offsetDelta: delta))
+        {
+            preview.Add(chunk);
+        }
+
+        sound.OffsetPosition.Value += delta;
+        var committed = new List<WaveformChunk>();
+        await foreach (var chunk in sound.GetWaveformChunksAsync(chunkCount, samplesPerChunk, null, decoders: decoders))
+        {
+            if (requested.Contains(chunk.Index))
+                committed.Add(chunk);
+        }
+
+        Assert.That(preview.Select(chunk => chunk.Index), Is.EqualTo(requested));
+        Assert.That(committed.Select(chunk => chunk.Index), Is.EqualTo(requested));
+        Assert.That(committed[0].MaxValue, samplesPerChunk == 800 ? Is.GreaterThan(0.1f) : Is.Zero);
+        for (int i = 0; i < requested.Length; i++)
+        {
+            TestContext.Out.WriteLine(FormattableString.Invariant(
+                $"Chunk {requested[i]} preview {preview[i].MinValue:F4} {preview[i].MaxValue:F4} committed {committed[i].MinValue:F4} {committed[i].MaxValue:F4}"));
+        }
+
+        Assert.Multiple(() =>
+        {
+            for (int i = 0; i < requested.Length; i++)
+            {
+                Assert.That(preview[i].MinValue, Is.EqualTo(committed[i].MinValue).Within(1e-5), $"Minimum of chunk {requested[i]}");
+                Assert.That(preview[i].MaxValue, Is.EqualTo(committed[i].MaxValue).Within(1e-5), $"Maximum of chunk {requested[i]}");
+            }
+        });
+    }
 }
