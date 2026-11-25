@@ -56,11 +56,6 @@ internal sealed partial class SceneRecovery
         var traversedFallbacks = new HashSet<IFallback>(
             fallbacks,
             ReferenceEqualityComparer.Instance);
-        SuppressedRecoveryIncident[] recoveryIncidents = incidents
-            .Where(incident => incident.Fallback is null
-                               || !traversedFallbacks.Contains(incident.Fallback))
-            .Select(CreateSuppressedRecoveryIncident)
-            .ToArray();
         foreach (IFallback fallback in fallbacks)
         {
             if (fallback is CoreObject fallbackObject)
@@ -80,7 +75,11 @@ internal sealed partial class SceneRecovery
             EnsureFallbackProjection(fallback);
         }
 
-        RecordDroppedValues(element, incidents);
+        var droppedValues = RecordDroppedValues(element, incidents);
+        SuppressedRecoveryIncident[] recoveryIncidents = incidents
+            .Where(incident => incident.Fallback is null || !traversedFallbacks.Contains(incident.Fallback))
+            .Select(incident => CreateSuppressedRecoveryIncident(incident, droppedValues))
+            .ToArray();
         MarkRecoveredElement(
             element,
             File.ReadAllBytes(uri.LocalPath),
@@ -163,7 +162,7 @@ internal sealed partial class SceneRecovery
                 : null,
         };
         fallback.Json = CreateFallbackProjection(fallback, topLevelTypeName);
-        s_unreadableElementData.AddOrUpdate(fallback, s_unreadableElementDataMarker);
+        s_unreadableElementData.Add(fallback, new(topLevelTypeName, $"{ex.GetType().Name}: {ex.Message}"));
         element.AddObject(fallback);
         _idlessRecoveredDescendants.GetValue(
             fallback,
@@ -176,8 +175,12 @@ internal sealed partial class SceneRecovery
 
     // The objects that stand in for an element file that could not be read. Unlike other fallbacks, they hold
     // none of the file's content, so removing one is the repair that accepts losing that content.
-    private static readonly ConditionalWeakTable<FallbackEngineObject, object> s_unreadableElementData = new();
-    private static readonly object s_unreadableElementDataMarker = new();
+    internal sealed record UnreadableElementData(string? TypeName, string ErrorMessage);
+
+    private static readonly ConditionalWeakTable<FallbackEngineObject, UnreadableElementData> s_unreadableElementData = new();
+
+    internal static UnreadableElementData? GetUnreadableElementData(FallbackEngineObject fallback)
+        => s_unreadableElementData.TryGetValue(fallback, out var data) ? data : null;
 
     private void MarkRecoveredElement(
         Element element,
@@ -199,21 +202,41 @@ internal sealed partial class SceneRecovery
     }
 
     private static SuppressedRecoveryIncident CreateSuppressedRecoveryIncident(
-        DeserializationIncidents.DeserializationIncident incident)
+        DeserializationIncidents.DeserializationIncident incident,
+        Dictionary<DeserializationIncidents.DeserializationIncident, (CoreObject Owner, string? Member)?> droppedValues)
     {
+        SuppressedRecoveryIncident summary;
         if (incident.Fallback is { } fallback)
         {
             fallback.TryGetTypeName(out string? typeName);
-            return new SuppressedRecoveryIncident(
+            summary = new SuppressedRecoveryIncident(
                 fallback.Reason.ToString(),
                 typeName,
                 fallback.ErrorMessage);
         }
+        else
+        {
+            summary = new SuppressedRecoveryIncident(
+                incident.Reason?.ToString() ?? nameof(FallbackReason.DeserializationFailed),
+                incident.TypeName,
+                incident.Message);
+        }
 
-        return new SuppressedRecoveryIncident(
-            incident.Reason?.ToString() ?? nameof(FallbackReason.DeserializationFailed),
-            incident.TypeName,
-            incident.Message);
+        if (droppedValues.TryGetValue(incident, out var location))
+        {
+            return location is { } dropped
+                ? summary with
+                {
+                    Owner = new(dropped.Owner),
+                    Member = dropped.Member,
+                    Json = incident.Json?.DeepClone().AsObject(),
+                    IsDroppedValue = true,
+                }
+                : summary with { CoveredByFallback = true };
+        }
+
+        CoreObject? owner = incident.Owner ?? incident.Fallback as CoreObject;
+        return owner is null ? summary : summary with { Owner = new(owner) };
     }
 
     private static SuppressedReferencedStorageSource[]? CollectReferencedStorageSources(
@@ -308,7 +331,7 @@ internal sealed partial class SceneRecovery
     private static bool IsRecoveryBlockerObject(EngineObject obj)
     {
         return ElementMigration.IsUnmigratedContent(obj)
-               || (obj is FallbackEngineObject fallback && s_unreadableElementData.TryGetValue(fallback, out _));
+               || (obj is FallbackEngineObject fallback && GetUnreadableElementData(fallback) is not null);
     }
 
     internal static bool HoldsUnresolvedRecoveryBlocker(Element element)

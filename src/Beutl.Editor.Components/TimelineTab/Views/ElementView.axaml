@@ -288,7 +288,7 @@
                                     Stroke="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
                                     Times="{Binding KeyFrameMarkTimes.Value}" />
             <!-- The status glyphs own columns and leave pointer input to the clip. -->
-            <Grid Height="21" ColumnDefinitions="Auto,Auto,Auto,Auto,*" VerticalAlignment="Center">
+            <Grid Height="21" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*" VerticalAlignment="Center">
                 <icons:FluentIcon x:Name="lockIcon"
                                   Grid.Column="0"
                                   Margin="6,0,0,0"
@@ -307,8 +307,17 @@
                                   IsHitTestVisible="False"
                                   IsVisible="{Binding IsRecoveryProtected.Value}"
                                   Icon="Warning" />
-                <icons:FluentIcon x:Name="flowInputWarningIcon"
+                <icons:FluentIcon x:Name="undisplayableDataIcon"
                                   Grid.Column="2"
+                                  Margin="6,0,0,0"
+                                  VerticalAlignment="Center"
+                                  FontSize="13"
+                                  Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                                  IsHitTestVisible="False"
+                                  IsVisible="{Binding UndisplayableDataToolTip.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                  Icon="DocumentError" />
+                <icons:FluentIcon x:Name="flowInputWarningIcon"
+                                  Grid.Column="3"
                                   Margin="6,0,0,0"
                                   VerticalAlignment="Center"
                                   FontSize="14"
@@ -318,7 +327,7 @@
                                   Icon="Warning"
                                   IconVariant="Filled" />
                 <TextBlock x:Name="matteIndicator"
-                           Grid.Column="3"
+                           Grid.Column="4"
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
@@ -326,7 +335,7 @@
                            Text="{Binding MatteIndicator.Value}"
                            IsVisible="{Binding MatteIndicator.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 <TextBlock x:Name="textBlock"
-                           Grid.Column="4"
+                           Grid.Column="5"
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            ClipToBounds="True"
@@ -334,7 +343,7 @@
                            IsHitTestVisible="False"
                            Text="{Binding Name.Value}" />
                 <TextBox x:Name="textBox"
-                         Grid.Column="4"
+                         Grid.Column="5"
                          Height="21"
                          MinHeight="0"
                          HorizontalAlignment="Stretch"

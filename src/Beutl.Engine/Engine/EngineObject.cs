@@ -24,6 +24,9 @@ public partial class EngineObject : Hierarchical, INotifyEdited, IExpressionJson
     private JsonObject? _unknownAnimations;
     private JsonObject? _unknownExpressions;
 
+    internal JsonObject? UnknownAnimations => _unknownAnimations;
+    internal JsonObject? UnknownExpressions => _unknownExpressions;
+
     public event EventHandler? Edited;
 
     public EngineObject()

@@ -14,7 +14,7 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(NewScene), nameof(DeleteLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(SelectAll), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
+    [MemberNotNull(nameof(NewScene), nameof(DeleteLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(SelectAll), nameof(ShowSceneSettings), nameof(RemoveFromProject), nameof(ShowUndisplayableData))]
     private void InitializeSceneCommands(IObservable<bool> isSceneOpened)
     {
         IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
@@ -45,6 +45,11 @@ public partial class MenuBarViewModel
             if (TryGetSelectedEditViewModel(out var editor))
                 await editor.OpenMissingMediaAsync(refresh: true);
         });
+        ShowUndisplayableData = new ReactiveCommandSlim(isSceneOpened).WithSubscribe(() =>
+        {
+            if (TryGetSelectedEditViewModel(out var editor))
+                editor.OpenUndisplayableData();
+        });
     }
 
     public AsyncReactiveCommand NewScene { get; private set; }
@@ -64,6 +69,8 @@ public partial class MenuBarViewModel
     public ReactiveCommandSlim ShowSceneSettings { get; private set; }
 
     public AsyncReactiveCommand RelinkMedia { get; private set; }
+
+    public ReactiveCommandSlim ShowUndisplayableData { get; private set; }
 
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {

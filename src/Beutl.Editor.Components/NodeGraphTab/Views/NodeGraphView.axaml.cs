@@ -5,6 +5,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Extensibility;
@@ -42,6 +44,11 @@ public partial class NodeGraphView : UserControl
         InitializeComponent();
         InitializeMenuItems();
         this.SubscribeDataContextChange<NodeGraphViewModel>(OnDataContextAttached, OnDataContextDetached);
+        LayoutUpdated += (_, _) =>
+        {
+            if (DataContext is NodeGraphViewModel { PendingReveal.Value: not null })
+                Dispatcher.UIThread.Post(RevealPendingNode, DispatcherPriority.Loaded);
+        };
 
         AddHandler(PointerPressedEvent, OnNodeGraphPointerPressed, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnNodeGraphPointerReleased, RoutingStrategies.Tunnel);
@@ -459,6 +466,32 @@ public partial class NodeGraphView : UserControl
         obj.Matrix.Where(_ => !_matrixUpdating)
             .Subscribe(m => zoomBorder.SetMatrix(m, true))
             .DisposeWith(_disposables);
+        obj.PendingReveal.Where(target => target is not null)
+            .Subscribe(_ => Dispatcher.UIThread.Post(RevealPendingNode, DispatcherPriority.Loaded))
+            .DisposeWith(_disposables);
+    }
+
+    private void RevealPendingNode()
+    {
+        if (DataContext is not NodeGraphViewModel { PendingReveal.Value: { } target } graph
+            || !this.IsAttachedToVisualTree() || !IsEffectivelyVisible
+            || zoomBorder.Bounds.Width <= 0 || zoomBorder.Bounds.Height <= 0)
+            return;
+
+        if (!graph.Nodes.Contains(target))
+        {
+            graph.PendingReveal.Value = null;
+            return;
+        }
+
+        var view = canvas.Children.OfType<GraphNodeView>().FirstOrDefault(node => node.DataContext == target);
+        if (view is null || view.Bounds.Width <= 0 || view.Bounds.Height <= 0
+            || view.TranslatePoint(new Point(view.Bounds.Width / 2, view.Bounds.Height / 2), zoomBorder) is not { } center)
+            return;
+
+        graph.PendingReveal.Value = null;
+        var viewportCenter = new Point(zoomBorder.Bounds.Width / 2, zoomBorder.Bounds.Height / 2);
+        zoomBorder.SetMatrix(zoomBorder.Matrix * Matrix.CreateTranslation(viewportCenter - center), true);
     }
 
     private void RemoveCanvasChildren<T>()

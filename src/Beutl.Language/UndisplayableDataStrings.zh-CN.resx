@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>无法显示的数据</value></data>
+  <data name="WholeProject" xml:space="preserve"><value>整个项目</value></data>
+  <data name="CurrentScene" xml:space="preserve"><value>当前场景</value></data>
+  <data name="Scope" xml:space="preserve"><value>扫描范围</value></data>
+  <data name="NoIssues" xml:space="preserve"><value>未发现无法显示的数据</value></data>
+  <data name="EmptyDescription" xml:space="preserve"><value>缺失的类型和编辑器无法显示的数据会出现在这里。</value></data>
+  <data name="Locate" xml:space="preserve"><value>定位</value></data>
+  <data name="ShowDetails" xml:space="preserve"><value>查看详情</value></data>
+  <data name="TypeNotFound" xml:space="preserve"><value>类型缺失</value></data>
+  <data name="DeserializationFailed" xml:space="preserve"><value>加载失败</value></data>
+  <data name="UnreadableElement" xml:space="preserve"><value>无法读取的片段文件</value></data>
+  <data name="LegacyNodeTree" xml:space="preserve"><value>Beutl 1.x 节点树</value></data>
+  <data name="LegacyOperator" xml:space="preserve"><value>Beutl 1.x 运算器</value></data>
+  <data name="UnknownMembers" xml:space="preserve"><value>未知成员</value></data>
+  <data name="UnknownAnimations" xml:space="preserve"><value>未知动画</value></data>
+  <data name="UnknownExpressions" xml:space="preserve"><value>未知表达式</value></data>
+  <data name="LossyEasing" xml:space="preserve"><value>已替换的缓动</value></data>
+  <data name="DroppedValue" xml:space="preserve"><value>已丢弃的值</value></data>
+  <data name="TypeName" xml:space="preserve"><value>序列化类型 ($type)</value></data>
+  <data name="UnknownKeys" xml:space="preserve"><value>未知键</value></data>
+  <data name="JsonPreview" xml:space="preserve"><value>原始 JSON</value></data>
+  <data name="OriginalFileContents" xml:space="preserve"><value>原始文件内容</value></data>
+  <data name="RecoveryProtected" xml:space="preserve"><value>恢复保护中</value></data>
+  <data name="ClipLocation" xml:space="preserve"><value>{0}（{1}，{2}–{3}）</value></data>
+  <data name="LayerLocation" xml:space="preserve"><value>图层 {0}</value></data>
+  <data name="Marker" xml:space="preserve"><value>标记</value></data>
+  <data name="MarkerLocation" xml:space="preserve"><value>{0}（{1}）</value></data>
+  <data name="KeyframeLocation" xml:space="preserve"><value>关键帧（{0}）</value></data>
+  <data name="ClipIssueSummary" xml:space="preserve"><value>此片段包含无法显示的数据&#10;{0}</value></data>
+  <data name="IssueCount" xml:space="preserve"><value>{0}（{1} 项）</value></data>
+  <data name="ScanFailed" xml:space="preserve"><value>无法扫描无法显示的数据。</value></data>
+  <data name="LegacyContent" xml:space="preserve"><value>未迁移的 Beutl 1.x 内容</value></data>
+</root>

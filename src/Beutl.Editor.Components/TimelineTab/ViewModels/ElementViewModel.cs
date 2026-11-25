@@ -1,4 +1,5 @@
-﻿using System.Reactive;
+﻿using System.Globalization;
+using System.Reactive;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -190,8 +191,10 @@ public sealed partial class ElementViewModel : IDisposable
             .AddTo(_disposables);
 
         _flowInputWarning.AddTo(_disposables);
-        ClipToolTip = RecoveryProtectionToolTip.CombineLatest(_flowInputWarning, (recovery, warning) =>
-                recovery is null ? warning : warning is null ? recovery : $"{recovery}\n\n{warning}")
+        UndisplayableDataToolTip.AddTo(_disposables);
+        ClipToolTip = RecoveryProtectionToolTip.CombineLatest(UndisplayableDataToolTip, _flowInputWarning,
+                (recovery, data, warning) => string.Join("\n\n", new[] { recovery, data, warning }.OfType<string>()))
+            .Select(text => text.Length == 0 ? null : text)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -239,7 +242,37 @@ public sealed partial class ElementViewModel : IDisposable
         InitializeTrackMatte();
         InitializeThumbnails();
         InitializeProxyIndicator();
+        InitializeUndisplayableDataIndicator();
         InitializeAnimationMarks();
+    }
+
+    private void InitializeUndisplayableDataIndicator()
+    {
+        _elementEditedSubject.Merge(IsRecoveryProtected.Skip(1).Select(_ => Unit.Default))
+            .Throttle(TimeSpan.FromMilliseconds(250))
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => RefreshUndisplayableDataIndicator())
+            .AddTo(_disposables);
+        RefreshUndisplayableDataIndicator();
+    }
+
+    private void RefreshUndisplayableDataIndicator()
+    {
+        if (_isDisposed) return;
+        try
+        {
+            var counts = UndisplayableDataScanner.CountIssues(Model);
+            UndisplayableDataToolTip.Value = counts.Count == 0 ? null : string.Format(CultureInfo.CurrentCulture,
+                UndisplayableDataStrings.ClipIssueSummary,
+                string.Join("\n", counts.OrderBy(pair => pair.Key).Select(pair =>
+                    string.Format(CultureInfo.CurrentCulture, UndisplayableDataStrings.IssueCount,
+                        UndisplayableDataEntry.GetKindLabel(pair.Key), pair.Value))));
+        }
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
+        {
+            _logger.LogWarning(ex, "Failed to inspect undisplayable data in element {ElementId}", Model.Id.Value);
+            UndisplayableDataToolTip.Value = null;
+        }
     }
 
     private void InitializeElementGroup()
@@ -283,6 +316,7 @@ public sealed partial class ElementViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> CanToggleLock { get; }
 
     public ReadOnlyReactivePropertySlim<string?> RecoveryProtectionToolTip { get; }
+    public ReactivePropertySlim<string?> UndisplayableDataToolTip { get; } = new();
 
     public IReadOnlyReactiveProperty<string?> FlowInputWarning => _flowInputWarning;
 

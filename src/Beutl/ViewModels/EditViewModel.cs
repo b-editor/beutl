@@ -225,7 +225,8 @@ public sealed partial class EditViewModel
     // the notice stays until it is closed or this editor closes.
     private void NotifyRecoveryProtectedElements()
     {
-        if (Beutl.Editor.Services.RecoveryProtectionNotice.Create(Scene, _autoSaveCancellation.Token) is { } notice)
+        if (Beutl.Editor.Services.RecoveryProtectionNotice.Create(
+                Scene, _autoSaveCancellation.Token, ActivateAndOpenUndisplayableData) is { } notice)
         {
             this.GetRequiredService<INotificationService>().Show(notice);
         }

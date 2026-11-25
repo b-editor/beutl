@@ -54,4 +54,10 @@ public partial class PropertyEditorGroup : UserControl
         properties.IsVisible = true;
         summary.IsVisible = false;
     }
+
+    internal Control? Reveal(IPropertyEditorContext property)
+    {
+        Show();
+        return properties.ContainerFromItem(property);
+    }
 }
