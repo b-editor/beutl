@@ -177,7 +177,7 @@ public partial class KeyFrame : Hierarchical
             UseFallbackEasing(
                 easingNode,
                 FallbackReason.DeserializationFailed,
-                easingObject["$type"] is JsonValue type && type.TryGetValue(out string? name) ? name : null,
+                easingObject.TryGetPropertyValueAsJsonValue("$type", out string? name) ? name : null,
                 "The spline easing object does not contain four valid control-point values.");
         }
     }
