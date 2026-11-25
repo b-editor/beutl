@@ -1,6 +1,7 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.VersionControl;
@@ -99,6 +100,9 @@ public partial class EditViewModel
         .AddOwned<IElementMoveService>(() => new ElementMoveService(
             HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig, (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!))
         .AddOwned<IElementGapService>(() => new ElementGapService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
+        .AddOwned<SceneFileImporter>(() => new SceneFileImporter(
+            _elementAdder, this.GetRequiredService<DecoderRegistry>(), this.GetRequiredService<ObjectTemplateService>(),
+            this.GetRequiredService<INotificationService>(), _elementAdder.HasFileSourceOverride))
         .AddOwned<IElementClipboardService>(() => new ProjectFileWriteClipboardService(
             EditorService,
             new ElementClipboardService(
@@ -106,7 +110,8 @@ public partial class EditViewModel
                 _clipboardGateway,
                 (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
                 static () => ElementAccentColorGenerator.GenerateColor(typeof(Beutl.Graphics.SourceImage).FullName!),
-                _elementAdder), _autoSaveCancellation.Token))
+                this.GetRequiredService<SceneFileImporter>(),
+                new CaptionTemplateChooser().ChooseForPasteAsync), _autoSaveCancellation.Token))
         .AddOwned<IElementStructureService>(() => new ElementStructureService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig, this.GetRequiredService<DecoderRegistry>()))
         .AddOwned<IElementAttributeService>(() => new ElementAttributeService(HistoryManager))
         .AddOwned<ITransitionEditorService>(() => new Beutl.Editor.Components.TransitionTab.TransitionEditorService(this))

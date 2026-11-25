@@ -534,7 +534,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
         try
         {
-            CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
+            CaptionSceneImportResult result = await CaptionSceneImporter.AddAsync(
                 _editor.Scene,
                 _editor.GetRequiredService<IElementAdder>(),
                 document,

@@ -1,11 +1,9 @@
 ﻿using Avalonia.Input;
-using Avalonia.Platform.Storage;
 using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.Editor.VersionControl;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -21,6 +19,8 @@ namespace Beutl.Views;
 
 public partial class PlayerView
 {
+    private readonly CaptionTemplateChooser _captionTemplateChooser = new();
+
     private async void OnFrameDrop(object? sender, DragEventArgs e)
     {
         var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
@@ -35,7 +35,8 @@ public partial class PlayerView
 
         if (storage != null)
         {
-            await DropStorageItemsAsync(e, storage, scene, editViewModel, frame, centeredPosition);
+            e.Handled = true;
+            await DropFilesAsync(editViewModel, scene, [], frame, centeredPosition, storage);
             return;
         }
 
@@ -49,37 +50,6 @@ public partial class PlayerView
         {
             await DropNewElementAsync(e, scene, editViewModel, frame, centeredPosition);
         }
-    }
-
-    private async Task DropStorageItemsAsync(
-        DragEventArgs e,
-        StorageDragData storage,
-        Scene scene,
-        EditViewModel editViewModel,
-        MediaTime frame,
-        Point centeredPosition)
-    {
-        e.Handled = true;
-        using var fileWrite = HostProjectFileWriteAdmission.Resolve(editViewModel)?.TryBeginProjectFileWrite();
-        if (fileWrite == null)
-        {
-            Notifications.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
-            return;
-        }
-        try
-        {
-            using var import = await storage.ImportToSceneAsync(scene);
-            foreach (string path in import.Paths)
-            {
-                int layer = scene.GetFirstFreeLayer();
-                ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, MediaTime.FromSeconds(5), layer,
-                    new ElementSource.File(path), Position: centeredPosition));
-                if (result is { IsSuccess: true }) import.Retain(path);
-            }
-        }
-        catch (OperationCanceledException) { }
-        catch (ObjectDisposedException) { }
-        catch (Exception) { Notifications.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
     }
 
     private async Task DropEffectOntoHitDrawableAsync(
@@ -137,33 +107,28 @@ public partial class PlayerView
         MediaTime frame,
         Point centeredPosition)
     {
-        int CalculateZIndex(Scene scene)
-        {
-            Element[] elements = scene.Children
-                .Where(item => item.Start.Value <= frame && frame < item.Range.End)
-                .ToArray();
-            return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex.Value) + 1;
-        }
-
-        MediaTime length = MediaTime.FromSeconds(5);
-        ElementDescription? description = null;
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } type)
         {
-            description = LibraryElementDescription.Create(type, frame, length, CalculateZIndex(scene), centeredPosition);
+            if (LibraryElementDescription.Create(type, frame, MediaTime.FromSeconds(5), PlayheadPlacement.FindLayer(scene, frame),
+                    centeredPosition) is { } description)
+            {
+                e.Handled = true;
+                await AddElement(editViewModel, description);
+            }
         }
-        else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
-        {
-            description = new ElementDescription(frame, length, CalculateZIndex(scene),
-                new ElementSource.File(fileName), Position: centeredPosition);
-        }
-
-        if (description != null)
+        else if (SceneFileDrop.GetLocalPaths(e.DataTransfer.TryGetFiles()) is { Length: > 0 } files)
         {
             e.Handled = true;
-            await AddElement(editViewModel, description);
+            await DropFilesAsync(editViewModel, scene, files, frame, centeredPosition);
         }
     }
+
+    private Task DropFilesAsync(
+        EditViewModel editor, Scene scene, string[] files, MediaTime frame, Point position, StorageDragData? storage = null)
+        => SceneFileDrop.AddAsync(
+            editor, scene, files, frame, PlayheadPlacement.FindLayer(scene, frame), image, _captionTemplateChooser,
+            editor.FindToolTab<TimelineTabViewModel>(), position, storage);
 
     private static Element? FindEnabledElementAt(Scene scene, int zIndex, MediaTime time)
     {

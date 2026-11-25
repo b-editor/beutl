@@ -2,19 +2,23 @@
 using Beutl.Editor.Services.Captions;
 using FluentAvalonia.UI.Controls;
 
-namespace Beutl.Editor.Components.TimelineTab.Views;
+namespace Beutl.Editor.Components.Helpers;
 
-// Asks which look the clips of dropped subtitle files take, with a menu where they were dropped.
-internal static class CaptionTemplateChooser
+internal sealed class CaptionTemplateChooser
 {
-    public static Task<CaptionTemplate?> ShowAsync(Control target, IEnumerable<CaptionTemplate> templates)
+    private CaptionTemplateId? _lastChoice;
+
+    public Task<CaptionTemplate?> ChooseForPasteAsync(IReadOnlyList<CaptionTemplate> templates)
+        => AppHelper.GetTopLevel() is { } target ? ChooseAsync(target, templates) : Task.FromResult<CaptionTemplate?>(templates[0]);
+
+    public async Task<CaptionTemplate?> ChooseAsync(Control target, IReadOnlyList<CaptionTemplate> templates)
     {
         var closed = new TaskCompletionSource<CaptionTemplate?>(TaskCreationOptions.RunContinuationsAsynchronously);
         CaptionTemplate? chosen = null;
         // The pointer rests on the first template, so taking it needs one click and no move.
         var menu = new FAMenuFlyout { HorizontalOffset = -12, VerticalOffset = -48 };
         menu.Items.Add(new FAMenuFlyoutItem { Text = Strings.AiSubtitle_Template, IsEnabled = false });
-        foreach (CaptionTemplate template in templates)
+        foreach (CaptionTemplate template in templates.OrderByDescending(item => item.Descriptor.Id == _lastChoice))
         {
             var item = new FAMenuFlyoutItem { Text = template.Descriptor.Name };
             item.Click += (_, _) => chosen = template;
@@ -27,6 +31,8 @@ internal static class CaptionTemplateChooser
         // A file dragged from another app leaves that app in front, where a click would only bring Beutl back.
         (TopLevel.GetTopLevel(target) as Window)?.Activate();
         menu.ShowAt(target, true);
-        return closed.Task;
+        CaptionTemplate? result = await closed.Task;
+        if (result is not null) _lastChoice = result.Descriptor.Id;
+        return result;
     }
 }

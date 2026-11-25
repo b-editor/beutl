@@ -12,11 +12,13 @@ internal static class PlayheadPlacement
     {
         MediaTime time = editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? MediaTime.Zero;
         MediaTime start = time.RoundToFrame(scene.FindHierarchicalParent<Project>().GetFrameRate(), MidpointRounding.AwayFromZero);
-        int layer = scene.Children
+        return (start, FindLayer(scene, start));
+    }
+
+    public static int FindLayer(Scene scene, MediaTime start)
+        => scene.Children
             .Where(e => e.Start.Value <= start && start < e.Range.End)
             .Select(e => e.ZIndex.Value + 1)
             .DefaultIfEmpty(0)
             .Max();
-        return (start, layer);
-    }
 }

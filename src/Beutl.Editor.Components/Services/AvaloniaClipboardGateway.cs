@@ -51,13 +51,7 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         IReadOnlyList<IStorageItem>? files = await clipboard.TryGetFilesAsync();
         if (files is null) return null;
 
-        var paths = new List<string>(files.Count);
-        foreach (IStorageItem item in files)
-        {
-            if (item.TryGetLocalPath() is { } path) paths.Add(path);
-        }
-
-        return paths;
+        return SceneFileDrop.GetLocalPaths(files);
     }
 
     public async Task<ReadOnlyMemory<byte>?> TryGetBitmapPngAsync()

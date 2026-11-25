@@ -4,6 +4,7 @@ using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +43,17 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             failure.Exception,
             "Ignoring invalid element source-handler contribution from {ExtensionType}.",
             failure.ExtensionType));
+    }
+
+    internal bool HasFileSourceOverride()
+    {
+        if (!_sourceHandlers.TryAcquire(typeof(ElementSource.File), out var lease))
+            return false;
+
+        using (lease)
+        {
+            return lease.Handler is not FileSourceHandler;
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -345,17 +357,20 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 if (gatedCommitValidation is not null)
                     return;
 
-                var layerEnds = new Dictionary<int, MediaTime>();
+                var layerEnds = new Dictionary<(int Layer, bool StacksAboveScene), MediaTime>();
                 int? firstFreeLayer = null;
+                int? audioLayerDelta = null;
                 for (int index = 0; index < itemResults.Count; index++)
                 {
                     IReadOnlyList<Element> elements = itemResults[index].Elements;
                     ElementDescription description = plans[index].Description;
-                    if (description.FollowsPrevious && layerEnds.TryGetValue(description.Layer, out MediaTime end))
+                    var row = (description.Layer, description.StacksAboveScene);
+                    if (description.FollowsPrevious && layerEnds.TryGetValue(row, out MediaTime end))
                     {
+                        MediaTime firstStart = elements.Min(element => element.Start.Value);
                         foreach (Element element in elements)
                         {
-                            element.Start.Value += end - description.Start;
+                            element.Start.Value += end - firstStart;
                         }
                     }
 
@@ -375,7 +390,12 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                         }
                     }
 
-                    if (arrangements[index])
+                    if (description.PlaceOnSeparateAudioTrack)
+                    {
+                        audioLayerDelta ??= FindFileImportAudioLayerDelta(scene, itemResults, index);
+                        ElementPlacementHelper.MoveTogether(elements, MediaTime.Zero, audioLayerDelta.Value);
+                    }
+                    else if (arrangements[index])
                     {
                         PlaceTogether(scene, elements);
                     }
@@ -384,11 +404,13 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                     {
                         scene.AddChild(
                             element,
-                            arrangements[index] ? ElementOverlapHandling.Allow : ElementOverlapHandling.Auto,
+                            arrangements[index] || description.PlaceOnSeparateAudioTrack
+                                ? ElementOverlapHandling.Allow
+                                : ElementOverlapHandling.Auto,
                             _context.GetRequiredService<GlobalConfiguration>().EditorConfig.AutoAdjustSceneDuration.Value);
                     }
 
-                    layerEnds[description.Layer] = elements.Max(element => element.Range.End);
+                    layerEnds[row] = elements.Max(element => element.Range.End);
                 }
 
                 if (groups.Count > 0)
@@ -425,11 +447,40 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         ElementPlacementHelper.MoveTogether(elements, placement.StartDelta, placement.LayerDelta);
     }
 
-    // The first locked layer among a request's layers, which refuses it. A request that stacks above the scene counts
-    // past locked layers itself, so none refuses it.
+    private static int FindFileImportAudioLayerDelta(Scene scene, IReadOnlyList<ElementAddItemResult> items, int firstAudio)
+    {
+        int requestedLayer = items[firstAudio].Description.Layer;
+        int lastClipLayer = items.Take(firstAudio).SelectMany(item => item.Elements).Max(element => element.ZIndex.Value);
+        MediaTime start = items[firstAudio].Elements.Min(element => element.Start.Value);
+        MediaTime duration = MediaTime.Zero;
+        var offsets = new HashSet<int>();
+        foreach (ElementAddItemResult item in items.Skip(firstAudio).TakeWhile(item => item.Description.PlaceOnSeparateAudioTrack))
+        {
+            (TimeRange itemRange, _, _) = DuplicateHelper.ComputePlacementRange(item.Elements);
+            duration += itemRange.Duration;
+            foreach (Element element in item.Elements)
+            {
+                offsets.Add(element.ZIndex.Value - requestedLayer);
+            }
+        }
+
+        // Check the full sequence at the chosen start so later sound clips stay on the same track.
+        var range = new TimeRange(start, duration);
+        int layer = Math.Max(requestedLayer, checked(lastClipLayer + 1 - offsets.Min()));
+        while (offsets.Any(offset => scene.IsLayerLocked(checked(layer + offset))
+                                     || scene.ElementIndex.Overlaps(checked(layer + offset), range)))
+        {
+            layer = checked(layer + 1);
+        }
+
+        return layer - requestedLayer;
+    }
+
+    // The first locked layer among a request's layers, which refuses it. Requests placed on free layers at commit
+    // time already avoid any locked destination.
     private static int? FindLockedTargetLayer(Scene scene, ElementDescription description, IEnumerable<int> layers)
     {
-        if (description.StacksAboveScene) return null;
+        if (description.StacksAboveScene || description.PlaceOnSeparateAudioTrack) return null;
 
         foreach (int layer in layers)
         {
