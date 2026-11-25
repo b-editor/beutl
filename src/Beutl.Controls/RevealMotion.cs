@@ -53,9 +53,7 @@ public static class RevealMotion
 
         public void Dispose()
         {
-            UiMotion.Cancel(_owner);
-            if (_owner.Opacity < 1)
-                _owner.Opacity = 1;
+            Settle();
             _owner.PropertyChanged -= OnPropertyChanged;
             _owner.AttachedToVisualTree -= OnAttached;
             _owner.DetachedFromVisualTree -= OnDetached;
@@ -69,9 +67,7 @@ public static class RevealMotion
         private void OnDetached(object? sender, VisualTreeAttachmentEventArgs e)
         {
             _attached = false;
-            UiMotion.Cancel(_owner);
-            if (_owner.Opacity < 1)
-                _owner.Opacity = 1;
+            Settle();
         }
 
         private void OnPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -82,9 +78,7 @@ public static class RevealMotion
             bool visible = e.GetNewValue<bool>();
             if (!visible)
             {
-                UiMotion.Cancel(_owner);
-                if (_owner.Opacity < 1)
-                    _owner.Opacity = 1;
+                Settle();
                 return;
             }
 
@@ -103,6 +97,14 @@ public static class RevealMotion
                     UiMotion.Pop(_owner, UiMotion.Normal);
                     break;
             }
+        }
+
+        // Stops a reveal and leaves the visual fully opaque.
+        private void Settle()
+        {
+            UiMotion.Cancel(_owner);
+            if (_owner.Opacity < 1)
+                _owner.Opacity = 1;
         }
     }
 }

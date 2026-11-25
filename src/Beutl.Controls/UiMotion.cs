@@ -92,65 +92,68 @@ public static partial class UiMotion
         Run(target, duration, progress => target.Opacity = from * (1 - progress), completed);
     }
 
+    // Moves a drawn value from `from` to `to` over Fast; one already within tolerance of `to` settles at once.
+    internal static void Tween(Visual target, double from, double to, double tolerance, Action<double> apply)
+    {
+        if (Math.Abs(from - to) < tolerance)
+        {
+            Cancel(target);
+            apply(to);
+            return;
+        }
+
+        Run(target, Fast, progress => apply(from + ((to - from) * progress)));
+    }
+
     // Fades the target in while it moves down into place from just above. A target with a transform of its own, or
     // where Slides is off, only fades.
     public static void Reveal(Visual target, TimeSpan duration, Action? completed = null)
     {
         Cancel(target);
-        TranslateTransform? slide = null;
-        if (target.RenderTransform is null && GetSlides(target))
-        {
-            slide = new TranslateTransform(0, -RevealOffset);
-            target.RenderTransform = slide;
-        }
-
-        target.Opacity = 0;
-        Run(target, duration, progress =>
-        {
-            target.Opacity = progress;
-            // Something else (a drag, say) may have taken over the transform meanwhile.
-            if (slide != null && ReferenceEquals(target.RenderTransform, slide))
-                slide.Y = -RevealOffset * (1 - progress);
-        }, () =>
-        {
-            if (slide != null && ReferenceEquals(target.RenderTransform, slide))
-                target.RenderTransform = null;
-            completed?.Invoke();
-        });
-        // Run cancels what came before it, so the transform is recorded after it starts.
-        if (slide != null && ReferenceEquals(target.RenderTransform, slide))
-            s_transforms.AddOrUpdate(target, slide);
+        TranslateTransform? slide = target.RenderTransform is null && GetSlides(target)
+            ? new TranslateTransform(0, -RevealOffset)
+            : null;
+        RevealWith(target, duration, slide,
+            static (transform, progress) => transform.Y = -RevealOffset * (1 - progress), completed);
     }
 
     // Fades the target in while growing gently into place. A target with a transform of its own only fades.
     public static void Pop(Visual target, TimeSpan duration, double startScale = PopStartScale, Action? completed = null)
     {
         Cancel(target);
-        ScaleTransform? grow = null;
-        if (target.RenderTransform is null)
+        ScaleTransform? grow = target.RenderTransform is null ? new ScaleTransform(startScale, startScale) : null;
+        RevealWith(target, duration, grow, (transform, progress) =>
         {
-            grow = new ScaleTransform(startScale, startScale);
-            target.RenderTransform = grow;
-        }
+            double scale = startScale + ((1 - startScale) * progress);
+            transform.ScaleX = scale;
+            transform.ScaleY = scale;
+        }, completed);
+    }
+
+    // Fades the target in while update moves the transform it is given, if any, into place.
+    private static void RevealWith<T>(
+        Visual target, TimeSpan duration, T? transform, Action<T, double> update, Action? completed)
+        where T : Transform
+    {
+        if (transform != null)
+            target.RenderTransform = transform;
 
         target.Opacity = 0;
         Run(target, duration, progress =>
         {
             target.Opacity = progress;
-            if (grow != null && ReferenceEquals(target.RenderTransform, grow))
-            {
-                double scale = startScale + ((1 - startScale) * progress);
-                grow.ScaleX = scale;
-                grow.ScaleY = scale;
-            }
+            // Something else (a drag, say) may have taken over the transform meanwhile.
+            if (transform != null && ReferenceEquals(target.RenderTransform, transform))
+                update(transform, progress);
         }, () =>
         {
-            if (grow != null && ReferenceEquals(target.RenderTransform, grow))
+            if (transform != null && ReferenceEquals(target.RenderTransform, transform))
                 target.RenderTransform = null;
             completed?.Invoke();
         });
-        if (grow != null && ReferenceEquals(target.RenderTransform, grow))
-            s_transforms.AddOrUpdate(target, grow);
+        // Run cancels what came before it, so the transform is recorded after it starts.
+        if (transform != null && ReferenceEquals(target.RenderTransform, transform))
+            s_transforms.AddOrUpdate(target, transform);
     }
 
     // Whether what appears inside moves into place or only fades. Off where something laid out beside it stays put
