@@ -140,6 +140,21 @@ public sealed class TextPartTagTests
     }
 
     [Test]
+    public void DrawableGroupEffectReceivesTextTagThroughChildBlend()
+    {
+        var probe = new TagProbe();
+        var group = new DrawableGroup { FilterEffect = { Value = probe.Effect } };
+        TextBlock text = CreateText("A");
+        text.BlendMode.Value = BlendMode.Multiply;
+        group.Children.Add(text);
+
+        Render(group);
+
+        Assert.That(probe.Tags, Has.Length.EqualTo(1));
+        Assert.That(probe.Tags[0]?.Indices, Is.EqualTo(new TextPartIndices(0, 0, 0)));
+    }
+
+    [Test]
     public void PartsSplitContoursAreGenericParts()
     {
         var before = new TagProbe();
@@ -271,9 +286,9 @@ public sealed class TextPartTagTests
         return group;
     }
 
-    private static void Render(TextBlock text)
+    private static void Render(Drawable drawable)
     {
-        using var resource = text.ToResource(s_context);
+        using var resource = drawable.ToResource(s_context);
         using var root = RecordDrawable(resource);
         using var renderer = CreateRenderer(root);
         using var image = renderer.Rasterize();

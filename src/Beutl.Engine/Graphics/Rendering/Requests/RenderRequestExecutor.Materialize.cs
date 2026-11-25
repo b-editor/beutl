@@ -153,6 +153,7 @@ internal sealed partial class RenderRequestExecutor
                         && fragment.Payload is FilterEffectSegmentRenderFragmentPayload { HasImperativeItem: false }:
                     case RenderFragmentKind.ContributeValues:
                     case RenderFragmentKind.Opacity:
+                    case RenderFragmentKind.Blend:
                     case RenderFragmentKind.OpacityMask:
                     case RenderFragmentKind.Shader:
                     case RenderFragmentKind.ShaderGraph:
