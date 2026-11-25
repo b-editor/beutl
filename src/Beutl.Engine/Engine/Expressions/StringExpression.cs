@@ -66,7 +66,7 @@ internal static class StringExpressionParser
         var root = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(expressionString, ParseOptions).GetRoot();
         foreach (IdentifierNameSyntax identifier in root.DescendantNodes().OfType<IdentifierNameSyntax>())
         {
-            if (identifier.Identifier.ValueText is not ("Value" or "ValueAtTime" or "LoopOut" or "LoopIn"))
+            if (identifier.Identifier.ValueText is not ("Value" or "ValueAtTime" or "LoopOut" or "LoopIn" or "WiggleValue"))
                 continue;
 
             if (identifier.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Name == identifier)

@@ -189,13 +189,32 @@ internal sealed partial class GitCliVersionControlService
                 progress is null ? GitCommandOptions.Network : s_lfsNetworkProgress with { StdoutProgress = progress },
                 cancellationToken,
                 progress).ConfigureAwait(false);
+            IReadOnlyList<string>? pushUrls = await TryGetOriginPushUrlsBestEffortAsync(repository, runner)
+                .ConfigureAwait(false);
             await TryQueueStatusChangedCoreAsync(cancellationToken).ConfigureAwait(false);
-            return new RemoteOpResult.Success();
+            return new RemoteOpResult.Success(pushUrls);
         }
         catch (GitOperationException ex)
         {
             CaptureRecoverableLock(ex);
             return MapRemoteFailure(ex);
+        }
+    }
+
+    // Best-effort lookup after git push has already succeeded so cancellation or timeout never turns a
+    // completed push into an error.
+    private static async Task<IReadOnlyList<string>?> TryGetOriginPushUrlsBestEffortAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner)
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            return await GetOriginPushUrlsAsync(repository, runner, timeout.Token).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 

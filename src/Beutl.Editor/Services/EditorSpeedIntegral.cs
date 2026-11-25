@@ -3,9 +3,8 @@ using Beutl.Animation.Easings;
 
 namespace Beutl.Editor.Services;
 
-// Approximate the discrete playback sum with a bounded piecewise-linear table.
-// Work depends on curve complexity, not the number of audio samples before the
-// clip. The error allowance travels with the value into source-window checks.
+// Bound the audio DSP's discrete speed sum without visiting all of its samples.
+// Source-window checks use this allowance alongside the continuous seek position.
 internal sealed class EditorSpeedIntegral(KeyFrameAnimation<float> animation, int sampleRate)
 {
     internal readonly record struct Estimate(double Seconds, double Error);
@@ -44,7 +43,7 @@ internal sealed class EditorSpeedIntegral(KeyFrameAnimation<float> animation, in
         double seconds = (endSum - startSum) / (100d * sampleRate);
         seconds += animation.Interpolate(end) * (endSamples - endWhole) / (100d * sampleRate);
         seconds -= animation.Interpolate(start) * (startSamples - startWhole) / (100d * sampleRate);
-        // Account for the rounding accumulated by playback's repeated additions,
+        // Account for the rounding accumulated by the DSP's repeated additions,
         // as well as the table's interpolation allowance.
         double magnitude = Math.Max(Math.Abs(startSum), Math.Abs(endSum)) / (100d * sampleRate);
         double rounding = magnitude * (Math.Abs(endSamples - startSamples) + 2d * sampleRate) * 4.440892098500626e-16;

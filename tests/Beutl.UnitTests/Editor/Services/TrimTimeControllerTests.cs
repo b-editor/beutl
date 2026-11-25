@@ -1520,7 +1520,7 @@ public class TrimTimeControllerTests
         controller.Speed.SetKeyFrameAnimation(speed);
         element.Objects.Add(controller);
         MediaTime end = element.Range.End;
-        using var playback = new SpeedIntegrator(60);
+        using var playback = new SpeedIntegrator();
         playback.EnsureCache(speed);
         long low = Seconds(2.49).Flicks;
         long high = Seconds(2.51).Flicks;

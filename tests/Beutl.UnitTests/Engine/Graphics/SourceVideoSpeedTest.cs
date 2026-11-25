@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -240,6 +241,33 @@ public class SourceVideoSpeedTest
         // Assert: 10秒の動画を5%速度で再生すると、元の時間は200秒
         Assert.That(originalTime, Is.Not.Null);
         Assert.That(originalTime!.Value.ToSeconds(), Is.EqualTo(200.0).Within(5.0));
+    }
+
+    [Test]
+    public void Reconcile_ReusesResourceAndMapsAnInsertedSpeedKey()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f } });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(6) },
+            Value = { Value = 100f },
+            Easing = { Value = new HoldEasing() }
+        });
+        _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
+        MediaTime time = MediaTime.FromSeconds(3.5);
+        SourceVideo.Resource resource = EvaluateAt(time);
+        Assert.That(resource.RequestedPosition, Is.EqualTo(time));
+
+        animation.KeyFrames.Insert(1, new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = 300f },
+            Easing = { Value = new HoldEasing() }
+        });
+        ReconcileAt(time);
+
+        Assert.That(resource.RequestedPosition.ToSeconds(), Is.EqualTo(6.5).Within(1e-8));
     }
 
     // A loop wrapped only the position the speed gives, but the frame is read OffsetPosition later, so the last

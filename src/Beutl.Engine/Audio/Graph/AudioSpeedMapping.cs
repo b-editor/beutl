@@ -10,6 +10,7 @@ internal sealed class AudioSpeedMapping : IDisposable
     private readonly Func<float, float>? _normalize;
     private readonly double? _minimumSpeedFallback;
     private bool _hasLastAnimatedSpeed;
+    private int _configuredSampleRate;
     private double _lastAnimatedSpeed;
     private int _lastSampleRate;
     private float? _expressionPercent;
@@ -23,12 +24,7 @@ internal sealed class AudioSpeedMapping : IDisposable
     {
         _normalize = normalize;
         _minimumSpeedFallback = minimumSpeedFallback;
-        _integrator = new SpeedIntegrator(0, () =>
-        {
-            IsInvalidated = true;
-            _hasLastAnimatedSpeed = false;
-        });
-        _integrator.SpeedTransform = normalize;
+        _integrator = new SpeedIntegrator(Invalidate) { SpeedTransform = normalize };
     }
 
     public IProperty<float>? Speed { get; set; }
@@ -61,7 +57,17 @@ internal sealed class AudioSpeedMapping : IDisposable
     public void Configure(int sampleRate)
     {
         _integrator.EnsureCache(KeyFrames);
-        _integrator.SampleRate = sampleRate;
+        if (_configuredSampleRate != sampleRate)
+        {
+            _configuredSampleRate = sampleRate;
+            Invalidate();
+        }
+    }
+
+    private void Invalidate()
+    {
+        IsInvalidated = true;
+        _hasLastAnimatedSpeed = false;
     }
 
     // Speeds of zero or below are left to the animated path.
@@ -115,10 +121,8 @@ internal sealed class AudioSpeedMapping : IDisposable
             return MediaTime.FromSeconds(time.ToSeconds() * factor);
         }
 
-        var ownerStart = GetOwnerStart(animation);
-        return animation.UseGlobalClock.Value
-            ? _integrator.Integrate(time + ownerStart, animation) - _integrator.Integrate(ownerStart, animation)
-            : _integrator.Integrate(time, animation);
+        MediaTime start = animation.UseGlobalClock.Value ? GetOwnerStart(animation) : MediaTime.Zero;
+        return _integrator.IntegratePlayback(start, time + start);
     }
 
     public double? GetFiniteSourceEndSample(double? inputEnd, int sampleRate)
@@ -140,18 +144,14 @@ internal sealed class AudioSpeedMapping : IDisposable
             ownerStart, animation.UseGlobalClock.Value);
         if (_finiteEndKey == key)
             return _finiteEndValue;
-        MediaTime origin = animation.UseGlobalClock.Value
-            ? _integrator.Integrate(ownerStart, animation)
-            : MediaTime.Zero;
+        MediaTime start = animation.UseGlobalClock.Value ? ownerStart : MediaTime.Zero;
         double low = 0;
         double high = end / minimumSpeed;
         for (int i = 0; i < 64 && high - low > 1e-4; i++)
         {
             double middle = (low + high) / 2;
-            var time = MediaTime.FromSeconds(middle / sampleRate);
-            if (animation.UseGlobalClock.Value)
-                time += ownerStart;
-            double mapped = (_integrator.Integrate(time, animation) - origin).ToSeconds() * sampleRate;
+            MediaTime time = start + MediaTime.FromSeconds(middle / sampleRate);
+            double mapped = _integrator.IntegratePlayback(start, time).ToSeconds() * sampleRate;
             if (mapped < end)
                 low = middle;
             else
@@ -230,8 +230,9 @@ internal sealed class AudioSpeedMapping : IDisposable
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
-        if (Animation is not null)
+        if (Animation is { } animation)
         {
+            _integrator.EnsureCache(animation);
             // An animation whose output range cannot be proven bounded remains unbounded even when
             // its last sampled value happened to be finite.
             if (!TryGetBoundedMinimumSpeedFactor(out double minimumSpeed))

@@ -1,9 +1,12 @@
 ﻿using Avalonia.Media.Imaging;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Language;
 using Beutl.Services;
 using FluentIcons.Common;
 using Reactive.Bindings;
+using SkiaSharp;
 
 namespace Beutl.ViewModels;
 
@@ -11,6 +14,8 @@ namespace Beutl.ViewModels;
 // or disconnected drive. Each entry reads on its own, so a stalled drive holds up only its own entries.
 public sealed class RecentProjectItem : IDisposable
 {
+    private const int MaxThumbnailDimension = 1024;
+    private const long MaxThumbnailPixels = 1024L * 1024L;
     private readonly CancellationTokenSource _disposal = new();
 
     public RecentProjectItem(string fullName)
@@ -20,13 +25,19 @@ public sealed class RecentProjectItem : IDisposable
         DirectoryName = Path.GetDirectoryName(fullName);
     }
 
-    internal RecentProjectItem(Guid repositoryId, string name, DateTimeOffset updatedAt)
+    internal RecentProjectItem(
+        Guid repositoryId,
+        string name,
+        DateTimeOffset updatedAt,
+        DateTimeOffset? thumbnailUpdatedAt = null)
     {
         FullName = string.Empty;
         Name = name;
         UnclonedRepositoryId = repositoryId;
+        ThumbnailUpdatedAt = thumbnailUpdatedAt;
         RepositoryLabel.Value = Strings.HostedGit_CloudProject;
         Status.Value = RelativeTimeText.Format(updatedAt, DateTimeOffset.Now);
+        ShowRemotePlaceholder.Value = !thumbnailUpdatedAt.HasValue;
     }
 
     public string FullName { get; }
@@ -36,6 +47,8 @@ public sealed class RecentProjectItem : IDisposable
     public string? DirectoryName { get; }
 
     internal Guid? UnclonedRepositoryId { get; }
+
+    internal DateTimeOffset? ThumbnailUpdatedAt { get; }
 
     internal bool IsRemoteOnly => UnclonedRepositoryId.HasValue;
 
@@ -53,6 +66,8 @@ public sealed class RecentProjectItem : IDisposable
 
     // False until the entry is read, so a project with a picture does not flash the placeholder first.
     public ReactivePropertySlim<bool> HasNoThumbnail { get; } = new();
+
+    public ReactivePropertySlim<bool> ShowRemotePlaceholder { get; } = new();
 
     public ReactivePropertySlim<string?> Status { get; } = new();
 
@@ -75,6 +90,53 @@ public sealed class RecentProjectItem : IDisposable
         Status.Value = read.LastEdited is { } lastEdited
             ? RelativeTimeText.Format(new DateTimeOffset(lastEdited), DateTimeOffset.Now)
             : MessageStrings.FileDoesNotExist;
+    }
+
+    internal async Task LoadRemoteThumbnailAsync(
+        HostedGitRepositoryService service,
+        AuthenticatedUser owner,
+        SemaphoreSlim? concurrencyGate = null)
+    {
+        if (UnclonedRepositoryId is not { } repositoryId || !ThumbnailUpdatedAt.HasValue)
+            return;
+
+        CancellationToken token = _disposal.Token;
+        bool entered = false;
+        try
+        {
+            if (concurrencyGate is not null)
+            {
+                await concurrencyGate.WaitAsync(token);
+                entered = true;
+            }
+
+            byte[]? bytes = await service.DownloadThumbnailAsync(repositoryId, owner, token);
+            Bitmap? bitmap = bytes is { Length: > 0 }
+                ? await Task.Run(() => ReadBitmap(bytes), token)
+                : null;
+
+            if (token.IsCancellationRequested)
+            {
+                bitmap?.Dispose();
+                return;
+            }
+
+            Thumbnail.Value = bitmap;
+            ShowRemotePlaceholder.Value = bitmap is null;
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            if (!token.IsCancellationRequested)
+                ShowRemotePlaceholder.Value = true;
+        }
+        finally
+        {
+            if (entered)
+                concurrencyGate!.Release();
+        }
     }
 
     public void Dispose()
@@ -116,12 +178,52 @@ public sealed class RecentProjectItem : IDisposable
     {
         try
         {
-            return new Bitmap(path);
+            using FileStream stream = File.OpenRead(path);
+            return ReadValidatedBitmap(stream);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // A damaged picture is the same as none.
             return null;
         }
+    }
+
+    private static Bitmap? ReadBitmap(byte[] bytes)
+    {
+        try
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            return ReadValidatedBitmap(stream);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A damaged picture is the same as none.
+            return null;
+        }
+    }
+
+    private static Bitmap? ReadValidatedBitmap(Stream stream)
+    {
+        if (!stream.CanSeek || stream.Length is <= 0 or > HostedGitRepositoryService.MaxThumbnailBytes)
+            return null;
+
+        using SKData? data = SKData.Create(stream);
+        if (data is null)
+            return null;
+
+        using SKCodec? codec = SKCodec.Create(data);
+        if (codec is null)
+            return null;
+
+        SKImageInfo info = codec.Info;
+        if (info.Width <= 0 || info.Height <= 0
+            || info.Width > MaxThumbnailDimension || info.Height > MaxThumbnailDimension
+            || (long)info.Width * info.Height > MaxThumbnailPixels)
+        {
+            return null;
+        }
+
+        stream.Position = 0;
+        return new Bitmap(stream);
     }
 }

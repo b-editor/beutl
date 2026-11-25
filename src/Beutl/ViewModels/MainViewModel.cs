@@ -86,7 +86,7 @@ public sealed partial class MainViewModel : BasePageViewModel
         _editorService.ProjectFonts = _projectService.GetFonts;
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
-        _ = new ProjectThumbnailService(_projectService, _editorService);
+        _ = new ProjectThumbnailService(_projectService, _editorService, _versionControlCoordinator);
         _projectColorPalettes = new ProjectColorPaletteHost(_projectService, _editorService);
         _projectColorPalettesAttachment = appServices.GetRequiredService<Beutl.Controls.PropertyEditors.ColorPaletteService>()
             .AttachProjectHost(_projectColorPalettes);

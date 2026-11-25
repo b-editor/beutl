@@ -7,7 +7,8 @@ public sealed record GitRepositorySummary(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("url")] string Url,
     [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
-    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt);
+    [property: JsonPropertyName("updatedAt")] DateTimeOffset UpdatedAt,
+    [property: JsonPropertyName("thumbnailUpdatedAt")] DateTimeOffset? ThumbnailUpdatedAt = null);
 
 public sealed record GitRepositoryListResponse(
     [property: JsonPropertyName("repositories")] GitRepositorySummary[] Repositories);

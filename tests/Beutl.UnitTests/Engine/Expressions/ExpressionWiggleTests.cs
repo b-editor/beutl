@@ -1,7 +1,10 @@
-﻿using Beutl.Animation;
+﻿using System.Numerics;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -18,7 +21,7 @@ public class ExpressionWiggleTests
         const string propertyName = "Position_位置";
         const ulong expectedSeed = 0x8D77A2440C81384FUL;
         var owner = new TestEngineObject { Id = { Value = s_ownerId } };
-        var property = MakeProperty(owner, propertyName);
+        var property = MakeProperty(owner, propertyName, 0.0);
         var globals = At(0.375, property);
         double expected = WiggleNoise.Sample(0.75, 3, expectedSeed) * 10;
 
@@ -43,7 +46,7 @@ public class ExpressionWiggleTests
     {
         var owner = new TestEngineObject { Id = { Value = s_ownerId } };
         var otherOwner = new TestEngineObject { Id = { Value = new Guid("01234567-89ab-cdef-0123-456789abcdee") } };
-        var otherProperty = MakeProperty(owner, "OtherValue");
+        var otherProperty = MakeProperty(owner, "OtherValue", 0.0);
         double value = At(0.375, owner.Value).Wiggle(2, 10);
 
         Assert.That(At(0.375, otherProperty).Wiggle(2, 10), Is.Not.EqualTo(value));
@@ -56,7 +59,7 @@ public class ExpressionWiggleTests
         var owner = new TestEngineObject { Id = { Value = s_ownerId } };
         var otherOwner = new TestEngineObject { Id = { Value = new Guid("01234567-89ab-cdef-0123-456789abcdee") } };
         var first = At(0.375, owner.Value);
-        var second = At(0.375, MakeProperty(otherOwner, "OtherValue"));
+        var second = At(0.375, MakeProperty(otherOwner, "OtherValue", 0.0));
 
         long value = BitConverter.DoubleToInt64Bits(first.Wiggle(2, 10, 3, seed: 42));
         Assert.That(BitConverter.DoubleToInt64Bits(second.Wiggle(2, 10, 3, seed: 42)), Is.EqualTo(value));
@@ -272,12 +275,260 @@ public class ExpressionWiggleTests
         Assert.That(property.ExpressionError, Does.Contain("finite number"));
     }
 
+    [TestCase(null)]
+    [TestCase(-42)]
+    public void WiggleValue_ScalarAddsTheSameOffsetAsWiggle(int? seed)
+    {
+        var globals = AtValue(0.375, Property.CreateExpression(32.0));
+
+        Assert.That(globals.WiggleValue(2, 10, 3, seed), Is.EqualTo(globals.Value + globals.Wiggle(2, 10, 3, seed)));
+    }
+
+    [Test]
+    public void WiggleValue_VectorComponentsUseStableIndependentSeeds()
+    {
+        const float amplitude = 10;
+        var baseline = new Vector3(32, -10, 5);
+        var globals = AtValue(0.375, Property.CreateExpression(baseline));
+
+        Vector3 result = globals.WiggleValue(2, amplitude, 3, seed: 42);
+        Vector3 offset = result - baseline;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(offset.X, Is.InRange(-amplitude, amplitude));
+            Assert.That(offset.Y, Is.InRange(-amplitude, amplitude));
+            Assert.That(offset.Z, Is.InRange(-amplitude, amplitude));
+            Assert.That(new[] { offset.X, offset.Y, offset.Z }, Is.Unique);
+            Assert.That(result, Is.EqualTo(new Vector3(
+                (float)(baseline.X + globals.Wiggle(2, amplitude, 3, seed: 42)),
+                (float)(baseline.Y + WiggleNoise.Sample(0.75, 3, 0x910A2DEC89025CEBUL) * amplitude),
+                (float)(baseline.Z + WiggleNoise.Sample(0.75, 3, 0x975835DE1C9756E4UL) * amplitude))));
+        }
+    }
+
+    [Test]
+    public void WiggleValue_PointMovesEachComponentWithinAmplitude()
+    {
+        var baseline = new Point(8, -8);
+        var property = Property.CreateExpression(baseline);
+        Point first = AtValue(0.375, property).WiggleValue(2, 10, 3, seed: 42);
+        Point second = AtValue(0.625, property).WiggleValue(2, 10, 3, seed: 42);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first.X - baseline.X, Is.InRange(-10f, 10f));
+            Assert.That(first.Y - baseline.Y, Is.InRange(-10f, 10f));
+            Assert.That(first.X - baseline.X, Is.Not.EqualTo(first.Y - baseline.Y).Within(1e-5f));
+            Assert.That(second.X, Is.Not.EqualTo(first.X));
+            Assert.That(second.Y, Is.Not.EqualTo(first.Y));
+        }
+    }
+
+    [Test]
+    public void WiggleValue_ReevaluatingAFrameReturnsTheSameBits()
+    {
+        var property = MakeProperty(new TestEngineObject { Id = { Value = s_ownerId } }, "Position", Vector3.One);
+
+        var first = AtValue(0.375, property).WiggleValue(2, 10, 3);
+        _ = AtValue(0.625, property).WiggleValue(2, 10, 3);
+        var repeated = AtValue(0.375, property).WiggleValue(2, 10, 3);
+
+        static (int, int, int) Bits(Vector3 value) =>
+            (BitConverter.SingleToInt32Bits(value.X), BitConverter.SingleToInt32Bits(value.Y), BitConverter.SingleToInt32Bits(value.Z));
+
+        Assert.That(Bits(repeated), Is.EqualTo(Bits(first)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void StringExpression_WiggleValueSeedsFromIdentityUnlessExplicit(bool explicitSeed)
+    {
+        var owner = new TestEngineObject { Id = { Value = s_ownerId } };
+        var otherOwner = new TestEngineObject { Id = { Value = new Guid("01234567-89ab-cdef-0123-456789abcdee") } };
+        var first = MakeProperty(owner, "Position", Vector3.One);
+        var second = MakeProperty(otherOwner, "Position", Vector3.One);
+        var expression = new StringExpression<Vector3>(explicitSeed ? "WiggleValue(2, 10, 3, seed: -42)" : "WiggleValue(2, 10, 3)");
+        first.Expression = second.Expression = expression;
+
+        var context = new CompositionContext(MediaTime.FromSeconds(0.375));
+        Vector3 firstValue = first.Evaluate(context);
+        Vector3 secondValue = second.Evaluate(context);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first.ExpressionError, Is.Null);
+            Assert.That(second.ExpressionError, Is.Null);
+            Assert.That(secondValue, explicitSeed ? Is.EqualTo(firstValue) : Is.Not.EqualTo(firstValue));
+        }
+    }
+
+    [Test]
+    public void WiggleValue_RoundsAndSaturatesIntegerComponents()
+    {
+        var globals = AtValue(0.375, Property.CreateExpression(new PixelPoint(10, -10)));
+        double amplitude = 0.75 / globals.Wiggle(2, 1, seed: 42);
+        var upper = AtValue(0.375, Property.CreateExpression(new PixelPoint(int.MaxValue, 0)));
+        var lower = AtValue(0.375, Property.CreateExpression(new PixelPoint(int.MinValue, 0)));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(globals.WiggleValue(2, amplitude, seed: 42).X, Is.EqualTo(11));
+            Assert.That(globals.WiggleValue(2, -amplitude, seed: 42).X, Is.EqualTo(9));
+            Assert.That(upper.WiggleValue(2, amplitude * 4, seed: 42).X, Is.EqualTo(int.MaxValue));
+            Assert.That(lower.WiggleValue(2, -amplitude * 4, seed: 42).X, Is.EqualTo(int.MinValue));
+        }
+    }
+
+    [Test]
+    public void WiggleValue_PreservesPrecisionOfLargeIntegralValues()
+    {
+        const long baseline = long.MaxValue - 5;
+        var globals = AtValue(0.375, Property.CreateExpression(baseline));
+        double amplitude = 0.75 / globals.Wiggle(2, 1, seed: 42);
+
+        Assert.That(globals.WiggleValue(2, amplitude, seed: 42), Is.EqualTo(baseline + 1));
+    }
+
+    [Test]
+    public void WiggleValue_ColorRoundsAndClampsRgbAndPreservesAlpha()
+    {
+        var middle = AtValue(0.375, Property.CreateExpression(Color.FromArgb(127, 100, 100, 100)));
+        var edges = AtValue(0.375, Property.CreateExpression(Color.FromArgb(127, 254, 100, 0)));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(middle.WiggleValue(2, 6.5, 3, seed: 42), Is.EqualTo(Color.FromArgb(127, 103, 102, 99)));
+            Assert.That(edges.WiggleValue(2, 6.5, 3, seed: 42), Is.EqualTo(Color.FromArgb(127, 255, 102, 0)));
+        }
+    }
+
+    [Test]
+    public void WiggleValue_RelativePointKeepsItsUnit()
+    {
+        var baseline = new RelativePoint(0.5f, 0.25f, RelativeUnit.Relative);
+        var globals = AtValue(0.375, Property.CreateExpression(baseline));
+        var point = AtValue(0.375, Property.CreateExpression(baseline.Point));
+
+        RelativePoint result = globals.WiggleValue(2, 0.1, 3, seed: 42);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Unit, Is.EqualTo(RelativeUnit.Relative));
+            Assert.That(result.Point, Is.EqualTo(point.WiggleValue(2, 0.1, 3, seed: 42)));
+        }
+    }
+
+    [Test]
+    public void WiggleValue_RejectsUnsupportedTypesEvenAtZeroAmplitude()
+    {
+        var globals = AtValue(0.375, Property.CreateExpression(true));
+
+        var exception = Assert.Throws<ExpressionException>(() => globals.WiggleValue(2, 0));
+        Assert.That(exception?.Message, Does.Contain("WiggleValue").And.Contain("Boolean"));
+    }
+
+    [TestCase(0.0, 1)]
+    [TestCase(10.0, 0)]
+    [TestCase(10.0, -2)]
+    public void WiggleValue_PreservesTheExactValueWithNoAmplitudeOrOctaves(double amplitude, int octaves)
+    {
+        var globals = AtValue(0.375, Property.CreateExpression(BitConverter.Int64BitsToDouble(long.MinValue)));
+
+        Assert.That(BitConverter.DoubleToInt64Bits(globals.WiggleValue(2, amplitude, octaves, seed: 42)), Is.EqualTo(long.MinValue));
+    }
+
+    [Test]
+    public void StringExpression_WiggleValueOffsetsTheInterpolatedValue()
+    {
+        var property = new AnimatableProperty<Vector3>(new Vector3(400, -400, 700));
+        property.SetAttributes("Position", []);
+        property.SetKeyFrameAnimation(TestAnimations.Linear(new Vector3(8, 16, 32), new Vector3(24, 48, 64), MediaTime.FromSeconds(1)));
+        property.Expression = new StringExpression<Vector3>("WiggleValue(2, 10, 3, seed: 42)");
+
+        const double time = 0.375;
+        var baseline = Property.CreateExpression(new Vector3(14, 28, 44));
+        Vector3 expected = AtValue(time, baseline).WiggleValue(2, 10, 3, seed: 42);
+        Vector3 result = property.Evaluate(new CompositionContext(MediaTime.FromSeconds(time)));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(property.ExpressionError, Is.Null);
+            Assert.That(result, Is.EqualTo(expected));
+        }
+    }
+
+    [TestCase("double.NaN, 0, 0")]
+    [TestCase("2, double.PositiveInfinity")]
+    [TestCase("double.MaxValue, 10, 4")]
+    public void StringExpression_WiggleValueNonFiniteOffsetsReportErrorAndFallBack(string arguments)
+    {
+        const double time = 0.375;
+        var context = new CompositionContext(MediaTime.FromSeconds(time));
+        var scalar = new AnimatableProperty<double>(32);
+        scalar.SetAttributes("Value", []);
+        scalar.Expression = new StringExpression<double>($"WiggleValue({arguments})");
+        var point = new AnimatableProperty<Point>(new Point(100, 200));
+        point.SetAttributes("Position", []);
+        point.SetKeyFrameAnimation(TestAnimations.Linear(new Point(0, 0), new Point(32, 64), MediaTime.FromSeconds(1)));
+        point.Expression = new StringExpression<Point>($"WiggleValue({arguments})");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(scalar.Evaluate(context), Is.EqualTo(32.0));
+            Assert.That(scalar.ExpressionError ?? string.Empty, Does.Contain("finite number"));
+            Assert.That(point.Evaluate(context), Is.EqualTo(new Point(12, 24)));
+            Assert.That(point.ExpressionError ?? string.Empty, Does.Contain("finite number"));
+        }
+    }
+
+    [Test]
+    public void StringExpression_WiggleValueReportsANonFiniteOffsetTheExpressionDoesNotReturn()
+    {
+        var context = new CompositionContext(MediaTime.FromSeconds(0.375));
+        var scalar = new AnimatableProperty<double>(32);
+        scalar.SetAttributes("Value", []);
+        // The comparison discards the NaN, so the property's check on the result never sees it.
+        scalar.Expression = new StringExpression<double>("WiggleValue(double.NaN, 10) > 0 ? 1.0 : 2.0");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(scalar.Evaluate(context), Is.EqualTo(32.0));
+            Assert.That(scalar.ExpressionError ?? string.Empty, Does.Contain("finite number"));
+        }
+    }
+
+    [Test]
+    public void ComponentExpression_WiggleValueParsesAnEditInTheCombinedContext()
+    {
+        var transform = new TranslateTransform(10, 20);
+        const string script = "WiggleValue(2, 10, 3, seed: 42)";
+        Assert.That(ComponentExpression<Point, float>.TryParse(script, out var expressions, out var error), Is.True, error);
+        transform.X.Expression = expressions![0];
+        transform.Y.Expression = expressions[1];
+        var context = new CompositionContext(MediaTime.FromSeconds(0.375));
+        float previous = transform.Y.Evaluate(context);
+        Assert.That(transform.Y.ExpressionError, Is.Null);
+
+        var combined = (ICombinedValueExpression<float>)expressions[1];
+        Assert.That(combined.TryParseSameContext($"{script}.Y + 1", out var edited, out error), Is.True, error);
+        Assert.That(edited, Is.TypeOf<CombinedValueExpression<Point, float>>());
+        transform.Y.Expression = edited;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(transform.Y.Evaluate(context), Is.EqualTo(previous + 1));
+            Assert.That(transform.Y.ExpressionError, Is.Null);
+        }
+    }
+
     private static ExpressionGlobals At(double seconds, IProperty property)
         => new(TestHelper.CreateExpressionContext(MediaTime.FromSeconds(seconds), property));
 
-    private static IExpressionProperty<double> MakeProperty(EngineObject owner, string name)
+    private static ExpressionGlobals<T> AtValue<T>(double seconds, IProperty<T> property)
+        => new(TestHelper.CreateExpressionContext(MediaTime.FromSeconds(seconds), property), null);
+
+    private static IExpressionProperty<T> MakeProperty<T>(EngineObject owner, string name, T value)
     {
-        var property = Property.CreateExpression(0.0);
+        var property = Property.CreateExpression(value);
         property.SetAttributes(name, []);
         property.SetOwnerObject(owner);
         return property;

@@ -66,7 +66,8 @@ public sealed partial class Puppet
         try
         {
             if (!output.IsEmpty
-                && TriangleWarpRenderer.Draw(bounds, rest, positions, mesh.Indices, context, source, output, s_logger))
+                && TriangleWarpRenderer.Draw(bounds, rest, positions, mesh.Indices, mesh.Outline, context, source, output,
+                    s_logger))
             {
                 context.Targets.Clear();
                 context.Targets.Add(output);

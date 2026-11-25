@@ -1,6 +1,14 @@
-﻿using Avalonia.Controls;
+﻿using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
+using Beutl.Api;
+using Beutl.Api.Clients;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
@@ -214,5 +222,186 @@ public class ProjectThumbnailTests
         ProjectDiskDeletion.Delete(new ProjectDiskDeletionTarget(file, file, IsFolder: false));
 
         Assert.That(File.Exists(file), Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task Push_syncs_the_thumbnail_to_a_Beutl_hosted_repository_and_skips_non_hosted_remotes()
+    {
+        TestGpu.RequireAnyDevice();
+        const string repoId = "a3a8927c-bcf4-4f6e-91f4-64897320378e";
+        const string pushRepoId = "76972d37-e697-401c-8291-6d08cdeb4d81";
+        byte[]? uploadedBytes = null;
+        var uploadedPaths = new List<string>();
+
+        using var http = new HttpClient(new StubHttpHandler(async request =>
+        {
+            Assert.That(request.Method, Is.EqualTo(HttpMethod.Put));
+            Assert.That(request.Content!.Headers.ContentType?.MediaType, Is.EqualTo("image/png"));
+            uploadedPaths.Add(request.RequestUri!.AbsolutePath);
+            uploadedBytes = await request.Content.ReadAsByteArrayAsync();
+            var now = DateTimeOffset.UtcNow;
+            var summary = new GitRepositorySummary(
+                repoId, "Demo", $"{BeutlApiApplication.BaseUrl}/api/v3/git/{repoId}.git", now, now, now);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(summary) };
+        }));
+        await using var api = new BeutlApiApplication(
+            http, new ExtensionProvider(new ExtensionConfig()), new ViewConfig(), new UpdateConfig(),
+            static () => new HttpClient(), persistAuthenticatedUser: _ => { });
+        AuthenticatedUser owner = await SignInTestUserAsync(api);
+
+        (Project project, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("thumbnail-push-sync");
+        await TestShell.AddElementAsync(editor, FullFrame(s_blue, 640, 480), MediaTime.Zero, MediaTime.FromSeconds(2));
+        HeadlessTestHelpers.Settle();
+        string projectFile = project.Uri!.LocalPath;
+
+        var thumbnailService = new ProjectThumbnailService(TestShell.Project, TestShell.Editor);
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, api, owner,
+            pushUrls: [$"{BeutlApiApplication.BaseUrl}/api/v3/git/{pushRepoId}.git"]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(uploadedPaths, Is.EqualTo(new[] { $"/api/v3/repos/{pushRepoId}/thumbnail" }));
+            Assert.That(uploadedBytes, Is.Not.Null);
+            Assert.That(uploadedBytes!.Length, Is.GreaterThan(8));
+            Assert.That(File.Exists(ProjectThumbnailService.GetPath(projectFile)), Is.True);
+        });
+
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, api, owner,
+            pushUrls: ["https://github.com/example/demo.git"]);
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, api, owner,
+            pushUrls: null);
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, api, owner,
+            pushUrls: []);
+        Assert.That(uploadedPaths, Has.Count.EqualTo(1), "Non-Beutl or unknown push destinations must not trigger thumbnail uploads.");
+
+        // A failure on one hosted destination must not skip uploading to another destination.
+        const string rejectedRepoId = "11111111-1111-4111-8111-111111111111";
+        var multiPaths = new List<string>();
+        using var multiHttp = new HttpClient(new StubHttpHandler(request =>
+        {
+            multiPaths.Add(request.RequestUri!.AbsolutePath);
+            if (request.RequestUri.AbsolutePath.Contains(rejectedRepoId, StringComparison.Ordinal))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+            var now = DateTimeOffset.UtcNow;
+            var summary = new GitRepositorySummary(
+                pushRepoId, "Demo", $"{BeutlApiApplication.BaseUrl}/api/v3/git/{pushRepoId}.git", now, now, now);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(summary) });
+        }));
+        await using var multiApi = new BeutlApiApplication(
+            multiHttp, new ExtensionProvider(new ExtensionConfig()), new ViewConfig(), new UpdateConfig(),
+            static () => new HttpClient(), persistAuthenticatedUser: _ => { });
+        AuthenticatedUser multiOwner = await SignInTestUserAsync(multiApi);
+        await thumbnailService.SyncRepositoryThumbnailAsync(
+            project, projectFile, multiApi, multiOwner,
+            pushUrls: [
+                $"{BeutlApiApplication.BaseUrl}/api/v3/git/{rejectedRepoId}.git",
+                $"{BeutlApiApplication.BaseUrl}/api/v3/git/{pushRepoId}.git",
+            ]);
+        Assert.That(multiPaths, Is.EqualTo(new[]
+        {
+            $"/api/v3/repos/{rejectedRepoId}/thumbnail",
+            $"/api/v3/repos/{pushRepoId}/thumbnail",
+        }));
+    }
+
+    [AvaloniaTest]
+    public async Task Cloud_project_item_downloads_remote_thumbnail_and_falls_back_when_missing()
+    {
+        const string repoId = "a3a8927c-bcf4-4f6e-91f4-64897320378e";
+        string workspace = TestShell.NewWorkspace("remote-thumbnail");
+        string projectFile = Path.Combine(workspace, "sample.bep");
+        using (var source = new Bitmap(64, 36))
+        {
+            ProjectThumbnailService.Save(source, projectFile);
+        }
+        byte[] pngBytes = await File.ReadAllBytesAsync(ProjectThumbnailService.GetPath(projectFile));
+        bool missing = false;
+
+        using var http = new HttpClient(new StubHttpHandler(_ =>
+        {
+            if (missing)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+            var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(pngBytes) };
+            response.Content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            return Task.FromResult(response);
+        }));
+        await using var api = new BeutlApiApplication(
+            http, new ExtensionProvider(new ExtensionConfig()), new ViewConfig(), new UpdateConfig(),
+            static () => new HttpClient(), persistAuthenticatedUser: _ => { });
+        AuthenticatedUser owner = await SignInTestUserAsync(api);
+        var service = api.GetResource<HostedGitRepositoryService>();
+        var now = DateTimeOffset.UtcNow;
+
+        using var withThumbnail = new RecentProjectItem(Guid.Parse(repoId), "Cloud", now, now);
+        Assert.That(withThumbnail.ShowRemotePlaceholder.Value, Is.False);
+        await withThumbnail.LoadRemoteThumbnailAsync(service, owner);
+        Assert.Multiple(() =>
+        {
+            Assert.That(withThumbnail.Thumbnail.Value, Is.Not.Null);
+            Assert.That(withThumbnail.ShowRemotePlaceholder.Value, Is.False);
+        });
+
+        missing = true;
+        using var missingThumbnail = new RecentProjectItem(Guid.Parse(repoId), "Missing", now, now);
+        await missingThumbnail.LoadRemoteThumbnailAsync(service, owner);
+        Assert.Multiple(() =>
+        {
+            Assert.That(missingThumbnail.Thumbnail.Value, Is.Null);
+            Assert.That(missingThumbnail.ShowRemotePlaceholder.Value, Is.True);
+        });
+
+        using var noThumbnail = new RecentProjectItem(Guid.Parse(repoId), "None", now, null);
+        Assert.That(noThumbnail.ShowRemotePlaceholder.Value, Is.True);
+
+        // Oversized decoded dimensions must be rejected before full bitmap decode.
+        byte[] oversizedPng;
+        using (var oversized = new Bitmap(1025, 16))
+        using (var ms = new MemoryStream())
+        {
+            Assert.That(oversized.Save(ms, Beutl.Graphics.EncodedImageFormat.Png), Is.True);
+            oversizedPng = ms.ToArray();
+        }
+        pngBytes = oversizedPng;
+        missing = false;
+        using var oversizedItem = new RecentProjectItem(Guid.Parse(repoId), "Oversized", now, now);
+        await oversizedItem.LoadRemoteThumbnailAsync(service, owner);
+        Assert.Multiple(() =>
+        {
+            Assert.That(oversizedItem.Thumbnail.Value, Is.Null);
+            Assert.That(oversizedItem.ShowRemotePlaceholder.Value, Is.True);
+        });
+    }
+
+    private static async Task<AuthenticatedUser> SignInTestUserAsync(BeutlApiApplication api)
+    {
+        var profile = new Profile(new ProfileResponse
+        {
+            Id = "owner",
+            Name = "owner",
+            DisplayName = "Owner",
+            Bio = null,
+            IconId = null,
+            IconUrl = null,
+        }, api);
+        var user = new AuthenticatedUser(profile, new AuthResponse
+        {
+            Token = "token",
+            RefreshToken = "refresh",
+            Expiration = DateTime.UtcNow.AddHours(1),
+        }, api, DateTime.UtcNow);
+        await api.RunInteractiveAuthenticationAsync(_ => Task.FromResult(user), CancellationToken.None);
+        return user;
+    }
+
+    private sealed class StubHttpHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => respond(request);
     }
 }

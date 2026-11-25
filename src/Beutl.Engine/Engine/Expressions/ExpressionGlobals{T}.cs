@@ -8,6 +8,26 @@ public class ExpressionGlobals<T>(ExpressionContext context, IExpression<T>? bel
 
     public T ValueAtTime(double time) => ValueAt(MediaTime.FromSeconds(Start + time));
 
+    /// <summary>Offsets each numeric component of <see cref="Value"/> with smooth noise sampled at the owner's local time.</summary>
+    /// <param name="frequency">The number of wiggles per second.</param>
+    /// <param name="amplitude">The scale of each offset, measured in the component's units.</param>
+    /// <param name="octaves">The number of noise layers, up to 16.</param>
+    /// <param name="seed">An optional seed. The property's identity supplies the default.</param>
+    /// <returns>The value with independent offsets, or <see cref="Value"/> when amplitude is zero or octaves is non-positive.</returns>
+    /// <remarks>Integer components round to nearest, ties to even, and clamp to their range.
+    /// Color offsets use stored sRGB byte units and preserve alpha.</remarks>
+    /// <exception cref="ExpressionException">The value type is unsupported, or an offset cannot produce a finite value.</exception>
+    public T WiggleValue(double frequency, double amplitude, int octaves = 1, int? seed = null)
+    {
+        var wiggle = ComponentAnimations.GetWiggle<T>();
+        if (!double.IsFinite(frequency) || !double.IsFinite(amplitude))
+            return wiggle(Value, double.NaN, amplitude, octaves, 0);
+        if (amplitude == 0 || octaves <= 0)
+            return Value;
+
+        return wiggle(Value, Time * frequency, amplitude, octaves, GetWiggleSeed(seed));
+    }
+
     /// <summary>Extends the underlying animation after its last keyframe.</summary>
     /// <param name="mode">How to extend the animation.</param>
     /// <param name="keyframes">The number of distinct keyframe times to use from the end. Zero uses all keyframes.</param>

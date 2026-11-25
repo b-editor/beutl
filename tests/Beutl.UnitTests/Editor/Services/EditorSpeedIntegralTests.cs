@@ -1,7 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Services;
-using Beutl.Media;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -33,7 +32,7 @@ public class EditorSpeedIntegralTests
     }
 
     [TestCaseSource(nameof(Curves))]
-    public void Estimate_CoversPlaybackSumWithinItsNumericalAllowance(string kind, double seconds)
+    public void Estimate_CoversTheDiscreteAudioSumWithinItsNumericalAllowance(string kind, double seconds)
     {
         Easing easing = kind switch
         {
@@ -49,17 +48,21 @@ public class EditorSpeedIntegralTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(0.4) }, Value = { Value = 50 }, Easing = { Value = easing } });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1.75) }, Value = { Value = 300 }, Easing = { Value = easing } });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(4.2) }, Value = { Value = 100 }, Easing = { Value = easing } });
-        var editor = new EditorSpeedIntegral(animation, 44100);
-        using var playback = new SpeedIntegrator(44100);
-        playback.EnsureCache(animation);
+        const int SampleRate = 44100;
+        var editor = new EditorSpeedIntegral(animation, SampleRate);
         MediaTime time = MediaTime.FromSeconds(seconds);
 
         EditorSpeedIntegral.Estimate estimate = editor.Integrate(time);
-        double actual = playback.Integrate(time, animation).ToSeconds();
+        double samples = time.ToSeconds() * SampleRate;
+        long whole = (long)samples;
+        double sum = 0;
+        for (long i = 0; i < whole; i++)
+            sum += animation.Interpolate(MediaTime.FromSamples(i, SampleRate)) / (100d * SampleRate);
+        sum += animation.Interpolate(time) * (samples - whole) / (100d * SampleRate);
 
         Assert.Multiple(() =>
         {
-            Assert.That(actual, Is.EqualTo(estimate.Seconds).Within(estimate.Error + 1e-7));
+            Assert.That(sum, Is.EqualTo(estimate.Seconds).Within(estimate.Error + 1e-7));
             Assert.That(estimate.Error, Is.LessThan(0.002), "The allowance must remain useful for interactive trimming.");
         });
     }

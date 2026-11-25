@@ -106,15 +106,15 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
         return resource is { Duration: var duration } && duration > MediaTime.Zero ? duration : null;
     }
 
-    private MediaTime CalculateVideoTime(MediaTime timeSpan, Resource resource)
-        => SpeedAdjustedTime.Map(Speed, resource.Speed, resource._speedIntegrator, timeSpan);
+    private MediaTime CalculateVideoTime(MediaTime timeSpan, Resource resource, MediaTime from = default)
+        => SpeedAdjustedTime.Map(Speed, resource.Speed, resource._speedIntegrator, from, timeSpan);
 
     private MediaTime CalculateRequestedPosition(MediaTime time, Resource resource, MediaTime start)
     {
         if (Speed.GetKeyFrameAnimation() is KeyFrameAnimation<float> animation)
         {
             return animation.UseGlobalClock.Value
-                ? CalculateVideoTime(time, resource) - CalculateVideoTime(start, resource)
+                ? CalculateVideoTime(time, resource, start)
                 : CalculateVideoTime(time - start, resource);
         }
 
@@ -191,7 +191,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
 
     public new partial class Resource : Drawable.Resource
     {
-        internal readonly SpeedIntegrator _speedIntegrator = new(60);
+        internal readonly SpeedIntegrator _speedIntegrator = new();
         private MediaTime _offsetPosition;
         private float _speed;
         private VideoTransferInterpretation _transferInterpretation;
