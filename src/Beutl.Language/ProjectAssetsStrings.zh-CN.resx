@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>项目素材</value></data>
+  <data name="MenuLabel" xml:space="preserve"><value>整理项目素材</value></data>
+  <data name="OpenScene" xml:space="preserve"><value>请打开一个场景以使用“文件”选项卡。</value></data>
+  <data name="Collect" xml:space="preserve"><value>收集素材</value></data>
+  <data name="Unused" xml:space="preserve"><value>未使用的素材</value></data>
+  <data name="Quarantined" xml:space="preserve"><value>已暂存</value></data>
+  <data name="QuarantineFolder" xml:space="preserve"><value>项目暂存文件夹</value></data>
+  <data name="Copy" xml:space="preserve"><value>复制并重新链接</value></data>
+  <data name="MoveAside" xml:space="preserve"><value>移至暂存文件夹</value></data>
+  <data name="Restore" xml:space="preserve"><value>还原</value></data>
+  <data name="DeletePermanently" xml:space="preserve"><value>永久删除</value></data>
+  <data name="DeleteConfirmation" xml:space="preserve"><value>要永久删除选中的 {0} 个文件吗？</value></data>
+  <data name="CurrentPath" xml:space="preserve"><value>原位置 {0}</value></data>
+  <data name="Destination" xml:space="preserve"><value>目标位置 {0}</value></data>
+  <data name="Selection" xml:space="preserve"><value>已选择 {0}/{1} 项 · {2}</value></data>
+  <data name="BundleSize" xml:space="preserve"><value>{0} 个文件 · {1}</value></data>
+  <data name="NoAssets" xml:space="preserve"><value>没有可显示的文件。</value></data>
+  <data name="Scanning" xml:space="preserve"><value>正在检查项目引用…</value></data>
+  <data name="Working" xml:space="preserve"><value>正在应用更改…</value></data>
+  <data name="Finished" xml:space="preserve"><value>操作完成。</value></data>
+  <data name="Canceled" xml:space="preserve"><value>操作已取消。</value></data>
+  <data name="PlanChanged" xml:space="preserve"><value>项目或文件已更改。请检查更新后的列表，再次应用更改。</value></data>
+  <data name="Missing" xml:space="preserve"><value>找不到源文件或其依赖文件。</value></data>
+  <data name="ValidationFailed" xml:space="preserve"><value>无法读取 {0} 的副本。</value></data>
+  <data name="UnsafePath" xml:space="preserve"><value>无法验证该路径是否位于项目内。</value></data>
+  <data name="SharedReference" xml:space="preserve"><value>其他项目或场景可能也在使用此位置。</value></data>
+  <data name="IncompleteReferences" xml:space="preserve"><value>无法验证部分项目引用。</value></data>
+  <data name="EditHistory" xml:space="preserve"><value>此文件仍用于撤销或重做。</value></data>
+  <data name="InUse" xml:space="preserve"><value>打开的项目或编辑器正在引用此文件。</value></data>
+  <data name="DestinationExists" xml:space="preserve"><value>原位置已被占用。</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>无法读取此文件或其依赖文件。</value></data>
+</root>

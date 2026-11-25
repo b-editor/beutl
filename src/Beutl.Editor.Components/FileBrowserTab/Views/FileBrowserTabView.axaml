@@ -113,7 +113,7 @@
         <!--  ツールバー  -->
         <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
             <Grid ColumnDefinitions="*,Auto">
-                <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding !IsStorageView.Value}">
+                <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding ShowLocalBrowser.Value}">
                     <!--  フォルダを選んで開くボタン（ディレクトリブラウズ時のみ表示）  -->
                     <Button Grid.Column="0"
                             usage:UsageTracking.Feature="FileBrowser.OpenFolder"
@@ -197,7 +197,7 @@
                 </Grid>
                 <Grid ColumnDefinitions="*,Auto,Auto"
                       ColumnSpacing="2"
-                      IsVisible="{Binding IsStorageView.Value}">
+                      IsVisible="{Binding ShowStorageBrowser.Value}">
                     <Panel>
                         <TextBlock IsVisible="{Binding StorageNavigation.Value, Converter={x:Static ObjectConverters.IsNull}}"
                                    Text="{Binding ActiveStorageProvider.Value.DisplayName}"
@@ -263,13 +263,35 @@
                         <icons:FluentIcon FontSize="16" Icon="Home" />
                     </Button>
                 </Grid>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4" IsVisible="{Binding IsProjectAssetsView.Value}">
+                    <Button Name="CloseProjectAssetsButton"
+                            Click="OnCloseProjectAssets"
+                            AutomationProperties.Name="{x:Static lang:Strings.Back}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                            ToolTip.Tip="{x:Static lang:Strings.Back}">
+                        <icons:FluentIcon FontSize="16" Icon="ArrowLeft" />
+                    </Button>
+                    <ComboBox Name="AssetMode" Grid.Column="1" HorizontalAlignment="Stretch"
+                              AutomationProperties.Name="{x:Static lang:ProjectAssetsStrings.Title}"
+                              IsEnabled="{Binding ActiveProjectAssets.Value.CanEdit.Value}"
+                              ItemsSource="{Binding ActiveProjectAssets.Value.Modes}"
+                              SelectedIndex="{Binding ActiveProjectAssets.Value.Mode.Value, Mode=TwoWay}"
+                              Theme="{StaticResource LiteComboBoxStyle}" />
+                    <Button Name="RefreshProjectAssetsButton" Grid.Column="2" Click="OnRefreshProjectAssets"
+                            IsEnabled="{Binding ActiveProjectAssets.Value.CanEdit.Value}"
+                            AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                            ToolTip.Tip="{x:Static lang:Strings.Refresh}">
+                        <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
+                    </Button>
+                </Grid>
                 <Button x:Name="StorageLocationsButton"
                         Grid.Column="1"
                         Margin="2,0,0,0"
-                        AutomationProperties.Name="{x:Static lang:Strings.StorageLocations}"
-                        IsVisible="{Binding HasStorageProviders}"
+                        AutomationProperties.Name="{x:Static lang:Strings.Menu}"
+                        IsVisible="{Binding HasMenuActions.Value}"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
-                        ToolTip.Tip="{x:Static lang:Strings.StorageLocations}">
+                        ToolTip.Tip="{x:Static lang:Strings.Menu}">
                     <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
                 </Button>
             </Grid>
@@ -279,8 +301,11 @@
         <ContentControl x:Name="StorageContent"
                         Grid.Row="1"
                         Content="{Binding StorageBrowser.Value}"
-                        IsVisible="{Binding IsStorageView.Value}" />
-        <Panel Grid.Row="1" IsVisible="{Binding !IsStorageView.Value}">
+                        IsVisible="{Binding ShowStorageBrowser.Value}" />
+        <Panel Grid.Row="1" IsVisible="{Binding IsProjectAssetsView.Value}">
+            <local:ProjectAssetsView Name="ProjectAssetsContent" DataContext="{Binding ActiveProjectAssets.Value}" />
+        </Panel>
+        <Panel Grid.Row="1" IsVisible="{Binding ShowLocalBrowser.Value}">
             <!--  ホームビュー  -->
             <ScrollViewer IsVisible="{Binding IsHomeView.Value}">
                 <StackPanel Background="Transparent" Spacing="0">

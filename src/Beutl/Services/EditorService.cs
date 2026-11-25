@@ -4,7 +4,6 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.VersionControl;
-using Beutl.IO;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -49,10 +48,7 @@ public sealed partial class EditorService
         var filesFree = new HashSet<string>(StringComparer.Ordinal);
         // An open scene is also a project item.
         return roots.Distinct<CoreObject>(ReferenceEqualityComparer.Instance)
-            .Any(root => Beutl.Serialization.CoreSerializer.Visit(root, visit =>
-                visit.Value is CoreObject { Uri: { IsFile: true } uri } && Matches(uri.LocalPath)
-                // Media and model sources keep their file in IFileSource.Uri, which hides CoreObject.Uri.
-                || visit.Value is IFileSource source && FileSourceFiles.EnumerateLocalPaths(source).Any(Matches)));
+            .Any(root => CoreSerializer.Visit(root, visit => FileSourceFiles.EnumerateReferencedPaths(visit.Value).Any(Matches)));
 
         bool Matches(string file)
         {
@@ -66,6 +62,7 @@ public sealed partial class EditorService
 
     internal Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost? BrowserSettingsHost { get; set; }
     internal Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry? StorageProviders { get; set; }
+    internal ProjectAssetCoordinator? ProjectAssets { get; set; }
     internal Beutl.Editor.Components.AiWorkspaceTab.IAiWorkspaceHost? AiWorkspaceHost { get; set; }
     internal Beutl.Api.BeutlApiApplication? ApiApplication { get; set; }
     private readonly CoreList<EditorTabItem> _tabItems;

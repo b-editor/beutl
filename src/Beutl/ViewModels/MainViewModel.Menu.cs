@@ -58,6 +58,7 @@ public sealed partial class MainViewModel
                 new(Strings.Save) { Command = MenuBar.Save, GestureCommand = "main.save", Icon = Icon.Save },
                 new(Strings.SaveAll) { Command = MenuBar.SaveAll, GestureCommand = "main.saveAll", Icon = Icon.SaveMultiple },
                 MainMenuItem.Separator,
+                new(ProjectAssetsStrings.MenuLabel) { Command = MenuBar.OrganizeProjectAssets },
                 new(Strings.ExportProject) { Command = MenuBar.ExportProject, Icon = Icon.ArrowExport },
                 new(Strings.ImportProject) { Command = MenuBar.ImportProject, Icon = Icon.ArrowImport },
                 MainMenuItem.Separator,
