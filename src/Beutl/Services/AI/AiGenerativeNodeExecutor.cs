@@ -115,22 +115,21 @@ internal sealed class AiGenerativeNodeExecutor(
         if (!isVideo && job.Kind != AiJobKinds.Image && job.Kind != AiJobKinds.ImageEdit)
             throw new GenerativeExecutionException(Strings.AiResultUnavailable);
 
+        GenerativeOperation operation = job.Kind switch
+        {
+            var kind when kind == AiJobKinds.Image => GenerativeOperation.ImageGeneration,
+            var kind when kind == AiJobKinds.ImageEdit => GenerativeOperation.ImageEdit,
+            _ when attempt.Operation == "video.generate" => GenerativeOperation.VideoGeneration,
+            _ => GenerativeOperation.VideoEdit,
+        };
         progress.Report(new GenerativeProgress(NodeGraphStrings.Generative_Loading));
         string path = isVideo
             ? await SaveVideoResultAsync(contentUri, job.ContentMetadata, account, cancellationToken)
             : await SaveImageResultAsync(contentUri, account, cancellationToken);
-        try
-        {
-            using (account.Enter(cancellationToken))
-                recoveryContext!.Abandon(attempt);
-            return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), job.Model?.Value ?? attempt.Model,
-                AiJobResultInput.GetInt32(job, "seed"), isVideo);
-        }
-        catch
-        {
-            File.Delete(path);
-            throw;
-        }
+        CompleteResult(path, operation, AiJobResultInput.GetString(job, "prompt"),
+            () => recoveryContext!.Abandon(attempt), account, cancellationToken);
+        return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), job.Model?.Value ?? attempt.Model,
+            AiJobResultInput.GetInt32(job, "seed"), isVideo);
     }
 
     /// <summary>
@@ -407,7 +406,7 @@ internal sealed class AiGenerativeNodeExecutor(
             {
                 // Past here the clip has been reserved and paid for; the key is the way back.
                 string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, account, cancellationToken);
-                CompleteResult(path, request.Operation, prompt, requestKey, name, account, cancellationToken);
+                CompleteResult(path, request.Operation, prompt, () => requestKey.Retire(name), account, cancellationToken);
                 return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, seed, IsVideo: true);
             },
             progress,
@@ -649,7 +648,7 @@ internal sealed class AiGenerativeNodeExecutor(
             async (response, requestKey, name) =>
             {
                 string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, account, cancellationToken);
-                CompleteResult(path, request.Operation, prompt, requestKey, name, account, cancellationToken);
+                CompleteResult(path, request.Operation, prompt, () => requestKey.Retire(name), account, cancellationToken);
                 return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, null, IsVideo: true);
             },
             progress,
@@ -837,7 +836,7 @@ internal sealed class AiGenerativeNodeExecutor(
                 // Past here the picture has been paid for; the key stays the way back to it.
                 progress.Report(new GenerativeProgress(Beutl.Language.NodeGraphStrings.Generative_Loading));
                 string path = await SaveImageResultAsync(response.ContentUri, account, cancellationToken);
-                CompleteResult(path, operation, prompt, requestKey, name, account, cancellationToken);
+                CompleteResult(path, operation, prompt, () => requestKey.Retire(name), account, cancellationToken);
                 return path;
             },
             progress,
@@ -856,8 +855,7 @@ internal sealed class AiGenerativeNodeExecutor(
         string path,
         GenerativeOperation operation,
         string? prompt,
-        AiRequestKey requestKey,
-        AiRequestName name,
+        Action settle,
         AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
@@ -867,9 +865,9 @@ internal sealed class AiGenerativeNodeExecutor(
             {
                 if (prompt is not null)
                     promptLibrary.Record(operation, prompt);
+                account.ThrowIfInvalid(cancellationToken);
+                settle();
             }
-            account.ThrowIfInvalid(cancellationToken);
-            requestKey.Retire(name);
         }
         catch
         {

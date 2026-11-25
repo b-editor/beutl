@@ -152,7 +152,7 @@ public sealed class AiGenerativeAccountTests
         state.Calls.Clear();
         state.Jobs.Setup(service => service.GetByIdempotencyKeyAsync(state.SubmittedKey!, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AiJob(new AiJobId("paid-image"), AiJobKinds.Image, AiJobStatuses.Succeeded,
-                System.Text.Json.JsonSerializer.SerializeToElement(new { seed = 5 }), new AiContentId("file"),
+                System.Text.Json.JsonSerializer.SerializeToElement(new { seed = 5, prompt = "a cat" }), new AiContentId("file"),
                 JobState.ContentUri, null, false, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)
             {
                 Model = new AiModelId("original-model"),
@@ -164,10 +164,12 @@ public sealed class AiGenerativeAccountTests
                 await destination.WriteAsync(png, ct);
                 return new AiContentDownload(null);
             });
+        state.Library.Setup(library => library.Record(GenerativeOperation.ImageGeneration, "a cat"));
 
         var recovered = await tools.GenerateImage("a cat", waitSeconds: 10, requestKey: "paid");
         Assert.That(recovered.Value?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded), recovered.Value?.ErrorMessage ?? recovered.Error?.Message);
         Assert.That(state.Store.PendingFor("account-a", "image.generate"), Is.Empty);
+        state.Library.Verify(library => library.Record(GenerativeOperation.ImageGeneration, "a cat"), Times.Once);
 
         using var reopenedJobs = new AgentAiJobManager();
         var reopenedTools = new AgentHostAiTools(TestShell.Editor, reopenedJobs, state.Backend, new AgentSessionManager());
