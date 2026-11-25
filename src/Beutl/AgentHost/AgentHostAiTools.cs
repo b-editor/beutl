@@ -39,7 +39,7 @@ public sealed record AiModelSummary(
 public sealed record ListAiJobsResponse(IReadOnlyList<AgentAiJobSnapshot> Jobs)
 {
     public string Usage =>
-        "Jobs this app session still holds, newest first: running ones and the 128 most recently finished. Use it to find a job whose call was cancelled or dropped before its jobId came back, instead of starting another paid request.";
+        "Jobs this app session still holds, newest first: running ones and the 128 most recently finished. If a call dropped before returning its jobId, retry with its original requestKey or use this list to find the job.";
 }
 
 public sealed record ListAiModelsResponse(string Operation, IReadOnlyList<AiModelSummary> Models)
@@ -51,7 +51,7 @@ public sealed record ListAiModelsResponse(string Operation, IReadOnlyList<AiMode
 /// <summary>
 /// AI generation for agents, in the in-app host only: it runs on the signed-in account and the
 /// same executor as the AI nodes, and saves results next to the scene the call names by sceneId,
-/// or the selected tab's scene without one. Generations are paid; each call is one request. Input
+/// or the selected tab's scene without one. New jobs are paid. Input
 /// files are named by absolute path and uploaded to the service.
 /// </summary>
 [McpServerToolType]
@@ -61,10 +61,14 @@ internal sealed class AgentHostAiTools(
     IAgentAiBackend backend,
     AgentSessionManager sessions) : ToolBase
 {
+    internal const string TranscriptionOperation = "audio.transcribe";
     private const int MaxWaitSeconds = 110;
 
     private const string WaitDescription =
         "Seconds to wait for the result before returning (0-110, default 45). A job still running returns status Running with its jobId; call read_ai_job to wait again.";
+
+    private const string RequestKeyDescription =
+        "Optional key of 1-128 characters (for example a UUID). Choose one before the first call, reuse it and the same arguments to recover the original job in this app session, and use a new key for a new result. Keys are scoped to the account and operation.";
 
     private static readonly string[] s_imageTasks = ["remove_background", "upscale", "restyle", "remove_object", "outpaint"];
 
@@ -72,7 +76,7 @@ internal sealed class AgentHostAiTools(
     [
         "image.generate", "image.edit.remove_background", "image.edit.upscale", "image.edit.restyle",
         "image.edit.remove_object", "image.edit.outpaint", "video.generate", "video.edit", "video.extend",
-        "audio.transcribe",
+        TranscriptionOperation,
     ];
 
     private static readonly int[] s_outpaintPercents = [10, 25, 50];
@@ -97,7 +101,7 @@ internal sealed class AgentHostAiTools(
     }
 
     [McpServerTool(Name = "generate_image")]
-    [Description("Generates a picture from a prompt with the signed-in account's AI credits and saves it as a PNG next to the scene sceneId names (the selected tab's scene when sceneId is omitted). Returns the file path when done; place it with apply_edit. Paid per call.")]
+    [Description("Generates a picture from a prompt with the signed-in account's AI credits and saves it as a PNG next to the scene sceneId names (the selected tab's scene when sceneId is omitted). Returns the file path when done; place it with apply_edit.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> GenerateImage(
         [Description("What to draw.")]
         string prompt,
@@ -113,9 +117,11 @@ internal sealed class AgentHostAiTools(
         string[]? referenceImagePaths = null,
         [Description(WaitDescription)]
         int waitSeconds = 45,
+        [Description(RequestKeyDescription)]
+        string? requestKey = null,
         CancellationToken cancellationToken = default)
     {
-        return StartAsync("image.generate", model, waitSeconds, cancellationToken, (scene, chosen) =>
+        return StartAsync("image.generate", model, waitSeconds, requestKey, cancellationToken, (scene, chosen, requestKeySeed) =>
         {
             string text = RequirePrompt(prompt);
             RequireSeed(seed, chosen?.Image?.SupportsSeed, chosen?.Id);
@@ -143,14 +149,14 @@ internal sealed class AgentHostAiTools(
                 Seed = seed,
                 References = references,
                 ModelId = NormalizeModel(model),
-                RequestKeySeed = Guid.NewGuid().ToString("N"),
+                RequestKeySeed = requestKeySeed,
                 ParameterFingerprint = GenerativeFingerprint.Combine([text, ratio, chosenBackground, model, seed?.ToString(CultureInfo.InvariantCulture)]),
             };
         });
     }
 
     [McpServerTool(Name = "edit_image")]
-    [Description("Edits a picture with AI and saves the result as a PNG next to the scene sceneId names (the selected tab's scene when sceneId is omitted): remove_background, upscale, restyle (prompt required), remove_object (prompt names what to remove) or outpaint (prompt describes the extension). Paid per call.")]
+    [Description("Edits a picture with AI credits and saves the result as a PNG next to the scene sceneId names (the selected tab's scene when sceneId is omitted): remove_background, upscale, restyle (prompt required), remove_object (prompt names what to remove) or outpaint (prompt describes the extension).")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> EditImage(
         [Description("Absolute path of the picture to edit.")]
         string sourcePath,
@@ -164,12 +170,14 @@ internal sealed class AgentHostAiTools(
         string? model = null,
         [Description(WaitDescription)]
         int waitSeconds = 45,
+        [Description(RequestKeyDescription)]
+        string? requestKey = null,
         CancellationToken cancellationToken = default)
     {
         string taskId = task.Trim().ToLowerInvariant();
         int outpaint = outpaintExpansionPercent ?? 25;
         bool requiresPrompt = false;
-        return StartAsync($"image.edit.{taskId}", model, waitSeconds, cancellationToken, (_, _) =>
+        return StartAsync($"image.edit.{taskId}", model, waitSeconds, requestKey, cancellationToken, (_, _, requestKeySeed) =>
         {
             var editTask = (AiImageEditTask)Array.IndexOf(s_imageTasks, taskId);
             string? text = requiresPrompt ? RequirePrompt(prompt) : null;
@@ -181,7 +189,7 @@ internal sealed class AgentHostAiTools(
                 OutpaintExpansionPercent = editTask == AiImageEditTask.Outpaint ? outpaint : null,
                 Image = image,
                 ModelId = NormalizeModel(model),
-                RequestKeySeed = Guid.NewGuid().ToString("N"),
+                RequestKeySeed = requestKeySeed,
                 ParameterFingerprint = GenerativeFingerprint.Combine([taskId, text, model, editTask == AiImageEditTask.Outpaint ? outpaint.ToString(CultureInfo.InvariantCulture) : null]),
             };
         },
@@ -204,7 +212,7 @@ internal sealed class AgentHostAiTools(
     }
 
     [McpServerTool(Name = "generate_video")]
-    [Description("Generates a video clip from a prompt, optionally starting on and ending at given pictures, and saves it next to the scene sceneId names (the selected tab's scene when sceneId is omitted). Takes minutes: returns a running job unless it finishes within waitSeconds. Paid per call; longer and higher-resolution clips cost more.")]
+    [Description("Generates a video clip from a prompt, optionally starting on and ending at given pictures, and saves it next to the scene sceneId names (the selected tab's scene when sceneId is omitted). Takes minutes: returns a running job unless it finishes within waitSeconds. Longer and higher-resolution clips cost more AI credits.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> GenerateVideo(
         [Description("What happens in the clip.")]
         string prompt,
@@ -226,9 +234,11 @@ internal sealed class AgentHostAiTools(
         int? seed = null,
         [Description(WaitDescription)]
         int waitSeconds = 45,
+        [Description(RequestKeyDescription)]
+        string? requestKey = null,
         CancellationToken cancellationToken = default)
     {
-        return StartAsync("video.generate", model, waitSeconds, cancellationToken, (scene, chosen) =>
+        return StartAsync("video.generate", model, waitSeconds, requestKey, cancellationToken, (scene, chosen, requestKeySeed) =>
         {
             string text = RequirePrompt(prompt);
             RequireSeed(seed, chosen?.Video?.SupportsSeed, chosen?.Id);
@@ -259,7 +269,7 @@ internal sealed class AgentHostAiTools(
                 FirstFrame = firstFramePath is null ? null : ReadImage(firstFramePath, "first-frame", "firstFramePath", AiRequestLimits.MaxFrameUploadBytes),
                 LastFrame = lastFramePath is null ? null : ReadImage(lastFramePath, "last-frame", "lastFramePath", AiRequestLimits.MaxFrameUploadBytes),
                 ModelId = NormalizeModel(model),
-                RequestKeySeed = Guid.NewGuid().ToString("N"),
+                RequestKeySeed = requestKeySeed,
                 ParameterFingerprint = GenerativeFingerprint.Combine(
                     [text, duration.ToString(CultureInfo.InvariantCulture), chosenResolution, ratio, generateAudio ? "audio" : null, model, seed?.ToString(CultureInfo.InvariantCulture)]),
             };
@@ -267,7 +277,7 @@ internal sealed class AgentHostAiTools(
     }
 
     [McpServerTool(Name = "edit_video")]
-    [Description("Remakes a clip from a prompt (mode edit) or continues it (mode extend), and saves the result next to the scene sceneId names (the selected tab's scene when sceneId is omitted). An extension comes back as the whole clip with the new part added at the end. Accepts mp4 or webm up to 32 MB. Takes minutes; paid per call.")]
+    [Description("Uses AI credits to remake a clip (mode edit) or continue it (mode extend), and saves the result next to the scene sceneId names (the selected tab's scene when sceneId is omitted). An extension comes back as the whole clip with the new part added at the end. Accepts mp4 or webm up to 32 MB. Takes minutes.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> EditVideo(
         [Description("Absolute path of the clip to edit or extend.")]
         string sourcePath,
@@ -281,10 +291,12 @@ internal sealed class AgentHostAiTools(
         string? model = null,
         [Description(WaitDescription)]
         int waitSeconds = 45,
+        [Description(RequestKeyDescription)]
+        string? requestKey = null,
         CancellationToken cancellationToken = default)
     {
         string modeId = mode.Trim().ToLowerInvariant();
-        return StartAsync(modeId == "extend" ? "video.extend" : "video.edit", model, waitSeconds, cancellationToken, (_, chosen) =>
+        return StartAsync(modeId == "extend" ? "video.extend" : "video.edit", model, waitSeconds, requestKey, cancellationToken, (_, chosen, requestKeySeed) =>
         {
             bool extend = modeId == "extend";
             string text = RequirePrompt(prompt);
@@ -297,7 +309,7 @@ internal sealed class AgentHostAiTools(
                 DurationSeconds = duration,
                 SourceVideo = source,
                 ModelId = NormalizeModel(model),
-                RequestKeySeed = Guid.NewGuid().ToString("N"),
+                RequestKeySeed = requestKeySeed,
                 ParameterFingerprint = GenerativeFingerprint.Combine([modeId, text, extend ? duration.ToString(CultureInfo.InvariantCulture) : null, model]),
             };
         },
@@ -322,9 +334,11 @@ internal sealed class AgentHostAiTools(
         string? model = null,
         [Description(WaitDescription)]
         int waitSeconds = 45,
+        [Description(RequestKeyDescription + " For a failed or cancelled transcription, the same key resumes from saved progress, including after restarting Beutl.")]
+        string? requestKey = null,
         CancellationToken cancellationToken = default)
     {
-        return StartAccountJobAsync("audio.transcribe", waitSeconds, cancellationToken, async (account, token) =>
+        return StartAccountJobAsync(TranscriptionOperation, waitSeconds, requestKey, cancellationToken, async (account, token) =>
         {
             string? languageCode = string.IsNullOrWhiteSpace(language) ? null : language.Trim().ToLowerInvariant();
             if (languageCode is not null && !AiRequestLimits.IsIso6391LanguageCode(languageCode))
@@ -333,21 +347,22 @@ internal sealed class AgentHostAiTools(
                 await RequireAvailableAsync(token).ConfigureAwait(false);
             // Transcription has no executor to resolve the default model, so the one chosen here is sent.
             GenerativeModelInfo? chosen = await account.SendAsync(
-                ct => ResolveModelAsync("audio.transcribe", model, ct, sendsNamedModel: true), token).ConfigureAwait(false);
+                ct => ResolveModelAsync(TranscriptionOperation, model, ct, sendsNamedModel: true), token).ConfigureAwait(false);
             string? modelId = chosen?.Id ?? NormalizeModel(model);
+            AgentTranscriptionRetry? retry = requestKey is null ? null : new(requestKey, NormalizeModel(model));
             string path = RequireFile(sourcePath, "sourcePath");
             return new PreparedAiJob(async (progress, jobToken) =>
             {
-                AgentTranscript transcript = await backend
-                    .TranscribeAsync(path, languageCode, modelId, progress, jobToken)
+                AgentTranscriptionResult result = await backend
+                    .TranscribeAsync(path, languageCode, modelId, progress, jobToken, retry)
                     .ConfigureAwait(false);
-                return new AgentAiJobOutput(null, "transcript", modelId, null, transcript);
+                return new AgentAiJobOutput(null, "transcript", result.ModelId, null, result.Transcript);
             });
         });
     }
 
     [McpServerTool(Name = "list_ai_jobs")]
-    [Description("Lists the AI jobs this app session holds, newest first, with their status and results. A job keeps running when the call that started it is cancelled or its connection drops; find it here rather than calling the generation tool again, which pays again.")]
+    [Description("Lists the AI jobs this app session holds, newest first, with their status and results. A job keeps running when the call that started it is cancelled or its connection drops. Use this list to recover the job if the original call had no requestKey.")]
     public ToolResult<ListAiJobsResponse> ListAiJobs()
         => Execute(() => new ListAiJobsResponse(jobs.List()));
 
@@ -385,11 +400,12 @@ internal sealed class AgentHostAiTools(
         string operation,
         string? model,
         int waitSeconds,
+        string? requestKey,
         CancellationToken cancellationToken,
-        Func<Scene, GenerativeModelInfo?, GenerativeRequest> build,
+        Func<Scene, GenerativeModelInfo?, string, GenerativeRequest> build,
         Func<CancellationToken, ValueTask>? precheck = null)
     {
-        return StartAccountJobAsync(operation, waitSeconds, cancellationToken, async (account, token) =>
+        return StartAccountJobAsync(operation, waitSeconds, requestKey, cancellationToken, async (account, token) =>
         {
             if (precheck is not null)
             {
@@ -406,7 +422,10 @@ internal sealed class AgentHostAiTools(
             GenerativeRequest request;
             try
             {
-                request = build(scene, chosen);
+                string seed = requestKey is null
+                    ? AiRequestKey.NewSeed()
+                    : GenerativeFingerprint.Combine([account.AccountId, operation, requestKey])[..32];
+                request = build(scene, chosen, seed);
             }
             catch (GenerativeExecutionException ex)
             {
@@ -451,29 +470,49 @@ internal sealed class AgentHostAiTools(
     private ValueTask<ToolResult<AgentAiJobSnapshot>> StartAccountJobAsync(
         string operation,
         int waitSeconds,
+        string? requestKey,
         CancellationToken cancellationToken,
         Func<AiAccountJobScope, CancellationToken, Task<PreparedAiJob>> prepare)
     {
         return ExecuteAsync<AgentAiJobSnapshot>(async () =>
         {
             RequireWait(waitSeconds);
+            if (requestKey is not null && (string.IsNullOrWhiteSpace(requestKey) || requestKey.Length > 128))
+                throw Invalid("requestKey must contain 1 to 128 characters and cannot be blank.", "requestKey");
+
             AiAccountJobScope? account = null;
             bool queued = false;
             try
             {
                 var job = account = new AiAccountJobScope(backend.RecoveryContext);
+                AgentAiRequestKey? key = requestKey is null ? null : new(job.AccountId, operation, requestKey);
                 PreparedAiJob prepared;
                 using (CancellationTokenSource preflight = job.Link(cancellationToken))
                 {
+                    job.ThrowIfInvalid(preflight.Token);
+                    if (key is { } replayKey && jobs.FindReplay(replayKey) is { } existingId)
+                    {
+                        AgentAiJobSnapshot existing = await WaitAsync(existingId, waitSeconds, preflight.Token).ConfigureAwait(false);
+                        job.ThrowIfInvalid(preflight.Token);
+                        return existing;
+                    }
+
                     prepared = await prepare(job, preflight.Token).ConfigureAwait(false);
                     job.ThrowIfInvalid(preflight.Token);
                 }
 
                 // The queued job owns the account guard. Stopping the MCP wait is independent of the job.
-                string jobId = jobs.Start(operation, (progress, token) => RunAccountJobAsync(job, prepared, progress, token),
-                    prepared.SceneId);
-                queued = true;
-                return await WaitAsync(jobId, waitSeconds, cancellationToken).ConfigureAwait(false);
+                string jobId;
+                (jobId, queued) = jobs.GetOrStart(operation, (progress, token) => RunAccountJobAsync(job, prepared, progress, token),
+                    prepared.SceneId, key);
+                if (queued)
+                    return await WaitAsync(jobId, waitSeconds, cancellationToken).ConfigureAwait(false);
+
+                // Another call queued the same request while this one was preparing it.
+                using CancellationTokenSource replay = job.Link(cancellationToken);
+                AgentAiJobSnapshot result = await WaitAsync(jobId, waitSeconds, replay.Token).ConfigureAwait(false);
+                job.ThrowIfInvalid(replay.Token);
+                return result;
             }
             catch (Exception ex) when (!queued && (ex is AuthenticationRequiredException || account?.AccountChanged == true))
             {

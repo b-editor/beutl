@@ -46,6 +46,8 @@ public sealed record AgentAiJobSnapshot(
     };
 }
 
+internal readonly record struct AgentAiRequestKey(string? AccountId, string Operation, string Value);
+
 /// <summary>
 /// AI generations started by agents. They run for minutes, longer than an MCP request should
 /// wait, so a tool starts a job, waits a while for it, and the agent reads it back by id.
@@ -56,6 +58,7 @@ internal sealed class AgentAiJobManager : IDisposable
     internal const int RetainedFinishedJobs = 128;
     private static readonly ILogger s_logger = Log.CreateLogger<AgentAiJobManager>();
     private readonly ConcurrentDictionary<string, Job> _jobs = new(StringComparer.Ordinal);
+    private readonly Dictionary<AgentAiRequestKey, Job> _jobsByRequest = [];
     // Admission and disposal share it, so no job is added after Dispose has cancelled the others.
     private readonly object _lifetimeSync = new();
     private bool _disposed;
@@ -64,19 +67,41 @@ internal sealed class AgentAiJobManager : IDisposable
         string operation,
         Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run,
         Guid? sceneId = null)
+        => GetOrStart(operation, run, sceneId, requestKey: null).JobId;
+
+    public string? FindReplay(AgentAiRequestKey requestKey)
+    {
+        lock (_lifetimeSync)
+            return FindReplayCore(requestKey)?.Id;
+    }
+
+    public (string JobId, bool Started) GetOrStart(
+        string operation,
+        Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run,
+        Guid? sceneId,
+        AgentAiRequestKey? requestKey)
     {
         ArgumentException.ThrowIfNullOrEmpty(operation);
         ArgumentNullException.ThrowIfNull(run);
-        var job = new Job(Guid.NewGuid().ToString("N"), operation, sceneId?.ToString());
         lock (_lifetimeSync)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            _jobs[job.Id] = job;
-            job.Task = Task.Run(() => RunAsync(job, run));
-        }
+            if (requestKey is { } key && FindReplayCore(key) is { } existing)
+                return (existing.Id, false);
 
-        return job.Id;
+            var job = new Job(Guid.NewGuid().ToString("N"), operation, sceneId?.ToString(), requestKey);
+            _jobs[job.Id] = job;
+            if (requestKey is { } newKey)
+                _jobsByRequest[newKey] = job;
+            job.Task = Task.Run(() => RunAsync(job, run));
+            return (job.Id, true);
+        }
     }
+
+    private Job? FindReplayCore(AgentAiRequestKey key)
+        => _jobsByRequest.TryGetValue(key, out Job? job)
+            && (key.Operation != AgentHostAiTools.TranscriptionOperation || job.CanReplayTranscription)
+                ? job : null;
 
     /// <summary>The jobs this app session still holds, newest first.</summary>
     public IReadOnlyList<AgentAiJobSnapshot> List()
@@ -126,9 +151,17 @@ internal sealed class AgentAiJobManager : IDisposable
     {
         // By when they finished, not when they started: a long job that finishes last is the
         // newest result, and dropping it would lose a request the agent just paid for.
-        Job[] finished = _jobs.Values.Where(job => job.IsFinished).OrderBy(job => job.FinishOrder).ToArray();
-        for (int index = 0; index < finished.Length - RetainedFinishedJobs; index++)
-            _jobs.TryRemove(finished[index].Id, out _);
+        lock (_lifetimeSync)
+        {
+            Job[] finished = _jobs.Values.Where(job => job.IsFinished).OrderBy(job => job.FinishOrder).ToArray();
+            for (int index = 0; index < finished.Length - RetainedFinishedJobs; index++)
+            {
+                Job job = finished[index];
+                _jobs.TryRemove(job.Id, out _);
+                if (job.RequestKey is { } key && _jobsByRequest.GetValueOrDefault(key) == job)
+                    _jobsByRequest.Remove(key);
+            }
+        }
     }
 
     private async Task RunAsync(Job job, Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run)
@@ -170,9 +203,11 @@ internal sealed class AgentAiJobManager : IDisposable
         public void Report(string value) => job.SetStatus(value);
     }
 
-    private sealed class Job(string id, string operation, string? sceneId)
+    private sealed class Job(string id, string operation, string? sceneId, AgentAiRequestKey? requestKey)
     {
         public string Operation { get; } = operation;
+
+        public AgentAiRequestKey? RequestKey { get; } = requestKey;
 
         private readonly object _gate = new();
         private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -205,6 +240,15 @@ internal sealed class AgentAiJobManager : IDisposable
             {
                 lock (_gate)
                     return _status != AgentAiJobStatus.Running;
+            }
+        }
+
+        public bool CanReplayTranscription
+        {
+            get
+            {
+                lock (_gate)
+                    return _status is AgentAiJobStatus.Running or AgentAiJobStatus.Succeeded;
             }
         }
 

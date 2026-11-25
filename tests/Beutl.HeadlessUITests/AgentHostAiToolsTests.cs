@@ -69,7 +69,16 @@ public sealed class AgentHostAiToolsTests
             await endpoint.StartAsync();
             await using McpClient client = await ConnectAsync(endpoint);
 
-            string[] names = [.. (await client.ListToolsAsync()).Select(tool => tool.Name)];
+            var listedTools = await client.ListToolsAsync();
+            string[] names = [.. listedTools.Select(tool => tool.Name)];
+            string[] paidTools = ["generate_image", "edit_image", "generate_video", "edit_video", "transcribe_audio"];
+            foreach (var tool in listedTools.Where(tool => paidTools.Contains(tool.Name)))
+            {
+                var schema = tool.ProtocolTool.InputSchema;
+                Assert.That(schema.GetProperty("properties").TryGetProperty("requestKey", out _), Is.True, tool.Name);
+                if (schema.TryGetProperty("required", out var required))
+                    Assert.That(required.EnumerateArray().Select(name => name.GetString()), Does.Not.Contain("requestKey"));
+            }
             CallToolResult result = await client.CallToolAsync(
                 "generate_image",
                 new Dictionary<string, object?> { ["prompt"] = "a lighthouse", ["waitSeconds"] = 0 });
@@ -89,6 +98,49 @@ public sealed class AgentHostAiToolsTests
         {
             await endpoint.StopAsync();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task RetryingARequestWhoseWaitWasLostReturnsTheSameGeneration()
+    {
+        await TestShell.OpenNewSceneAsync("agent-ai-retry");
+        var backend = new FakeBackend { Result = WritePng("result.png"), Gate = new TaskCompletionSource() };
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+        using var disconnected = new CancellationTokenSource();
+
+        Task<ToolResult<AgentAiJobSnapshot>> original = tools.GenerateImage(
+            "a lighthouse", waitSeconds: 30, requestKey: "original", cancellationToken: disconnected.Token).AsTask();
+        await HeadlessTestHelpers.WaitUntilAsync(() => jobs.List().Count == 1);
+        disconnected.Cancel();
+        Assert.That((await original).IsSuccess, Is.False);
+
+        ToolResult<AgentAiJobSnapshot>[] retries = await Task.WhenAll(
+            tools.GenerateImage("a lighthouse", waitSeconds: 0, requestKey: "original").AsTask(),
+            tools.GenerateImage("a lighthouse", waitSeconds: 0, requestKey: "original").AsTask());
+        string originalJobId = jobs.List().Single().JobId;
+        Assert.That(retries.Select(result => result.Value?.JobId), Is.All.EqualTo(originalJobId));
+        Assert.That(retries.Select(result => result.Value?.Status), Is.All.EqualTo(AgentAiJobStatus.Running));
+
+        backend.Gate.SetResult();
+        AgentAiJobSnapshot? completed = (await tools.GenerateImage("a lighthouse", waitSeconds: 10, requestKey: "original")).Value;
+        AgentAiJobSnapshot? regenerated = (await tools.GenerateImage("a lighthouse", waitSeconds: 10, requestKey: "another")).Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completed?.JobId, Is.EqualTo(originalJobId));
+            Assert.That(completed?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded));
+            Assert.That(regenerated?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded));
+            Assert.That(regenerated?.JobId, Is.Not.EqualTo(originalJobId));
+            Assert.That(backend.Requests, Has.Count.EqualTo(2));
+            Assert.That(backend.Requests.Select(request => request.RequestKeySeed).Distinct().ToArray(), Has.Length.EqualTo(2));
+        });
+
+        using var restartedJobs = new AgentAiJobManager();
+        var restartedTools = CreateTools(TestShell.Editor, restartedJobs, backend);
+        await restartedTools.GenerateImage("a lighthouse", waitSeconds: 10, requestKey: "original");
+        Assert.That(backend.Requests[2].RequestKeySeed, Is.EqualTo(backend.Requests[0].RequestKeySeed),
+            "the service key can be rebuilt even after the original job manager is gone");
     }
 
     [AvaloniaTest]
@@ -942,16 +994,18 @@ public sealed class AgentHostAiToolsTests
             return result;
         }
 
-        public Task<AgentTranscript> TranscribeAsync(
+        public Task<AgentTranscriptionResult> TranscribeAsync(
             string path,
             string? language,
             string? modelId,
             IProgress<string> progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            AgentTranscriptionRetry? retry = null)
         {
             TranscribedPaths.Add(path);
             TranscribedModels.Add(modelId);
-            return Task.FromResult(new AgentTranscript(language, [new AgentTranscriptSegment(0, 1.5, "こんにちは")], null));
+            var transcript = new AgentTranscript(language, [new AgentTranscriptSegment(0, 1.5, "こんにちは")], null);
+            return Task.FromResult(new AgentTranscriptionResult(transcript, modelId));
         }
     }
 }

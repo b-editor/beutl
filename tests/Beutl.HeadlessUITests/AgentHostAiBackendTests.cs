@@ -118,8 +118,8 @@ public sealed class AgentHostAiBackendTests
         var transcription = new StubTranscription();
         var progress = new RecordingProgress();
         _decoders.Register(decoder);
-        AgentTranscript transcript = await CreateBackend(availability: availability, transcription: transcription)
-            .TranscribeAsync(path, "ja", "whisper", progress, CancellationToken.None);
+        AgentTranscript transcript = (await CreateBackend(availability: availability, transcription: transcription)
+            .TranscribeAsync(path, "ja", "whisper", progress, CancellationToken.None)).Transcript;
 
         Assert.Multiple(() =>
         {
@@ -132,6 +132,57 @@ public sealed class AgentHostAiBackendTests
                 Is.EqualTo(new[] { (1d, "part 1"), (601d, "part 2") }), "the second part is offset by the first's ten minutes");
             Assert.That(transcript.Words!.Select(word => word.Start), Is.EqualTo(new[] { 1d, 601d }));
             Assert.That(progress.Values, Does.Contain("Transcribing part 2 of 2"));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task RetryingATranscriptionSkipsCompletedPartsAndRecoversThePendingPart(bool settledFailure)
+    {
+        const int sampleRate = 8_000;
+        string path = WriteSource("retry" + Extension);
+        _decoders.Register(new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 602L)));
+        var transcription = new StubTranscription();
+        transcription.OnRequest = () =>
+        {
+            if (transcription.Requests.Count == 2)
+            {
+                throw settledFailure
+                    ? new AiProviderErrorException()
+                    : new HttpRequestException("The response was lost.");
+            }
+        };
+        var progress = new RecordingProgress();
+        var retry = new AgentTranscriptionRetry("transcribe-1", RequestedModel: null);
+        AgentHostAiBackend first = CreateBackend(transcription: transcription);
+        await Assert.ThrowsAsync(settledFailure ? typeof(AgentAiException) : typeof(HttpRequestException),
+            () => first.TranscribeAsync(path, "ja", "whisper", progress, CancellationToken.None, retry));
+
+        // Reopen the recovery files with a new backend. An already submitted part must be
+        // retrievable even when there are no credits left, with the originally resolved model.
+        var availability = new StubAvailability { Allowed = settledFailure };
+        AgentHostAiBackend second = CreateBackend(availability: availability, transcription: transcription);
+        AgentTranscriptionResult resumed = await second.TranscribeAsync(
+            path, "ja", "new-default", progress, CancellationToken.None, retry);
+        AgentTranscriptionResult completed = await second.TranscribeAsync(
+            path, "ja", "new-default", progress, CancellationToken.None, retry);
+        AgentAiException? changed = await Assert.ThrowsAsync<AgentAiException>(() => second.TranscribeAsync(
+            path, "en", "new-default", progress, CancellationToken.None, retry));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(transcription.Requests, Has.Count.EqualTo(3));
+            Assert.That(availability.Requests, Has.Count.EqualTo(settledFailure ? 1 : 0));
+            Assert.That(transcription.Requests[2].IdempotencyKey, settledFailure
+                ? Is.Not.EqualTo(transcription.Requests[1].IdempotencyKey)
+                : Is.EqualTo(transcription.Requests[1].IdempotencyKey));
+            Assert.That(transcription.Requests.Select(request => request.Model?.Value), Is.All.EqualTo("whisper"));
+            Assert.That(resumed.ModelId, Is.EqualTo("whisper"));
+            Assert.That(resumed.Transcript.Segments.Select(segment => (segment.Start, segment.Text)),
+                Is.EqualTo(new[] { (1d, "part 1"), (601d, "part 3") }));
+            Assert.That(resumed.Transcript.Words!.Select(word => word.Start), Is.EqualTo(new[] { 1d, 601d }));
+            Assert.That(completed.Transcript.Segments, Is.EqualTo(resumed.Transcript.Segments));
+            Assert.That(changed?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
         });
     }
 
@@ -174,8 +225,8 @@ public sealed class AgentHostAiBackendTests
         var decoder = new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 602L) { ShortReadAt = sampleRate * 100L });
         var transcription = new StubTranscription();
         _decoders.Register(decoder);
-        AgentTranscript transcript = await CreateBackend(transcription: transcription)
-            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+        AgentTranscript transcript = (await CreateBackend(transcription: transcription)
+            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None)).Transcript;
 
         Assert.Multiple(() =>
         {
@@ -195,14 +246,14 @@ public sealed class AgentHostAiBackendTests
         _decoders.Register(decoder);
         // Reports 10:02 but its audio stops at 10:00: the first part is the whole transcript.
         next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 600L };
-        AgentTranscript shorter = await CreateBackend(transcription: transcription)
-            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+        AgentTranscript shorter = (await CreateBackend(transcription: transcription)
+            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None)).Transcript;
         // Reports 10:02 but its audio stops at 10:00.2: the 0.2 s tail is the real end, so it is
         // sent with the first part rather than taken for a broken read.
         next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 6002L / 10 };
         var shortSegments = new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 0.1, Text = "a" }] };
-        AgentTranscript withTail = await CreateBackend(transcription: shortSegments)
-            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+        AgentTranscript withTail = (await CreateBackend(transcription: shortSegments)
+            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None)).Transcript;
         // Every read from one second on comes back half full, so parts keep ending early: the
         // recording is never read to the end, and a part of it is not a success.
         next = new StubAudioReader(sampleRate, sampleRate * 60L) { ShortReadsFrom = sampleRate };
@@ -379,7 +430,7 @@ public sealed class AgentHostAiBackendTests
 
         public AiTranscriptionSegment[]? Segments { get; init; }
 
-        public Action? OnRequest { get; init; }
+        public Action? OnRequest { get; set; }
 
         public List<AiTranscriptionRequest> Requests { get; } = [];
 
