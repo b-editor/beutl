@@ -93,18 +93,9 @@ public sealed partial class NodePortPoint : Control
                     ? HoverRadius
                     : BaseRadius;
 
-        if (Math.Abs(_visualRadius - target) < 0.01)
+        UiMotion.Tween(this, _visualRadius, target, 0.01, radius =>
         {
-            UiMotion.Cancel(this);
-            _visualRadius = target;
-            InvalidateVisual();
-            return;
-        }
-
-        double from = _visualRadius;
-        UiMotion.Run(this, UiMotion.Fast, progress =>
-        {
-            _visualRadius = from + ((target - from) * progress);
+            _visualRadius = radius;
             InvalidateVisual();
         });
     }

@@ -440,8 +440,7 @@ public static partial class ProxySourceEnumerator
     private readonly record struct FileSourceUse(IFileSource Source, VideoDeinterlaceOptions Deinterlace = default);
 
     private static VideoDeinterlaceOptions? GetVideoSettings(IProperty? property)
-        => property?.GetOwnerObject() is SourceVideo video && ReferenceEquals(property, video.Source)
-            ? video.GetDeinterlaceOptions() : null;
+        => SourceVideo.FindSourceOwner(property)?.GetDeinterlaceOptions();
 
     // Carries the object walk's guarded-navigator state into the property-value recursion so a rendered
     // structural value reachable only as a property (a DrawableBrush's Drawable, a visualizer's SceneSound)

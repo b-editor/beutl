@@ -66,8 +66,6 @@ public sealed class VideoSource : MediaSource
 
         public VideoColorTags OriginalColorTags => ProxyResolution?.OriginalColorTags ?? _reader?.VideoInfo.ColorTags ?? default;
 
-        public VideoFieldOrder DetectedFieldOrder => _reader?.VideoInfo.DetectedFieldOrder ?? VideoFieldOrder.Unknown;
-
         public DeinterlaceApplicationStatus DeinterlaceStatus => _reader?.VideoInfo.DeinterlaceStatus ?? DeinterlaceApplicationStatus.Off;
 
         public float SupplyDensity => ProxyResolution?.SupplyDensity ?? 1f;

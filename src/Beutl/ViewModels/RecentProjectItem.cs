@@ -112,7 +112,7 @@ public sealed class RecentProjectItem : IDisposable
 
             byte[]? bytes = await service.DownloadThumbnailAsync(repositoryId, owner, token);
             Bitmap? bitmap = bytes is { Length: > 0 }
-                ? await Task.Run(() => ReadBitmap(bytes), token)
+                ? await Task.Run(() => ReadBitmap(() => new MemoryStream(bytes, writable: false)), token)
                 : null;
 
             if (token.IsCancellationRequested)
@@ -166,7 +166,7 @@ public sealed class RecentProjectItem : IDisposable
             DateTime lastEdited = info.LastWriteTimeUtc > thumbnail.LastWriteTimeUtc
                 ? info.LastWriteTimeUtc
                 : thumbnail.LastWriteTimeUtc;
-            return (ReadBitmap(thumbnail.FullName), lastEdited);
+            return (ReadBitmap(() => File.OpenRead(thumbnail.FullName)), lastEdited);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
@@ -174,25 +174,11 @@ public sealed class RecentProjectItem : IDisposable
         }
     }
 
-    private static Bitmap? ReadBitmap(string path)
+    private static Bitmap? ReadBitmap(Func<Stream> open)
     {
         try
         {
-            using FileStream stream = File.OpenRead(path);
-            return ReadValidatedBitmap(stream);
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            // A damaged picture is the same as none.
-            return null;
-        }
-    }
-
-    private static Bitmap? ReadBitmap(byte[] bytes)
-    {
-        try
-        {
-            using var stream = new MemoryStream(bytes, writable: false);
+            using Stream stream = open();
             return ReadValidatedBitmap(stream);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)

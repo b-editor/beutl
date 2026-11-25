@@ -42,10 +42,10 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
     public string? GetThumbnailsCacheKey()
     {
-        string? key = ThumbnailsCacheKey.Compute(
+        string key = ThumbnailsCacheKey.Compute(
             CoreSerializer.SerializeToJsonObject(this),
             ["Source", "ChannelMap", "OffsetPosition", "Gain", "Pan", "Speed", "Effect"]);
-        return key != null && RequiresResampledRangePreview(startChanges: true)
+        return RequiresResampledRangePreview(startChanges: true)
             ? $"{key}|start:{TimeRange.Value.Start.Flicks}|duration:{TimeRange.Value.Duration.Flicks}"
             : key;
     }

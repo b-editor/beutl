@@ -198,10 +198,9 @@ public sealed partial class RangeAnimatorEffect : FilterEffect
             if (position == default && scale == 1 && rotation == 0 && opacity == 1 && blur == 0 && colorAmount == 0)
                 return;
 
-            Vector4 color = Color.ToLinear();
             context.CustomEffect(
                 new Settings(RangeStart, RangeEnd, RangeOffset, Unit, Order, RandomSeed, Shape, Smoothness,
-                    position, scale, rotation, opacity, blur, new Vector3(color.X, color.Y, color.Z), colorAmount),
+                    position, scale, rotation, opacity, blur, Color.ToLinear().AsVector3(), colorAmount),
                 ApplySelected,
                 CustomFilterEffectOptions.AcceptsMaterializedTargets);
         }

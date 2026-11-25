@@ -276,9 +276,7 @@ internal static class DelayAnimationOrdering
         }
 
         Rect?[]? bounds = null;
-        if (ranks.Length > 1 && order is DelayAnimationOrder.FromCenter
-            or DelayAnimationOrder.LeftToRight or DelayAnimationOrder.RightToLeft
-            or DelayAnimationOrder.TopToBottom or DelayAnimationOrder.BottomToTop)
+        if (ranks.Length > 1 && ReadsBounds(order))
         {
             bounds = new Rect?[ranks.Length];
             for (int i = 0; i < ranks.Length; i++)
@@ -291,6 +289,12 @@ internal static class DelayAnimationOrdering
 
         ComputeRanks(order, seed, bounds, ranks);
     }
+
+    // The orders ComputeRanks places by bounds; every other value, undefined ones included, reads none.
+    internal static bool ReadsBounds(DelayAnimationOrder order)
+        => order is DelayAnimationOrder.FromCenter
+            or DelayAnimationOrder.LeftToRight or DelayAnimationOrder.RightToLeft
+            or DelayAnimationOrder.TopToBottom or DelayAnimationOrder.BottomToTop;
 
     // Positional orders read one bounds entry per rank. Null marks an empty target.
     internal static void ComputeRanks(

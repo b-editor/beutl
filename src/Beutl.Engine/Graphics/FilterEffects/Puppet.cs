@@ -51,8 +51,7 @@ public sealed partial class Puppet : FilterEffect, IEditingStageProvider
         return position =>
         {
             if (!EffectEditingFrames.HasArea(bounds) || !float.IsFinite(position.X) || !float.IsFinite(position.Y)
-                || !Guid.TryParse(id, out Guid pinId)
-                || Pins.FirstOrDefault(pin => pin?.Id.Value == pinId) is not { } pin)
+                || FindPin(id) is not { } pin)
                 return;
 
             var normalized = new Point((position.X - bounds.X) / bounds.Width, (position.Y - bounds.Y) / bounds.Height);
@@ -73,6 +72,10 @@ public sealed partial class Puppet : FilterEffect, IEditingStageProvider
     public Action<Point> BeginEditingHandleDrag(string id, MediaTime time) => BeginEditingHandleDrag(id, time, default);
 
     public void MoveEditingHandle(string id, Point position, MediaTime time) => BeginEditingHandleDrag(id, time)(position);
+
+    // Each editing handle is named after its pin's Id.
+    internal PuppetPin? FindPin(string handleId)
+        => Guid.TryParse(handleId, out Guid id) ? Pins.FirstOrDefault(pin => pin?.Id.Value == id) : null;
 
     string IEditingStageProvider.EditingStageHint => GraphicsStrings.Puppet_EditingPreviewHint;
 

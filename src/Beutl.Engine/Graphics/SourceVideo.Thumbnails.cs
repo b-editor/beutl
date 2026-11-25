@@ -44,19 +44,17 @@ public partial class SourceVideo : IThumbnailsProvider
     internal static string GetProxyThumbnailCacheKeySuffix(ProxyPreset preferredProxyPreset)
         => $"{ProxyThumbnailCacheKeySuffix}:{preferredProxyPreset}";
 
+    // Edits to these change the frames that a strip shows.
+    private IProperty[] GetThumbnailProperties()
+        => [Source, TransferInterpretation, DeinterlaceMode, DeinterlaceFieldOrder, DeinterlaceMethod, DeinterlaceFrameRateMode,
+            OffsetPosition, Speed, IsLoop];
+
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
         _thumbnailHandler = (_, _) => ThumbnailsInvalidated?.Invoke(this, EventArgs.Empty);
-        Source.Edited += _thumbnailHandler;
-        TransferInterpretation.Edited += _thumbnailHandler;
-        DeinterlaceMode.Edited += _thumbnailHandler;
-        DeinterlaceFieldOrder.Edited += _thumbnailHandler;
-        DeinterlaceMethod.Edited += _thumbnailHandler;
-        DeinterlaceFrameRateMode.Edited += _thumbnailHandler;
-        OffsetPosition.Edited += _thumbnailHandler;
-        Speed.Edited += _thumbnailHandler;
-        IsLoop.Edited += _thumbnailHandler;
+        foreach (IProperty property in GetThumbnailProperties())
+            property.Edited += _thumbnailHandler;
     }
 
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
@@ -64,15 +62,8 @@ public partial class SourceVideo : IThumbnailsProvider
         base.OnDetachedFromHierarchy(args);
         if (_thumbnailHandler != null)
         {
-            Source.Edited -= _thumbnailHandler;
-            TransferInterpretation.Edited -= _thumbnailHandler;
-            DeinterlaceMode.Edited -= _thumbnailHandler;
-            DeinterlaceFieldOrder.Edited -= _thumbnailHandler;
-            DeinterlaceMethod.Edited -= _thumbnailHandler;
-            DeinterlaceFrameRateMode.Edited -= _thumbnailHandler;
-            OffsetPosition.Edited -= _thumbnailHandler;
-            Speed.Edited -= _thumbnailHandler;
-            IsLoop.Edited -= _thumbnailHandler;
+            foreach (IProperty property in GetThumbnailProperties())
+                property.Edited -= _thumbnailHandler;
         }
         _thumbnailHandler = null;
     }
@@ -86,8 +77,8 @@ public partial class SourceVideo : IThumbnailsProvider
                 nameof(DeinterlaceFrameRateMode)];
         }
 
-        string? key = ThumbnailsCacheKey.Compute(CoreSerializer.SerializeToJsonObject(this), properties);
-        return key != null && RequiresResampledRangePreview(startChanges: true)
+        string key = ThumbnailsCacheKey.Compute(CoreSerializer.SerializeToJsonObject(this), properties);
+        return RequiresResampledRangePreview(startChanges: true)
             ? $"{key}|start:{TimeRange.Value.Start.Flicks}|duration:{TimeRange.Value.Duration.Flicks}"
             : key;
     }
@@ -100,6 +91,13 @@ public partial class SourceVideo : IThumbnailsProvider
             || AnimationSampler.RequiresPreviewResampling(Source, keyFrameGlobalClock)
             || AnimationSampler.RequiresPreviewResampling(IsLoop, keyFrameGlobalClock);
     }
+
+    internal bool RequiresResampledSlipPreview
+        => Speed.HasExpression || Speed.GetKeyFrameAnimation() is { KeyFrames.Count: > 0 };
+
+    // A trim keeps the global clock at the same absolute times, while the local clock restarts at the new in-point.
+    internal bool RequiresResampledTrimPreview
+        => Speed.GetKeyFrameAnimation() is { KeyFrames.Count: > 0, UseGlobalClock.Value: false };
 
     public IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         FontManager fonts,

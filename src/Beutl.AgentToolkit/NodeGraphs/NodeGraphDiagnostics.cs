@@ -91,11 +91,32 @@ internal static partial class NodeGraphDiagnostics
     // What a rendered copy of the scene reports on its nodes, for the warnings of a render. Run before the renderer
     // that drew it is disposed, which takes back what its pictures failed on.
     public static IReadOnlyList<string> CollectRenderFailures(Scene scene)
+        => CollectRenderFailures(ListGraphRoots(scene));
+
+    // The graphs a render of a scene nothing edits reads failures from; a walk that throws keeps the graphs before it.
+    public static IReadOnlyList<(EngineObject Owner, GraphModel Root)> ListGraphRoots(Scene scene)
+    {
+        var roots = new List<(EngineObject Owner, GraphModel Root)>();
+        try
+        {
+            foreach ((EngineObject Owner, GraphModel Root) root in NodeGraphLocator.EnumerateRoots(scene))
+            {
+                roots.Add(root);
+            }
+        }
+        catch (Exception)
+        {
+        }
+
+        return roots;
+    }
+
+    public static IReadOnlyList<string> CollectRenderFailures(IReadOnlyList<(EngineObject Owner, GraphModel Root)> roots)
     {
         var failures = new List<string>();
         try
         {
-            foreach ((EngineObject owner, GraphModel root) in NodeGraphLocator.EnumerateRoots(scene))
+            foreach ((EngineObject owner, GraphModel root) in roots)
             {
                 foreach (GraphModel graph in root.EnumerateGraphs())
                 {

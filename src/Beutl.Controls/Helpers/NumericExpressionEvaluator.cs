@@ -25,6 +25,23 @@ internal static class NumericExpressionEvaluator
     private static bool LostPrecisionAgainstDouble(decimal decimalValue, double expectedDouble)
         => double.IsFinite(expectedDouble) && (double)decimalValue != expectedDouble;
 
+    // Whether a nonzero operation's decimal result vanished, or is too small to keep the precision double gives.
+    private static bool LostToDecimal(decimal value, double expectedDouble)
+        => value == 0m || (IsBelowAccurateDecimalMagnitude(value) && LostPrecisionAgainstDouble(value, expectedDouble));
+
+    // Whether multiplying the quotient back misses the dividend; an overflow counts as a miss.
+    private static bool IsInexactQuotient(decimal quotient, decimal divisor, decimal dividend)
+    {
+        try
+        {
+            return quotient * divisor != dividend;
+        }
+        catch (OverflowException)
+        {
+            return true;
+        }
+    }
+
     private enum EvalStatus
     {
         Success,
@@ -164,19 +181,13 @@ internal static class NumericExpressionEvaluator
             return 0m;
         }
 
-        Span<int> bits = stackalloc int[4];
-        decimal.GetBits(value, bits);
-        int scale = (bits[3] >> 16) & 0x7F;
+        int scale = value.Scale;
         if (scale == 0)
         {
             return value;
         }
 
-        bool isNegative = (bits[3] & unchecked((int)0x80000000)) != 0;
-        var mantissa = new UInt128(
-            (uint)bits[2],
-            ((ulong)(uint)bits[1] << 32) | (uint)bits[0]);
-
+        UInt128 mantissa = GetMantissa(value);
         while (scale > 0 && mantissa % 10 == 0)
         {
             mantissa /= 10;
@@ -185,28 +196,30 @@ internal static class NumericExpressionEvaluator
 
         ulong low64 = (ulong)mantissa;
         uint high32 = (uint)(mantissa >> 64);
-        return new decimal((int)(uint)low64, (int)(uint)(low64 >> 32), (int)high32, isNegative, (byte)scale);
+        return new decimal((int)(uint)low64, (int)(uint)(low64 >> 32), (int)high32, decimal.IsNegative(value), (byte)scale);
+    }
+
+    // The unscaled 96-bit magnitude of a decimal.
+    private static UInt128 GetMantissa(decimal value)
+    {
+        Span<int> bits = stackalloc int[4];
+        decimal.GetBits(value, bits);
+        return new UInt128(
+            (uint)bits[2],
+            ((ulong)(uint)bits[1] << 32) | (uint)bits[0]);
     }
 
     private static decimal RoundDecimalToInteger(decimal value, bool hasInexactDivision)
     {
         if (hasInexactDivision)
         {
-            Span<int> bits = stackalloc int[4];
-            decimal.GetBits(value, bits);
-            int scale = (bits[3] >> 16) & 0x7F;
-            if (scale >= 12)
+            int scale = value.Scale;
+            if (scale >= 12 && GetMantissa(value) >= SaturatedDecimalMantissa)
             {
-                var mantissa = new UInt128(
-                    (uint)bits[2],
-                    ((ulong)(uint)bits[1] << 32) | (uint)bits[0]);
-                if (mantissa >= SaturatedDecimalMantissa)
-                {
-                    // Trim only the trailing 2 digits of 28-digit division rounding noise so exact midpoints like
-                    // 1 / 3 * 4.5 (1.4999999999999999999999999998) round away from zero to 2 without disturbing
-                    // intentional sub-midpoint fractions on large integers.
-                    value = Math.Round(value, scale - 2, MidpointRounding.AwayFromZero);
-                }
+                // Trim only the trailing 2 digits of 28-digit division rounding noise so exact midpoints like
+                // 1 / 3 * 4.5 (1.4999999999999999999999999998) round away from zero to 2 without disturbing
+                // intentional sub-midpoint fractions on large integers.
+                value = Math.Round(value, scale - 2, MidpointRounding.AwayFromZero);
             }
         }
 
@@ -220,14 +233,6 @@ internal static class NumericExpressionEvaluator
         {
             decimal normalized = NormalizeDecimal(value);
             result = Unsafe.As<decimal, TValue>(ref normalized);
-            return true;
-        }
-
-        if (typeof(TValue) == typeof(double))
-        {
-            double d = (double)value;
-            if (d == 0) d = 0;
-            result = Unsafe.As<double, TValue>(ref d);
             return true;
         }
 
@@ -435,37 +440,21 @@ internal static class NumericExpressionEvaluator
                     };
                     if (op == '*')
                     {
-                        if (left != 0m && right != 0m
-                            && (value == 0m
-                                || (IsBelowAccurateDecimalMagnitude(value)
-                                    && LostPrecisionAgainstDouble(value, (double)left * (double)right))))
+                        if (left != 0m && right != 0m && LostToDecimal(value, (double)left * (double)right))
                         {
                             return EvalStatus.NeedsDoubleFallback;
                         }
                     }
                     else if (op == '/')
                     {
-                        if (left != 0m
-                            && (value == 0m
-                                || (IsBelowAccurateDecimalMagnitude(value)
-                                    && LostPrecisionAgainstDouble(value, (double)left / (double)right))))
+                        if (left != 0m && LostToDecimal(value, (double)left / (double)right))
                         {
                             return EvalStatus.NeedsDoubleFallback;
                         }
 
-                        if (!_hasInexactDivision)
+                        if (!_hasInexactDivision && IsInexactQuotient(value, right, left))
                         {
-                            try
-                            {
-                                if (value * right != left)
-                                {
-                                    _hasInexactDivision = true;
-                                }
-                            }
-                            catch (OverflowException)
-                            {
-                                _hasInexactDivision = true;
-                            }
+                            _hasInexactDivision = true;
                         }
                     }
                 }
@@ -659,9 +648,7 @@ internal static class NumericExpressionEvaluator
                     {
                         decimal prevAcc = acc;
                         acc *= factor;
-                        if (acc == 0m
-                            || (IsBelowAccurateDecimalMagnitude(acc)
-                                && LostPrecisionAgainstDouble(acc, (double)prevAcc * (double)factor)))
+                        if (LostToDecimal(acc, (double)prevAcc * (double)factor))
                         {
                             result = 0m;
                             return EvalStatus.NeedsDoubleFallback;
@@ -673,9 +660,7 @@ internal static class NumericExpressionEvaluator
                     {
                         decimal prevFactor = factor;
                         factor *= factor;
-                        if (factor == 0m
-                            || (IsBelowAccurateDecimalMagnitude(factor)
-                                && LostPrecisionAgainstDouble(factor, (double)prevFactor * (double)prevFactor)))
+                        if (LostToDecimal(factor, (double)prevFactor * (double)prevFactor))
                         {
                             result = 0m;
                             return EvalStatus.NeedsDoubleFallback;
@@ -686,26 +671,14 @@ internal static class NumericExpressionEvaluator
                 if (negative)
                 {
                     result = 1m / acc;
-                    if (result == 0m
-                        || (IsBelowAccurateDecimalMagnitude(result)
-                            && LostPrecisionAgainstDouble(result, 1d / (double)acc)))
+                    if (LostToDecimal(result, 1d / (double)acc))
                     {
                         return EvalStatus.NeedsDoubleFallback;
                     }
 
-                    if (!hasInexactDivision)
+                    if (!hasInexactDivision && IsInexactQuotient(result, acc, 1m))
                     {
-                        try
-                        {
-                            if (result * acc != 1m)
-                            {
-                                hasInexactDivision = true;
-                            }
-                        }
-                        catch (OverflowException)
-                        {
-                            hasInexactDivision = true;
-                        }
+                        hasInexactDivision = true;
                     }
                 }
                 else

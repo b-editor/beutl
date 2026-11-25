@@ -40,9 +40,7 @@ internal sealed class HostedGitRemoteUrl
     {
         hosted = null;
         if (repository is null
-            || !Uri.TryCreate(repository.Url, UriKind.Absolute, out Uri? advertised)
-            || !TryGetRepositoryId(advertised, out Guid advertisedId)
-            || !string.Equals(advertisedId.ToString("D"), repository.Id, StringComparison.Ordinal)
+            || !TryGetAdvertisedUrl(repository, out Uri? advertised, out Guid advertisedId)
             || !TryMatchOrigin(remoteUrl, advertised, out Guid id)
             || id != advertisedId)
         {
@@ -58,7 +56,7 @@ internal sealed class HostedGitRemoteUrl
     {
         if (TryParse(remoteUrl, out HostedGitRemoteUrl? hosted))
             return (hosted, false);
-        if (!Uri.TryCreate(remoteUrl, UriKind.Absolute, out Uri? remote) || !TryGetRepositoryId(remote, out Guid id))
+        if (!TryGetRepositoryId(remoteUrl, out Guid id))
             return default;
 
         var (advertised, retry) = await GetAdvertisedRepositoryAsync(api, id, cancellationToken).ConfigureAwait(false);
@@ -117,9 +115,22 @@ internal sealed class HostedGitRemoteUrl
             && id != Guid.Empty;
     }
 
-    public Uri GetRepositoryUri(string? refName = null) => WithRef(_dashboard, refName);
+    internal static bool TryGetRepositoryId(string? url, out Guid id)
+    {
+        id = default;
+        return Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) && TryGetRepositoryId(uri, out id);
+    }
 
-    public Uri GetCommitsUri(string? refName = null) => WithRef($"{_dashboard}/commits", refName);
+    // The Git URL that a repository summary advertises, when that URL names the same repository.
+    internal static bool TryGetAdvertisedUrl(GitRepositorySummary repository, [NotNullWhen(true)] out Uri? url, out Guid id)
+    {
+        id = default;
+        return Uri.TryCreate(repository.Url, UriKind.Absolute, out url)
+            && TryGetRepositoryId(url, out id)
+            && string.Equals(id.ToString("D"), repository.Id, StringComparison.Ordinal);
+    }
+
+    public Uri GetRepositoryUri(string? refName = null) => WithRef(_dashboard, refName);
 
     private static Uri WithRef(string url, string? refName)
         => new(string.IsNullOrEmpty(refName) ? url : $"{url}?ref={Uri.EscapeDataString(refName)}");

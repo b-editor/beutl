@@ -2,6 +2,7 @@
 using System.Reactive.Disposables;
 using Beutl.AgentToolkit.NodeGraphs;
 using Beutl.Collections;
+using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Extensions.FFmpeg;
@@ -13,6 +14,7 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Encoding;
 using Beutl.Models;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
@@ -81,6 +83,8 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
             var graphWarnings = new List<string>();
             var seenGraphWarnings = new HashSet<string>(StringComparer.Ordinal);
             var graphWarningsLock = new object();
+            // The snapshot is not edited while it exports, so it is walked for its graphs once.
+            IReadOnlyList<(EngineObject Owner, GraphModel Root)>? graphRoots = null;
             using var providers = ExportMediaProviders.Create(
                 scene, renderFonts,
                 videoEnabled,
@@ -92,7 +96,8 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
                 decoders: decoders,
                 onFrameRendered: renderedScene =>
                 {
-                    IReadOnlyList<string> failures = NodeGraphDiagnostics.CollectRenderFailures(renderedScene);
+                    graphRoots ??= NodeGraphDiagnostics.ListGraphRoots(renderedScene);
+                    IReadOnlyList<string> failures = NodeGraphDiagnostics.CollectRenderFailures(graphRoots);
                     lock (graphWarningsLock)
                     {
                         foreach (string failure in failures)

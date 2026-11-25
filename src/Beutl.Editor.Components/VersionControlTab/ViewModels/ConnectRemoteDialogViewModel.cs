@@ -119,11 +119,7 @@ internal sealed class ConnectRemoteDialogViewModel : IDisposable
             if (repository is null)
                 return false;
 
-            await HostedGitRepositoryConnection.ConfigureAsync(service, owner, repository, async (url, ct) =>
-            {
-                await _apply(url, ct);
-                return true;
-            }, token);
+            await HostedGitRepositoryConnection.ConfigureAsync(service, owner, repository, _apply, token);
             if (creationKey is { } created)
                 _creationIds.Remove(created);
             return true;

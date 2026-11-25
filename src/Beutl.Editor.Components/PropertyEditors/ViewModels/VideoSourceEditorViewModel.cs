@@ -18,8 +18,7 @@ public sealed class VideoSourceEditorViewModel : LocalFileSourceEditorViewModel<
 
     public VideoSourceEditorViewModel(IPropertyAdapter<VideoSource?> property) : base(property)
     {
-        if (property.GetEngineProperty() is { } sourceProperty
-            && sourceProperty.GetOwnerObject() is SourceVideo video && ReferenceEquals(sourceProperty, video.Source))
+        if (SourceVideo.FindSourceOwner(property.GetEngineProperty()) is { } video)
         {
             _video = video;
             _transferEditor = CreateEnumEditor(video.TransferInterpretation, video);

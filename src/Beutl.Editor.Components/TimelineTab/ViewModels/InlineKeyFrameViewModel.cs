@@ -7,7 +7,6 @@ using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Logging;
-using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -177,27 +176,17 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     // frame beside its neighbour would land on it.
     internal SnapResult SnapTime(MediaTime time, bool disabled)
     {
-        if (disabled || !Timeline.IsSnapEnabled.Value)
-        {
-            return new SnapResult(time, false);
-        }
-
-        Scene scene = Timeline.Scene;
         IEnumerable<MediaTime> keys = Timeline.Inlines
             .Where(row => !ReferenceEquals(row, Parent))
             .SelectMany(row => row.Items)
             .Select(item => item.Animation.ToScene(item.Model.KeyTime.Value));
-        IEnumerable<MediaTime> candidates = SnapHelper.CollectElementCandidates(scene.Children, null)
-            .Concat(SnapHelper.CollectSceneCandidates(scene, Timeline.CurrentTime.Value))
-            .Concat(keys);
-        TimelineOptions options = Timeline.Options.Value;
-        Rational rate = SceneTimeRangeService.GetFrameRate(scene);
-        SnapResult snap = SnapHelper.Snap(time, candidates, options.BpmGrid, rate, options.Scale);
+        SnapResult snap = Timeline.SnapTime(time, Timeline.Options.Value.Scale, disabled, exclude: null, extra: keys);
         if (!snap.DidSnap) return snap;
 
         // Key times stay on the frames of their own clock, so with an origin between the scene's frames a key lands on
         // the frame nearest its target. It is shown there during the drag too, rather than moving on release.
         MediaTime origin = TimeOrigin;
+        Rational rate = SceneTimeRangeService.GetFrameRate(Timeline.Scene);
         return snap with { Time = origin + (snap.Time - origin).RoundToFrame(rate, MidpointRounding.AwayFromZero) };
     }
 

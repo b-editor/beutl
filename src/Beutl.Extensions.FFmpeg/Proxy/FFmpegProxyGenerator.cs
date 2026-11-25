@@ -97,11 +97,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store, INotificatio
             EnsureSourceUnchanged(store, job, sourcePath);
 
             await PublishAsync(tempPath, finalPath, job, relative, originalSize, proxySize, job.CancellationToken,
-                originalColorTags: reader.VideoInfo.ColorTags, detectedFieldOrder: reader.VideoInfo.DetectedFieldOrder,
-                deinterlaceStatus: reader.VideoInfo.DeinterlaceStatus,
-                originalDuration: reader.VideoInfo.DeinterlaceStatus == DeinterlaceApplicationStatus.Applied
-                    ? reader.VideoInfo.Duration
-                    : null);
+                sourceVideo: reader.VideoInfo);
         });
     }
 

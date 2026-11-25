@@ -221,18 +221,13 @@ public sealed class ComponentExpression<TValue, TComponent>
             for (int i = 0; i < siblings.Length; i++)
             {
                 TComponent value = EvaluateBelow(siblings[i], boundary);
-                if (FindKeyFrames(siblings[i]) is { KeyFrames.Count: > 1 } track)
+                if (siblings[i].GetKeyFrameAnimation() is { KeyFrames.Count: > 1 } track)
                     value = KeyFrameContinuation.Continue(track, value, time, boundary.Time, loopOut);
                 result = s_set.Components[i].Set(result, value);
             }
 
             return result;
         }
-
-        private static KeyFrameAnimation<TComponent>? FindKeyFrames(IProperty<TComponent> property)
-            => property is IExpressionProperty<TComponent> expressionProperty
-                ? ExpressionChain.FindKeyFrames(expressionProperty.Expression) as KeyFrameAnimation<TComponent>
-                : null;
 
         private static TComponent EvaluateBelow(IProperty<TComponent> property, ExpressionContext context)
         {

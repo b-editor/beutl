@@ -610,7 +610,7 @@ public sealed partial class SceneCompositor : ICompositor
             {
                 if (obj is PortalObject { IsEnabled.Value: true } portal)
                 {
-                    spans.Add((portal.ZIndex.Value + 1, portal.ZIndex.Value + context.Get(portal.Count)));
+                    spans.Add(portal.GetInputLayerSpan(context.Get(portal.Count)));
                 }
             }
         }

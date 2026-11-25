@@ -276,7 +276,4 @@ public sealed partial class MeshWarp : FilterEffect, IEditingStageProvider, ICom
         base.OnDetachedFromHierarchy(in args);
         _editingFrames.Clear();
     }
-
-    private bool CapturePreviewFrame(MediaTime displayTime, Rect bounds, MediaTime evaluationTime)
-        => _editingFrames.Capture(displayTime, bounds, evaluationTime);
 }

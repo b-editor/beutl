@@ -52,6 +52,10 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ITimeMap
         => new VideoDeinterlaceOptions(DeinterlaceMode.Value, DeinterlaceFieldOrder.Value,
             DeinterlaceMethod.Value, DeinterlaceFrameRateMode.Value).Normalize();
 
+    // The clip whose Source this property is, so that clip's decode settings apply to the property's value.
+    internal static SourceVideo? FindSourceOwner(IProperty? property)
+        => property?.GetOwnerObject() is SourceVideo video && ReferenceEquals(property, video.Source) ? video : null;
+
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();

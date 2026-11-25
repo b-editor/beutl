@@ -477,7 +477,7 @@ internal sealed class AgentHostAiTools(
             }
             catch (Exception ex) when (!queued && (ex is AuthenticationRequiredException || account?.AccountChanged == true))
             {
-                throw Unavailable("Sign in to Beutl in the running app to use AI generation.");
+                throw Unavailable(AgentHostAiBackend.SignInReason);
             }
             finally
             {
@@ -505,7 +505,7 @@ internal sealed class AgentHostAiTools(
             }
             catch (Exception ex) when (ex is AuthenticationRequiredException || account.AccountChanged)
             {
-                throw new AgentAiException(ErrorCode.AiUnavailable, Beutl.Language.Strings.AiAuthenticationRequired);
+                throw AgentAiException.AuthenticationRequired();
             }
         }
     }

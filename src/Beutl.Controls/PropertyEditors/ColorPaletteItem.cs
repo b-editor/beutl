@@ -182,18 +182,9 @@ public partial class ColorPaletteItem : Control
                 ? HoverScale
                 : RestScale;
 
-        if (Math.Abs(_visualScale - target) < 0.001)
+        UiMotion.Tween(this, _visualScale, target, 0.001, scale =>
         {
-            UiMotion.Cancel(this);
-            _visualScale = target;
-            InvalidateVisual();
-            return;
-        }
-
-        double from = _visualScale;
-        UiMotion.Run(this, UiMotion.Fast, progress =>
-        {
-            _visualScale = from + ((target - from) * progress);
+            _visualScale = scale;
             InvalidateVisual();
         });
     }

@@ -106,24 +106,14 @@ public sealed partial class BpmGridOverlay : Control
     {
         base.Render(context);
 
-        if (!_bpmOptions.IsEnabled || _bpmOptions.Bpm <= 0 || _scale <= 0)
-            return;
-
-        if (_beatPen == null)
+        if (_beatPen == null || BpmGridLines.GetShownSpacing(_bpmOptions, _scale) is not { } spacing)
             return;
 
         double secondWidth = FrameNumberHelper.SecondWidth;
-        double beatIntervalSeconds = 60.0 / _bpmOptions.Bpm;
-        double beatIntervalPixels = beatIntervalSeconds * secondWidth * _scale;
-
-        if (beatIntervalPixels < BpmGridLines.MinBeatSpacing)
-            return;
-
-        int subdivisions = Math.Max(1, _bpmOptions.Subdivisions);
+        double beatIntervalPixels = spacing.BeatPixels;
+        int subdivisions = spacing.Parts;
         double subdivisionIntervalPixels = beatIntervalPixels / subdivisions;
-        bool drawSubdivisions = subdivisions > 1
-            && subdivisionIntervalPixels >= BpmGridLines.MinSubdivisionSpacing
-            && _subdivisionPen != null;
+        bool drawSubdivisions = subdivisions > 1 && _subdivisionPen != null;
 
         double offsetSeconds = _bpmOptions.Offset.ToSeconds();
         double offsetPixels = offsetSeconds * secondWidth * _scale;

@@ -36,8 +36,7 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
 
             await foreach ((string path, string origin) in ReadOriginsAsync(paths, cancellationToken).ConfigureAwait(false))
             {
-                if (Uri.TryCreate(origin, UriKind.Absolute, out Uri? remote)
-                    && HostedGitRemoteUrl.TryGetRepositoryId(remote, out Guid id)
+                if (HostedGitRemoteUrl.TryGetRepositoryId(origin, out Guid id)
                     && advertised.TryGetValue(id, out GitRepositorySummary? repository)
                     && HostedGitRemoteUrl.TryParseAdvertised(origin, repository, out _))
                 {
@@ -57,8 +56,7 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
             if (HostedGitRemoteUrl.TryParse(origin, out HostedGitRemoteUrl? remote) && remote.RepositoryId == id)
                 return path;
             if (api is not null
-                && Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri)
-                && HostedGitRemoteUrl.TryGetRepositoryId(uri, out Guid candidate)
+                && HostedGitRemoteUrl.TryGetRepositoryId(origin, out Guid candidate)
                 && candidate == repositoryId)
             {
                 advertisement ??= HostedGitRemoteUrl.GetAdvertisedRepositoryAsync(api, repositoryId, cancellationToken);
@@ -97,8 +95,7 @@ internal sealed class LocalRepositoryLocator(GitInstallationLocator installation
                     url = await GitCliVersionControlService.GetOriginUrlAsync(repository, runner, cancellationToken)
                         .ConfigureAwait(false);
                     if (revision is not null
-                        && Uri.TryCreate(url, UriKind.Absolute, out Uri? remote)
-                        && HostedGitRemoteUrl.TryGetRepositoryId(remote, out _)
+                        && HostedGitRemoteUrl.TryGetRepositoryId(url, out _)
                         && !await MatchesCheckoutAsync(repository, runner, revision, cancellationToken).ConfigureAwait(false))
                     {
                         url = null;

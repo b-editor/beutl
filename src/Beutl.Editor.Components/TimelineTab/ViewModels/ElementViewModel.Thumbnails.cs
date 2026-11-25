@@ -1,6 +1,5 @@
 ﻿using System.Reactive;
 using Avalonia.Threading;
-using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
@@ -379,18 +378,25 @@ public sealed partial class ElementViewModel
     internal static bool ShouldRefreshThumbnailsForDefaultPresetChange(PreviewSourceMode previewSourceMode)
         => previewSourceMode == PreviewSourceMode.PreferProxy;
 
-    private void CancelThumbnailsLoading()
+    private void CancelThumbnailsLoading() => CancelAndClear(ref _thumbnailsCts);
+
+    private void CancelScrollThumbnailsLoading() => CancelAndClear(ref _scrollThumbnailsCts);
+
+    private static void CancelAndClear(ref CancellationTokenSource? cts)
     {
-        _thumbnailsCts?.Cancel();
-        _thumbnailsCts?.Dispose();
-        _thumbnailsCts = null;
+        cts?.Cancel();
+        cts?.Dispose();
+        cts = null;
     }
 
-    private void CancelScrollThumbnailsLoading()
+    // Drops a request's token source unless a newer request has replaced it.
+    private static void ReleaseIfCurrent(ref CancellationTokenSource? current, CancellationToken token)
     {
-        _scrollThumbnailsCts?.Cancel();
-        _scrollThumbnailsCts?.Dispose();
-        _scrollThumbnailsCts = null;
+        if (current is { } cts && cts.Token == token)
+        {
+            current = null;
+            cts.Dispose();
+        }
     }
 
     private async void UpdateThumbnailsAsync()
@@ -456,11 +462,7 @@ public sealed partial class ElementViewModel
         }
         finally
         {
-            if (_thumbnailsCts is { } cts && cts.Token == ct)
-            {
-                _thumbnailsCts = null;
-                cts.Dispose();
-            }
+            ReleaseIfCurrent(ref _thumbnailsCts, ct);
         }
     }
 
@@ -533,20 +535,19 @@ public sealed partial class ElementViewModel
     internal SlippableMedia.Target? FindResampledThumbnailTarget(IReadOnlyList<SlippableMedia.Target> targets, bool trim)
     {
         var provider = FindThumbnailsProvider();
-        if (provider is not (Beutl.Graphics.SourceVideo or Beutl.Audio.SourceSound)
-            || provider is not ITimeMappedSource { Speed: { } speed } source)
-            return null;
-
-        var animation = speed.GetKeyFrameAnimation();
-        // A trim keeps the global clock at the same absolute times, while the local clock restarts at the new in-point.
         bool resample = provider switch
         {
+            Beutl.Graphics.SourceVideo video => trim ? video.RequiresResampledTrimPreview : video.RequiresResampledSlipPreview,
             Beutl.Audio.SourceSound sound => trim ? sound.RequiresResampledTrimPreview : sound.RequiresResampledSlipPreview,
-            _ when trim => animation is { KeyFrames.Count: > 0, UseGlobalClock.Value: false },
-            _ => speed.HasExpression || animation is { KeyFrames.Count: > 0 }
+            _ => false
         };
-        return resample ? targets.FirstOrDefault(t => ReferenceEquals(t.Offset, source.OffsetPosition)) : null;
+        return resample && provider is ITimeMappedSource source
+            ? targets.FirstOrDefault(t => ReferenceEquals(t.Offset, source.OffsetPosition))
+            : null;
     }
+
+    // The committed and the preview strips share it, and a cached frame is reused only at this height.
+    private int ThumbnailHeight => Math.Max(1, (int)Math.Round(Timeline.LayerRowHeight.Value));
 
     private bool PreferProxyForThumbnails => Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
 
@@ -648,7 +649,7 @@ public sealed partial class ElementViewModel
             var decoders = ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext);
             if (provider is Beutl.Graphics.SourceVideo video)
             {
-                int height = Math.Max(1, (int)Math.Round(Timeline.LayerRowHeight.Value));
+                int height = ThumbnailHeight;
                 await foreach (var (index, _, thumbnail) in video.GetPreviewThumbnailStripAsync(
                                    Timeline.EditorContext.GetRequiredService<FontManager>(),
                                    count, height, indices, _thumbnailCacheService, ct, PreferProxyForThumbnails,
@@ -690,11 +691,7 @@ public sealed partial class ElementViewModel
         }
         finally
         {
-            if (_scrollThumbnailsCts is { } cts && cts.Token == ct)
-            {
-                _scrollThumbnailsCts = null;
-                cts.Dispose();
-            }
+            ReleaseIfCurrent(ref _scrollThumbnailsCts, ct);
         }
 
         bool PrepareToPublish()
@@ -767,11 +764,7 @@ public sealed partial class ElementViewModel
         }
         finally
         {
-            if (_scrollThumbnailsCts is { } cts && cts.Token == ct)
-            {
-                _scrollThumbnailsCts = null;
-                cts.Dispose();
-            }
+            ReleaseIfCurrent(ref _scrollThumbnailsCts, ct);
         }
     }
 
@@ -817,7 +810,7 @@ public sealed partial class ElementViewModel
         int layoutVersion, CancellationToken ct, bool replace = false)
     {
         ct.ThrowIfCancellationRequested();
-        int maxThumbnailHeight = Math.Max(1, (int)Math.Round(Timeline.LayerRowHeight.Value));
+        int maxThumbnailHeight = ThumbnailHeight;
         await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(provider, width, maxThumbnailHeight, ct, start, end))
         {
             if (ct.IsCancellationRequested || _isEditPreviewActive || layoutVersion != Volatile.Read(ref _thumbnailLayoutVersion))

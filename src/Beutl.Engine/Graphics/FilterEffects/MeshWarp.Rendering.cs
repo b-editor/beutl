@@ -16,7 +16,7 @@ public sealed partial class MeshWarp
 
     private static float Normalize(float value, float start, float length) => (float)(((double)value - start) / length);
 
-    private static Rect TransformBounds((Tessellation Mesh, BoundsCapture? Capture) data, Rect bounds)
+    private static Rect TransformBounds((Tessellation Mesh, EffectEditingFrames.Pending? Capture) data, Rect bounds)
     {
         if (bounds.IsInvalid) return bounds;
         if (!HasArea(bounds)) return Rect.Empty;
@@ -25,21 +25,19 @@ public sealed partial class MeshWarp
         return HasArea(output) ? output : Rect.Empty;
     }
 
-    private readonly record struct BoundsCapture(MeshWarp Owner, MediaTime DisplayTime, MediaTime EvaluationTime);
-
-    private static void CaptureOnly(BoundsCapture capture, CustomFilterEffectContext context)
+    private static void CaptureOnly(EffectEditingFrames.Pending capture, CustomFilterEffectContext context)
     {
         if (context is { Intent: RenderIntent.Preview, Purpose: RenderRequestPurpose.Frame })
-            capture.Owner.CapturePreviewFrame(capture.DisplayTime, context.Targets.CalculateCompleteBounds(), capture.EvaluationTime);
+            capture.Capture(context.Targets.CalculateCompleteBounds());
     }
 
-    private static void Apply((Tessellation Mesh, BoundsCapture? Capture) data, CustomFilterEffectContext context)
+    private static void Apply((Tessellation Mesh, EffectEditingFrames.Pending? Capture) data, CustomFilterEffectContext context)
     {
         Rect sharedBounds = context.Targets.CalculateCompleteBounds();
         if (context is { Intent: RenderIntent.Preview, Purpose: RenderRequestPurpose.Frame }
             && data.Capture is { } capture)
         {
-            capture.Owner.CapturePreviewFrame(capture.DisplayTime, sharedBounds, capture.EvaluationTime);
+            capture.Capture(sharedBounds);
         }
 
         bool sharedSpace = context.Targets.Count > 1 && HasArea(sharedBounds);
@@ -424,13 +422,12 @@ public sealed partial class MeshWarp
 
         protected override void ApplyTo(FilterEffectContext context)
         {
-            BoundsCapture? capture = null;
+            EffectEditingFrames.Pending? capture = null;
             if (context.IsPreviewFrame && GetOriginal() is MeshWarp owner)
             {
-                MediaTime displayTime = EvaluationContext?.DisplayedTime ?? MediaTime.Zero;
-                MediaTime evaluationTime = EvaluationContext?.Time ?? displayTime;
-                if (!owner.CapturePreviewFrame(displayTime, context.Bounds, evaluationTime))
-                    capture = new BoundsCapture(owner, displayTime, evaluationTime);
+                EffectEditingFrames.Pending pending = owner._editingFrames.Begin(EvaluationContext);
+                if (!pending.Capture(context.Bounds))
+                    capture = pending;
             }
 
             if (!float.IsFinite(Strength) || Strength == 0 || Mesh is null || Mesh.IsIdentity())

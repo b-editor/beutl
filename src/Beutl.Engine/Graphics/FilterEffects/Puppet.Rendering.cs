@@ -10,13 +10,8 @@ public sealed partial class Puppet
 {
     private static readonly ILogger s_logger = Log.CreateLogger(nameof(Puppet));
 
-    private readonly record struct EditingCapture(Puppet Owner, MediaTime DisplayTime, MediaTime EvaluationTime)
-    {
-        public bool Capture(Rect bounds) => Owner._editingFrames.Capture(DisplayTime, bounds, EvaluationTime);
-    }
-
     private readonly record struct RenderState(PuppetMeshCache Cache, Point[] Rest, Point[] Positions,
-        EditingCapture? Editing, PlacementCapture? Placement);
+        EffectEditingFrames.Pending? Editing, PlacementCapture? Placement);
 
     private static void Apply(RenderState state, CustomFilterEffectContext context)
     {
@@ -31,7 +26,7 @@ public sealed partial class Puppet
         if (state.Cache.GetOrCreate(source, state.Rest) is not { } prepared) return;
 
         (PuppetMesh mesh, PuppetDeformer deformer) = prepared;
-        Vector2[] deformed = deformer.Deform(bounds.Size, state.Positions);
+        Vector2[] deformed = state.Cache.Deform(deformer, bounds.Size, state.Positions);
         Vector2 minimum = deformed[0];
         Vector2 maximum = minimum;
         foreach (Vector2 vertex in deformed)
@@ -86,7 +81,7 @@ public sealed partial class Puppet
 
         protected override void ApplyTo(FilterEffectContext context)
         {
-            EditingCapture? editing = null;
+            EffectEditingFrames.Pending? editing = null;
             PlacementCapture? placement = null;
             if (context.IsPreviewFrame && GetOriginal() is Puppet owner)
             {
@@ -96,8 +91,7 @@ public sealed partial class Puppet
                 }
                 else if (Pins.Count > 0)
                 {
-                    MediaTime displayTime = EvaluationContext?.DisplayedTime ?? MediaTime.Zero;
-                    editing = new EditingCapture(owner, displayTime, EvaluationContext?.Time ?? displayTime);
+                    editing = owner._editingFrames.Begin(EvaluationContext);
                 }
             }
 
@@ -131,7 +125,7 @@ public sealed partial class Puppet
             }
         }
 
-        private static void CaptureOnly(EditingCapture capture, CustomFilterEffectContext context)
+        private static void CaptureOnly(EffectEditingFrames.Pending capture, CustomFilterEffectContext context)
             => capture.Capture(context.Targets.CalculateCompleteBounds());
     }
 }

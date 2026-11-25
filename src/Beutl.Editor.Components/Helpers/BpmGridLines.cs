@@ -13,14 +13,17 @@ public static class BpmGridLines
     // The seconds between neighbouring lines that show: a subdivision's while subdivisions show, else a beat's. Null
     // while the grid is off or its beats are too close to draw.
     public static double? GetShownInterval(BpmGridOptions grid, float scale)
+        => GetShownSpacing(grid, scale) is { } spacing ? 60 / grid.Bpm / spacing.Parts : null;
+
+    // The pixels between beats and the parts a beat shows in, its subdivisions while they show, else 1; null as above.
+    public static (double BeatPixels, int Parts)? GetShownSpacing(BpmGridOptions grid, float scale)
     {
         if (!grid.IsEnabled || !(grid.Bpm > 0) || !(scale > 0)) return null;
 
-        double beat = 60 / grid.Bpm;
-        double beatPixels = beat * FrameNumberHelper.SecondWidth * scale;
+        double beatPixels = 60 / grid.Bpm * FrameNumberHelper.SecondWidth * scale;
         if (!(beatPixels >= MinBeatSpacing)) return null;
 
         int subdivisions = Math.Max(1, grid.Subdivisions);
-        return subdivisions > 1 && beatPixels / subdivisions >= MinSubdivisionSpacing ? beat / subdivisions : beat;
+        return (beatPixels, subdivisions > 1 && beatPixels / subdivisions >= MinSubdivisionSpacing ? subdivisions : 1);
     }
 }

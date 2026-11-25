@@ -281,11 +281,8 @@ internal partial class VersionControlTabViewModel
         {
             var hosted = api.GetResource<HostedGitRepositoryService>();
             var repository = await hosted.GetAsync(Guid.Parse(id), token, owner);
-            await HostedGitRepositoryConnection.ConfigureAsync(hosted, owner, repository, async (remote, ct) =>
-            {
-                await coordinator.SetRemoteAsync(remote, origin, ct);
-                return true;
-            }, token);
+            await HostedGitRepositoryConnection.ConfigureAsync(hosted, owner, repository,
+                (remote, ct) => coordinator.SetRemoteAsync(remote, origin, ct), token);
             if (IsCurrentService(service, revision, token))
             {
                 await RefreshRemotesAsync(service, token, serviceRevision: revision);
