@@ -4,13 +4,14 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.Helpers;
 
 // A pointer gesture's edit session: release, capture loss, playback start and detach confirm it; Escape and Undo cancel it.
-internal sealed class DragSession
+internal sealed class DragSession : IPropertyEditorDragSession
 {
     private readonly EditSession? _session;
     private readonly Action _confirm;
@@ -55,6 +56,39 @@ internal sealed class DragSession
     public void Confirm() => End(_confirm, complete: true);
 
     public void Cancel() => End(_cancel, complete: false);
+
+    public void CancelOnTimeChange(IEditorClock clock)
+    {
+        MediaTime startTime = clock.CurrentTime.Value;
+        _watches.Add(clock.CurrentTime.Where(time => time != startTime).Subscribe(_ => Cancel()));
+    }
+
+    public static void Connect(PropertyEditor control, IServiceProvider editor, Action endPreview, Action completeRepair)
+    {
+        control.OpenDragSession = (owner, stop) =>
+        {
+            if (editor.GetService<HistoryManager>() is null)
+                return null;
+
+            void Stop()
+            {
+                endPreview();
+                stop();
+            }
+
+            DragSession? drag = null;
+            drag = Begin(editor, owner, CommandNames.EditProperty, () =>
+            {
+                Stop();
+                if (drag?._session?.Transaction.HasOperations == true)
+                {
+                    using var scope = drag.Enter();
+                    completeRepair();
+                }
+            }, Stop);
+            return drag;
+        };
+    }
 
     private void Watch(IServiceProvider editor, Control captureOwner)
     {

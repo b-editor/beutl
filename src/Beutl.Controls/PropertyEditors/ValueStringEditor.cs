@@ -182,8 +182,15 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         if (!_scrub.IsActive) return;
 
         // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
-        _scrub.End();
+        StopScrub();
         ConfirmValue(_oldValue);
+        CompleteValueDrag();
+    }
+
+    private void StopScrub()
+    {
+        if (_scrub.IsActive)
+            _scrub.End();
     }
 
     private void OnTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -192,11 +199,14 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         if (_headerText is not { } headerText) return;
         PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
         if (pointerPoint.Properties.IsLeftButtonPressed
+            && ValueDragOwner is null
             && !IsReadOnly
             && !DataValidationErrors.GetHasErrors(InnerTextBox))
         {
+            EndTextEditing();
             _oldValue = Value;
             _scrub.Begin(headerText, pointerPoint.Position);
+            BeginValueDrag(headerText, e.Pointer, StopScrub);
             e.Handled = true;
         }
     }

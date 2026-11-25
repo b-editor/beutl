@@ -150,6 +150,7 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
 
     public override void Snapshot()
     {
+        _hasUnderlyingComponentEdit = false;
         _values.CopyTo(_oldValues, 0);
     }
 

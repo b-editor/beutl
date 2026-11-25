@@ -23,6 +23,13 @@ public enum PropertyEditorStyle
     Settings,
 }
 
+internal interface IPropertyEditorDragSession
+{
+    IDisposable Enter();
+
+    void Confirm();
+}
+
 [PseudoClasses(":compact", ":list-item", ":settings", ":visible-left-button", ":visible-right-button")]
 [TemplatePart("PART_LeftButton", typeof(Button))]
 [TemplatePart("PART_RightButton", typeof(Button))]
@@ -48,6 +55,8 @@ public partial class PropertyEditor : TemplatedControl, IPropertyEditorContextVi
     private const double AutoCompactMaxWidth = 224;
     private readonly CompositeDisposable _eventRevokers = new(3);
     private readonly SerialDisposable _connection = new();
+    private (Control Owner, IPointer Pointer, Action Stop)? _valueDrag;
+    private IPropertyEditorDragSession? _dragSession;
     private string? _headerTooltip;
 
     static PropertyEditor()
@@ -154,6 +163,8 @@ public partial class PropertyEditor : TemplatedControl, IPropertyEditorContextVi
     // Ends the earlier connection and returns the one that holds the new connection's subscriptions.
     private protected CompositeDisposable StartConnection()
     {
+        _dragSession?.Confirm();
+        StopValueDrag();
         HasUnconfirmedEdit = false;
         var connection = new CompositeDisposable();
         _connection.Disposable = connection;
@@ -162,20 +173,53 @@ public partial class PropertyEditor : TemplatedControl, IPropertyEditorContextVi
 
     internal bool HasUnconfirmedEdit { get; private set; }
 
+    internal Func<Control, Action, IPropertyEditorDragSession?>? OpenDragSession { get; set; }
+
+    internal Control? ValueDragOwner => _valueDrag?.Owner;
+
+    internal void BeginValueDrag(Control owner, IPointer pointer, Action stop)
+    {
+        _valueDrag = (owner, pointer, stop);
+        _dragSession = OpenDragSession?.Invoke(owner, StopValueDrag);
+    }
+
+    internal void CompleteValueDrag()
+    {
+        _dragSession?.Confirm();
+        _valueDrag = null;
+    }
+
+    // An interrupted gesture clears its state before releasing capture, which can call the pointer handlers again.
+    private void StopValueDrag()
+    {
+        if (_valueDrag is not { } drag)
+            return;
+
+        _valueDrag = null;
+        _dragSession = null;
+        HasUnconfirmedEdit = false;
+        drag.Stop();
+        if (drag.Pointer.Captured == drag.Owner)
+            drag.Pointer.Capture(null);
+    }
+
     private protected TEdit PreviewEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value, bool relative)
     {
+        using var drag = _dragSession?.Enter();
         HasUnconfirmedEdit = true;
         return context.PreviewEdit(value, relative);
     }
 
     private protected TEdit PreviewEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value, bool relative, int editedComponents)
     {
+        using var drag = _dragSession?.Enter();
         HasUnconfirmedEdit = true;
         return context.PreviewEdit(value, relative, editedComponents);
     }
 
     private protected TEdit PreviewFocusedEdit<TEdit>(IValueEditorContext<TEdit> context, TEdit value)
     {
+        using var drag = _dragSession?.Enter();
         HasUnconfirmedEdit = true;
         return context.PreviewFocusedEdit(value);
     }
@@ -191,7 +235,8 @@ public partial class PropertyEditor : TemplatedControl, IPropertyEditorContextVi
                     if (e.Expect<TEdit>(s) is { } args)
                     {
                         HasUnconfirmedEdit = false;
-                        context.ConfirmEdit(args.OldValue, args.NewValue);
+                        if (_dragSession is null)
+                            context.ConfirmEdit(args.OldValue, args.NewValue);
                         afterConfirm?.Invoke();
                     }
                 })

@@ -12,8 +12,7 @@ internal sealed class LiveEditDrag
     private Action? _apply;
     private Action? _revert;
 
-    // Runs write in the drag's session, which the first write opens on owner; stop ends the control's drag in progress.
-    // Without an owner, as for typed input, write runs outside any session.
+    // Runs write in the current session, opening it on owner if needed. A write without a session applies immediately.
     public void Write(IServiceProvider editor, Control? owner, Action stop, Action write)
     {
         Open(editor, owner, stop);
@@ -26,7 +25,7 @@ internal sealed class LiveEditDrag
     // Opens the drag's session on owner without writing, for an edit that only the control shows until the drag ends:
     // confirming the session runs apply in it, and cancelling it runs revert. Without a session, as when another
     // gesture holds history, the control's own confirmation applies the edit.
-    public void Defer(IServiceProvider editor, Control owner, Action stop, Action apply, Action revert)
+    public void Defer(IServiceProvider editor, Control? owner, Action stop, Action apply, Action revert)
     {
         Open(editor, owner, stop);
         if (_drag is not null)
@@ -46,7 +45,7 @@ internal sealed class LiveEditDrag
         return true;
     }
 
-    private void Open(IServiceProvider editor, Control? owner, Action stop)
+    public DragSession? Open(IServiceProvider editor, Control? owner, Action stop)
     {
         if (_drag is null && owner is not null)
         {
@@ -54,6 +53,8 @@ internal sealed class LiveEditDrag
             if (_drag is not null)
                 _stop = stop;
         }
+
+        return _drag;
     }
 
     private void OnConfirmed()

@@ -80,6 +80,10 @@ public partial class ColorGradingWheel : PropertyEditor
     // Whether the pad or the jog is being dragged; a stopped drag no longer counts.
     public bool IsDragging => (_padDragging || _masterDragging) && !_dragStopped;
 
+    internal bool IsComponentDragging => _components?.ValueDragOwner != null;
+
+    internal Func<Control, Action, IPropertyEditorDragSession?>? OpenComponentDragSession { get; set; }
+
     // Ends the drag in progress without ValueConfirmed, for a host that ended the gesture itself. The pad's drag ends
     // with it, so that the cursor its pointer lock hid comes back without waiting for the release.
     public void StopDrag()
@@ -123,6 +127,14 @@ public partial class ColorGradingWheel : PropertyEditor
         _components?.AddDisposableHandler(ValueChangedEvent, OnComponentsValueChanged).DisposeWith(_partHandlers);
         _components?.AddDisposableHandler(ValueConfirmedEvent, OnComponentsValueConfirmed).DisposeWith(_partHandlers);
         _components?.ConnectUnderlyingComponents(ReadUnderlyingComponentColor, OnUnderlyingComponentChanged).DisposeWith(_partHandlers);
+        if (_components is { } components)
+        {
+            components.OpenDragSession = (owner, stop) => OpenComponentDragSession?.Invoke(owner, () =>
+            {
+                _underlyingComponentEdit = null;
+                stop();
+            });
+        }
         _resetButton?.AddDisposableHandler(Button.ClickEvent, OnResetClick).DisposeWith(_partHandlers);
         UpdateParts();
     }

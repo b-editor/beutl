@@ -13,6 +13,7 @@ namespace Beutl.Controls.PropertyEditors;
 // then never reaches the box. The editor supplies what differs:
 // - began, scrub and ended: the scrub's start, each step and its confirmation;
 // - clicked: the text editing of a press that did not travel;
+// - stopped: resets the editor's drag state when the scrub ends;
 // - canArm: whether a press on the box can be a drag at all;
 // - canBegin: whether an armed press may begin to scrub once it has travelled;
 // - left: what follows a press that ended where nothing says whether the pointer is still over the box.
@@ -22,6 +23,7 @@ internal sealed class NumberBoxDrag(
     NumberBoxDrag.ScrubStep scrub,
     Action ended,
     Action<Control> clicked,
+    Action? stopped = null,
     Func<Control, bool>? canArm = null,
     Func<bool>? canBegin = null,
     Action? left = null)
@@ -39,7 +41,8 @@ internal sealed class NumberBoxDrag(
 
     private void OnPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Control box || editor.IsReadOnly || canArm?.Invoke(box) == false)
+        if (sender is not Control box || editor.IsReadOnly || _gesture.IsHeld
+            || editor.ValueDragOwner != null || canArm?.Invoke(box) == false)
             return;
 
         PointerPoint point = e.GetCurrentPoint(box);
@@ -71,6 +74,7 @@ internal sealed class NumberBoxDrag(
                 return;
 
             began();
+            editor.BeginValueDrag(box, e.Pointer, Stop);
         }
 
         scrub(ref _gesture, box, e);
@@ -107,12 +111,23 @@ internal sealed class NumberBoxDrag(
 
     private void End()
     {
+        bool wasActive = _gesture.IsActive;
+        Stop();
+        if (wasActive)
+        {
+            ended();
+            editor.CompleteValueDrag();
+        }
+    }
+
+    private void Stop()
+    {
         _gesture.Disarm();
         if (!_gesture.IsActive)
             return;
 
         // Ended before confirming, so a confirmation that rebuilds the box cannot end it twice.
         _gesture.End();
-        ended();
+        stopped?.Invoke();
     }
 }

@@ -129,6 +129,34 @@ public class NumberSliderFieldTests
     }
 
     [AvaloniaTest]
+    public void Escape_ends_a_number_box_drag_and_restores_the_value()
+    {
+        using var host = new FieldHost(effect => effect.Temperature, start: 20);
+        AvaPoint press = host.PointAt(20);
+        int scrubs = HeaderScrubGesture.ActiveCount;
+        host.Window.MouseDown(press, MouseButton.Left);
+        host.DragTo(press + new AvaPoint(4, 0));
+        host.DragTo(press + new AvaPoint(24, 0));
+        Assert.That(host.Property.Value, Is.EqualTo(40f));
+        Assert.That(host.History.IsEditing, Is.True);
+
+        host.Window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+        host.Window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+        Assert.That(host.Editor.Classes, Does.Not.Contain(":sliding"));
+        Assert.That(HeaderScrubGesture.ActiveCount, Is.EqualTo(scrubs));
+        host.DragTo(press + new AvaPoint(48, 0));
+        host.Window.MouseUp(press + new AvaPoint(48, 0), MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(host.Property.Value, Is.EqualTo(20f));
+            Assert.That(host.Editor.Value, Is.EqualTo(20f));
+            Assert.That(host.History.UndoCount, Is.Zero);
+            Assert.That(host.History.IsEditing, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
     public void A_click_edits_the_text_with_all_of_it_selected_and_leaves_the_value()
     {
         using var host = new FieldHost(effect => effect.Temperature, start: 20);

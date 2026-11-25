@@ -404,6 +404,14 @@ public partial class PropertyExpressionTests
     }
 
     [AvaloniaTest]
+    public void Escape_cancels_a_relative_point_drag()
+        => AssertRelativeDragCanBeCancelled(new RelativePoint(0.1f, 0.2f, RelativeUnit.Relative));
+
+    [AvaloniaTest]
+    public void Escape_cancels_a_relative_rectangle_drag()
+        => AssertRelativeDragCanBeCancelled(new RelativeRect(10, 20, 30, 40, RelativeUnit.Absolute));
+
+    [AvaloniaTest]
     public void A_color_drag_can_decrease_unsigned_components_without_wrapping()
     {
         using var scope = new ValueEditScope<Color>(Color.FromArgb(255, 100, 200, 30),
@@ -989,6 +997,35 @@ public partial class PropertyExpressionTests
 
     private static TextBox ComponentBox(Control editor, string part)
         => editor.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == $"PART_Inner{part}TextBox");
+
+    private static void AssertRelativeDragCanBeCancelled<T>(T initial)
+    {
+        using var scope = new ValueEditScope<T>(initial, "Value");
+        using var pointerLock = PointerLockScope.Off(TestShell.Configuration.EditorConfig);
+        using var host = scope.Show();
+        TextBox box = ComponentBox(scope.Control, "First");
+        AvaPoint press = HeadlessTestHelpers.Center(box, host.Window);
+        TimelineTestHost.WaitForHitTest(host.Window, box, press);
+        host.Window.MouseDown(press, MouseButton.Left);
+        host.Window.MouseMove(press + new AvaPoint(4, 0), RawInputModifiers.LeftMouseButton);
+        host.Window.MouseMove(press + new AvaPoint(24, 0), RawInputModifiers.LeftMouseButton);
+        Assert.That(scope.Property.Value, Is.Not.EqualTo(initial));
+        Assert.That(scope.History.IsEditing, Is.True);
+
+        host.Window.KeyPress(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+        host.Window.KeyRelease(Key.Escape, RawInputModifiers.LeftMouseButton, PhysicalKey.Escape, null);
+        Assert.That(scope.History.IsEditing, Is.False);
+        AvaPoint end = press + new AvaPoint(48, 0);
+        host.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        host.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(scope.Property.Value, Is.EqualTo(initial));
+            Assert.That(scope.History.UndoCount, Is.Zero);
+        });
+        HeadlessCapture.SaveIfRequested(host.Window, nameof(PropertyExpressionTests), $"cancel-{typeof(T).Name}-drag");
+    }
 
     private static CombinedEditorViewModel<float, (float, float)> CreateCombinedPointEditor(TranslateTransform transform)
     {
