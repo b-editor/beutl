@@ -57,6 +57,12 @@ internal sealed class DragSession : IPropertyEditorDragSession
 
     public void Cancel() => End(_cancel, complete: false);
 
+    public void CancelOnTimeChange(IEditorClock clock)
+    {
+        MediaTime startTime = clock.CurrentTime.Value;
+        _watches.Add(clock.CurrentTime.Where(time => time != startTime).Subscribe(_ => Cancel()));
+    }
+
     public static void Connect(PropertyEditor control, IServiceProvider editor, Action endPreview, Action completeRepair)
     {
         control.OpenDragSession = (owner, stop) =>

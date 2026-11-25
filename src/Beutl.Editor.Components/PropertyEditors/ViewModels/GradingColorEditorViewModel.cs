@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Media;
 
 using Reactive.Bindings;
@@ -47,16 +48,28 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
                 .DisposeWith(Disposables);
             wheel.ConnectUnderlyingComponents(() => TryGetFocusedEditValue(out var color) ? color : null)
                 .DisposeWith(Disposables);
-            wheel.OpenComponentDragSession = (owner, stop) => IsDisposed ? null : _drag.Open(this, owner, () =>
-            {
-                stop();
-                StopDrag(wheel);
-            });
+            wheel.OpenComponentDragSession = (owner, stop) => OpenComponentDrag(wheel, owner, stop);
             wheel.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnWheelValueConfirmed)
                 .DisposeWith(Disposables);
             wheel.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnWheelValueChanged)
                 .DisposeWith(Disposables);
         }
+    }
+
+    private DragSession? OpenComponentDrag(ColorGradingWheel wheel, Control owner, Action stop)
+    {
+        if (IsDisposed)
+            return null;
+
+        DragSession? drag = _drag.Open(this, owner, () =>
+        {
+            stop();
+            StopDrag(wheel);
+        });
+        // A deferred component edit belongs to the keyframe at the start of the drag.
+        if (drag != null && !IsLivePreviewEnabled.Value && GetService(typeof(IEditorClock)) is IEditorClock clock)
+            drag.CancelOnTimeChange(clock);
+        return drag;
     }
 
     private void OnWheelValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)

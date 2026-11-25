@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Animation;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
@@ -199,6 +200,48 @@ public sealed class ColorGradingTabTests
             Assert.That(host.History.IsEditing, Is.False);
             Assert.That(host.History.UndoCount, Is.EqualTo(end == DragEnd.Playback ? 1 : 0));
         });
+    }
+
+    [AvaloniaTest]
+    public void Seeking_during_a_deferred_rgb_drag_preserves_both_keyframes()
+    {
+        using var host = new WheelHost(effect => effect.Lift);
+        host.IsLivePreviewEnabled.Value = false;
+        var firstColor = new GradingColor(0.1f, 0.2f, 0.3f);
+        var secondColor = new GradingColor(0.4f, 0.5f, 0.6f);
+        MediaTime secondTime = MediaTime.FromSeconds(1);
+        var first = new KeyFrame<GradingColor> { Value = { Value = firstColor } };
+        var second = new KeyFrame<GradingColor> { KeyTime = { Value = secondTime }, Value = { Value = secondColor } };
+        var animation = new KeyFrameAnimation<GradingColor>();
+        animation.KeyFrames.Add(first);
+        animation.KeyFrames.Add(second);
+        host.History.ExecuteInTransaction(() => host.Property.SetKeyFrameAnimation(animation), "Setup");
+        int before = host.History.UndoCount;
+        Assert.That(host.Wheel.Color, Is.EqualTo(firstColor));
+
+        TextBox box = host.Boxes()[2];
+        AvaPoint start = HeadlessTestHelpers.Center(box, host.Window);
+        TimelineTestHost.WaitForHitTest(host.Window, box, start);
+        host.Window.MouseDown(start, MouseButton.Left);
+        host.Window.MouseMove(start + new Vector(4, 0), RawInputModifiers.LeftMouseButton);
+        AvaPoint end = start + new Vector(14, 0);
+        host.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        Assert.That(host.Wheel.Color, Is.Not.EqualTo(firstColor));
+        Assert.That(host.History.IsEditing, Is.True);
+
+        host.CurrentTime.Value = secondTime;
+        bool endedOnSeek = !host.History.IsEditing && !host.Wheel.IsComponentDragging;
+        host.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render();
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Value.Value, Is.EqualTo(firstColor));
+            Assert.That(second.Value.Value, Is.EqualTo(secondColor));
+            Assert.That(endedOnSeek, Is.True);
+            Assert.That(host.Wheel.Color, Is.EqualTo(secondColor));
+            Assert.That(host.History.UndoCount, Is.EqualTo(before));
+        });
+        HeadlessCapture.SaveIfRequested(host.Window, nameof(ColorGradingTabTests), "rgb-drag-after-seek");
     }
 
     [AvaloniaTest]
