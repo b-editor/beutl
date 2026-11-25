@@ -9,6 +9,12 @@ namespace Beutl.Editor;
 
 internal sealed partial class ProjectAssetService(DecoderRegistry decoders)
 {
+    private static readonly string s_modelType = TypeFormat.ToString(typeof(Model3D));
+    private static readonly HashSet<string> s_modelExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".obj", ".fbx", ".gltf", ".glb", ".dae", ".stl", ".ply", ".blend", ".3ds",
+    };
+
     internal sealed record Relink(ProjectAssetReferences.Use Use, string Destination);
     internal sealed record Analysis(ProjectAssetPreview Preview, Dictionary<string, List<Relink>> Sources);
 
@@ -74,8 +80,8 @@ internal sealed partial class ProjectAssetService(DecoderRegistry decoders)
         {
             var extensions = MediaFileMatcher.ImagePatterns.Concat(MediaFileMatcher.VideoExtensions(decoders))
                 .Concat(MediaFileMatcher.AudioExtensions(decoders))
-                .Concat(["*.cube", "*.obj", "*.mtl", "*.fbx", "*.gltf", "*.glb", "*.dae", "*.stl", "*.ply", "*.blend", "*.3ds"])
-                .Select(pattern => Path.GetExtension(pattern)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                .Select(pattern => Path.GetExtension(pattern))
+                .Concat(s_modelExtensions).Concat([".cube", ".mtl"]).ToHashSet(StringComparer.OrdinalIgnoreCase);
             string fonts = Path.Combine(paths.Resources, "fonts");
             foreach (string path in ProjectAssetPaths.EnumerateFiles(paths.Resources, token))
             {
@@ -191,6 +197,8 @@ internal sealed partial class ProjectAssetService(DecoderRegistry decoders)
     {
         var pending = new Queue<string>(documents);
         var visited = new HashSet<string>(StringComparer.Ordinal);
+        // Relative dependencies depend on the model's path, including any symlink aliases.
+        var visitedModels = new HashSet<string>(StringComparer.Ordinal);
         while (pending.TryDequeue(out string? document))
         {
             token.ThrowIfCancellationRequested();
@@ -201,39 +209,72 @@ internal sealed partial class ProjectAssetService(DecoderRegistry decoders)
             Visit(json.RootElement, baseUri, HasExtension(document, EditorConstants.SceneFileExtension));
         }
 
-        void Visit(JsonElement node, Uri baseUri, bool sceneRoot = false)
+        void Visit(JsonElement node, Uri baseUri, bool sceneRoot = false, bool modelReference = false)
         {
             switch (node.ValueKind)
             {
                 case JsonValueKind.Object:
+                    bool isModel = node.TryGetProperty("$type", out JsonElement type)
+                        && type.ValueKind == JsonValueKind.String && type.ValueEquals(s_modelType);
                     foreach (JsonProperty member in node.EnumerateObject())
                     {
                         // The scene's include/exclude values are globs. The element files are
                         // already in the project scan and the live scene's document list.
                         if (sceneRoot && member.NameEquals("Elements") && member.Value.ValueKind == JsonValueKind.Object)
                             continue;
-                        Visit(member.Value, baseUri);
+                        Visit(member.Value, baseUri, modelReference: isModel && member.NameEquals(nameof(Model3D.Source)));
                     }
                     break;
                 case JsonValueKind.Array:
                     foreach (JsonElement child in node.EnumerateArray()) Visit(child, baseUri);
                     break;
-                case JsonValueKind.String when node.GetString() is { } value && value.Contains('.'):
-                    string file;
+                case JsonValueKind.String when node.GetString() is { } value && (modelReference || value.Contains('.')):
+                    Uri uri;
                     try
                     {
-                        if (UriHelper.ResolvePersistedReference(value, baseUri) is not { IsFile: true } uri) break;
-                        file = uri.LocalPath;
+                        uri = UriHelper.ResolvePersistedReference(value, baseUri);
                     }
-                    catch (JsonException)
+                    catch (JsonException) when (!modelReference)
                     {
                         break;
                     }
 
+                    if (!uri.IsFile)
+                    {
+                        if (modelReference) throw new JsonException("A saved model source must reference a local file.");
+                        break;
+                    }
+
+                    string file = uri.LocalPath;
                     if (IsProjectDocument(file)) pending.Enqueue(file);
                     if (paths.IsInside(file)) used.Add(canonical.ResolveCanonicalPath(file));
+                    // Also protect model files stored in extension data. A filename in an arbitrary
+                    // string only counts as a model when it resolves to an existing file.
+                    if ((modelReference || (s_modelExtensions.Contains(Path.GetExtension(file)) && File.Exists(file)))
+                        && visitedModels.Add(file))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        used.UnionWith(ReadModelFiles(uri).Select(canonical.ResolveCanonicalPath));
+                    }
                     break;
             }
         }
+    }
+
+    private static IEnumerable<string> ReadModelFiles(Uri uri)
+    {
+        var model = new ModelSource();
+        try
+        {
+            model.ReadFrom(uri);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or DllNotFoundException or BadImageFormatException or EntryPointNotFoundException)
+        {
+            throw new IOException($"Could not inspect the dependencies of model '{uri.LocalPath}'.", ex);
+        }
+
+        if (model.MeshCount == 0)
+            throw new IOException($"Model '{uri.LocalPath}' contains no readable meshes.");
+        return FileSourceFiles.EnumerateLocalPaths(model);
     }
 }

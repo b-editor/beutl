@@ -123,6 +123,44 @@ public sealed class ProjectAssetTests
     }
 
     [AvaloniaTest]
+    public async Task Cleanup_protects_model_dependencies_referenced_only_by_a_saved_element()
+    {
+        (Project project, _, _) = await TestShell.OpenNewSceneAsync("Saved model dependencies");
+        var paths = new ProjectAssetPaths(project);
+        string modelDirectory = Path.Combine(paths.Resources, "model");
+        string textureFile = MakeImage(Path.Combine(modelDirectory, "texture.png"), SKColors.Coral);
+        string materialFile = Path.Combine(modelDirectory, "surface.mtl");
+        File.WriteAllText(materialFile, "newmtl surface\nmap_Kd texture.png\n");
+        string modelFile = Path.Combine(modelDirectory, "triangle.obj");
+        File.WriteAllText(modelFile, "mtllib surface.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl surface\nf 1 2 3\n");
+        string unused = MakeImage(Path.Combine(paths.Resources, "unused.png"), SKColors.Green);
+        ProjectAssetPreview beforeSave = await Assets.PreviewAsync(project, CancellationToken.None);
+        ProjectAssetItem material = beforeSave.Unused.Single(item => item.Path == materialFile);
+        Assert.That(material.CanApply(ProjectAssetAction.Quarantine), Is.True);
+
+        var source = new ModelSource();
+        source.ReadFrom(new Uri(modelFile));
+        var model = new Model3D { Source = { Value = source } };
+        model.Children.Clear(); // Leave the texture referenced only by the model's material file.
+        var scene3D = new Scene3D();
+        scene3D.Objects.Add(model);
+        var element = new Element { Uri = new Uri(Path.Combine(paths.Root, "archived.belm")) };
+        element.AddObject(scene3D);
+        CoreSerializer.StoreToUri(element, element.Uri);
+
+        ProjectAssetPreview saved = await Assets.PreviewAsync(project, CancellationToken.None);
+        Assert.That(saved.Unused.Select(item => item.Path), Is.EqualTo(new[] { unused }));
+        await Assert.ThrowsAsync<ProjectAssetPlanChangedException>(() => Assets.ApplyAsync(project, beforeSave,
+            ProjectAssetAction.Quarantine, [material], CancellationToken.None));
+        Assert.That(File.Exists(materialFile) && File.Exists(textureFile), Is.True);
+
+        File.Delete(modelFile);
+        ProjectAssetPreview missing = await Assets.PreviewAsync(project, CancellationToken.None);
+        Assert.That(missing.CleanupIssue, Is.EqualTo(ProjectAssetIssue.IncompleteReferences));
+        Assert.That(missing.Unused.Single(item => item.Path == unused).CanApply(ProjectAssetAction.Quarantine), Is.False);
+    }
+
+    [AvaloniaTest]
     public async Task Save_failure_restores_uris_and_documents_and_discards_new_copies()
     {
         (Project project, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("Asset rollback");
