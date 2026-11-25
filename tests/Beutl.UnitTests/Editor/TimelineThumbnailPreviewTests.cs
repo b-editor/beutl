@@ -281,10 +281,12 @@ public class TimelineThumbnailPreviewTests
         });
     }
 
-    [TestCase(0f, 800)]
-    [TestCase(50f, 800)]
-    [TestCase(0f, 400)]
-    public async Task ScrolledSlipWaveform_MatchesTheCommittedEffectHistory(float feedback, int samplesPerChunk)
+    [TestCase(0f, 800, false)]
+    [TestCase(50f, 800, false)]
+    [TestCase(0f, 400, false)]
+    [TestCase(0f, 4096, true)]
+    public async Task ScrolledSlipWaveform_MatchesTheCommittedEffectHistory(
+        float feedback, int samplesPerChunk, bool speedExpression)
     {
         var decoders = TestMediaHelper.CreateRegistry();
         var sound = new SourceSound
@@ -302,6 +304,13 @@ public class TimelineThumbnailPreviewTests
                 },
             },
         };
+        if (speedExpression)
+        {
+            new TestHierarchicalRoot().HierarchicalChildren.Add(sound);
+            // The larger warm-up block starts while the source is playing, then crosses into the frozen segment.
+            sound.Speed.Expression = Expression.Create<float>("Time < 0.15 ? 100 : 0");
+        }
+
         MediaTime delta = MediaTime.FromSeconds(0.25);
         const int chunkCount = 20;
         int[] requested = [6, 7, 12, 16];
@@ -322,7 +331,7 @@ public class TimelineThumbnailPreviewTests
 
         Assert.That(preview.Select(chunk => chunk.Index), Is.EqualTo(requested));
         Assert.That(committed.Select(chunk => chunk.Index), Is.EqualTo(requested));
-        Assert.That(committed[0].MaxValue, samplesPerChunk == 800 ? Is.GreaterThan(0.1f) : Is.Zero);
+        Assert.That(committed[0].MaxValue, samplesPerChunk >= 800 ? Is.GreaterThan(0.1f) : Is.Zero);
         for (int i = 0; i < requested.Length; i++)
         {
             TestContext.Out.WriteLine(FormattableString.Invariant(

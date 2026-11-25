@@ -231,7 +231,13 @@ public sealed partial class SourceSound : IThumbnailsProvider
                     foreach (IAudioTimeMappingNode node in audioContext.Nodes.OfType<IAudioTimeMappingNode>())
                         node.SetPreviewStartDelta(startDelta);
                 }
-                return (output, output?.GetFiniteSourceEndSample(sampleRate), GetPreviewEffectHistory(Effect.Value, sampleRate));
+                long? requiredHistory = GetPreviewEffectHistory(Effect.Value, sampleRate);
+                // A speed expression is evaluated at each slot's start. The resampler keeps state between
+                // slots, so replay from the last seek using the same windows as the committed waveform.
+                if (requiredHistory > 0 && Speed.HasExpression)
+                    requiredHistory = null;
+
+                return (output, output?.GetFiniteSourceEndSample(sampleRate), requiredHistory);
             }, DispatchPriority.Low, cancellationToken);
             var sampler = new AnimationSampler { PreviewStartDelta = startDelta, PreviewDurationDelta = durationDelta };
 
