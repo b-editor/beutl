@@ -23,6 +23,8 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
         pfp.SelectedCategoryIndex = viewModel.SelectedCategoryIndex.Value;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedCategoryIndexProperty)
             .Subscribe(v => viewModel.SelectedCategoryIndex.Value = v);
+        viewModel.SelectedCategoryIndex.Skip(1)
+            .Subscribe(v => pfp.SelectedCategoryIndex = v);
         pfp.ShowAll = viewModel.ShowAll.Value;
         pfp.ShowReferencesTab = viewModel.HasReferencesTab;
         if (viewModel.ShowsOnlyReferences)

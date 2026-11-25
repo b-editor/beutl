@@ -126,6 +126,57 @@ public sealed class LibraryEffectCategoryTests
     }
 
     [AvaloniaTest]
+    public async Task The_expanded_effect_picker_offers_other_and_returns_to_all_categories_when_collapsed()
+    {
+        using var library = new LibraryService();
+        LibraryRegistrar.RegisterAll(library);
+        const string format = KnownLibraryItemFormats.FilterEffect;
+        var viewModel = new SelectLibraryItemDialogViewModel(TestShell.FontManager, library, format, typeof(FilterEffect));
+        var host = new Button { Content = "Pick" };
+        var window = new Window { Content = host, Width = 540, Height = 640 };
+        var flyout = new LibraryItemPickerFlyout(viewModel);
+        try
+        {
+            window.Show();
+            flyout.ShowAt(host, true);
+            await viewModel.SearchTask;
+            HeadlessTestHelpers.Render(3);
+            var presenter = (LibraryItemPickerFlyoutPresenter)flyout.Popup.Child!;
+            var picker = presenter.GetVisualDescendants().OfType<ComboBox>().Single(control => control.Name == "CategoryPicker");
+            Assert.That(picker.Items, Does.Not.Contain(Strings.Others));
+
+            picker.SetCurrentValue(ComboBox.SelectedIndexProperty, 1);
+            presenter.ShowAll = true;
+            await viewModel.SearchTask.WaitAsync(TimeSpan.FromSeconds(10));
+            HeadlessTestHelpers.Render();
+            Assert.That(picker.Items.Last(), Is.EqualTo(Strings.Others));
+            Assert.That(picker.SelectedItem, Is.EqualTo(GraphicsStrings.FilterEffectCategory_BlurAndSharpen));
+
+            picker.SetCurrentValue(ComboBox.SelectedIndexProperty, picker.Items.Count - 1);
+            await viewModel.SearchTask;
+            HeadlessTestHelpers.Render();
+            IReadOnlySet<Type> registered = library.GetTypesFromFormat(format);
+            Type[] otherTypes = viewModel.Items.Select(item => ((SingleTypeLibraryItem)item.UserData).ImplementationType).ToArray();
+            Assert.That(otherTypes, Does.Contain(typeof(FilterEffectGroup)));
+            Assert.That(otherTypes.Any(registered.Contains), Is.False);
+            HeadlessCapture.SaveIfRequested(window, nameof(LibraryEffectCategoryTests), "expanded-effect-picker-other");
+
+            presenter.ShowAll = false;
+            await viewModel.SearchTask;
+            HeadlessTestHelpers.Render();
+            Assert.That(picker.Items, Does.Not.Contain(Strings.Others));
+            Assert.That(picker.SelectedItem, Is.EqualTo(Strings.AllEffectCategories));
+            Assert.That(viewModel.Items.Select(item => ((SingleTypeLibraryItem)item.UserData).ImplementationType), Is.EquivalentTo(registered));
+        }
+        finally
+        {
+            flyout.Hide();
+            window.Close();
+            viewModel.ReleaseThumbnails();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task The_audio_effect_picker_filters_the_audio_catalog()
     {
         using var library = new LibraryService();

@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.ObjectModel;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Beutl.Configuration;
 using Beutl.Controls;
@@ -23,9 +24,11 @@ public class SelectLibraryItemDialogViewModel
     private readonly Task<PinnableLibraryItem[]> _itemsTask;
     private readonly List<Type> _pinnedItems;
     private readonly Dictionary<LibraryItem, string> _effectCategories = [];
+    private readonly ObservableCollection<string> _categories = [];
     private Task<PinnableLibraryItem[]>? _allItemsTask;
     private PinnableLibraryItem[] _allReferenceItems = [];
     private int _searchVersion;
+    private bool _updatingCategories;
     private string? _appliedSearchText;
     private string? _appliedReferenceSearchText;
 
@@ -58,8 +61,8 @@ public class SelectLibraryItemDialogViewModel
         string others = Strings.Others;
         if (_effectCategories.Values.Any(category => category != others))
         {
-            Categories = [Strings.AllEffectCategories, .. _effectCategories.Values.Distinct().OrderBy(category => category == others)];
-            SelectedCategoryIndex.Skip(1).Subscribe(_ => ProcessSearchText());
+            _categories = [Strings.AllEffectCategories, .. _effectCategories.Values.Distinct().OrderBy(category => category == others)];
+            SelectedCategoryIndex.Skip(1).Where(_ => !_updatingCategories).Subscribe(_ => ProcessSearchText());
         }
 
         IReadOnlySet<Type> items = _libraryService.GetTypesFromFormat(_format);
@@ -120,7 +123,7 @@ public class SelectLibraryItemDialogViewModel
 
     public ReactiveCollection<PinnableLibraryItem> Items { get; } = [];
 
-    public IReadOnlyList<string> Categories { get; } = [];
+    public IReadOnlyList<string> Categories => _categories;
 
     public ReactiveProperty<int> SelectedCategoryIndex { get; } = new();
 
@@ -288,6 +291,9 @@ public class SelectLibraryItemDialogViewModel
         var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
         if (searchVersion != Volatile.Read(ref _searchVersion)) return;
 
+        string others = Strings.Others;
+        UpdateOtherCategory(items, others);
+
         // Read after the wait, so this is the text the results are for, whichever path asked for them.
         _appliedSearchText = SearchText.Value;
         IEnumerable<PinnableLibraryItem> matchingItems = items;
@@ -295,8 +301,7 @@ public class SelectLibraryItemDialogViewModel
         if (categoryIndex > 0 && categoryIndex < Categories.Count)
         {
             string category = Categories[categoryIndex];
-            string others = Strings.Others;
-            matchingItems = matchingItems.Where(item => _effectCategories.GetValueOrDefault((LibraryItem)item.UserData, others) == category);
+            matchingItems = matchingItems.Where(item => GetEffectCategory(item, others) == category);
         }
 
         items = matchingItems.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description)
@@ -322,6 +327,41 @@ public class SelectLibraryItemDialogViewModel
                 .Select(v => v.item)
                 .ToArray();
             Items.AddRange(newItems);
+        }
+    }
+
+    private string GetEffectCategory(PinnableLibraryItem item, string others)
+        => _effectCategories.GetValueOrDefault((LibraryItem)item.UserData, others);
+
+    private void UpdateOtherCategory(PinnableLibraryItem[] items, string others)
+    {
+        if (_categories.Count == 0)
+            return;
+
+        bool hasOthers = _categories[^1] == others;
+        bool needsOthers = items.Any(item => GetEffectCategory(item, others) == others);
+        if (hasOthers == needsOthers)
+            return;
+
+        // The picker can change its selection during this update. The current search reads that selection below.
+        _updatingCategories = true;
+        try
+        {
+            if (needsOthers)
+            {
+                _categories.Add(others);
+            }
+            else
+            {
+                if (SelectedCategoryIndex.Value == _categories.Count - 1)
+                    SelectedCategoryIndex.Value = 0;
+
+                _categories.RemoveAt(_categories.Count - 1);
+            }
+        }
+        finally
+        {
+            _updatingCategories = false;
         }
     }
 
