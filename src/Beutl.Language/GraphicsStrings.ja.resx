@@ -451,6 +451,18 @@
   <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
     <value>「1ステップごと」では、1ステップあたりの遅延をミリ秒で指定します。「全体」では、最初のパーツが動き始めてから最後のパーツが動き始めるまでの時間を指定します。</value>
   </data>
+  <data name="TextAnimationUnit" xml:space="preserve">
+    <value>単位</value>
+  </data>
+  <data name="TextAnimationUnit_Characters" xml:space="preserve">
+    <value>文字</value>
+  </data>
+  <data name="TextAnimationUnit_Words" xml:space="preserve">
+    <value>単語</value>
+  </data>
+  <data name="TextAnimationUnit_Lines" xml:space="preserve">
+    <value>行</value>
+  </data>
   <data name="DelayAnimationMode_PerStep" xml:space="preserve">
     <value>1ステップごと</value>
   </data>

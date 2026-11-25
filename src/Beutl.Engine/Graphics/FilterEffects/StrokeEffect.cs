@@ -88,7 +88,7 @@ public partial class StrokeEffect : FilterEffect
                     MathF.Round((target.Bounds.X - transformedBounds.X) * w) / w,
                     MathF.Round((target.Bounds.Y - transformedBounds.Y) * w) / w);
 
-                EffectTarget newTarget = context.CreateTarget(transformedBounds);
+                EffectTarget newTarget = context.CreateTarget(transformedBounds, target);
                 if (newTarget.IsEmpty)
                 {
                     newTarget.Dispose();

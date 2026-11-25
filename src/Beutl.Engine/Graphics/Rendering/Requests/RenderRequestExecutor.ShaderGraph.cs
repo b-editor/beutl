@@ -78,6 +78,7 @@ internal sealed partial class RenderRequestExecutor
                         float density = graph.ClampWorkingScale(input.CompleteBounds, scale.Value, _activeDeviceGridOffset,
                             referenceBounds, sourceValue.DeviceBounds.Size, ((VulkanTexture2D)source).Usage, required);
                         output = CreateOwnedValue(required, EffectiveScale.At(density), bounds, allowPreviewDrop: true);
+                        output.TextPart = input.TextPart;
                         ITexture2D destination = output.Target.Texture
                             ?? throw new NotSupportedException("Shader graph output requires a backend texture.");
                         sourceValue.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);

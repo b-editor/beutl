@@ -867,6 +867,8 @@ internal sealed partial class RenderRequestExecutor
 
         public Rect CompleteBounds { get; }
 
+        public TextPartTag? TextPart { get; set; }
+
         public EffectiveScale EffectiveScale { get; }
 
         public PixelRect DeviceBounds { get; }

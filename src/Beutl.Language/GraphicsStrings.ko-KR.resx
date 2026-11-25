@@ -455,6 +455,18 @@
   <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
     <value>단계별은 각 단계의 지연을 밀리초 단위로 지정합니다. 전체는 첫 파트가 시작한 때부터 마지막 파트가 시작할 때까지 걸리는 시간을 지정합니다.</value>
   </data>
+  <data name="TextAnimationUnit" xml:space="preserve">
+    <value>단위</value>
+  </data>
+  <data name="TextAnimationUnit_Characters" xml:space="preserve">
+    <value>문자</value>
+  </data>
+  <data name="TextAnimationUnit_Words" xml:space="preserve">
+    <value>단어</value>
+  </data>
+  <data name="TextAnimationUnit_Lines" xml:space="preserve">
+    <value>줄</value>
+  </data>
   <data name="DelayAnimationMode_PerStep" xml:space="preserve">
     <value>단계별</value>
   </data>

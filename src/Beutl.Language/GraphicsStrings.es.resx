@@ -455,6 +455,18 @@
   <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
     <value>Por paso aplica el retardo en milisegundos a cada paso. Total mide el retardo desde el inicio de la primera parte hasta el inicio de la última.</value>
   </data>
+  <data name="TextAnimationUnit" xml:space="preserve">
+    <value>Unidad</value>
+  </data>
+  <data name="TextAnimationUnit_Characters" xml:space="preserve">
+    <value>Caracteres</value>
+  </data>
+  <data name="TextAnimationUnit_Words" xml:space="preserve">
+    <value>Palabras</value>
+  </data>
+  <data name="TextAnimationUnit_Lines" xml:space="preserve">
+    <value>Líneas</value>
+  </data>
   <data name="DelayAnimationMode_PerStep" xml:space="preserve">
     <value>Por paso</value>
   </data>

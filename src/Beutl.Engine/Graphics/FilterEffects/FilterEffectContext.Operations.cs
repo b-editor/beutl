@@ -78,7 +78,7 @@ public sealed partial class FilterEffectContext
                     var target = context.Targets[i];
                     if (target.RenderTarget is not null)
                     {
-                        EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                        EffectTarget newTarget = context.CreateTarget(target.Bounds, target);
                         if (newTarget.IsEmpty)
                         {
                             newTarget.Dispose();
@@ -398,7 +398,7 @@ public sealed partial class FilterEffectContext
                 if (target.RenderTarget is not null)
                 {
                     Size size = target.Bounds.Size;
-                    EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                    EffectTarget newTarget = context.CreateTarget(target.Bounds, target);
                     if (newTarget.IsEmpty)
                     {
                         newTarget.Dispose();

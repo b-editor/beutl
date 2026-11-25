@@ -7,10 +7,20 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
     : BrushRenderNode(fill, pen)
 {
     private static readonly RenderResourceSlot<Geometry.Resource> s_geometrySlot = new();
+    private TextPartTag? _textPart;
+
+    internal GeometryRenderNode(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen, TextPartTag? textPart)
+        : this(geometry, fill, pen)
+    {
+        _textPart = textPart;
+    }
 
     public (Geometry.Resource Resource, int Version)? Geometry { get; private set; } = geometry.Capture();
 
     public bool Update(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
+        => Update(geometry, fill, pen, null);
+
+    internal bool Update(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen, TextPartTag? textPart)
     {
         bool changed = Update(fill, pen);
         if (!geometry.Compare(Geometry))
@@ -19,12 +29,14 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
             changed = true;
         }
 
-        if (changed)
+        if (changed || _textPart != textPart)
         {
+            _textPart = textPart;
             MarkChanged();
+            return true;
         }
 
-        return changed;
+        return false;
     }
 
     public override void Process(RenderNodeContext context)
@@ -47,7 +59,8 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         RenderResource<Geometry.Resource> geometryResource = context.Borrow(geometry);
         var hitTestState = new GeometryHitTestState(fill is not null, pen);
 
-        context.Publish(context.PaintedSource(
+        context.Publish(context.PaintedSourceWithBindings(
+            _textPart,
             geometry,
             static (canvas, fill, pen, state) => canvas.DrawGeometry(state, fill, pen),
             fill,

@@ -71,7 +71,7 @@ public sealed partial class TransformEffect : FilterEffect
         Rect bounds,
         Matrix transform)
     {
-        EffectTarget newTarget = context.CreateTarget(bounds);
+        EffectTarget newTarget = context.CreateTarget(bounds, target);
         if (newTarget.IsEmpty)
         {
             newTarget.Dispose();

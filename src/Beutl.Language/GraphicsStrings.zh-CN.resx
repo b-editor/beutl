@@ -455,6 +455,18 @@
   <data name="DelayAnimationEffect_DelayMode_Description" xml:space="preserve">
     <value>每步模式以毫秒为单位设置每一步的延迟。总时长模式设置从第一个部分开始到最后一个部分开始的时间。</value>
   </data>
+  <data name="TextAnimationUnit" xml:space="preserve">
+    <value>单位</value>
+  </data>
+  <data name="TextAnimationUnit_Characters" xml:space="preserve">
+    <value>字符</value>
+  </data>
+  <data name="TextAnimationUnit_Words" xml:space="preserve">
+    <value>单词</value>
+  </data>
+  <data name="TextAnimationUnit_Lines" xml:space="preserve">
+    <value>行</value>
+  </data>
   <data name="DelayAnimationMode_PerStep" xml:space="preserve">
     <value>每步</value>
   </data>

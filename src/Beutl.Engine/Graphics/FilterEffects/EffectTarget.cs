@@ -117,6 +117,8 @@ public sealed class EffectTarget : IDisposable
     /// </remarks>
     internal Rect? CompleteBounds { get; set; }
 
+    internal TextPartTag? TextPart { get; set; }
+
     /// <summary>The current content and raster footprint. Moving Bounds translates the raster on its original allocation.</summary>
     public RenderPlacement Placement => _allocation.MoveContent(Bounds);
 
@@ -169,7 +171,13 @@ public sealed class EffectTarget : IDisposable
         }
         else
         {
-            return new EffectTarget { OriginalBounds = OriginalBounds, Bounds = Bounds, CompleteBounds = CompleteBounds };
+            return new EffectTarget
+            {
+                OriginalBounds = OriginalBounds,
+                Bounds = Bounds,
+                CompleteBounds = CompleteBounds,
+                TextPart = TextPart,
+            };
         }
     }
 
@@ -215,6 +223,7 @@ public sealed class EffectTarget : IDisposable
             Bounds = Bounds,
             OriginalBounds = OriginalBounds,
             CompleteBounds = CompleteBounds,
+            TextPart = TextPart,
         };
     }
 
@@ -235,6 +244,7 @@ public sealed class EffectTarget : IDisposable
             preserveImperativeRasterPlacement: false)
         {
             CompleteBounds = CompleteBounds,
+            TextPart = TextPart,
         };
         _target = null;
         return result;

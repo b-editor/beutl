@@ -60,6 +60,7 @@ internal sealed partial class RenderRequestExecutor
                     fragment.Bounds,
                     scale,
                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+                value.TextPart = TextPartTag.GetCommon(values, static value => value.TextPart);
                 bool succeeded = false;
                 try
                 {
@@ -279,6 +280,7 @@ internal sealed partial class RenderRequestExecutor
                                 target,
                                 renderTarget,
                                 target.CompleteBounds ?? target.Bounds);
+                            value.TextPart = target.TextPart;
                             _ownedValues.Add(value);
 
                             // Cropping the input to the backward region leaves the surrounding output
@@ -400,6 +402,7 @@ internal sealed partial class RenderRequestExecutor
                         OriginalBounds = new Rect(default, bounds.Size),
                         Bounds = bounds,
                         CompleteBounds = completeBounds,
+                        TextPart = input.TextPart,
                     });
                 }
 
@@ -511,6 +514,7 @@ internal sealed partial class RenderRequestExecutor
                     scale,
                     fragment.Bounds,
                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+                output.TextPart = GetReplayTextPart(input);
                 using var builder = new SKImageFilterBuilder();
                 foreach (IFEItem item in payload.BoundsItems)
                     ((IFEItem_Skia)item).AcceptsDirect(builder);

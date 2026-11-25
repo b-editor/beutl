@@ -227,6 +227,13 @@ public class CustomFilterEffectContext
     public EffectTarget CreateTarget(Rect bounds)
         => CreateTargetCore(bounds);
 
+    internal EffectTarget CreateTarget(Rect bounds, EffectTarget source)
+    {
+        EffectTarget target = CreateTargetCore(bounds);
+        target.TextPart = source.TextPart;
+        return target;
+    }
+
     // Native shader passes initialize their own attachment and can reuse render-owned pooled targets.
     internal EffectTarget CreateNativeTarget(Rect bounds)
         => CreateTargetCore(bounds, native: true);

@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using System.Runtime.CompilerServices;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Logging;
@@ -15,6 +16,9 @@ public sealed class GraphicsContext2D(
     float outputScale = 1f)
     : IDisposable, IPopable
 {
+    private static readonly ConditionalWeakTable<ContainerRenderNode, StrongBox<long>> s_textOccurrences = new();
+    private static long s_nextTextOccurrence;
+
     private readonly Stack<(ContainerRenderNode Container, int OperationIndex, bool HasChanges)> _nodes = [];
     private int _drawOperationindex;
 
@@ -36,6 +40,10 @@ public sealed class GraphicsContext2D(
 
     // The number of open scopes. A PushedState at level n closes the scope at that depth and those inside it.
     internal int Depth => _nodes.Count;
+
+    // The scope belongs to this draw occurrence and survives updates of the recorded tree.
+    internal long GetTextPartOccurrence()
+        => s_textOccurrences.GetValue(_container, static _ => new StrongBox<long>(Interlocked.Increment(ref s_nextTextOccurrence))).Value;
 
     private void Add(RenderNode node)
     {
@@ -314,17 +322,20 @@ public sealed class GraphicsContext2D(
             });
 
     public void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
+        => DrawGeometry(geometry, fill, pen, null);
+
+    internal void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen, TextPartTag? textPart)
         => DrawNode(
-            (Geometry: geometry, Fill: fill, Pen: pen),
+            (Geometry: geometry, Fill: fill, Pen: pen, TextPart: textPart),
             static p =>
             {
                 ThrowIfUnusable(p.Geometry, p.Fill, p.Pen, nameof(geometry));
-                return new GeometryRenderNode(p.Geometry, p.Fill, p.Pen);
+                return new GeometryRenderNode(p.Geometry, p.Fill, p.Pen, p.TextPart);
             },
             static (node, p) =>
             {
                 ThrowIfUnusable(p.Geometry, p.Fill, p.Pen, nameof(geometry));
-                return node.Update(p.Geometry, p.Fill, p.Pen);
+                return node.Update(p.Geometry, p.Fill, p.Pen, p.TextPart);
             });
 
     public void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
@@ -342,19 +353,22 @@ public sealed class GraphicsContext2D(
             });
 
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
+        => DrawText(text, fill, pen, null);
+
+    internal void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen, TextPartTag? textPart)
         => DrawNode(
-            (Text: text, Fill: fill, Pen: pen),
+            (Text: text, Fill: fill, Pen: pen, TextPart: textPart),
             static p =>
             {
                 ThrowIfDisposed(p.Fill, p.Pen);
                 ArgumentNullException.ThrowIfNull(p.Text, nameof(text));
-                return new TextRenderNode(p.Text, p.Fill, p.Pen);
+                return new TextRenderNode(p.Text, p.Fill, p.Pen, p.TextPart);
             },
             static (node, p) =>
             {
                 ThrowIfDisposed(p.Fill, p.Pen);
                 ArgumentNullException.ThrowIfNull(p.Text, nameof(text));
-                return node.Update(p.Text, p.Fill, p.Pen);
+                return node.Update(p.Text, p.Fill, p.Pen, p.TextPart);
             });
 
     public void DrawDrawable(Drawable.Resource drawable)

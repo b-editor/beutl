@@ -12,6 +12,7 @@ public partial class LayerEffect : FilterEffect
         Rect bounds = context.Targets.CalculateBounds();
         EffectTarget output = context.CreateTarget(bounds);
         if (output.IsEmpty) return output;
+        output.TextPart = TextPartTag.GetCommon(context.Targets, static target => target.TextPart);
 
         try
         {
