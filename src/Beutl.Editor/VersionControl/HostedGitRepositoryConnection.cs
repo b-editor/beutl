@@ -7,18 +7,19 @@ namespace Beutl.Editor.VersionControl;
 
 internal static class HostedGitRepositoryConnection
 {
-    public static Task<T> ConfigureAsync<T>(
+    public static Task ConfigureAsync(
         HostedGitRepositoryService service, AuthenticatedUser owner, GitRepositorySummary repository,
-        Func<GitRemoteUrl, CancellationToken, Task<T>> configure, CancellationToken cancellationToken)
+        Func<GitRemoteUrl, CancellationToken, Task> configure, CancellationToken cancellationToken)
     {
-        if (!Uri.TryCreate(repository.Url, UriKind.Absolute, out Uri? url)
-            || !HostedGitRemoteUrl.TryGetRepositoryId(url, out Guid id)
-            || !string.Equals(id.ToString("D"), repository.Id, StringComparison.Ordinal))
+        if (!HostedGitRemoteUrl.TryGetAdvertisedUrl(repository, out Uri? url, out Guid id))
         {
             throw new InvalidOperationException(Strings.HostedGit_InvalidRepositoryUrl);
         }
 
-        return service.UseDesktopTokenAsync(id, owner,
-            (token, ct) => configure(GitRemoteUrl.WithHostedCredentials(url, token), ct), cancellationToken);
+        return service.UseDesktopTokenAsync(id, owner, async (token, ct) =>
+        {
+            await configure(GitRemoteUrl.WithHostedCredentials(url, token), ct);
+            return true;
+        }, cancellationToken);
     }
 }

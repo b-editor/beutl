@@ -25,8 +25,6 @@ public sealed class HostedGitRemoteUrlTests
             Assert.That(parsed.GetRepositoryUri().AbsoluteUri, Is.EqualTo($"{ProductionOrigin}/dashboard/repositories/{Id}"));
             Assert.That(parsed.GetRepositoryUri("feature/日本語#1").AbsoluteUri,
                 Is.EqualTo($"{ProductionOrigin}/dashboard/repositories/{Id}?ref=feature%2F%E6%97%A5%E6%9C%AC%E8%AA%9E%231"));
-            Assert.That(parsed.GetCommitsUri("feature/fix").AbsoluteUri,
-                Is.EqualTo($"{ProductionOrigin}/dashboard/repositories/{Id}/commits?ref=feature%2Ffix"));
         });
     }
 

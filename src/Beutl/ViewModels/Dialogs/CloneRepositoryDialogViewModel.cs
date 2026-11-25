@@ -143,11 +143,8 @@ internal sealed class CloneRepositoryDialogViewModel : IDisposable
                 if (owner is null || repository is null || Picker.Service is not { } service)
                     return false;
 
-                await HostedGitRepositoryConnection.ConfigureAsync(service, owner, repository, async (remote, ct) =>
-                {
-                    await _cloner.CloneAsync(remote, destination, revision, progress, ct);
-                    return true;
-                }, token);
+                await HostedGitRepositoryConnection.ConfigureAsync(service, owner, repository,
+                    (remote, ct) => _cloner.CloneAsync(remote, destination, revision, progress, ct), token);
             }
             else
             {
