@@ -102,7 +102,7 @@ public partial class EditViewModel
         .AddOwned<IElementGapService>(() => new ElementGapService(HistoryManager, this.GetRequiredService<GlobalConfiguration>().EditorConfig))
         .AddOwned<SceneFileImporter>(() => new SceneFileImporter(
             _elementAdder, this.GetRequiredService<DecoderRegistry>(), this.GetRequiredService<ObjectTemplateService>(),
-            this.GetRequiredService<INotificationService>()))
+            this.GetRequiredService<INotificationService>(), _elementAdder.HasFileSourceOverride))
         .AddOwned<IElementClipboardService>(() => new ProjectFileWriteClipboardService(
             EditorService,
             new ElementClipboardService(

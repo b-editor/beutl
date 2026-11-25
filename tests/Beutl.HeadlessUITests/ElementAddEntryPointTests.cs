@@ -296,6 +296,49 @@ public class ElementAddEntryPointTests
     }
 
     [AvaloniaTest]
+    public async Task FilePaste_IncludesPackageFormatsAlongsideImages()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("paste-package-format");
+        var clipboard = editor.GetRequiredService<IElementClipboardService>();
+        var handler = new LayeredFileSourceHandler(companions: false);
+        await using var registration = PackageSourceHandlers.Register(
+            editor.ExtensionProvider, handler, ElementSourceHandlerRegistrationMode.Replace);
+        string imagePath = CreatePngFile(editor, "1.png");
+        string packagePath = Path.Combine(Path.GetDirectoryName(imagePath)!, "2.package-test");
+        await File.WriteAllTextAsync(packagePath, "package data");
+        var window = new Window();
+        try
+        {
+            window.Show();
+            ClipboardHelper.OverrideClipboard = window.Clipboard;
+            using IStorageFile image = await GetStorageFile(window, imagePath);
+            using IStorageFile packageFile = await GetStorageFile(window, packagePath);
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.CreateFile(packageFile));
+            transfer.Add(DataTransferItem.CreateFile(image));
+            await window.Clipboard!.SetDataAsync(transfer);
+
+            MediaTime start = MediaTime.FromSeconds(2);
+            ElementPasteOutcome outcome = await clipboard.PasteAsync(editor.Scene, start, 3);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(outcome.Pasted, Is.True);
+                Assert.That(handler.RequestedLayers, Is.EqualTo(new[] { 3, 3 }));
+                Assert.That(editor.Scene.Children.Select(element => element.Start.Value),
+                    Is.EqualTo(new[] { start, start + MediaTime.FromSeconds(5) }));
+            }
+        }
+        finally
+        {
+            ClipboardHelper.OverrideClipboard = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task ElementPropertyTab_FlowOperatorDropKeepsZeroPortalLayers(bool insertAtObject)

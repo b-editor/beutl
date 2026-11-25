@@ -22,7 +22,8 @@ internal sealed class SceneFileImporter(
     IElementAdder adder,
     DecoderRegistry? decoders = null,
     ObjectTemplateService? templates = null,
-    INotificationService? notifications = null)
+    INotificationService? notifications = null,
+    Func<bool>? hasFileSourceOverride = null)
 {
     private static readonly MediaTime s_defaultLength = MediaTime.FromSeconds(5);
 
@@ -96,6 +97,7 @@ internal sealed class SceneFileImporter(
         var sounds = new List<string>();
         var video = decoders is null ? [] : MediaFileMatcher.VideoExtensions(decoders);
         var audio = decoders is null ? [] : MediaFileMatcher.AudioExtensions(decoders);
+        bool includeUnmatchedFiles = hasFileSourceOverride?.Invoke() == true;
         int clipLayerCount = 0;
         foreach (string file in files)
         {
@@ -105,12 +107,10 @@ internal sealed class SceneFileImporter(
                 && ElementTemplateResolver.CanCreateDescription(template))
             {
                 clips.Add((file, template));
-                clipLayerCount = Math.Max(clipLayerCount, 1);
             }
             else if (decoders is null || MediaFileMatcher.IsImage(file))
             {
                 clips.Add((file, null));
-                clipLayerCount = Math.Max(clipLayerCount, 1);
             }
             else if (MediaFileMatcher.Matches(file, video)
                      && (files.Count == 1 || !MediaFileMatcher.Matches(file, audio) || HoldsVideo(file, decoders)))
@@ -123,7 +123,15 @@ internal sealed class SceneFileImporter(
             {
                 sounds.Add(file);
             }
+            else if (includeUnmatchedFiles)
+            {
+                // A package can replace the file handler and accept formats the built-in decoders do not know.
+                clips.Add((file, null));
+            }
         }
+
+        if (clips.Count > 0)
+            clipLayerCount = Math.Max(clipLayerCount, 1);
 
         var descriptions = new List<ElementDescription>(clips.Count + sounds.Count);
         foreach ((string file, ObjectTemplateItem? template) in clips)

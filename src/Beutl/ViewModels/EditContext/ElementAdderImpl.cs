@@ -44,6 +44,17 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             failure.ExtensionType));
     }
 
+    internal bool HasFileSourceOverride()
+    {
+        if (!_sourceHandlers.TryAcquire(typeof(ElementSource.File), out var lease))
+            return false;
+
+        using (lease)
+        {
+            return lease.Handler is not FileSourceHandler;
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _operations.DisposeAsync();
