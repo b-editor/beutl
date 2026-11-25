@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics;
+using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -167,36 +168,44 @@ public class TerminalSettingsTests
         {
             bool windows = OperatingSystem.IsWindows();
             settings.ShellPath.Value = windows ? Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe" : "/bin/sh";
-            // HasActiveSession only means the transport exists. Wait until the child can consume
-            // input before asking it to exit so the restart exercises the edited settings.
-            const string ready = "beutl-shell-ready";
+            // Keep the first shell running while the settings are edited.
             settings.ShellArguments.Value = windows
-                ? $"/D\n/Q\n/C\necho {ready} & set /p input="
-                : $"-c\nprintf '{ready}\\n'; read -r input";
+                ? "/D\n/Q\n/C\nset /p input="
+                : "-c\nread -r input";
             using var owner = new TerminalTabViewModel(TestShell.CreateEditorContextMock().Object);
             using var view = new TerminalTabView { DataContext = owner };
             using var host = new ControlHost(view, 640, 240);
             var terminal = view.FindControl<TerminalControl>("Terminal")!;
-            await HeadlessTestHelpers.WaitUntilAsync(() => terminal.TryExportSnapshot(
-                TerminalSnapshotExportFormat.PlainText, default, out string text) && text.Contains(ready));
-            int pid = terminal.Pty!.ChildPid;
+            await HeadlessTestHelpers.WaitUntilAsync(() => terminal.HasActiveSession,
+                message: "The original terminal shell did not start.");
+            using var originalShell = Process.GetProcessById(terminal.Pty!.ChildPid);
 
             var page = new TerminalSettingsPage { DataContext = settings };
-            using var settingsHost = new ControlHost(page, 640, 520);
-            page.FindControl<NumericUpDown>("FontSizeBox")!.Value = 22;
-            Assert.That(terminal.Renderer!.FontSize, Is.EqualTo(22));
-            page.FindControl<TextBox>("ShellPathBox")!.Text = windows ? "cmd.exe" : "/usr/bin/printf";
-            page.FindControl<TextBox>("ShellArgumentsBox")!.Text = windows
-                ? "/D\n/C\necho [terminal argument]"
-                : "[%s]\nterminal argument";
-            Assert.That(terminal.Pty!.ChildPid, Is.EqualTo(pid));
+            using (var settingsHost = new ControlHost(page, 640, 520))
+            {
+                page.FindControl<NumericUpDown>("FontSizeBox")!.Value = 22;
+                Assert.That(terminal.Renderer!.FontSize, Is.EqualTo(22));
+                page.FindControl<TextBox>("ShellPathBox")!.Text = windows ? "cmd.exe" : "/usr/bin/printf";
+                page.FindControl<TextBox>("ShellArgumentsBox")!.Text = windows
+                    ? "/D\n/C\necho [terminal argument]"
+                    : "[%s]\nterminal argument";
+            }
+
+            // Apply the layout changes from the font edit while the original shell is still running.
+            HeadlessTestHelpers.Render();
+            Assert.That(terminal.Pty?.ChildPid, Is.EqualTo(originalShell.Id));
             Assert.That(owner.IsProcessExited.Value, Is.False);
 
-            terminal.SendInput(windows ? "exit\r" : "exit\n");
-            await HeadlessTestHelpers.WaitUntilAsync(() => owner.IsProcessExited.Value);
-            HeadlessTestHelpers.Click(view.FindControl<Button>("RestartButton")!);
+            originalShell.Kill();
+            await HeadlessTestHelpers.WaitUntilAsync(() => owner.IsProcessExited.Value,
+                message: "The terminal tab did not report the original shell's exit.");
+            HeadlessTestHelpers.Render();
+            var restart = view.FindControl<Button>("RestartButton")!;
+            Assert.That(restart.IsEffectivelyVisible, Is.True);
+            HeadlessTestHelpers.Click(restart);
             await HeadlessTestHelpers.WaitUntilAsync(() => terminal.TryExportSnapshot(
-                TerminalSnapshotExportFormat.PlainText, default, out string text) && text.Contains("[terminal argument]"));
+                TerminalSnapshotExportFormat.PlainText, default, out string text) && text.Contains("[terminal argument]"),
+                message: "The restarted shell did not print the configured argument.");
         }
         finally
         {
