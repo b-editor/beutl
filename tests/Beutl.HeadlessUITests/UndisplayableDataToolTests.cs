@@ -101,14 +101,20 @@ public sealed class UndisplayableDataToolTests
             Assert.That(tool.Rows.Value, Is.Empty);
             Assert.That(view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!.IsEffectivelyVisible, Is.True);
             HeadlessTestHelpers.Click(scopeSwitch);
-            var row = tool.Rows.Value.Single(item => item.CanLocate);
             var otherLayer = new TimelineLayer { ZIndex = { Value = scenes[1].Children.Single().ZIndex.Value }, Name = { Value = "Initial layer" } };
             scenes[1].Layers.Add(otherLayer);
             await HeadlessTestHelpers.WaitUntilAsync(() => tool.Rows.Value.Any(item => item.Breadcrumb.Contains("Initial layer")));
             otherLayer.Name.Value = "Renamed layer";
-            await HeadlessTestHelpers.WaitUntilAsync(() => tool.Rows.Value.Any(item => item.Breadcrumb.Contains("Renamed layer")));
-            row = tool.Rows.Value.Single(item => item.CanLocate);
-            HeadlessTestHelpers.Click(RowControl<Button>(window, row, "LocateButton"));
+            Button? locateButton = null;
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            {
+                HeadlessTestHelpers.Render();
+                var renamedRow = tool.Rows.Value.SingleOrDefault(item => item.CanLocate && item.Breadcrumb.Contains("Renamed layer"));
+                locateButton = renamedRow == null ? null : FindRowControl<Button>(view, renamedRow, "LocateButton");
+                return locateButton is { IsEffectivelyVisible: true, IsEnabled: true };
+            }, message: "The renamed row's Locate button was not realized.");
+            HeadlessCapture.SaveIfRequested(window, nameof(UndisplayableDataToolTests), "renamed-layer");
+            HeadlessTestHelpers.Click(locateButton!);
             Assert.That(ActiveEditor.Scene, Is.SameAs(scenes[1]));
             Assert.That(ActiveEditor.GetRequiredService<IEditorSelection>().SelectedObject.Value,
                 Is.SameAs(scenes[1].Children.Single()));
@@ -380,5 +386,9 @@ public sealed class UndisplayableDataToolTests
     }
 
     private static T RowControl<T>(Window window, UndisplayableDataRow row, string name) where T : Control
-        => window.GetVisualDescendants().OfType<T>().Single(item => item.Name == name && item.DataContext == row);
+        => FindRowControl<T>(window, row, name)
+            ?? throw new InvalidOperationException($"The row's {name} control was not realized.");
+
+    private static T? FindRowControl<T>(Control view, UndisplayableDataRow row, string name) where T : Control
+        => view.GetVisualDescendants().OfType<T>().SingleOrDefault(item => item.Name == name && item.DataContext == row);
 }
