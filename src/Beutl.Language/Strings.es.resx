@@ -4099,4 +4099,10 @@ cuando el registro del historial está activado.</value>
   <data name="HostedGit_RevisionFormat" xml:space="preserve">
     <value>Revisión {0}</value>
   </data>
+  <data name="EffectCategory" xml:space="preserve">
+    <value>Categoría de efecto</value>
+  </data>
+  <data name="AllEffectCategories" xml:space="preserve">
+    <value>Todas las categorías</value>
+  </data>
 </root>

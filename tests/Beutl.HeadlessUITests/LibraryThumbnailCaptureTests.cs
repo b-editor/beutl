@@ -25,7 +25,9 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using static Avalonia.VisualExtensions;
 using AvaPoint = Avalonia.Point;
+using AvaRect = Avalonia.Rect;
 using AvaThickness = Avalonia.Thickness;
 
 namespace Beutl.HeadlessUITests;
@@ -135,6 +137,7 @@ public class LibraryThumbnailCaptureTests
             () => first.Source?.Frames != null, TimeSpan.FromSeconds(60), "The hovered tile's frames did not load.");
         await PlayAsync(first);
         Capture(window, $"{name}-playing.png");
+        await CaptureTooltipAsync(window, first, name);
         window.Close();
     }
 
@@ -146,6 +149,7 @@ public class LibraryThumbnailCaptureTests
             var presenter = new LibraryItemPickerFlyoutPresenter
             {
                 Items = picker.Items,
+                Categories = picker.Categories,
                 CanShowTiles = picker.HasThumbnails,
                 ShowTiles = true,
                 ShowReferencesTab = picker.HasReferencesTab,
@@ -169,6 +173,7 @@ public class LibraryThumbnailCaptureTests
                 () => selected.Source?.Frames != null, TimeSpan.FromSeconds(60), "The selected tile's frames did not load.");
             await PlayAsync(selected);
             Capture(window, $"{name}-playing.png");
+            await CaptureTooltipAsync(window, selected, name);
 
             presenter.ShowTiles = false;
             HeadlessTestHelpers.Render(3);
@@ -210,6 +215,32 @@ public class LibraryThumbnailCaptureTests
             },
             TimeSpan.FromSeconds(10),
             "The thumbnail did not play.");
+    }
+
+    private static async Task CaptureTooltipAsync(Window window, AnimatedThumbnail thumbnail, string name)
+    {
+        Control tile = thumbnail.GetVisualAncestors().OfType<Control>().First(control => ToolTip.GetTip(control) != null);
+        window.MouseMove(HeadlessTestHelpers.Center(thumbnail, window), RawInputModifiers.None);
+        await HeadlessTestHelpers.WaitUntilAsync(() => ToolTip.GetIsOpen(tile));
+        try
+        {
+            HeadlessTestHelpers.Render();
+            ToolTip tip = window.GetVisualDescendants().OfType<ToolTip>().Single();
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            {
+                HeadlessTestHelpers.Render();
+                return tip.Opacity >= 0.99;
+            });
+
+            var tipBounds = new AvaRect(tip.TranslatePoint(default, window)!.Value, tip.Bounds.Size);
+            var thumbnailBounds = new AvaRect(thumbnail.TranslatePoint(default, window)!.Value, thumbnail.Bounds.Size);
+            Assert.That(tipBounds.Intersects(thumbnailBounds), Is.False, $"The tooltip {tipBounds} covers the thumbnail {thumbnailBounds}.");
+            Capture(window, $"{name}-tooltip.png");
+        }
+        finally
+        {
+            ToolTip.SetIsOpen(tile, false);
+        }
     }
 
     private static void Capture(Window window, string name)

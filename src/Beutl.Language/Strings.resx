@@ -4099,4 +4099,10 @@ when history recording is enabled.</value>
   <data name="HostedGit_RevisionFormat" xml:space="preserve">
     <value>Revision {0}</value>
   </data>
+  <data name="EffectCategory" xml:space="preserve">
+    <value>Effect category</value>
+  </data>
+  <data name="AllEffectCategories" xml:space="preserve">
+    <value>All categories</value>
+  </data>
 </root>

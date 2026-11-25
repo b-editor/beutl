@@ -23,15 +23,19 @@ public partial class LibraryGalleryView : UserControl
     {
         _format = format;
         InitializeComponent();
-        Repeater.AddHandler(PointerPressedEvent, OnTilePointerPressed, RoutingStrategies.Tunnel);
+        Sections.AddHandler(PointerPressedEvent, OnTilePointerPressed, RoutingStrategies.Tunnel);
     }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        Repeater.ItemsSource = DataContext is LibraryTabViewModel viewModel
-            ? _format == KnownLibraryItemFormats.ClipTransition ? viewModel.Transitions : viewModel.Effects
-            : null;
+        Sections.ItemsSource = DataContext switch
+        {
+            LibraryTabViewModel viewModel when _format == KnownLibraryItemFormats.ClipTransition =>
+                new[] { new LibraryGallerySection(null, viewModel.Transitions) },
+            LibraryTabViewModel viewModel => viewModel.EffectSections,
+            _ => null,
+        };
         if (VisualRoot != null)
             HoldPreview();
     }
@@ -58,7 +62,7 @@ public partial class LibraryGalleryView : UserControl
 
     private async void OnTilePointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(Repeater).Properties.IsLeftButtonPressed
+        if (!e.GetCurrentPoint(Sections).Properties.IsLeftButtonPressed
             || (e.Source as StyledElement)?.DataContext is not LibraryGalleryItemViewModel tile)
         {
             return;

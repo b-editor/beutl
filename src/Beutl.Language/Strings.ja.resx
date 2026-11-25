@@ -4094,4 +4094,10 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="HostedGit_RevisionFormat" xml:space="preserve">
     <value>リビジョン {0}</value>
   </data>
+  <data name="EffectCategory" xml:space="preserve">
+    <value>エフェクトの種類</value>
+  </data>
+  <data name="AllEffectCategories" xml:space="preserve">
+    <value>すべての種類</value>
+  </data>
 </root>

@@ -54,9 +54,11 @@ public partial class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPre
     private const string NoResultsPseudoClass = ":no-results";
     private const string CanShowTilesPseudoClass = ":can-show-tiles";
     private const string TilesPseudoClass = ":tiles";
+    private const string HasCategoriesPseudoClass = ":has-categories";
 
     private readonly CompositeDisposable _keyboardDisposables = [];
     private TextBox? _searchTextBox;
+    private ComboBox? _categoryPicker;
     private ListBox? _listBox;
     private ListBox? _tileListBox;
     private ListBox? _referenceListBox;
@@ -76,6 +78,12 @@ public partial class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPre
 
     [GeneratedStyledProperty]
     public partial ReactiveCollection<PinnableLibraryItem>? Items { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial IReadOnlyList<string>? Categories { get; set; }
+
+    [GeneratedStyledProperty]
+    public partial int SelectedCategoryIndex { get; set; }
 
     [GeneratedStyledProperty]
     public partial bool IsBusy { get; set; }
@@ -124,9 +132,17 @@ public partial class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPre
         base.OnApplyTemplate(e);
 
         _searchTextBox = e.NameScope.Find<TextBox>("SearchTextBox");
+        _categoryPicker = e.NameScope.Find<ComboBox>("CategoryPicker");
         _listBox = e.NameScope.Find<ListBox>("PART_ListBox");
         _tileListBox = e.NameScope.Find<ListBox>("PART_TileListBox");
         _referenceListBox = e.NameScope.Find<ListBox>("PART_ReferenceListBox");
+
+        if (_categoryPicker is { } categoryPicker)
+        {
+            categoryPicker.DropDownClosed += OnCategoryDropDownClosed;
+            Disposable.Create(() => categoryPicker.DropDownClosed -= OnCategoryDropDownClosed)
+                .DisposeWith(_keyboardDisposables);
+        }
 
         this.AddDisposableHandler(KeyDownEvent, OnPresenterKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
@@ -161,13 +177,34 @@ public partial class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPre
             return;
         }
 
-        // Tab / Shift+Tab: 型タブと参照タブを切り替え
+        // Tab switches between types and references. Shift+Tab reaches the category from the type results.
         if (ShowReferencesTab && PickerListNavigation.IsTabSwitch(e))
         {
-            ShowReferences = !ShowReferences;
+            if (_categoryPicker?.IsDropDownOpen == true)
+                return;
+
+            if (e.KeyModifiers == KeyModifiers.Shift && _categoryPicker is { IsEffectivelyVisible: true } categoryPicker
+                && GetCurrentListBox()?.IsKeyboardFocusWithin == true)
+            {
+                categoryPicker.Focus();
+            }
+            else
+            {
+                if (_categoryPicker?.IsKeyboardFocusWithin != true)
+                    ShowReferences = !ShowReferences;
+
+                FocusListBox();
+            }
+
             e.Handled = true;
-            FocusListBox();
         }
+    }
+
+    private static void OnCategoryDropDownClosed(object? sender, EventArgs e)
+    {
+        // The nested popup had keyboard focus. Return it to the category field in the picker.
+        if (sender is ComboBox { IsEffectivelyVisible: true } categoryPicker)
+            categoryPicker.Focus();
     }
 
     private void OnListBoxKeyDown(object? sender, KeyEventArgs e)
@@ -294,6 +331,10 @@ public partial class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPre
         else if (change.Property == ShowReferencesTabProperty)
         {
             PseudoClasses.Set(ShowReferencesTabPseudoClass, ShowReferencesTab);
+        }
+        else if (change.Property == CategoriesProperty)
+        {
+            PseudoClasses.Set(HasCategoriesPseudoClass, Categories is { Count: > 1 });
         }
         else if (change.Property == SearchTextProperty || change.Property == NoResultsTextProperty)
         {
