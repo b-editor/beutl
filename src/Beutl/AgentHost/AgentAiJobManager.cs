@@ -67,15 +67,15 @@ internal sealed class AgentAiJobManager : IDisposable
         string operation,
         Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run,
         Guid? sceneId = null)
-        => GetOrStart(operation, run, sceneId, requestKey: null).JobId;
+        => GetOrStart(operation, run, sceneId, requestKey: null).Job.Id;
 
-    public string? FindReplay(AgentAiRequestKey requestKey)
+    public Job? FindReplay(AgentAiRequestKey requestKey)
     {
         lock (_lifetimeSync)
-            return FindReplayCore(requestKey)?.Id;
+            return FindReplayCore(requestKey);
     }
 
-    public (string JobId, bool Started) GetOrStart(
+    public (Job Job, bool Started) GetOrStart(
         string operation,
         Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run,
         Guid? sceneId,
@@ -87,14 +87,14 @@ internal sealed class AgentAiJobManager : IDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (requestKey is { } key && FindReplayCore(key) is { } existing)
-                return (existing.Id, false);
+                return (existing, false);
 
             var job = new Job(Guid.NewGuid().ToString("N"), operation, sceneId?.ToString(), requestKey);
             _jobs[job.Id] = job;
             if (requestKey is { } newKey)
                 _jobsByRequest[newKey] = job;
             job.Task = Task.Run(() => RunAsync(job, run));
-            return (job.Id, true);
+            return (job, true);
         }
     }
 
@@ -111,20 +111,9 @@ internal sealed class AgentAiJobManager : IDisposable
     /// <summary>The job once it has finished or <paramref name="wait"/> has passed, whichever is first.</summary>
     public async Task<AgentAiJobSnapshot?> WaitAsync(string jobId, TimeSpan wait, CancellationToken cancellationToken)
     {
-        if (!_jobs.TryGetValue(jobId, out Job? job))
-            return null;
-        if (wait > TimeSpan.Zero && job.Task is { IsCompleted: false } task)
-        {
-            try
-            {
-                await task.WaitAsync(wait, cancellationToken).ConfigureAwait(false);
-            }
-            catch (TimeoutException)
-            {
-            }
-        }
-
-        return job.Snapshot();
+        return _jobs.TryGetValue(jobId, out Job? job)
+            ? await job.WaitAsync(wait, cancellationToken).ConfigureAwait(false)
+            : null;
     }
 
     public bool Cancel(string jobId)
@@ -201,7 +190,7 @@ internal sealed class AgentAiJobManager : IDisposable
         public void Report(string value) => job.SetStatus(value);
     }
 
-    private sealed class Job(string id, string operation, string? sceneId, AgentAiRequestKey? requestKey)
+    internal sealed class Job(string id, string operation, string? sceneId, AgentAiRequestKey? requestKey)
     {
         public string Operation { get; } = operation;
 
@@ -253,6 +242,22 @@ internal sealed class AgentAiJobManager : IDisposable
         public CancellationTokenSource Cancellation { get; } = new();
 
         public Task? Task { get; set; }
+
+        public async Task<AgentAiJobSnapshot> WaitAsync(TimeSpan wait, CancellationToken cancellationToken)
+        {
+            if (wait > TimeSpan.Zero && Task is { IsCompleted: false } task)
+            {
+                try
+                {
+                    await task.WaitAsync(wait, cancellationToken).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                }
+            }
+
+            return Snapshot();
+        }
 
         public void SetStatus(string text)
         {

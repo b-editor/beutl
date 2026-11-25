@@ -509,6 +509,48 @@ public sealed class AgentHostAiToolsTests
     }
 
     [AvaloniaTest]
+    public async Task ConcurrentPreparationCanRecoverWhenTheOriginalJobAlreadyReadTheSource()
+    {
+        await TestShell.OpenNewSceneAsync("agent-ai-retry-source");
+        var backend = new FakeBackend { Result = WritePng("result.png") };
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+        string source = WritePng("input.png");
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+        backend.BeforeGetModelsAsync = async token =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                entered.SetResult();
+                await resume.Task.WaitAsync(token);
+            }
+        };
+
+        var delayed = tools.EditImage(source, "remove_background", waitSeconds: 10, requestKey: "same").AsTask();
+        ToolResult<AgentAiJobSnapshot> first;
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            first = await tools.EditImage(source, "remove_background", waitSeconds: 10, requestKey: "same");
+            File.Delete(source);
+        }
+        finally
+        {
+            resume.TrySetResult();
+        }
+
+        ToolResult<AgentAiJobSnapshot> replay = await delayed;
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Value?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded), first.Error?.Message);
+            Assert.That(replay.Value?.JobId, Is.EqualTo(first.Value?.JobId), replay.Error?.Message);
+            Assert.That(backend.Requests, Has.Count.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task AClipIsOpenedBeforeItsEditIsPaidFor()
     {
         await TestShell.OpenNewSceneAsync("agent-ai-edit-video");
@@ -520,7 +562,9 @@ public sealed class AgentHostAiToolsTests
         try
         {
             ToolResult<AgentAiJobSnapshot> broken = await tools.EditVideo(WriteFile("broken.webm"), "rain");
-            ToolResult<AgentAiJobSnapshot> edited = await tools.EditVideo(WriteFile("clip.mp4"), "rain", waitSeconds: 10);
+            string clip = WriteFile("clip.mp4");
+            ToolResult<AgentAiJobSnapshot> edited = await tools.EditVideo(clip, "rain", waitSeconds: 10, requestKey: "edit");
+            ToolResult<AgentAiJobSnapshot> invalidMode = await tools.EditVideo(clip, "rain", mode: "replace", requestKey: "edit");
             // The stub clip lasts six seconds.
             backend.Models["video.edit"] = [PortraitModel with { Video = PortraitModel.Video! with { MaxSourceVideoSeconds = 5 } }];
             ToolResult<AgentAiJobSnapshot> tooLong = await tools.EditVideo(WriteFile("long.mp4"), "rain");
@@ -529,6 +573,8 @@ public sealed class AgentHostAiToolsTests
             {
                 Assert.That(broken.Error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
                 Assert.That(tooLong.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+                Assert.That(invalidMode.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+                Assert.That(invalidMode.Error?.Target, Is.EqualTo("mode"));
                 Assert.That(edited.IsSuccess, Is.True, edited.Error?.Message);
                 Assert.That(((AiVideoEditNodeRequest)backend.Requests.Single()).SourceVideo.Name, Is.EqualTo("source.mp4"));
                 Assert.That(decoder.OpenedPaths.Select(Path.GetFileName), Has.None.EqualTo("clip.mp4"), "the bytes read are probed, not the file again");
@@ -944,6 +990,8 @@ public sealed class AgentHostAiToolsTests
 
         public Action? OnGetModels { get; set; }
 
+        public Func<CancellationToken, Task>? BeforeGetModelsAsync { get; set; }
+
         public Action? OnValidate { get; set; }
 
         public Action? BeforeReturningResult { get; set; }
@@ -964,10 +1012,12 @@ public sealed class AgentHostAiToolsTests
 
         public Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
 
-        public Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken)
         {
             OnGetModels?.Invoke();
-            return Task.FromResult(Models.GetValueOrDefault(operationId) ?? []);
+            if (BeforeGetModelsAsync is { } before)
+                await before(cancellationToken);
+            return Models.GetValueOrDefault(operationId) ?? [];
         }
 
         // When set, an executor keeps its result where this puts it for the scene it was made for.

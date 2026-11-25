@@ -5,10 +5,22 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
 internal static class AiVideoJobWaiter
 {
     // Unknown statuses return to the caller without settling the paid request.
-    public static async Task<(AiVideoJob Job, AiJobStatusSemantics Status)> WaitAsync(
+    public static Task<(AiVideoJob Job, AiJobStatusSemantics Status)> WaitAsync(
         IAiVideoService videos,
         IAiJobKindRegistry jobKinds,
         AiJobId jobId,
+        Action processing,
+        TimeSpan pollInterval,
+        TimeSpan maximumRetryDelay,
+        Func<TimeSpan, CancellationToken, Task> delay,
+        AiAccountJobScope account,
+        CancellationToken cancellationToken)
+        => WaitAsync(token => videos.GetAsync(jobId, token), job => jobKinds.GetStatus(AiJobKinds.Video, job.Status),
+            processing, pollInterval, maximumRetryDelay, delay, account, cancellationToken);
+
+    public static async Task<(T Job, AiJobStatusSemantics Status)> WaitAsync<T>(
+        Func<CancellationToken, Task<T>> getJob,
+        Func<T, AiJobStatusSemantics> getStatus,
         Action processing,
         TimeSpan pollInterval,
         TimeSpan maximumRetryDelay,
@@ -20,10 +32,10 @@ internal static class AiVideoJobWaiter
         while (true)
         {
             account.ThrowIfInvalid(cancellationToken);
-            AiVideoJob job;
+            T job;
             try
             {
-                job = await account.SendAsync(token => videos.GetAsync(jobId, token), cancellationToken);
+                job = await account.SendAsync(getJob, cancellationToken);
                 transientFailures = 0;
             }
             catch (Exception ex) when (!account.AccountChanged && IsTransientFailure(ex, cancellationToken))
@@ -40,7 +52,7 @@ internal static class AiVideoJobWaiter
             }
 
             account.ThrowIfInvalid(cancellationToken);
-            AiJobStatusSemantics status = jobKinds.GetStatus(AiJobKinds.Video, job.Status);
+            AiJobStatusSemantics status = getStatus(job);
             if (status.Outcome == AiJobOutcomes.Succeeded || status.IsTerminal || !status.ShouldPoll)
                 return (job, status);
 

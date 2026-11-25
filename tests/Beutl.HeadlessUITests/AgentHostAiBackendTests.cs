@@ -15,6 +15,7 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
+using Moq;
 using Reactive.Bindings;
 using static Beutl.HeadlessUITests.AiTestSupport;
 
@@ -136,9 +137,10 @@ public sealed class AgentHostAiBackendTests
         });
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task RetryingATranscriptionSkipsCompletedPartsAndRecoversThePendingPart(bool settledFailure)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task RetryingATranscriptionSkipsCompletedPartsAndRecoversThePendingPart(bool providerError, bool settledFailure)
     {
         const int sampleRate = 8_000;
         string path = WriteSource("retry" + Extension);
@@ -148,15 +150,20 @@ public sealed class AgentHostAiBackendTests
         {
             if (transcription.Requests.Count == 2)
             {
-                throw settledFailure
+                throw providerError
                     ? new AiProviderErrorException()
                     : new HttpRequestException("The response was lost.");
             }
         };
         var progress = new RecordingProgress();
         var retry = new AgentTranscriptionRetry("transcribe-1", RequestedModel: null);
-        AgentHostAiBackend first = CreateBackend(transcription: transcription);
-        await Assert.ThrowsAsync(settledFailure ? typeof(AgentAiException) : typeof(HttpRequestException),
+        var jobs = new Mock<IAiJobClient>(MockBehavior.Strict);
+        jobs.Setup(client => client.GetByIdempotencyKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AiJob(new AiJobId("part"), AiJobKinds.Transcription,
+                settledFailure ? AiJobStatuses.Failed : AiJobStatuses.Succeeded, null, null, null, null, false,
+                DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
+        AgentHostAiBackend first = CreateBackend(transcription: transcription, jobClient: jobs.Object);
+        await Assert.ThrowsAsync(providerError ? typeof(AgentAiException) : typeof(HttpRequestException),
             () => first.TranscribeAsync(path, "ja", "whisper", progress, CancellationToken.None, retry));
 
         // Reopen the recovery files with a new backend. An already submitted part must be
@@ -174,6 +181,8 @@ public sealed class AgentHostAiBackendTests
         {
             Assert.That(transcription.Requests, Has.Count.EqualTo(3));
             Assert.That(availability.Requests, Has.Count.EqualTo(settledFailure ? 1 : 0));
+            jobs.Verify(client => client.GetByIdempotencyKeyAsync(transcription.Requests[1].IdempotencyKey!, It.IsAny<CancellationToken>()),
+                providerError ? Times.Once() : Times.Never());
             Assert.That(transcription.Requests[2].IdempotencyKey, settledFailure
                 ? Is.Not.EqualTo(transcription.Requests[1].IdempotencyKey)
                 : Is.EqualTo(transcription.Requests[1].IdempotencyKey));
@@ -460,7 +469,8 @@ public sealed class AgentHostAiBackendTests
         IAiOperationAvailabilityService? availability = null,
         IAiTranscriptionService? transcription = null,
         AiRequestRecoveryContext? recoveryContext = null,
-        IGenerativeModelCatalog? catalog = null)
+        IGenerativeModelCatalog? catalog = null,
+        IAiJobClient? jobClient = null)
         => new(
             recoveryContext ?? (user is null
                 ? CreateRecoveryContext(() => new("test-user", User: null))
@@ -470,7 +480,7 @@ public sealed class AgentHostAiBackendTests
             transcription ?? new StubTranscription(),
             () => catalog ?? new StubCatalog([]),
             _ => new StubExecutor(),
-            new StubModelCatalog(), _decoders);
+            new StubModelCatalog(), _decoders, jobClient);
 
     private AiRequestRecoveryContext CreateRecoveryContext(Func<AiAuthenticatedRequestIdentity?> identity)
         => new(new FileAiRequestKeyMap(_directory), identity);

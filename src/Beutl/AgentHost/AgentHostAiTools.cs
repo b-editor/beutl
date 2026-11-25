@@ -296,7 +296,13 @@ internal sealed class AgentHostAiTools(
         string? requestKey = null,
         CancellationToken cancellationToken = default)
     {
-        string modeId = mode.Trim().ToLowerInvariant();
+        string? modeId = mode?.Trim().ToLowerInvariant();
+        if (modeId is not ("edit" or "extend"))
+        {
+            return ValueTask.FromResult(ToolResult<AgentAiJobSnapshot>.Failure(
+                ErrorCode.ValidationRejected, $"Unknown mode '{mode}'. Use edit or extend.", "mode"));
+        }
+
         return StartAsync(modeId == "extend" ? "video.extend" : "video.edit", model, waitSeconds, requestKey, cancellationToken, (_, chosen, requestKeySeed) =>
         {
             bool extend = modeId == "extend";
@@ -316,8 +322,6 @@ internal sealed class AgentHostAiTools(
         },
         precheck: _ =>
         {
-            if (modeId is not ("edit" or "extend"))
-                throw Invalid($"Unknown mode '{mode}'. Use edit or extend.", "mode");
             if (modeId == "edit" && durationSeconds is not null)
                 throw Invalid("An edit keeps the clip's own length; durationSeconds is only for mode extend.", "durationSeconds");
             return ValueTask.CompletedTask;
@@ -335,7 +339,7 @@ internal sealed class AgentHostAiTools(
         string? model = null,
         [Description(WaitDescription)]
         int waitSeconds = 45,
-        [Description(RequestKeyDescription + " The same key resumes unfinished transcription across restarts. Completed transcripts can be recovered from disk for 24 hours. Expired files are removed when the recovery store is opened.")]
+        [Description(RequestKeyDescription + " The same key resumes unfinished transcription across restarts. Disk recovery requires the original source file at the same path. Completed transcripts can be recovered from disk for 24 hours. Expired files are removed when the recovery store is opened.")]
         string? requestKey = null,
         CancellationToken cancellationToken = default)
     {
@@ -513,35 +517,35 @@ internal sealed class AgentHostAiTools(
             bool queued = false;
             try
             {
-                var job = account = new AiAccountJobScope(backend.RecoveryContext);
-                AgentAiRequestKey? key = requestKey is null ? null : new(job.AccountId, operation, requestKey);
-                PreparedAiJob prepared;
-                using (CancellationTokenSource preflight = job.Link(cancellationToken))
-                {
-                    job.ThrowIfInvalid(preflight.Token);
-                    if (key is { } replayKey && jobs.FindReplay(replayKey) is { } existingId)
-                    {
-                        AgentAiJobSnapshot existing = await WaitAsync(existingId, waitSeconds, preflight.Token).ConfigureAwait(false);
-                        job.ThrowIfInvalid(preflight.Token);
-                        return existing;
-                    }
+                var scope = account = new AiAccountJobScope(backend.RecoveryContext);
+                AgentAiRequestKey? key = requestKey is null ? null : new(scope.AccountId, operation, requestKey);
+                using CancellationTokenSource preflight = scope.Link(cancellationToken);
+                TimeSpan wait = TimeSpan.FromSeconds(waitSeconds);
+                scope.ThrowIfInvalid(preflight.Token);
+                if (key is { } replayKey && jobs.FindReplay(replayKey) is { } existing)
+                    return await WaitForReplayAsync(existing, scope, wait, preflight.Token).ConfigureAwait(false);
 
-                    prepared = await prepare(job, preflight.Token).ConfigureAwait(false);
-                    job.ThrowIfInvalid(preflight.Token);
+                PreparedAiJob prepared;
+                try
+                {
+                    prepared = await prepare(scope, preflight.Token).ConfigureAwait(false);
+                }
+                catch (ReconcileException) when (key is { } failedKey)
+                {
+                    scope.ThrowIfInvalid(preflight.Token);
+                    if (jobs.FindReplay(failedKey) is not { } concurrent)
+                        throw;
+                    return await WaitForReplayAsync(concurrent, scope, wait, preflight.Token).ConfigureAwait(false);
                 }
 
+                scope.ThrowIfInvalid(preflight.Token);
                 // The queued job owns the account guard. Stopping the MCP wait is independent of the job.
-                string jobId;
-                (jobId, queued) = jobs.GetOrStart(operation, (progress, token) => RunAccountJobAsync(job, prepared, progress, token),
+                AgentAiJobManager.Job job;
+                (job, queued) = jobs.GetOrStart(operation, (progress, token) => RunAccountJobAsync(scope, prepared, progress, token),
                     prepared.SceneId, key);
-                if (queued)
-                    return await WaitAsync(jobId, waitSeconds, cancellationToken).ConfigureAwait(false);
-
-                // Another call queued the same request while this one was preparing it.
-                using CancellationTokenSource replay = job.Link(cancellationToken);
-                AgentAiJobSnapshot result = await WaitAsync(jobId, waitSeconds, replay.Token).ConfigureAwait(false);
-                job.ThrowIfInvalid(replay.Token);
-                return result;
+                return queued
+                    ? await job.WaitAsync(wait, cancellationToken).ConfigureAwait(false)
+                    : await WaitForReplayAsync(job, scope, wait, preflight.Token).ConfigureAwait(false);
             }
             catch (Exception ex) when (!queued && (ex is AuthenticationRequiredException || account?.AccountChanged == true))
             {
@@ -553,6 +557,15 @@ internal sealed class AgentHostAiTools(
                     account?.Dispose();
             }
         });
+    }
+
+    private static async Task<AgentAiJobSnapshot> WaitForReplayAsync(
+        AgentAiJobManager.Job job, AiAccountJobScope account, TimeSpan wait, CancellationToken cancellationToken)
+    {
+        account.ThrowIfInvalid(cancellationToken);
+        AgentAiJobSnapshot result = await job.WaitAsync(wait, cancellationToken).ConfigureAwait(false);
+        account.ThrowIfInvalid(cancellationToken);
+        return result;
     }
 
     private static async Task<AgentAiJobOutput> RunAccountJobAsync(

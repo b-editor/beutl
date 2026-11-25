@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Text.Json;
 using Beutl.AgentToolkit.Common;
 using Beutl.Api.Services;
 using Beutl.Audio;
@@ -19,7 +18,8 @@ internal sealed class AgentHostAiBackend(
     IAiTranscriptionService transcription,
     Func<IGenerativeModelCatalog> catalog,
     Func<Scene, IGenerativeNodeExecutor> executor,
-    IAiModelCatalogService modelCatalog, DecoderRegistry decoders) : IAgentAiBackend
+    IAiModelCatalogService modelCatalog, DecoderRegistry decoders,
+    IAiJobClient? jobClient = null) : IAgentAiBackend
 {
     internal const string SignInReason = "Sign in to Beutl in the running app to use AI generation.";
 
@@ -281,11 +281,11 @@ internal sealed class AgentHostAiBackend(
                             new AiTranscriptionRequest(AiUploadSource.FromFile(wave, "audio.wav"), language, model, partKey), token),
                         cancellationToken).ConfigureAwait(false);
                 }
-                catch (AiProviderErrorException ex) when (recovery is not null
-                    && ex.InnerException is not (JsonException or InvalidDataException))
+                catch (AiProviderErrorException) when (recovery is not null)
                 {
-                    // Only a settled failure gets a new key. A bad or lost reply may follow a paid request.
-                    await recovery.SaveAsync(checkpoint! with { PendingPartKey = null }, CancellationToken.None).ConfigureAwait(false);
+                    // A provider error can also come back after a paid result file expires.
+                    if (await IsTranscriptionFailureConfirmedAsync(partKey, account, cancellationToken).ConfigureAwait(false))
+                        await recovery.SaveAsync(checkpoint! with { PendingPartKey = null }, CancellationToken.None).ConfigureAwait(false);
                     throw;
                 }
                 account.ThrowIfInvalid(cancellationToken);
@@ -373,6 +373,27 @@ internal sealed class AgentHostAiBackend(
         }
         account.ThrowIfInvalid(cancellationToken);
         return new AgentTranscriptionResult(WithLanguageFallback(transcript, language), modelId);
+    }
+
+    private async Task<bool> IsTranscriptionFailureConfirmedAsync(
+        string partKey, AiAccountJobScope account, CancellationToken cancellationToken)
+    {
+        if (jobClient is null)
+            return false;
+
+        try
+        {
+            AiJob job = await account.SendAsync(
+                token => jobClient.GetByIdempotencyKeyAsync(partKey, token), cancellationToken).ConfigureAwait(false);
+            account.ThrowIfInvalid(cancellationToken);
+            return job.Kind == AiJobKinds.Transcription && job.Status == AiJobStatuses.Failed;
+        }
+        catch (Exception ex) when (ex is AiException or HttpRequestException or TimeoutException or OperationCanceledException)
+        {
+            // If the service cannot confirm the failure, the key is still needed for recovery.
+            account.ThrowIfInvalid(cancellationToken);
+            return false;
+        }
     }
 
     private static AgentTranscript WithLanguageFallback(AgentTranscript transcript, string? language)

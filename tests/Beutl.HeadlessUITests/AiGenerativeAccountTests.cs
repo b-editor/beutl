@@ -134,7 +134,7 @@ public sealed class AiGenerativeAccountTests
     public async Task APaidGenerationRetryRecoversWithItsServiceKeyWhenNewWorkIsUnavailable()
     {
         await TestShell.OpenNewSceneAsync("agent-ai-paid-retry");
-        using var state = new JobState();
+        using var state = new JobState(TimeSpan.Zero);
         state.Images.Setup(service => service.GenerateAsync(
                 It.IsAny<AiImageGenerationRequest>(), It.IsAny<IProgress<AiImagePreview>?>(), It.IsAny<CancellationToken>()))
             .Returns((AiImageGenerationRequest request, IProgress<AiImagePreview>? _, CancellationToken _) =>
@@ -150,13 +150,17 @@ public sealed class AiGenerativeAccountTests
 
         state.RefuseNewWork();
         state.Calls.Clear();
-        state.Jobs.Setup(service => service.GetByIdempotencyKeyAsync(state.SubmittedKey!, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AiJob(new AiJobId("paid-image"), AiJobKinds.Image, AiJobStatuses.Succeeded,
-                System.Text.Json.JsonSerializer.SerializeToElement(new { seed = 5, prompt = "a cat" }), new AiContentId("file"),
-                JobState.ContentUri, null, false, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)
-            {
-                Model = new AiModelId("original-model"),
-            });
+        var paidJob = new AiJob(new AiJobId("paid-image"), AiJobKinds.Image, AiJobStatuses.Succeeded,
+            System.Text.Json.JsonSerializer.SerializeToElement(new { seed = 5, prompt = "a cat" }), new AiContentId("file"),
+            JobState.ContentUri, null, false, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)
+        {
+            Model = new AiModelId("original-model"),
+        };
+        state.Jobs.SetupSequence(service => service.GetByIdempotencyKeyAsync(state.SubmittedKey!, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paidJob with { Status = AiJobStatuses.Running, ContentUri = null })
+            .ThrowsAsync(new HttpRequestException("Temporary service failure."))
+            .ReturnsAsync(paidJob)
+            .ReturnsAsync(paidJob);
         byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
         state.Content.Setup(service => service.CopyToAsync(JobState.ContentUri, It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .Returns(async (Uri _, Stream destination, CancellationToken ct) =>
@@ -181,6 +185,7 @@ public sealed class AiGenerativeAccountTests
             Assert.That(reopened.Value?.Output?.ModelId, Is.EqualTo("original-model"));
             Assert.That(reopened.Value?.Output?.Seed, Is.EqualTo(5));
             Assert.That(state.Calls, Is.Empty, "collecting paid results does not consult the catalog or check the balance");
+            state.Jobs.Verify(service => service.GetByIdempotencyKeyAsync(state.SubmittedKey!, It.IsAny<CancellationToken>()), Times.Exactly(4));
             state.Images.Verify(service => service.GenerateAsync(
                 It.IsAny<AiImageGenerationRequest>(), It.IsAny<IProgress<AiImagePreview>?>(), It.IsAny<CancellationToken>()), Times.Once);
         });
@@ -262,7 +267,7 @@ public sealed class AiGenerativeAccountTests
         private readonly ReactivePropertySlim<AiEntitlements?> _entitlements = new();
         private readonly AiRequestRecoveryContext _recovery;
 
-        public JobState()
+        public JobState(TimeSpan? pollInterval = null)
         {
             Store = new FileAiRequestKeyMap(_directory);
             _recovery = new AiRequestRecoveryContext(Store, () => _identity.Value, _identity);
@@ -302,7 +307,7 @@ public sealed class AiGenerativeAccountTests
                 availability.Object, Content.Object, Library.Object, Mock.Of<IAiImageEditingService>(), Videos.Object,
                 AiJobKindRegistry.CreateBuiltIn(Videos.Object), TestShell.Decoders, _recovery, Jobs.Object)
             {
-                PollInterval = TimeSpan.FromHours(1),
+                PollInterval = pollInterval ?? TimeSpan.FromHours(1),
             };
             Backend = new AgentHostAiBackend(_recovery, entitlementService.Object, availability.Object,
                 Mock.Of<IAiTranscriptionService>(), () => models, _ => Executor, catalog.Object, TestShell.Decoders);

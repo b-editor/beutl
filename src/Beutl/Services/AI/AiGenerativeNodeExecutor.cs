@@ -91,11 +91,16 @@ internal sealed class AiGenerativeNodeExecutor(
         AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
-        while (found.Job is { } running && jobKinds.GetStatus(running).ShouldPoll)
+        if (found.Job is { } running && jobKinds.GetStatus(running).ShouldPoll)
         {
-            progress.Report(new GenerativeProgress(running.Kind == AiJobKinds.Video ? Strings.AiVideoProcessing : Strings.AiGenerating));
+            var processing = new GenerativeProgress(running.Kind == AiJobKinds.Video ? Strings.AiVideoProcessing : Strings.AiGenerating);
+            progress.Report(processing);
             await Task.Delay(PollInterval, cancellationToken);
-            found = await AiPendingJobLookup.FindAsync(jobClient!, jobKinds, recoveryContext!, attempt, account, cancellationToken);
+            (found, _) = await AiVideoJobWaiter.WaitAsync(
+                token => AiPendingJobLookup.FindAsync(jobClient!, jobKinds, recoveryContext!, attempt, account, token),
+                result => result.Job is { } job ? jobKinds.GetStatus(job) : AiJobStatusSemantics.Unknown,
+                () => progress.Report(processing),
+                PollInterval, MaximumTransientPollDelay, Task.Delay, account, cancellationToken);
         }
 
         if (found is not (AiPendingJobState.Succeeded, { ContentUri: { } contentUri } job))
