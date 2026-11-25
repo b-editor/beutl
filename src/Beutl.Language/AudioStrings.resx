@@ -354,4 +354,16 @@
   <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
     <value>Multiplies the audio by a tone to give it a metallic sound (ring modulation, metallic voice).</value>
   </data>
+  <data name="AudioEffectCategory_EqAndCleanup" xml:space="preserve">
+    <value>EQ &amp; Cleanup</value>
+  </data>
+  <data name="AudioEffectCategory_Dynamics" xml:space="preserve">
+    <value>Dynamics</value>
+  </data>
+  <data name="AudioEffectCategory_TimeAndPitch" xml:space="preserve">
+    <value>Time &amp; Pitch</value>
+  </data>
+  <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
+    <value>Delay &amp; Modulation</value>
+  </data>
 </root>

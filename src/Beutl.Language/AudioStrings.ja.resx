@@ -349,4 +349,16 @@
   <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
     <value>音声に一定周波数の信号を掛け合わせて金属的な音にします（リング変調、金属的な声 / ring modulation, metallic voice）。</value>
   </data>
+  <data name="AudioEffectCategory_EqAndCleanup" xml:space="preserve">
+    <value>EQ・ノイズ除去</value>
+  </data>
+  <data name="AudioEffectCategory_Dynamics" xml:space="preserve">
+    <value>ダイナミクス</value>
+  </data>
+  <data name="AudioEffectCategory_TimeAndPitch" xml:space="preserve">
+    <value>時間・ピッチ</value>
+  </data>
+  <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
+    <value>ディレイ・モジュレーション</value>
+  </data>
 </root>

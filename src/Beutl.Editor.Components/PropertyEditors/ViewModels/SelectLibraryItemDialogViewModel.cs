@@ -22,6 +22,7 @@ public class SelectLibraryItemDialogViewModel
     private readonly Type _baseType;
     private readonly Task<PinnableLibraryItem[]> _itemsTask;
     private readonly List<Type> _pinnedItems;
+    private readonly Dictionary<LibraryItem, string> _effectCategories = [];
     private Task<PinnableLibraryItem[]>? _allItemsTask;
     private PinnableLibraryItem[] _allReferenceItems = [];
     private int _searchVersion;
@@ -53,6 +54,14 @@ public class SelectLibraryItemDialogViewModel
         Thumbnails = HasThumbnails ? new LibraryThumbnailSet(new SceneRenderServices(fonts, decoders), thumbnailContent) : null;
         ShowTiles.Value = Preferences.Default.Get(ShowTilesKey, true);
         ShowTiles.Skip(1).Subscribe(value => Preferences.Default.Set(ShowTilesKey, value));
+        _effectCategories = LibraryEffectCategories.Collect(libraryService.Items, format);
+        string others = Strings.Others;
+        if (_effectCategories.Values.Any(category => category != others))
+        {
+            Categories = [Strings.AllEffectCategories, .. _effectCategories.Values.Distinct().OrderBy(category => category == others)];
+            SelectedCategoryIndex.Skip(1).Subscribe(_ => ProcessSearchText());
+        }
+
         IReadOnlySet<Type> items = _libraryService.GetTypesFromFormat(_format);
         if (items.Count == 0)
         {
@@ -110,6 +119,10 @@ public class SelectLibraryItemDialogViewModel
     public ReactiveProperty<bool> ShowTiles { get; } = new();
 
     public ReactiveCollection<PinnableLibraryItem> Items { get; } = [];
+
+    public IReadOnlyList<string> Categories { get; } = [];
+
+    public ReactiveProperty<int> SelectedCategoryIndex { get; } = new();
 
     public ReactiveProperty<bool> ShowAll { get; } = new();
 
@@ -277,7 +290,16 @@ public class SelectLibraryItemDialogViewModel
 
         // Read after the wait, so this is the text the results are for, whichever path asked for them.
         _appliedSearchText = SearchText.Value;
-        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description)
+        IEnumerable<PinnableLibraryItem> matchingItems = items;
+        int categoryIndex = SelectedCategoryIndex.Value;
+        if (categoryIndex > 0 && categoryIndex < Categories.Count)
+        {
+            string category = Categories[categoryIndex];
+            string others = Strings.Others;
+            matchingItems = matchingItems.Where(item => _effectCategories.GetValueOrDefault((LibraryItem)item.UserData, others) == category);
+        }
+
+        items = matchingItems.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description)
         {
             Thumbnail = GetThumbnail((LibraryItem)i.UserData),
         })

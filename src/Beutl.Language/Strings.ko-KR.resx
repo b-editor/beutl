@@ -4099,4 +4099,10 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="HostedGit_RevisionFormat" xml:space="preserve">
     <value>리비전 {0}</value>
   </data>
+  <data name="EffectCategory" xml:space="preserve">
+    <value>효과 분류</value>
+  </data>
+  <data name="AllEffectCategories" xml:space="preserve">
+    <value>모든 분류</value>
+  </data>
 </root>

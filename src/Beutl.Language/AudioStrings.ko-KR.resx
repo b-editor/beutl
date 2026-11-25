@@ -353,4 +353,16 @@
   <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
     <value>오디오에 일정한 주파수의 신호를 곱해 금속성 소리를 냅니다 (링 변조, 금속성 음성 / ring modulation, metallic voice).</value>
   </data>
+  <data name="AudioEffectCategory_EqAndCleanup" xml:space="preserve">
+    <value>이퀄라이징 및 잡음 제거</value>
+  </data>
+  <data name="AudioEffectCategory_Dynamics" xml:space="preserve">
+    <value>다이내믹스</value>
+  </data>
+  <data name="AudioEffectCategory_TimeAndPitch" xml:space="preserve">
+    <value>시간 및 피치</value>
+  </data>
+  <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
+    <value>딜레이 및 변조</value>
+  </data>
 </root>

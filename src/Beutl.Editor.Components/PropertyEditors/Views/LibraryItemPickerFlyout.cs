@@ -19,6 +19,10 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
         pfp.Pinned += item => Pinned?.Invoke(this, item);
         pfp.Unpinned += item => Unpinned?.Invoke(this, item);
         pfp.Items = viewModel.Items;
+        pfp.Categories = viewModel.Categories;
+        pfp.SelectedCategoryIndex = viewModel.SelectedCategoryIndex.Value;
+        pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedCategoryIndexProperty)
+            .Subscribe(v => viewModel.SelectedCategoryIndex.Value = v);
         pfp.ShowAll = viewModel.ShowAll.Value;
         pfp.ShowReferencesTab = viewModel.HasReferencesTab;
         if (viewModel.ShowsOnlyReferences)

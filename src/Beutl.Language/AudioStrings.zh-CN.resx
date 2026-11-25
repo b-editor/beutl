@@ -353,4 +353,16 @@
   <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
     <value>将音频与单频信号相乘以产生金属质感（环形调制、金属音 / ring modulation, metallic voice）。</value>
   </data>
+  <data name="AudioEffectCategory_EqAndCleanup" xml:space="preserve">
+    <value>均衡与降噪</value>
+  </data>
+  <data name="AudioEffectCategory_Dynamics" xml:space="preserve">
+    <value>动态处理</value>
+  </data>
+  <data name="AudioEffectCategory_TimeAndPitch" xml:space="preserve">
+    <value>时间与音高</value>
+  </data>
+  <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
+    <value>延迟与调制</value>
+  </data>
 </root>
