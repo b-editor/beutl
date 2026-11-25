@@ -14,7 +14,7 @@ public class SpeedIntegratorTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100f } });
         int samples = 0;
-        using var integrator = new SpeedIntegrator(48000)
+        using var integrator = new SpeedIntegrator()
         {
             SpeedTransform = value => { samples++; return value; }
         };
@@ -28,13 +28,13 @@ public class SpeedIntegratorTests
     [TestCase(128)]
     [TestCase(256)]
     [TestCase(960)]
-    public void Queries_in_order_sample_each_sample_once(int chunk)
+    public void Queries_in_order_reuse_the_quadrature_partition(int chunk)
     {
         const int Rate = 48000;
         const int Total = Rate * 3;
         KeyFrameAnimation<float> animation = TestAnimations.Linear(100f, 200f, MediaTime.FromSeconds(10));
         int samples = 0;
-        using var integrator = new SpeedIntegrator(Rate) { SpeedTransform = value => { samples++; return value; } };
+        using var integrator = new SpeedIntegrator() { SpeedTransform = value => { samples++; return value; } };
         integrator.EnsureCache(animation);
 
         for (int sample = 0; sample <= Total; sample += chunk)
@@ -42,18 +42,18 @@ public class SpeedIntegratorTests
             integrator.Integrate(MediaTime.FromSamples(sample, Rate), animation);
         }
 
-        // A query can also sample the part of a sample at its end.
-        Assert.That(samples, Is.LessThanOrEqualTo(Total + Total / chunk + 1));
+        // One rule evaluates 15 nodes. The initial partition also checks the ends and caches the tails.
+        Assert.That(samples, Is.LessThanOrEqualTo(21 + 15 * (Total / chunk)));
     }
 
     [Test]
-    public void Queries_that_alternate_between_two_times_sample_each_sample_once()
+    public void Queries_that_alternate_between_two_times_reuse_the_quadrature_partition()
     {
         const int Rate = 48000;
         const int Chunk = 256;
         KeyFrameAnimation<float> animation = TestAnimations.Linear(100f, 200f, MediaTime.FromSeconds(10));
         int samples = 0;
-        using var integrator = new SpeedIntegrator(Rate) { SpeedTransform = value => { samples++; return value; } };
+        using var integrator = new SpeedIntegrator() { SpeedTransform = value => { samples++; return value; } };
         integrator.EnsureCache(animation);
         MediaTime origin = MediaTime.FromSeconds(1.5);
         integrator.Integrate(origin, animation);
@@ -65,7 +65,7 @@ public class SpeedIntegratorTests
             integrator.Integrate(origin, animation);
         }
 
-        Assert.That(samples, Is.LessThanOrEqualTo(Rate + 2 * (Rate / Chunk + 1) + (Rate * 3 / 2)));
+        Assert.That(samples, Is.LessThanOrEqualTo(30 * (Rate / Chunk + 1)));
     }
 
     [Test]
@@ -73,7 +73,8 @@ public class SpeedIntegratorTests
     {
         const int Rate = 48000;
         KeyFrameAnimation<float> animation = TestAnimations.Linear(100f, 200f, MediaTime.FromSeconds(10));
-        using var integrator = new SpeedIntegrator(Rate);
+        animation.KeyFrames[1].Easing.Value = new SplineEasing(0.25f, 0.8f, 0.7f, 0.1f);
+        using var integrator = new SpeedIntegrator();
         integrator.EnsureCache(animation);
         for (int sample = 0; sample < Rate * 2; sample += 256)
         {
@@ -83,7 +84,7 @@ public class SpeedIntegratorTests
         // Forward, within a second, back within one, to an earlier second, and a fraction of a sample.
         foreach (double seconds in new[] { 2.25, 2.5, 2.1, 0.75, 1.0, 3.0, 2.123456789 })
         {
-            using var fresh = new SpeedIntegrator(Rate);
+            using var fresh = new SpeedIntegrator();
             fresh.EnsureCache(animation);
             MediaTime time = MediaTime.FromSeconds(seconds);
 
@@ -96,7 +97,7 @@ public class SpeedIntegratorTests
     {
         const int Rate = 48000;
         KeyFrameAnimation<float> animation = TestAnimations.Linear(100f, 100f, MediaTime.FromSeconds(10));
-        using var integrator = new SpeedIntegrator(Rate);
+        using var integrator = new SpeedIntegrator();
         integrator.EnsureCache(animation);
         Assert.That(integrator.Integrate(MediaTime.FromSeconds(0.5), animation).ToSeconds(), Is.EqualTo(0.5).Within(1e-6));
 
@@ -104,6 +105,55 @@ public class SpeedIntegratorTests
         ((KeyFrame<float>)animation.KeyFrames[1]).Value.Value = 200f;
 
         Assert.That(integrator.Integrate(MediaTime.FromSeconds(0.75), animation).ToSeconds(), Is.EqualTo(1.5).Within(1e-6));
+    }
+
+    [TestCase("insert")]
+    [TestCase("remove")]
+    [TestCase("move")]
+    [TestCase("value")]
+    [TestCase("replace easing")]
+    [TestCase("edit spline")]
+    [TestCase("global clock")]
+    public void KeyframeChangesInvalidateTheCachedIntegral(string change)
+    {
+        var spline = new SplineEasing(0.2f, 0.2f, 0.8f, 0.8f);
+        var middle = new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = 500f },
+            Easing = { Value = spline }
+        };
+        var animation = TestAnimations.Linear(100f, 300f, MediaTime.FromSeconds(6));
+        if (change != "insert") animation.KeyFrames.Insert(1, middle);
+
+        int invalidations = 0;
+        using var integrator = new SpeedIntegrator(() => invalidations++);
+        integrator.EnsureCache(animation);
+        MediaTime query = MediaTime.FromSeconds(3.5);
+        integrator.Integrate(query, animation);
+        int version = integrator.CacheVersion;
+        int previousInvalidations = invalidations;
+
+        switch (change)
+        {
+            case "insert": animation.KeyFrames.Insert(1, middle); break;
+            case "remove": animation.KeyFrames.Remove(middle); break;
+            case "move": middle.KeyTime.Value = MediaTime.FromSeconds(2.5); break;
+            case "value": middle.Value.Value = 700f; break;
+            case "replace easing": middle.Easing.Value = new HoldEasing(); break;
+            case "edit spline": spline.Y1 = 1f; break;
+            case "global clock": animation.UseGlobalClock.Value = true; break;
+        }
+
+        integrator.EnsureCache(animation);
+        using var fresh = new SpeedIntegrator();
+        fresh.EnsureCache(animation);
+        Assert.Multiple(() =>
+        {
+            Assert.That(integrator.Integrate(query, animation), Is.EqualTo(fresh.Integrate(query, animation)));
+            Assert.That(integrator.CacheVersion, Is.EqualTo(version + 1));
+            Assert.That(invalidations, Is.EqualTo(previousInvalidations + 1));
+        });
     }
 
     private static KeyFrameAnimation<float> ConstantSpeed(float value)
@@ -133,51 +183,10 @@ public class SpeedIntegratorTests
         return animation;
     }
 
-    private static void SeedIntegralCache(SpeedIntegrator integrator, int second, double integralSeconds)
-    {
-        // Avoid billions of integration steps while exercising the long sample-domain remainder path.
-        System.Reflection.FieldInfo field = typeof(SpeedIntegrator).GetField(
-            "_integralCache",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("SpeedIntegrator cache field was not found.");
-
-        field.SetValue(integrator, new Dictionary<int, double>
-        {
-            [second] = integralSeconds
-        });
-    }
-
-    [Test]
-    public void SampleRate_Setter_InvalidatesCache()
-    {
-        bool invalidated = false;
-        using var integrator = new SpeedIntegrator(60, () => invalidated = true);
-        integrator.SampleRate = 44100;
-        Assert.That(invalidated, Is.True);
-    }
-
-    [Test]
-    public void SampleRate_SetSameValue_DoesNotInvalidate()
-    {
-        bool invalidated = false;
-        using var integrator = new SpeedIntegrator(60, () => invalidated = true);
-        integrator.SampleRate = 60;
-        Assert.That(invalidated, Is.False);
-    }
-
-    [Test]
-    public void TryGetCache_BeforeInit_ReturnsMinusOne()
-    {
-        using var integrator = new SpeedIntegrator(60);
-        var (key, value) = integrator.TryGetCache(0);
-        Assert.That(key, Is.EqualTo(-1));
-        Assert.That(value, Is.EqualTo(0));
-    }
-
     [Test]
     public void Integrate_Speed100_ReturnsSameTime()
     {
-        using var integrator = new SpeedIntegrator(60);
+        using var integrator = new SpeedIntegrator();
         var animation = ConstantSpeed(100f);
         integrator.EnsureCache(animation);
 
@@ -189,7 +198,7 @@ public class SpeedIntegratorTests
     [Test]
     public void Integrate_Speed200_DoublesTime()
     {
-        using var integrator = new SpeedIntegrator(60);
+        using var integrator = new SpeedIntegrator();
         var animation = ConstantSpeed(200f);
         integrator.EnsureCache(animation);
 
@@ -201,7 +210,7 @@ public class SpeedIntegratorTests
     [Test]
     public void Integrate_Speed0_ReturnsZero()
     {
-        using var integrator = new SpeedIntegrator(60);
+        using var integrator = new SpeedIntegrator();
         var animation = ConstantSpeed(0f);
         integrator.EnsureCache(animation);
 
@@ -211,51 +220,84 @@ public class SpeedIntegratorTests
     }
 
     [Test]
-    public void Integrate_LongTimelineRemainderUsesLongSampleIndex()
+    public void Integrate_SteepLinearRampMatchesAnalyticArea()
     {
-        const int sampleRate = 100000;
-        MediaTime start = MediaTime.FromSeconds(25200);
-        MediaTime oneSample = MediaTime.FromTimeSpan(TimeSpan.FromTicks(TimeSpan.TicksPerSecond / sampleRate));
-        long startSampleIndex = 7L * 60 * 60 * sampleRate;
-        double cachedIntegralSeconds = 12345.0;
-
-        using var integrator = new SpeedIntegrator(sampleRate);
-        var animation = RampedSpeedForLongTimeline();
-        integrator.EnsureCache(animation);
-        SeedIntegralCache(integrator, (int)start.ToSeconds(), cachedIntegralSeconds);
-
-        MediaTime result = integrator.Integrate(start + oneSample, animation);
+        var animation = TestAnimations.Linear(2400f, 400f, MediaTime.FromSeconds(2));
+        using var integrator = new SpeedIntegrator();
 
         Assert.Multiple(() =>
         {
-            Assert.That(startSampleIndex, Is.GreaterThan((long)int.MaxValue));
-            Assert.That(result.ToSeconds(), Is.EqualTo(cachedIntegralSeconds + (2.0 / sampleRate)).Within(1e-9));
+            Assert.That(integrator.Integrate(MediaTime.FromSeconds(1), animation).ToSeconds(), Is.EqualTo(19).Within(1e-8));
+            Assert.That(integrator.Integrate(MediaTime.FromSeconds(2), animation).ToSeconds(), Is.EqualTo(28).Within(1e-8));
         });
+    }
+
+    [Test]
+    public void Integrate_EasedPieceMatchesFineReference()
+    {
+        const int Steps = 200000;
+        const double Seconds = 1.375;
+        var animation = TestAnimations.Linear(130f, 420f, MediaTime.FromSeconds(2));
+        animation.KeyFrames[1].Easing.Value = new SplineEasing(0.25f, 0.8f, 0.7f, 0.1f);
+        double step = Seconds / Steps;
+        double expected = 0;
+        for (int i = 0; i < Steps; i++)
+            expected += animation.Interpolate(MediaTime.FromSeconds((i + 0.5) * step)) * step / 100d;
+
+        using var integrator = new SpeedIntegrator();
+
+        Assert.That(integrator.Integrate(MediaTime.FromSeconds(Seconds), animation).ToSeconds(),
+            Is.EqualTo(expected).Within(5e-6));
+    }
+
+    [Test]
+    public void Integrate_ClampedRampIntegratesTheKink()
+    {
+        var animation = TestAnimations.Linear(2400f, 400f, MediaTime.FromSeconds(2));
+        using var integrator = new SpeedIntegrator() { SpeedTransform = value => Math.Min(value, 1200f) };
+
+        // 1.2 seconds at 12x, then 0.8 seconds at an average of 8x.
+        Assert.That(integrator.Integrate(MediaTime.FromSeconds(2), animation).ToSeconds(), Is.EqualTo(20.8).Within(1e-6));
+    }
+
+    [Test]
+    public void Integrate_LongTimelineIncludesTheFullRampAndRemainder()
+    {
+        MediaTime start = MediaTime.FromSeconds(25200);
+        MediaTime remainder = MediaTime.FromSeconds(0.00001);
+        using var integrator = new SpeedIntegrator();
+        var animation = RampedSpeedForLongTimeline();
+
+        // The seven-hour ramp averages 150%, and the portion after it holds at 200%.
+        Assert.That(integrator.Integrate(start + remainder, animation), Is.EqualTo(MediaTime.FromSeconds(37800.00002)));
     }
 
     [Test]
     public void EnsureCache_NullAnimation_NoThrow()
     {
-        using var integrator = new SpeedIntegrator(60);
+        using var integrator = new SpeedIntegrator();
         Assert.DoesNotThrow(() => integrator.EnsureCache(null));
     }
 
     [Test]
     public void Dispose_ClearsState()
     {
-        var integrator = new SpeedIntegrator(60);
-        integrator.EnsureCache(ConstantSpeed(100f));
+        KeyFrameAnimation<float> animation = ConstantSpeed(100f);
+        int invalidations = 0;
+        var integrator = new SpeedIntegrator(() => invalidations++);
+        integrator.EnsureCache(animation);
         integrator.Dispose();
+        invalidations = 0;
+        animation.UseGlobalClock.Value = true;
 
-        var (key, _) = integrator.TryGetCache(0);
-        Assert.That(key, Is.EqualTo(-1));
+        Assert.That(invalidations, Is.Zero);
     }
 
     [Test]
     public void Invalidate_FiresCallback()
     {
         int callbackCount = 0;
-        using var integrator = new SpeedIntegrator(60, () => callbackCount++);
+        using var integrator = new SpeedIntegrator(() => callbackCount++);
         integrator.Invalidate();
         Assert.That(callbackCount, Is.EqualTo(1));
     }
