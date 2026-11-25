@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Language;
 
 namespace Beutl.Media;
@@ -31,4 +32,10 @@ public partial class SolidColorBrush : Brush
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
+
+    public partial class Resource
+    {
+        public override bool TrySampleColor(Rect bounds, Point point, out Color color)
+            => BrushConstructor.TrySamplePaintColor(this, bounds, point, out color);
+    }
 }

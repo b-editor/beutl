@@ -31,4 +31,20 @@ public abstract partial class Brush : EngineObject
 
     [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+
+    public partial class Resource
+    {
+        /// <summary>
+        /// Tries to sample the brush color at a point without a render pass.
+        /// </summary>
+        /// <param name="bounds">The bounds the brush fills.</param>
+        /// <param name="point">The sample position in the same coordinate space as <paramref name="bounds"/>.</param>
+        /// <param name="color">The sampled color, including brush opacity, when sampling succeeds.</param>
+        /// <returns><see langword="true"/> if a color was sampled. The default implementation returns <see langword="false"/>.</returns>
+        public virtual bool TrySampleColor(Rect bounds, Point point, out Color color)
+        {
+            color = default;
+            return false;
+        }
+    }
 }
