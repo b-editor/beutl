@@ -2,6 +2,7 @@
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Sessions;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -184,6 +185,55 @@ public sealed class AgentHostAiBackendTests
             Assert.That(completed.Transcript.Segments, Is.EqualTo(resumed.Transcript.Segments));
             Assert.That(changed?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
         });
+    }
+
+    [AvaloniaTest]
+    [TestCase(null)]
+    [TestCase("whisper")]
+    public async Task ATranscriptionRetryRecoversThroughTheToolWhenNoModelIsAffordable(string? requestedModel)
+    {
+        const int sampleRate = 8_000;
+        string path = WriteSource("paid" + Extension);
+        _decoders.Register(new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 2L)));
+        var model = new GenerativeModelInfo("whisper", "Whisper", IsDefault: true, IsAvailable: true, Image: null);
+        var transcription = new StubTranscription();
+        transcription.OnRequest = () =>
+        {
+            if (transcription.Requests.Count == 1)
+                throw new AiResultUnavailableException();
+        };
+        using var originalJobs = new AgentAiJobManager();
+        var originalTools = new AgentHostAiTools(TestShell.Editor, originalJobs,
+            CreateBackend(transcription: transcription, catalog: new StubCatalog([model])), new AgentSessionManager());
+        var first = await originalTools.TranscribeAudio(path, model: requestedModel, waitSeconds: 10, requestKey: "paid");
+        Assert.That(first.Value?.Status, Is.EqualTo(AgentAiJobStatus.Failed), first.Error?.Message);
+
+        var entitlements = new StubEntitlements();
+        entitlements.Current.Value = Entitlements(canUseAi: true);
+        var availability = new StubAvailability { Allowed = false };
+        var catalog = new StubCatalog([model with { IsAvailable = false }]);
+        AgentHostAiBackend backend = CreateBackend(entitlements: entitlements, availability: availability,
+            transcription: transcription, catalog: catalog);
+        using var retryJobs = new AgentAiJobManager();
+        var retryTools = new AgentHostAiTools(TestShell.Editor, retryJobs, backend, new AgentSessionManager());
+        var recovered = await retryTools.TranscribeAudio(path, model: requestedModel, waitSeconds: 10, requestKey: "paid");
+        using var reopenedJobs = new AgentAiJobManager();
+        var reopenedTools = new AgentHostAiTools(TestShell.Editor, reopenedJobs, backend, new AgentSessionManager());
+        var completed = await reopenedTools.TranscribeAudio(path, model: requestedModel, waitSeconds: 10, requestKey: "paid");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Value?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded), recovered.Error?.Message);
+            Assert.That(recovered.Value?.Output?.ModelId, Is.EqualTo(model.Id));
+            Assert.That(completed.Value?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded), completed.Error?.Message);
+            Assert.That(catalog.Operations, Is.Empty);
+            Assert.That(availability.Requests, Is.Empty);
+            Assert.That(transcription.Requests, Has.Count.EqualTo(2));
+            Assert.That(transcription.Requests[1].IdempotencyKey, Is.EqualTo(transcription.Requests[0].IdempotencyKey));
+        });
+
+        var fresh = await retryTools.TranscribeAudio(path, model: requestedModel, waitSeconds: 10, requestKey: "fresh");
+        Assert.That(fresh.IsSuccess, Is.False, "a new request still checks whether the model is available");
     }
 
     [TestCase("account-b")]
@@ -369,7 +419,8 @@ public sealed class AgentHostAiBackendTests
         IAiEntitlementService? entitlements = null,
         IAiOperationAvailabilityService? availability = null,
         IAiTranscriptionService? transcription = null,
-        AiRequestRecoveryContext? recoveryContext = null)
+        AiRequestRecoveryContext? recoveryContext = null,
+        IGenerativeModelCatalog? catalog = null)
         => new(
             recoveryContext ?? (user is null
                 ? CreateRecoveryContext(() => new("test-user", User: null))
@@ -377,7 +428,7 @@ public sealed class AgentHostAiBackendTests
             entitlements ?? new StubEntitlements(),
             availability ?? new StubAvailability(),
             transcription ?? new StubTranscription(),
-            () => new StubCatalog([]),
+            () => catalog ?? new StubCatalog([]),
             _ => new StubExecutor(),
             new StubModelCatalog(), _decoders);
 

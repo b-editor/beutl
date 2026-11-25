@@ -189,7 +189,7 @@ internal sealed class AiGenerativeNodeExecutor(
         ];
 
         string path = await RunImageAsync(
-            request.RequestKeySeed,
+            request,
             "image.generate",
             parts,
             token => availability.CheckAsync(
@@ -273,7 +273,7 @@ internal sealed class AiGenerativeNodeExecutor(
         string?[] parts = [task, prompt, model?.Value, AiRequestKey.FileStamp(uploadName, uploadBytes)];
         AiOperationId operation = AiOperations.ImageEdit(new AiImageEditTaskId(task));
         string path = await RunImageAsync(
-            request.RequestKeySeed,
+            request,
             "image.edit",
             parts,
             token => availability.CheckAsync(new AiOperationAvailabilityRequest.Fixed(operation, model), token),
@@ -322,7 +322,7 @@ internal sealed class AiGenerativeNodeExecutor(
 
         string?[] parts = BuildVideoGenerationParts(request, generateAudio, seed, model, references);
         return await DispatchAsync(
-            request.RequestKeySeed,
+            request,
             "video.generate",
             parts,
             Strings.AiVideoSubmitting,
@@ -567,7 +567,7 @@ internal sealed class AiGenerativeNodeExecutor(
             _ => "video.edit",
         };
         return await DispatchAsync(
-            request.RequestKeySeed,
+            request,
             keyOperation,
             parts,
             Strings.AiVideoSubmitting,
@@ -749,7 +749,7 @@ internal sealed class AiGenerativeNodeExecutor(
     /// comes back next to the scene.
     /// </summary>
     private Task<string> RunImageAsync(
-        string keySeed,
+        GenerativeRequest request,
         string keyOperation,
         string?[] parts,
         Func<CancellationToken, Task<bool>> checkAvailability,
@@ -761,7 +761,7 @@ internal sealed class AiGenerativeNodeExecutor(
         CancellationToken cancellationToken)
     {
         return DispatchAsync(
-            keySeed,
+            request,
             keyOperation,
             parts,
             Strings.AiGenerating,
@@ -816,7 +816,7 @@ internal sealed class AiGenerativeNodeExecutor(
     /// collected, not bought again.
     /// </summary>
     private async Task<TResult> DispatchAsync<TResponse, TResult>(
-        string keySeed,
+        GenerativeRequest request,
         string keyOperation,
         string?[] parts,
         string submittingStatus,
@@ -827,12 +827,24 @@ internal sealed class AiGenerativeNodeExecutor(
         AiAccountJobScope account,
         CancellationToken cancellationToken)
     {
-        using var requestKey = new AiRequestKey(seed: keySeed, recoveryContext: recoveryContext, operation: keyOperation);
+        using var requestKey = new AiRequestKey(seed: request.RequestKeySeed, recoveryContext: recoveryContext, operation: keyOperation);
         AiRequestName name = default;
         try
         {
             using (account.Enter(cancellationToken))
+            {
+                if (request.HasCallerRequestKey && recoveryContext is not null
+                    && !AgentGenerationRecovery.MatchesOrSave(recoveryContext.Store.StoragePath, request.RequestKeySeed, keyOperation, parts))
+                {
+                    throw new GenerativeExecutionException(
+                        "requestKey already names a generation with different resolved settings or inputs. Use the original settings or a new requestKey.")
+                    {
+                        Input = nameof(GenerativeRequest.RequestKeySeed),
+                    };
+                }
+
                 name = requestKey.NameFor(parts);
+            }
             progress.Report(new GenerativeProgress(submittingStatus));
             TResponse response = await AiMeteredDispatch.SendAsync(
                 account,

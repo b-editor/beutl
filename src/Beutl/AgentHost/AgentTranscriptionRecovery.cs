@@ -20,16 +20,15 @@ internal sealed class AgentTranscriptionRecovery : IDisposable
     private readonly string _path;
     private readonly FileStream _lease;
 
-    public AgentTranscriptionRecovery(string directory, string accountId, string requestKey)
+    public AgentTranscriptionRecovery(string recoveryStorePath, string accountId, string requestKey)
     {
-        string fileName = GenerativeFingerprint.Combine([accountId, requestKey]);
-        Directory.CreateDirectory(directory);
-        _path = Path.Combine(directory, fileName + ".json");
+        _path = CheckpointPath(recoveryStorePath, accountId, requestKey);
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
 
         // Keep the lease until the job exits so two app instances cannot resume one checkpoint at once.
         try
         {
-            _lease = File.Open(Path.Combine(directory, fileName + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            _lease = File.Open(Path.ChangeExtension(_path, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         }
         catch (IOException)
         {
@@ -37,6 +36,13 @@ internal sealed class AgentTranscriptionRecovery : IDisposable
                 "This transcription's saved state is in use or unavailable. Retry with the same requestKey.");
         }
     }
+
+    public static bool Exists(string recoveryStorePath, string accountId, string requestKey)
+        => File.Exists(CheckpointPath(recoveryStorePath, accountId, requestKey));
+
+    private static string CheckpointPath(string recoveryStorePath, string accountId, string requestKey)
+        => Path.Combine(Path.GetDirectoryName(recoveryStorePath)!, "agent-transcriptions",
+            GenerativeFingerprint.Combine([accountId, requestKey]) + ".json");
 
     public async Task<AgentTranscriptionCheckpoint?> LoadAsync(CancellationToken cancellationToken)
     {

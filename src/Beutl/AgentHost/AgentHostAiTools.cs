@@ -343,13 +343,20 @@ internal sealed class AgentHostAiTools(
             string? languageCode = string.IsNullOrWhiteSpace(language) ? null : language.Trim().ToLowerInvariant();
             if (languageCode is not null && !AiRequestLimits.IsIso6391LanguageCode(languageCode))
                 throw Invalid($"'{language}' is not a two-letter ISO 639-1 language code such as ja or en.", "language");
-            using (account.Enter(token))
-                await RequireAvailableAsync(token).ConfigureAwait(false);
-            // Transcription has no executor to resolve the default model, so the one chosen here is sent.
-            GenerativeModelInfo? chosen = await account.SendAsync(
-                ct => ResolveModelAsync(TranscriptionOperation, model, ct, sendsNamedModel: true), token).ConfigureAwait(false);
-            string? modelId = chosen?.Id ?? NormalizeModel(model);
-            AgentTranscriptionRetry? retry = requestKey is null ? null : new(requestKey, NormalizeModel(model));
+            string? modelId = NormalizeModel(model);
+            AgentTranscriptionRetry? retry = requestKey is null ? null : new(requestKey, modelId);
+            bool recovering = retry is { } saved && account.AccountId is { } accountId
+                && backend.RecoveryContext is { } recovery
+                && AgentTranscriptionRecovery.Exists(recovery.Store.StoragePath, accountId, saved.Key);
+            if (!recovering)
+            {
+                using (account.Enter(token))
+                    await RequireAvailableAsync(token).ConfigureAwait(false);
+                GenerativeModelInfo? chosen = await account.SendAsync(
+                    ct => ResolveModelAsync(TranscriptionOperation, model, ct, sendsNamedModel: true), token).ConfigureAwait(false);
+                modelId = chosen?.Id ?? modelId;
+            }
+            // On recovery the backend uses the saved model and only checks credits for unsent parts.
             string path = RequireFile(sourcePath, "sourcePath");
             return new PreparedAiJob(async (progress, jobToken) =>
             {
@@ -426,6 +433,8 @@ internal sealed class AgentHostAiTools(
                     ? AiRequestKey.NewSeed()
                     : GenerativeFingerprint.Combine([account.AccountId, operation, requestKey])[..32];
                 request = build(scene, chosen, seed);
+                if (requestKey is not null)
+                    request = request with { HasCallerRequestKey = true };
             }
             catch (GenerativeExecutionException ex)
             {
@@ -455,7 +464,10 @@ internal sealed class AgentHostAiTools(
                 catch (GenerativeExecutionException ex)
                 {
                     // The executor keeps the service's refusal as the inner exception.
-                    throw new AgentAiException(AgentAiException.CodeFor(ex.InnerException), ex.Message);
+                    string code = ex.Input == nameof(GenerativeRequest.RequestKeySeed)
+                        ? ErrorCode.ValidationRejected
+                        : AgentAiException.CodeFor(ex.InnerException);
+                    throw new AgentAiException(code, ex.Message);
                 }
 
                 return new AgentAiJobOutput(

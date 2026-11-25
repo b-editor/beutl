@@ -154,9 +154,7 @@ internal sealed class AgentHostAiBackend(
         // parts the length calls for, and no part cut short under a second.
         int maxParts = estimatedParts * 2;
         using AgentTranscriptionRecovery? recovery = retry is { } request
-            ? new AgentTranscriptionRecovery(
-                Path.Combine(Path.GetDirectoryName(recoveryContext.Store.StoragePath)!, "agent-transcriptions"),
-                account.AccountId!, request.Key)
+            ? new AgentTranscriptionRecovery(recoveryContext.Store.StoragePath, account.AccountId!, request.Key)
             : null;
         AgentTranscriptionCheckpoint? checkpoint = null;
         if (recovery is not null)

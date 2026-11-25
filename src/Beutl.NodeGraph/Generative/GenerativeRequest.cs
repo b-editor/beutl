@@ -63,6 +63,8 @@ public abstract record GenerativeRequest
     /// </summary>
     public required string RequestKeySeed { get; init; }
 
+    internal bool HasCallerRequestKey { get; init; }
+
     public required string ParameterFingerprint { get; init; }
 
     /// <summary>Identifies the complete request, inputs included.</summary>

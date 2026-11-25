@@ -1,4 +1,7 @@
 ﻿using Avalonia.Headless.NUnit;
+using Beutl.AgentHost;
+using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.AiWorkspaceTab.Services;
 using Beutl.Language;
@@ -86,6 +89,45 @@ public sealed class AiGenerativeAccountTests
                 Assert.That(state.Store.PendingFor("account-b", operation), Is.Empty);
             }
         });
+    }
+
+    [AvaloniaTest]
+    public async Task AKeyedGenerationRetryAfterReopeningCannotBuyAChangedDefault()
+    {
+        (_, Scene scene, _) = await TestShell.OpenNewSceneAsync("agent-ai-default-retry");
+        using var state = new JobState();
+        var submitted = new List<AiImageGenerationRequest>();
+        state.Images.Setup(service => service.GenerateAsync(
+                It.IsAny<AiImageGenerationRequest>(), It.IsAny<IProgress<AiImagePreview>?>(), It.IsAny<CancellationToken>()))
+            .Returns((AiImageGenerationRequest request, IProgress<AiImagePreview>? _, CancellationToken _) =>
+            {
+                submitted.Add(request);
+                return Task.FromException<AiImageResult>(new AiResultUnavailableException());
+            });
+        using var originalJobs = new AgentAiJobManager();
+        var originalTools = new AgentHostAiTools(TestShell.Editor, originalJobs, state.Backend, new AgentSessionManager());
+        var original = await originalTools.GenerateImage("a cat", waitSeconds: 10, requestKey: "paid");
+        Assert.That(original.Value?.Status, Is.EqualTo(AgentAiJobStatus.Failed), original.Error?.Message);
+        Assert.That(submitted.Single().AspectRatio.Value, Is.EqualTo("4:3"));
+
+        scene.FrameSize.Value = new Beutl.Media.PixelSize(1920, 1080);
+        using var retryJobs = new AgentAiJobManager();
+        var retryTools = new AgentHostAiTools(TestShell.Editor, retryJobs, state.Backend, new AgentSessionManager());
+        var changed = await retryTools.GenerateImage("a cat", waitSeconds: 10, requestKey: "paid");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed.Value?.ErrorCode, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(changed.Value?.ErrorMessage, Does.Contain("different resolved settings"));
+            Assert.That(submitted, Has.Count.EqualTo(1));
+        });
+
+        scene.FrameSize.Value = new Beutl.Media.PixelSize(640, 480);
+        using var reopenedJobs = new AgentAiJobManager();
+        var reopenedTools = new AgentHostAiTools(TestShell.Editor, reopenedJobs, state.Backend, new AgentSessionManager());
+        await reopenedTools.GenerateImage("a cat", waitSeconds: 10, requestKey: "paid");
+        Assert.That(submitted.Select(request => request.IdempotencyKey),
+            Is.EqualTo(new[] { submitted[0].IdempotencyKey, submitted[0].IdempotencyKey }));
     }
 
     [AvaloniaTest]
@@ -196,17 +238,21 @@ public sealed class AiGenerativeAccountTests
                     return new AiVideoGenerationResult(new AiJobId("video"), AiJobStatuses.Queued);
                 });
             var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
+            var models = new AiGenerativeModelCatalog(catalog.Object, entitlementService.Object);
             Executor = new AiGenerativeNodeExecutor(
-                scene, new AiGenerativeModelCatalog(catalog.Object, entitlementService.Object), Images.Object,
+                scene, models, Images.Object,
                 availability.Object, Content.Object, Library.Object, Mock.Of<IAiImageEditingService>(), Videos.Object,
                 AiJobKindRegistry.CreateBuiltIn(Videos.Object), TestShell.Decoders, _recovery)
             {
                 PollInterval = TimeSpan.FromHours(1),
             };
+            Backend = new AgentHostAiBackend(_recovery, entitlementService.Object, availability.Object,
+                Mock.Of<IAiTranscriptionService>(), () => models, _ => Executor, catalog.Object, TestShell.Decoders);
         }
 
         public FileAiRequestKeyMap Store { get; }
         public AiGenerativeNodeExecutor Executor { get; }
+        public AgentHostAiBackend Backend { get; }
         public Mock<IAiImageGenerationService> Images { get; } = new(MockBehavior.Strict);
         public Mock<IAiVideoService> Videos { get; } = new(MockBehavior.Strict);
         public Mock<IAuthenticatedContentService> Content { get; } = new(MockBehavior.Strict);
