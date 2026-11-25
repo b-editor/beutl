@@ -47,8 +47,6 @@ public sealed partial class ViewConfig : ConfigurationBase
 
     public IProperty<string?> CustomAccentColor { get; } = Property.CreateValue<string?>(null);
 
-    public IProperty<bool> ShowExactBoundaries { get; } = Property.CreateValue(false);
-
     public IProperty<RecentProjectsLayout> RecentProjectsLayout { get; } = Property.CreateValue(Configuration.RecentProjectsLayout.Grid);
 
     // macOS only: whether context menus and context flyouts appear as native menus.
@@ -139,7 +137,7 @@ public sealed partial class ViewConfig : ConfigurationBase
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries) or nameof(RecentProjectsLayout) or nameof(UseNativeContextMenus) or nameof(LastOpenedProjectFile))
+        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(RecentProjectsLayout) or nameof(UseNativeContextMenus) or nameof(LastOpenedProjectFile))
         {
             OnChanged();
         }

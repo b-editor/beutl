@@ -146,14 +146,6 @@
     <value>Beutlを改善するために、匿名の使用状況データを収集します。これらの設定はアプリケーションの再起動後に変更が適用されます。詳しくは以下のページをご覧ください。</value>
     <comment/>
   </data>
-  <data name="ShowExactBoundaries_Description" xml:space="preserve">
-    <value>プレビュー時に表示される要素の境界を正確に表示します。この設定を有効にすると境界線が見えなくなる場合があります。</value>
-    <comment/>
-  </data>
-  <data name="ShowExactBoundaries" xml:space="preserve">
-    <value>正確な境界線を表示</value>
-    <comment/>
-  </data>
   <data name="AutoAdjustSceneDuration" xml:space="preserve">
     <value>自動でシーンの長さを調整</value>
     <comment/>

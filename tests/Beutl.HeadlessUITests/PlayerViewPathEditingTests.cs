@@ -13,14 +13,14 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
 
-// While the player's path editor edits a shape, the frame shows the shape with the editor's own points alone: the white
-// boundary drawn into the frame and the blue box of the transform handles would only cover them.
+// The preview marks the selection with the transform handles alone (#4608): the frame holds no white boundary. While
+// the player's path editor edits a shape, the handles give way to the editor's own points.
 [NonParallelizable]
 [TestFixture]
 public sealed class PlayerViewPathEditingTests
 {
     [AvaloniaTest]
-    public async Task The_boundary_and_the_transform_handles_give_way_to_the_path_editor()
+    public async Task The_frame_holds_no_boundary_and_the_handles_give_way_to_the_path_editor()
     {
         TestGpu.RequireAnyDevice();
         using PathEditorInteractionTests.Fixture fixture = await PathEditorInteractionTests.Fixture.Create();
@@ -40,27 +40,26 @@ public sealed class PlayerViewPathEditingTests
             await RenderedAfter(player, player.QueuePreviewRender);
             Assert.Multiple(() =>
             {
-                Assert.That(WhitePixels(player), Is.GreaterThan(0), "the selection's boundary");
+                Assert.That(WhitePixels(player), Is.Zero, "no boundary is drawn into the frame");
                 Assert.That(view.transformHandlesOverlay.IsVisible, Is.True);
                 Assert.That(view.transformHandlesOverlay.Drawable, Is.Not.Null, "the selection's handles");
             });
 
-            // Opening and closing the editor draws the paused frame again by itself.
-            await RenderedAfter(player, () => player.PathEditor.FigureContext.Value = fixture.Model.FigureContext.Value);
+            player.PathEditor.FigureContext.Value = fixture.Model.FigureContext.Value;
+            HeadlessTestHelpers.Render(3);
             Assert.Multiple(() =>
             {
                 Assert.That(player.PathEditor.IsVisible.Value, Is.True);
-                Assert.That(WhitePixels(player), Is.Zero, "no boundary while the path is edited");
                 Assert.That(view.transformHandlesOverlay.IsVisible, Is.False);
                 Assert.That(view.transformHandlesOverlay.Drawable, Is.Null, "no handles while the path is edited");
             });
 
-            await RenderedAfter(player, () => player.PathEditor.FigureContext.Value = null);
+            player.PathEditor.FigureContext.Value = null;
+            HeadlessTestHelpers.Render(3);
             Assert.Multiple(() =>
             {
-                Assert.That(WhitePixels(player), Is.GreaterThan(0), "the boundary comes back");
                 Assert.That(view.transformHandlesOverlay.IsVisible, Is.True);
-                Assert.That(view.transformHandlesOverlay.Drawable, Is.Not.Null, "and the handles");
+                Assert.That(view.transformHandlesOverlay.Drawable, Is.Not.Null, "the handles come back");
             });
         }
         finally
@@ -83,7 +82,7 @@ public sealed class PlayerViewPathEditingTests
         HeadlessTestHelpers.Render(3);
     }
 
-    // The boundary is the only white the frame holds: the shape is red on a transparent scene.
+    // The shape is red on a transparent scene, so any white in the frame would be a drawn boundary.
     private static int WhitePixels(PlayerViewModel player)
     {
         using Ref<Bitmap> frame = player.PreviewImage.Value!.Clone();

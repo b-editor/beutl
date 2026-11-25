@@ -27,7 +27,6 @@ public partial class PropertyConversionGoldenTests
                 IsWindowMaximized = { Value = true },
                 UseCustomAccentColor = { Value = true },
                 CustomAccentColor = { Value = "#FF112233" },
-                ShowExactBoundaries = { Value = true },
                 RecentProjectsLayout = { Value = RecentProjectsLayout.List },
                 UseNativeContextMenus = { Value = false },
                 RecentFiles = { "/golden/a.belm" },
@@ -93,7 +92,7 @@ public partial class PropertyConversionGoldenTests
             string path = Path.Combine(directory, "settings.json");
             File.WriteAllText(path, new JsonObject
             {
-                ["view"] = new JsonObject { ["UICulture"] = "ja-JP", ["ShowExactBoundaries"] = true },
+                ["view"] = new JsonObject { ["UICulture"] = "ja-JP", ["UseCustomAccentColor"] = true },
                 ["telemetry"] = new JsonObject { ["Beutl_Logging"] = true },
             }.ToJsonString());
             var config = new GlobalConfiguration();
@@ -102,7 +101,7 @@ public partial class PropertyConversionGoldenTests
             Assert.Multiple(() =>
             {
                 Assert.That(config.ViewConfig.UICulture.Value, Is.EqualTo(CultureInfo.GetCultureInfo("ja-JP")));
-                Assert.That(config.ViewConfig.ShowExactBoundaries.Value, Is.True);
+                Assert.That(config.ViewConfig.UseCustomAccentColor.Value, Is.True);
                 Assert.That(config.TelemetryConfig.Beutl_Logging.Value, Is.True);
             });
         }

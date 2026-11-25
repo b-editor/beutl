@@ -150,14 +150,6 @@
     <value>Beutl을 개선하기 위해 익명 사용 데이터를 수집합니다. 이 설정은 애플리케이션을 다시 시작한 후 적용됩니다. 자세한 내용은 다음 페이지를 참조하세요.</value>
     <comment />
   </data>
-  <data name="ShowExactBoundaries_Description" xml:space="preserve">
-    <value>미리 보기 중에 요소의 경계를 정확하게 표시합니다. 이 설정을 사용하면 테두리가 보이지 않을 수 있습니다.</value>
-    <comment />
-  </data>
-  <data name="ShowExactBoundaries" xml:space="preserve">
-    <value>정확한 경계 표시</value>
-    <comment />
-  </data>
   <data name="AutoAdjustSceneDuration" xml:space="preserve">
     <value>장면 길이 자동 조정</value>
     <comment />
