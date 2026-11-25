@@ -2,6 +2,7 @@
 using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Media.Decoding;
+using SharpGen.Runtime;
 
 namespace Beutl.FFmpegIpc.Tests;
 
@@ -16,9 +17,12 @@ public sealed class MediaFoundationFallbackIntegrationTests
     private TrackingDecoder _ffmpeg = null!;
 
     [OneTimeSetUp]
-    public void EnsureWorkerAvailable()
+    public void SetUpDependencies()
     {
         DecodingWorkerTestHelpers.RequireDecodingWorker();
+
+        // Other Vortice backends can freeze SharpGen's settings before Media Foundation opens.
+        using var wrapper = new CppObject(IntPtr.Zero);
     }
 
     [SetUp]
