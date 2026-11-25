@@ -13,7 +13,8 @@ namespace Beutl.Models;
 
 internal sealed class BufferedPlayer : IDisposable
 {
-    public record struct Frame(Ref<Bitmap> Bitmap, int Time, Ref<Bitmap>? CleanBitmap = null) : IDisposable
+    public record struct Frame(
+        Ref<Bitmap> Bitmap, int Time, Ref<Bitmap>? CleanBitmap = null, string? PreviewWarning = null) : IDisposable
     {
         public void Dispose()
         {
@@ -353,7 +354,7 @@ internal sealed class BufferedPlayer : IDisposable
         SceneRenderer renderer, FrameCacheManager cacheManager, int frame, MediaTime time, int editVersion)
     {
         // cacheは参照を既に追加されている
-        if (cacheManager.TryGet(frame, out Ref<Bitmap>? cache))
+        if (cacheManager.TryGet(frame, out Ref<Bitmap>? cache, out string? warning))
         {
             using (cache)
             {
@@ -361,12 +362,12 @@ internal sealed class BufferedPlayer : IDisposable
                     return EnqueueResult.Canceled;
 
                 using var clean = _editViewModel.Player.CreatePlaybackCleanFrame(renderer, cache, time);
-                return TryQueue(new(cache.Clone(), frame, clean?.Clone()));
+                return TryQueue(new(cache.Clone(), frame, clean?.Clone(), warning));
             }
         }
 
         var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
-        renderer.Render(compositionFrame);
+        warning = renderer.RenderWithWarning(compositionFrame);
         if (IsCanceled)
             return EnqueueResult.Canceled;
 
@@ -376,12 +377,12 @@ internal sealed class BufferedPlayer : IDisposable
                 return EnqueueResult.Canceled;
 
             using var clean = _editViewModel.Player.CreatePlaybackCleanFrame(renderer, bitmap);
-            EnqueueResult result = TryQueue(new(bitmap.Clone(), frame, clean?.Clone()));
+            EnqueueResult result = TryQueue(new(bitmap.Clone(), frame, clean?.Clone(), warning));
             // Outside the lock, which the consumer waits for. An edit since the frame was queued may have deleted
             // its cache before this Add, so the frame is taken back out.
             if (result == EnqueueResult.Queued && !EditedSince(editVersion))
             {
-                cacheManager.Add(frame, bitmap);
+                cacheManager.Add(frame, bitmap, warning);
                 if (EditedSince(editVersion))
                     cacheManager.DeleteAndUpdateBlocks([(frame, frame + 1)]);
             }

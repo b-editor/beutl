@@ -64,8 +64,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     private bool _isShuttling;
     private readonly PlaybackSessionGuard _sessionGuard = new();
     private readonly ReactivePropertySlim<string?> _previewRenderError = new();
-    private long _previewRenderErrorIssuedVersion;
-    private long _previewRenderErrorAppliedVersion;
+    private readonly ReactivePropertySlim<string?> _previewRenderWarning = new();
+    private long _previewRenderStatusIssuedVersion;
+    private long _previewRenderStatusAppliedVersion;
     // Serializes RestoreStoppedPreviewState so PlayInternal's finally and Pause()'s timeout path
     // cannot interleave the dispose/resubscribe and Scene.Edited unhook/hook steps across threads.
     private readonly object _restoreLock = new();
@@ -406,6 +407,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     public ReactivePropertySlim<Ref<Bitmap>?> PreviewImage { get; } = new();
 
     public IReadOnlyReactiveProperty<string?> PreviewRenderError => _previewRenderError;
+
+    public IReadOnlyReactiveProperty<string?> PreviewRenderWarning => _previewRenderWarning;
 
     IReadOnlyReactiveProperty<Ref<Bitmap>?> IPreviewPlayer.PreviewImage => PreviewImage;
 

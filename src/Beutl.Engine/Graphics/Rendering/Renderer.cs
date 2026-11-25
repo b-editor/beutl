@@ -318,12 +318,14 @@ public class Renderer : IRenderer
     {
     }
 
-    public void Render(CompositionFrame frame)
+    public void Render(CompositionFrame frame) => RenderWithWarning(frame);
+
+    internal string? RenderWithWarning(CompositionFrame frame)
     {
         _dispatcher.VerifyAccess();
         frame.CancellationToken.ThrowIfCancellationRequested();
         if (IsGraphicsRendering)
-            return;
+            return null;
 
         try
         {
@@ -331,7 +333,7 @@ public class Renderer : IRenderer
             Time = frame.Time.Start;
             using (_immediateCanvas.Push())
             {
-                RenderObjects(frame);
+                return RenderObjects(frame);
             }
         }
         finally
@@ -340,15 +342,16 @@ public class Renderer : IRenderer
         }
     }
 
-    private void RenderObjects(CompositionFrame frame)
+    private string? RenderObjects(CompositionFrame frame)
     {
         var pendingEntries = new List<Entry>();
+        string? warning;
         try
         {
             PrepareEntries(frame, pendingEntries);
 
             _completeTarget.UpdateRoots(pendingEntries.Select(static entry => (RenderNode)entry.Node));
-            _frameRenderer.Render(_immediateCanvas, null, frame.CancellationToken);
+            warning = _frameRenderer.RenderWithWarning(_immediateCanvas, null, frame.CancellationToken);
         }
         finally
         {
@@ -358,6 +361,7 @@ public class Renderer : IRenderer
         InvalidateEntryBounds(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
         _frameContainsScene3D = frame.ContainsScene3D;
+        return warning;
     }
 
     private void PrepareEntries(CompositionFrame frame, List<Entry> destination)

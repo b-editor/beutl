@@ -107,6 +107,15 @@
   <data name="FrameDrawingException" xml:space="preserve">
     <value>フレームの描画中に例外が発生しました。</value>
   </data>
+  <data name="Scene3DBackendUnavailable" xml:space="preserve">
+    <value>Vulkan を利用できないため、3D を描画できません。</value>
+  </data>
+  <data name="Scene3DExtentLimitExceeded" xml:space="preserve">
+    <value>3D 描画に必要な {0} × {1} px のバッファが、GPU の上限（1 辺 {2} px）を超えています。</value>
+  </data>
+  <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
+    <value>3D 描画用のバッファを作成できませんでした。</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>出力中に例外が発生しました。</value>
   </data>

@@ -77,7 +77,7 @@ public class DeviceExtentLimitTests
         Mock<IGraphicsContext> device = LooseDevice(attachment: attachment, cube: cube);
         using var renderer = new Renderer3D(device.Object);
 
-        bool preflight = Renderer3D.CanInitialize(new Device3DExtentBudget(attachment, cube), width, height);
+        bool preflight = Renderer3D.FindExceededExtentLimit(new Device3DExtentBudget(attachment, cube), width, height) is null;
         bool initializeAccepts = true;
         try
         {

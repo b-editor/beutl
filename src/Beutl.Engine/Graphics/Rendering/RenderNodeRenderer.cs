@@ -122,6 +122,12 @@ public sealed class RenderNodeRenderer : IDisposable
         ImmediateCanvas destination,
         RenderNodeRenderRequest? requestOptions,
         CancellationToken cancellationToken)
+        => RenderWithWarning(destination, requestOptions, cancellationToken);
+
+    internal string? RenderWithWarning(
+        ImmediateCanvas destination,
+        RenderNodeRenderRequest? requestOptions,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
@@ -213,6 +219,7 @@ public sealed class RenderNodeRenderer : IDisposable
         targets.ThrowIfCleanupFailed();
         cacheLifecycle?.CompleteSuccessfully(
             effectiveRequest.Purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup);
+        return owner?.PreviewWarning;
     }
 
     private static void ExecuteWithExpandedTarget(

@@ -102,6 +102,12 @@ internal sealed class RenderRequestOptions
 
     internal RenderRequestOptions? NestedPolicyParent { get; private set; }
 
+    internal void ReportPreviewWarning(string message)
+    {
+        if (Intent == RenderIntent.Preview && Purpose == RenderRequestPurpose.Frame)
+            Owner.RecordPreviewWarning(message);
+    }
+
     public RenderRequestOptions CreateNestedAtScale(
         NestedRenderTargetBinding targetBinding,
         float workingScale,

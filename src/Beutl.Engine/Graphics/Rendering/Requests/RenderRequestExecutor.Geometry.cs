@@ -276,8 +276,7 @@ internal sealed partial class RenderRequestExecutor
                             new RenderPlacement(requiredRegion, EffectiveScale.At(density), _activeDeviceGridOffset),
                             _options.OutputScale,
                             _options.MaxWorkingScale,
-                            _options.Intent,
-                            _options.Purpose,
+                            _options,
                             description.Resources,
                             (owner, logicalBounds, requestedOutputDensity) =>
                             {

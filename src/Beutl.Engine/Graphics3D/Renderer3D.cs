@@ -52,17 +52,25 @@ internal sealed class Renderer3D : IRenderer3D
     public float SurfaceDensity { get; set; } = 1f;
 
     /// <summary>
-    /// Whether a device with <paramref name="budget"/> could <see cref="Initialize"/> this extent.
+    /// Finds the first required attachment that exceeds a reported device limit, in allocation order.
     /// </summary>
-    /// <remarks>
-    /// The extent-limit half of <see cref="Initialize"/>, asked without a device so a recording can answer for the
-    /// execution. An allocation added to <see cref="Initialize"/> whose extent a device can refuse belongs here too.
-    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is zero or negative.</exception>
-    internal static bool CanInitialize(Device3DExtentBudget budget, int width, int height)
-        => budget.CanAttach(width, height)
-           && budget.CanAttach(ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize)
-           && budget.CanAttachCubeFaces(PointShadowPass.DefaultCubeFaceSize);
+    internal static (int Width, int Height, int Limit)? FindExceededExtentLimit(
+        Device3DExtentBudget budget, int width, int height)
+    {
+        if (!budget.CanAttach(width, height))
+            return (width, height, budget.MaxAttachmentDimension);
+
+        int shadowSize = ShadowPass.DefaultShadowMapSize;
+        if (!budget.CanAttach(shadowSize, shadowSize))
+            return (shadowSize, shadowSize, budget.MaxAttachmentDimension);
+
+        int cubeFaceSize = PointShadowPass.DefaultCubeFaceSize;
+        if (!budget.CanAttachCubeFaces(cubeFaceSize))
+            return (cubeFaceSize, cubeFaceSize, budget.ResolveCubeFaceAttachmentBudget());
+
+        return null;
+    }
 
     /// <summary>
     /// Allocates the passes and the output texture for an extent.

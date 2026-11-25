@@ -180,6 +180,8 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
+                if (compiled?.Request.Options.Owner.PreviewWarning is { } warning)
+                    _options.ReportPreviewWarning(warning);
                 CloseAndCapture(canvas, ref failure);
                 DisposeAndCapture(lease, ref failure);
                 DisposeAndCapture(compiled, ref failure);

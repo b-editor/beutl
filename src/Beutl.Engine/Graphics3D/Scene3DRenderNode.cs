@@ -10,6 +10,7 @@ using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Textures;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
@@ -49,11 +50,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (Scene is not { } sceneSnapshot)
             return;
 
-        // Without a 3D backend the scene is never drawn, and describing it would let its hit test swallow clicks
-        // meant for the 2D content beneath. This reads request state, settled before any node recorded.
-        if (!context.Supports3DRendering)
-            return;
-
         Scene3D.Resource scene = sceneSnapshot.Resource;
         Camera3D.Resource? camera = scene.Camera;
         float width = scene.RenderWidth;
@@ -68,6 +64,30 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         }
 
         Rect bounds = new(0, 0, width, height);
+        if (!context.Supports3DRendering)
+        {
+            if (context.Intent == RenderIntent.Delivery
+                && context.Purpose is not (RenderRequestPurpose.Bounds or RenderRequestPurpose.HitTest))
+            {
+                // Fail at execution so clipped-out contributions can still be culled by the request.
+                var unavailable = OpaqueRenderDescription.Create(
+                    state: MessageStrings.Scene3DBackendUnavailable,
+                    execute: static (_, message) => throw new InvalidOperationException(message),
+                    bounds: OpaqueRenderBoundsContract.Source(bounds),
+                    hitTest: RenderHitTestContract.None,
+                    valueCardinality: RenderValueCardinality.ZeroOrOne,
+                    scale: RenderScaleContract.MaterializeAtWorkingScale,
+                    deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive);
+                context.Publish(context.OpaqueSource(unavailable));
+            }
+            else
+            {
+                context.ReportPreviewWarning(MessageStrings.Scene3DBackendUnavailable);
+            }
+
+            return;
+        }
+
         float workingScale = RenderScaleContract.MaterializeAtWorkingScale.Resolve(
             [],
             bounds,
@@ -76,23 +96,24 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         // A preview does not record a value the device cannot render, whose hit test would swallow clicks meant for
         // the 2D content beneath; Delivery records it so the refusal is reported. The 2D intermediate can be 1 px
         // wider, a known gap pinned by Scene3DRenderNodeDeviceBudgetTests.ASceneExactlyAtTheDeviceLimit_IsAKnownGap.
-        (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(bounds, workingScale);
-        if (context.Intent == RenderIntent.Preview
-            && !CanRenderScene(context.Device3DExtentBudget, deviceWidth, deviceHeight))
+        if (context.Intent == RenderIntent.Preview)
         {
-            if (context.Purpose == RenderRequestPurpose.Frame)
-            {
-                s_logger.LogWarning(
-                    "A 3D scene needing a {Width}x{Height} px surface is not one this device can render "
-                    + "(attachment limit {Attachment} px, cube face limit {CubeFace} px, 0 meaning "
-                    + "unreported); dropping the 3D value for this preview request.",
-                    deviceWidth,
-                    deviceHeight,
-                    context.Device3DExtentBudget.MaxAttachmentDimension,
-                    context.Device3DExtentBudget.MaxCubeFaceDimension);
-            }
+            (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(bounds, workingScale);
+            if (deviceWidth <= 0 || deviceHeight <= 0)
+                return;
 
-            return;
+            if (Renderer3D.FindExceededExtentLimit(context.Device3DExtentBudget, deviceWidth, deviceHeight) is { } exceeded)
+            {
+                if (context.Purpose == RenderRequestPurpose.Frame)
+                {
+                    s_logger.LogWarning(
+                        "The {Width}x{Height} px attachment required by a 3D scene exceeds the {Limit} px device limit.",
+                        exceeded.Width, exceeded.Height, exceeded.Limit);
+                    context.ReportPreviewWarning(FormatExtentLimitMessage(exceeded));
+                }
+
+                return;
+            }
         }
 
         Object3D.Resource[] objects = scene.Objects.Where(static item => item.IsEnabled).ToArray();
@@ -306,7 +327,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
     {
         IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
         if (graphicsContext is null || !graphicsContext.Supports3DRendering)
+        {
+            ReportFailure(session, MessageStrings.Scene3DBackendUnavailable);
             return;
+        }
 
         float density = session.OutputPlacement.Scale.Value;
         (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(snapshot.Bounds, density);
@@ -314,6 +338,14 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         if (renderer.Width != deviceWidth || renderer.Height != deviceHeight)
         {
+            if (deviceWidth > 0 && deviceHeight > 0
+                && Renderer3D.FindExceededExtentLimit(Device3DExtentBudget.FromContext(graphicsContext), deviceWidth, deviceHeight)
+                    is { } exceeded)
+            {
+                ReportFailure(session, FormatExtentLimitMessage(exceeded));
+                return;
+            }
+
             try
             {
                 if (renderer.Width == 0 || renderer.Height == 0)
@@ -345,6 +377,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 snapshot.Scene.Renderer?.Dispose();
                 snapshot.Scene.Renderer = null;
                 ThrowIfDeliveryAllocationFailure(session.Intent, ex);
+                session.ReportPreviewWarning(MessageStrings.Scene3DSurfaceUnavailable);
                 return;
             }
         }
@@ -367,7 +400,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         using SKSurface? surface = renderer.CreateSkiaSurface();
         if (surface is null)
+        {
+            ReportFailure(session, MessageStrings.Scene3DSurfaceUnavailable);
             return;
+        }
 
         using OpaqueRenderOutput output = session.CreateOutput(snapshot.Bounds);
         output.Canvas.Use(canvas =>
@@ -384,17 +420,16 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         session.Publish(output);
     }
 
-    /// <summary>Whether a device with <paramref name="budget"/> can render this scene at all.</summary>
-    /// <remarks>
-    /// Defers to <see cref="Renderer3D.CanInitialize"/> so the recording asks for every extent the
-    /// allocation refuses on, including the fixed shadow extents that do not depend on the scene. An axis of
-    /// zero is refused here rather than passed on, because the allocation refuses it as readily as one past
-    /// a limit and <see cref="Renderer3D.CanInitialize"/> would report it as a caller error instead.
-    /// </remarks>
-    private static bool CanRenderScene(Device3DExtentBudget budget, int deviceWidth, int deviceHeight)
-        => deviceWidth > 0
-           && deviceHeight > 0
-           && Renderer3D.CanInitialize(budget, deviceWidth, deviceHeight);
+    private static void ReportFailure(OpaqueRenderSession session, string message)
+    {
+        if (session.Intent == RenderIntent.Delivery)
+            throw new InvalidOperationException(message);
+
+        session.ReportPreviewWarning(message);
+    }
+
+    private static string FormatExtentLimitMessage((int Width, int Height, int Limit) exceeded)
+        => string.Format(MessageStrings.Scene3DExtentLimitExceeded, exceeded.Width, exceeded.Height, exceeded.Limit);
 
     /// <summary>The device extents a scene of <paramref name="bounds"/> asks for at <paramref name="density"/>.</summary>
     /// <remarks>

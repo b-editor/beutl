@@ -140,6 +140,12 @@ public sealed partial class RenderNodeContext
         get { VerifyActive(); return _device3DExtentBudget; }
     }
 
+    internal void ReportPreviewWarning(string message)
+    {
+        VerifyActive();
+        _transaction.Request.Options.ReportPreviewWarning(message);
+    }
+
     /// <summary>Tries to calculate the union of all current input bounds from concrete recording metadata.</summary>
     /// <param name="bounds">
     /// Receives the logical input-bounds union, or <see langword="default"/> when any input still depends on an
