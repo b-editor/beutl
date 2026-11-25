@@ -1,4 +1,6 @@
 ﻿using Avalonia;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -179,25 +181,61 @@ public sealed class PreviewToolShortcutsTests
     }
 
     [AvaloniaTest]
-    public async Task Middle_button_pan_restores_the_selected_tool_when_released()
+    public async Task The_selection_provider_uses_the_same_tool_state_as_the_buttons()
     {
         (Window window, _) = await OpenEditorWindow();
         try
         {
             PlayerView preview = FindPreview(window);
-            HeadlessTestHelpers.Click(preview.cropToolButton);
+            var crop = (ISelectionItemProvider)ControlAutomationPeer.CreatePeerForElement(preview.cropToolButton)!;
+            crop.Select();
+            AssertTool(preview, PreviewTool.Crop);
+
             Point center = HeadlessTestHelpers.Center(preview.image, window);
             TimelineTestHost.WaitForHitTest(window, preview.framePanel, center);
             window.MouseDown(center, MouseButton.Middle);
             try
             {
-                AssertTool(preview, PreviewTool.Hand);
-                Press(window, PhysicalKey.V, RawInputModifiers.Shift);
+                var camera = (ISelectionItemProvider)ControlAutomationPeer.CreatePeerForElement(preview.cameraToolButton)!;
+                camera.Select();
                 AssertTool(preview, PreviewTool.Hand);
             }
             finally
             {
                 window.MouseUp(center, MouseButton.Middle);
+            }
+            AssertTool(preview, PreviewTool.Camera3D);
+        }
+        finally
+        {
+            await CloseEditorWindow(window);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Middle_button_pan_restores_the_selected_tool_when_released_over_the_timeline()
+    {
+        (Window window, _) = await OpenEditorWindow();
+        try
+        {
+            PlayerView preview = FindPreview(window);
+            var timeline = window.GetVisualDescendants().OfType<TimelineTabView>().Single();
+            HeadlessTestHelpers.Click(preview.cropToolButton);
+            Point center = HeadlessTestHelpers.Center(preview.image, window);
+            Point releasePoint = HeadlessTestHelpers.Center(timeline, window);
+            TimelineTestHost.WaitForHitTest(window, preview.framePanel, center);
+            TimelineTestHost.WaitForHitTest(window, timeline, releasePoint);
+            window.MouseDown(center, MouseButton.Middle);
+            try
+            {
+                AssertTool(preview, PreviewTool.Hand);
+                window.MouseMove(releasePoint, RawInputModifiers.MiddleMouseButton);
+                Press(window, PhysicalKey.V, RawInputModifiers.Shift);
+                AssertTool(preview, PreviewTool.Hand);
+            }
+            finally
+            {
+                window.MouseUp(releasePoint, MouseButton.Middle);
             }
             AssertTool(preview, PreviewTool.Crop);
             Press(window, PhysicalKey.V, RawInputModifiers.Shift);
