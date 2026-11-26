@@ -111,20 +111,36 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                 {
                     Command = MenuBar.Redo, GestureCommand = "main.redo", Icon = Icon.ArrowRedo, EditAction = StandardEditAction.Redo
                 },
-                new(null) { IsInNativeMenuOnly = true },
-                new(Strings.Cut) { Command = MenuBar.CutLayer, EditAction = StandardEditAction.Cut, IsInNativeMenuOnly = true },
-                new(Strings.Copy) { Command = MenuBar.CopyLayer, EditAction = StandardEditAction.Copy, IsInNativeMenuOnly = true },
-                new(Strings.Paste) { Command = MenuBar.PasteLayer, EditAction = StandardEditAction.Paste, IsInNativeMenuOnly = true },
+                MainMenuItem.Separator,
+                new(Strings.Cut)
+                {
+                    Command = MenuBar.CutLayer, EditAction = StandardEditAction.Cut,
+                    GestureCommand = "timeline.cut", InWindowGestureExtensionType = typeof(TimelineTabExtension)
+                },
+                new(Strings.Copy)
+                {
+                    Command = MenuBar.CopyLayer, EditAction = StandardEditAction.Copy,
+                    GestureCommand = "timeline.copy", InWindowGestureExtensionType = typeof(TimelineTabExtension)
+                },
+                new(Strings.Paste)
+                {
+                    Command = MenuBar.PasteLayer, EditAction = StandardEditAction.Paste,
+                    GestureCommand = "timeline.paste", InWindowGestureExtensionType = typeof(TimelineTabExtension)
+                },
                 new(Strings.Delete)
                 {
                     Command = MenuBar.DeleteLayer,
                     EditAction = StandardEditAction.Delete,
-                    IsInNativeMenuOnly = true,
+                    GestureCommand = "timeline.delete", InWindowGestureExtensionType = typeof(TimelineTabExtension),
                     EditActionAvailability = (
                         () => _editorService.SelectedTabItem.Value?.Context.Value is not { IsEnabled.Value: false },
                         EditorAvailabilityChanges)
                 },
-                new(Strings.SelectAll) { Command = MenuBar.SelectAll, EditAction = StandardEditAction.SelectAll, IsInNativeMenuOnly = true },
+                new(Strings.SelectAll)
+                {
+                    Command = MenuBar.SelectAll, EditAction = StandardEditAction.SelectAll,
+                    GestureCommand = "timeline.selectAll", InWindowGestureExtensionType = typeof(TimelineTabExtension)
+                },
             ]
         },
         new(Strings.View) { Items = CreateViewMenuItems() },
@@ -139,18 +155,6 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                 new(UndisplayableDataStrings.Title) { Command = MenuBar.ShowUndisplayableData },
                 MainMenuItem.Separator,
                 .. CreateSceneMarkerAndPlaybackMenus(),
-                new(null) { IsInWindowOnly = true },
-                new(Strings.Element)
-                {
-                    IsInWindowOnly = true,
-                    Items =
-                    [
-                        new(Strings.Delete) { Command = MenuBar.DeleteLayer },
-                        new(Strings.Cut) { Command = MenuBar.CutLayer },
-                        new(Strings.Copy) { Command = MenuBar.CopyLayer },
-                        new(Strings.Paste) { Command = MenuBar.PasteLayer },
-                    ]
-                },
             ]
         },
         new(Strings.Window)
