@@ -257,7 +257,7 @@ internal static class LibraryRegistrar
                         GraphicsStrings.RangeAnimatorEffect_LibraryDescription)
                 )
                 .AddGroup(GraphicsStrings.FilterEffectCategory_Stylize, group => group
-                    .AddFilterEffect<StrokeEffect>(GraphicsStrings.Stroke,
+                    .AddFilterEffect<StrokeEffect>(GraphicsStrings.StrokeEffect,
                         GraphicsStrings.StrokeEffect_LibraryDescription)
                     .AddFilterEffect<Dilate>(GraphicsStrings.Dilate, GraphicsStrings.Dilate_LibraryDescription)
                     .AddFilterEffect<Erode>(GraphicsStrings.Erode, GraphicsStrings.Erode_LibraryDescription)

@@ -1691,6 +1691,9 @@
   <data name="Pen" xml:space="preserve">
     <value>Trazo</value>
   </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>Contorno</value>
+  </data>
   <data name="Target" xml:space="preserve">
     <value>Destino</value>
   </data>
@@ -2397,13 +2400,13 @@
     <value>Muestra otra escena como una sola capa visual (precomposición, secuencia anidada, clip compuesto / precomp, pre-compose, nested sequence, compound clip).</value>
   </data>
   <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
-    <value>Aplica efectos a varios objetos como si fueran una sola capa (capa de ajuste, grupo de efectos / adjustment layer, effect group).</value>
+    <value>Aplica la transformación, la opacidad, la mezcla y los efectos a cada objeto secundario por separado, con sus propios límites y origen (grupo de efectos / effect group).</value>
   </data>
   <data name="DrawableGroup_LibraryDescription" xml:space="preserve">
-    <value>Mueve, escala y gira sus objetos secundarios en conjunto (objeto padre, objeto nulo / parent, null object).</value>
+    <value>Transforma sus objetos secundarios alrededor de un origen común. La opacidad y la mezcla se aplican a todo el grupo, y los efectos pueden usar sus límites (objeto padre, objeto nulo / parent, null object).</value>
   </data>
   <data name="DrawableTimeController_LibraryDescription" xml:space="preserve">
-    <value>Cambia el momento y la velocidad de reproducción de un objeto (remapeo de tiempo, rampa de velocidad, fotograma congelado / time remap, speed ramp, freeze frame).</value>
+    <value>Cambia la posición y la velocidad de reproducción. La velocidad de fotogramas define los pasos de tiempo con los que se evalúa el objeto (remapeo de tiempo, rampa de velocidad, fotograma congelado / time remap, speed ramp, freeze frame).</value>
   </data>
   <data name="AudioWaveformDrawable_LibraryDescription" xml:space="preserve">
     <value>Dibuja la amplitud del audio a lo largo del tiempo (forma de onda de audio, visualizador de ondas / audio waveform, waveform visualizer).</value>
@@ -2439,13 +2442,13 @@
     <value>Desenfoca la imagen como si se ampliara o girara alrededor de un punto (desenfoque de zoom, desenfoque giratorio / zoom blur, spin blur).</value>
   </data>
   <data name="MotionBlur_LibraryDescription" xml:space="preserve">
-    <value>Difumina el movimiento al combinar el aspecto del objeto en varios instantes cercanos (estela de movimiento, desenfoque de obturación / motion trails, shutter blur).</value>
+    <value>Promedia el aspecto del objeto durante el intervalo de obturación para desenfocar el movimiento (desenfoque de obturación / shutter blur).</value>
   </data>
   <data name="Echo_LibraryDescription" xml:space="preserve">
-    <value>Superpone copias atenuadas de instantes anteriores o posteriores sobre el fotograma actual (estela, rastro fantasma / afterimage, ghost trail, motion trails).</value>
+    <value>Superpone copias de instantes anteriores o posteriores a intervalos regulares, con atenuación ajustable (estela, rastro fantasma / afterimage, ghost trail, motion trails).</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>Mantiene los fotogramas durante intervalos fijos para crear un aspecto de animación cuadro a cuadro (baja frecuencia de fotogramas / frame hold, stop motion, posterize time).</value>
+    <value>Mantiene cada fotograma muestreado hasta el siguiente. Los efectos posteriores pueden seguir animándose (baja frecuencia de fotogramas / frame hold, stop motion, posterize time).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>Desenfoca la imagen con la forma de la apertura del objetivo (desenfoque de lente, desenfoque de objetivo / lens blur, defocus).</value>
@@ -2511,7 +2514,7 @@
     <value>Aclara u oscurece toda la imagen (aclarar, oscurecer / brighten, darken).</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>Cambia el grado de transparencia de la imagen (alfa, transparencia, fundido / alpha, transparency, fade).</value>
+    <value>Cambia la transparencia en este punto de la cadena de efectos. Usa la Opacidad del objeto para un fundido general (alfa, transparencia / alpha, transparency).</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>Aclara u oscurece los tonos medios para ajustar el equilibrio tonal (corrección gamma, tonos medios / gamma correction, midtones).</value>
@@ -2529,16 +2532,16 @@
     <value>Oscurece los bordes de la imagen alrededor del centro elegido, o los aclara con una cantidad negativa (viñeta de lente, oscurecimiento de bordes / lens vignette, edge darkening).</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
-    <value>Invierte los colores de la imagen (negativo, invertir colores / negative, invert colors).</value>
+    <value>Invierte los colores de la imagen y también puede invertir el canal alfa (inversión de color / invert colors).</value>
   </data>
   <data name="LutEffect_LibraryDescription" xml:space="preserve">
     <value>Transforma los colores mediante una tabla de consulta (tabla de consulta de color, LUT, etalonaje / color lookup, LUT, color grading).</value>
   </data>
   <data name="BlendEffect_LibraryDescription" xml:space="preserve">
-    <value>Superpone un color o un pincel sobre la imagen con un modo de fusión (modo de fusión, superposición de color, tinte / blend mode, color overlay, tint).</value>
+    <value>Mezcla un pincel con la imagen. Usa el Modo de mezcla del objeto para mezclarlo con las capas inferiores (superposición de color, tinte / color overlay, tint).</value>
   </data>
   <data name="Negaposi_LibraryDescription" xml:space="preserve">
-    <value>Invierte los colores con ajustes independientes de rojo, verde y azul (negativo, invertir colores / negative, invert colors).</value>
+    <value>A cada componente RGB de referencia le resta el correspondiente de la imagen. Con los ajustes predeterminados, la imagen se ve negra (negativo / color negative).</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
     <value>Elimina un fondo en función de su tono y saturación y suprime el color del fondo que se derrama sobre el sujeto (pantalla verde, pantalla azul, croma, supresión de derrame / green screen, blue screen, keylight, despill, spill suppressor).</value>
@@ -2565,10 +2568,10 @@
     <value>Sustituye los detalles de la imagen por bloques de color (pixelado, censura / pixelate, censor).</value>
   </data>
   <data name="ColorShift_LibraryDescription" xml:space="preserve">
-    <value>Desplaza los canales de color de la imagen de forma independiente (separación RGB, aberración cromática / RGB split, chromatic aberration).</value>
+    <value>Desplaza los canales rojo, verde, azul y alfa de forma independiente en horizontal y vertical (separación RGB / RGB split, channel shift).</value>
   </data>
   <data name="LensChromaticAberration_LibraryDescription" xml:space="preserve">
-    <value>Separa los canales de color alrededor de un centro para simular los bordes de color de una lente (separación RGB, aberración cromática / RGB split, chromatic aberration).</value>
+    <value>Amplía el canal rojo o el azul y reduce el otro alrededor de un centro para simular las franjas de color de una lente (aberración cromática / chromatic aberration).</value>
   </data>
   <data name="ShakeEffect_LibraryDescription" xml:space="preserve">
     <value>Sacude la imagen con velocidad e intensidad ajustables (temblor, sacudida de cámara / wiggle, camera shake).</value>

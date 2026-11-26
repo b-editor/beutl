@@ -8,9 +8,11 @@
 | `Beutl.Language` | Localized string resources; see `src/Beutl.Language/README.md` for which file to use. |
 | `Beutl.Engine` | Core rendering, animation, audio, composition, and media abstractions. It must not depend on UI projects. |
 | `Beutl.Engine.SourceGenerators` | Roslyn source generators and analyzers consumed by the engine and downstream projects. |
+| `Beutl.Analyzers` | Standalone Roslyn analyzers that share repository-wide rules with the engine source generators. |
 | `Beutl.ProjectSystem` | Project, scene, and element model, its persistence and recovery, and scene rendering. |
 | `Beutl.Editor` | Non-UI editor logic, including undo/redo, packaging, and editing-pipeline services. |
 | `Beutl.Editor.Components`, `Beutl.Controls`, `Beutl` | Avalonia views, controls, view models, and the application shell. |
+| `Beutl.BundledFonts` | Embedded Noto fonts shared by the application UI and the rendering engine's text fallback. |
 | `Beutl.Extensibility` | Plugin-facing abstractions. |
 | `Beutl.NodeGraph` | Node editor model and evaluation. |
 | `Beutl.Api` | Server API and AI service clients, package installation, and extension loading (`ExtensionProvider`). |
