@@ -81,7 +81,7 @@ public class NodeGraphFallbackDisplayTests
     }
 
     [AvaloniaTest]
-    public void WarningLineContextMenuCutsAConnectionBetweenUnavailableNodes()
+    public async Task WarningLineContextMenuCutsAConnectionBetweenUnavailableNodes()
     {
         GraphModel graph = RestoreGraph(failed: false, bothUnavailable: true);
         var sequence = new OperationSequenceGenerator();
@@ -95,16 +95,16 @@ public class NodeGraphFallbackDisplayTests
         try
         {
             window.Show();
-            HeadlessTestHelpers.Render(3);
+            HeadlessTestHelpers.Settle();
             ConnectionLine line = view.GetVisualDescendants().OfType<ConnectionLine>().Single();
-            Point start = line.TranslatePoint(line.StartPoint, window)!.Value;
-            Point end = line.TranslatePoint(line.EndPoint, window)!.Value;
-            Point hit = Enumerable.Range((int)end.X + 3, (int)(start.X - end.X) - 6)
-                .Select(x => new Point(x, start.Y)).First(point => window.InputHitTest(point) == line);
-            window.MouseMove(hit);
-            window.MouseDown(hit, MouseButton.Right);
-            window.MouseUp(hit, MouseButton.Right);
-            HeadlessTestHelpers.Render(3);
+            Point? hit = null;
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            {
+                HeadlessTestHelpers.Render();
+                hit = FindHittablePoint(line, window);
+                return hit.HasValue;
+            }, message: "the rendered warning line to accept pointer input");
+            HeadlessTestHelpers.Click(line, hit, MouseButton.Right, move: true, ticks: 3);
             var menu = (FAMenuFlyout)line.ContextFlyout!;
             Assert.That(menu.IsOpen, Is.True);
             var cut = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Text, Strings.Disconnect));
@@ -220,6 +220,24 @@ public class NodeGraphFallbackDisplayTests
         {
             window.Close();
         }
+    }
+
+    private static Point? FindHittablePoint(ConnectionLine line, Window window)
+    {
+        if (line.RenderedGeometry is not { } geometry)
+            return null;
+
+        double length = geometry.ContourLength;
+        for (double distance = 1; distance < length; distance++)
+        {
+            if (geometry.TryGetPointAtDistance(distance, out Point point)
+                && line.TranslatePoint(point, window) is { } position
+                && window.InputHitTest(position) == line)
+            {
+                return point;
+            }
+        }
+        return null;
     }
 
     private static GraphModel RestoreGraph(bool failed, bool list = false, bool bothUnavailable = false)
