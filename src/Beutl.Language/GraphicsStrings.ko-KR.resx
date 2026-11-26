@@ -2711,4 +2711,16 @@
   <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
     <value>스크립트 및 노드</value>
   </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>경로를 따르는 텍스트</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>경로</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>경로 오프셋 (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>텍스트를 경로를 따라 배치합니다. 텍스트에서 문자별 분할을 켜세요.</value>
+  </data>
 </root>

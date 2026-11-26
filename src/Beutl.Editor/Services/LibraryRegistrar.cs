@@ -257,6 +257,8 @@ internal static class LibraryRegistrar
                         GraphicsStrings.ShakeEffect_LibraryDescription)
                     .AddFilterEffect<PathFollowEffect>(GraphicsStrings.PathFollowEffect,
                         GraphicsStrings.PathFollowEffect_LibraryDescription)
+                    .AddFilterEffect<TextOnPathEffect>(GraphicsStrings.TextOnPathEffect,
+                        GraphicsStrings.TextOnPathEffect_LibraryDescription)
                     .AddFilterEffect<DelayAnimationEffect>(GraphicsStrings.DelayAnimationEffect,
                         GraphicsStrings.DelayAnimationEffect_LibraryDescription)
                     .AddFilterEffect<RangeAnimatorEffect>(GraphicsStrings.RangeAnimatorEffect,
