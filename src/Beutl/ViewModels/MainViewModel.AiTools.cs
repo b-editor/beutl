@@ -43,7 +43,7 @@ public partial class MainViewModel : IAiWorkspaceHost
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAiVideoService>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(), AppServices.GetRequiredService<DecoderRegistry>(),
-            _aiRequestRecoveryContext);
+            _aiRequestRecoveryContext, _beutlClients.GetResource<IAiJobClient>());
 
     internal Beutl.NodeGraph.Generative.IGenerativePromptLibrary CreateGenerativePromptLibrary()
         => new AiGenerativePromptLibrary(PromptLibraryProvider.For(_aiRequestRecoveryContext));

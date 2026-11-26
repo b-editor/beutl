@@ -15,6 +15,10 @@ public sealed record AgentTranscript(
     IReadOnlyList<AgentTranscriptSegment> Segments,
     IReadOnlyList<AgentTranscriptWord>? Words);
 
+internal readonly record struct AgentTranscriptionRetry(string Key, string? RequestedModel);
+
+internal sealed record AgentTranscriptionResult(AgentTranscript Transcript, string? ModelId);
+
 /// <summary>
 /// The application's AI services as the agent host's AI tools use them: the signed-in account,
 /// its models, and the executor the AI nodes run on, so agents pay through the same safeguards.
@@ -39,10 +43,11 @@ internal interface IAgentAiBackend
 
     Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken);
 
-    Task<AgentTranscript> TranscribeAsync(
+    Task<AgentTranscriptionResult> TranscribeAsync(
         string path,
         string? language,
         string? modelId,
         IProgress<string> progress,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        AgentTranscriptionRetry? retry = null);
 }

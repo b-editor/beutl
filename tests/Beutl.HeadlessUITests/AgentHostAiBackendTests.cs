@@ -2,6 +2,7 @@
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Sessions;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -14,6 +15,7 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
+using Moq;
 using Reactive.Bindings;
 using static Beutl.HeadlessUITests.AiTestSupport;
 
@@ -118,8 +120,8 @@ public sealed class AgentHostAiBackendTests
         var transcription = new StubTranscription();
         var progress = new RecordingProgress();
         _decoders.Register(decoder);
-        AgentTranscript transcript = await CreateBackend(availability: availability, transcription: transcription)
-            .TranscribeAsync(path, "ja", "whisper", progress, CancellationToken.None);
+        AgentTranscript transcript = (await CreateBackend(availability: availability, transcription: transcription)
+            .TranscribeAsync(path, "ja", "whisper", progress, CancellationToken.None)).Transcript;
 
         Assert.Multiple(() =>
         {
@@ -132,6 +134,154 @@ public sealed class AgentHostAiBackendTests
                 Is.EqualTo(new[] { (1d, "part 1"), (601d, "part 2") }), "the second part is offset by the first's ten minutes");
             Assert.That(transcript.Words!.Select(word => word.Start), Is.EqualTo(new[] { 1d, 601d }));
             Assert.That(progress.Values, Does.Contain("Transcribing part 2 of 2"));
+        });
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task RetryingATranscriptionSkipsCompletedPartsAndRecoversThePendingPart(bool providerError, bool settledFailure)
+    {
+        const int sampleRate = 8_000;
+        string path = WriteSource("retry" + Extension);
+        _decoders.Register(new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 602L)));
+        var transcription = new StubTranscription();
+        transcription.OnRequest = () =>
+        {
+            if (transcription.Requests.Count == 2)
+            {
+                throw providerError
+                    ? new AiProviderErrorException()
+                    : new HttpRequestException("The response was lost.");
+            }
+        };
+        var progress = new RecordingProgress();
+        var retry = new AgentTranscriptionRetry("transcribe-1", RequestedModel: null);
+        var jobs = new Mock<IAiJobClient>(MockBehavior.Strict);
+        jobs.Setup(client => client.GetByIdempotencyKeyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AiJob(new AiJobId("part"), AiJobKinds.Transcription,
+                settledFailure ? AiJobStatuses.Failed : AiJobStatuses.Succeeded, null, null, null, null, false,
+                DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
+        AgentHostAiBackend first = CreateBackend(transcription: transcription, jobClient: jobs.Object);
+        await Assert.ThrowsAsync(providerError ? typeof(AgentAiException) : typeof(HttpRequestException),
+            () => first.TranscribeAsync(path, "ja", "whisper", progress, CancellationToken.None, retry));
+
+        // Reopen the recovery files with a new backend. An already submitted part must be
+        // retrievable even when there are no credits left, with the originally resolved model.
+        var availability = new StubAvailability { Allowed = settledFailure };
+        AgentHostAiBackend second = CreateBackend(availability: availability, transcription: transcription);
+        AgentTranscriptionResult resumed = await second.TranscribeAsync(
+            path, "ja", "new-default", progress, CancellationToken.None, retry);
+        AgentTranscriptionResult completed = await second.TranscribeAsync(
+            path, "ja", "new-default", progress, CancellationToken.None, retry);
+        AgentAiException? changed = await Assert.ThrowsAsync<AgentAiException>(() => second.TranscribeAsync(
+            path, "en", "new-default", progress, CancellationToken.None, retry));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(transcription.Requests, Has.Count.EqualTo(3));
+            Assert.That(availability.Requests, Has.Count.EqualTo(settledFailure ? 1 : 0));
+            jobs.Verify(client => client.GetByIdempotencyKeyAsync(transcription.Requests[1].IdempotencyKey!, It.IsAny<CancellationToken>()),
+                providerError ? Times.Once() : Times.Never());
+            Assert.That(transcription.Requests[2].IdempotencyKey, settledFailure
+                ? Is.Not.EqualTo(transcription.Requests[1].IdempotencyKey)
+                : Is.EqualTo(transcription.Requests[1].IdempotencyKey));
+            Assert.That(transcription.Requests.Select(request => request.Model?.Value), Is.All.EqualTo("whisper"));
+            Assert.That(resumed.ModelId, Is.EqualTo("whisper"));
+            Assert.That(resumed.Transcript.Segments.Select(segment => (segment.Start, segment.Text)),
+                Is.EqualTo(new[] { (1d, "part 1"), (601d, "part 3") }));
+            Assert.That(resumed.Transcript.Words!.Select(word => word.Start), Is.EqualTo(new[] { 1d, 601d }));
+            Assert.That(completed.Transcript.Segments, Is.EqualTo(resumed.Transcript.Segments));
+            Assert.That(changed?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(null)]
+    [TestCase("whisper")]
+    public async Task ATranscriptionRetryRecoversThroughTheToolWhenNoModelIsAffordable(string? requestedModel)
+    {
+        const int sampleRate = 8_000;
+        string path = WriteSource("paid" + Extension);
+        _decoders.Register(new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 2L)));
+        var model = new GenerativeModelInfo("whisper", "Whisper", IsDefault: true, IsAvailable: true, Image: null);
+        var transcription = new StubTranscription();
+        transcription.OnRequest = () =>
+        {
+            if (transcription.Requests.Count == 1)
+                throw new AiResultUnavailableException();
+        };
+        using var originalJobs = new AgentAiJobManager();
+        var originalTools = new AgentHostAiTools(TestShell.Editor, originalJobs,
+            CreateBackend(transcription: transcription, catalog: new StubCatalog([model])), new AgentSessionManager());
+        var first = await originalTools.TranscribeAudio(path, model: requestedModel, waitSeconds: 10, requestKey: "paid");
+        Assert.That(first.Value?.Status, Is.EqualTo(AgentAiJobStatus.Failed), first.Error?.Message);
+
+        var entitlements = new StubEntitlements();
+        entitlements.Current.Value = Entitlements(canUseAi: true);
+        var availability = new StubAvailability { Allowed = false };
+        var catalog = new StubCatalog([model with { IsAvailable = false }]);
+        AgentHostAiBackend backend = CreateBackend(entitlements: entitlements, availability: availability,
+            transcription: transcription, catalog: catalog);
+        using var retryJobs = new AgentAiJobManager();
+        var retryTools = new AgentHostAiTools(TestShell.Editor, retryJobs, backend, new AgentSessionManager());
+        var recovered = await retryTools.TranscribeAudio(path, model: requestedModel, waitSeconds: 10, requestKey: "paid");
+        using var reopenedJobs = new AgentAiJobManager();
+        var reopenedTools = new AgentHostAiTools(TestShell.Editor, reopenedJobs, backend, new AgentSessionManager());
+        var completed = await reopenedTools.TranscribeAudio(path, model: requestedModel, waitSeconds: 10, requestKey: "paid");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Value?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded), recovered.Error?.Message);
+            Assert.That(recovered.Value?.Output?.ModelId, Is.EqualTo(model.Id));
+            Assert.That(completed.Value?.Status, Is.EqualTo(AgentAiJobStatus.Succeeded), completed.Error?.Message);
+            Assert.That(catalog.Operations, Is.Empty);
+            Assert.That(availability.Requests, Is.Empty);
+            Assert.That(transcription.Requests, Has.Count.EqualTo(2));
+            Assert.That(transcription.Requests[1].IdempotencyKey, Is.EqualTo(transcription.Requests[0].IdempotencyKey));
+        });
+
+        var fresh = await retryTools.TranscribeAudio(path, model: requestedModel, waitSeconds: 10, requestKey: "fresh");
+        Assert.That(fresh.IsSuccess, Is.False, "a new request still checks whether the model is available");
+    }
+
+    [Test]
+    public async Task CompletedTranscriptsExpireWithoutRechargingOrRemovingPendingProgress()
+    {
+        const int sampleRate = 8_000;
+        string path = WriteSource("retention" + Extension);
+        _decoders.Register(new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 2L)));
+        var completedKey = new AgentTranscriptionRetry("completed", RequestedModel: null);
+        var pendingKey = new AgentTranscriptionRetry("pending", RequestedModel: null);
+        var pendingService = new StubTranscription { OnRequest = () => throw new AiResultUnavailableException() };
+        var transcription = new StubTranscription();
+        var progress = new RecordingProgress();
+        await CreateBackend(transcription: transcription).TranscribeAsync(
+            path, null, null, progress, CancellationToken.None, completedKey);
+        await Assert.ThrowsAsync<AgentAiException>(() => CreateBackend(transcription: pendingService).TranscribeAsync(
+            path, null, null, progress, CancellationToken.None, pendingKey));
+
+        string directory = Path.Combine(_directory, "agent-transcriptions");
+        string completedPath = Directory.EnumerateFiles(directory, "*.completed").Single();
+        foreach (string savedPath in Directory.EnumerateFiles(directory))
+            File.SetLastWriteTimeUtc(savedPath, DateTime.UtcNow.AddDays(-2));
+
+        var availability = new StubAvailability { Allowed = false };
+        AgentHostAiBackend backend = CreateBackend(availability: availability, transcription: transcription);
+        AgentAiException? expired = await Assert.ThrowsAsync<AgentAiException>(() => backend.TranscribeAsync(
+            path, null, null, progress, CancellationToken.None, completedKey));
+        Assert.That(expired?.Code, Is.EqualTo(ErrorCode.AiJobNotFound));
+        Assert.That(File.Exists(completedPath), Is.False);
+        Assert.That(transcription.Requests, Has.Count.EqualTo(1), "an expired key cannot buy another transcript");
+
+        AgentTranscriptionResult recovered = await backend.TranscribeAsync(
+            path, null, null, progress, CancellationToken.None, pendingKey);
+        Assert.Multiple(() =>
+        {
+            Assert.That(availability.Requests, Is.Empty);
+            Assert.That(transcription.Requests, Has.Count.EqualTo(2));
+            Assert.That(transcription.Requests[1].IdempotencyKey, Is.EqualTo(pendingService.Requests.Single().IdempotencyKey));
+            Assert.That(recovered.Transcript.Segments, Has.Count.EqualTo(1));
         });
     }
 
@@ -174,8 +324,8 @@ public sealed class AgentHostAiBackendTests
         var decoder = new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 602L) { ShortReadAt = sampleRate * 100L });
         var transcription = new StubTranscription();
         _decoders.Register(decoder);
-        AgentTranscript transcript = await CreateBackend(transcription: transcription)
-            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+        AgentTranscript transcript = (await CreateBackend(transcription: transcription)
+            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None)).Transcript;
 
         Assert.Multiple(() =>
         {
@@ -195,14 +345,14 @@ public sealed class AgentHostAiBackendTests
         _decoders.Register(decoder);
         // Reports 10:02 but its audio stops at 10:00: the first part is the whole transcript.
         next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 600L };
-        AgentTranscript shorter = await CreateBackend(transcription: transcription)
-            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+        AgentTranscript shorter = (await CreateBackend(transcription: transcription)
+            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None)).Transcript;
         // Reports 10:02 but its audio stops at 10:00.2: the 0.2 s tail is the real end, so it is
         // sent with the first part rather than taken for a broken read.
         next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 6002L / 10 };
         var shortSegments = new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 0.1, Text = "a" }] };
-        AgentTranscript withTail = await CreateBackend(transcription: shortSegments)
-            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+        AgentTranscript withTail = (await CreateBackend(transcription: shortSegments)
+            .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None)).Transcript;
         // Every read from one second on comes back half full, so parts keep ending early: the
         // recording is never read to the end, and a part of it is not a success.
         next = new StubAudioReader(sampleRate, sampleRate * 60L) { ShortReadsFrom = sampleRate };
@@ -318,7 +468,9 @@ public sealed class AgentHostAiBackendTests
         IAiEntitlementService? entitlements = null,
         IAiOperationAvailabilityService? availability = null,
         IAiTranscriptionService? transcription = null,
-        AiRequestRecoveryContext? recoveryContext = null)
+        AiRequestRecoveryContext? recoveryContext = null,
+        IGenerativeModelCatalog? catalog = null,
+        IAiJobClient? jobClient = null)
         => new(
             recoveryContext ?? (user is null
                 ? CreateRecoveryContext(() => new("test-user", User: null))
@@ -326,9 +478,9 @@ public sealed class AgentHostAiBackendTests
             entitlements ?? new StubEntitlements(),
             availability ?? new StubAvailability(),
             transcription ?? new StubTranscription(),
-            () => new StubCatalog([]),
+            () => catalog ?? new StubCatalog([]),
             _ => new StubExecutor(),
-            new StubModelCatalog(), _decoders);
+            new StubModelCatalog(), _decoders, jobClient);
 
     private AiRequestRecoveryContext CreateRecoveryContext(Func<AiAuthenticatedRequestIdentity?> identity)
         => new(new FileAiRequestKeyMap(_directory), identity);
@@ -379,7 +531,7 @@ public sealed class AgentHostAiBackendTests
 
         public AiTranscriptionSegment[]? Segments { get; init; }
 
-        public Action? OnRequest { get; init; }
+        public Action? OnRequest { get; set; }
 
         public List<AiTranscriptionRequest> Requests { get; } = [];
 

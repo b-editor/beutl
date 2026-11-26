@@ -121,7 +121,8 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.GetResource<IAiTranscriptionService>(),
             CreateGenerativeModelCatalog,
             CreateGenerativeNodeExecutor,
-            _beutlClients.GetResource<IAiModelCatalogService>(), appServices.GetRequiredService<DecoderRegistry>()));
+            _beutlClients.GetResource<IAiModelCatalogService>(), appServices.GetRequiredService<DecoderRegistry>(),
+            _beutlClients.GetResource<IAiJobClient>()));
         _aiPlanCoordinator = new AiPlanCoordinator(
             _beutlClients.GetResource<IAiEntitlementService>(), Configuration.ViewConfig);
         _editorService.BrowserSettingsHost = new BrowserSettingsHost(CreateSettingsDialog);
