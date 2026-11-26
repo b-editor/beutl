@@ -91,6 +91,7 @@ public static class AgentToolkitMcpServer
             .WithTools<SessionTools>()
             .WithTools<QueryTools>()
             .WithTools<EditTools>()
+            .WithTools<TimelineEditTools>()
             .WithTools<NodeGraphTools>()
             .WithTools<HistoryTools>()
             .WithTools<RenderTools>();
