@@ -74,7 +74,8 @@
                                                     </OptionsDisplayItem.Header>
                                                     <OptionsDisplayItem.ActionButton>
                                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                                            <Button Click="OnItemClicked"
+                                                            <Button x:Name="AssignShortcutButton"
+                                                                    Click="OnItemClicked"
                                                                     KeyDown="OnButtonKeyDown"
                                                                     Theme="{StaticResource TransparentButton}">
                                                                 <TextBlock Classes="shortcut"

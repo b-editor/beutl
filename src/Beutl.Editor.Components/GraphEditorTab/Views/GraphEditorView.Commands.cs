@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Runtime.InteropServices;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
@@ -59,7 +60,7 @@ public partial class GraphEditorView
         Command("nextKeyFrame", Strings.NextKeyFrame,
             [.. Gestures(Key.K, optional: WithoutShift), .. WithoutCommand(Key.K, Shift, AllModifiers)],
             (_, model, channel) => JumpToAdjacentKeyFrame(model, channel, forward: true)),
-        Command("fitAll", Strings.GraphFitAll, Gestures(Key.F, optional: WithoutShift), (view, _, _) => view.FitGraph(false)),
+        Command("fitAll", Strings.GraphFitAll, FitAllGestures(), (view, _, _) => view.FitGraph(false)),
         Command("fitSelection", Strings.GraphFitSelection, Gestures(Key.F, Shift, AllModifiers), (view, _, _) => view.FitGraph(true)),
         // Use the editor to pause playback before replaying history and to report any failure.
         AsyncCommand("undo", Strings.Undo, WithCommand(Key.Z, optional: WithoutShift),
@@ -71,6 +72,14 @@ public partial class GraphEditorView
     ];
 
     private bool IsGraphGestureActive => _interactionPointer != null || ControlPointMoveState != null;
+
+    private static ContextCommandKeyGesture[] FitAllGestures()
+    {
+        // The macOS menu owns Cmd+Ctrl+F for the native full-screen action.
+        string fullScreen = new KeyGesture(Key.F, Meta | KeyModifiers.Control).ToString();
+        return [.. Gestures(Key.F, optional: WithoutShift)
+            .Where(gesture => gesture.Platform != OSPlatform.OSX || gesture.KeyGesture != fullScreen)];
+    }
 
     private static ContextCommandDefinition Command(string id, string name, ContextCommandKeyGesture[] gestures,
         Action<GraphEditorView, GraphEditorViewModel, GraphEditorViewViewModel> run, bool duringGesture = false)
