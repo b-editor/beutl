@@ -55,6 +55,7 @@ public partial class NodeGraphView : UserControl
         AddHandler(PointerMovedEvent, OnNodeGraphPointerMoved, RoutingStrategies.Tunnel);
 
         zoomBorder.AddHandler(KeyDownEvent, OnGraphKeyDown, RoutingStrategies.Tunnel);
+        KeyDown += OnDeleteKeyDown;
         zoomBorder.AddHandler(PointerWheelChangedEvent, OnGraphPointerWheelChanged, RoutingStrategies.Tunnel);
         // Register before ZoomBorder attaches its built-in magnify handler.
         zoomBorder.AddHandler(PointerTouchPadGestureMagnifyEvent, OnGraphMagnify);
@@ -69,6 +70,24 @@ public partial class NodeGraphView : UserControl
     {
         // Leave the event unhandled so the editor still receives key and text input.
         zoomBorder.EnableKeyboardNavigation = !ContextCommandInput.IsFromTextInput(e);
+    }
+
+    private void OnDeleteKeyDown(object? sender, KeyEventArgs e)
+        => AppHelper.GetContextCommandManager?.Invoke()?.HandleKeyDown(NodeGraphTabExtension.Instance, this, e);
+
+    internal bool DeleteSelectedNodes(object? source)
+    {
+        if (DataContext is not NodeGraphViewModel model) return false;
+
+        GraphNodeViewModel[] nodes = [.. model.Nodes.Where(node => node.IsSelected.Value)];
+        if (nodes.Length == 0 && source is Visual visual
+            && visual.FindAncestorOfType<GraphNodeView>(includeSelf: true) is
+                { IsHeaderFocused: true, DataContext: GraphNodeViewModel focusedNode })
+        {
+            nodes = [focusedNode];
+        }
+
+        return model.DeleteNodes(nodes);
     }
 
     private void OnGraphPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -236,6 +255,7 @@ public partial class NodeGraphView : UserControl
             if (e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta
                 && e.Source is ZoomBorder)
             {
+                zoomBorder.Focus();
                 _rangeSelectionPressed = true;
                 overlay.SelectionRange = new(point.Position, default(Size));
                 e.Handled = true;

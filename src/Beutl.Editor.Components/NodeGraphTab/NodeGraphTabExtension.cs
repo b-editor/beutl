@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
@@ -26,12 +27,14 @@ public sealed class NodeGraphTabExtension : ToolTabExtension
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new ContextCommandDefinition<GraphNodeViewModel>(DeleteCommandId, Strings.Delete, "", [new("Delete")])
+        new ContextCommandDefinition<NodeGraphView>(DeleteCommandId, Strings.Delete, "",
+            [new("Delete"), new("Delete", OSPlatform.OSX), new("Back", OSPlatform.OSX)])
         {
-            CanExecuteOn = (node, execution) => !execution.IsFromTextInput && node.Delete.CanExecute(),
-            ExecuteOnAsync = (node, _) =>
+            CanExecuteOn = (_, execution) => execution.KeyEventArgs is not null && !execution.IsFromTextInput,
+            ExecuteOnAsync = (view, execution) =>
             {
-                node.Delete.Execute();
+                var key = execution.KeyEventArgs!;
+                key.Handled = view.DeleteSelectedNodes(key.Source);
                 return Task.CompletedTask;
             }
         }
