@@ -32,7 +32,7 @@ public partial class LibraryGalleryView : UserControl
         Sections.ItemsSource = DataContext switch
         {
             LibraryTabViewModel viewModel when _format == KnownLibraryItemFormats.ClipTransition =>
-                new[] { new LibraryGallerySection(null, viewModel.Transitions) },
+                new[] { new LibraryGallerySection(default, null, null, viewModel.Transitions) },
             LibraryTabViewModel viewModel => viewModel.EffectSections,
             _ => null,
         };

@@ -41,7 +41,8 @@
                                    FontWeight="SemiBold"
                                    IsVisible="{Binding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                    Text="{Binding Title}"
-                                   TextTrimming="CharacterEllipsis" />
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding Description}" />
                         <ItemsRepeater ItemsSource="{Binding Items}">
                             <ItemsRepeater.Layout>
                                 <controls:HorizontalGridLayout ColumnSpacing="8"

@@ -22,6 +22,7 @@ public static class NodesRegistrar
         GraphNodeRegistry.RegisterNode<TransformNode>(GraphicsStrings.Transform, Colors.MediumPurple);
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.AiGeneration, Colors.DeepPink)
+            .WithId("Beutl.Nodes.AiGeneration")
             .Add<AiPromptNode>(NodeGraphStrings.AiPrompt)
             .Add<AiImageGenerationNode>(NodeGraphStrings.AiImageGeneration)
             .Add<AiImageEditNode>(NodeGraphStrings.AiImageEdit)
@@ -30,18 +31,21 @@ public static class NodesRegistrar
             .Register();
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.Shapes, Colors.ForestGreen)
+            .WithId("Beutl.Nodes.Shapes")
             .Add<RectGeometryNode>(GraphicsStrings.RectShape)
             .Add<EllipseGeometryNode>(GraphicsStrings.EllipseShape)
             .Add<RoundedRectGeometryNode>(GraphicsStrings.RoundedRectShape)
             .Register();
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.Groups, Colors.Gold)
+            .WithId("Beutl.Nodes.Groups")
             .Add<GroupInput>(NodeGraphStrings.GroupInputs)
             .Add<GroupOutput>(NodeGraphStrings.GroupOutputs)
             .Add<GroupNode>(NodeGraphStrings.Group)
             .Register();
 
         GraphNodeRegistry.RegisterNodes(GraphicsStrings.FilterEffect, Colors.DodgerBlue)
+            .WithId("Beutl.Nodes.FilterEffect")
             .Add<FilterEffectNode<Blur>>(GraphicsStrings.Blur)
             .Add<FilterEffectNode<Sharpen>>(GraphicsStrings.Sharpen)
             .Add<FilterEffectNode<RadialBlur>>(GraphicsStrings.RadialBlur)
@@ -97,6 +101,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<LayerEffect>>(GraphicsStrings.LayerEffect)
             .Add<FilterEffectNode<PixelSortEffect>>(GraphicsStrings.PixelSortEffect)
             .AddGroup(GraphicsStrings.Script, o => o
+                .WithId("Beutl.Nodes.FilterEffect.Script")
                 .Add<FilterEffectNode<CSharpScriptEffect>>(GraphicsStrings.CSharpScriptEffect)
                 .Add<FilterEffectNode<SKSLScriptEffect>>(GraphicsStrings.SKSLScriptEffect)
                 .Add<FilterEffectNode<GLSLScriptEffect>>(GraphicsStrings.GLSLScriptEffect)
@@ -106,6 +111,7 @@ public static class NodesRegistrar
         ShaderNodesRegistrar.RegisterAll();
 
         GraphNodeRegistry.RegisterNodes(GraphicsStrings.Brush, Colors.Orange)
+            .WithId("Beutl.Nodes.Brush")
             .Add<FactoryNode<SolidColorBrush>>(GraphicsStrings.SolidColorBrush)
             .Add<FactoryNode<LinearGradientBrush>>(GraphicsStrings.LinearGradientBrush)
             .Add<FactoryNode<ConicGradientBrush>>(GraphicsStrings.ConicGradientBrush)
@@ -115,12 +121,14 @@ public static class NodesRegistrar
             .Register();
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.ToolsAndValues)
+            .WithId("Beutl.Nodes.ToolsAndValues")
             .Add<Utilities.SwitchNode>(NodeGraphStrings.ConditionalSwitch)
             .Add<Utilities.MeasureNode>(NodeGraphStrings.MeasureBounds)
             .Add<Utilities.PreviewNode>(NodeGraphStrings.ImagePreview)
             .Add<Utilities.TimeNode>(NodeGraphStrings.TimelineTime)
             .Add<Utilities.ExpressionNode>(NodeGraphStrings.CSharpExpression)
             .AddGroup(NodeGraphStrings.TransformMatrices, o => o
+                .WithId("Beutl.Nodes.ToolsAndValues.TransformMatrices")
                 .Add<Utilities.TranslateMatrixNode>(NodeGraphStrings.TranslationMatrix)
                 .Add<Utilities.RotationMatrixNode>(NodeGraphStrings.RotationMatrix)
                 .Add<Utilities.Rotation3DMatrixNode>(NodeGraphStrings.Rotation3DMatrix)
@@ -128,12 +136,14 @@ public static class NodesRegistrar
                 .Add<Utilities.SkewMatrixNode>(NodeGraphStrings.SkewMatrix)
                 .Register())
             .AddGroup(NodeGraphStrings.RandomNumbers, o => o
+                .WithId("Beutl.Nodes.ToolsAndValues.RandomNumbers")
                 .Add<Utilities.RandomSingleNode>(NodeGraphStrings.RandomFloat32)
                 .Add<Utilities.RandomDoubleNode>(NodeGraphStrings.RandomFloat64)
                 .Add<Utilities.RandomInt32Node>(NodeGraphStrings.RandomInt32)
                 .Add<Utilities.RandomInt64Node>(NodeGraphStrings.RandomInt64)
                 .Register())
             .AddGroup(NodeGraphStrings.CoordinatesAndSizes, o => o
+                .WithId("Beutl.Nodes.ToolsAndValues.CoordinatesAndSizes")
                 .Add<Utilities.Struct.PointNode>(NodeGraphStrings.Point)
                 .Add<Utilities.Struct.SizeNode>(NodeGraphStrings.Size)
                 .Add<Utilities.Struct.RectNode>(NodeGraphStrings.Rectangle)

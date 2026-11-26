@@ -23,7 +23,8 @@ public class SelectLibraryItemDialogViewModel
     private readonly Type _baseType;
     private readonly Task<PinnableLibraryItem[]> _itemsTask;
     private readonly List<Type> _pinnedItems;
-    private readonly Dictionary<LibraryItem, string> _effectCategories = [];
+    private readonly Dictionary<LibraryItem, LibraryEffectCategory?> _effectCategories = [];
+    private readonly List<LibraryCategoryKey> _categoryKeys = [];
     private readonly ObservableCollection<string> _categories = [];
     private Task<PinnableLibraryItem[]>? _allItemsTask;
     private PinnableLibraryItem[] _allReferenceItems = [];
@@ -58,10 +59,18 @@ public class SelectLibraryItemDialogViewModel
         ShowTiles.Value = Preferences.Default.Get(ShowTilesKey, true);
         ShowTiles.Skip(1).Subscribe(value => Preferences.Default.Set(ShowTilesKey, value));
         _effectCategories = LibraryEffectCategories.Collect(libraryService.Items, format);
-        string others = Strings.Others;
-        if (_effectCategories.Values.Any(category => category != others))
+        LibraryEffectCategory[] categories = _effectCategories.Values.OfType<LibraryEffectCategory>()
+            .DistinctBy(category => category.Key).ToArray();
+        if (categories.Length > 0)
         {
-            _categories = [Strings.AllEffectCategories, .. _effectCategories.Values.Distinct().OrderBy(category => category == others)];
+            _categories = [Strings.AllEffectCategories, .. categories.Select(category => category.Title)];
+            _categoryKeys.AddRange(categories.Select(category => category.Key));
+            if (_effectCategories.ContainsValue(null))
+            {
+                _categoryKeys.Add(default);
+                _categories.Add(Strings.Others);
+            }
+
             SelectedCategoryIndex.Skip(1).Where(_ => !_updatingCategories).Subscribe(_ => ProcessSearchText());
         }
 
@@ -294,8 +303,7 @@ public class SelectLibraryItemDialogViewModel
         var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
         if (searchVersion != Volatile.Read(ref _searchVersion)) return;
 
-        string others = Strings.Others;
-        UpdateOtherCategory(items, others);
+        UpdateOtherCategory(items);
 
         // Read after the wait, so this is the text the results are for, whichever path asked for them.
         _appliedSearchText = SearchText.Value;
@@ -303,8 +311,8 @@ public class SelectLibraryItemDialogViewModel
         int categoryIndex = SelectedCategoryIndex.Value;
         if (categoryIndex > 0 && categoryIndex < Categories.Count)
         {
-            string category = Categories[categoryIndex];
-            matchingItems = matchingItems.Where(item => GetEffectCategory(item, others) == category);
+            LibraryCategoryKey category = _categoryKeys[categoryIndex - 1];
+            matchingItems = matchingItems.Where(item => GetEffectCategoryKey(item) == category);
         }
 
         items = matchingItems.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description)
@@ -333,16 +341,16 @@ public class SelectLibraryItemDialogViewModel
         }
     }
 
-    private string GetEffectCategory(PinnableLibraryItem item, string others)
-        => _effectCategories.GetValueOrDefault((LibraryItem)item.UserData, others);
+    private LibraryCategoryKey GetEffectCategoryKey(PinnableLibraryItem item)
+        => _effectCategories.GetValueOrDefault((LibraryItem)item.UserData)?.Key ?? default;
 
-    private void UpdateOtherCategory(PinnableLibraryItem[] items, string others)
+    private void UpdateOtherCategory(PinnableLibraryItem[] items)
     {
-        if (_categories.Count == 0)
+        if (_categoryKeys.Count == 0)
             return;
 
-        bool hasOthers = _categories[^1] == others;
-        bool needsOthers = items.Any(item => GetEffectCategory(item, others) == others);
+        bool hasOthers = _categoryKeys[^1] == default;
+        bool needsOthers = items.Any(item => GetEffectCategoryKey(item) == default);
         if (hasOthers == needsOthers)
             return;
 
@@ -352,13 +360,15 @@ public class SelectLibraryItemDialogViewModel
         {
             if (needsOthers)
             {
-                _categories.Add(others);
+                _categoryKeys.Add(default);
+                _categories.Add(Strings.Others);
             }
             else
             {
                 if (SelectedCategoryIndex.Value == _categories.Count - 1)
                     SelectedCategoryIndex.Value = 0;
 
+                _categoryKeys.RemoveAt(_categoryKeys.Count - 1);
                 _categories.RemoveAt(_categories.Count - 1);
             }
         }

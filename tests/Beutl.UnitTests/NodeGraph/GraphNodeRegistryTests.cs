@@ -122,6 +122,36 @@ public class GraphNodeRegistryTests
             TypeUnloadNotifier.NotifyUnloading([typeof(RegistrySecondSnapshotNode)]);
         }
     }
+
+    [Test]
+    public void A_node_group_id_survives_snapshotting_and_registration_under_a_different_title()
+    {
+        const string rootId = "Beutl.UnitTests.NodeGroup";
+        const string categoryId = rootId + ".Category";
+        try
+        {
+            GraphNodeRegistry.RegisterNodes("Original group").WithId(rootId)
+                .AddGroup("Original category", group => group.WithId(categoryId).Add<RegistrySnapshotNode>("First node").Register())
+                .Register();
+            GraphNodeRegistry.RegisterNodes("Translated group").WithId(rootId)
+                .AddGroup("Translated category", group => group.WithId(categoryId).Add<RegistrySecondSnapshotNode>("Second node").Register())
+                .Register();
+
+            var root = GraphNodeRegistry.GetRegistered().OfType<GraphNodeRegistry.GroupableRegistryItem>()
+                .Single(group => group.Id == rootId);
+            var category = (GraphNodeRegistry.GroupableRegistryItem)root.Items.Single();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(root.DisplayName, Is.EqualTo("Original group"));
+                Assert.That(category.Id, Is.EqualTo(categoryId));
+                Assert.That(category.Items.Select(item => item.DisplayName), Is.EqualTo(new[] { "First node", "Second node" }));
+            }
+        }
+        finally
+        {
+            TypeUnloadNotifier.NotifyUnloading([typeof(RegistrySnapshotNode), typeof(RegistrySecondSnapshotNode)]);
+        }
+    }
 }
 
 internal sealed partial class RegistrySnapshotNode : GraphNode;
