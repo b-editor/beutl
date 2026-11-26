@@ -297,7 +297,8 @@ public sealed partial class FilterEffectContext : IDisposable
         Func<T, Rect, Rect> transformBounds,
         Func<T, Rect, Rect>? transformSamplingBounds = null,
         bool needsBoundsCoordinates = false,
-        bool needsOneTarget = false)
+        bool needsOneTarget = false,
+        bool keepsPlacement = false)
         where T : IEquatable<T>
     {
         AppendDescription(new FEItem_Skia<T>(
@@ -313,6 +314,7 @@ public sealed partial class FilterEffectContext : IDisposable
             TransformSamplingBounds = transformSamplingBounds,
             NeedsBoundsCoordinates = needsBoundsCoordinates,
             NeedsOneTarget = needsOneTarget,
+            KeepsPlacement = keepsPlacement,
         });
     }
 

@@ -7,6 +7,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Skyboxes;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -50,7 +51,7 @@ public partial class Scene3D : Drawable, IFlowInputOperator
 
     FlowInputKind IFlowInputOperator.ConsumedInputs => FlowInputKind.Object3D | FlowInputKind.Light3D;
 
-    bool IFlowInputOperator.HasNestedInput => Objects.Count > 0;
+    bool IFlowInputOperator.HasNestedInput => Objects.Count > 0 || Skybox.Value is { IsEnabled.Value: true };
 
     string IFlowInputOperator.MissingInputMessage => MessageStrings.FlowInputMissingObject3D;
 
@@ -92,6 +93,10 @@ public partial class Scene3D : Drawable, IFlowInputOperator
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_BackgroundColor), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Transparent);
+
+    /// <summary>Gets the optional skybox composited over the background color.</summary>
+    [Display(Name = nameof(GraphicsStrings.Scene3D_Skybox), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<Skybox3D?> Skybox { get; } = Property.CreateExpression<Skybox3D?>();
 
     /// <summary>
     /// Gets the target object ID for gizmo visualization.

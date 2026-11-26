@@ -137,6 +137,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         {
             recordingContext.ApplyTransactional(effectResource);
             IReadOnlyList<IFEItem> items = recordingContext.GetOrderedItems();
+            if (recordingContext.IsPreviewFrame)
+                EffectEditingPlacement.ObserveFilter(effectResource, items, context);
             if (items.Count == 0)
             {
                 context.PassThrough();

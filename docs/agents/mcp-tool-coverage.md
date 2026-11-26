@@ -30,16 +30,20 @@ Use the Version Control tab for restore and branch checkout because they require
 | Ripple delete | `ripple_delete` | Removes clips and shifts following clips on each affected layer. |
 | Ripple trim | `ripple_trim` | Moves the start or end of one clip with the editor's ripple constraints. |
 | Close a gap after a clip | `close_gap` | Closes the first gap after the clip's contiguous run on its layer. |
-| Find the next or previous gap or close all gaps | `read_document_summary`, `close_gap` | Partial. Infer gaps from element ranges and close them individually. |
+| Find and close timeline gaps | `find_gaps`, `close_all_gaps` | Lists gaps by layer and closes gaps on all or selected layers, using the editor's ripple and lock rules. |
 | Roll a cut or slide a clip | — | No operation tool for the editor's coupled trim and media-offset adjustments. |
 | Duplicate timeline elements, copy, cut, or paste | `apply_edit`, `duplicate_object` | Partial. A patch can assemble new elements, and `duplicate_object` copies an engine object within an element. The timeline duplication and clipboard workflows have no tool. |
 | Save or reuse an element template | `list_element_templates`, `save_element_template`, `add_element_from_template` | Lists templates in the Beutl profile. Save by name with element IDs, or omit the IDs to use the live selection and its groups. Add by template ID, time in seconds, and zero-based layer. A set keeps relative timing, layers, and groups. Insertion has one undo step. |
 | Edit timeline markers | `apply_edit` | Edit the scene's marker list. |
-| Analyze and split clips on silence | — | No tool for silence detection or the editor's split and delete modes. |
+| Analyze and split clips on silence | `split_on_silence` | Analyzes audio on the selected clips or layers and applies the Silence Split tab's split, delete, or ripple-delete mode. |
 
 For split and ripple trim, `timeSeconds` is a position measured from timeline zero. For slip, `deltaSeconds` is a signed shift. Times are rounded to the scene's frame rate. Pass all intended clip IDs explicitly for split, slip, or ripple delete. A successful change has one undo step. An operation that cannot make a change can return `changed: false`.
 
-A batch that skips locked targets reports their IDs in `skippedLockedElementIds`. A batch with only locked targets returns a validation error. Ripple delete can remove a recovery-protected element while retaining its original file, as in the timeline.
+An element batch that skips locked targets reports their IDs in `skippedLockedElementIds`. An element batch with only locked targets returns a validation error. Ripple delete can remove a recovery-protected element while retaining its original file, as in the timeline.
+
+For `split_on_silence`, pass either `elementIds` or `layers` (timeline ZIndex values). The defaults are `thresholdDb: -40`, `minimumMilliseconds: 300`, `paddingMilliseconds: 100`, `mode: split_only`, and `includeLinked: true`. With linked clips enabled, the first eligible audio clip in each group supplies the cuts. The tool returns `createdElementIds` and reports `removedRanges` in the analyzed clips' original timeline coordinates. Use `delete_silence` to leave the gaps or `ripple_delete` to close them where the editor can.
+
+`find_gaps` returns the layer and the start and end of each gap in timeline seconds, including gaps blocked by locks. Both gap tools accept an optional `layers` filter. `close_all_gaps` returns `closedGapCount` and leaves gaps open where locks prevent movement.
 
 ## Objects, animation, and effects
 

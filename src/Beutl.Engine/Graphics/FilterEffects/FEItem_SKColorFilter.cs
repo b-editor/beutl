@@ -6,6 +6,8 @@ internal record FEItem_SKColorFilter<T>(
     T Data, Func<T, FilterEffectExecutor, SKColorFilter?> Factory)
     : FEItem<T>(Data, (_, rect) => rect), IFEItem_Skia
 {
+    bool IFEItem.KeepsPlacement => true;
+
     public bool TryTransformSamplingBounds(Rect output, out Rect input)
     {
         // A color filter is evaluated per pixel, so it never reads outside the requested region.

@@ -795,9 +795,11 @@ public sealed class TimelineVirtualizationTests
             using var host = new ViewportHost(scene);
             ElementViewModel model = host.Model.GetViewModelFor(video)!;
 
-            await HeadlessTestHelpers.WaitUntilAsync(() => model.VideoThumbnailCount.Value > 40);
-            int smallCount = model.VideoThumbnailCount.Value;
             ThumbnailStripControl strip = host.Panel.GetVisualDescendants().OfType<ThumbnailStripControl>().Single();
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                model.VideoThumbnailCount.Value > 40
+                && strip.GetMissingIndices(0, model.VideoThumbnailCount.Value - 1).Count == 0);
+            int smallCount = model.VideoThumbnailCount.Value;
 
             // Scroll near the right end so ElementViewModel caches a Small slot range past Large's total slot count.
             int scrolledStart = -1;
@@ -870,9 +872,11 @@ public sealed class TimelineVirtualizationTests
             using var host = new ViewportHost(scene);
             ElementViewModel model = host.Model.GetViewModelFor(video)!;
 
-            await HeadlessTestHelpers.WaitUntilAsync(() => model.VideoThumbnailCount.Value > 40);
-            int smallCount = model.VideoThumbnailCount.Value;
             ThumbnailStripControl strip = host.Panel.GetVisualDescendants().OfType<ThumbnailStripControl>().Single();
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                model.VideoThumbnailCount.Value > 40
+                && strip.GetMissingIndices(0, model.VideoThumbnailCount.Value - 1).Count == 0);
+            int smallCount = model.VideoThumbnailCount.Value;
 
             int requestsBeforeResize = videoSource.Requests;
             videoSource.FailNextVideoStrip = true;
@@ -908,6 +912,45 @@ public sealed class TimelineVirtualizationTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task A_visible_range_only_requests_the_missing_thumbnail_slots()
+    {
+        await TestReset.ResetShellAsync();
+        EditorConfig config = TestShell.Configuration.EditorConfig;
+        bool showByDefault = config.ShowTimelineThumbnailsByDefault.Value;
+        try
+        {
+            config.ShowTimelineThumbnailsByDefault.Value = true;
+            var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(8) } };
+            var element = new Element { Length = { Value = MediaTime.FromSeconds(8) } };
+            var source = new CountingThumbnailSource(ThumbnailsKind.Video, scaledSlots: true);
+            element.Objects.Add(source);
+            scene.Children.Add(element);
+            using var host = new ViewportHost(scene);
+            var model = host.Model.GetViewModelFor(element)!;
+            var strip = host.Panel.GetVisualDescendants().OfType<ThumbnailStripControl>().Single();
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                model.VideoThumbnailCount.Value >= 5
+                && strip.GetMissingIndices(0, model.VideoThumbnailCount.Value - 1).Count == 0);
+
+            strip.ClearThumbnails();
+            for (int i = 0; i < model.VideoThumbnailCount.Value; i++)
+            {
+                if (i != 1 && i != 3)
+                    strip.SetThumbnail(i, null);
+            }
+            int refresh = source.RequestedVideoRanges.Count;
+            model.OnVisibleRangeChanged(0, 4);
+            await HeadlessTestHelpers.WaitUntilAsync(() => strip.GetMissingIndices(0, 4).Count == 0);
+
+            Assert.That(source.RequestedVideoRanges.Skip(refresh), Is.EqualTo(new[] { (1, 1), (3, 3) }));
+        }
+        finally
+        {
+            config.ShowTimelineThumbnailsByDefault.Value = showByDefault;
+        }
+    }
+
     [SuppressResourceClassGeneration]
     private sealed class CountingThumbnailSource(ThumbnailsKind kind = ThumbnailsKind.Audio, bool scaledSlots = false) : EngineObject, IThumbnailsProvider
     {
@@ -916,6 +959,7 @@ public sealed class TimelineVirtualizationTests
         public int LastRequestedHeight { get; private set; }
         public int LastRequestedStart { get; private set; }
         public int LastRequestedEnd { get; private set; }
+        public List<(int Start, int End)> RequestedVideoRanges { get; } = [];
         public bool FailNextVideoStrip { get; set; }
         public (int Height, TaskCompletionSource Gate)? PauseAfterFirstTileAtHeight { get; set; }
         public int PausedAtHeight { get; private set; }
@@ -956,6 +1000,7 @@ public sealed class TimelineVirtualizationTests
             LastRequestedHeight = maxHeight;
             LastRequestedStart = startIndex;
             LastRequestedEnd = endIndex;
+            RequestedVideoRanges.Add((startIndex, endIndex));
             await BeginRequest(cancellationToken);
             if (FailNextVideoStrip)
             {

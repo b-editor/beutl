@@ -99,7 +99,7 @@ public static partial class ProxySourceEnumerator
         }
 
         // A DrawableBrush paints an area with a nested Drawable that BrushConstructor renders when the
-        // owning shape draws, and a DrawableTextureSource (a 3D material map — DiffuseMap / AlbedoMap / …)
+        // owning shape draws, and a DrawableTextureSource in a 3D material or skybox
         // renders its nested Drawable via GetTexture, opening that drawable's files. Either drawable is
         // reachable only as a property value, so route it through the guarded drawable walk. VisitedTargets
         // stops a structurally-reached drawable being walked twice.

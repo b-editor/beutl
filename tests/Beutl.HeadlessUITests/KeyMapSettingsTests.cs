@@ -21,6 +21,27 @@ namespace Beutl.HeadlessUITests;
 public sealed class KeyMapSettingsTests
 {
     [AvaloniaTest]
+    public void The_extensions_window_refresh_shortcuts_appear_under_its_name()
+    {
+        var manager = TestShell.MainViewModel.ContextCommandManager;
+        using var model = CreateModel(manager);
+        var page = new KeyMapSettingsPage { DataContext = model };
+        using var host = Show(page);
+        page.FindControl<TextBox>("ShortcutSearchBox")!.Text = "extensions.refresh";
+        HeadlessTestHelpers.Render();
+
+        KeyMapSettingsGroup group = model.VisibleGroups.Value.Single();
+        Assert.That(group.Extension, Is.SameAs(ExtensionsToolWindowExtension.Instance));
+        Assert.That(page.GetVisualDescendants().OfType<Beutl.Controls.OptionsDisplayItem>()
+            .Any(item => item.IsEffectivelyVisible && Equals(item.Header, group.Extension.DisplayName)), Is.True);
+        Assert.That(page.GetVisualDescendants().OfType<Button>()
+            .Where(button => button.IsEffectivelyVisible && button.Name == "AssignShortcutButton")
+            .Select(button => ((KeyMapSettingsItem)button.DataContext!).KeyGesture.Value),
+            Is.EquivalentTo(new[] { KeyGesture.Parse("F5"), KeyGesture.Parse("Ctrl+R"), KeyGesture.Parse("Cmd+R") }));
+        HeadlessCapture.SaveIfRequested(page, "keymap", "extensions-window");
+    }
+
+    [AvaloniaTest]
     public void Searching_by_command_or_gesture_shows_matching_rows()
     {
         var manager = CreateKeymap();

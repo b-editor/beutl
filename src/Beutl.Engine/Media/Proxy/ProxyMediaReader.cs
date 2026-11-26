@@ -31,6 +31,9 @@ internal sealed class ProxyMediaReader(
         return inner.ReadVideo(frame, out image);
     }
 
+    public override bool ReadVideoThumbnail(int frame, bool allowKeyframe, [NotNullWhen(true)] out Ref<Bitmap>? image)
+        => inner.ReadVideoThumbnail(frame, allowKeyframe, out image);
+
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
     {
         return inner.ReadAudio(start, length, out sound);

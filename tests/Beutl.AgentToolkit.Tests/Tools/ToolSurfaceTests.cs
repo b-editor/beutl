@@ -71,6 +71,9 @@ public sealed class ToolSurfaceTests
             "ripple_delete",
             "ripple_trim",
             "close_gap",
+            "find_gaps",
+            "close_all_gaps",
+            "split_on_silence",
             "list_element_templates",
             "save_element_template",
             "add_element_from_template",
@@ -106,7 +109,7 @@ public sealed class ToolSurfaceTests
         Assert.Multiple(() =>
         {
             // Through a lambda, an async helper and a snapshot helper.
-            Assert.That(sessionTools, Is.SupersetOf(new[] { "apply_edit", "undo", "render_still" }));
+            Assert.That(sessionTools, Is.SupersetOf(new[] { "apply_edit", "undo", "render_still", "find_gaps", "close_all_gaps", "split_on_silence" }));
             Assert.That(sessionTools.Where(name => !AgentHostSceneRouting.AcceptsScene(name)), Is.Empty);
         });
     }

@@ -60,7 +60,9 @@ internal sealed partial class RenderRequestExecutor
                     fragment.Bounds,
                     scale,
                     allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
-                value.TextPart = TextPartTag.GetCommon(values, static value => value.TextPart);
+                // The composite occupies one animation slot, including when only one glyph remains visible.
+                if (TextPartTag.GetCommon(values, static value => value.TextPart) is { } textPart)
+                    value.TextPart = textPart with { IncludeHiddenUnits = false };
                 bool succeeded = false;
                 try
                 {

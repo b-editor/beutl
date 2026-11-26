@@ -29,6 +29,8 @@ public sealed partial class ImageTextureSource : TextureSource
         private readonly CachedTexture[] _gpuTextures = new CachedTexture[3];
         private int? _versionWithoutStraightColors;
 
+        internal override bool HasContent => Source is { } source && (source.Picture != null || source.Bitmap != null);
+
         // A decoded bitmap has a fixed pixel count, so surfaceDensity is ignored for raster images,
         // while an SVG re-rasterizes its vector drawing at the surface density.
         public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)

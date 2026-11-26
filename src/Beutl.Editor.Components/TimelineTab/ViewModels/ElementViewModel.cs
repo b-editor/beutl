@@ -61,6 +61,8 @@ public sealed partial class ElementViewModel : IDisposable
     public Func<int, int, List<int>>? GetMissingWaveformIndices;
     public Func<(int Start, int End)>? GetVisibleThumbnailRange;
     public Func<(int Start, int End)>? GetVisibleWaveformRange;
+    internal Func<int, double, (int Start, int End)>? GetVisibleThumbnailRangeForLayout;
+    internal Func<int, double, (int Start, int End)>? GetVisibleWaveformRangeForLayout;
     public Func<double>? GetMediaViewportWidth;
 
     public ElementViewModel(Element element, TimelineTabViewModel timeline)
@@ -392,6 +394,7 @@ public sealed partial class ElementViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string> ProxyIndicatorTooltip { get; }
 
     public event Action<int, WriteableBitmap?>? ThumbnailReady;
+    internal event Action<IReadOnlyList<(int Index, WriteableBitmap? Thumbnail)>>? ThumbnailBatchReady;
 
     public event Action? ThumbnailsClear;
 
@@ -400,6 +403,7 @@ public sealed partial class ElementViewModel : IDisposable
     internal event Action? MediaPreviewCommitted;
 
     public event Action<WaveformChunk>? WaveformChunkReady;
+    internal event Action<IReadOnlyList<WaveformChunk>>? WaveformBatchReady;
 
     public event Action? WaveformClear;
 
@@ -489,6 +493,8 @@ public sealed partial class ElementViewModel : IDisposable
         GetMissingWaveformIndices = null;
         GetVisibleThumbnailRange = null;
         GetVisibleWaveformRange = null;
+        GetVisibleThumbnailRangeForLayout = null;
+        GetVisibleWaveformRangeForLayout = null;
         GetMediaViewportWidth = null;
     }
 

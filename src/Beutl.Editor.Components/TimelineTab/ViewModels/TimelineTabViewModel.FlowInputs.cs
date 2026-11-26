@@ -2,6 +2,7 @@
 using Avalonia.Threading;
 using Beutl.Engine;
 using Beutl.Graphics.Transitions;
+using Beutl.Graphics3D;
 using Beutl.ProjectSystem;
 using Reactive.Bindings.Extensions;
 
@@ -42,7 +43,9 @@ public sealed partial class TimelineTabViewModel
                     PortalObject portal => ReferenceEquals(property, portal.Count) || ReferenceEquals(property, portal.Clear)
                         || ReferenceEquals(property, portal.IsEnabled),
                     ClipTransition => true,
-                    EngineObject obj => ReferenceEquals(property, obj.IsEnabled) || (obj is IFlowInputOperator && property is IListProperty),
+                    EngineObject obj => ReferenceEquals(property, obj.IsEnabled)
+                        || (obj is IFlowInputOperator && property is IListProperty)
+                        || (obj is Scene3D scene3D && ReferenceEquals(property, scene3D.Skybox)),
                     _ => false
                 };
                 if (!affectsInputs) return;

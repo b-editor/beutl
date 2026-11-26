@@ -808,6 +808,17 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics3D.Primitives:Sphere3D
   sealed
   keys: Animations, CastShadows, Expressions, Id, IsEnabled, Material, Name, Position, Radius, ReceiveShadows, Rings, Rotation, Scale, Segments
+[Beutl.Engine]Beutl.Graphics3D.Skyboxes:CubemapSkybox
+  sealed
+  keys: Animations, Expressions, Id, Intensity, IsEnabled, Name, NegativeX, NegativeY, NegativeZ, Opacity, PositiveX, PositiveY, PositiveZ, Rotation, Tint
+[Beutl.Engine]Beutl.Graphics3D.Skyboxes:EquirectangularSkybox
+  sealed
+  keys: Animations, Expressions, Id, Intensity, IsEnabled, Name, Opacity, Rotation, Texture, Tint
+[Beutl.Engine]Beutl.Graphics3D.Skyboxes:ProceduralSkybox
+  sealed
+  keys: Animations, Expressions, GroundColor, HorizonColor, HorizonExponent, Id, Intensity, IsEnabled, Name, Opacity, Rotation, SkyColor, SunColor, SunDirection, SunIntensity, SunSize, Tint
+[Beutl.Engine]Beutl.Graphics3D.Skyboxes:Skybox3D
+  abstract
 [Beutl.Engine]Beutl.Graphics3D.Textures:DrawableTextureSource
   sealed
   keys: Animations, Drawable, Expressions, Id, IsEnabled, Name, TextureHeight, TextureWidth
@@ -826,7 +837,7 @@ Beutl.Utilities
   abstract
 [Beutl.Engine]Beutl.Graphics3D:Scene3D
   unsealed
-  keys: AlignmentX, AlignmentY, AmbientColor, AmbientIntensity, Animations, AntiAliasing, BackgroundColor, BlendMode, Camera, Expressions, FilterEffect, Id, IsEnabled, Lights, Name, Objects, Opacity, RenderHeight, RenderWidth, Transform, TransformOrigin
+  keys: AlignmentX, AlignmentY, AmbientColor, AmbientIntensity, Animations, AntiAliasing, BackgroundColor, BlendMode, Camera, Expressions, FilterEffect, Id, IsEnabled, Lights, Name, Objects, Opacity, RenderHeight, RenderWidth, Skybox, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Graphics:Drawable
   abstract
 [Beutl.Engine]Beutl.Graphics:DrawableDecorator
@@ -1781,6 +1792,7 @@ editor.toggleMarker
 editor.toggleOnionSkin
 editor.togglePreviewCheckerboard
 editor.togglePreviewGuides
+extensions.refresh
 graphEditor.cancel
 graphEditor.copy
 graphEditor.cut

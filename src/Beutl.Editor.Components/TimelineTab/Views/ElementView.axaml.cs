@@ -300,15 +300,17 @@ public sealed partial class ElementView : UserControl
         obj.GetMissingWaveformIndices = null;
         obj.GetVisibleThumbnailRange = null;
         obj.GetVisibleWaveformRange = null;
+        obj.GetVisibleThumbnailRangeForLayout = null;
+        obj.GetVisibleWaveformRangeForLayout = null;
         obj.GetMediaViewportWidth = null;
         thumbnailStrip.VisibleRangeChanged -= obj.OnVisibleRangeChanged;
         waveformControl.VisibleRangeChanged -= obj.OnWaveformVisibleRangeChanged;
 
-        obj.ThumbnailReady -= OnThumbnailReady;
+        obj.ThumbnailBatchReady -= thumbnailStrip.SetThumbnails;
         obj.ThumbnailsClear -= OnThumbnailsClear;
         obj.MediaPreviewClear -= OnMediaPreviewClear;
         obj.MediaPreviewCommitted -= OnMediaPreviewCommitted;
-        obj.WaveformChunkReady -= OnWaveformChunkReady;
+        obj.WaveformBatchReady -= waveformControl.SetChunkBatch;
         obj.WaveformClear -= OnWaveformClear;
 
         obj.SetTimelineViewAttached(false);
@@ -349,6 +351,8 @@ public sealed partial class ElementView : UserControl
         obj.GetMissingWaveformIndices = waveformControl.GetMissingIndices;
         obj.GetVisibleThumbnailRange = thumbnailStrip.GetVisibleRange;
         obj.GetVisibleWaveformRange = waveformControl.GetVisibleRange;
+        obj.GetVisibleThumbnailRangeForLayout = thumbnailStrip.GetVisibleRange;
+        obj.GetVisibleWaveformRangeForLayout = waveformControl.GetVisibleRange;
         obj.GetMediaViewportWidth = () => mediaClip.Bounds.Width;
         thumbnailStrip.VisibleRangeChanged += obj.OnVisibleRangeChanged;
         waveformControl.VisibleRangeChanged += obj.OnWaveformVisibleRangeChanged;
@@ -362,18 +366,13 @@ public sealed partial class ElementView : UserControl
             })
             .DisposeWith(_disposables);
 
-        obj.ThumbnailReady += OnThumbnailReady;
+        obj.ThumbnailBatchReady += thumbnailStrip.SetThumbnails;
         obj.ThumbnailsClear += OnThumbnailsClear;
         obj.MediaPreviewClear += OnMediaPreviewClear;
         obj.MediaPreviewCommitted += OnMediaPreviewCommitted;
-        obj.WaveformChunkReady += OnWaveformChunkReady;
+        obj.WaveformBatchReady += waveformControl.SetChunkBatch;
         obj.WaveformClear += OnWaveformClear;
         obj.SetTimelineViewAttached(true);
-    }
-
-    private void OnThumbnailReady(int index, WriteableBitmap? thumbnail)
-    {
-        thumbnailStrip.SetThumbnail(index, thumbnail);
     }
 
     private void OnThumbnailsClear()
@@ -391,11 +390,6 @@ public sealed partial class ElementView : UserControl
     {
         thumbnailStrip.CommitPreview();
         waveformControl.CommitPreview();
-    }
-
-    private void OnWaveformChunkReady(WaveformChunk chunk)
-    {
-        waveformControl.SetChunk(chunk);
     }
 
     private void OnWaveformClear()
