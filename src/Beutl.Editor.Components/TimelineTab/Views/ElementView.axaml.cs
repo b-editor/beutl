@@ -535,7 +535,7 @@ public sealed partial class ElementView : UserControl
     {
         TimelineTabViewModel timeline = ViewModel.Timeline;
         var format = timeline.TimeDisplayFormat.Value;
-        string text = TimeDisplayFormatter.Format(time, timeline.FrameRate, format);
+        string text = TimeDisplayFormatter.Format(time, timeline.FrameRate.Value, format);
         return format == Beutl.Configuration.TimeDisplayFormat.Frames ? text + "f" : text;
     }
 

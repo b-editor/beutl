@@ -52,7 +52,7 @@
                                ContextRequested="Scale_ContextRequested"
                                EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
-                               FrameRate="{CompiledBinding FrameRate}"
+                               FrameRate="{CompiledBinding FrameRate.Value}"
                                HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
                                LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
                                MarkerLabelBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"

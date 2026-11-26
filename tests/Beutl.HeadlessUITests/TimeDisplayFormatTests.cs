@@ -315,6 +315,45 @@ public sealed class TimeDisplayFormatTests
     }
 
     [AvaloniaTest]
+    public async Task The_rulers_update_when_the_scene_frame_rate_changes()
+    {
+        TimeDisplayFormat original = Config.TimeDisplayFormat.Value;
+        try
+        {
+            SetFormat(TimeDisplayFormat.Frames);
+            using (TimelineTestHost host = await TimelineTestHost.CreateAsync("time-format-rate", MediaTime.FromSeconds(10)))
+            {
+                TimelineScale ruler = host.Ruler;
+                HeadlessTestHelpers.Render();
+                using WriteableBitmap? at30 = host.Window.CaptureRenderedFrame();
+
+                host.Scene.FrameRate.Value = new Rational(60);
+                HeadlessTestHelpers.Render();
+                using WriteableBitmap? at60 = host.Window.CaptureRenderedFrame();
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(ruler.FrameRate, Is.EqualTo(new Rational(60)));
+                    Assert.That(Pixels(at60!, ruler, host.Window), Is.Not.EqualTo(Pixels(at30!, ruler, host.Window)),
+                        "The timeline ruler redraws frame numbers for the new frame rate.");
+                });
+            }
+
+            using GraphScope graph = await GraphScope.CreateAsync();
+            TimelineScale graphRuler = graph.View.FindControl<TimelineScale>("scale")!;
+            Assert.That(graphRuler.FrameRate, Is.EqualTo(new Rational(30)));
+
+            graph.Model.Scene.FrameRate.Value = new Rational(60);
+            HeadlessTestHelpers.Render();
+            Assert.That(graphRuler.FrameRate, Is.EqualTo(new Rational(60)));
+        }
+        finally
+        {
+            Config.TimeDisplayFormat.Value = original;
+        }
+    }
+
+    [AvaloniaTest]
     public void The_settings_page_chooses_the_format()
     {
         TestGpu.RequireAnyDevice();

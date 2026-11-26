@@ -999,7 +999,7 @@ public class TimelineEditModeThumbnailPreviewTests
     private static string FormatReadoutTime(ElementViewModel clip, MediaTime time)
     {
         TimeDisplayFormat format = clip.Timeline.TimeDisplayFormat.Value;
-        string text = TimeDisplayFormatter.Format(time, clip.Timeline.FrameRate, format);
+        string text = TimeDisplayFormatter.Format(time, clip.Timeline.FrameRate.Value, format);
         return format == TimeDisplayFormat.Frames ? text + "f" : text;
     }
 

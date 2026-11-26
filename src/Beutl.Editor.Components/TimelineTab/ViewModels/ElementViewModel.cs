@@ -571,7 +571,7 @@ public sealed partial class ElementViewModel : IDisposable
         MediaTime beforeEnd = Model.Range.End;
 
         ElementResizeRequest request = GetResizeRequest(ripple, leftEdge,
-            Timeline.Options.Value.Scale, Timeline.FrameRate, addHeaders: true);
+            Timeline.Options.Value.Scale, Timeline.FrameRate.Value, addHeaders: true);
         Timeline.EditorContext.GetRequiredService<IElementResizeService>()
             .Resize(Scene, [request], ripple);
 
