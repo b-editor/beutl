@@ -16,7 +16,6 @@ using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.ProjectSystem;

@@ -1,7 +1,8 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
+﻿using Beutl.Editor.Services;
+using Beutl.Graphics;
+using Beutl.UnitTests.Engine.Graphics;
 
-namespace Beutl.UnitTests.Engine.Graphics.Transformation;
+namespace Beutl.UnitTests.Editor.Services;
 
 public class TransformHandleMathTests
 {

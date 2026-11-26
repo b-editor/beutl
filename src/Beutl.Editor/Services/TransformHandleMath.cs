@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Transformation;
+﻿using Beutl.Graphics;
+
+namespace Beutl.Editor.Services;
 
 /// <summary>
 /// Pure math helper used by the transform handle operations.
