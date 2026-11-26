@@ -13,14 +13,18 @@ using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Services;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Shaders;
+using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -28,6 +32,8 @@ using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using AvaPoint = Avalonia.Point;
 using Point = Beutl.Graphics.Point;
+using RelativePoint = Beutl.Graphics.RelativePoint;
+using RelativeUnit = Beutl.Graphics.RelativeUnit;
 
 namespace Beutl.HeadlessUITests;
 
@@ -171,7 +177,10 @@ public sealed class NodeGraphFilterEffectTests
     }
 
     [AvaloniaTest]
-    public async Task PuppetNode_CanAddAndDragAPinInThePreview()
+    [TestCase(0, 100)]
+    [TestCase(180, 100)]
+    [TestCase(0, 150)]
+    public async Task PuppetNode_CanAddAndDragAPinInThePreview(int translation, int scale)
     {
         TestGpu.RequireAnyDevice();
         (_, var scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("puppet-node-pins");
@@ -184,10 +193,26 @@ public sealed class NodeGraphFilterEffectTests
         graph.Nodes.Add(node);
         graph.Nodes.Add(output);
         graph.Connect((IInputPort)node.Items[1], input.Output);
-        graph.Connect(output.InputPort, (IOutputPort)node.Items[0]);
+        var picture = (IOutputPort)node.Items[0];
+        if (translation != 0 || scale != 100)
+        {
+            var transform = new FilterEffectNode<TransformEffect>
+            {
+                Position = { Value = (505, 70) },
+            };
+            transform.Object.Value.Transform.Value = scale == 100
+                ? new TranslateTransform(translation, 0)
+                : new ScaleTransform(scale, scale);
+            output.Position.Value = (745, 70);
+            graph.Nodes.Add(transform);
+            graph.Connect((IInputPort)transform.Items[1], picture);
+            picture = (IOutputPort)transform.Items[0];
+        }
+        graph.Connect(output.InputPort, picture);
 
         const float width = 320;
         const float height = 210;
+        var center = new Point(width / 2, height / 2);
         var shape = new RectShape
         {
             Width = { Value = width },
@@ -212,7 +237,7 @@ public sealed class NodeGraphFilterEffectTests
         {
             window.Show();
             editor.GetRequiredService<IEditorClock>().Seek(MediaTime.Zero);
-            await RenderPreview();
+            await RenderPreview(editor);
             var pins = view.GetVisualDescendants().OfType<PuppetPinsEditor>().Single();
             var add = pins.GetVisualDescendants().OfType<Button>()
                 .Single(button => AutomationProperties.GetName(button) == GraphicsStrings.Puppet_AddPin);
@@ -221,10 +246,12 @@ public sealed class NodeGraphFilterEffectTests
             HeadlessTestHelpers.Click(add, move: true);
             await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.PointPick.Value is not null,
                 message: "The Pins editor in the node should open the preview point picker.");
-            await RenderPreview();
+            await RenderPreview(editor);
             Assert.That(player.transformHandlesOverlay.Drawable, Is.SameAs(shape));
 
-            AvaPoint point = ToWindow(new Point(80, 100));
+            var clicked = new Point(80, 100);
+            Assert.That(PreviewAlpha(clicked), Is.GreaterThan(200));
+            AvaPoint point = ToWindow(clicked);
             window.MouseMove(point);
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
@@ -232,66 +259,244 @@ public sealed class NodeGraphFilterEffectTests
             await HeadlessTestHelpers.WaitUntilAsync(() => puppet.Pins.Count == 1);
             HeadlessTestHelpers.Click(add, move: true);
             await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.PuppetPlacementEffect.Value is null);
-            await RenderPreview();
+            await RenderPreview(editor);
 
             PuppetPin pin = puppet.Pins.Single();
             var handle = puppet.GetEditingHandles(MediaTime.Zero).Single();
-            Point target = handle.Position + new Point(34, -24);
+            Assert.That(player.transformHandlesOverlay.HitTestEditingHandle(ToPreview(clicked))?.Handle.Id, Is.EqualTo(handle.Id));
+            Point target = clicked + new Point(34, -24);
             var oldEdge = new Point(10, 100);
             Assert.That(PreviewAlpha(oldEdge), Is.GreaterThan(200));
-            AvaPoint start = ToWindow(handle.Position);
+            AvaPoint start = ToWindow(clicked);
             AvaPoint end = ToWindow(target);
             window.MouseMove(start);
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(end, RawInputModifiers.LeftMouseButton);
             window.MouseUp(end, MouseButton.Left);
-            await RenderPreview();
+            await RenderPreview(editor);
+            if (translation != 0)
+                HeadlessCapture.SaveIfRequested(window, nameof(NodeGraphFilterEffectTests), "puppet-downstream-translate");
 
             Assert.Multiple(() =>
             {
+                Assert.That(pin.RestPosition.Value.X, Is.EqualTo(clicked.X / width).Within(0.01f));
+                Assert.That(pin.RestPosition.Value.Y, Is.EqualTo(clicked.Y / height).Within(0.01f));
                 Assert.That(pin.Position.Value.X, Is.EqualTo(target.X / width).Within(0.01f));
                 Assert.That(pin.Position.Value.Y, Is.EqualTo(target.Y / height).Within(0.01f));
                 Assert.That(pin.Position.Value, Is.Not.EqualTo(pin.RestPosition.Value));
             });
-            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            if (scale == 100)
             {
-                HeadlessTestHelpers.Render(2);
-                return PreviewAlpha(oldEdge) == 0
-                    && player.transformHandlesOverlay.HitTestEditingHandle(ToPreview(target))?.Handle.Id == handle.Id;
-            }, message: "Dragging the pin should move the rendered content and preview handle.");
-            HeadlessCapture.SaveIfRequested(window, nameof(NodeGraphFilterEffectTests), "puppet-pin-drag");
+                await HeadlessTestHelpers.WaitUntilAsync(() =>
+                {
+                    HeadlessTestHelpers.Render(2);
+                    return PreviewAlpha(oldEdge) == 0
+                        && player.transformHandlesOverlay.HitTestEditingHandle(ToPreview(target))?.Handle.Id == handle.Id;
+                }, message: "Dragging the pin should move the rendered content and preview handle.");
+            }
+            if (translation == 0)
+                HeadlessCapture.SaveIfRequested(window, nameof(NodeGraphFilterEffectTests), scale == 100 ? "puppet-pin-drag" : "puppet-downstream-scale");
         }
         finally
         {
             window.Close();
         }
 
-        async Task RenderPreview()
-        {
-            var rendered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            using IDisposable subscription = editor.Player.AfterRendered.Take(1).Subscribe(_ => rendered.TrySetResult());
-            editor.Player.QueuePreviewRender();
-            await rendered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            HeadlessTestHelpers.Render(3);
-        }
-
         byte? PreviewAlpha(Point local)
         {
             using var image = ((BitmapView)player.image).Source?.TryClone();
             if (image is null) return null;
-            Point frame = player.transformHandlesOverlay.UserMatrix.Transform(local);
+            Point frame = ToFrame(local);
             return image.Value.SKBitmap.GetPixel(
                 (int)(frame.X * image.Value.Width / scene.FrameSize.Value.Width),
                 (int)(frame.Y * image.Value.Height / scene.FrameSize.Value.Height)).Alpha;
         }
 
-        AvaPoint ToPreview(Point local)
+        Point ToFrame(Point local)
         {
-            Point frame = player.transformHandlesOverlay.UserMatrix.Transform(local);
-            return player.transformHandlesOverlay.Viewport!.ToPreview(new AvaPoint(frame.X, frame.Y));
+            Point transformed = center + (local - center) * (scale / 100f) + new Point(translation, 0);
+            return player.transformHandlesOverlay.UserMatrix.Transform(transformed);
         }
 
+        AvaPoint ToPreview(Point local) => ToPreviewPoint(player, ToFrame(local));
+
         AvaPoint ToWindow(Point local) => player.image.TranslatePoint(ToPreview(local), window)!.Value;
+    }
+
+    public enum Downstream { Translate, ScaleThenTranslate, Warp }
+
+    [AvaloniaTest]
+    [TestCase(true, Downstream.Translate, false)]
+    [TestCase(false, Downstream.Translate, false)]
+    [TestCase(true, Downstream.ScaleThenTranslate, false)]
+    [TestCase(false, Downstream.ScaleThenTranslate, true)]
+    [TestCase(true, Downstream.Warp, false)]
+    public async Task WarpNode_HandlesFollowTheGraphOutput(bool meshWarp, Downstream downstream, bool drawableGraph)
+    {
+        TestGpu.RequireAnyDevice();
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("warp-node-handles");
+        const float width = 240;
+        const float height = 160;
+        var center = new Point(width / 2, height / 2);
+        var translation = new Point(110, 80);
+        var frameSize = editor.Scene.FrameSize.Value;
+        Point drawableOrigin = drawableGraph ? default : new Point((frameSize.Width - width) / 2, (frameSize.Height - height) / 2);
+        var mesh = new FilterEffectNode<MeshWarp>();
+        var corners = new FilterEffectNode<CornerPin>();
+        ConfigureNode node = meshWarp ? mesh : corners;
+        IEditingStageProvider effect = meshWarp ? mesh.Object.Value : corners.Object.Value;
+
+        GraphModel graph;
+        Drawable drawable;
+        IOutputPort source;
+        if (drawableGraph)
+        {
+            var graphDrawable = new NodeGraphDrawable();
+            graph = graphDrawable.Model.Value!;
+            drawable = graphDrawable;
+            var rect = new RectGeometryNode();
+            rect.Object.Value.Width.Value = width;
+            rect.Object.Value.Height.Value = height;
+            var shape = new GeometryShapeNode();
+            shape.Fill.Property!.SetValue(Brushes.White);
+            graph.Nodes.AddRange([rect, shape]);
+            graph.Connect(shape.Geometry, rect.OutputPort);
+            source = shape.Output;
+        }
+        else
+        {
+            var graphEffect = new NodeGraphFilterEffect();
+            graph = graphEffect.Model.Value!;
+            drawable = new RectShape
+            {
+                Width = { Value = width },
+                Height = { Value = height },
+                FilterEffect = { Value = graphEffect },
+            };
+            var input = new FilterEffectInputNode();
+            graph.Nodes.Add(input);
+            source = input.Output;
+        }
+        var output = new OutputNode();
+        graph.Nodes.Add(node);
+        graph.Connect((IInputPort)node.Items[1], source);
+        IOutputPort stageOutput = (IOutputPort)node.Items[0];
+
+        IOutputPort picture;
+        switch (downstream)
+        {
+            case Downstream.ScaleThenTranslate:
+                var scale = new FilterEffectNode<TransformEffect>();
+                scale.Object.Value.Transform.Value = new ScaleTransform(150, 150);
+                scale.Object.Value.ApplyToTarget.Value = false;
+                var matrix = new TranslateMatrixNode();
+                matrix.X.Property!.SetValue(translation.X);
+                matrix.Y.Property!.SetValue(translation.Y);
+                var transform = new TransformNode();
+                graph.Nodes.AddRange([scale, matrix, transform]);
+                graph.Connect((IInputPort)scale.Items[1], stageOutput);
+                graph.Connect((IInputPort)transform.Items[1], (IOutputPort)scale.Items[0]);
+                graph.Connect(transform.Matrix, (IOutputPort)matrix.Items[0]);
+                picture = (IOutputPort)transform.Items[0];
+                break;
+            case Downstream.Warp:
+                var warp = new FilterEffectNode<CornerPin>();
+                warp.Object.Value.TopLeft.Value = new RelativePoint(0.15f, 0.08f, RelativeUnit.Relative);
+                graph.Nodes.Add(warp);
+                graph.Connect((IInputPort)warp.Items[1], stageOutput);
+                picture = (IOutputPort)warp.Items[0];
+                break;
+            default:
+                var translate = new FilterEffectNode<TransformEffect>();
+                translate.Object.Value.Transform.Value = new TranslateTransform(translation);
+                graph.Nodes.Add(translate);
+                graph.Connect((IInputPort)translate.Items[1], stageOutput);
+                picture = (IOutputPort)translate.Items[0];
+                break;
+        }
+        graph.Nodes.Add(output);
+        Connection outputConnection = graph.Connect(output.InputPort, picture);
+        for (int i = 0; i < graph.Nodes.Count; i++)
+            graph.Nodes[i].Position.Value = (25 + i * 240, 70);
+
+        await TestShell.AddElementAsync(editor, () => drawable, MediaTime.Zero, MediaTime.FromSeconds(4));
+        if (meshWarp && downstream == Downstream.ScaleThenTranslate)
+        {
+            editor.Scene.Children.Single().AddObject(new DrawableTimeController
+            {
+                OffsetPosition = { Value = MediaTime.FromSeconds(1) },
+            });
+        }
+        using var model = new NodeGraphViewModel(graph, editor);
+        var view = new NodeGraphView { DataContext = model };
+        var player = new PlayerView { DataContext = editor.Player };
+        Grid.SetColumn(player, 1);
+        var window = new Window
+        {
+            Width = 1400,
+            Height = 640,
+            Content = new Grid { ColumnDefinitions = new ColumnDefinitions("750,*"), Children = { view, player } },
+        };
+        try
+        {
+            window.Show();
+            editor.Player.IsMoveMode.Value = true;
+            editor.GetRequiredService<IEditorClock>().Seek(MediaTime.Zero);
+            HeadlessTestHelpers.Render(3);
+            var nodeView = view.GetVisualDescendants().OfType<GraphNodeView>()
+                .Single(item => item.DataContext is GraphNodeViewModel nodeModel && ReferenceEquals(nodeModel.GraphNode, node));
+            var editInFrame = nodeView.FindControl<Button>("editInFrameButton")!;
+            Assert.That(editInFrame.IsEffectivelyVisible, Is.True);
+            HeadlessTestHelpers.Click(editInFrame, move: true);
+            Assert.That(editor.GetRequiredService<IEditorSelection>().SelectedObject.Value, Is.SameAs(effect));
+            await RenderPreview(editor);
+            TransformHandlesOverlay overlay = player.transformHandlesOverlay;
+            Assert.That(overlay.Drawable, Is.SameAs(drawable));
+            EditingHandle handle = effect.GetEditingHandles(MediaTime.Zero).First();
+            if (downstream == Downstream.Warp)
+            {
+                foreach (EditingHandle item in effect.GetEditingHandles(MediaTime.Zero))
+                    Assert.That(overlay.HitTestEditingHandle(PreviewPoint(item.Position)), Is.Null);
+
+                graph.Disconnect(outputConnection);
+                graph.Connect(output.InputPort, stageOutput);
+                await RenderPreview(editor);
+                Assert.That(overlay.HitTestEditingHandle(PreviewPoint(handle.Position))?.Handle.Id, Is.EqualTo(handle.Id));
+                return;
+            }
+
+            float scale = downstream == Downstream.ScaleThenTranslate ? 1.5f : 1f;
+            Point TransformPoint(Point local) => center + (local - center) * scale + translation;
+            AvaPoint start = PreviewPoint(TransformPoint(handle.Position));
+            Assert.That(overlay.HitTestEditingHandle(start)?.Handle.Id, Is.EqualTo(handle.Id));
+
+            var delta = new Point(32, 20);
+            Point moved = handle.Position + delta;
+            AvaPoint end = PreviewPoint(TransformPoint(moved));
+            AvaPoint windowStart = player.image.TranslatePoint(start, window)!.Value;
+            AvaPoint windowEnd = player.image.TranslatePoint(end, window)!.Value;
+            window.MouseMove(windowStart);
+            window.MouseDown(windowStart, MouseButton.Left);
+            window.MouseMove(windowEnd, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(windowEnd, MouseButton.Left);
+            await RenderPreview(editor);
+
+            Point edited = meshWarp ? mesh.Object.Value.Mesh.Value!.Points[0] : corners.Object.Value.TopLeft.Value.Point;
+            Assert.Multiple(() =>
+            {
+                Assert.That(edited.X, Is.EqualTo(delta.X / width).Within(0.01f));
+                Assert.That(edited.Y, Is.EqualTo(delta.Y / height).Within(0.01f));
+                Assert.That(overlay.HitTestEditingHandle(end)?.Handle.Id, Is.EqualTo(handle.Id));
+            });
+            HeadlessCapture.SaveIfRequested(window, nameof(NodeGraphFilterEffectTests),
+                $"{(meshWarp ? "mesh-warp" : "corner-pin")}-{downstream}");
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        AvaPoint PreviewPoint(Point local) => ToPreviewPoint(player, local + drawableOrigin);
     }
 
     [AvaloniaTest]
@@ -309,6 +514,18 @@ public sealed class NodeGraphFilterEffectTests
         effectEditor.ChangeFilterType(typeof(OpacityEffect));
         Assert.That(delay.Object.Value.Effect.Value, Is.TypeOf<OpacityEffect>());
     }
+
+    private static async Task RenderPreview(EditViewModel editor)
+    {
+        var rendered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using IDisposable subscription = editor.Player.AfterRendered.Take(1).Subscribe(_ => rendered.TrySetResult());
+        editor.Player.QueuePreviewRender();
+        await rendered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        HeadlessTestHelpers.Render(3);
+    }
+
+    private static AvaPoint ToPreviewPoint(PlayerView player, Point frame)
+        => player.transformHandlesOverlay.Viewport!.ToPreview(new AvaPoint(frame.X, frame.Y));
 
     private static (FAMenuFlyout Menu, FAMenuFlyoutSubItem AddNode) OpenCanvasMenu(NodeGraphView view, AvaPoint? position = null)
     {
