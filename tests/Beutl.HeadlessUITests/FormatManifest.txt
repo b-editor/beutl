@@ -704,9 +704,6 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Transitions:DipToColorTransition
   sealed
   keys: Animations, Color, Duration, Easing, Expressions, Id, IsEnabled, Name
-[Beutl.Engine]Beutl.Graphics.Transitions:DipToWhiteTransition
-  sealed
-  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics.Transitions:FadeTransition
   sealed
   keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name

@@ -1850,9 +1850,6 @@
   <data name="DipToColorTransition" xml:space="preserve">
     <value>색으로 디프</value>
   </data>
-  <data name="DipToWhiteTransition" xml:space="preserve">
-    <value>흰색으로 디프</value>
-  </data>
   <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
     <value>왼쪽에서 오른쪽</value>
   </data>
@@ -2611,9 +2608,6 @@
   </data>
   <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
     <value>나가는 클립을 단색으로 페이드한 다음 들어오는 클립을 표시합니다 (색상으로 페이드, 검정으로 페이드 / fade through color, dip to black).</value>
-  </data>
-  <data name="DipToWhiteTransition_LibraryDescription" xml:space="preserve">
-    <value>나가는 클립을 흰색으로 페이드한 다음 들어오는 클립을 표시합니다 (흰색으로 페이드, 흰색 섬광 / fade to white, white flash).</value>
   </data>
   <data name="PushTransition_LibraryDescription" xml:space="preserve">
     <value>들어오는 클립이 화면 안으로 이동하면서 나가는 클립을 밖으로 밀어냅니다 (밀어내기, 푸시 전환 / push wipe, slide push).</value>

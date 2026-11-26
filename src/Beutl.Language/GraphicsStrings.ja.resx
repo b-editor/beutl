@@ -1846,9 +1846,6 @@
   <data name="DipToColorTransition" xml:space="preserve">
     <value>カラーへのディップ</value>
   </data>
-  <data name="DipToWhiteTransition" xml:space="preserve">
-    <value>ホワイトへのディップ</value>
-  </data>
   <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
     <value>左から右</value>
   </data>
@@ -2607,9 +2604,6 @@
   </data>
   <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
     <value>前のクリップを単色にフェードさせてから次のクリップを表示します（色を挟むフェード、暗転 / fade through color, dip to black）。</value>
-  </data>
-  <data name="DipToWhiteTransition_LibraryDescription" xml:space="preserve">
-    <value>前のクリップを白にフェードさせてから次のクリップを表示します（白転、ホワイトフラッシュ / fade to white, white flash）。</value>
   </data>
   <data name="PushTransition_LibraryDescription" xml:space="preserve">
     <value>次のクリップが移動しながら前のクリップを画面の外へ押し出します（押し出し、プッシュワイプ / push wipe, slide push）。</value>

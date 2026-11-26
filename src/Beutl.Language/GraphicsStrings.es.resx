@@ -1850,9 +1850,6 @@
   <data name="DipToColorTransition" xml:space="preserve">
     <value>Fundido a color</value>
   </data>
-  <data name="DipToWhiteTransition" xml:space="preserve">
-    <value>Fundido a blanco</value>
-  </data>
   <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
     <value>De izquierda a derecha</value>
   </data>
@@ -2611,9 +2608,6 @@
   </data>
   <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
     <value>Funde el clip saliente a un color sólido antes de mostrar el entrante (fundido a color, fundido a negro / fade through color, dip to black).</value>
-  </data>
-  <data name="DipToWhiteTransition_LibraryDescription" xml:space="preserve">
-    <value>Funde el clip saliente a blanco antes de mostrar el entrante (fundido a blanco, destello blanco / fade to white, white flash).</value>
   </data>
   <data name="PushTransition_LibraryDescription" xml:space="preserve">
     <value>Desplaza el clip entrante al cuadro mientras empuja el saliente hacia fuera (empuje, barrido de empuje / push wipe, slide push).</value>
