@@ -173,7 +173,7 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                 new("Throw Unhandled Exception") { Command = MenuBar.ThrowUnhandledException, IsVisible = UnderDebugger },
                 new("Start Window Capture") { Command = MenuBar.StartWindowCapture, IsVisible = UnderDebugger },
                 new("Stop Window Capture") { Command = MenuBar.StopWindowCapture, IsVisible = UnderDebugger },
-                new(Strings.Info) { Command = MenuBar.ShowInformation },
+                new(Strings.AboutBeutl) { Command = MenuBar.ShowInformation, IsInWindowOnly = true },
             ]
         },
     ];

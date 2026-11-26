@@ -128,6 +128,11 @@ public sealed partial class ElementView : UserControl
         // selected clips are editable. CanGroup/CanUngroup already filter.
         groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
+        var toggleGroupAction = TimelineTabExtension.GetGroupToggleAction(viewModel.Timeline);
+        KeyGesture? toggleGroupGesture = GetCommandGestureExtension.GetKeyGesture(
+            typeof(TimelineTabExtension), TimelineTabExtension.ToggleGroupCommandId);
+        groupSelectedElements.InputGesture = toggleGroupAction is { IsUngroup: false } ? toggleGroupGesture : null;
+        ungroupSelectedElements.InputGesture = toggleGroupAction is { IsUngroup: true } ? toggleGroupGesture : null;
         split.IsEnabled = editable;
         autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
