@@ -41,3 +41,13 @@ internal interface ILiveElementTemplateBinding
     ValueTask<ElementAddResult> AddTemplateAsync(
         ElementDescription description, Func<Scene, Action?> captureValidation, CancellationToken cancellationToken);
 }
+
+internal interface ILiveMediaRepairBinding
+{
+    MissingMediaService MissingMediaDetector { get; }
+
+    IReadOnlyList<MediaReference> MediaReferencesForRepair { get; }
+
+    ValueTask<(MediaRepairSelection[] Applied, IReadOnlyList<MissingMedia> Remaining)> ApplyMediaRepairsAsync(
+        Scene scene, IReadOnlyList<MediaRepairSelection> selections, TimeSpan editWait, CancellationToken cancellationToken);
+}

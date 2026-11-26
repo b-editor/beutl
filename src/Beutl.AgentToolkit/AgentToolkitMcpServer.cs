@@ -123,6 +123,7 @@ public static class AgentToolkitMcpServer
             .WithTools<ElementTemplateTools>()
             .WithTools<NodeGraphTools>()
             .WithTools<HistoryTools>()
+            .WithTools<MissingMediaTools>()
             .WithTools<RenderTools>();
     }
 }
