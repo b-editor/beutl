@@ -8,6 +8,7 @@ using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Graphics3D.Nodes;
+using Beutl.Graphics3D.Skyboxes;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -191,6 +192,20 @@ internal sealed class Renderer3D : IRenderer3D
         float ambientIntensity,
         Object3D.Resource? gizmoTarget = null,
         GizmoMode gizmoMode = GizmoMode.None)
+        => Render(compositionContext, camera, objects, lights, backgroundColor, ambientColor,
+            ambientIntensity, gizmoTarget, gizmoMode, skybox: null);
+
+    public void Render(
+        CompositionContext compositionContext,
+        Camera3D.Resource camera,
+        IReadOnlyList<Object3D.Resource> objects,
+        IReadOnlyList<Light3D.Resource> lights,
+        Color backgroundColor,
+        Color ambientColor,
+        float ambientIntensity,
+        Object3D.Resource? gizmoTarget,
+        GizmoMode gizmoMode,
+        Skybox3D.Resource? skybox)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -219,9 +234,12 @@ internal sealed class Renderer3D : IRenderer3D
         viewport.Geometry.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity, SurfaceDensity);
         viewport.Geometry.PrepareForSampling();
 
+        ITexture2D? skyBackground = skybox is { IsEnabled: true, Opacity: > 0 }
+            ? viewport.RenderSkybox(camera, skybox, SurfaceDensity)
+            : null;
         viewport.Lighting.BindGBuffer(viewport.Geometry);
         viewport.Lighting.BindShadowMaps(_shadowManager);
-        viewport.Lighting.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity, shadowUbo);
+        viewport.Lighting.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity, shadowUbo, skyBackground);
 
         if (transparentObjects.Count > 0)
         {
@@ -534,6 +552,8 @@ internal sealed class Renderer3D : IRenderer3D
 
     private sealed class ViewportResources(IGraphicsContext context, IShaderCompiler compiler) : IDisposable
     {
+        private SkyboxPass? _skybox;
+
         public GeometryPass Geometry { get; private set; } = null!;
         public LightingPass Lighting { get; private set; } = null!;
         public TransparentPass Transparent { get; private set; } = null!;
@@ -573,9 +593,18 @@ internal sealed class Renderer3D : IRenderer3D
             Output = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         }
 
+        public ITexture2D? RenderSkybox(Camera3D.Resource camera, Skybox3D.Resource skybox, float surfaceDensity)
+        {
+            _skybox ??= new SkyboxPass(context, compiler);
+            if (_skybox.Width == 0)
+                _skybox.Initialize(Output.Width, Output.Height);
+
+            return _skybox.Execute(camera, skybox, surfaceDensity);
+        }
+
         public void Dispose()
         {
-            RenderNode3D.DisposeResources([Flip, DepthResolve, Gizmo, Transparent, Lighting, Geometry, Output]);
+            RenderNode3D.DisposeResources([Flip, DepthResolve, Gizmo, Transparent, Lighting, _skybox, Geometry, Output]);
         }
     }
 }

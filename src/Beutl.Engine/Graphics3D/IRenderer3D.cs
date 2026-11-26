@@ -4,6 +4,7 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Skyboxes;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -88,6 +89,22 @@ public interface IRenderer3D : IDisposable
         float ambientIntensity,
         Object3D.Resource? gizmoTarget = null,
         GizmoMode gizmoMode = GizmoMode.None);
+
+    /// <summary>Renders the 3D scene with an optional skybox over the background color.</summary>
+    /// <remarks>Existing implementations can use the default behavior, which renders through the original overload.</remarks>
+    void Render(
+        CompositionContext compositionContext,
+        Camera3D.Resource camera,
+        IReadOnlyList<Object3D.Resource> objects,
+        IReadOnlyList<Light3D.Resource> lights,
+        Color backgroundColor,
+        Color ambientColor,
+        float ambientIntensity,
+        Object3D.Resource? gizmoTarget,
+        GizmoMode gizmoMode,
+        Skybox3D.Resource? skybox)
+        => Render(compositionContext, camera, objects, lights, backgroundColor, ambientColor,
+            ambientIntensity, gizmoTarget, gizmoMode);
 
     /// <summary>
     /// Creates a SkiaSharp surface from the rendered output.
