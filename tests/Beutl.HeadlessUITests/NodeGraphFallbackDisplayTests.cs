@@ -81,7 +81,7 @@ public class NodeGraphFallbackDisplayTests
     }
 
     [AvaloniaTest]
-    public void WarningLineContextMenuCutsAConnectionBetweenUnavailableNodes()
+    public async Task WarningLineContextMenuCutsAConnectionBetweenUnavailableNodes()
     {
         GraphModel graph = RestoreGraph(failed: false, bothUnavailable: true);
         var sequence = new OperationSequenceGenerator();
@@ -95,23 +95,15 @@ public class NodeGraphFallbackDisplayTests
         try
         {
             window.Show();
-            HeadlessTestHelpers.Render(3);
+            HeadlessTestHelpers.Settle();
             ConnectionLine line = view.GetVisualDescendants().OfType<ConnectionLine>().Single();
-            var geometry = line.RenderedGeometry;
-            Assert.That(geometry, Is.Not.Null);
-            double length = geometry!.ContourLength;
             Point? hit = null;
-            for (double distance = 1; distance < length; distance++)
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
             {
-                if (geometry.TryGetPointAtDistance(distance, out Point point)
-                    && line.TranslatePoint(point, window) is { } position
-                    && window.InputHitTest(position) == line)
-                {
-                    hit = point;
-                    break;
-                }
-            }
-            Assert.That(hit, Is.Not.Null, "The visible warning line must accept pointer input.");
+                HeadlessTestHelpers.Render();
+                hit = FindHittablePoint(line, window);
+                return hit.HasValue;
+            }, message: "the rendered warning line to accept pointer input");
             HeadlessTestHelpers.Click(line, hit, MouseButton.Right, move: true, ticks: 3);
             var menu = (FAMenuFlyout)line.ContextFlyout!;
             Assert.That(menu.IsOpen, Is.True);
@@ -228,6 +220,24 @@ public class NodeGraphFallbackDisplayTests
         {
             window.Close();
         }
+    }
+
+    private static Point? FindHittablePoint(ConnectionLine line, Window window)
+    {
+        if (line.RenderedGeometry is not { } geometry)
+            return null;
+
+        double length = geometry.ContourLength;
+        for (double distance = 1; distance < length; distance++)
+        {
+            if (geometry.TryGetPointAtDistance(distance, out Point point)
+                && line.TranslatePoint(point, window) is { } position
+                && window.InputHitTest(position) == line)
+            {
+                return point;
+            }
+        }
+        return null;
     }
 
     private static GraphModel RestoreGraph(bool failed, bool list = false, bool bothUnavailable = false)
