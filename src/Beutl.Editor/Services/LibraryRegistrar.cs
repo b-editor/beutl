@@ -303,8 +303,6 @@ internal static class LibraryRegistrar
                     GraphicsStrings.WipeTransition_LibraryDescription)
                 .AddClipTransition<DipToColorTransition>(GraphicsStrings.DipToColorTransition,
                     GraphicsStrings.DipToColorTransition_LibraryDescription)
-                .AddClipTransition<DipToWhiteTransition>(GraphicsStrings.DipToWhiteTransition,
-                    GraphicsStrings.DipToWhiteTransition_LibraryDescription)
                 .AddClipTransition<PushTransition>(GraphicsStrings.PushTransition,
                     GraphicsStrings.PushTransition_LibraryDescription)
                 .AddClipTransition<SlideTransition>(GraphicsStrings.SlideTransition,
