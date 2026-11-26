@@ -68,41 +68,52 @@ public sealed partial class TimelineEditTools
                     return (Scene: scene, History: history, Version: history.ChangeVersion, Targets: targets, Locked: locked);
                 });
 
-                var analyzed = new List<(Element Element, MediaTime Start, IReadOnlyList<TimeRange> LocalRanges)>();
+                var analyzed = new List<(Element Element, IReadOnlyList<TimeRange> LocalRanges)>();
                 foreach (Element element in initial.Targets)
                 {
-                    var (start, ranges) = await session.ReadOnSession(() =>
+                    var ranges = await session.ReadOnSession(() =>
                     {
                         CheckAnalysisIsCurrent(initial.Scene);
                         return Analyze(element, initial.Scene);
                     }).ConfigureAwait(false);
-                    if (ranges.Count > 0) analyzed.Add((element, start, ranges));
+                    if (ranges.Count > 0) analyzed.Add((element, ranges));
                 }
 
-                return await ApplyTimelineAsync(session, CommandNames.AutoSplitBySilence, (scene, history) =>
+                var service = new SilenceSplitService(initial.History, configuration.EditorConfig, decoders: decoders);
+                var (requests, preparation) = session.ReadOnSession(() =>
+                {
+                    Scene scene = RequireSceneRoot(session);
+                    CheckAnalysisIsCurrent(scene);
+                    SilenceSplitRequest[] requests = analyzed.Select(item =>
+                            new SilenceSplitRequest(item.Element, SilenceSplitService.Plan(scene, item.Element, item.LocalRanges)))
+                        .Where(request => request.Ranges.Count > 0).ToArray();
+                    return (requests, service.PrepareAsync(scene, requests, splitMode, includeLinked, cancellationToken));
+                });
+                SilenceSplitService.PreparedSplit? prepared = await preparation.ConfigureAwait(false);
+
+                return await ApplyTimelineAsync(session, CommandNames.AutoSplitBySilence, (scene, _) =>
                 {
                     CheckAnalysisIsCurrent(scene);
-                    var service = new SilenceSplitService(history, configuration.EditorConfig, decoders: decoders);
                     HashSet<Element> originals = [.. scene.Children];
-                    var removed = new List<TimelineSilenceRange>();
-                    bool changed = false;
-                    foreach (var (element, start, localRanges) in analyzed)
+                    IReadOnlyList<SilenceSplitRequest> applied;
+                    if (prepared != null)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        // An earlier ripple in this batch may have moved the next analyzed element.
-                        MediaTime toOriginalTime = start - element.Start.Value;
-                        var ranges = SilenceSplitService.Plan(scene, element, localRanges);
-                        if (!service.Apply(scene, element, ranges, splitMode, includeLinked, cancellationToken)) continue;
-                        changed = true;
-                        if (splitMode != SilenceSplitMode.SplitOnly)
-                            removed.AddRange(ranges.Select(range => new TimelineSilenceRange(element.Id.Value.ToString(),
-                                (range.Start + toOriginalTime).ToSeconds(), (range.End + toOriginalTime).ToSeconds())));
+                        if (!prepared.MatchesSceneSettings(scene)) throw StaleAnalysis();
+                        prepared.Publish(scene);
+                        applied = prepared.Applied;
+                    }
+                    else
+                    {
+                        applied = service.ApplyBatch(scene, requests, splitMode, includeLinked, cancellationToken);
                     }
 
                     cancellationToken.ThrowIfCancellationRequested();
+                    TimelineSilenceRange[] removed = splitMode == SilenceSplitMode.SplitOnly ? [] : applied.SelectMany(request =>
+                        request.Ranges.Select(range => new TimelineSilenceRange(request.Element.Id.Value.ToString(),
+                            range.Start.ToSeconds(), range.End.ToSeconds()))).ToArray();
                     string[] created = scene.Children.Where(element => !originals.Contains(element))
                         .Select(element => element.Id.Value.ToString()).ToArray();
-                    return new TimelineEditResponse(changed, created, initial.Locked) { RemovedRanges = removed };
+                    return new TimelineEditResponse(applied.Count > 0, created, initial.Locked) { RemovedRanges = removed };
                 }, cancellationToken).ConfigureAwait(false);
 
                 void CheckAnalysisIsCurrent(Scene scene)
@@ -120,7 +131,7 @@ public sealed partial class TimelineEditTools
                 foreach (Scene scene in observed) scene.Edited -= OnEdited;
             }
 
-            async Task<(MediaTime Start, IReadOnlyList<TimeRange> Ranges)> Analyze(Element element, Scene scene)
+            async Task<IReadOnlyList<TimeRange>> Analyze(Element element, Scene scene)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 TimeRange range = element.Range;
@@ -142,7 +153,7 @@ public sealed partial class TimelineEditTools
                 {
                     throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, "The element's audio could not be read.", id));
                 }
-                return (range.Start, SilenceDetector.Detect(chunks, range.Duration, thresholdDb, minimum, padding));
+                return SilenceDetector.Detect(chunks, range.Duration, thresholdDb, minimum, padding);
             }
 
             void ObserveScene(Scene scene)

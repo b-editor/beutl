@@ -2,6 +2,8 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Graphics.Transitions;
 using Beutl.Media.Source;
@@ -148,6 +150,56 @@ public sealed partial class TimelineEditToolsTests
             Assert.That(second.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
             Assert.That(second.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
+    }
+
+    [Test]
+    public async Task Silence_ripple_splits_animated_audio_at_the_original_time_before_moving_it()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        scene.FrameRate.Value = new(30);
+        scene.SampleRate.Value = 48000;
+        SoundSource source = WriteWavWithSilence(scene);
+        Element first = AddElement(scene, 1, 2);
+        Element second = AddElement(scene, 4, 2);
+        first.AddObject(new SourceSound { Source = { Value = source } });
+        var sound = new SourceSound { Source = { Value = source } };
+        sound.Gain.SetKeyFrameAnimation(GlobalSteps((0, 100), (4.5, 0), (5.5, 100)));
+        sound.Speed.SetKeyFrameAnimation(GlobalSteps((0, 50), (4, 100)));
+        second.AddObject(sound);
+        using var session = new AgentToolkitTestSession(scene);
+        await using InProcessAgentToolkitServer server = await StartAsync(session);
+
+        var result = await CallAsync(server.Client, "split_on_silence",
+            ("elementIds", new[] { Id(first), Id(second) }), ("mode", "ripple_delete"));
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Element tail = scene.Children.MaxBy(element => element.Start.Value)!;
+        var tailSound = (SourceSound)tail.Objects.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.RemovedRanges, Is.EqualTo(new TimelineSilenceRange[] { new(Id(first), 1.6, 2.4), new(Id(second), 4.6, 5.4) }));
+            Assert.That(tail.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3.8)));
+            Assert.That(tailSound.OffsetPosition.Value.ToSeconds(), Is.EqualTo(1.4).Within(0.001),
+                "The tail must start at the source sample evaluated before ripple moved the clip onto the 50% speed segment.");
+        });
+        await UndoOnlyEditAsync(server.Client);
+        Assert.That(scene.Children, Is.EquivalentTo(new[] { first, second }));
+        Assert.That(second.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+
+        static KeyFrameAnimation<float> GlobalSteps(params (double Time, float Value)[] steps)
+        {
+            var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = true } };
+            foreach ((double time, float value) in steps)
+            {
+                animation.KeyFrames.Add(new KeyFrame<float>
+                {
+                    KeyTime = { Value = MediaTime.FromSeconds(time) },
+                    Value = { Value = value },
+                    Easing = { Value = new HoldEasing() }
+                });
+            }
+            return animation;
+        }
     }
 
     [Test]

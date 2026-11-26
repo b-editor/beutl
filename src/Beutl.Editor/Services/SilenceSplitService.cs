@@ -12,6 +12,8 @@ namespace Beutl.Editor.Services;
 
 public enum SilenceSplitMode { SplitOnly, DeleteSilence, RippleDelete }
 
+internal readonly record struct SilenceSplitRequest(Element Element, IReadOnlyList<TimeRange> Ranges);
+
 public sealed partial class SilenceSplitService(HistoryManager history, EditorConfig configuration, IPreviewPlayer? player = null, DecoderRegistry? decoders = null)
 {
     // Round inward so frame alignment cannot eat the protected audio. Preview and apply use this
@@ -40,18 +42,35 @@ public sealed partial class SilenceSplitService(HistoryManager history, EditorCo
     public void Apply(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode, bool includeLinked)
         => ApplyCore(scene, element, ranges, mode, includeLinked, history);
 
-    internal bool Apply(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode,
-        bool includeLinked, CancellationToken cancellationToken)
-        => ApplyCore(scene, element, ranges, mode, includeLinked, history, cancellationToken);
+    // The caller owns history or works on a detached scene.
+    internal SilenceSplitRequest[] ApplyBatch(Scene scene, IReadOnlyList<SilenceSplitRequest> requests,
+        SilenceSplitMode mode, bool includeLinked, CancellationToken cancellationToken, IProgress<int>? progress = null)
+    {
+        var applied = new List<SilenceSplitRequest>(requests.Count);
+        List<(int[] Layers, TimeRange[] Ranges)>? deferred = mode == SilenceSplitMode.RippleDelete && requests.Count > 1 ? [] : null;
+        foreach (SilenceSplitRequest request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (ApplyCore(scene, request.Element, request.Ranges, mode, includeLinked,
+                    cancellationToken: cancellationToken, progress: progress, deferredRipple: deferred))
+            {
+                applied.Add(request);
+            }
+        }
+
+        if (deferred is { Count: > 0 }) RippleBatch(scene, deferred, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return [.. applied];
+    }
 
     private bool ApplyCore(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode,
         bool includeLinked, HistoryManager? recorder = null, CancellationToken cancellationToken = default,
-        IProgress<int>? progress = null)
+        IProgress<int>? progress = null, List<(int[] Layers, TimeRange[] Ranges)>? deferredRipple = null)
     {
         if (!TryResolveTargets(scene, element, ranges, includeLinked, out var group, out int groupIndex, out Element[] originals)) return false;
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
         if (originals.Any(scene.IsElementLocked)) throw new InvalidOperationException(Strings.SilenceSplit_LockedLinked);
-        int[] layers = originals.Select(e => e.ZIndex.Value).Distinct().ToArray();
+        int[] layers = originals.Select(e => e.ZIndex.Value).Distinct().Order().ToArray();
         TimeRange[] orderedRanges = ranges.OrderBy(r => r.Start).ToArray();
         List<Element> parts = [.. originals];
         // Portals, extension split callbacks and the expressions a cut reads may inspect other live scene elements while
@@ -107,11 +126,10 @@ public sealed partial class SilenceSplitService(HistoryManager history, EditorCo
             Element[] pending = batch != null ? parts.Skip(originals.Length).Where(e => !removedSet.Contains(e)).ToArray() : [];
             if (mode == SilenceSplitMode.RippleDelete)
             {
-                // Compute gaps and final positions while new pieces are still detached. History and
-                // timeline observers see only the retained pieces at their final position.
-                Element[] affected = scene.Children.Concat(pending).Where(e => layers.Contains(e.ZIndex.Value))
-                    .OrderBy(e => e.Start.Value).ToArray();
-                Ripple(scene, affected, CommonGaps(affected, orderedRanges).ToArray());
+                // A batch must finish its cuts before moving any clips. Source mapping and
+                // silence analysis can both depend on the timeline clock.
+                if (deferredRipple == null) RippleGaps(scene, layers, orderedRanges, pending);
+                else if (changed) deferredRipple.Add((layers, orderedRanges));
             }
             if (batch != null)
             {
@@ -142,6 +160,41 @@ public sealed partial class SilenceSplitService(HistoryManager history, EditorCo
         groupIndex = linked == null ? scene.Groups.Count : scene.Groups.IndexOf(linked);
         originals = linked == null ? [element] : scene.Children.Where(e => linked.Contains(e.Id.Value)).ToArray();
         return true;
+    }
+
+    private static void RippleBatch(Scene scene, List<(int[] Layers, TimeRange[] Ranges)> requests,
+        CancellationToken cancellationToken)
+    {
+        // Close windows from right to left so a shift cannot move a gap still to be closed.
+        // Process consecutive windows with the same layers in one sweep, as for a single clip.
+        var windows = requests.SelectMany(request => request.Ranges.Select(range => (request.Layers, Range: range)))
+            .OrderByDescending(window => window.Range.Start).ToArray();
+        for (int i = 0; i < windows.Length;)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int[] layers = windows[i].Layers;
+            var ranges = new List<TimeRange>();
+            do
+            {
+                TimeRange range = windows[i++].Range;
+                while (ranges.Count > 0 && range.End >= ranges[^1].Start)
+                {
+                    TimeRange next = ranges[^1];
+                    ranges.RemoveAt(ranges.Count - 1);
+                    if (next.End > range.End) range = TimeRange.FromRange(range.Start, next.End);
+                }
+                ranges.Add(range);
+            } while (i < windows.Length && windows[i].Layers.AsSpan().SequenceEqual(layers));
+            ranges.Reverse();
+            RippleGaps(scene, layers, ranges, []);
+        }
+    }
+
+    private static void RippleGaps(Scene scene, int[] layers, IReadOnlyList<TimeRange> ranges, Element[] pending)
+    {
+        Element[] affected = scene.Children.Concat(pending).Where(e => layers.Contains(e.ZIndex.Value))
+            .OrderBy(e => e.Start.Value).ToArray();
+        Ripple(scene, affected, CommonGaps(affected, ranges).ToArray());
     }
 
     private static void Ripple(Scene scene, Element[] elements, TimeRange[] gaps)
