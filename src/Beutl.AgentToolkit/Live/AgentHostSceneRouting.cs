@@ -20,6 +20,7 @@ public static class AgentHostSceneRouting
     public static readonly FrozenSet<string> SceneRequired = FrozenSet.ToFrozenSet(
     [
         "read_document_summary", "read_document", "apply_edit", "duplicate_object",
+        "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap",
         "read_node_graph", "edit_node_graph",
         "plan_composition", "apply_composition", "measure_object_bounds",
         "undo", "redo", "read_history", "render_still", "render_storyboard",

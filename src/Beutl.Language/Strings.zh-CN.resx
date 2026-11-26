@@ -983,6 +983,9 @@
   <data name="Exit_Description" xml:space="preserve">
     <value>退出应用程序</value>
   </data>
+  <data name="Playback" xml:space="preserve">
+    <value>播放</value>
+  </data>
   <data name="PlayPause" xml:space="preserve">
     <value>播放/暂停</value>
   </data>
@@ -1012,6 +1015,9 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>移到场景的结尾。</value>
+  </data>
+  <data name="Markers" xml:space="preserve">
+    <value>标记</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
     <value>切换标记</value>
@@ -1373,9 +1379,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>选择目标文件夹</value>
   </data>
   
-  <data name="Experimental" xml:space="preserve">
-    <value>实验性</value>
-  </data>
   <data name="Home" xml:space="preserve">
     <value>主页</value>
   </data>
@@ -1833,25 +1836,52 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>在文件管理器中打开</value>
   </data>
   <data name="PathEditor_MoveTool" xml:space="preserve">
-    <value>选择 (V) · Shift：添加到选择</value>
+    <value>选择</value>
+  </data>
+  <data name="PathEditor_MoveTool_Description" xml:space="preserve">
+    <value>按住 Shift 单击以添加到选择</value>
   </data>
   <data name="PathEditor_PenTool" xml:space="preserve">
-    <value>钢笔 (P) · 单击：添加点 · 拖动：曲线</value>
+    <value>钢笔</value>
+  </data>
+  <data name="PathEditor_PenTool_Description" xml:space="preserve">
+    <value>单击以添加点，拖动以绘制曲线。</value>
   </data>
   <data name="PathEditor_BendTool" xml:space="preserve">
-    <value>弯曲 (B) · 单击点以添加或移除手柄</value>
+    <value>弯曲</value>
+  </data>
+  <data name="PathEditor_BendTool_Description" xml:space="preserve">
+    <value>单击点以添加或移除手柄</value>
   </data>
   <data name="PathEditor_HandTool" xml:space="preserve">
-    <value>抓手 (H) · 空格 + 拖动：平移</value>
+    <value>抓手</value>
+  </data>
+  <data name="PathEditor_HandTool_Description" xml:space="preserve">
+    <value>拖动以平移视图</value>
   </data>
   <data name="PathEditor_ZoomIn" xml:space="preserve">
-    <value>放大 (+)</value>
+    <value>放大</value>
   </data>
   <data name="PathEditor_ZoomOut" xml:space="preserve">
-    <value>缩小 (-)</value>
+    <value>缩小</value>
   </data>
   <data name="PathEditor_Fit" xml:space="preserve">
-    <value>适合路径 (Shift+1)</value>
+    <value>适合路径</value>
+  </data>
+  <data name="PanView" xml:space="preserve">
+    <value>平移视图</value>
+  </data>
+  <data name="PathEditor_NudgeLeft" xml:space="preserve">
+    <value>向左微移（{0} 像素）</value>
+  </data>
+  <data name="PathEditor_NudgeRight" xml:space="preserve">
+    <value>向右微移（{0} 像素）</value>
+  </data>
+  <data name="PathEditor_NudgeUp" xml:space="preserve">
+    <value>向上微移（{0} 像素）</value>
+  </data>
+  <data name="PathEditor_NudgeDown" xml:space="preserve">
+    <value>向下微移（{0} 像素）</value>
   </data>
   <data name="PathEditor_NoSelection" xml:space="preserve">
     <value>未选择点</value>
@@ -2081,9 +2111,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Ai" xml:space="preserve">
     <value>AI</value>
   </data>
-  <data name="AiGenerateImage" xml:space="preserve">
-    <value>生成图像</value>
-  </data>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI 图像生成</value>
   </data>
@@ -2183,9 +2210,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiImageAddedToScene" xml:space="preserve">
     <value>已将图像添加到场景。</value>
   </data>
-  <data name="AiGenerateSubtitles" xml:space="preserve">
-    <value>生成字幕</value>
-  </data>
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI 字幕</value>
   </data>
@@ -2219,9 +2243,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitleAddedToScene" xml:space="preserve">
     <value>已将字幕添加到场景。</value>
   </data>
-  <data name="AiEditImage" xml:space="preserve">
-    <value>编辑图像</value>
-  </data>
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI 图像编辑</value>
   </data>
@@ -2242,9 +2263,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiEditSelectSource" xml:space="preserve">
     <value>请先选择图像文件。</value>
-  </data>
-  <data name="AiGenerateVideo" xml:space="preserve">
-    <value>生成视频</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI 视频生成</value>

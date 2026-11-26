@@ -11,6 +11,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     protected readonly Silk.NET.Vulkan.Image _image;
     protected readonly DeviceMemory _memory;
     protected readonly ImageView _imageView;
+    private readonly ImageView _sampledDepthView;
     protected readonly int _width;
     protected readonly int _height;
     protected readonly TextureFormat _format;
@@ -28,8 +29,9 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         int width,
         int height,
         TextureFormat format,
-        ImageUsageFlags usage)
-        : this(context, width, height, format, usage, null)
+        ImageUsageFlags usage,
+        int sampleCount = 1)
+        : this(context, width, height, format, usage, null, sampleCount)
     {
     }
 
@@ -52,31 +54,41 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         int height,
         TextureFormat format,
         ImageUsageFlags usage,
-        void* pNext)
+        void* pNext,
+        int sampleCount = 1)
     {
         _context = context;
         _width = width;
         _height = height;
         _format = format;
         Usage = usage;
+        SampleCount = sampleCount;
 
         var vk = context.Vk;
         var device = context.Device;
 
-        _image = context.CreateTextureImage(format, width, height, arrayLayers: 1, usage, flags: 0, pNext, "image");
+        _image = context.CreateTextureImage(format, width, height, arrayLayers: 1, usage, flags: 0, pNext, "image",
+            samples: (SampleCountFlags)SampleCount);
 
         _memory = context.AllocateAndBindImageMemory(_image, "image", out ulong allocationSize);
         _allocationSize = allocationSize;
 
-        Result result = context.TryCreateSingleLayerView(_image, format, arrayLayer: 0, out ImageView imageView);
+        Result result = context.TryCreateSingleLayerView(_image, format, arrayLayer: 0, out _imageView);
+        if (result == Result.Success && SampleCount > 1 && format.HasStencil())
+        {
+            // A sampled depth/stencil view must select just one aspect.
+            result = context.TryCreateImageView(_image, format, ImageViewType.Type2D, 0, 1, out _sampledDepthView,
+                aspectMask: ImageAspectFlags.DepthBit);
+            if (result != Result.Success)
+                vk.DestroyImageView(device, _imageView, null);
+        }
+
         if (result != Result.Success)
         {
             vk.DestroyImage(device, _image, null);
             vk.FreeMemory(device, _memory, null);
             throw new InvalidOperationException($"Failed to create Vulkan image view: {result}");
         }
-
-        _imageView = imageView;
     }
 
     public int Width => _width;
@@ -84,6 +96,8 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     public int Height => _height;
 
     public TextureFormat Format => _format;
+
+    public int SampleCount { get; } = 1;
 
     internal ImageUsageFlags Usage { get; }
 
@@ -95,9 +109,18 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
     public ImageView ImageViewHandle => _imageView;
 
+    internal ImageView SampledImageViewHandle => _sampledDepthView.Handle != 0 ? _sampledDepthView : _imageView;
+
+    internal void ThrowIfMultisampled(string operation)
+    {
+        if (SampleCount > 1)
+            throw new NotSupportedException($"{operation} cannot use a multisampled texture.");
+    }
+
     public void Upload(ReadOnlySpan<byte> data)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfMultisampled(nameof(Upload));
 
         TransitionTo(ImageLayout.TransferDstOptimal);
 
@@ -116,6 +139,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     public byte[] DownloadPixels()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfMultisampled(nameof(DownloadPixels));
 
         ImageLayout previousLayout = _currentLayout;
         TransitionTo(ImageLayout.TransferSrcOptimal);
@@ -203,6 +227,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     public virtual SKSurface CreateSkiaSurface()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfMultisampled(nameof(CreateSkiaSurface));
 
         // Copies made by Skia share this handle's mutable Vulkan state. Retain one handle for the
         // texture's lifetime, including when Renderer3D creates a new surface for each frame.
@@ -245,6 +270,8 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
     public virtual void PrepareForSkiaRendering()
     {
+        ThrowIfMultisampled(nameof(PrepareForSkiaRendering));
+
         // Consecutive Skia draws need neither a backend barrier nor a flush of Skia's task graph.
         if (_skiaBackendTexture != null && _accessDomain == TextureAccessDomain.Skia)
         {
@@ -265,6 +292,8 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
     public virtual void PrepareForSkiaSampling(bool requireCompletion)
     {
+        ThrowIfMultisampled(nameof(PrepareForSkiaSampling));
+
         if (RequiresVulkanToSkiaHandoff)
         {
             SubmitForSkia(requireCompletion);
@@ -300,6 +329,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     void ITransparentClearableTexture.ClearToTransparent()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfMultisampled(nameof(ITransparentClearableTexture.ClearToTransparent));
         if (_format.IsDepthFormat())
         {
             throw new InvalidOperationException(
@@ -374,6 +404,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         _skiaBackendTexture = null;
 
         ImageView imageView = _imageView;
+        ImageView sampledDepthView = _sampledDepthView;
         Silk.NET.Vulkan.Image image = _image;
         DeviceMemory memory = _memory;
         _context.DeferRelease(() =>
@@ -388,6 +419,8 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
             var vk = _context.Vk;
             var device = _context.Device;
 
+            if (sampledDepthView.Handle != 0)
+                vk.DestroyImageView(device, sampledDepthView, null);
             vk.DestroyImageView(device, imageView, null);
             vk.DestroyImage(device, image, null);
             vk.FreeMemory(device, memory, null);

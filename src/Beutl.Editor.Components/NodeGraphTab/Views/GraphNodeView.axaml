@@ -68,9 +68,9 @@
                 ToolTip.Tip="{Binding NodeName.Value}">
             <Border.ContextFlyout>
                 <ui:FAMenuFlyout Opening="NodeMenuOpening">
-                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Delete"
+                    <ui:FAMenuFlyoutItem x:Name="DeleteItem"
+                                         usage:UsageTracking.Feature="NodeGraph.Delete"
                                          Command="{Binding Delete}"
-                                         InputGesture="Delete"
                                          Text="{x:Static lang:Strings.Delete}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Delete" />
@@ -141,9 +141,6 @@
                                          Text="{x:Static lang:CommandNames.ResetNodeSize}" />
                 </ui:FAMenuFlyout>
             </Border.ContextFlyout>
-            <Border.KeyBindings>
-                <KeyBinding Command="{Binding Delete}" Gesture="Delete" />
-            </Border.KeyBindings>
             <Grid ColumnDefinitions="Auto,Auto,*,Auto">
                 <ToggleButton x:Name="expandToggle"
                               Width="30"

@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using System.Windows.Input;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -70,7 +71,7 @@ internal static class MainMenuBuilder
         if (item.Header is null)
             return new NativeMenuItemSeparator();
 
-        KeyGesture? gesture = GetGesture(item);
+        KeyGesture? gesture = item.InWindowGestureExtensionType is null ? GetGesture(item) : null;
         var menuItem = new NativeMenuItem
         {
             Header = item.Header,
@@ -81,17 +82,27 @@ internal static class MainMenuBuilder
         FocusedEditCommand? editCommand = null;
         if (item.EditAction is { } action)
         {
-            editCommand = new FocusedEditCommand(action, item.Command!, window, gesture);
+            editCommand = new FocusedEditCommand(action, item.Command!, window, gesture)
+            {
+                Availability = item.EditActionAvailability
+            };
             disposables.Add(editCommand.FollowFocus());
             menuItem.Command = editCommand;
         }
-
-        // The key the entry shows is also the key equivalent AppKit gives it.
-        FollowGesture(item, moved =>
+        else if (item.BlockNativeCommandWhileDialogOpen && item.Command is { } command)
         {
-            menuItem.Gesture = moved;
-            editCommand?.ShownGesture = moved;
-        }, disposables);
+            menuItem.Command = new DialogGuardedCommand(command, window);
+        }
+
+        if (item.InWindowGestureExtensionType is null)
+        {
+            // The key the entry shows is also the key equivalent AppKit gives it.
+            FollowGesture(item, moved =>
+            {
+                menuItem.Gesture = moved;
+                editCommand?.ShownGesture = moved;
+            }, disposables);
+        }
         if (item.IsVisible is { } isVisible)
             disposables.Add(isVisible.Subscribe(visible => menuItem.IsVisible = visible));
         if (item.Items is { } items)
@@ -107,7 +118,9 @@ internal static class MainMenuBuilder
 
     private static KeyGesture? GetGesture(MainMenuItem item) => item switch
     {
-        { GestureCommand: { } id } => GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), id),
+        { GestureCommand: { } id } => GetCommandGestureExtension.GetKeyGesture(item.InWindowGestureExtensionType ?? typeof(MainViewExtension), id),
+        // Leave the text box's Cmd+Backspace gesture available for deleting to the start of the line.
+        { EditAction: StandardEditAction.Delete } => null,
         { EditAction: { } action } => FocusedEditCommand.GetKeyGesture(action),
         _ => null
     };
@@ -183,6 +196,25 @@ internal static class MainMenuBuilder
             };
             changes.CollectionChanged += handler;
             disposables.Add(Disposable.Create(() => changes.CollectionChanged -= handler));
+        }
+    }
+
+    internal sealed class DialogGuardedCommand(ICommand command, TopLevel window) : ICommand
+    {
+        public ICommand InnerCommand => command;
+
+        public event EventHandler? CanExecuteChanged
+        {
+            add => command.CanExecuteChanged += value;
+            remove => command.CanExecuteChanged -= value;
+        }
+
+        public bool CanExecute(object? parameter) => command.CanExecute(parameter);
+
+        public void Execute(object? parameter)
+        {
+            if (!FocusedEditCommand.IsDialogOpen(window))
+                command.Execute(parameter);
         }
     }
 }

@@ -165,14 +165,14 @@ internal sealed partial class PathEditorInteraction
     {
         var panel = new StackPanel { Name = "PathTools", Orientation = Avalonia.Layout.Orientation.Horizontal };
         string group = $"PathTools-{Guid.NewGuid():N}";
-        (PathEditorTool tool, string label, FluentIcons.Common.Icon icon)[] tools =
+        (PathEditorTool tool, string command, string label, string description, FluentIcons.Common.Icon icon)[] tools =
         [
-            (PathEditorTool.Move, Strings.PathEditor_MoveTool, FluentIcons.Common.Icon.Cursor),
-            (PathEditorTool.Pen, Strings.PathEditor_PenTool, FluentIcons.Common.Icon.Pen),
-            (PathEditorTool.Bend, Strings.PathEditor_BendTool, FluentIcons.Common.Icon.BezierCurveSquare),
-            (PathEditorTool.Hand, Strings.PathEditor_HandTool, FluentIcons.Common.Icon.HandLeft)
+            (PathEditorTool.Move, "move", Strings.PathEditor_MoveTool, Strings.PathEditor_MoveTool_Description, FluentIcons.Common.Icon.Cursor),
+            (PathEditorTool.Pen, "pen", Strings.PathEditor_PenTool, Strings.PathEditor_PenTool_Description, FluentIcons.Common.Icon.Pen),
+            (PathEditorTool.Bend, "bend", Strings.PathEditor_BendTool, Strings.PathEditor_BendTool_Description, FluentIcons.Common.Icon.BezierCurveSquare),
+            (PathEditorTool.Hand, "hand", Strings.PathEditor_HandTool, Strings.PathEditor_HandTool_Description, FluentIcons.Common.Icon.HandLeft)
         ];
-        foreach (var (tool, label, icon) in tools)
+        foreach (var (tool, command, label, description, icon) in tools)
         {
             var button = new RadioButton
             {
@@ -181,7 +181,7 @@ internal sealed partial class PathEditorInteraction
                 Padding = new Thickness(7, 6, 5, 6),
                 Content = new FluentIcons.Avalonia.Fluent.FluentIcon { Icon = icon, FontSize = 16 }
             };
-            ToolTip.SetTip(button, label);
+            SetShortcutToolTip(button, command, label, description);
             AutomationProperties.SetName(button, label);
             button.Click += (_, _) => { Tool = tool; _host.Focus(); };
             _buttons.Add(tool, button);
@@ -213,6 +213,19 @@ internal sealed partial class PathEditorInteraction
             ((Panel)((UserControl)_host).Content!).Children.Add(bar);
         }
         Tool = PathEditorTool.Move;
+    }
+
+    internal static void SetShortcutToolTip(Control control, string command, string label, string? description = null)
+    {
+        Update();
+        ToolTip.AddToolTipOpeningHandler(control, (_, _) => Update());
+
+        void Update()
+        {
+            KeyGesture? gesture = GetCommandGestureExtension.GetKeyGesture(typeof(PathEditorTabExtension), $"pathEditor.{command}");
+            string title = gesture is null ? label : $"{label} ({gesture.ToString("p", null)})";
+            ToolTip.SetTip(control, description is null ? title : $"{title}\n{description}");
+        }
     }
 
     public void SetToolbarHost(Panel host)
@@ -439,6 +452,7 @@ internal sealed partial class PathEditorInteraction
     {
         FinishGesture();
         CommitNudge();
+        _nudgeKeys.Clear();
         CommitSelectionPosition();
         _space.Reset();
         Tool = PathEditorTool.Move;

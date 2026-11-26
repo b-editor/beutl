@@ -116,6 +116,9 @@
   <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
     <value>3D 描画用のバッファを作成できませんでした。</value>
   </data>
+  <data name="Scene3DAntiAliasingReduced" xml:space="preserve">
+    <value>GPU メモリが足りないため、3D のアンチエイリアスを {0}x に下げました。</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>出力中に例外が発生しました。</value>
   </data>

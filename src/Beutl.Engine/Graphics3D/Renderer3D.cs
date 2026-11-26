@@ -19,32 +19,33 @@ namespace Beutl.Graphics3D;
 /// </summary>
 internal sealed class Renderer3D : IRenderer3D
 {
+    private static readonly TextureFormat[] s_sampledAttachmentFormats =
+        [.. GeometryPass.GBufferFormats, TextureFormat.RGBA16Float, TextureFormat.Depth32Float];
+
     private readonly IGraphicsContext _context;
     private readonly IShaderCompiler _shaderCompiler;
     private bool _disposed;
 
-    private GeometryPass? _geometryPass;
-    private LightingPass? _lightingPass;
-    private TransparentPass? _transparentPass;
-    private GizmoPass? _gizmoPass;
-    private FlipPass? _flipPass;
-
+    private ViewportResources? _viewport;
     private ShadowManager? _shadowManager;
-
-    private ITexture2D? _outputTexture;
 
     private bool _hasRenderedDepth;
     private Camera3D.Resource? _lastCamera;
     private IReadOnlyList<Object3D.Resource>? _lastObjects;
 
-    public Renderer3D(IGraphicsContext context)
+    public Renderer3D(IGraphicsContext context, int sampleCount = 1)
     {
+        AttachmentSampleCount.Validate(sampleCount);
+        RequestedSampleCount = sampleCount;
         _context = context;
         _shaderCompiler = context.CreateShaderCompiler();
     }
 
     public int Width { get; private set; }
     public int Height { get; private set; }
+    public int SampleCount { get; private set; } = 1;
+    internal int RequestedSampleCount { get; private set; }
+    internal Exception? LastSampleAllocationFailure { get; private set; }
 
     /// <summary>
     /// Device px per logical unit. Hit-test entry points multiply logical coordinates by this.
@@ -80,62 +81,18 @@ internal sealed class Renderer3D : IRenderer3D
     /// clean up; <see cref="Scene3DRenderNode"/> drops the preview value or fails the delivery on it.
     /// </exception>
     public void Initialize(int width, int height)
+        => Initialize(width, height, RequestedSampleCount);
+
+    internal void Initialize(int width, int height, int sampleCount)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        AttachmentSampleCount.Validate(sampleCount);
 
-        // The output texture below is allocated outside any RenderNode3D, so the device limit has to be
-        // asked here rather than left to the passes.
         DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
-
-        // Commit Width/Height only after all allocations succeed, so a failure is retryable.
-        ShadowManager? shadowManager = null;
-        GeometryPass? geometryPass = null;
-        LightingPass? lightingPass = null;
-        TransparentPass? transparentPass = null;
-        GizmoPass? gizmoPass = null;
-        FlipPass? flipPass = null;
-        ITexture2D? outputTexture = null;
-        try
-        {
-            // The shadow maps are a fixed size the device may not be able to attach. Allocating them here
-            // rather than lazily on the first Render keeps that refusal on this path, which the caller
-            // already handles, instead of raising it mid-frame with a half-built manager left behind.
-            shadowManager = new ShadowManager(_context, _shaderCompiler);
-            shadowManager.Initialize();
-
-            geometryPass = new GeometryPass(_context, _shaderCompiler);
-            geometryPass.Initialize(width, height);
-
-            lightingPass = new LightingPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
-            lightingPass.Initialize(width, height);
-
-            transparentPass = new TransparentPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
-            transparentPass.Initialize(width, height);
-
-            gizmoPass = new GizmoPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
-            gizmoPass.Initialize(width, height);
-
-            flipPass = new FlipPass(_context, _shaderCompiler);
-            flipPass.Initialize(width, height);
-
-            outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-        }
-        catch
-        {
-            RenderNode3D.DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass, shadowManager]);
-            throw;
-        }
-
-        _shadowManager = shadowManager;
-        _geometryPass = geometryPass;
-        _lightingPass = lightingPass;
-        _transparentPass = transparentPass;
-        _gizmoPass = gizmoPass;
-        _flipPass = flipPass;
-        _outputTexture = outputTexture;
-        Width = width;
-        Height = height;
-        _hasRenderedDepth = false;
+        int shadowSize = ShadowPass.DefaultShadowMapSize;
+        DeviceExtentLimits.ThrowIfCannotAttach(_context, shadowSize, shadowSize);
+        DeviceExtentLimits.ThrowIfCannotAttachCubeFaces(_context, PointShadowPass.DefaultCubeFaceSize);
+        ReplaceResources(width, height, sampleCount, initializeShadows: true);
     }
 
     /// <summary>
@@ -146,70 +103,82 @@ internal sealed class Renderer3D : IRenderer3D
     /// they were.
     /// </exception>
     public void Resize(int width, int height)
+        => Resize(width, height, RequestedSampleCount);
+
+    internal void Resize(int width, int height, int sampleCount)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        AttachmentSampleCount.Validate(sampleCount);
 
         // Before the no-op check, so a zero or negative extent is refused rather than matched against the
         // "not yet initialized" state.
         DeviceExtentLimits.ThrowIfCannotAttach(_context, width, height);
 
-        if (Width == width && Height == height)
+        if (Width == width && Height == height && RequestedSampleCount == sampleCount)
             return;
 
         if (Width == 0)
             throw new InvalidOperationException("The renderer must be initialized before it is resized.");
 
-        // Allocate into locals first; old fields stay intact on failure.
-        GeometryPass? geometryPass = null;
-        LightingPass? lightingPass = null;
-        TransparentPass? transparentPass = null;
-        GizmoPass? gizmoPass = null;
-        FlipPass? flipPass = null;
-        ITexture2D? outputTexture = null;
+        ReplaceResources(width, height, sampleCount, initializeShadows: false);
+    }
+
+    private void ReplaceResources(int width, int height, int requested, bool initializeShadows)
+    {
+        int sampleCount = requested > 1
+            ? Math.Max(1, _context.GetSupportedSampleCount(requested, s_sampledAttachmentFormats))
+            : 1;
+        Exception? sampleAllocationFailure = null;
+        ViewportResources? viewport = null;
+        ShadowManager? shadows = null;
         try
         {
-            geometryPass = new GeometryPass(_context, _shaderCompiler);
-            geometryPass.Initialize(width, height);
+            if (initializeShadows)
+            {
+                shadows = new ShadowManager(_context, _shaderCompiler);
+                shadows.Initialize();
+            }
 
-            lightingPass = new LightingPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
-            lightingPass.Initialize(width, height);
-
-            transparentPass = new TransparentPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
-            transparentPass.Initialize(width, height);
-
-            gizmoPass = new GizmoPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
-            gizmoPass.Initialize(width, height);
-
-            flipPass = new FlipPass(_context, _shaderCompiler);
-            flipPass.Initialize(width, height);
-
-            outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+            while (true)
+            {
+                viewport = new ViewportResources(_context, _shaderCompiler);
+                try
+                {
+                    viewport.Initialize(width, height, sampleCount);
+                    break;
+                }
+                catch (Exception failure) when (sampleCount > 1)
+                {
+                    sampleAllocationFailure ??= failure;
+                    ViewportResources failedViewport = viewport;
+                    viewport = null;
+                    failedViewport.Dispose();
+                    // The backend may defer releases behind recorded work. Reclaim the failed
+                    // viewport's memory before asking it for the next set of attachments.
+                    _context.WaitIdle();
+                    sampleCount /= 2;
+                }
+            }
         }
         catch
         {
-            RenderNode3D.DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass]);
+            RenderNode3D.DisposeResources([viewport, shadows]);
             throw;
         }
 
-        GeometryPass? oldGeometryPass = _geometryPass;
-        LightingPass? oldLightingPass = _lightingPass;
-        TransparentPass? oldTransparentPass = _transparentPass;
-        GizmoPass? oldGizmoPass = _gizmoPass;
-        FlipPass? oldFlipPass = _flipPass;
-        ITexture2D? oldOutputTexture = _outputTexture;
-
+        ViewportResources? oldViewport = _viewport;
+        ShadowManager? oldShadows = initializeShadows ? _shadowManager : null;
         // Replacements need an owner even if retiring the old viewport throws.
-        _geometryPass = geometryPass;
-        _lightingPass = lightingPass;
-        _transparentPass = transparentPass;
-        _gizmoPass = gizmoPass;
-        _flipPass = flipPass;
-        _outputTexture = outputTexture;
+        _viewport = viewport;
+        _shadowManager = shadows ?? _shadowManager;
         Width = width;
         Height = height;
+        RequestedSampleCount = requested;
+        SampleCount = sampleCount;
+        LastSampleAllocationFailure = sampleAllocationFailure;
         _hasRenderedDepth = false;
 
-        RenderNode3D.DisposeResources([oldFlipPass, oldGizmoPass, oldTransparentPass, oldLightingPass, oldGeometryPass, oldOutputTexture]);
+        RenderNode3D.DisposeResources([oldViewport, oldShadows]);
     }
 
     public void Render(
@@ -226,8 +195,7 @@ internal sealed class Renderer3D : IRenderer3D
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         _hasRenderedDepth = false;
-        if (_geometryPass == null || _lightingPass == null || _transparentPass == null ||
-            _gizmoPass == null || _flipPass == null || _shadowManager == null)
+        if (_viewport is not { } viewport || _shadowManager == null)
             return;
 
         _lastCamera = camera;
@@ -248,43 +216,39 @@ internal sealed class Renderer3D : IRenderer3D
         using var lightDataList = new PooledList<LightData>();
         CollectLightData(lights, lightToShadowIndex, lightDataList);
 
-        _geometryPass.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity, SurfaceDensity);
-        _geometryPass.PrepareForSampling();
+        viewport.Geometry.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity, SurfaceDensity);
+        viewport.Geometry.PrepareForSampling();
 
-        _lightingPass.BindGBuffer(_geometryPass);
-        _lightingPass.BindShadowMaps(_shadowManager);
-        _lightingPass.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity, shadowUbo);
-        _lightingPass.PrepareForSampling();
-
-        ITexture2D? colorOutput = _lightingPass.OutputTexture;
+        viewport.Lighting.BindGBuffer(viewport.Geometry);
+        viewport.Lighting.BindShadowMaps(_shadowManager);
+        viewport.Lighting.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity, shadowUbo);
 
         if (transparentObjects.Count > 0)
         {
-            _transparentPass.SetColorTexture(_lightingPass.OutputTexture!);
-            _transparentPass.Execute(compositionContext, camera, transparentObjects, lightDataList, ambientColor, ambientIntensity, aspectRatio, SurfaceDensity);
-            _transparentPass.PrepareForSampling();
-            colorOutput = _transparentPass.OutputTexture;
+            // Transparent fragments blend per sample over averaged lighting. At an opaque silhouette,
+            // a transparent object behind it can tint the opaque share of the pixel.
+            viewport.Transparent.Execute(compositionContext, camera, transparentObjects, lightDataList,
+                ambientColor, ambientIntensity, aspectRatio, SurfaceDensity);
         }
+
+        viewport.DepthResolve?.Execute();
 
         if (gizmoTarget != null && gizmoMode != GizmoMode.None)
         {
-            _gizmoPass.SetColorTexture(colorOutput!);
-            _gizmoPass.Execute(
+            viewport.Gizmo.Execute(
                 camera,
                 gizmoTarget,
                 GetWorldPosition(objects, gizmoTarget),
                 GetWorldOrientation(objects, gizmoTarget),
                 gizmoMode,
                 aspectRatio);
-            _gizmoPass.PrepareForSampling();
-            colorOutput = _gizmoPass.OutputTexture;
         }
 
-        _flipPass.SetInputTexture(colorOutput!);
-        _flipPass.Execute();
-        _flipPass.PrepareForSampling();
+        viewport.Lighting.OutputTexture!.PrepareForSampling();
+        viewport.Flip.Execute();
+        viewport.Flip.PrepareForSampling();
 
-        CopyToOutputTexture();
+        _context.CopyTexture(viewport.Flip.OutputTexture!, viewport.Output);
         _hasRenderedDepth = true;
     }
 
@@ -487,25 +451,19 @@ internal sealed class Renderer3D : IRenderer3D
         }
     }
 
-    private void CopyToOutputTexture()
-    {
-        if (_flipPass?.OutputTexture == null || _outputTexture == null)
-            return;
-
-        _context.CopyTexture(_flipPass.OutputTexture, _outputTexture);
-    }
-
     public SKSurface? CreateSkiaSurface()
     {
-        _outputTexture?.PrepareForSkiaSampling(requireCompletion: false);
-        return _outputTexture?.CreateSkiaSurface();
+        ITexture2D? output = _viewport?.Output;
+        output?.PrepareForSkiaSampling(requireCompletion: false);
+        return output?.CreateSkiaSurface();
     }
 
     internal bool TryCopyDepth(Span<float> destination, out PixelSize size)
     {
         size = default;
-        if (_disposed || !_hasRenderedDepth || _geometryPass?.DepthTexture is not { } depth) return false;
-        size = new PixelSize(depth.Width, depth.Height);
+        if (_disposed || !_hasRenderedDepth || _viewport is not { } viewport) return false;
+        ITexture2D depth = (viewport.DepthResolve?.OutputTexture ?? viewport.Geometry.DepthTexture)!;
+        size = new PixelSize(Width, Height);
         if (destination.Length < (long)size.Width * size.Height) return false;
 
         var data = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, float>(depth.DownloadPixels());
@@ -517,7 +475,7 @@ internal sealed class Renderer3D : IRenderer3D
 
     public byte[] DownloadPixels()
     {
-        return _outputTexture?.DownloadPixels() ?? [];
+        return _viewport?.Output.DownloadPixels() ?? [];
     }
 
     public Object3D.Resource? HitTest(Point screenPoint)
@@ -571,7 +529,53 @@ internal sealed class Renderer3D : IRenderer3D
         if (_disposed) return;
         _disposed = true;
 
-        RenderNode3D.DisposeResources([_flipPass, _gizmoPass, _transparentPass, _lightingPass,
-            _geometryPass, _shadowManager, _outputTexture, _shaderCompiler as IDisposable]);
+        RenderNode3D.DisposeResources([_viewport, _shadowManager, _shaderCompiler as IDisposable]);
+    }
+
+    private sealed class ViewportResources(IGraphicsContext context, IShaderCompiler compiler) : IDisposable
+    {
+        public GeometryPass Geometry { get; private set; } = null!;
+        public LightingPass Lighting { get; private set; } = null!;
+        public TransparentPass Transparent { get; private set; } = null!;
+        public GizmoPass Gizmo { get; private set; } = null!;
+        public FlipPass Flip { get; private set; } = null!;
+        public DepthResolvePass? DepthResolve { get; private set; }
+        public ITexture2D Output { get; private set; } = null!;
+
+        public void Initialize(int width, int height, int sampleCount)
+        {
+            Geometry = new GeometryPass(context, compiler, sampleCount);
+            Geometry.Initialize(width, height);
+            ITexture2D depth = Geometry.DepthTexture!;
+
+            Lighting = new LightingPass(context, compiler, depth);
+            Lighting.Initialize(width, height);
+            ITexture2D litColor = Lighting.OutputTexture!;
+
+            Transparent = new TransparentPass(context, compiler, depth);
+            Transparent.SetColorTexture(litColor);
+            Transparent.Initialize(width, height);
+
+            Gizmo = new GizmoPass(context, compiler, depth);
+            Gizmo.Initialize(width, height);
+            Gizmo.SetColorTexture(litColor);
+
+            if (sampleCount > 1)
+            {
+                DepthResolve = new DepthResolvePass(context, compiler, depth);
+                DepthResolve.Initialize(width, height);
+            }
+
+            Flip = new FlipPass(context, compiler);
+            Flip.SetInputTexture(litColor);
+            Flip.Initialize(width, height);
+
+            Output = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        }
+
+        public void Dispose()
+        {
+            RenderNode3D.DisposeResources([Flip, DepthResolve, Gizmo, Transparent, Lighting, Geometry, Output]);
+        }
     }
 }

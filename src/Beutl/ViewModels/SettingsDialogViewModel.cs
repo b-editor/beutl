@@ -17,6 +17,10 @@ public sealed class SettingsDialogViewModel : IDisposable
     private readonly Lazy<AccountSettingsPageViewModel> _account;
     private readonly Lazy<ViewSettingsPageViewModel> _view;
     private readonly Lazy<EditorSettingsPageViewModel> _editor;
+    private readonly Lazy<PreviewSettingsPageViewModel> _preview;
+    private readonly Lazy<PerformanceSettingsPageViewModel> _performance;
+    private readonly Lazy<VersionControlSettingsPageViewModel> _versionControl;
+    private readonly Lazy<PrivacySettingsPageViewModel> _privacy;
     private readonly Lazy<FontSettingsPageViewModel> _font;
     private readonly Lazy<ExtensionsSettingsPageViewModel> _extensionsPage;
     private readonly Lazy<InformationPageViewModel> _information;
@@ -32,24 +36,36 @@ public sealed class SettingsDialogViewModel : IDisposable
         _notifications = services.GetRequiredService<INotificationService>();
         var configuration = services.GetRequiredService<GlobalConfiguration>();
         ArgumentNullException.ThrowIfNull(aiPlanCoordinator);
-        Terminal = configuration.TerminalConfig;
+        Terminal = new TerminalSettingsPageViewModel(configuration.TerminalConfig);
         _account = new(() => new AccountSettingsPageViewModel(_notifications, clients, aiPlanCoordinator));
         _editor = new(() => new EditorSettingsPageViewModel(configuration));
+        _preview = new(() => new PreviewSettingsPageViewModel(configuration.EditorConfig));
+        _performance = new(() => new PerformanceSettingsPageViewModel(configuration));
+        _versionControl = new(() => new VersionControlSettingsPageViewModel(configuration.VersionControlConfig));
+        _privacy = new(() => new PrivacySettingsPageViewModel(configuration.TelemetryConfig));
         _view = new(() => new ViewSettingsPageViewModel(configuration.ViewConfig));
         _font = new(() => new FontSettingsPageViewModel(configuration.FontConfig));
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel(extensionProvider, services));
-        _information = new(() => new InformationPageViewModel(configuration.UpdateConfig, configuration.TelemetryConfig));
+        _information = new(() => new InformationPageViewModel(configuration.UpdateConfig));
         _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>(), extensionProvider));
         _aiAgent = new(() => new AiAgentSettingsPageViewModel(configuration.AiAgentConfig));
     }
 
-    public TerminalConfig Terminal { get; }
+    public TerminalSettingsPageViewModel Terminal { get; }
 
     public AccountSettingsPageViewModel Account => _account.Value;
 
     public ViewSettingsPageViewModel View => _view.Value;
 
     public EditorSettingsPageViewModel Editor => _editor.Value;
+
+    public PreviewSettingsPageViewModel Preview => _preview.Value;
+
+    public PerformanceSettingsPageViewModel Performance => _performance.Value;
+
+    public VersionControlSettingsPageViewModel VersionControl => _versionControl.Value;
+
+    public PrivacySettingsPageViewModel Privacy => _privacy.Value;
 
     public FontSettingsPageViewModel Font => _font.Value;
 
@@ -89,12 +105,23 @@ public sealed class SettingsDialogViewModel : IDisposable
 
         if (_editor.IsValueCreated)
             _editor.Value.Dispose();
+        if (_preview.IsValueCreated)
+            _preview.Value.Dispose();
+        if (_performance.IsValueCreated)
+            _performance.Value.Dispose();
+        if (_versionControl.IsValueCreated)
+            _versionControl.Value.Dispose();
+        if (_privacy.IsValueCreated)
+            _privacy.Value.Dispose();
 
         if (_font.IsValueCreated)
             _font.Value.Dispose();
 
         if (_extensionsPage.IsValueCreated)
             _extensionsPage.Value.Dispose();
+
+        if (_keyMap.IsValueCreated)
+            _keyMap.Value.Dispose();
 
         if (_aiAgent.IsValueCreated)
             _aiAgent.Value.Dispose();

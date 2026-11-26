@@ -98,6 +98,11 @@ public class ContextCommandDefinition(
 
     public virtual bool HasHandler => ExecuteAsync is not null;
 
+    internal virtual Type? KeyboardContextType => null;
+
+    // Some modes on the same control are mutually exclusive and can share an exit chord.
+    internal string? ExclusiveKeyboardGroup { get; init; }
+
     // The context is the editor or tool context that a key or the palette targets, or null for the extension.
     public virtual bool CanRun(object? context, ContextCommandExecution execution)
         => context is null && ExecuteAsync is not null && (CanExecute?.Invoke(execution) ?? true);
@@ -156,6 +161,8 @@ public class ContextCommandDefinition<TContext>(
     public Func<TContext, ContextCommandExecution, bool>? CanExecuteOn { get; init; }
 
     public override bool HasHandler => true;
+
+    internal override Type KeyboardContextType => typeof(TContext);
 
     public override bool CanRun(object? context, ContextCommandExecution execution)
         => context is TContext typed ? CanExecuteOn?.Invoke(typed, execution) ?? true : base.CanRun(context, execution);

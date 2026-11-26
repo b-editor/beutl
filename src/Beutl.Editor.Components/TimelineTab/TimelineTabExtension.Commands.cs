@@ -172,9 +172,11 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
 
     private static ContextCommandDefinition<TimelineTabViewModel> Shortcut(
         string id, string displayName, string description, ContextCommandKeyGesture[] keyGestures,
-        Action<TimelineTabViewModel> execute, Func<TimelineTabViewModel, bool>? canExecute, bool flushNudge = true)
+        Action<TimelineTabViewModel> execute, Func<TimelineTabViewModel, bool>? canExecute,
+        bool flushNudge = true, string? exclusiveKeyboardGroup = null)
         => new(id, displayName, description, keyGestures)
         {
+            ExclusiveKeyboardGroup = exclusiveKeyboardGroup,
             CanExecuteOn = (timeline, execution) =>
                 !TimelineTabViewModel.IsTextInputSource(execution.KeyEventArgs?.Source)
                 && (canExecute?.Invoke(timeline) ?? true),
@@ -205,7 +207,8 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         string id, string displayName, string description,
         Func<TimelineTabViewModel, ReactivePropertySlim<bool>> mode)
         => Shortcut(id, displayName, description, [new("V"), new("Escape")],
-            timeline => mode(timeline).Value = false, timeline => mode(timeline).Value);
+            timeline => mode(timeline).Value = false, timeline => mode(timeline).Value,
+            exclusiveKeyboardGroup: "timeline.editModeExit");
 
     internal static (ReactiveCommand Command, bool IsUngroup)? GetGroupToggleAction(TimelineTabViewModel timeline)
     {

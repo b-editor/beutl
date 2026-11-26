@@ -22,14 +22,12 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
 
     public VulkanPipeline3D(
         VulkanContext context,
-        RenderPass renderPass,
+        VulkanRenderPass3D renderPass,
         byte[] vertexShaderSpirv,
         byte[] fragmentShaderSpirv,
         VulkanVertexInputDescription vertexInputDescription,
         DescriptorSetLayoutBinding[] descriptorBindings,
         ImmutableArray<SpecializationConstant> specializationConstants,
-        int colorAttachmentCount,
-        bool hasDepthAttachment,
         in VulkanPipelineFixedFunctionState fixedFunctionState)
         : this(
             context,
@@ -42,8 +40,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             vertexInputDescription,
             descriptorBindings,
             specializationConstants,
-            colorAttachmentCount,
-            hasDepthAttachment,
             in fixedFunctionState)
     {
     }
@@ -51,19 +47,17 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
     /// <summary>Creates a pipeline from every stage of a graphics program, which includes vertex and fragment.</summary>
     public VulkanPipeline3D(
         VulkanContext context,
-        RenderPass renderPass,
+        VulkanRenderPass3D renderPass,
         IReadOnlyDictionary<ShaderStage, byte[]> stages,
         VulkanVertexInputDescription vertexInputDescription,
         DescriptorSetLayoutBinding[] descriptorBindings,
         ImmutableArray<SpecializationConstant> specializationConstants,
-        int colorAttachmentCount,
-        bool hasDepthAttachment,
         in VulkanPipelineFixedFunctionState fixedFunctionState,
         uint patchControlPoints = 3)
     {
         _context = context;
         _patchControlPoints = patchControlPoints;
-        _compatibleRenderPass = renderPass;
+        _compatibleRenderPass = renderPass.Handle;
         _descriptorBindings = new VulkanDescriptorBindingTable(descriptorBindings);
         var vk = context.Vk;
         var device = context.Device;
@@ -83,8 +77,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             CreateLayouts(vk, device, descriptorBindings, PushConstantStages, out _descriptorSetLayout, out _pipelineLayout);
 
             _pipeline = CreateGraphicsPipeline(
-                vk, device, renderPass, vertexInputDescription, colorAttachmentCount,
-                hasDepthAttachment, in fixedFunctionState, specializationConstants);
+                vk, device, renderPass, vertexInputDescription, in fixedFunctionState, specializationConstants);
         }
         catch
         {
@@ -128,8 +121,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
     }
 
     private Pipeline CreateGraphicsPipeline(
-        Vk vk, Device device, RenderPass renderPass, VulkanVertexInputDescription vertexInput,
-        int colorAttachmentCount, bool hasDepthAttachment, in VulkanPipelineFixedFunctionState state,
+        Vk vk, Device device, VulkanRenderPass3D renderPass, VulkanVertexInputDescription vertexInput,
+        in VulkanPipelineFixedFunctionState state,
         ImmutableArray<SpecializationConstant> specializationConstants)
     {
         var specialization = new VulkanSpecializationData(specializationConstants);
@@ -186,10 +179,11 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 {
                     SType = StructureType.PipelineMultisampleStateCreateInfo,
                     SampleShadingEnable = Vk.False,
-                    RasterizationSamples = SampleCountFlags.Count1Bit
+                    RasterizationSamples = (SampleCountFlags)renderPass.SampleCount
                 };
 
                 var depthStencil = DescribeDepthStencil(in state);
+                int colorAttachmentCount = renderPass.ColorAttachmentCount;
 
                 var colorBlendAttachments = stackalloc PipelineColorBlendAttachmentState[colorAttachmentCount];
                 for (int i = 0; i < colorAttachmentCount; i++)
@@ -224,11 +218,11 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                     PViewportState = &viewportState,
                     PRasterizationState = &rasterizer,
                     PMultisampleState = &multisampling,
-                    PDepthStencilState = hasDepthAttachment ? &depthStencil : null,
+                    PDepthStencilState = renderPass.HasDepthAttachment ? &depthStencil : null,
                     PColorBlendState = &colorBlending,
                     PDynamicState = &dynamicState,
                     Layout = _pipelineLayout,
-                    RenderPass = renderPass,
+                    RenderPass = renderPass.Handle,
                     Subpass = 0
                 };
 

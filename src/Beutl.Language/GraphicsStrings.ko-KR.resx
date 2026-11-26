@@ -549,7 +549,7 @@
     <value>데코레이터</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>시간 컨트롤러 (비디오)</value>
+    <value>시간 컨트롤러</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>시간 범위 조정</value>
@@ -654,6 +654,9 @@
     <value>감마</value>
   </data>
   <data name="GeometryShape" xml:space="preserve">
+    <value>기하 도형</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
     <value>기하 도형</value>
   </data>
   <data name="GeometryShape_Data" xml:space="preserve">
@@ -1454,6 +1457,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>3D 장면</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D (실험적)</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>주변 색상</value>
   </data>
@@ -1480,6 +1486,24 @@
   </data>
   <data name="Scene3D_RenderSize" xml:space="preserve">
     <value>렌더 크기</value>
+  </data>
+  <data name="Scene3D_AntiAliasing" xml:space="preserve">
+    <value>안티앨리어싱</value>
+  </data>
+  <data name="Scene3D_AntiAliasing_Description" xml:space="preserve">
+    <value>3D 오브젝트의 가장자리를 부드럽게 합니다. 샘플 수를 늘리면 더 부드러워지지만 GPU 메모리와 렌더링 시간이 더 필요합니다.</value>
+  </data>
+  <data name="AntiAliasingMode_Off" xml:space="preserve">
+    <value>끄기</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa2x" xml:space="preserve">
+    <value>2x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa4x" xml:space="preserve">
+    <value>4x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa8x" xml:space="preserve">
+    <value>8x</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>단색</value>
@@ -1681,6 +1705,9 @@
   </data>
   <data name="Stroke" xml:space="preserve">
     <value>획</value>
+  </data>
+  <data name="Pen" xml:space="preserve">
+    <value>펜</value>
   </data>
   <data name="StrokeEffect" xml:space="preserve">
     <value>윤곽선</value>
@@ -2710,5 +2737,17 @@
   </data>
   <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
     <value>스크립트 및 노드</value>
+  </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>경로를 따르는 텍스트</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>경로</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>경로 오프셋 (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>텍스트를 경로를 따라 배치합니다. 텍스트에서 문자별 분할을 켜세요.</value>
   </data>
 </root>

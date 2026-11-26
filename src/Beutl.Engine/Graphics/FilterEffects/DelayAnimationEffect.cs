@@ -47,9 +47,9 @@ public partial class DelayAnimationEffect : FilterEffect
     {
         int targetCount = effectContext.Targets.Count;
         Span<float> ranks = targetCount <= 128 ? stackalloc float[targetCount] : new float[targetCount];
-        DelayAnimationOrdering.ComputeTargetRanks(data.order, data.randomSeed, effectContext.Targets, ranks, data.unit);
+        float lastRank = DelayAnimationOrdering.ComputeTargetRanks(data.order, data.randomSeed, effectContext.Targets, ranks, data.unit);
         if (data.delayMode == DelayAnimationMode.Total)
-            NormalizeTotalRanks(data.order, effectContext.Targets, ranks);
+            NormalizeTotalRanks(data.order, effectContext.Targets, ranks, lastRank);
 
         for (int i = data.cache.Count; i < targetCount; i++)
         {
@@ -103,16 +103,18 @@ public partial class DelayAnimationEffect : FilterEffect
         }
     }
 
-    private static void NormalizeTotalRanks(DelayAnimationOrder order, EffectTargets targets, Span<float> ranks)
+    private static void NormalizeTotalRanks(DelayAnimationOrder order, EffectTargets targets, Span<float> ranks, float last)
     {
         // There may be no part at the visual center. Measure the total from the first occupied rank.
-        float first = order == DelayAnimationOrder.FromCenter ? float.PositiveInfinity : 0;
-        float last = 0;
-        for (int i = 0; i < ranks.Length; i++)
+        float first = 0;
+        if (order == DelayAnimationOrder.FromCenter)
         {
-            if (ranks[i] >= 0 && (order != DelayAnimationOrder.FromCenter || !targets[i].IsEmpty))
-                first = Math.Min(first, ranks[i]);
-            last = Math.Max(last, ranks[i]);
+            first = float.PositiveInfinity;
+            for (int i = 0; i < ranks.Length; i++)
+            {
+                if (ranks[i] >= 0 && !targets[i].IsEmpty)
+                    first = Math.Min(first, ranks[i]);
+            }
         }
 
         if (last <= first)
@@ -259,13 +261,12 @@ public partial class DelayAnimationEffect : FilterEffect
 
 internal static class DelayAnimationOrdering
 {
-    internal static void ComputeTargetRanks(DelayAnimationOrder order, int seed, EffectTargets targets, Span<float> ranks,
+    internal static float ComputeTargetRanks(DelayAnimationOrder order, int seed, EffectTargets targets, Span<float> ranks,
         TextAnimationUnit unit = TextAnimationUnit.Characters)
     {
         if (targets.Any(static target => target.TextPart.HasValue))
         {
-            TextAnimationOrdering.ComputeUnitRanks(order, seed, unit, targets, ranks);
-            return;
+            return TextAnimationOrdering.ComputeUnitRanks(order, seed, unit, targets, ranks);
         }
 
         Rect?[]? bounds = null;
@@ -281,6 +282,15 @@ internal static class DelayAnimationOrdering
         }
 
         ComputeRanks(order, seed, bounds, ranks);
+        return MaximumRank(ranks);
+    }
+
+    internal static float MaximumRank(ReadOnlySpan<float> ranks)
+    {
+        float max = 0;
+        foreach (float rank in ranks)
+            max = Math.Max(max, rank);
+        return max;
     }
 
     // The orders ComputeRanks places by bounds; every other value, undefined ones included, reads none.

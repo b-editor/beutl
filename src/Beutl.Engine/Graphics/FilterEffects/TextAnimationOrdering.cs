@@ -8,7 +8,7 @@ internal static class TextAnimationOrdering
 
     private readonly record struct Unit(int Occurrence, int Index, int Id, Rect? Bounds);
 
-    internal static void ComputeUnitRanks(DelayAnimationOrder order, int seed, TextAnimationUnit unit,
+    internal static float ComputeUnitRanks(DelayAnimationOrder order, int seed, TextAnimationUnit unit,
         EffectTargets targets, Span<float> ranks)
     {
         var occurrences = new Dictionary<(long Id, int Revision), int>();
@@ -34,6 +34,17 @@ internal static class TextAnimationOrdering
             {
                 occurrence = nextOccurrence++;
                 occurrences.Add(source, occurrence);
+                if (!readsBounds && text is { IncludeHiddenUnits: true, Positions: { } positions })
+                {
+                    // Text on a path can hide some of its glyphs as it moves. Logical orders still rank the
+                    // whole text, including words and lines that currently have no target.
+                    foreach (var character in positions.Characters)
+                    {
+                        int sourceIndex = GetUnitIndex(unit, character.Indices);
+                        if (ids.TryAdd((occurrence, sourceIndex), units.Count))
+                            units.Add(new Unit(occurrence, sourceIndex, units.Count, null));
+                    }
+                }
             }
 
             if (text.Indices.Character < 0)
@@ -77,6 +88,7 @@ internal static class TextAnimationOrdering
             byId[units[i].Id] = unitRanks[i];
         for (int i = 0; i < ranks.Length; i++)
             ranks[i] = targetUnits[i] < 0 ? Unranked : byId[targetUnits[i]];
+        return readsBounds ? DelayAnimationOrdering.MaximumRank(byId) : Math.Max(0, units.Count - 1);
     }
 
     private static int GetUnitIndex(TextAnimationUnit unit, DelayAnimationOrder order, TextPartTag part)
@@ -87,11 +99,16 @@ internal static class TextAnimationOrdering
         if (acrossLines)
             return part.Indices.Line;
 
+        return GetUnitIndex(unit, part.Indices);
+    }
+
+    private static int GetUnitIndex(TextAnimationUnit unit, Shapes.TextPartIndices indices)
+    {
         return unit switch
         {
-            TextAnimationUnit.Words => part.Indices.Word,
-            TextAnimationUnit.Lines => part.Indices.Line,
-            _ => part.Indices.Character,
+            TextAnimationUnit.Words => indices.Word,
+            TextAnimationUnit.Lines => indices.Line,
+            _ => indices.Character,
         };
     }
 }

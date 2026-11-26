@@ -44,20 +44,8 @@ public partial class GraphEditorView : UserControl
         InitializeComponent();
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = TimelineHelper.MouseFlags.Free);
         _space = new SpacePanKey(this);
-        KeyModifiers commandModifier = KeyGestureHelper.GetCommandModifier();
-        foreach (FAMenuFlyoutItem item in ((FAMenuFlyout)graphPanel.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>())
-        {
-            item.InputGesture = item.Tag switch
-            {
-                "Ease" => new KeyGesture(Key.F9),
-                "EaseIn" => new KeyGesture(Key.F9, KeyModifiers.Shift),
-                "EaseOut" => new KeyGesture(Key.F9, commandModifier),
-                "Velocity" => new KeyGesture(Key.K, commandModifier | KeyModifiers.Shift),
-                "DistributeEvenly" => new KeyGesture(Key.D, KeyModifiers.Alt),
-                "Reverse" => new KeyGesture(Key.R, KeyModifiers.Alt),
-                _ => item.InputGesture
-            };
-        }
+        ToolTip.AddToolTipOpeningHandler(fitAllButton, (_, _) => UpdateGestureHint(fitAllGesture, "fitAll"));
+        ToolTip.AddToolTipOpeningHandler(fitSelectionButton, (_, _) => UpdateGestureHint(fitSelectionGesture, "fitSelection"));
 
         RulerBar.PointerMoved += OnContentPointerMoved;
         RulerBar.PointerReleased += OnContentPointerReleased;
@@ -91,6 +79,34 @@ public partial class GraphEditorView : UserControl
     }
 
     public ControlPointMoveState? ControlPointMoveState { get; set; }
+
+    private static KeyGesture? GetShortcut(string id)
+        => GetCommandGestureExtension.GetKeyGesture(typeof(GraphEditorTabExtension), $"graphEditor.{id}");
+
+    private static void UpdateGestureHint(TextBlock text, string id)
+    {
+        text.Text = GetShortcut(id)?.ToString();
+        text.IsVisible = text.Text is not null;
+    }
+
+    private void GraphMenuOpening(object? sender, EventArgs e)
+    {
+        if (sender is not FAMenuFlyout menu) return;
+        foreach (FAMenuFlyoutItem item in menu.Items.OfType<FAMenuFlyoutItem>())
+        {
+            string? id = item.Tag switch
+            {
+                "Ease" => "ease",
+                "EaseIn" => "easeIn",
+                "EaseOut" => "easeOut",
+                "Velocity" => "velocity",
+                "DistributeEvenly" => "distributeEvenly",
+                "Reverse" => "reverse",
+                _ => null
+            };
+            if (id is not null) item.InputGesture = GetShortcut(id);
+        }
+    }
 
     public KeyTimeMoveState? KeyTimeMoveState { get; set; }
 

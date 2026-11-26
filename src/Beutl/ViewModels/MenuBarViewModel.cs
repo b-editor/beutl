@@ -39,7 +39,6 @@ public sealed partial class MenuBarViewModel
         InitializeFilesCommands();
         InitializeSceneCommands(isSceneOpened);
         InitializeViewCommands(isSceneOpened);
-        InitializeAiCommands(isSceneOpened);
 
         Undo = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnUndo);

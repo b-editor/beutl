@@ -82,6 +82,11 @@ public partial class Scene3D : Drawable, IFlowInputOperator
     [Range(1f, 8192f)]
     public IExpressionProperty<float> RenderHeight { get; } = Property.CreateAnimatable(1080f);
 
+    /// <summary>Gets the anti-aliasing requested for this scene.</summary>
+    [Display(Name = nameof(GraphicsStrings.Scene3D_AntiAliasing),
+        Description = nameof(GraphicsStrings.Scene3D_AntiAliasing_Description), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<AntiAliasingMode> AntiAliasing { get; } = Property.CreateExpression(AntiAliasingMode.Msaa4x);
+
     /// <summary>
     /// Gets the background color of the 3D scene.
     /// </summary>

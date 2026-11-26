@@ -1,0 +1,69 @@
+# Beutl editor features and MCP tools
+
+The installed `beutl-agent` stdio server edits project files directly. Pass `instanceId` to forward a call to a running Beutl editor and `sceneId` to target a scene there. The stdio and in-app servers each expose `list_instances` for instance discovery.
+
+Extensions can add live tools through `McpToolExtension`. The stdio server lists and forwards those tools when an editor that provides them is running. See the [MCP tool extension guide](../extension-authoring/mcp-tools.md).
+
+## Projects and scenes
+
+| Editor feature | Built-in MCP tools | Coverage |
+| --- | --- | --- |
+| Discover running editors and scenes | `list_instances`, `list_scenes` | Scene listing is live. `open_project` and `create_project` also return project and scene information. |
+| Open, create, and save projects | `open_project`, `create_project`, `save_project`, `read_operation_status` | File-backed and live sessions. |
+| Add a scene | `add_scene` | Adds a scene to the targeted project and returns its ID. |
+| Read or edit scene settings | `read_document_summary`, `read_document`, `apply_edit` | Includes serialized scene settings such as frame size, start, and duration. |
+| Remove a scene from its project | — | No tool. |
+| Undo, redo, and view history | `undo`, `redo`, `read_history` | Live calls use the editor's history. |
+| Version control | — | No tool for the project's version control workflow. |
+
+## Timeline
+
+| Editor feature | Built-in MCP tools | Coverage |
+| --- | --- | --- |
+| Inspect timeline elements, layers, and markers | `read_document_summary`, `read_document` | Use the returned element IDs for subsequent edits. |
+| Add, delete, move, or resize elements | `apply_edit` | Set the intended element membership, layer, and timing in the scene document. |
+| Change element attributes or edit layers and groups | `apply_edit` | Covers serialized element and layer attributes and group membership. Agents can set locks. Unlocking requires the user. |
+| Split one or more clips at a cut | `split_elements` | Returns the new right-half element IDs. |
+| Slip source media | `slip_elements` | Applies a shared shift to the source windows without changing element geometry. |
+| Ripple delete | `ripple_delete` | Removes clips and shifts following clips on each affected layer. |
+| Ripple trim | `ripple_trim` | Moves the start or end of one clip with the editor's ripple constraints. |
+| Close a gap after a clip | `close_gap` | Closes the first gap after the clip's contiguous run on its layer. |
+| Find the next or previous gap or close all gaps | `read_document_summary`, `close_gap` | Partial. Infer gaps from element ranges and close them individually. |
+| Roll a cut or slide a clip | — | No operation tool for the editor's coupled trim and media-offset adjustments. |
+| Duplicate timeline elements, copy, cut, or paste | `apply_edit`, `duplicate_object` | Partial. A patch can assemble new elements, and `duplicate_object` copies an engine object within an element. The timeline duplication and clipboard workflows have no tool. |
+| Save or reuse an element template | — | No tool for the element template library or Save as Template. |
+| Edit timeline markers | `apply_edit` | Edit the scene's marker list. |
+| Analyze and split clips on silence | — | No tool for silence detection or the editor's split and delete modes. |
+
+For split and ripple trim, `timeSeconds` is a position measured from timeline zero. For slip, `deltaSeconds` is a signed shift. Times are rounded to the scene's frame rate. Pass all intended clip IDs explicitly for split, slip, or ripple delete. A successful change has one undo step. An operation that cannot make a change can return `changed: false`.
+
+A batch that skips locked targets reports their IDs in `skippedLockedElementIds`. A batch with only locked targets returns a validation error. Ripple delete can remove a recovery-protected element while retaining its original file, as in the timeline.
+
+## Objects, animation, and effects
+
+| Editor feature | Built-in MCP tools | Coverage |
+| --- | --- | --- |
+| Author or inspect text, shapes, transforms, audio, and effects | `get_schema`, `read_document`, `apply_edit`, `duplicate_object`, `measure_object_bounds` | Inspect registered types and modify serialized objects and properties. |
+| Browse fonts, effects, recipes, and examples | `list_fonts`, `list_effects`, `list_effect_recipes`, `get_effect_recipe`, `list_examples`, `get_examples` | Provides authoring references for use in scene edits. |
+| Edit clip transitions, keyframes, and easing | `get_schema`, `read_document`, `apply_edit` | Covers serialized transition and animation settings. |
+| Edit a shader or node graph | `validate_shader`, `get_node_graph_guide`, `list_node_types`, `read_node_graph`, `edit_node_graph` | Covers shader validation, graph inspection, and graph operations. Add the graph's owning object or effect with `apply_edit`. |
+| Generate a composition from a built-in recipe | `list_compositions`, `get_composition`, `plan_composition`, `render_composition_patch`, `apply_composition` | Covers the MCP composition catalog and preview workflow. |
+| Authoring workflow and conventions | `get_started` | Summarizes the API workflow and links to installed agent skills. |
+
+## Media, captions, and output
+
+| Editor feature | Built-in MCP tools | Coverage |
+| --- | --- | --- |
+| Use existing media in a scene | `get_schema`, `apply_edit` | Add or edit the file source of a media object. |
+| Relink missing media | `read_document`, `apply_edit` | Partial. An agent can replace an individual file source. The editor's missing-media scan, matching, and batch relink workflow has no tool. |
+| Organize project assets | — | No tool for scanning or reorganizing project assets. |
+| Manage proxy media | — | No tool for proxy generation, status, or removal. |
+| Analyze audio rhythm | `analyze_audio_rhythm` | Reports estimated beats and onsets. |
+| Generate or edit media with AI and follow jobs | `list_ai_models`, `generate_image`, `edit_image`, `generate_video`, `edit_video`, `list_ai_jobs`, `read_ai_job`, `cancel_ai_job` | Live editor tools. |
+| Transcribe speech | `transcribe_audio`, `read_ai_job` | Live tool that produces a timed transcript. |
+| Import, edit, or export a caption document | — | No tool for the editor's subtitle file and cue workflow, including subtitle export. |
+| Preview frames or compare rendered frames | `render_still`, `render_storyboard`, `measure_frame_differences` | Covers frame output and measurement. |
+| Control preview playback and playhead | — | No tool for interactive preview transport. |
+| Export video and manage render jobs | `export_video`, `read_render_job`, `cancel_render_job` | File-backed and live export. |
+
+The tool registrations are in the [shared AgentToolkit server](../../src/Beutl.AgentToolkit/AgentToolkitMcpServer.cs) and the [in-app host](../../src/Beutl/AgentHost/AgentHostEndpoint.cs).

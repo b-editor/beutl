@@ -98,6 +98,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<WaveRefraction>>(GraphicsStrings.WaveRefraction)
             .Add<FilterEffectNode<PolarCoordinates>>(GraphicsStrings.PolarCoordinates)
             .Add<FilterEffectNode<PathFollowEffect>>(GraphicsStrings.PathFollowEffect)
+            .Add<FilterEffectNode<TextOnPathEffect>>(GraphicsStrings.TextOnPathEffect)
             .Add<FilterEffectNode<LayerEffect>>(GraphicsStrings.LayerEffect)
             .Add<FilterEffectNode<PixelSortEffect>>(GraphicsStrings.PixelSortEffect)
             .AddGroup(GraphicsStrings.Script, o => o

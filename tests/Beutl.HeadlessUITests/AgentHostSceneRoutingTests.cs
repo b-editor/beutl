@@ -43,7 +43,12 @@ public sealed class AgentHostSceneRoutingTests
         Assert.Multiple(() =>
         {
             Assert.That(tools.Select(tool => tool.Name), Does.Not.Contain("attach_active_editor"));
-            foreach (string name in new[] { "apply_edit", "read_document", "undo", "render_still", "add_scene", "save_project" })
+            string[] sceneTools =
+            [
+                "apply_edit", "read_document", "undo", "render_still", "add_scene", "save_project",
+                "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap"
+            ];
+            foreach (string name in sceneTools)
             {
                 JsonElement schema = tools.Single(tool => tool.Name == name).JsonSchema;
                 Assert.That(schema.GetProperty("required").EnumerateArray().Select(item => item.GetString()),
@@ -85,6 +90,30 @@ public sealed class AgentHostSceneRoutingTests
             Assert.That(backgroundTab!.IsSelected.Value, Is.False);
         });
         Success(await client.CallToolAsync("read_document_summary", Target(first.Id.Value)));
+        var seed = Target(second.Id.Value);
+        seed["schemaVersion"] = "1";
+        seed["patch"] = new JsonObject
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["$type"] = "[Beutl.ProjectSystem]:Element",
+                ["Start"] = "00:00:00",
+                ["Length"] = "00:00:04"
+            })
+        };
+        Success(await client.CallToolAsync("apply_edit", seed));
+        Element clip = second.Children.Single();
+
+        var split = Target(second.Id.Value);
+        split["elementIds"] = new[] { clip.Id.Value.ToString() };
+        split["timeSeconds"] = 2;
+        Assert.That(Success(await client.CallToolAsync("split_elements", split))["changed"]!.GetValue<bool>(), Is.True);
+        Assert.That(second.Children, Has.Count.EqualTo(2));
+        Assert.That(clip.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+        JsonObject undo = Success(await client.CallToolAsync("undo", Target(second.Id.Value)));
+        Assert.That(undo["applied"]!.AsArray(), Has.Count.EqualTo(1));
+        Assert.That(second.Children.Single(), Is.SameAs(clip));
+        Assert.That(clip.Length.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
         Assert.That(SelectedScene(), Is.SameAs(first));
         JsonObject status = Success(await client.CallToolAsync("read_operation_status"));
         Assert.That(status["hasActiveSession"]!.GetValue<bool>(), Is.False,

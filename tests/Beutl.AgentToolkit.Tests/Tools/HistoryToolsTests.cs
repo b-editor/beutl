@@ -4,7 +4,9 @@ using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
@@ -249,6 +251,44 @@ public sealed class HistoryToolsTests
     }
 
     [Test]
+    public async Task Live_timeline_edit_waits_for_playback_to_drain_before_flushing_or_editing()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        using RecordingPipeline recording = RecordingPipeline.Create(scene);
+        var drain = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var binding = new PlaybackSensitiveLiveBinding(scene, recording.History)
+        {
+            IsPlaying = true,
+            PlaybackDrain = drain.Task
+        };
+        var configuration = new GlobalConfiguration();
+        var timeline = new TimelineEditTools(CreateLiveManager(binding), configuration, new DecoderRegistry(configuration.ExtensionConfig));
+        element.Start.Value = MediaTime.FromSeconds(1.25);
+        bool flushed = false;
+        using IDisposable subscription = recording.History.BeforeMutation.Subscribe(_ => flushed = true);
+
+        Task<ToolResult<TimelineEditResponse>> split = timeline.SplitElements([element.Id.Value.ToString()], 2).AsTask();
+        bool completedBeforeDrain = split.IsCompleted;
+        bool flushedBeforeDrain = flushed;
+        int clipsBeforeDrain = scene.Children.Count;
+        drain.SetResult();
+        ToolResult<TimelineEditResponse> result = await split;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completedBeforeDrain, Is.False);
+            Assert.That(flushedBeforeDrain, Is.False);
+            Assert.That(clipsBeforeDrain, Is.EqualTo(1));
+            Assert.That(binding.GuardedInvocationCount, Is.EqualTo(1));
+            Assert.That(binding.PauseCount, Is.EqualTo(1));
+            Assert.That(flushed, Is.True);
+            Assert.That(result.Value?.Changed, Is.True, result.Error?.Message);
+            Assert.That(scene.Children, Has.Count.EqualTo(2));
+            Assert.That(recording.History.UndoCount, Is.EqualTo(2), "Pending work and the split have separate entries.");
+        });
+    }
+
+    [Test]
     public async Task Live_read_history_with_no_pending_work_does_not_stop_playback()
     {
         Scene scene = CreateSceneWithElement(out _);
@@ -329,6 +369,8 @@ public sealed class HistoryToolsTests
     {
         public bool IsPlaying { get; set; }
 
+        public Task? PlaybackDrain { get; init; }
+
         public int PauseCount { get; private set; }
 
         public int GuardedInvocationCount { get; private set; }
@@ -354,7 +396,7 @@ public sealed class HistoryToolsTests
             }
         }
 
-        public ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
+        public async ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
             Func<HistoryManager, bool> shouldPause,
             Func<HistoryManager, TResult> operation,
             CancellationToken cancellationToken = default,
@@ -366,6 +408,8 @@ public sealed class HistoryToolsTests
             {
                 PauseCount++;
                 IsPlaying = false;
+                if (PlaybackDrain is { } drain)
+                    await drain.WaitAsync(cancellationToken);
             }
 
             PendingWorkFlushedWhilePlaying |= IsPlaying && history.HasPendingOperations;
@@ -378,7 +422,7 @@ public sealed class HistoryToolsTests
                 HistoryMutatedWhilePlaying = true;
             }
 
-            return ValueTask.FromResult(result);
+            return result;
         }
     }
 }

@@ -49,6 +49,9 @@
   <data name="SourceSound" xml:space="preserve">
     <value>サウンド</value>
   </data>
+  <data name="Sound" xml:space="preserve">
+    <value>サウンド</value>
+  </data>
   <data name="SourceSound_Source" xml:space="preserve">
     <value>ソース</value>
   </data>
