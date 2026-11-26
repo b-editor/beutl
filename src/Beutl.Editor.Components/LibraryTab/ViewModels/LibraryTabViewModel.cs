@@ -201,9 +201,11 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             item => item,
             LibraryItemViewModel.CreateFromLibraryItem,
             item => (item as GroupLibraryItem)?.Items);
-        // The registry hands out copies of its groups, so a group is known by its name.
+        // The registry hands out copies of its groups, so match them by ID or display name.
         SyncItems<GraphNodeRegistry.BaseRegistryItem>(Nodes, [.. GraphNodeRegistry.GetRegistered()], null,
-            item => item is GraphNodeRegistry.GroupableRegistryItem ? item.DisplayName : item,
+            item => item is GraphNodeRegistry.GroupableRegistryItem group
+                ? LibraryCategoryKey.Create(group.Id, group.DisplayName)
+                : item,
             LibraryItemViewModel.CreateFromGraphNodeRegistryItem,
             item => (item as GraphNodeRegistry.GroupableRegistryItem)?.Items);
         AllItems.Replace(CreateAllItems(AllItems.Count));
@@ -219,16 +221,25 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     private void UpdateEffectSections(IReadOnlyList<LibraryItem> registeredItems)
     {
         var categories = LibraryEffectCategories.Collect(registeredItems, KnownLibraryItemFormats.FilterEffect);
-        string others = Strings.Others;
-        var groups = Effects.GroupBy(tile => categories.GetValueOrDefault((LibraryItem)tile.Item.Data!, others))
-            .OrderBy(group => group.Key == others);
+        var groups = Effects
+            .Select(tile => (Tile: tile, Category: categories.GetValueOrDefault((LibraryItem)tile.Item.Data!)))
+            .GroupBy(item => item.Category?.Key ?? default)
+            .OrderBy(group => group.Key == default);
         var sections = new List<LibraryGallerySection>();
         foreach (var group in groups)
         {
-            LibraryGallerySection? previous = EffectSections.FirstOrDefault(section => section.Title == group.Key);
-            sections.Add(previous != null && previous.Items.SequenceEqual(group)
+            LibraryEffectCategory? category = group.First().Category;
+            string title = category?.Title ?? Strings.Others;
+            string? description = category?.Description;
+            if (string.IsNullOrEmpty(description))
+                description = null;
+
+            IEnumerable<LibraryGalleryItemViewModel> tiles = group.Select(item => item.Tile);
+            LibraryGallerySection? previous = EffectSections.FirstOrDefault(section => section.Key == group.Key);
+            sections.Add(previous != null && previous.Title == title && previous.Description == description
+                && previous.Items.SequenceEqual(tiles)
                 ? previous
-                : new LibraryGallerySection(group.Key, [.. group]));
+                : new LibraryGallerySection(group.Key, title, description, [.. tiles]));
         }
 
         EffectSections.Replace(sections);
@@ -243,7 +254,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         var existing = new Dictionary<object, LibraryItemViewModel>();
         foreach (LibraryItemViewModel viewModel in viewModels)
         {
-            existing[viewModel.Data ?? viewModel.DisplayName] = viewModel;
+            existing[viewModel.Data ?? (object?)viewModel.NodeGroupKey ?? viewModel.DisplayName] = viewModel;
         }
 
         var next = new LibraryItemViewModel[items.Count];

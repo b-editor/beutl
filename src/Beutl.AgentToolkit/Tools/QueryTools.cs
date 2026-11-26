@@ -53,10 +53,14 @@ public sealed partial class QueryTools(
     private static IReadOnlyList<RecommendedSkill> CreateRecommendedSkills()
         =>
         [
-            new("beutl-agent-timeline-from-shotlist", "Making a video from a brief, even a one-line request such as a teaser, trailer, promo, or title sequence, or editing timeline structure, timing, transforms, groups, and keyframes.", "Read the installed SKILL.md before the first edit, for the editing API contract."),
-            new("beutl-agent-look-effect-chain", "Adding or editing effect chains, masks, shader properties, and node graphs of GPU passes.", "Read the installed SKILL.md before adding effects, for effect and shader mechanics."),
-            new("beutl-agent-source-grounding", "Checking coordinates, units, bounds, and runtime behavior.", "Read the installed SKILL.md; source inspection is optional.")
+            RecommendSkill("beutl-agent-timeline-from-shotlist", "Making a video from a brief, even a one-line request such as a teaser, trailer, promo, or title sequence, or editing timeline structure, timing, transforms, groups, and keyframes.", "Read before the first edit for the editing API contract."),
+            RecommendSkill("beutl-agent-look-effect-chain", "Adding or editing effect chains, masks, shader properties, and node graphs of GPU passes.", "Read before adding effects for effect and shader mechanics."),
+            RecommendSkill("beutl-agent-source-grounding", "Checking coordinates, units, bounds, and runtime behavior.", "Source inspection is optional.")
         ];
+
+    private static RecommendedSkill RecommendSkill(string name, string whenToUse, string guidance)
+        => new(name, whenToUse,
+            $"Read {AgentToolkitMcpServer.GetSkillUri(name)} with resources/read or open the installed SKILL.md. {guidance}");
 
     [McpServerTool(Name = "get_started")]
     [Description("Returns the editing API workflow: discover/open, inspect schema and document data, apply edits, render, save, and export. Describes operation semantics only; it does not choose a creative direction or judge whether a video is finished.")]

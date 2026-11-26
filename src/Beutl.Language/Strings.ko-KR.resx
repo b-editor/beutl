@@ -1354,6 +1354,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="ImportProject" xml:space="preserve">
     <value>프로젝트 가져오기...</value>
   </data>
+  <data name="ImportMedia" xml:space="preserve">
+    <value>미디어 가져오기…</value>
+  </data>
   <data name="ExportingProject" xml:space="preserve">
     <value>프로젝트 내보내는 중...</value>
   </data>

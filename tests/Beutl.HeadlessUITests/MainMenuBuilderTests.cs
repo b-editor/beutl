@@ -77,6 +77,56 @@ public sealed class MainMenuBuilderTests
     }
 
     [AvaloniaTest]
+    public async Task ImportMediaIsEnabledInBothFileMenusWhenASceneIsOpen()
+    {
+        await TestReset.ResetShellAsync();
+        MainViewModel viewModel = TestShell.MainViewModel;
+        var view = new MainView { DataContext = viewModel };
+        var macWindow = new MacWindow { DataContext = viewModel };
+        var window = new Window { Width = 1000, Height = 680 };
+        try
+        {
+            window.Show();
+            window.Content = view;
+            Menu menu = view.FindControl<Menu>("MenuBar")!;
+            menu.IsVisible = true;
+            MenuItem file = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.File));
+            MenuItem import = file.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.ImportMedia));
+            NativeMenuItem nativeImport = NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>()
+                .Single(item => item.Header == Strings.File).Menu!.Items.OfType<NativeMenuItem>()
+                .Single(item => item.Header == Strings.ImportMedia);
+
+            file.Open();
+            HeadlessTestHelpers.Render(3);
+            Assert.Multiple(() =>
+            {
+                Assert.That(import.Command, Is.SameAs(viewModel.MenuBar.ImportMedia));
+                Assert.That(nativeImport.Command, Is.SameAs(viewModel.MenuBar.ImportMedia));
+                Assert.That((import.IsEffectivelyEnabled, nativeImport.IsEnabled), Is.EqualTo((false, false)));
+            });
+
+            file.Close();
+            await TestShell.OpenNewSceneEditorAsync("file-menu-import-media");
+            file.Open();
+            HeadlessTestHelpers.Render(3);
+            Assert.That((import.IsEffectivelyEnabled, nativeImport.IsEnabled), Is.EqualTo((true, true)));
+            HeadlessCapture.SaveIfRequested(window, nameof(MainMenuBuilderTests), "file-menu-import-media");
+
+            await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!, saveChanges: false);
+            HeadlessTestHelpers.Settle();
+            Assert.That((import.IsEffectivelyEnabled, nativeImport.IsEnabled), Is.EqualTo((false, false)));
+        }
+        finally
+        {
+            macWindow.DataContext = null;
+            macWindow.Close();
+            view.DataContext = null;
+            window.Close();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task A_renamed_dock_layout_preset_is_renamed_in_both_menus_whose_submenu_shows_only_with_presets()
     {
         await TestReset.ResetShellAsync();

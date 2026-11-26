@@ -426,13 +426,14 @@ public class ResourceRelocationService
         return destFilePath;
     }
 
-    internal static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken, bool flushToDisk = false)
+    internal static FileStream OpenCopySource(string sourcePath) => new(sourcePath, FileMode.Open, FileAccess.Read,
+        FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+    internal static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
     {
-        await using FileStream sourceStream = new(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using FileStream sourceStream = OpenCopySource(sourcePath);
         await using FileStream destStream = new(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
         await sourceStream.CopyToAsync(destStream, cancellationToken);
-        if (flushToDisk) destStream.Flush(flushToDisk: true);
     }
 }

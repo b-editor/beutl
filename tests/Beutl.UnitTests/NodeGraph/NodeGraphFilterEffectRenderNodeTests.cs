@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using System.Reflection;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -14,6 +15,8 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Utilities;
+using Beutl.Serialization;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 using SkiaSharp;
@@ -25,6 +28,183 @@ namespace Beutl.UnitTests.NodeGraph;
 [TestFixture]
 public class NodeGraphFilterEffectRenderNodeTests
 {
+    private static readonly Rect s_effectSourceBounds = new(24, 24, 64, 40);
+
+    [Test]
+    public void BloomNode_MatchesDirectEffect()
+    {
+        AssertEffectNodeMatchesDirect<Bloom>(effect =>
+        {
+            effect.Radius.Value = 8;
+            effect.Threshold.Value = 0.3f;
+            effect.Intensity.Value = 1.4f;
+        });
+    }
+
+    [Test]
+    public void LightRaysNode_MatchesDirectEffect()
+    {
+        AssertEffectNodeMatchesDirect<LightRays>(effect =>
+        {
+            effect.Center.Value = new RelativePoint(0.2f, 0.5f, RelativeUnit.Relative);
+            effect.Length.Value = 75;
+            effect.Threshold.Value = 0.25f;
+        });
+    }
+
+    [Test]
+    public void WaveRefractionNode_MatchesDirectEffect()
+    {
+        AssertEffectNodeMatchesDirect<WaveRefraction>(effect =>
+        {
+            effect.Amount.Value = 4;
+            effect.Wavelength.Value = 17;
+            effect.Phase.Value = 30;
+        });
+    }
+
+    [Test]
+    public void PuppetNode_MatchesDirectEffect()
+    {
+        AssertEffectNodeMatchesDirect<Puppet>(effect =>
+        {
+            effect.Pins.Add(new PuppetPin
+            {
+                RestPosition = { Value = new Point(0.25f, 0.5f) },
+                Position = { Value = new Point(0.25f, 0.5f) },
+            });
+            effect.Pins.Add(new PuppetPin
+            {
+                RestPosition = { Value = new Point(0.75f, 0.4f) },
+                Position = { Value = new Point(0.8f, 0.65f) },
+            });
+        });
+    }
+
+    [Test]
+    public void DelayAnimationNode_AfterSplitMatchesDirectEffectsAndEvaluatesEachTileAtItsOwnTime()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var context = new CompositionContext(MediaTime.FromSeconds(1));
+            var split = new FilterEffectNode<SplitEffect>();
+            split.Object.Value.VerticalDivisions.Value = 1;
+            var delay = new FilterEffectNode<DelayAnimationEffect>();
+            ConfigureDelay(delay.Object.Value);
+            NodeGraphFilterEffect graph = BuildEffectGraph(split, delay);
+
+            var directDelay = new DelayAnimationEffect();
+            ConfigureDelay(directDelay);
+            var direct = new FilterEffectGroup
+            {
+                Children = { new SplitEffect { VerticalDivisions = { Value = 1 } }, directDelay },
+            };
+
+            using var expected = RasterizeEffect(direct, context);
+            using var actual = RasterizeEffect(graph, context);
+            using var restored = RasterizeEffect(RestoreEffectGraph(graph), context);
+            AssertRasterizationMatches(expected, actual, "As authored");
+            AssertRasterizationMatches(expected, restored, "After saving");
+
+            SKBitmap bitmap = actual.Bitmap!.SKBitmap;
+            int left = (int)(s_effectSourceBounds.X - actual.Bounds.X);
+            int middleY = (int)(s_effectSourceBounds.Center.Y - actual.Bounds.Y);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bitmap.GetPixel(left + 16, middleY).Alpha, Is.EqualTo(255));
+                Assert.That(bitmap.GetPixel(left + 48, middleY).Alpha, Is.EqualTo(51).Within(1));
+            });
+        });
+
+        static void ConfigureDelay(DelayAnimationEffect effect)
+        {
+            var opacity = new OpacityEffect();
+            opacity.Opacity.SetKeyFrameAnimation(new KeyFrameAnimation<float>
+            {
+                KeyFrames =
+                {
+                    new KeyFrame<float> { Value = { Value = 20 } },
+                    new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 100 } },
+                },
+            });
+            effect.Delay.Value = 1000;
+            effect.Effect.Value = opacity;
+        }
+    }
+
+    private static void AssertEffectNodeMatchesDirect<T>(Action<T> configure) where T : FilterEffect, new()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var direct = new T();
+            configure(direct);
+            var node = new FilterEffectNode<T>();
+            configure(node.Object.Value);
+            NodeGraphFilterEffect graph = BuildEffectGraph(node);
+
+            using var input = RasterizeEffect(new FilterEffectGroup(), CompositionContext.Default);
+            using var expected = RasterizeEffect(direct, CompositionContext.Default);
+            using var actual = RasterizeEffect(graph, CompositionContext.Default);
+            using var restored = RasterizeEffect(RestoreEffectGraph(graph), CompositionContext.Default);
+            Assert.That(expected.Bitmap, Is.Not.Null);
+            Assert.That(expected.Bounds != input.Bounds
+                        || !expected.Bitmap!.GetPixelSpan<ushort>().SequenceEqual(input.Bitmap!.GetPixelSpan<ushort>()),
+                Is.True, "The configured effect must visibly change the source.");
+            AssertRasterizationMatches(expected, actual, "As authored");
+            AssertRasterizationMatches(expected, restored, "After saving");
+        });
+    }
+
+    private static NodeGraphFilterEffect BuildEffectGraph(params ConfigureNode[] nodes)
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel graph = effect.Model.Value!;
+        IOutputPort previous = graph.Add(new FilterEffectInputNode()).Output;
+        foreach (ConfigureNode node in nodes)
+        {
+            graph.Nodes.Add(node);
+            graph.Connect(node.NamedInput("Input"), previous);
+            previous = node.Items.OfType<IOutputPort>().Single();
+        }
+
+        graph.Connect(graph.Add(new OutputNode()).InputPort, previous);
+        return effect;
+    }
+
+    private static NodeGraphFilterEffect RestoreEffectGraph(NodeGraphFilterEffect effect)
+    {
+        var restored = new NodeGraphFilterEffect();
+        CoreSerializer.PopulateFromJsonObject(restored, CoreSerializer.SerializeToJsonObject(effect));
+        return restored;
+    }
+
+    private static RenderNodeRasterization RasterizeEffect(FilterEffect effect, CompositionContext context)
+    {
+        var gradient = new LinearGradientBrush
+        {
+            StartPoint = { Value = RelativePoint.TopLeft },
+            EndPoint = { Value = RelativePoint.BottomRight },
+            GradientStops = { new GradientStop(Colors.White, 0), new GradientStop(Colors.DarkBlue, 1) },
+        };
+        using var fill = gradient.ToResource(CompositionContext.Default);
+        using var resource = effect.ToResource(context);
+        using var root = ScaleRecordingTestHelper.Pipeline(
+            new RectangleRenderNode(s_effectSourceBounds, fill, null), resource.CreateRenderNode());
+        using var renderer = CreatePreviewRenderer(root, new Rect(0, 0, 160, 120));
+        return renderer.Rasterize();
+    }
+
+    private static void AssertRasterizationMatches(
+        RenderNodeRasterization expected, RenderNodeRasterization actual, string message)
+    {
+        Assert.That(actual.Bounds, Is.EqualTo(expected.Bounds), message);
+        Assert.That(actual.Bitmap, Is.Not.Null, message);
+        Assert.That(actual.Bitmap!.GetPixelSpan<ushort>().ToArray(),
+            Is.EqualTo(expected.Bitmap!.GetPixelSpan<ushort>().ToArray()), message);
+    }
+
     // Graph: FilterEffectInputNode -> FilterEffectNode<ScaleProbeEffect> -> OutputNode.
     private static NodeGraphFilterEffect.Resource BuildGraphResource()
     {

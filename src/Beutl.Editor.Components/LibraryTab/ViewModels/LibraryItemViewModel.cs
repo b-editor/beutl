@@ -20,6 +20,8 @@ public class LibraryItemViewModel
 
     public object? Data { get; init; }
 
+    internal LibraryCategoryKey? NodeGroupKey { get; init; }
+
     public string? Type { get; init; }
 
     public CoreList<LibraryItemViewModel> Children { get; } = [];
@@ -39,16 +41,18 @@ public class LibraryItemViewModel
             typeName = draggable.Type.Name;
         }
 
+        var group = registryItem as GraphNodeRegistry.GroupableRegistryItem;
         var obj = new LibraryItemViewModel()
         {
             DisplayName = registryItem.DisplayName,
             Description = description,
             Data = data,
+            NodeGroupKey = group == null ? null : LibraryCategoryKey.Create(group.Id, group.DisplayName),
             Type = Strings.NodeGraph,
             FullDisplayName = ComposeFullName(parentFullName, registryItem.DisplayName)
         };
 
-        if (registryItem is GraphNodeRegistry.GroupableRegistryItem group)
+        if (group != null)
         {
             obj.Children.AddRange(group.Items.Select(x => CreateFromGraphNodeRegistryItem(x, obj.FullDisplayName)));
         }

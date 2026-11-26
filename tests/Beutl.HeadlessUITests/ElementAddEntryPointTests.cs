@@ -44,6 +44,7 @@ using Beutl.Views;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using SkiaSharp;
 using AvaPoint = Avalonia.Point;
 
@@ -1683,6 +1684,68 @@ public class ElementAddEntryPointTests
         {
             window.Close();
             HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task MainMenu_ImportMedia_PlacesMediaAtPlayheadAndKeepsSubtitleTimes()
+    {
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, TimelineTabViewModel timeline) = await OpenEditorForNewScene("menu-import-media");
+        editor.CloseToolTab(timeline);
+        MediaTime playhead = MediaTime.FromSeconds(4);
+        editor.GetRequiredService<IEditorClock>().Seek(playhead);
+
+        string imagePath = CreatePngFile(editor, "picture.png");
+        string subtitlePath = Path.Combine(TestShell.ProjectRoot(editor), "subtitles.srt");
+        await File.WriteAllTextAsync(subtitlePath, "1\n00:00:01,500 --> 00:00:02,500\nImported subtitle\n");
+        var storage = new Mock<IStorageProvider>(MockBehavior.Strict);
+        storage.Setup(provider => provider.OpenFilePickerAsync(It.IsAny<FilePickerOpenOptions>()))
+            .ReturnsAsync(new[] { PickedFile(imagePath), PickedFile(subtitlePath) });
+
+        var window = new Window { Width = 900, Height = 600 };
+        TestStorageProviderFactory.SetProvider(window, storage.Object);
+        var view = new MainView { DataContext = TestShell.MainViewModel };
+        ObjectTemplateItem saved = await SaveTextTemplateAsync();
+        try
+        {
+            // Attach MainView after Show to skip the application's startup work.
+            window.Show();
+            window.Content = view;
+            HeadlessTestHelpers.Render();
+
+            Task import = TestShell.MainViewModel.MenuBar.ImportMedia.ExecuteAsync();
+            FAMenuFlyoutItem[] templates = await WaitForTemplateMenuAsync(window);
+            HeadlessTestHelpers.Click(templates.Single(item => item.Text == saved.Name.Value));
+            await import.WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.That(editor.Scene.Children, Has.Count.EqualTo(2));
+            Element image = editor.Scene.Children.Single(element => element.Objects.OfType<SourceImage>().Any());
+            Element caption = editor.Scene.Children.Single(element => element.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Any());
+            var text = caption.Objects.OfType<Beutl.Graphics.Shapes.TextBlock>().Single();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(image.Start.Value, Is.EqualTo(playhead));
+                Assert.That(caption.Range, Is.EqualTo(new TimeRange(MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(1))));
+                Assert.That(text.Text.Value, Is.EqualTo("Imported subtitle"));
+                Assert.That(text.Size.Value, Is.EqualTo(123f));
+            }
+            storage.Verify(provider => provider.OpenFilePickerAsync(
+                It.Is<FilePickerOpenOptions>(options => options.AllowMultiple)), Times.Once);
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+            RemoveTemplate(saved);
+            await TestReset.ResetShellAsync();
+        }
+
+        static IStorageFile PickedFile(string path)
+        {
+            var file = new Mock<IStorageFile>();
+            file.SetupGet(item => item.Path).Returns(new Uri(path));
+            return file.Object;
         }
     }
 

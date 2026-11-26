@@ -72,7 +72,7 @@ internal static class LibraryRegistrar
                 .BindSound<SourceSound>()
             );
 
-        library.RegisterGroup(GraphicsStrings.LibraryGroup3D, g => g
+        library.RegisterGroup(GraphicsStrings.LibraryGroup3D, null, KnownLibraryGroupIds.ThreeD, g => g
             .AddMultiple(GraphicsStrings.Scene3D, GraphicsStrings.Scene3D_LibraryDescription, m => m
                 .BindDrawable<Scene3D>()
             )
@@ -150,7 +150,7 @@ internal static class LibraryRegistrar
                 .BindDrawable<DrawableTimeController>()
             );
 
-        library.RegisterGroup(GraphicsStrings.AudioVisualizer, g => g
+        library.RegisterGroup(GraphicsStrings.AudioVisualizer, null, KnownLibraryGroupIds.AudioVisualizer, g => g
             .AddMultiple(GraphicsStrings.AudioWaveform, GraphicsStrings.AudioWaveformDrawable_LibraryDescription, m => m
                 .BindDrawable<AudioWaveformDrawable>()
             )
@@ -164,7 +164,7 @@ internal static class LibraryRegistrar
         );
 
         library
-            .RegisterGroup(GraphicsStrings.Transform, g => g
+            .RegisterGroup(GraphicsStrings.Transform, null, KnownLibraryGroupIds.Transform, g => g
                 .AddTransform<TranslateTransform>(GraphicsStrings.TranslateTransform,
                     GraphicsStrings.TranslateTransform_LibraryDescription)
                 .AddTransform<SkewTransform>(GraphicsStrings.SkewTransform,
@@ -177,8 +177,9 @@ internal static class LibraryRegistrar
             );
 
         library
-            .RegisterGroup(GraphicsStrings.FilterEffect, g => g
-                .AddGroup(GraphicsStrings.FilterEffectCategory_BlurAndSharpen, group => group
+            .RegisterGroup(GraphicsStrings.FilterEffect, null, KnownLibraryGroupIds.FilterEffect, g => g
+                .AddGroup(GraphicsStrings.FilterEffectCategory_BlurAndSharpen, null,
+                    KnownLibraryGroupIds.FilterEffectBlurAndSharpen, group => group
                     .AddFilterEffect<Blur>(GraphicsStrings.Blur, GraphicsStrings.Blur_LibraryDescription)
                     .AddFilterEffect<Sharpen>(GraphicsStrings.Sharpen, GraphicsStrings.Sharpen_LibraryDescription)
                     .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur,
@@ -187,7 +188,8 @@ internal static class LibraryRegistrar
                         GraphicsStrings.MotionBlur_LibraryDescription)
                     .AddFilterEffect<Bokeh>(GraphicsStrings.Bokeh, GraphicsStrings.Bokeh_LibraryDescription)
                 )
-                .AddGroup(GraphicsStrings.FilterEffectCategory_ColorCorrection, group => group
+                .AddGroup(GraphicsStrings.FilterEffectCategory_ColorCorrection, null,
+                    KnownLibraryGroupIds.FilterEffectColorCorrection, group => group
                     .AddFilterEffect<Brightness>(GraphicsStrings.Brightness,
                         GraphicsStrings.Brightness_LibraryDescription)
                     .AddFilterEffect<HighContrast>(GraphicsStrings.HighContrast,
@@ -205,7 +207,8 @@ internal static class LibraryRegistrar
                     .AddFilterEffect<Invert>(GraphicsStrings.Invert, GraphicsStrings.Invert_LibraryDescription)
                     .AddFilterEffect<Negaposi>(GraphicsStrings.Negaposi, GraphicsStrings.Negaposi_LibraryDescription)
                 )
-                .AddGroup(GraphicsStrings.FilterEffectCategory_LightAndShadow, group => group
+                .AddGroup(GraphicsStrings.FilterEffectCategory_LightAndShadow, null,
+                    KnownLibraryGroupIds.FilterEffectLightAndShadow, group => group
                     .AddFilterEffect<Bloom>(GraphicsStrings.Bloom, GraphicsStrings.Bloom_LibraryDescription)
                     .AddFilterEffect<LightRays>(GraphicsStrings.LightRays, GraphicsStrings.LightRays_LibraryDescription)
                     .AddFilterEffect<DropShadow>(GraphicsStrings.DropShadow,
@@ -216,7 +219,8 @@ internal static class LibraryRegistrar
                         GraphicsStrings.FlatShadow_LibraryDescription)
                     .AddFilterEffect<Vignette>(GraphicsStrings.Vignette, GraphicsStrings.Vignette_LibraryDescription)
                 )
-                .AddGroup(GraphicsStrings.FilterEffectCategory_MaskingAndKeying, group => group
+                .AddGroup(GraphicsStrings.FilterEffectCategory_MaskingAndKeying, null,
+                    KnownLibraryGroupIds.FilterEffectMaskingAndKeying, group => group
                     .AddFilterEffect<Clipping>(GraphicsStrings.Clipping, GraphicsStrings.Clipping_LibraryDescription)
                     .AddFilterEffect<DiagonalClipping>(GraphicsStrings.DiagonalClipping,
                         GraphicsStrings.DiagonalClipping_LibraryDescription)
@@ -224,7 +228,8 @@ internal static class LibraryRegistrar
                     .AddFilterEffect<ColorKey>(GraphicsStrings.ColorKey, GraphicsStrings.ColorKey_LibraryDescription)
                     .AddFilterEffect<LumaKey>(GraphicsStrings.LumaKey, GraphicsStrings.LumaKey_LibraryDescription)
                 )
-                .AddGroup(GraphicsStrings.FilterEffectCategory_TransformAndDistort, group => group
+                .AddGroup(GraphicsStrings.FilterEffectCategory_TransformAndDistort, null,
+                    KnownLibraryGroupIds.FilterEffectTransformAndDistort, group => group
                     .AddFilterEffect<TransformEffect>(GraphicsStrings.Transform,
                         GraphicsStrings.TransformEffect_LibraryDescription)
                     .AddFilterEffect<SplitEffect>(GraphicsStrings.SplitEffect,
@@ -243,7 +248,8 @@ internal static class LibraryRegistrar
                     .AddFilterEffect<CornerPin>(GraphicsStrings.CornerPin, GraphicsStrings.CornerPin_LibraryDescription)
                     .AddFilterEffect<Puppet>(GraphicsStrings.Puppet, GraphicsStrings.Puppet_LibraryDescription)
                 )
-                .AddGroup(GraphicsStrings.FilterEffectCategory_TimeAndAnimation, group => group
+                .AddGroup(GraphicsStrings.FilterEffectCategory_TimeAndAnimation, null,
+                    KnownLibraryGroupIds.FilterEffectTimeAndAnimation, group => group
                     .AddFilterEffect<Echo>(GraphicsStrings.Echo, GraphicsStrings.Echo_LibraryDescription)
                     .AddFilterEffect<SteppedMotion>(GraphicsStrings.SteppedMotion,
                         GraphicsStrings.SteppedMotion_LibraryDescription)
@@ -256,7 +262,8 @@ internal static class LibraryRegistrar
                     .AddFilterEffect<RangeAnimatorEffect>(GraphicsStrings.RangeAnimatorEffect,
                         GraphicsStrings.RangeAnimatorEffect_LibraryDescription)
                 )
-                .AddGroup(GraphicsStrings.FilterEffectCategory_Stylize, group => group
+                .AddGroup(GraphicsStrings.FilterEffectCategory_Stylize, null,
+                    KnownLibraryGroupIds.FilterEffectStylize, group => group
                     .AddFilterEffect<StrokeEffect>(GraphicsStrings.StrokeEffect,
                         GraphicsStrings.StrokeEffect_LibraryDescription)
                     .AddFilterEffect<Dilate>(GraphicsStrings.Dilate, GraphicsStrings.Dilate_LibraryDescription)
@@ -273,7 +280,8 @@ internal static class LibraryRegistrar
                     .AddFilterEffect<PixelSortEffect>(GraphicsStrings.PixelSortEffect,
                         GraphicsStrings.PixelSortEffect_LibraryDescription)
                 )
-                .AddGroup(GraphicsStrings.FilterEffectCategory_Compositing, group => group
+                .AddGroup(GraphicsStrings.FilterEffectCategory_Compositing, null,
+                    KnownLibraryGroupIds.FilterEffectCompositing, group => group
                     .AddFilterEffect<OpacityEffect>(GraphicsStrings.OpacityEffect,
                         GraphicsStrings.OpacityEffect_LibraryDescription)
                     .AddFilterEffect<BlendEffect>(GraphicsStrings.BlendEffect,
@@ -281,7 +289,8 @@ internal static class LibraryRegistrar
                     .AddFilterEffect<LayerEffect>(GraphicsStrings.LayerEffect,
                         GraphicsStrings.LayerEffect_LibraryDescription)
                 )
-                .AddGroup(GraphicsStrings.FilterEffectCategory_ScriptAndNodes, group => group
+                .AddGroup(GraphicsStrings.FilterEffectCategory_ScriptAndNodes, null,
+                    KnownLibraryGroupIds.FilterEffectScriptAndNodes, group => group
                     .AddFilterEffect<NodeGraphFilterEffect>(GraphicsStrings.NodeGraphFilterEffect,
                         GraphicsStrings.NodeGraphFilterEffect_LibraryDescription)
                     .AddFilterEffect<CSharpScriptEffect>(GraphicsStrings.CSharpScriptEffect,
@@ -294,7 +303,7 @@ internal static class LibraryRegistrar
             );
 
         library
-            .RegisterGroup(GraphicsStrings.ClipTransition, g => g
+            .RegisterGroup(GraphicsStrings.ClipTransition, null, KnownLibraryGroupIds.ClipTransition, g => g
                 .AddClipTransition<CrossDissolveTransition>(GraphicsStrings.CrossDissolveTransition,
                     GraphicsStrings.CrossDissolveTransition_LibraryDescription)
                 .AddClipTransition<FadeTransition>(GraphicsStrings.FadeTransition,
@@ -328,21 +337,24 @@ internal static class LibraryRegistrar
             );
 
         library
-            .RegisterGroup(AudioStrings.AudioEffect, g => g
-                .AddGroup(AudioStrings.AudioEffectCategory_EqAndCleanup, group => group
+            .RegisterGroup(AudioStrings.AudioEffect, null, KnownLibraryGroupIds.AudioEffect, g => g
+                .AddGroup(AudioStrings.AudioEffectCategory_EqAndCleanup, null,
+                    KnownLibraryGroupIds.AudioEffectEqAndCleanup, group => group
                     .AddAudioEffect<EqualizerEffect>(AudioStrings.Equalizer,
                         AudioStrings.EqualizerEffect_LibraryDescription)
                     .AddAudioEffect<NoiseReductionEffect>(AudioStrings.NoiseReductionEffect,
                         AudioStrings.NoiseReductionEffect_LibraryDescription)
                 )
-                .AddGroup(AudioStrings.AudioEffectCategory_Dynamics, group => group
+                .AddGroup(AudioStrings.AudioEffectCategory_Dynamics, null,
+                    KnownLibraryGroupIds.AudioEffectDynamics, group => group
                     .AddAudioEffect<CompressorEffect>(AudioStrings.CompressorEffect,
                         AudioStrings.CompressorEffect_LibraryDescription)
                     .AddAudioEffect<LimiterEffect>(AudioStrings.LimiterEffect,
                         AudioStrings.LimiterEffect_LibraryDescription)
                     .AddAudioEffect<GateEffect>(AudioStrings.GateEffect, AudioStrings.GateEffect_LibraryDescription)
                 )
-                .AddGroup(AudioStrings.AudioEffectCategory_TimeAndPitch, group => group
+                .AddGroup(AudioStrings.AudioEffectCategory_TimeAndPitch, null,
+                    KnownLibraryGroupIds.AudioEffectTimeAndPitch, group => group
                     .AddAudioEffect<TimeStretchEffect>(AudioStrings.TimeStretchEffect,
                         AudioStrings.TimeStretchEffect_LibraryDescription)
                     .AddAudioEffect<PitchShiftEffect>(AudioStrings.PitchShiftEffect,
@@ -350,7 +362,8 @@ internal static class LibraryRegistrar
                     .AddAudioEffect<ResamplingEffect>(AudioStrings.ResamplingEffect,
                         AudioStrings.ResamplingEffect_LibraryDescription)
                 )
-                .AddGroup(AudioStrings.AudioEffectCategory_DelayAndModulation, group => group
+                .AddGroup(AudioStrings.AudioEffectCategory_DelayAndModulation, null,
+                    KnownLibraryGroupIds.AudioEffectDelayAndModulation, group => group
                     .AddAudioEffect<DelayEffect>(AudioStrings.DelayEffect, AudioStrings.DelayEffect_LibraryDescription)
                     .AddAudioEffect<VibratoEffect>(AudioStrings.VibratoEffect,
                         AudioStrings.VibratoEffect_LibraryDescription)

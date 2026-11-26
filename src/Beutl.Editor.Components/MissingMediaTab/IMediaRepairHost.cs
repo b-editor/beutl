@@ -23,6 +23,9 @@ internal interface IMediaRepairHost
 
     IDisposable SuspendEditor();
 
+    // Called while the repair holds the project-file write lease.
+    ValueTask<bool> SaveRepairsAsync();
+
     void ScheduleMediaFingerprints(bool finishSaveSnapshot);
 
     void ClearRenderCaches();

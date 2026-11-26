@@ -130,6 +130,8 @@ public sealed partial class EditViewModel : IMediaRepairHost
 
     IDisposable IMediaRepairHost.SuspendEditor() => EditorService.SuspendEditor(this);
 
+    ValueTask<bool> IMediaRepairHost.SaveRepairsAsync() => SaveInReservedWorkspaceAsync();
+
     void IMediaRepairHost.ScheduleMediaFingerprints(bool finishSaveSnapshot)
         => ScheduleMediaFingerprints(finishSaveSnapshot: finishSaveSnapshot);
 
