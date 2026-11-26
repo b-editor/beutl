@@ -5,7 +5,6 @@ using Beutl.Configuration;
 using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
