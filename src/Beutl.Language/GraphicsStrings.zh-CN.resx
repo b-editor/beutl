@@ -656,6 +656,9 @@
   <data name="GeometryShape" xml:space="preserve">
     <value>几何图形</value>
   </data>
+  <data name="GeometryShapeNode" xml:space="preserve">
+    <value>形状</value>
+  </data>
   <data name="Geometry" xml:space="preserve">
     <value>几何图形</value>
   </data>
@@ -1651,6 +1654,9 @@
   </data>
   <data name="Drawable" xml:space="preserve">
     <value>可绘制对象</value>
+  </data>
+  <data name="DrawableBrushNode" xml:space="preserve">
+    <value>可绘制对象用作画笔</value>
   </data>
   <data name="EndPoint" xml:space="preserve">
     <value>终点</value>
