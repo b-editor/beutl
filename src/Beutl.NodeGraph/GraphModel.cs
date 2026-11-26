@@ -11,8 +11,6 @@ public partial class GraphModel : EngineObject
 {
     private Dictionary<IProperty, (IInputPort Port, int Count)>? _connectedInputProperties;
     private List<FallbackGraphNode>? _fallbackNodes;
-    private Dictionary<Connection, (Guid Id, FallbackGraphNode.SavedPort? Input, FallbackGraphNode.SavedPort? Output)>?
-        _removedFallbackConnections;
 
     public event EventHandler? TopologyChanged;
 
@@ -82,24 +80,13 @@ public partial class GraphModel : EngineObject
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        if (_removedFallbackConnections == null || context is not JsonSerializationContext json
+        if (_fallbackNodes is not { Count: > 0 } || context is not JsonSerializationContext json
             || json.GetNode(Nodes.Name) is not JsonArray nodes) return;
 
-        // Write only the confirmed cuts into the outgoing JSON. Undo reattaches the same connection,
-        // so its saved references and their order are recovered from the fallback's original JSON.
-        foreach (var (connection, removed) in _removedFallbackConnections)
+        for (int i = 0; i < Nodes.Count; i++)
         {
-            if (AllConnections.Contains(connection)) continue;
-            RemoveReference(removed.Input, removed.Id);
-            RemoveReference(removed.Output, removed.Id);
-        }
-
-        void RemoveReference(FallbackGraphNode.SavedPort? port, Guid connectionId)
-        {
-            if (port == null) return;
-            int index = Nodes.IndexOf(port.Node);
-            if (index >= 0 && nodes[index] is JsonObject serializedNode)
-                port.RemoveConnection(serializedNode, connectionId);
+            if (Nodes[i] is FallbackGraphNode fallback && nodes[i] is JsonObject serializedNode)
+                fallback.ApplyConnectionCuts(serializedNode, AllConnections);
         }
     }
 
@@ -145,7 +132,8 @@ public partial class GraphModel : EngineObject
         var output = FindSavedFallbackPort(connection, input: false);
         if ((input != null || output != null) && AllConnections.Contains(connection))
         {
-            (_removedFallbackConnections ??= [])[connection] = (connection.Id.Value, input, output);
+            input?.RecordDisconnection(connection);
+            output?.RecordDisconnection(connection);
         }
 
         AllConnections.Remove(connection);

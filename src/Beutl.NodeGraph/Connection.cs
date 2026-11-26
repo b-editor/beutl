@@ -63,19 +63,27 @@ public sealed partial class Connection : Hierarchical
     {
         void IProperty.DeserializeValue(ICoreSerializationContext context)
         {
-            if (context is JsonSerializationContext json
-                && json.TryGetPreservedValue(Name, ValueType, out _, allowCollections: true)) return;
+            var json = context as JsonSerializationContext;
+            if (json?.TryGetPreservedValue(Name, ValueType, out _, allowCollections: true) == true) return;
             if (context.GetValue<Optional<Reference<NodeMember>>>(Name) is not { HasValue: true, Value: var reference }) return;
             Value = reference;
             if (reference.IsNull) return;
 
-            context.Resolve(reference.Id, resolved =>
+            if (json != null)
+                json.Resolve(reference.Id, ResolveEndpoint, CanResolve);
+            else
+                context.Resolve(reference.Id, ResolveEndpoint);
+
+            // Both lists have attached by the time the context resolves references. A saved fallback
+            // endpoint can share an Id with a real port belonging to a different connection.
+            bool CanResolve()
+                => owner.HierarchicalParent is not GraphModel graph || graph.FindSavedFallbackPort(owner, input) == null;
+
+            void ResolveEndpoint(ICoreSerializable resolved)
             {
-                // Both lists have attached by the time the context resolves references. A saved fallback
-                // endpoint can share an Id with a real port belonging to a different connection.
-                if (owner.HierarchicalParent is not GraphModel graph || graph.FindSavedFallbackPort(owner, input) == null)
+                if (CanResolve())
                     Value = reference.Resolved((NodeMember)resolved);
-            });
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
 using Beutl.Composition;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Transformation;
@@ -204,6 +205,41 @@ public class FallbackGraphNodeTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ClearingHistoryReleasesRemovedFallbackConnections(bool deleteNode)
+    {
+        var source = new GraphModel();
+        var input = new ExpressionNode();
+        source.Nodes.Add(input);
+        source.Connect(input.InputPort, NodeGraphTestHelpers.Source(source, 42f));
+        JsonObject json = CoreSerializer.SerializeToJsonObject(source);
+        json[nameof(GraphModel.Nodes)]![0]!["$type"] = MissingType;
+        var graph = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        using var history = new HistoryHarness(graph);
+        var (node, connection) = RemoveAndClearHistory(graph, history, deleteNode);
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(connection.IsAlive, Is.False, "The graph must release the removed connection.");
+            if (deleteNode)
+            {
+                Assert.That(node.IsAlive, Is.False, "The graph must release the removed node and its JSON.");
+            }
+            else
+            {
+                JsonObject saved = CoreSerializer.SerializeToJsonObject(graph);
+                Assert.That(ListReferences(saved[nameof(GraphModel.Nodes)]![0]!.AsObject()), Is.Empty,
+                    "A cut still persists after the connection has been collected.");
+            }
+        });
+        GC.KeepAlive(graph);
+    }
+
     [Test]
     public void SceneRecoveryKeepsProtectedElementBytesWhenFallbackConnectionCutIsRefused()
     {
@@ -260,6 +296,23 @@ public class FallbackGraphNodeTests
         var recoveredPort = (INestedInputPort)recovered.FindNodePort(port.Id.Value)!;
         Assert.That(recoveredPort.Connection.Value.IsNull, Is.True);
         Assert.That(recovered.AllConnections, Is.Empty);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (WeakReference Node, WeakReference Connection) RemoveAndClearHistory(
+        GraphModel graph, HistoryHarness history, bool deleteNode)
+    {
+        GraphNode node = graph.Nodes[0];
+        Connection connection = graph.AllConnections.Single();
+        var service = new NodeGraphMutationService(history.History);
+        if (deleteNode)
+            service.RemoveNode(graph, node);
+        else
+            service.DisconnectConnection(graph, connection);
+
+        Assert.That(history.History.UndoCount, Is.EqualTo(1));
+        history.History.Clear();
+        return (new WeakReference(node), new WeakReference(connection));
     }
 
     private static JsonObject ReadElement(string path) => JsonNode.Parse(File.ReadAllText(path))!.AsObject();

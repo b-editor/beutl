@@ -7,9 +7,22 @@ namespace Beutl.NodeGraph;
 public sealed partial class FallbackGraphNode : GraphNode, IFallback
 {
     private bool _metadataRestored;
+    private Dictionary<(SavedPort Port, Guid ConnectionId), WeakReference<Connection>>? _connectionCuts;
 
     // A node read from JSON has its metadata already.
     internal void MarkMetadataRead() => _metadataRestored = true;
+
+    internal void ApplyConnectionCuts(JsonObject serializedNode, IListProperty<Connection> connections)
+    {
+        if (_connectionCuts == null) return;
+
+        // Undo reattaches the same connection. Once history lets it go, the saved Id still identifies the cut.
+        foreach (var (cut, reference) in _connectionCuts)
+        {
+            if (!reference.TryGetTarget(out Connection? connection) || !connections.Contains(connection))
+                cut.Port.RemoveConnection(serializedNode, cut.ConnectionId);
+        }
+    }
 
     // Only direct members with a matching connection reference establish ownership of a saved endpoint.
     internal IEnumerable<SavedPort> FindSavedPorts(Guid portId, Guid connectionId, bool input)
@@ -42,6 +55,9 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
 
     internal sealed record SavedPort(FallbackGraphNode Node, string Member, int Index, bool IsList)
     {
+        internal void RecordDisconnection(Connection connection)
+            => (Node._connectionCuts ??= [])[(this, connection.Id.Value)] = new WeakReference<Connection>(connection);
+
         internal void RemoveConnection(JsonObject serializedNode, Guid connectionId)
         {
             if (serializedNode[Member] is not JsonArray ports || Index >= ports.Count
