@@ -1,6 +1,6 @@
 ﻿using Avalonia.Platform.Storage;
 
-namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
+namespace Beutl.Editor.Components.Helpers;
 
 internal static class CaptionExportStorage
 {

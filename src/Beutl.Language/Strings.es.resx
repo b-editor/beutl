@@ -1429,6 +1429,33 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ExportProject" xml:space="preserve">
     <value>Exportar proyecto…</value>
   </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>Exportar subtítulos…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>Exportar subtítulos</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>Clips que se exportarán</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>Elementos seleccionados</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>Capas de la línea de tiempo</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>No hay capas con clips.</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>Formato de archivo</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>No se encontraron clips de texto.</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>Clips sin texto omitidos ({0}).</value>
+  </data>
   <data name="ImportProject" xml:space="preserve">
     <value>Importar proyecto…</value>
   </data>

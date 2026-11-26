@@ -81,6 +81,7 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                 new(ProjectAssetsStrings.MenuLabel) { Command = MenuBar.OrganizeProjectAssets },
                 new(Strings.ExportProject) { Command = MenuBar.ExportProject, Icon = Icon.ArrowExport },
                 new(Strings.ImportProject) { Command = MenuBar.ImportProject, Icon = Icon.ArrowImport },
+                new(Strings.ExportSubtitlesMenu) { Command = MenuBar.ExportSubtitles, Icon = Icon.ArrowExport },
                 MainMenuItem.Separator,
                 new(Strings.RecentFiles)
                 {

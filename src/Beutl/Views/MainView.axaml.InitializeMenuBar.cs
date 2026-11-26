@@ -58,6 +58,7 @@ public partial class MainView
         }).AddTo(_disposables);
         viewModel.MenuBar.OpenFile.Subscribe(OnOpenFile).AddTo(_disposables);
         viewModel.MenuBar.ImportMedia.Subscribe(OnImportMedia).AddTo(_disposables);
+        viewModel.MenuBar.ExportSubtitles.Subscribe(OnExportSubtitles).AddTo(_disposables);
         viewModel.MenuBar.EnableVersionControl.Subscribe(
             () => EnableVersionControlAsync(viewModel)).AddTo(_disposables);
         viewModel.MenuBar.CommitVersion.Subscribe(
