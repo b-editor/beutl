@@ -132,8 +132,7 @@ internal sealed partial class ProjectAssetService
                     }
                 }
 
-                await StoreDocumentsAsync(paths, documents, items.SelectMany(item => item.Files), token);
-                transaction.Commit();
+                await StoreDocumentsAsync(paths, documents, copies!, transaction, token);
                 preserveCopies = true;
             }
             catch
@@ -164,7 +163,7 @@ internal sealed partial class ProjectAssetService
     }
 
     private static Task StoreDocumentsAsync(ProjectAssetPaths paths, HashSet<CoreObject> documents,
-        IEnumerable<ProjectAssetFile> sources, CancellationToken token)
+        ProjectAssetCollection copies, StorageWriteTransaction transaction, CancellationToken token)
     {
         var pending = new HashSet<string>(StringComparer.Ordinal);
         var writes = new List<(string Path, Action Write)>();
@@ -184,13 +183,16 @@ internal sealed partial class ProjectAssetService
                 paths.RequireWritable(path);
                 write();
             }
-            foreach (ProjectAssetFile file in sources)
+            foreach (ProjectAssetCollection.StagedFile staged in copies.Files)
             {
                 token.ThrowIfCancellationRequested();
+                ProjectAssetFile file = staged.File;
                 RequireUnchanged(file);
                 paths.RequireWritable(file.Destination);
                 if (!File.Exists(file.Destination)) throw new ProjectAssetPlanChangedException();
             }
+            copies.RequirePublishedParents(token);
+            transaction.Commit();
         }, token);
     }
 

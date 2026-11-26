@@ -33,17 +33,29 @@ internal sealed class ProjectAssetCollection(string root)
     {
         // Open the destination from the root for each file. The verified staging handle
         // can then serve for rollback.
-        string parentPath = Path.GetDirectoryName(GetRelativePath(staged.File.Destination))!;
-        ProjectAssetDirectory directory = _root.OpenExistingPath(parentPath);
+        ProjectAssetDirectory directory = OpenVerifiedParent(_root, staged);
         try
         {
-            if (!directory.IsSameDirectory(staged.Parent)) throw new ProjectAssetPlanChangedException();
             staged.HasStagingName = staged.Parent.PublishFile(staged.Name, directory, Path.GetFileName(staged.File.Destination));
             staged.Published = true;
         }
         finally
         {
             if (directory != _root) directory.Dispose();
+        }
+    }
+
+    internal void RequirePublishedParents(CancellationToken token)
+    {
+        // Stored references use paths. Confirm that those paths still reach the directories
+        // that received the copies before discarding the document rollback journal.
+        using ProjectAssetDirectory currentRoot = ProjectAssetDirectory.OpenRoot(root);
+        if (!currentRoot.IsSameDirectory(_root)) throw new ProjectAssetPlanChangedException();
+        foreach (StagedFile staged in _files.Where(file => file.Published).DistinctBy(file => file.Parent))
+        {
+            token.ThrowIfCancellationRequested();
+            ProjectAssetDirectory directory = OpenVerifiedParent(currentRoot, staged);
+            if (directory != currentRoot) directory.Dispose();
         }
     }
 
@@ -75,6 +87,22 @@ internal sealed class ProjectAssetCollection(string root)
     {
         if (!ProjectAssetPaths.IsBelow(root, path)) throw new IOException($"The path is outside the project: '{path}'.");
         return Path.GetRelativePath(root, path);
+    }
+
+    private ProjectAssetDirectory OpenVerifiedParent(ProjectAssetDirectory projectRoot, StagedFile staged)
+    {
+        string parentPath = Path.GetDirectoryName(GetRelativePath(staged.File.Destination))!;
+        ProjectAssetDirectory directory = projectRoot.OpenExistingPath(parentPath);
+        try
+        {
+            if (!directory.IsSameDirectory(staged.Parent)) throw new ProjectAssetPlanChangedException();
+            return directory;
+        }
+        catch
+        {
+            if (directory != projectRoot) directory.Dispose();
+            throw;
+        }
     }
 
     private ProjectAssetDirectory OpenStagingParent(string path)
