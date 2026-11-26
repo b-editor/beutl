@@ -1657,7 +1657,7 @@
     <value>Drawable</value>
   </data>
   <data name="DrawableBrushNode" xml:space="preserve">
-    <value>Drawable as a brush</value>
+    <value>Drawable as Brush</value>
   </data>
   <data name="EndPoint" xml:space="preserve">
     <value>End Point</value>
