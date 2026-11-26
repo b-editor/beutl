@@ -490,6 +490,10 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         _logger.LogInformation("TimelineViewModel disposed successfully.");
     }
 
+    internal bool CanDuplicateSelectedElements()
+        => SelectedElements.Count > 0
+            && _selection.GetTargetElements(Scene).Any(element => ElementDuplicateService.IsEligibleSource(Scene, element));
+
     private void DuplicateSelectedElements()
     {
         if (SelectedElements.Count == 0) return;

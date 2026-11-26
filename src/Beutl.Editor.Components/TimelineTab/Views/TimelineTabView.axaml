@@ -227,12 +227,6 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
-                        <ui:FAMenuFlyoutSubItem x:Name="EditingModeMenu" Text="{x:Static lang:Strings.EditingMode}">
-                            <ui:FAMenuFlyoutSubItem.IconSource>
-                                <icons:FluentIconSource Icon="Edit" />
-                            </ui:FAMenuFlyoutSubItem.IconSource>
-                        </ui:FAMenuFlyoutSubItem>
-                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:FAMenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.AddAdjustmentLayer"
@@ -242,6 +236,12 @@
                                 <icons:FluentIconSource Icon="Color" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutSubItem x:Name="EditingModeMenu" Text="{x:Static lang:Strings.EditingMode}">
+                            <ui:FAMenuFlyoutSubItem.IconSource>
+                                <icons:FluentIconSource Icon="Edit" />
+                            </ui:FAMenuFlyoutSubItem.IconSource>
+                        </ui:FAMenuFlyoutSubItem>
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Paste"
                                              Command="{CompiledBinding Paste}"

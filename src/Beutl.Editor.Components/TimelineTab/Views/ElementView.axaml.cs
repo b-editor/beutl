@@ -131,7 +131,7 @@ public sealed partial class ElementView : UserControl
         split.IsEnabled = editable;
         autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
-        duplicate.IsEnabled = viewModel.Timeline.SelectedElements.Count > 0;
+        duplicate.IsEnabled = viewModel.Timeline.CanDuplicateSelectedElements();
         // Recovery protection makes a clip read-only but still lets it be removed.
         delete.IsEnabled = !viewModel.IsLockedByUser.Value;
         finishEditingAnimation.IsEnabled = editable;
