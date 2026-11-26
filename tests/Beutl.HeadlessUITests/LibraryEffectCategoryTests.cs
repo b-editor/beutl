@@ -1,13 +1,16 @@
-﻿using Avalonia.Controls;
+﻿using System.Globalization;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Audio.Effects;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
+using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Services;
@@ -41,6 +44,7 @@ public sealed class LibraryEffectCategoryTests
             Assert.Multiple(() =>
             {
                 Assert.That(headings, Is.EqualTo(viewModel.EffectSections.Select(section => section.Title)));
+                Assert.That(viewModel.EffectSections.First().Key.Id, Is.EqualTo(KnownLibraryGroupIds.FilterEffectBlurAndSharpen));
                 Assert.That(headings.Take(2), Is.EqualTo(new[]
                 {
                     GraphicsStrings.FilterEffectCategory_BlurAndSharpen,
@@ -60,6 +64,159 @@ public sealed class LibraryEffectCategoryTests
                 Assert.That(gallery.GetVisualDescendants().OfType<TextBlock>().Any(text =>
                     text.Classes.Contains("effectCategoryHeading") && text.Text == Strings.Others), Is.True);
             });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest, SetUICulture("en-US")]
+    public void The_gallery_recognizes_built_in_categories_registered_in_another_language()
+    {
+        using var library = new LibraryService();
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        string registeredTitle;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+            LibraryRegistrar.RegisterAll(library);
+            registeredTitle = GraphicsStrings.FilterEffectCategory_BlurAndSharpen;
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, library, TestShell.Configuration.EditorConfig);
+        LibraryGallerySection section = viewModel.EffectSections.Single(section =>
+            section.Key.Id == KnownLibraryGroupIds.FilterEffectBlurAndSharpen);
+        Assert.Multiple(() =>
+        {
+            Assert.That(registeredTitle, Is.Not.EqualTo(GraphicsStrings.FilterEffectCategory_BlurAndSharpen));
+            Assert.That(section.Title, Is.EqualTo(registeredTitle));
+            Assert.That(section.Items.Select(item => item.Type), Does.Contain(typeof(Blur)));
+        });
+    }
+
+    [AvaloniaTest, SetUICulture("en-US")]
+    [TestCase(false, TestName = "An_extension_without_ids_joins_the_built_in_groups_by_name")]
+    [TestCase(true, TestName = "An_extension_with_built_in_ids_joins_groups_with_different_display_names")]
+    public void An_extension_joins_built_in_effect_categories(bool useIds)
+    {
+        using var library = new LibraryService();
+        LibraryRegistrar.RegisterAll(library);
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, library, TestShell.Configuration.EditorConfig);
+        int initialSectionCount = viewModel.EffectSections.Count;
+
+        if (useIds)
+        {
+            library.RegisterGroup("Extension's effect heading", null, KnownLibraryGroupIds.FilterEffect, root => root
+                .AddGroup("Extension's blur heading", null, KnownLibraryGroupIds.FilterEffectBlurAndSharpen, group => group
+                    .Add<FilterEffectGroup>(KnownLibraryItemFormats.FilterEffect, "Extension effect")));
+        }
+        else
+        {
+            library.RegisterGroup(GraphicsStrings.FilterEffect, root => root
+                .AddGroup(GraphicsStrings.FilterEffectCategory_BlurAndSharpen, group => group
+                    .Add<FilterEffectGroup>(KnownLibraryItemFormats.FilterEffect, "Extension effect")));
+        }
+
+        Dispatcher.UIThread.RunJobs();
+        var root = library.Items.OfType<GroupLibraryItem>().Single(group => group.Id == KnownLibraryGroupIds.FilterEffect);
+        var category = root.Items.OfType<GroupLibraryItem>().Single(group => group.Id == KnownLibraryGroupIds.FilterEffectBlurAndSharpen);
+        LibraryGallerySection section = viewModel.EffectSections.Single(section =>
+            section.Key.Id == KnownLibraryGroupIds.FilterEffectBlurAndSharpen);
+        Assert.Multiple(() =>
+        {
+            Assert.That(category.Items.OfType<SingleTypeLibraryItem>().Select(item => item.ImplementationType),
+                Does.Contain(typeof(FilterEffectGroup)));
+            Assert.That(viewModel.EffectSections, Has.Count.EqualTo(initialSectionCount));
+            Assert.That(section.Title, Is.EqualTo(GraphicsStrings.FilterEffectCategory_BlurAndSharpen));
+            Assert.That(section.Items.Select(item => item.Type), Does.Contain(typeof(FilterEffectGroup)));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Categories_with_different_ids_stay_separate_when_their_titles_match()
+    {
+        using var library = new LibraryService();
+        const string title = "Adjustments";
+        library.RegisterGroup(title, null, "Test.Blur", group => group.Add<Blur>(KnownLibraryItemFormats.FilterEffect, "Blur"));
+        library.RegisterGroup(title, null, "Test.Sharpen", group => group.Add<Sharpen>(KnownLibraryItemFormats.FilterEffect, "Sharpen"));
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, library, TestShell.Configuration.EditorConfig);
+        LibraryGallerySection[] sections = [.. viewModel.EffectSections];
+        library.Register<FilterEffectGroup>(KnownLibraryItemFormats.FilterEffect, "Extension effect");
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.EffectSections, Has.Count.EqualTo(3));
+            Assert.That(viewModel.EffectSections[0], Is.SameAs(sections[0]));
+            Assert.That(viewModel.EffectSections[1], Is.SameAs(sections[1]));
+            Assert.That(sections[0].Items.Single().Type, Is.EqualTo(typeof(Blur)));
+            Assert.That(sections[1].Items.Single().Type, Is.EqualTo(typeof(Sharpen)));
+        });
+
+        var picker = new SelectLibraryItemDialogViewModel(TestShell.FontManager, library,
+            KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        try
+        {
+            await picker.SearchTask;
+            Assert.That(picker.Categories, Is.EqualTo(new[] { Strings.AllEffectCategories, title, title, Strings.Others }));
+            picker.SelectedCategoryIndex.Value = 2;
+            await picker.SearchTask;
+            Assert.That(((SingleTypeLibraryItem)picker.Items.Single().UserData).ImplementationType, Is.EqualTo(typeof(Sharpen)));
+        }
+        finally
+        {
+            picker.ReleaseThumbnails();
+        }
+    }
+
+    [AvaloniaTest, SetUICulture("en-US")]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task The_gallery_displays_a_description_only_when_one_is_registered(bool withDescription)
+    {
+        const string description = "Soften details, add motion blur, or sharpen edges.";
+        using var library = new LibraryService();
+        library.RegisterGroup(GraphicsStrings.FilterEffect, root => root
+            .AddGroup(GraphicsStrings.FilterEffectCategory_BlurAndSharpen, withDescription ? description : null, group => group
+                .Add<Blur>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Blur)
+                .Add<Sharpen>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Sharpen)
+                .Add<MotionBlur>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.MotionBlur))
+            .AddGroup(GraphicsStrings.FilterEffectCategory_ColorCorrection, group => group
+                .Add<Brightness>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Brightness)
+                .Add<Curves>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Curves)
+                .Add<Saturate>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Saturate)));
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, library, TestShell.Configuration.EditorConfig);
+        var gallery = new LibraryGalleryView { DataContext = viewModel, Margin = new Avalonia.Thickness(12) };
+        var window = new Window { Content = gallery, Width = 490, Height = 350 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+
+            string?[] descriptions = gallery.GetVisualDescendants().OfType<TextBlock>()
+                .Where(text => text.IsVisible && text.Classes.Contains("effectCategoryDescription"))
+                .Select(text => text.Text)
+                .ToArray();
+            Assert.That(descriptions, Is.EqualTo(withDescription ? new[] { description } : Array.Empty<string>()));
+
+            if (HeadlessCapture.IsRequested)
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(() =>
+                {
+                    HeadlessTestHelpers.Render();
+                    AnimatedThumbnail[] shown = gallery.GetVisualDescendants().OfType<AnimatedThumbnail>()
+                        .Where(thumbnail => thumbnail.IsOnScreen && thumbnail.Source != null).ToArray();
+                    return shown.Length > 0 && shown.All(thumbnail =>
+                        thumbnail.Source!.Still != null || thumbnail.Source is LibraryThumbnailSource { Failed: true });
+                });
+                HeadlessCapture.SaveIfRequested(window, nameof(LibraryEffectCategoryTests),
+                    withDescription ? "library-gallery-after" : "library-gallery-before");
+            }
         }
         finally
         {

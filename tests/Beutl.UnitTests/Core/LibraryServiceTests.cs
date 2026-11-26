@@ -23,5 +23,24 @@ public class LibraryServiceTests
         }
     }
 
+    [Test]
+    public void A_group_registered_by_name_keeps_the_id_of_a_later_registration()
+    {
+        using var library = new LibraryService();
+        const string id = "Beutl.UnitTests.Group";
+        library.RegisterGroup("Group", group => group.Add<SnapshotItem>(Format, "First"));
+        var first = (GroupLibraryItem)library.Items.Single();
+
+        library.RegisterGroup("Group", null, id, group => group.Add<SnapshotItem>(Format, "Second"));
+        library.RegisterGroup("Translated title", null, id, group => group.Add<SnapshotItem>(Format, "Third"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(library.Items.Single(), Is.SameAs(first));
+            Assert.That(first.Id, Is.EqualTo(id));
+            Assert.That(first.Items.Select(item => item.DisplayName), Is.EqualTo(new[] { "First", "Second", "Third" }));
+        }
+    }
+
     private sealed class SnapshotItem;
 }

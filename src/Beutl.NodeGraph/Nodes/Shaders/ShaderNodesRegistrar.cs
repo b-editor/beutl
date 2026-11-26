@@ -8,11 +8,13 @@ internal static class ShaderNodesRegistrar
     internal static void RegisterAll()
     {
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.Shaders, Colors.MediumPurple)
+            .WithId("Beutl.Nodes.Shaders")
             .Add<ShaderFullscreenPassNode>(NodeGraphStrings.ShaderFullscreenPassNode)
             .Add<ShaderComputePassNode>(NodeGraphStrings.ShaderComputePassNode)
             .Add<ShaderRenderPassNode>(NodeGraphStrings.ShaderRenderPassNode)
             .Add<ShaderExtendedRenderPassNode>(NodeGraphStrings.ShaderExtendedRenderPassNode)
             .AddGroup(NodeGraphStrings.ShaderCategory_Resources, group => group
+                .WithId("Beutl.Nodes.Shaders.Resources")
                 .Add<ShaderImageNode>(NodeGraphStrings.ShaderImageNode)
                 .Add<ShaderFixedImageNode>(NodeGraphStrings.ShaderFixedImageNode)
                 .Add<ShaderImageViewNode>(NodeGraphStrings.ShaderImageViewNode)
@@ -21,6 +23,7 @@ internal static class ShaderNodesRegistrar
                 .Add<ShaderPackNode>(NodeGraphStrings.ShaderPackNode)
                 .Register())
             .AddGroup(NodeGraphStrings.ShaderCategory_Operations, group => group
+                .WithId("Beutl.Nodes.Shaders.Operations")
                 .Add<ShaderClearImageNode>(NodeGraphStrings.ShaderClearImageNode)
                 .Add<ShaderClearBufferNode>(NodeGraphStrings.ShaderClearBufferNode)
                 .Add<ShaderCopyImageNode>(NodeGraphStrings.ShaderCopyImageNode)
@@ -29,6 +32,7 @@ internal static class ShaderNodesRegistrar
                 .Add<ShaderConvertColorNode>(NodeGraphStrings.ShaderConvertColorNode)
                 .Register())
             .AddGroup(NodeGraphStrings.ShaderCategory_Loops, group => group
+                .WithId("Beutl.Nodes.Shaders.Loops")
                 .Add<ShaderRepeatNode>(NodeGraphStrings.ShaderRepeatNode)
                 .Add<ShaderReplayNode>(NodeGraphStrings.ShaderReplayNode)
                 .Add<ShaderLoopInfoNode>(NodeGraphStrings.ShaderLoopInfoNode)
@@ -36,6 +40,7 @@ internal static class ShaderNodesRegistrar
                 .Add<ShaderLoopOutput>(NodeGraphStrings.ShaderLoopOutput)
                 .Register())
             .AddGroup(NodeGraphStrings.ShaderCategory_Inputs, group => group
+                .WithId("Beutl.Nodes.Shaders.Inputs")
                 .Add<ShaderSamplerNode>(NodeGraphStrings.ShaderSamplerNode)
                 .Add<ShaderInputRegionNode>(NodeGraphStrings.ShaderInputRegionNode)
                 .Add<ShaderImageParametersNode>(NodeGraphStrings.ShaderImageParametersNode)
@@ -43,6 +48,7 @@ internal static class ShaderNodesRegistrar
                 .Add<ShaderColorNode>(NodeGraphStrings.ShaderColorNode)
                 .Register())
             .AddGroup(NodeGraphStrings.ShaderCategory_PassSettings, group => group
+                .WithId("Beutl.Nodes.Shaders.PassSettings")
                 .Add<ShaderBlendNode>(NodeGraphStrings.ShaderBlendNode)
                 .Add<ShaderDrawNode>(NodeGraphStrings.ShaderDrawNode)
                 .Add<ShaderDispatchNode>(NodeGraphStrings.ShaderDispatchNode)
