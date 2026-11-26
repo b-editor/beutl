@@ -253,7 +253,8 @@ public partial class DelayAnimationEffect : FilterEffect
                  childEffect, cache: DelayedResources,
                  disableResourceShare: DisableResourceShare,
                  conditions: _conditions),
-                ApplyDelayed);
+                ApplyDelayed,
+                CustomFilterEffectOptions.AcceptsMaterializedTargets);
         }
     }
 }

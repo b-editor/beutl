@@ -304,6 +304,43 @@ public sealed class TextAnimationUnitRenderingTests
         }
     }
 
+    [Test]
+    public void GroupDelayKeepsTheAntialiasedBottomRowsOfTheRemainingGlyphs()
+    {
+        TextOnPathEffect path = AlongLine(120);
+        path.PathOffset.Value = 121;
+        DrawableGroup group = CreatePathGroup(path, new FilterEffectGroup());
+        var sibling = (TextBlock)group.Children[1];
+        sibling.Size.Value = 152;
+        sibling.FontWeight.Value = FontWeight.Bold;
+        sibling.AlignmentX.Value = AlignmentX.Center;
+        sibling.Transform.Value = new TranslateTransform(0, 53);
+
+        int[] reference = RenderBottomRows();
+        group.FilterEffect.Value = FadeDelay(150, DelayAnimationMode.PerStep);
+
+        Assert.That(RenderBottomRows(), Is.EqualTo(reference));
+
+        int[] RenderBottomRows()
+        {
+            using var resource = group.ToResource(AtTime(0.8));
+            using var root = Record(resource);
+            using var renderer = CreateRenderer(root);
+            using var target = new CpuRenderTarget((int)s_domain.Width, (int)s_domain.Height);
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, 1, logicalSize: s_domain.Size);
+            canvas.Clear(Colors.Transparent);
+            renderer.Render(canvas);
+            using Bitmap image = target.Snapshot();
+            using Bitmap alpha = image.Convert(BitmapColorType.Alpha8);
+
+            int middle = alpha.Width / 2;
+            return [LastInkRow(0, middle), LastInkRow(middle, alpha.Width - middle)];
+
+            int LastInkRow(int x, int width) => Enumerable.Range(0, alpha.Height).Last(y =>
+                alpha.GetPixelSpan().Slice(y * alpha.RowBytes + x, width).ContainsAnyExcept((byte)0));
+        }
+    }
+
     [TestCase(TextAnimationUnit.Characters, true)]
     [TestCase(TextAnimationUnit.Characters, false)]
     [TestCase(TextAnimationUnit.Words, true)]
