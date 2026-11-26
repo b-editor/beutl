@@ -57,17 +57,23 @@ internal sealed partial class ProjectAssetDirectory : IDisposable
         return OperatingSystem.IsWindows() ? Windows.CreateFile(_handle, name, path) : Unix.CreateFile(_handle, name, path);
     }
 
-    internal bool? IsSameDirectory(ProjectAssetDirectory other)
+    internal bool IsSameDirectory(ProjectAssetDirectory other)
     {
         if (this == other) return true;
-        DirectoryIdentity? identity = GetIdentity();
-        DirectoryIdentity? otherIdentity = other.GetIdentity();
-        return identity.HasValue && otherIdentity.HasValue ? identity == otherIdentity : null;
-    }
+        if (OperatingSystem.IsWindows())
+        {
+            if (Windows.GetIdentity(_handle) is { } identity && Windows.GetIdentity(other._handle) is { } otherIdentity)
+                return identity == otherIdentity;
+            if (Windows.GetLegacyIdentity(_handle) is { } legacy && Windows.GetLegacyIdentity(other._handle) is { } otherLegacy)
+                return legacy == otherLegacy;
+        }
+        else if (Unix.GetIdentity(_handle) is { } unixIdentity && Unix.GetIdentity(other._handle) is { } otherUnixIdentity)
+        {
+            return unixIdentity == otherUnixIdentity;
+        }
 
-    private DirectoryIdentity? GetIdentity() => OperatingSystem.IsWindows()
-        ? Windows.GetIdentity(_handle)
-        : Unix.GetIdentity(_handle);
+        throw new IOException($"Could not verify the identity of the project asset directory '{DisplayPath}'.");
+    }
 
     private readonly record struct DirectoryIdentity(ulong Volume, ulong FileId, ulong FileIdHigh = 0);
 

@@ -31,20 +31,19 @@ internal sealed class ProjectAssetCollection(string root)
 
     internal void Publish(StagedFile staged)
     {
-        // Open the destination from the root for each file. When it is the same directory,
-        // the staging handle can also serve for rollback.
+        // Open the destination from the root for each file. The verified staging handle
+        // can then serve for rollback.
         string parentPath = Path.GetDirectoryName(GetRelativePath(staged.File.Destination))!;
         ProjectAssetDirectory directory = _root.OpenExistingPath(parentPath);
         try
         {
-            bool? sameDirectory = directory.IsSameDirectory(staged.Parent);
-            if (sameDirectory == false) throw new ProjectAssetPlanChangedException();
+            if (!directory.IsSameDirectory(staged.Parent)) throw new ProjectAssetPlanChangedException();
             staged.HasStagingName = staged.Parent.PublishFile(staged.Name, directory, Path.GetFileName(staged.File.Destination));
-            staged.PublishedParent = sameDirectory == true ? staged.Parent : directory;
+            staged.Published = true;
         }
         finally
         {
-            if (staged.PublishedParent != directory && directory != _root) directory.Dispose();
+            if (directory != _root) directory.Dispose();
         }
     }
 
@@ -55,9 +54,8 @@ internal sealed class ProjectAssetCollection(string root)
             foreach (StagedFile staged in _files)
             {
                 if (staged.HasStagingName) TryDelete(staged.Parent, staged.Name, directory: false);
-                if (staged.PublishedParent is not { } published) continue;
-                if (!preserveCopies) TryDelete(published, Path.GetFileName(staged.File.Destination), directory: false);
-                if (published != staged.Parent && published != _root) published.Dispose();
+                if (!preserveCopies && staged.Published)
+                    TryDelete(staged.Parent, Path.GetFileName(staged.File.Destination), directory: false);
             }
         }
         finally
@@ -115,7 +113,7 @@ internal sealed class ProjectAssetCollection(string root)
         try
         {
             using ProjectAssetDirectory current = parent.OpenDirectory(name, create: false, out _);
-            return current.IsSameDirectory(opened) == true;
+            return current.IsSameDirectory(opened);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -129,6 +127,6 @@ internal sealed class ProjectAssetCollection(string root)
         internal ProjectAssetDirectory Parent { get; } = parent;
         internal string Name { get; } = name;
         internal bool HasStagingName { get; set; } = true;
-        internal ProjectAssetDirectory? PublishedParent { get; set; }
+        internal bool Published { get; set; }
     }
 }

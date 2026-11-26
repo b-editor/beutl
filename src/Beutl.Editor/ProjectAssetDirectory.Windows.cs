@@ -69,6 +69,13 @@ internal sealed partial class ProjectAssetDirectory
                 : null;
         }
 
+        internal static DirectoryIdentity? GetLegacyIdentity(SafeFileHandle handle)
+        {
+            return GetFileInformationByHandle(handle, out LegacyFileIdentity info) && (info.Low != 0 || info.High != 0)
+                ? new DirectoryIdentity(info.Volume, ((ulong)info.High << 32) | info.Low)
+                : null;
+        }
+
         internal static void Rename(SafeFileHandle source, string name, string sourcePath,
             SafeFileHandle destination, string destinationName, string destinationPath)
         {
@@ -189,6 +196,15 @@ internal sealed partial class ProjectAssetDirectory
             public ulong High;
         }
 
+        // The remaining fields of BY_HANDLE_FILE_INFORMATION are not used for identity.
+        [StructLayout(LayoutKind.Explicit, Size = 52)]
+        private struct LegacyFileIdentity
+        {
+            [FieldOffset(28)] public uint Volume;
+            [FieldOffset(44)] public uint High;
+            [FieldOffset(48)] public uint Low;
+        }
+
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
         private static extern SafeFileHandle CreateFileW(string fileName, uint access, uint share, nint security,
             uint disposition, uint flags, nint template);
@@ -196,6 +212,10 @@ internal sealed partial class ProjectAssetDirectory
         [DllImport("kernel32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool GetFileInformationByHandleEx(SafeFileHandle handle, int informationClass, out FileIdentity info, uint length);
+
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out LegacyFileIdentity info);
 
         [DllImport("ntdll.dll")]
         private static extern int NtCreateFile(out nint handle, uint access, ObjectAttributes* attributes, out IoStatusBlock io,
