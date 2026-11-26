@@ -100,9 +100,8 @@ public partial class SplitEffect : FilterEffect
                     continue;
                 }
 
-                effectContext.Targets.RemoveAt(i);
                 int inserted = newTargets.Count;
-                effectContext.Targets.InsertRange(i, newTargets);
+                effectContext.Targets.ReplaceAt(i, newTargets);
                 i += inserted - 1;
             }
         }

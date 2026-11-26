@@ -227,6 +227,7 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
         return Release(target);
     }
 
+    /// <summary>Replaces a target in place and keeps the replacement between the same clipped text slots.</summary>
     internal void ReplaceAt(int index, EffectTargets replacement)
     {
         EffectTarget previous = _targets[index];

@@ -305,6 +305,30 @@ public sealed class TextAnimationUnitRenderingTests
     }
 
     [Test]
+    public void SplitPartsKeepTheirRanksAheadOfATextBlockThatLeavesItsPath()
+    {
+        var probe = new Probe(readAlpha: true);
+        var split = new SplitEffect { VerticalDivisions = { Value = 1 } };
+        var group = new DrawableGroup
+        {
+            FilterEffect = { Value = Chain(split, FadeDelay(100, DelayAnimationMode.PerStep), probe.Effect) },
+        };
+        group.Children.Add(new RectShape { Width = { Value = 48 }, Height = { Value = 24 }, Fill = { Value = Brushes.White } });
+        TextOnPathEffect path = AlongLine(120);
+        group.Children.Add(CreateText("AB", path));
+
+        foreach (float offset in new[] { 0f, 121f, 0f })
+        {
+            path.PathOffset.Value = offset;
+            Render(group, 0.8);
+
+            Assert.That(probe.Parts, Has.Length.EqualTo(offset == 0 ? 6 : 2));
+            Assert.That(probe.Parts.Take(2).Select(part => part.PeakAlpha),
+                Is.EqualTo(new[] { 0.8f, 0.7f }).Within(0.004), $"Offset {offset} px");
+        }
+    }
+
+    [Test]
     public void GroupDelayKeepsTheAntialiasedBottomRowsOfTheRemainingGlyphs()
     {
         TextOnPathEffect path = AlongLine(120);
