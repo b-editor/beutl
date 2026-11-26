@@ -1667,6 +1667,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>Menu</value>
   </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>Opens {0}</value>
+  </data>
   <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
     <value>Enter a value…</value>
   </data>
