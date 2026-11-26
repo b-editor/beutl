@@ -37,6 +37,7 @@ public partial class GraphNodeView : UserControl
         handle.PointerReleased += OnHandlePointerReleased;
         handle.PointerMoved += OnHandlePointerMoved;
         handle.PointerCaptureLost += OnHandlePointerCaptureLost;
+        handle.KeyDown += OnHandleKeyDown;
         nodeContent.PointerPressed += OnNodeContentPointerPressed;
         nodeContent.PointerReleased += OnNodeContentPointerReleased;
         ContextRequested += OnContextRequested;
@@ -66,6 +67,12 @@ public partial class GraphNodeView : UserControl
     private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         e.Handled = true;
+    }
+
+    private void OnHandleKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is GraphNodeViewModel node)
+            AppHelper.GetContextCommandManager?.Invoke()?.HandleKeyDown(NodeGraphTabExtension.Instance, node, e);
     }
 
     internal void AttachNestedPort(NodePortPoint port)

@@ -11,9 +11,12 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Api.Services;
 using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
@@ -43,6 +46,34 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PathEditorInteractionTests
 {
+    [AvaloniaTest]
+    public async Task Rebinding_a_path_nudge_moves_and_commits_on_the_new_key()
+    {
+        using var editor = await Fixture.Create();
+        editor.Click(80, 100);
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(PathEditorTabExtension.Instance);
+        var entry = manager.GetDefinitions<PathEditorTabExtension>().Single(c => c.Definition.Id == "pathEditor.nudgeRightLarge");
+        manager.ChangeKeyGesture(entry, new KeyGesture(Key.F8), ContextCommandManager.CurrentPlatform);
+        var previous = AppHelper.GetContextCommandManager;
+        AppHelper.GetContextCommandManager = () => manager;
+        try
+        {
+            editor.Key(Key.Right, RawInputModifiers.Shift);
+            Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
+            editor.Key(Key.F8);
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(90, 100)));
+                Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
+    }
+
     [AvaloniaTest]
     public async Task Click_shift_marquee_and_nudge_share_one_selection_and_history()
     {

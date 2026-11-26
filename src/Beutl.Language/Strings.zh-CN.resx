@@ -1847,6 +1847,21 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="PathEditor_Fit" xml:space="preserve">
     <value>适合路径 (Shift+1)</value>
   </data>
+  <data name="PanView" xml:space="preserve">
+    <value>平移视图</value>
+  </data>
+  <data name="PathEditor_NudgeLeft" xml:space="preserve">
+    <value>向左微移（{0} 像素）</value>
+  </data>
+  <data name="PathEditor_NudgeRight" xml:space="preserve">
+    <value>向右微移（{0} 像素）</value>
+  </data>
+  <data name="PathEditor_NudgeUp" xml:space="preserve">
+    <value>向上微移（{0} 像素）</value>
+  </data>
+  <data name="PathEditor_NudgeDown" xml:space="preserve">
+    <value>向下微移（{0} 像素）</value>
+  </data>
   <data name="PathEditor_NoSelection" xml:space="preserve">
     <value>未选择点</value>
   </data>

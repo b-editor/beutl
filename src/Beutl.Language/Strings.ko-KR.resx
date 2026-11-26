@@ -1847,6 +1847,21 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="PathEditor_Fit" xml:space="preserve">
     <value>경로에 맞추기 (Shift+1)</value>
   </data>
+  <data name="PanView" xml:space="preserve">
+    <value>뷰 이동</value>
+  </data>
+  <data name="PathEditor_NudgeLeft" xml:space="preserve">
+    <value>왼쪽으로 이동({0}px)</value>
+  </data>
+  <data name="PathEditor_NudgeRight" xml:space="preserve">
+    <value>오른쪽으로 이동({0}px)</value>
+  </data>
+  <data name="PathEditor_NudgeUp" xml:space="preserve">
+    <value>위로 이동({0}px)</value>
+  </data>
+  <data name="PathEditor_NudgeDown" xml:space="preserve">
+    <value>아래로 이동({0}px)</value>
+  </data>
   <data name="PathEditor_NoSelection" xml:space="preserve">
     <value>선택된 점 없음</value>
   </data>

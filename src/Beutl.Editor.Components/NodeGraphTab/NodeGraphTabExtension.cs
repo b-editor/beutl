@@ -22,6 +22,21 @@ public sealed class NodeGraphTabExtension : ToolTabExtension
 
     public override string? Header => Strings.NodeGraph;
 
+    internal const string DeleteCommandId = "nodeGraph.delete";
+
+    public override IEnumerable<ContextCommandDefinition> ContextCommands =>
+    [
+        new ContextCommandDefinition<GraphNodeViewModel>(DeleteCommandId, Strings.Delete, "", [new("Delete")])
+        {
+            CanExecuteOn = (node, execution) => !execution.IsFromTextInput && node.Delete.CanExecute(),
+            ExecuteOnAsync = (node, _) =>
+            {
+                node.Delete.Execute();
+                return Task.CompletedTask;
+            }
+        }
+    ];
+
     public override FAIconSource? GetIcon()
     {
         return new FluentIconSource { Icon = Icon.Flow };

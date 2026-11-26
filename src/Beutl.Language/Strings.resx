@@ -3409,6 +3409,21 @@ when history recording is enabled.</value>
   <data name="PathEditor_Fit" xml:space="preserve">
     <value>Fit path (Shift+1)</value>
   </data>
+  <data name="PanView" xml:space="preserve">
+    <value>Pan view</value>
+  </data>
+  <data name="PathEditor_NudgeLeft" xml:space="preserve">
+    <value>Nudge left ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeRight" xml:space="preserve">
+    <value>Nudge right ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeUp" xml:space="preserve">
+    <value>Nudge up ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeDown" xml:space="preserve">
+    <value>Nudge down ({0} px)</value>
+  </data>
   <data name="PathEditor_NoSelection" xml:space="preserve">
     <value>No points selected</value>
   </data>

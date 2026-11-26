@@ -26,6 +26,8 @@ public sealed class PathEditorTabExtension : ToolTabExtension
 
     public override string? Header => Strings.PathEditor;
 
+    public override IEnumerable<ContextCommandDefinition> ContextCommands => PathEditorInteraction.Commands;
+
     public override FAIconSource? GetIcon()
     {
         return new FluentIconSource { Icon = Icon.CalligraphyPen };

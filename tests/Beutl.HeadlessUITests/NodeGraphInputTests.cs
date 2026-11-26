@@ -7,7 +7,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Extensibility;
@@ -22,6 +24,32 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class NodeGraphInputTests
 {
+    [AvaloniaTest]
+    public async Task Node_deletion_uses_the_configured_key_from_the_node_header()
+    {
+        using GraphSession session = await GraphSession.CreateAsync();
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(NodeGraphTabExtension.Instance);
+        var entry = manager.GetDefinitions<NodeGraphTabExtension>().Single();
+        manager.ChangeKeyGesture(entry, new KeyGesture(Key.F8), ContextCommandManager.CurrentPlatform);
+        var previous = AppHelper.GetContextCommandManager;
+        AppHelper.GetContextCommandManager = () => manager;
+        try
+        {
+            GraphNodeView node = session.Canvas.Children.OfType<GraphNodeView>()
+                .Single(view => view.DataContext is GraphNodeViewModel { GraphNode: ExpressionNode });
+            Assert.That(node.FindControl<Border>("handle")!.Focus(), Is.True);
+            session.PressKey(Key.Delete);
+            Assert.That(session.Model.Nodes, Has.Count.EqualTo(2));
+            Assert.That(session.PressKey(Key.F8).Handled, Is.True);
+            Assert.That(session.Model.Nodes.Single().GraphNode, Is.TypeOf<OutputNode>());
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(Key.OemPlus, RawInputModifiers.Shift, "+")]
     [TestCase(Key.OemPlus, RawInputModifiers.None, "=")]

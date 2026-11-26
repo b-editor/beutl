@@ -1847,6 +1847,21 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="PathEditor_Fit" xml:space="preserve">
     <value>Ajustar trazado (Mayús+1)</value>
   </data>
+  <data name="PanView" xml:space="preserve">
+    <value>Desplazar la vista</value>
+  </data>
+  <data name="PathEditor_NudgeLeft" xml:space="preserve">
+    <value>Desplazar a la izquierda ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeRight" xml:space="preserve">
+    <value>Desplazar a la derecha ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeUp" xml:space="preserve">
+    <value>Desplazar hacia arriba ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeDown" xml:space="preserve">
+    <value>Desplazar hacia abajo ({0} px)</value>
+  </data>
   <data name="PathEditor_NoSelection" xml:space="preserve">
     <value>Ningún punto seleccionado</value>
   </data>

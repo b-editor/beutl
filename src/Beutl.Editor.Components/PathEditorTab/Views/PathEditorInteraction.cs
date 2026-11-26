@@ -439,6 +439,7 @@ internal sealed partial class PathEditorInteraction
     {
         FinishGesture();
         CommitNudge();
+        _nudgeKeys.Clear();
         CommitSelectionPosition();
         _space.Reset();
         Tool = PathEditorTool.Move;

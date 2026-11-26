@@ -3404,6 +3404,21 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="PathEditor_Fit" xml:space="preserve">
     <value>パスを全体表示 (Shift+1)</value>
   </data>
+  <data name="PanView" xml:space="preserve">
+    <value>ビューをパン</value>
+  </data>
+  <data name="PathEditor_NudgeLeft" xml:space="preserve">
+    <value>左に移動（{0} px）</value>
+  </data>
+  <data name="PathEditor_NudgeRight" xml:space="preserve">
+    <value>右に移動（{0} px）</value>
+  </data>
+  <data name="PathEditor_NudgeUp" xml:space="preserve">
+    <value>上に移動（{0} px）</value>
+  </data>
+  <data name="PathEditor_NudgeDown" xml:space="preserve">
+    <value>下に移動（{0} px）</value>
+  </data>
   <data name="PathEditor_NoSelection" xml:space="preserve">
     <value>点を選択してください</value>
   </data>
