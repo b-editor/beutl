@@ -68,6 +68,8 @@ public partial class GraphNodeView : UserControl
         e.Handled = true;
     }
 
+    internal bool IsHeaderFocused => handle.IsKeyboardFocusWithin;
+
     internal void AttachNestedPort(NodePortPoint port)
     {
         if (!nestedPortOverlay.Children.Contains(port)) nestedPortOverlay.Children.Add(port);

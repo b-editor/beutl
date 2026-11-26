@@ -50,6 +50,15 @@ public partial class KeyMapSettingsPage : UserControl
         e.Handled = _isAssigning && IsChord(e);
     }
 
+    private void OnResetClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: KeyMapSettingsItem item })
+        {
+            item.Reset();
+            e.Handled = true;
+        }
+    }
+
     // A chord being assigned must not run what it is bound to, such as the window closing on Cmd+W. Keys without
     // a modifier keep their meaning, since Tab reaches the flyout's buttons.
     internal static bool IsChord(KeyEventArgs e) => (e.KeyModifiers & ~KeyModifiers.Shift) != KeyModifiers.None;
@@ -104,7 +113,7 @@ public sealed partial class KeyMapFlyout : FAPickerFlyoutBase
         pfp.Padding = new Thickness(8);
         var textBox = new TextBox();
         textBox.Bind(TextBox.TextProperty, this.GetObservable(GestureProperty)
-            .Select(i => i?.ToString() ?? "(None)"));
+            .Select(i => i?.ToString() ?? SettingsStrings.Keymap_Unassigned));
         textBox.IsReadOnly = true;
         var deleteButton = new Button
         {

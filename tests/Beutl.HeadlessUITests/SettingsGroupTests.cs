@@ -148,8 +148,8 @@ public class SettingsGroupTests
 
                 if (type == typeof(KeyMapSettingsPage))
                 {
-                    Button button = page.GetVisualDescendants().OfType<OptionsDisplayItem>()
-                        .Select(row => row.ActionButton).OfType<Button>().First();
+                    Button button = page.GetVisualDescendants().OfType<Button>()
+                        .First(button => button.Name == "AssignShortcutButton" && button.IsEffectivelyVisible);
                     button.Focus(NavigationMethod.Tab);
                     HeadlessTestHelpers.Render();
                     Point point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), dialog)!.Value;

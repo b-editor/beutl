@@ -380,6 +380,21 @@
   <data name="Keymap" xml:space="preserve">
     <value>键位映射</value>
   </data>
+  <data name="Keymap_Search" xml:space="preserve">
+    <value>搜索快捷键</value>
+  </data>
+  <data name="Keymap_NoResults" xml:space="preserve">
+    <value>没有匹配的快捷键</value>
+  </data>
+  <data name="Keymap_Reset" xml:space="preserve">
+    <value>恢复默认设置</value>
+  </data>
+  <data name="Keymap_Conflict" xml:space="preserve">
+    <value>与 {0} 冲突</value>
+  </data>
+  <data name="Keymap_Unassigned" xml:space="preserve">
+    <value>未分配</value>
+  </data>
   <data name="Language" xml:space="preserve">
     <value>语言</value>
   </data>

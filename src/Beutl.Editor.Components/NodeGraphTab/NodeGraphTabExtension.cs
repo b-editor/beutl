@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
@@ -21,6 +22,23 @@ public sealed class NodeGraphTabExtension : ToolTabExtension
     public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
 
     public override string? Header => Strings.NodeGraph;
+
+    internal const string DeleteCommandId = "nodeGraph.delete";
+
+    public override IEnumerable<ContextCommandDefinition> ContextCommands =>
+    [
+        new ContextCommandDefinition<NodeGraphView>(DeleteCommandId, Strings.Delete, "",
+            [new("Delete"), new("Delete", OSPlatform.OSX), new("Back", OSPlatform.OSX)])
+        {
+            CanExecuteOn = (_, execution) => execution.KeyEventArgs is not null && !execution.IsFromTextInput,
+            ExecuteOnAsync = (view, execution) =>
+            {
+                var key = execution.KeyEventArgs!;
+                key.Handled = view.DeleteSelectedNodes(key.Source);
+                return Task.CompletedTask;
+            }
+        }
+    ];
 
     public override FAIconSource? GetIcon()
     {

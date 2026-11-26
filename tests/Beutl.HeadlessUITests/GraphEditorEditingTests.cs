@@ -252,15 +252,14 @@ public class GraphEditorEditingTests
     }
 
     [AvaloniaTest]
-    [TestCase(KeyModifiers.Control)]
-    [TestCase(KeyModifiers.Meta)]
-    public async Task Cut_keyboard_shortcut_copies_and_deletes_with_one_undo(KeyModifiers command)
+    [TestCase(RawInputModifiers.None)]
+    [TestCase(RawInputModifiers.Alt)]
+    public async Task Cut_keyboard_shortcut_copies_and_deletes_with_one_undo(RawInputModifiers extra)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        using var commandModifier = CommandModifierScope.Use(command);
         graph.View.Focus();
         int undo = graph.Model.HistoryManager.UndoCount;
-        var modifier = command == KeyModifiers.Meta ? RawInputModifiers.Meta : RawInputModifiers.Control;
+        var modifier = (OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control) | extra;
         graph.Window.KeyPress(Key.X, modifier, PhysicalKey.X, null);
         graph.Window.KeyRelease(Key.X, modifier, PhysicalKey.X, null);
         await HeadlessTestHelpers.WaitUntilAsync(() => graph.Animation.KeyFrames.Count == 0);

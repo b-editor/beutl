@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -11,9 +12,12 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Api.Services;
 using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
@@ -43,6 +47,70 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PathEditorInteractionTests
 {
+    [AvaloniaTest]
+    public async Task A_path_tool_tooltip_shows_the_current_shortcut()
+    {
+        using var editor = await Fixture.Create();
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(PathEditorTabExtension.Instance);
+        var entry = manager.GetDefinitions<PathEditorTabExtension>().Single(c => c.Definition.Id == "pathEditor.bend");
+        manager.ChangeKeyGesture(entry, new KeyGesture(Key.F8), ContextCommandManager.CurrentPlatform);
+        var previous = AppHelper.GetContextCommandManager;
+        AppHelper.GetContextCommandManager = () => manager;
+        try
+        {
+            RadioButton bend = editor.View.GetVisualDescendants().OfType<RadioButton>()
+                .Single(button => AutomationProperties.GetName(button) == Strings.PathEditor_BendTool);
+            ToolTip.SetIsOpen(bend, true);
+            try
+            {
+                Assert.That(ToolTip.GetTip(bend), Is.EqualTo(
+                    $"{Strings.PathEditor_BendTool} (F8)\n{Strings.PathEditor_BendTool_Description}"));
+            }
+            finally
+            {
+                ToolTip.SetIsOpen(bend, false);
+            }
+
+            editor.Key(Key.B);
+            Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Move));
+            editor.Key(Key.F8);
+            Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Bend));
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Rebinding_a_path_nudge_moves_and_commits_on_the_new_key()
+    {
+        using var editor = await Fixture.Create();
+        editor.Click(80, 100);
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(PathEditorTabExtension.Instance);
+        var entry = manager.GetDefinitions<PathEditorTabExtension>().Single(c => c.Definition.Id == "pathEditor.nudgeRightLarge");
+        manager.ChangeKeyGesture(entry, new KeyGesture(Key.F8), ContextCommandManager.CurrentPlatform);
+        var previous = AppHelper.GetContextCommandManager;
+        AppHelper.GetContextCommandManager = () => manager;
+        try
+        {
+            editor.Key(Key.Right, RawInputModifiers.Shift);
+            Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
+            editor.Key(Key.F8);
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(90, 100)));
+                Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
+    }
+
     [AvaloniaTest]
     public async Task Click_shift_marquee_and_nudge_share_one_selection_and_history()
     {
@@ -1122,6 +1190,41 @@ public class PathEditorInteractionTests
         editor.MouseUp(new(370, 230), MouseButton.Left);
         Assert.That(editor.Figure.Segments, Has.Count.EqualTo(3));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
+    }
+
+    [AvaloniaTest]
+    [TestCase(Key.F8, true)]
+    [TestCase(Key.Escape, false)]
+    public async Task Only_the_configured_cancel_key_rolls_back_a_point_drag(Key key, bool cancels)
+    {
+        using var editor = await Fixture.Create();
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(PathEditorTabExtension.Instance);
+        var cancel = manager.GetDefinitions<PathEditorTabExtension>().Single(entry => entry.Definition.Id == "pathEditor.cancel");
+        manager.ChangeKeyGesture(cancel, new KeyGesture(Key.F8), ContextCommandManager.CurrentPlatform);
+
+        var previous = AppHelper.GetContextCommandManager;
+        AppHelper.GetContextCommandManager = () => manager;
+        try
+        {
+            var point = editor.Figure.Segments[0].GetEndPoint();
+            editor.MouseDown(new(80, 100), MouseButton.Left);
+            editor.MouseMove(new(110, 120), RawInputModifiers.LeftMouseButton);
+            Assert.That(point.Value, Is.EqualTo(new BtlPoint(110, 120)));
+
+            editor.Key(key);
+            editor.MouseUp(new(110, 120), MouseButton.Left);
+            Assert.Multiple(() =>
+            {
+                Assert.That(point.Value, Is.EqualTo(cancels ? new BtlPoint(80, 100) : new BtlPoint(110, 120)));
+                Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(cancels ? 0 : 1));
+                Assert.That(editor.View.SkipUpdatePosition, Is.False);
+            });
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
     }
 
     [AvaloniaTest]

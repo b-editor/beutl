@@ -380,6 +380,21 @@
   <data name="Keymap" xml:space="preserve">
     <value>Keymap</value>
   </data>
+  <data name="Keymap_Search" xml:space="preserve">
+    <value>Search shortcuts</value>
+  </data>
+  <data name="Keymap_NoResults" xml:space="preserve">
+    <value>No matching shortcuts</value>
+  </data>
+  <data name="Keymap_Reset" xml:space="preserve">
+    <value>Reset to default</value>
+  </data>
+  <data name="Keymap_Conflict" xml:space="preserve">
+    <value>Conflicts with {0}</value>
+  </data>
+  <data name="Keymap_Unassigned" xml:space="preserve">
+    <value>Unassigned</value>
+  </data>
   <data name="Language" xml:space="preserve">
     <value>Language</value>
   </data>

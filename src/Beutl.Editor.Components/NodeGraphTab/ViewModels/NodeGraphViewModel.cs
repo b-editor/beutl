@@ -156,6 +156,19 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     public CoreList<GraphNodeViewModel> Nodes { get; } = [];
 
+    internal bool DeleteNodes(GraphNodeViewModel[] nodes)
+    {
+        GraphNodeViewModel[] removable = [.. nodes.Where(node => node.Delete.CanExecute())];
+        if (removable.Length == 0) return false;
+
+        if (removable.Length == 1)
+            removable[0].Delete.Execute();
+        else
+            EditorContext.GetRequiredService<INodeGraphMutationService>()
+                .RemoveNode(NodeGraph, removable.Select(node => node.GraphNode).ToArray());
+        return true;
+    }
+
     public CoreList<ConnectionViewModel> AllConnections { get; } = [];
 
     public ReactiveProperty<Matrix> Matrix { get; } = new(Avalonia.Matrix.Identity);

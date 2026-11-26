@@ -2,6 +2,7 @@
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.NodeGraph.Nodes.Group;
 using FluentAvalonia.UI.Controls;
@@ -22,6 +23,7 @@ public partial class GraphNodeView
     // Rebuilt each time the menu opens: the history changes with every generation and undo.
     private void NodeMenuOpening(object? sender, EventArgs e)
     {
+        DeleteItem.InputGesture = GetCommandGestureExtension.GetKeyGesture(typeof(NodeGraphTabExtension), NodeGraphTabExtension.DeleteCommandId);
         BuildPromptLibraryMenu();
         Variations2Item.Text = string.Format(NodeGraphStrings.Generative_VariationCount, 2);
         Variations4Item.Text = string.Format(NodeGraphStrings.Generative_VariationCount, 4);
