@@ -393,6 +393,9 @@
   <data name="SceneSettings" xml:space="preserve">
     <value>シーン設定</value>
   </data>
+  <data name="TimelineSceneSettings" xml:space="preserve">
+    <value>シーン設定</value>
+  </data>
   <data name="Right" xml:space="preserve">
     <value>右</value>
   </data>

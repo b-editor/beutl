@@ -335,6 +335,9 @@
   <data name="SceneSettings" xml:space="preserve">
     <value>Configuración de la escena</value>
   </data>
+  <data name="TimelineSceneSettings" xml:space="preserve">
+    <value>Configuración de la escena</value>
+  </data>
   <data name="Apply" xml:space="preserve">
     <value>Aplicar</value>
   </data>

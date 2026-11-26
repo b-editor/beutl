@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
@@ -162,15 +161,7 @@ public partial class MenuBarViewModel
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
         {
-            SceneSettingsTabViewModel? tab = viewModel.FindToolTab<SceneSettingsTabViewModel>();
-            if (tab != null)
-            {
-                tab.IsSelected.Value = true;
-            }
-            else
-            {
-                viewModel.OpenToolTab(new SceneSettingsTabViewModel(viewModel));
-            }
+            SceneSettingsTabHelper.Show(viewModel);
         }
     }
 }

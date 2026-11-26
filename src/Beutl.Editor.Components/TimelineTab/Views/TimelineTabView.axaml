@@ -253,11 +253,9 @@
                         </ui:FAMenuFlyoutItem>
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SetStartTimeToPointerPosition"
                                              Command="{Binding SetStartTimeToPointerPosition}"
-                                             InputGesture="{h:GetCommandGesture timeline.setStartTime}"
                                              Text="{x:Static lang:Strings.SetStartTime}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SetEndTimeToPointerPosition"
                                              Command="{Binding SetEndTimeToPointerPosition}"
-                                             InputGesture="{h:GetCommandGesture timeline.setEndTime}"
                                              Text="{x:Static lang:Strings.SetEndTime}" />
                         <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.Gaps}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
@@ -290,7 +288,7 @@
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.ShowSceneSettings"
                                              Click="ShowSceneSettings"
-                                             Text="{x:Static lang:Strings.Settings}">
+                                             Text="{x:Static lang:Strings.TimelineSceneSettings}">
                             <ui:FAMenuFlyoutItem.IconSource>
                                 <icons:FluentIconSource Icon="Settings" />
                             </ui:FAMenuFlyoutItem.IconSource>

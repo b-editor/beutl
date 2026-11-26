@@ -77,6 +77,42 @@ public sealed class MainMenuBuilderTests
     }
 
     [AvaloniaTest]
+    public async Task Help_menu_shows_the_about_command_only_in_the_window()
+    {
+        await TestReset.ResetShellAsync();
+        MainViewModel viewModel = TestShell.MainViewModel;
+        var view = new MainView { DataContext = viewModel };
+        var macWindow = new MacWindow { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 1000, Height = 680 };
+        try
+        {
+            window.Show();
+            Menu menu = view.FindControl<Menu>("MenuBar")!;
+            menu.IsVisible = true;
+            MenuItem help = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Help));
+            help.Open();
+            HeadlessTestHelpers.Render(3);
+            MenuItem about = help.Items.OfType<MenuItem>()
+                .Single(item => ReferenceEquals(item.Command, viewModel.MenuBar.ShowInformation));
+            Assert.That(help.IsSubMenuOpen, Is.True);
+            HeadlessCapture.SaveIfRequested(about, nameof(MainMenuBuilderTests), "help-menu");
+
+            NativeMenuItem nativeHelp = NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>()
+                .Single(item => item.Header == Strings.Help);
+            Assert.That(about.Header, Is.EqualTo(Strings.AboutBeutl));
+            Assert.That(nativeHelp.Menu!.Items.OfType<NativeMenuItem>().Select(item => item.Command),
+                Does.Not.Contain(viewModel.MenuBar.ShowInformation));
+        }
+        finally
+        {
+            macWindow.DataContext = null;
+            macWindow.Close();
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ImportMediaIsEnabledInBothFileMenusWhenASceneIsOpen()
     {
         await TestReset.ResetShellAsync();

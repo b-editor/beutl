@@ -179,10 +179,14 @@
                 <ui:FAMenuFlyoutItem x:Name="groupSelectedElements"
                                      usage:UsageTracking.Feature="Timeline.GroupSelectedElements"
                                      Command="{Binding GroupSelectedElements}"
+                                     InputGesture="{h:GetCommandGesture timeline.toggleGroup,
+                                                                      ExtensionType={x:Type p:TimelineTabExtension}}"
                                      Text="{x:Static lang:Strings.GroupSelectedElements}" />
                 <ui:FAMenuFlyoutItem x:Name="ungroupSelectedElements"
                                      usage:UsageTracking.Feature="Timeline.UngroupSelectedElements"
                                      Command="{Binding UngroupSelectedElements}"
+                                     InputGesture="{h:GetCommandGesture timeline.toggleGroup,
+                                                                      ExtensionType={x:Type p:TimelineTabExtension}}"
                                      Text="{x:Static lang:Strings.UngroupSelectedElements}" />
                 <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem x:Name="changeColor"

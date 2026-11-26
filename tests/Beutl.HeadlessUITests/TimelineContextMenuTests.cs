@@ -1,13 +1,17 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
@@ -37,6 +41,9 @@ public sealed class TimelineContextMenuTests
         }));
         FAMenuFlyoutItem duplicate = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Duplicate);
         Assert.That(duplicate.InputGesture, Is.EqualTo(new KeyGesture(Key.D, KeyGestureHelper.GetCommandModifier())));
+        var groupGesture = new KeyGesture(Key.G, KeyGestureHelper.GetCommandModifier());
+        Assert.That(FindItem(menu, Strings.GroupSelectedElements).InputGesture, Is.EqualTo(groupGesture));
+        Assert.That(FindItem(menu, Strings.UngroupSelectedElements).InputGesture, Is.EqualTo(groupGesture));
         var original = host.Scene.Children.Single();
         Assert.That(host.Model.SelectedElements.Single().Model, Is.SameAs(original));
         Assert.That(duplicate.IsEffectivelyEnabled, Is.True);
@@ -92,11 +99,66 @@ public sealed class TimelineContextMenuTests
             Strings.EditingMode, null,
             Strings.Paste, Strings.SetStartTime, Strings.SetEndTime, Strings.Gaps, Strings.BulkSelection, null,
             SettingsStrings.AutoAdjustSceneDuration, Strings.TimelineSnap, null,
-            Strings.Settings, null,
+            Strings.SceneSettings, null,
             Strings.BpmGrid, null,
             Strings.TimelineZoom,
         }));
+
+        var gaps = menu.Items.OfType<FAMenuFlyoutSubItem>().Single(item => item.Text == Strings.Gaps);
+        var closeGap = gaps.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.CloseGap);
+        Assert.That(closeGap.InputGesture, Is.Null);
     }
+
+    [AvaloniaTest]
+    public async Task Scene_settings_opens_a_tab_and_the_main_menu_selects_the_same_tab()
+    {
+        using TimelineTestHost host = await CreateHostAsync();
+        IEditorContext editor = host.Model.EditorContext;
+        Assert.That(editor.FindToolTab<SceneSettingsTabViewModel>(), Is.Null);
+
+        FAMenuFlyout menu = OpenMenu(host.Timeline, point: new Point(600, 100));
+        HeadlessTestHelpers.Click(FindItem(menu, Strings.SceneSettings), move: true);
+        var tab = editor.FindToolTab<SceneSettingsTabViewModel>();
+        Assert.That(tab, Is.Not.Null);
+
+        tab!.IsSelected.Value = false;
+        TestShell.MainViewModel.MenuBar.ShowSceneSettings.Execute();
+        Assert.That(editor.FindToolTab<SceneSettingsTabViewModel>(), Is.SameAs(tab));
+        Assert.That(tab.IsSelected.Value, Is.True);
+    }
+
+    [AvaloniaTest]
+    [TestCase(true, Key.OemOpenBrackets, "[")]
+    [TestCase(false, Key.OemCloseBrackets, "]")]
+    public async Task The_time_menu_uses_the_pointer_and_the_key_uses_the_playhead(bool isStart, Key key, string symbol)
+    {
+        using TimelineTestHost host = await CreateHostAsync();
+        MediaTime pointer = MediaTime.FromSeconds(4);
+        MediaTime playhead = MediaTime.FromSeconds(isStart ? 5 : 3);
+        host.Model.Seek(playhead);
+
+        var point = new Point(pointer.TimeToPixel(host.Model.Options.Value.Scale), 100);
+        FAMenuFlyout menu = OpenMenu(host.Timeline, point: point);
+        FAMenuFlyoutItem item = FindItem(menu, isStart ? Strings.SetStartTime : Strings.SetEndTime);
+        Assert.That(item.InputGesture, Is.Null);
+        HeadlessTestHelpers.Click(item, move: true);
+        Assert.That(EditedFrame(), Is.EqualTo(pointer));
+
+        // The app's ToolTabContent attaches these commands to the hosted view.
+        TestShell.MainViewModel.ContextCommandManager!.Attach(host.View, TimelineTabExtension.Instance);
+        Assert.That(host.View.Focus(), Is.True);
+        host.Window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, symbol);
+        host.Window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, symbol);
+        HeadlessTestHelpers.Settle();
+        Assert.That(EditedFrame(), Is.EqualTo(playhead));
+
+        MediaTime EditedFrame() => isStart
+            ? host.Scene.Start.Value
+            : host.Scene.FromWindowTime(host.Scene.Duration.Value) - SceneTimeRangeService.GetFrameDuration(host.Scene);
+    }
+
+    private static FAMenuFlyoutItem FindItem(FAMenuFlyout menu, string text)
+        => menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == text);
 
     private static string? ItemText(object item) => item switch
     {
