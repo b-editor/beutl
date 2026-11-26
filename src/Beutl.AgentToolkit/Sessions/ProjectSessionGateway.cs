@@ -1,6 +1,5 @@
-﻿using Beutl.ProjectSystem;
-
-using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor.VersionControl;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 
 namespace Beutl.AgentToolkit.Sessions;
