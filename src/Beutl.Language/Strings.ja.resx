@@ -1835,9 +1835,6 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="Ai" xml:space="preserve">
     <value>AI</value>
   </data>
-  <data name="AiGenerateImage" xml:space="preserve">
-    <value>画像を生成</value>
-  </data>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI 画像生成</value>
   </data>
@@ -1940,9 +1937,6 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="AiImageAddedToScene" xml:space="preserve">
     <value>画像をシーンに追加しました。</value>
   </data>
-  <data name="AiGenerateSubtitles" xml:space="preserve">
-    <value>字幕を生成</value>
-  </data>
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI字幕</value>
   </data>
@@ -1979,9 +1973,6 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="AiSubtitleAddedToScene" xml:space="preserve">
     <value>字幕をシーンに追加しました。</value>
   </data>
-  <data name="AiEditImage" xml:space="preserve">
-    <value>画像を編集</value>
-  </data>
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI画像編集</value>
   </data>
@@ -2005,9 +1996,6 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="AiEditSelectSource" xml:space="preserve">
     <value>先に画像ファイルを選択してください。</value>
-  </data>
-  <data name="AiGenerateVideo" xml:space="preserve">
-    <value>動画を生成</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI動画生成</value>

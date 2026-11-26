@@ -1841,9 +1841,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Ai" xml:space="preserve">
     <value>AI</value>
   </data>
-  <data name="AiGenerateImage" xml:space="preserve">
-    <value>Generate image</value>
-  </data>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI image generation</value>
   </data>
@@ -1946,9 +1943,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiImageAddedToScene" xml:space="preserve">
     <value>The image was added to the scene.</value>
   </data>
-  <data name="AiGenerateSubtitles" xml:space="preserve">
-    <value>Generate subtitles</value>
-  </data>
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI subtitles</value>
   </data>
@@ -1985,9 +1979,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitleAddedToScene" xml:space="preserve">
     <value>The subtitles were added to the scene.</value>
   </data>
-  <data name="AiEditImage" xml:space="preserve">
-    <value>Edit image</value>
-  </data>
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI image editing</value>
   </data>
@@ -2011,9 +2002,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiEditSelectSource" xml:space="preserve">
     <value>Select an image file first.</value>
-  </data>
-  <data name="AiGenerateVideo" xml:space="preserve">
-    <value>Generate video</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI video generation</value>

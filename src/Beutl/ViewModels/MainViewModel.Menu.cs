@@ -177,19 +177,6 @@ public sealed partial class MainViewModel
                 },
             ]
         },
-        new(Strings.Ai)
-        {
-            Items =
-            [
-                new(Strings.AiJobCenter) { Command = MenuBar.ShowAiJobs, Icon = Icon.History },
-                MainMenuItem.Separator,
-                new(Strings.AiGenerateImage) { Command = MenuBar.GenerateImage, Icon = Icon.SparkleCircle },
-                new(Strings.AiGenerateSubtitles) { Command = MenuBar.GenerateSubtitles, Icon = Icon.Subtitles },
-                new(Strings.AiEditImage) { Command = MenuBar.EditImage, Icon = Icon.ImageEdit },
-                new(Strings.AiGenerateVideo) { Command = MenuBar.GenerateVideo, Icon = Icon.Video },
-                new(Strings.AiVideoEditing) { Command = MenuBar.EditVideo, Icon = Icon.VideoClipWand },
-            ]
-        },
         new(Strings.Window)
         {
             IsInNativeMenuOnly = true,

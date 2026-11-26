@@ -2075,9 +2075,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Ai" xml:space="preserve">
     <value>AI</value>
   </data>
-  <data name="AiGenerateImage" xml:space="preserve">
-    <value>生成图像</value>
-  </data>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI 图像生成</value>
   </data>
@@ -2177,9 +2174,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiImageAddedToScene" xml:space="preserve">
     <value>已将图像添加到场景。</value>
   </data>
-  <data name="AiGenerateSubtitles" xml:space="preserve">
-    <value>生成字幕</value>
-  </data>
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI 字幕</value>
   </data>
@@ -2213,9 +2207,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitleAddedToScene" xml:space="preserve">
     <value>已将字幕添加到场景。</value>
   </data>
-  <data name="AiEditImage" xml:space="preserve">
-    <value>编辑图像</value>
-  </data>
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI 图像编辑</value>
   </data>
@@ -2236,9 +2227,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiEditSelectSource" xml:space="preserve">
     <value>请先选择图像文件。</value>
-  </data>
-  <data name="AiGenerateVideo" xml:space="preserve">
-    <value>生成视频</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI 视频生成</value>

@@ -91,13 +91,6 @@ public partial class MainView
         viewModel.MenuBar.MinimizeWindow.Subscribe(MinimizeWindow).AddTo(_disposables);
         viewModel.MenuBar.ZoomWindow.Subscribe(ToggleZoom).AddTo(_disposables);
         viewModel.MenuBar.ToggleFullScreen.Subscribe(ToggleFullScreen).AddTo(_disposables);
-
-        viewModel.MenuBar.ShowAiJobs.Subscribe(viewModel.OpenAiJobCenter).AddTo(_disposables);
-        viewModel.MenuBar.GenerateImage.Subscribe(viewModel.OpenAiImageGeneration).AddTo(_disposables);
-        viewModel.MenuBar.GenerateSubtitles.Subscribe(() => viewModel.OpenAiSubtitle()).AddTo(_disposables);
-        viewModel.MenuBar.EditImage.Subscribe(viewModel.OpenAiImageEdit).AddTo(_disposables);
-        viewModel.MenuBar.GenerateVideo.Subscribe(viewModel.OpenAiVideoGeneration).AddTo(_disposables);
-        viewModel.MenuBar.EditVideo.Subscribe(viewModel.OpenAiVideoEditing).AddTo(_disposables);
     }
 
     private async Task EnableVersionControlAsync(MainViewModel viewModel)

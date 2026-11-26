@@ -4,10 +4,8 @@ using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.AiWorkspaceTab;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 using Beutl.Language;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.Views;
 
 namespace Beutl.HeadlessUITests;
 
@@ -15,11 +13,11 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiShellEntryPointTests
 {
     [AvaloniaTest]
-    public async Task AiMenu_KeepsEveryWorkflowInOneTabAndTurnsItToTheRightPage()
+    public async Task CommandPalette_OpensEveryAiPageAndReusesTheTab()
     {
         MainViewModel mainViewModel = TestShell.MainViewModel;
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-shell-entry-points");
-        var mainView = new MainView { DataContext = mainViewModel };
+        CommandPaletteViewModel palette = mainViewModel.CommandPalette;
         try
         {
             string[] aiHeaders =
@@ -39,18 +37,18 @@ public sealed class AiShellEntryPointTests
                     mainViewModel.ToolTabExtensions.Where(ext => aiHeaders.Contains(ext.Header)),
                     Is.EqualTo(new[] { AiWorkspaceTabExtension.Instance }),
                     "The tab list must offer one AI entry, not one per workflow.");
-                Assert.That(mainViewModel.MenuBar.ShowAiJobs.CanExecute(), Is.True);
-                Assert.That(mainViewModel.MenuBar.GenerateImage.CanExecute(), Is.True);
-                Assert.That(mainViewModel.MenuBar.EditImage.CanExecute(), Is.True);
-                Assert.That(mainViewModel.MenuBar.GenerateSubtitles.CanExecute(), Is.True);
-                Assert.That(mainViewModel.MenuBar.GenerateVideo.CanExecute(), Is.True);
-                Assert.That(mainViewModel.MenuBar.EditVideo.CanExecute(), Is.True);
+                Assert.That(mainViewModel.MenuItems.Any(item => item.Header == Strings.Ai), Is.False);
+                Assert.That(AiToolTabEntry(mainViewModel).CommandParameter, Is.SameAs(AiWorkspaceTabExtension.Instance));
             }
 
             AiWorkspaceViewModel? workspace = null;
-            foreach ((Action open, AiWorkspaceSection section, Type pageType) in MenuEntries(mainViewModel))
+            foreach ((string id, AiWorkspaceSection section, Type pageType) in s_aiPages)
             {
-                open();
+                palette.Open();
+                CommandPaletteItemViewModel command = palette.FilteredCommands.Single(item => item.Command.Id == id);
+                Assert.That(command.IsEnabled, Is.True, id);
+                palette.SelectedCommand.Value = command;
+                await palette.ExecuteSelectedAsync();
                 HeadlessTestHelpers.Settle();
 
                 AiWorkspaceViewModel? current = editor.FindToolTab<AiWorkspaceViewModel>();
@@ -61,7 +59,7 @@ public sealed class AiShellEntryPointTests
                     Assert.That(
                         CountAiTabs(editor),
                         Is.EqualTo(1),
-                        "The menu turns the open tab, it never stacks another.");
+                        "The command reuses the open tab.");
                     Assert.That(current!.SelectedSection.Value?.Id, Is.EqualTo(section));
                     Assert.That(current.ActiveContent.Value, Is.InstanceOf(pageType));
                     Assert.That(current.Header.Value, Is.EqualTo(current.SelectedSection.Value!.DisplayName));
@@ -73,7 +71,7 @@ public sealed class AiShellEntryPointTests
         }
         finally
         {
-            mainView.DataContext = null;
+            palette.Close();
         }
     }
 
@@ -154,52 +152,36 @@ public sealed class AiShellEntryPointTests
     }
 
     [AvaloniaTest]
-    public async Task AiMenu_TurnsTheTabAlreadyOnThatPageRatherThanAnother()
+    public async Task JobCenter_ActivatesTheTabAlreadyOnItsPage()
     {
         MainViewModel mainViewModel = TestShell.MainViewModel;
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-two-tabs");
-        var mainView = new MainView { DataContext = mainViewModel };
-        try
+        Assert.That(AiWorkspaceTabExtension.Instance.CanMultiple, Is.True);
+
+        MainMenuItem aiTab = AiToolTabEntry(mainViewModel);
+        aiTab.Command!.Execute(aiTab.CommandParameter);
+        HeadlessTestHelpers.Settle();
+        AiWorkspaceViewModel first = editor.FindToolTab<AiWorkspaceViewModel>()!;
+
+        AiWorkspaceViewModel second = mainViewModel.CreateAiWorkspaceViewModel(editor);
+        Assert.That(editor.OpenToolTab(second), Is.True);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
         {
-            Assert.That(AiWorkspaceTabExtension.Instance.CanMultiple, Is.True);
-
-            mainViewModel.MenuBar.GenerateImage.Execute();
-            HeadlessTestHelpers.Settle();
-            AiWorkspaceViewModel first = editor.FindToolTab<AiWorkspaceViewModel>()!;
-
-            AiWorkspaceViewModel second = mainViewModel.CreateAiWorkspaceViewModel(editor);
-            Assert.That(editor.OpenToolTab(second), Is.True);
-            HeadlessTestHelpers.Settle();
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(CountAiTabs(editor), Is.EqualTo(2));
-                Assert.That(
-                    second.SelectedSection.Value?.Id,
-                    Is.EqualTo(AiWorkspaceSection.ImageEdit),
-                    "A tab added beside another starts on a page that one is not showing.");
-            }
-
-            second.Show(AiWorkspaceSection.Jobs);
-            mainViewModel.MenuBar.ShowAiJobs.Execute();
-            HeadlessTestHelpers.Settle();
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(
-                    CountAiTabs(editor),
-                    Is.EqualTo(2),
-                    "Asking for a page that is already open must not add a third tab.");
-                Assert.That(second.SelectedSection.Value?.Id, Is.EqualTo(AiWorkspaceSection.Jobs));
-                Assert.That(
-                    first.SelectedSection.Value?.Id,
-                    Is.EqualTo(AiWorkspaceSection.ImageGeneration),
-                    "The tab already on the page answers, so the other one keeps its own.");
-            }
+            Assert.That(CountAiTabs(editor), Is.EqualTo(2));
+            Assert.That(second.SelectedSection.Value?.Id, Is.EqualTo(AiWorkspaceSection.ImageEdit));
         }
-        finally
+
+        second.Show(AiWorkspaceSection.Jobs);
+        mainViewModel.Status.OpenAiJobCenter();
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
         {
-            mainView.DataContext = null;
+            Assert.That(CountAiTabs(editor), Is.EqualTo(2));
+            Assert.That(second.SelectedSection.Value?.Id, Is.EqualTo(AiWorkspaceSection.Jobs));
+            Assert.That(first.SelectedSection.Value?.Id, Is.EqualTo(AiWorkspaceSection.ImageGeneration));
         }
     }
 
@@ -353,44 +335,39 @@ public sealed class AiShellEntryPointTests
     }
 
     [AvaloniaTest]
-    public async Task AiMenu_WithoutScene_DisablesEveryAiCommand()
+    public async Task CommandPalette_WithoutScene_DisablesEveryAiPage()
     {
         await TestReset.ResetShellAsync();
-        MainViewModel mainViewModel = TestShell.MainViewModel;
-
-        using (Assert.EnterMultipleScope())
+        CommandPaletteViewModel palette = TestShell.MainViewModel.CommandPalette;
+        palette.Open();
+        try
         {
-            Assert.That(mainViewModel.MenuBar.ShowAiJobs.CanExecute(), Is.False);
-            Assert.That(mainViewModel.MenuBar.GenerateImage.CanExecute(), Is.False);
-            Assert.That(mainViewModel.MenuBar.EditImage.CanExecute(), Is.False);
-            Assert.That(mainViewModel.MenuBar.GenerateSubtitles.CanExecute(), Is.False);
-            Assert.That(mainViewModel.MenuBar.GenerateVideo.CanExecute(), Is.False);
-            Assert.That(mainViewModel.MenuBar.EditVideo.CanExecute(), Is.False);
+            using (Assert.EnterMultipleScope())
+            {
+                foreach (var page in s_aiPages)
+                    Assert.That(palette.FilteredCommands.Single(item => item.Command.Id == page.Id).IsEnabled, Is.False, page.Id);
+            }
+        }
+        finally
+        {
+            palette.Close();
         }
     }
 
-    private static (Action Open, AiWorkspaceSection Section, Type PageType)[] MenuEntries(
-        MainViewModel mainViewModel) =>
+    private static readonly (string Id, AiWorkspaceSection Section, Type PageType)[] s_aiPages =
     [
-        (mainViewModel.MenuBar.GenerateImage.Execute,
-            AiWorkspaceSection.ImageGeneration,
-            typeof(AiImageGenerationDialogViewModel)),
-        (mainViewModel.MenuBar.EditImage.Execute,
-            AiWorkspaceSection.ImageEdit,
-            typeof(AiImageEditDialogViewModel)),
-        (mainViewModel.MenuBar.GenerateVideo.Execute,
-            AiWorkspaceSection.VideoGeneration,
-            typeof(AiVideoGenerationDialogViewModel)),
-        (mainViewModel.MenuBar.EditVideo.Execute,
-            AiWorkspaceSection.VideoEditing,
-            typeof(AiVideoEditingViewModel)),
-        (() => mainViewModel.MenuBar.GenerateSubtitles.Execute(),
-            AiWorkspaceSection.Subtitles,
-            typeof(AiSubtitleDialogViewModel)),
-        (mainViewModel.MenuBar.ShowAiJobs.Execute,
-            AiWorkspaceSection.Jobs,
-            typeof(AiJobCenterViewModel)),
+        ("main.openAiImageGeneration", AiWorkspaceSection.ImageGeneration, typeof(AiImageGenerationDialogViewModel)),
+        ("main.openAiImageEdit", AiWorkspaceSection.ImageEdit, typeof(AiImageEditDialogViewModel)),
+        ("main.openAiVideoGeneration", AiWorkspaceSection.VideoGeneration, typeof(AiVideoGenerationDialogViewModel)),
+        ("main.openAiVideoEditing", AiWorkspaceSection.VideoEditing, typeof(AiVideoEditingViewModel)),
+        ("main.openAiSubtitles", AiWorkspaceSection.Subtitles, typeof(AiSubtitleDialogViewModel)),
+        ("main.openAiJobCenter", AiWorkspaceSection.Jobs, typeof(AiJobCenterViewModel)),
     ];
+
+    private static MainMenuItem AiToolTabEntry(MainViewModel mainViewModel)
+        => mainViewModel.MenuItems.Single(item => item.Header == Strings.View).Items!
+            .Single(item => item.Header == Strings.Tools).Items!
+            .Single(item => item.Header == Strings.Ai);
 
     private static int CountAiTabs(EditViewModel editor)
         => editor.DockHost.Factory.EnumerateTools().Count(tool => tool.ToolContext is AiWorkspaceViewModel);
