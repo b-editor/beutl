@@ -5,11 +5,14 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Editor.Components;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Models;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -25,6 +28,8 @@ namespace Beutl.Views;
 
 public partial class MainView
 {
+    private readonly CaptionTemplateChooser _captionTemplateChooser = new();
+
     private void InitializeCommands(MainViewModel viewModel)
     {
         viewModel.VersionControlCoordinator.RequestIdentityAsync = RequestGitIdentityAsync;
@@ -52,6 +57,7 @@ public partial class MainView
             }
         }).AddTo(_disposables);
         viewModel.MenuBar.OpenFile.Subscribe(OnOpenFile).AddTo(_disposables);
+        viewModel.MenuBar.ImportMedia.Subscribe(OnImportMedia).AddTo(_disposables);
         viewModel.MenuBar.EnableVersionControl.Subscribe(
             () => EnableVersionControlAsync(viewModel)).AddTo(_disposables);
         viewModel.MenuBar.CommitVersion.Subscribe(
@@ -235,6 +241,39 @@ public partial class MainView
             {
                 viewModel.MenuBar.OpenFileCore(path);
             }
+        }
+    }
+
+    private async Task OnImportMedia()
+    {
+        if (TopLevel.GetTopLevel(this) is not Window window
+            || DataContext is not MainViewModel viewModel
+            || viewModel.EditorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editor)
+        {
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(
+                new FilePickerOpenOptions { AllowMultiple = true });
+            using IDisposable fileOwnership = SharedFilePickerOptions.OwnStorageFiles(files);
+            // A scene can be closed or switched while the picker is open.
+            if (DataContext != viewModel || TopLevel.GetTopLevel(this) != window
+                || viewModel.EditorService.SelectedTabItem.Value?.Context.Value != editor
+                || SceneFileDrop.GetLocalPaths(files) is not { Length: > 0 } paths)
+            {
+                return;
+            }
+
+            Scene scene = editor.Scene;
+            (MediaTime start, int layer) = PlayheadPlacement.Find(editor, scene);
+            await SceneFileDrop.AddAsync(editor, scene, paths, start, layer, this, _captionTemplateChooser,
+                editor.FindToolTab<TimelineTabViewModel>());
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle(Notifications);
         }
     }
 
