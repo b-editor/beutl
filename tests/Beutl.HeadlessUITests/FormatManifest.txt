@@ -1792,6 +1792,7 @@ editor.toggleMarker
 editor.toggleOnionSkin
 editor.togglePreviewCheckerboard
 editor.togglePreviewGuides
+extensions.refresh
 graphEditor.cancel
 graphEditor.copy
 graphEditor.cut
