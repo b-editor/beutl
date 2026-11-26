@@ -120,6 +120,7 @@
                         <icons:FluentIconSource Icon="Cut" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem x:Name="cut"
                                      usage:UsageTracking.Feature="Timeline.Cut"
                                      Command="{Binding Cut}"
@@ -139,6 +140,16 @@
                         <icons:FluentIconSource Icon="Copy" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="duplicate"
+                                     usage:UsageTracking.Feature="Timeline.Duplicate"
+                                     Click="Duplicate_Click"
+                                     InputGesture="{h:GetCommandGesture timeline.duplicate,
+                                                                      ExtensionType={x:Type p:TimelineTabExtension}}"
+                                     Text="{x:Static lang:Strings.Duplicate}">
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <icons:FluentIconSource Icon="DocumentCopy" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="delete"
                                      usage:UsageTracking.Feature="Timeline.Delete"
                                      Command="{Binding Delete}"
@@ -149,15 +160,6 @@
                         <icons:FluentIconSource Icon="DeleteDismiss" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
-                <ui:FAMenuFlyoutSubItem x:Name="bulkSelectionMenu" Text="{x:Static lang:Strings.BulkSelection}" />
-                <ui:FAMenuFlyoutItem x:Name="groupSelectedElements"
-                                     usage:UsageTracking.Feature="Timeline.GroupSelectedElements"
-                                     Command="{Binding GroupSelectedElements}"
-                                     Text="{x:Static lang:Strings.GroupSelectedElements}" />
-                <ui:FAMenuFlyoutItem x:Name="ungroupSelectedElements"
-                                     usage:UsageTracking.Feature="Timeline.UngroupSelectedElements"
-                                     Command="{Binding UngroupSelectedElements}"
-                                     Text="{x:Static lang:Strings.UngroupSelectedElements}" />
                 <ui:FAMenuFlyoutItem x:Name="rename"
                                      usage:UsageTracking.Feature="Timeline.Rename"
                                      Click="Rename_Click"
@@ -172,6 +174,17 @@
                                      usage:UsageTracking.Feature="Timeline.ChangeToOriginalDuration"
                                      Command="{Binding ChangeToOriginalDuration}"
                                      Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
+                <ui:FAMenuFlyoutSeparator />
+                <ui:FAMenuFlyoutSubItem x:Name="bulkSelectionMenu" Text="{x:Static lang:Strings.BulkSelection}" />
+                <ui:FAMenuFlyoutItem x:Name="groupSelectedElements"
+                                     usage:UsageTracking.Feature="Timeline.GroupSelectedElements"
+                                     Command="{Binding GroupSelectedElements}"
+                                     Text="{x:Static lang:Strings.GroupSelectedElements}" />
+                <ui:FAMenuFlyoutItem x:Name="ungroupSelectedElements"
+                                     usage:UsageTracking.Feature="Timeline.UngroupSelectedElements"
+                                     Command="{Binding UngroupSelectedElements}"
+                                     Text="{x:Static lang:Strings.UngroupSelectedElements}" />
+                <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem x:Name="changeColor"
                                      usage:UsageTracking.Feature="Timeline.ChangeColor"
                                      Click="ChangeColor_Click"

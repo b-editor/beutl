@@ -131,6 +131,7 @@ public sealed partial class ElementView : UserControl
         split.IsEnabled = editable;
         autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
+        duplicate.IsEnabled = viewModel.Timeline.SelectedElements.Count > 0;
         // Recovery protection makes a clip read-only but still lets it be removed.
         delete.IsEnabled = !viewModel.IsLockedByUser.Value;
         finishEditingAnimation.IsEnabled = editable;
@@ -440,6 +441,13 @@ public sealed partial class ElementView : UserControl
     {
         textBlock.IsVisible = true;
         textBox.IsVisible = false;
+    }
+
+    private void Duplicate_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ElementViewModel viewModel) return;
+        viewModel.Timeline.FlushPendingNudgeCommit();
+        viewModel.Timeline.Duplicate.Execute();
     }
 
     private void Rename_Click(object? sender, RoutedEventArgs e)
