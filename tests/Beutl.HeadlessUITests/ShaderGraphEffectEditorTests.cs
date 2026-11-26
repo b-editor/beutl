@@ -62,12 +62,12 @@ public sealed class ShaderGraphEffectEditorTests
             Assert.That(panel.Children, Has.All.Matches<Control>(control => control is { Bounds.Width: > 0, Bounds.Height: > 0 }));
             if (lightRays)
             {
-                Assert.That(GraphicsStrings.LightRays, Is.EqualTo(language == "ja" ? "光線" : "Light rays"));
+                Assert.That(GraphicsStrings.LightRays, Is.EqualTo(language == "ja" ? "光線" : "Light Rays"));
                 Assert.That(models[1].Header, Is.EqualTo(language == "ja" ? "長さ (%)" : "Length (%)"));
             }
             else
             {
-                Assert.That(GraphicsStrings.WaveRefraction, Is.EqualTo(language == "ja" ? "波紋屈折" : "Wave refraction"));
+                Assert.That(GraphicsStrings.WaveRefraction, Is.EqualTo(language == "ja" ? "波紋屈折" : "Wave Refraction"));
                 Assert.That(models[1].Header, Is.EqualTo(language == "ja" ? "しきい値" : "Threshold"));
             }
             PropertyEditorViewModel softness = models[lightRays ? 5 : 2];

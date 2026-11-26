@@ -72,7 +72,7 @@ internal static class LibraryRegistrar
                 .BindSound<SourceSound>()
             );
 
-        library.RegisterGroup($"3D ({Strings.Experimental})", g => g
+        library.RegisterGroup(GraphicsStrings.LibraryGroup3D, g => g
             .AddMultiple(GraphicsStrings.Scene3D, GraphicsStrings.Scene3D_LibraryDescription, m => m
                 .BindDrawable<Scene3D>()
             )

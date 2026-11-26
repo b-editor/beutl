@@ -549,7 +549,7 @@
     <value>데코레이터</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>시간 컨트롤러 (비디오)</value>
+    <value>시간 컨트롤러</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>시간 범위 조정</value>
@@ -654,6 +654,9 @@
     <value>감마</value>
   </data>
   <data name="GeometryShape" xml:space="preserve">
+    <value>기하 도형</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
     <value>기하 도형</value>
   </data>
   <data name="GeometryShape_Data" xml:space="preserve">
@@ -1454,6 +1457,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>3D 장면</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D (실험적)</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>주변 색상</value>
   </data>
@@ -1681,6 +1687,9 @@
   </data>
   <data name="Stroke" xml:space="preserve">
     <value>획</value>
+  </data>
+  <data name="Pen" xml:space="preserve">
+    <value>펜</value>
   </data>
   <data name="Target" xml:space="preserve">
     <value>대상</value>

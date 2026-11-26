@@ -1367,9 +1367,6 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
     <value>대상 폴더 선택</value>
   </data>
   
-  <data name="Experimental" xml:space="preserve">
-    <value>실험적</value>
-  </data>
   <data name="Home" xml:space="preserve">
     <value>홈</value>
   </data>

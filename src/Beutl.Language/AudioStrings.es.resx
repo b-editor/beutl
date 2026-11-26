@@ -20,6 +20,9 @@
   <data name="SourceSound" xml:space="preserve">
     <value>Sonido</value>
   </data>
+  <data name="Sound" xml:space="preserve">
+    <value>Sonido</value>
+  </data>
   <data name="SourceSound_Source" xml:space="preserve">
     <value>Fuente</value>
   </data>

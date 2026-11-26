@@ -1448,9 +1448,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Select Destination Folder</value>
   </data>
   <!-- 3D Graphics -->
-  <data name="Experimental" xml:space="preserve">
-    <value>Experimental</value>
-  </data>
   <data name="Home" xml:space="preserve">
     <value>Home</value>
   </data>
