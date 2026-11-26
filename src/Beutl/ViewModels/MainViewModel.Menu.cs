@@ -96,6 +96,7 @@ public sealed partial class MainViewModel
                 new(Strings.Cut) { Command = MenuBar.CutLayer, EditAction = StandardEditAction.Cut, IsInNativeMenuOnly = true },
                 new(Strings.Copy) { Command = MenuBar.CopyLayer, EditAction = StandardEditAction.Copy, IsInNativeMenuOnly = true },
                 new(Strings.Paste) { Command = MenuBar.PasteLayer, EditAction = StandardEditAction.Paste, IsInNativeMenuOnly = true },
+                new(Strings.Delete) { Command = MenuBar.DeleteLayer, EditAction = StandardEditAction.Delete, IsInNativeMenuOnly = true },
                 new(Strings.SelectAll) { Command = MenuBar.SelectAll, EditAction = StandardEditAction.SelectAll, IsInNativeMenuOnly = true },
             ]
         },
@@ -168,9 +169,10 @@ public sealed partial class MainViewModel
                 new(UndisplayableDataStrings.Title) { Command = MenuBar.ShowUndisplayableData },
                 MainMenuItem.Separator,
                 .. CreateSceneMarkerAndPlaybackMenus(),
-                MainMenuItem.Separator,
+                new(null) { IsInWindowOnly = true },
                 new(Strings.Element)
                 {
+                    IsInWindowOnly = true,
                     Items =
                     [
                         new(Strings.Delete) { Command = MenuBar.DeleteLayer },

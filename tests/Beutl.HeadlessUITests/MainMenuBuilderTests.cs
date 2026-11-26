@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Disposables;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
@@ -9,8 +10,11 @@ using Avalonia.Input;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Graphics.Shapes;
 using Beutl.Language;
+using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -298,6 +302,11 @@ public sealed class MainMenuBuilderTests
 
                 Assert.That(((FocusedEditCommand)NativeEntry(native, Strings.Edit, Strings.Undo).Command!).Fallback, Is.SameAs(menuBar.Undo));
                 Assert.That(((FocusedEditCommand)NativeEntry(native, Strings.Edit, Strings.Redo).Command!).Fallback, Is.SameAs(menuBar.Redo));
+                NativeMenuItem delete = NativeEntry(native, Strings.Edit, Strings.Delete);
+                Assert.That(((FocusedEditCommand)delete.Command!).Fallback, Is.SameAs(menuBar.DeleteLayer));
+                Assert.That(delete.Gesture, Is.Null);
+                Assert.That(native.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Scene).Menu!.Items
+                    .OfType<NativeMenuItem>().Select(item => item.Header), Does.Not.Contain(Strings.Element));
                 Assert.That(NativeEntry(native, Strings.View, Strings.ToggleFullScreen).Command, Is.SameAs(menuBar.ToggleFullScreen));
                 Assert.That(NativeEntry(native, Strings.Window, Strings.MinimizeWindow).Command, Is.SameAs(menuBar.MinimizeWindow));
                 Assert.That(NativeEntry(native, Strings.Window, Strings.ZoomWindow).Command, Is.SameAs(menuBar.ZoomWindow));
@@ -314,6 +323,8 @@ public sealed class MainMenuBuilderTests
 
                 MenuItem newScene = tops.Single(item => Equals(item.Header, Strings.Scene)).Items.OfType<MenuItem>()
                     .Single(item => Equals(item.Header, Strings.CreateNew));
+                Assert.That(tops.Single(item => Equals(item.Header, Strings.Scene)).Items.OfType<MenuItem>()
+                    .Select(item => item.Header), Does.Contain(Strings.Element));
                 NativeMenuItem nativeNewScene = NativeEntry(native, Strings.Scene, Strings.CreateNew);
                 KeyGesture gesture = GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), "main.createNewFile")!;
                 Assert.That(gesture, Is.Not.Null);
@@ -367,6 +378,46 @@ public sealed class MainMenuBuilderTests
         {
             macWindow.DataContext = null;
             macWindow.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Native_delete_targets_the_focused_text_box_or_the_selected_element()
+    {
+        (_, var scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("native-delete-menu");
+        await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromSeconds(1));
+        Element element = scene.Children.Single();
+        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
+
+        var box = new TextBox { Text = "Selection" };
+        var button = new Button { Content = "Timeline" };
+        var window = new Window { Content = new StackPanel { Children = { box, button } } };
+        var menu = new NativeMenu();
+        using var subscriptions = new CompositeDisposable();
+        MainMenuBuilder.AddMenus(menu, TestShell.MainViewModel.MenuItems, window, subscriptions);
+        ICommand delete = menu.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Edit).Menu!.Items
+            .OfType<NativeMenuItem>().Single(item => item.Header == Strings.Delete).Command!;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(box.Focus(), Is.True);
+            box.SelectAll();
+            delete.Execute(null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(box.Text, Is.Empty);
+                Assert.That(scene.Children, Does.Contain(element));
+            });
+
+            Assert.That(button.Focus(), Is.True);
+            delete.Execute(null);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !scene.Children.Contains(element));
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
         }
     }
 

@@ -12,7 +12,8 @@ public enum StandardEditAction
     Cut,
     Copy,
     Paste,
-    SelectAll
+    SelectAll,
+    Delete
 }
 
 // An entry of the main menu. MainView shows the entries as a Menu, and MacWindow and the floating tool windows as a
@@ -45,7 +46,7 @@ public sealed class MainMenuItem(string? header)
     // A list that raises CollectionChanged is followed.
     public IReadOnlyList<MainMenuItem>? Items { get; init; }
 
-    // macOS has it in the application menu instead.
+    // Only the in-window menu shows this entry.
     public bool IsInWindowOnly { get; init; }
 
     // What macOS users expect of a menu bar. On the other platforms, the title bar or the panels have it.

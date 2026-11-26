@@ -111,6 +111,8 @@ internal static class MainMenuBuilder
     private static KeyGesture? GetGesture(MainMenuItem item) => item switch
     {
         { GestureCommand: { } id } => GetCommandGestureExtension.GetKeyGesture(item.InWindowGestureExtensionType ?? typeof(MainViewExtension), id),
+        // Leave the text box's Cmd+Backspace gesture available for deleting to the start of the line.
+        { EditAction: StandardEditAction.Delete } => null,
         { EditAction: { } action } => FocusedEditCommand.GetKeyGesture(action),
         _ => null
     };
