@@ -296,6 +296,13 @@ public sealed partial class ObjectTemplateService : IDisposable
                 {
                     // Try the next available name.
                 }
+                catch (Exception ex) when (!OperatingSystem.IsWindows()
+                    && ex is IOException or UnauthorizedAccessException)
+                {
+                    // The file system has no hard links (such as exFAT), so fall back to a move.
+                    File.Move(temporaryPath, filePath, overwrite: false);
+                    break;
+                }
             }
 
             item.FilePath = filePath;
