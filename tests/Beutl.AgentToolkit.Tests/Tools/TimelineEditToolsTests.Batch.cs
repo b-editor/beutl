@@ -226,6 +226,51 @@ public sealed partial class TimelineEditToolsTests
         });
     }
 
+    [TestCase(false, false, 4)]
+    [TestCase(true, false, 4)]
+    [TestCase(true, true, 9)]
+    public async Task Silence_ripple_closes_overlapping_windows_once_across_interleaved_layers(
+        bool linked, bool locked, double followerStart)
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        var source = WriteWavWithSilence(scene, seconds: 6, silenceStart: 0, silenceEnd: 6);
+        Element wide = AddElement(scene, 2, 6);
+        Element nested = AddElement(scene, 5, 1);
+        Element other = AddElement(scene, 3, 1, layer: 1);
+        foreach (Element element in new[] { wide, nested, other })
+            element.AddObject(new SourceSound { Source = { Value = source } });
+
+        Element follower = AddElement(scene, 10, 1);
+        Element otherFollower = AddElement(scene, 10, 1, layer: 1);
+        Element? linkedFollower = null;
+        if (linked)
+        {
+            Element companion = AddElement(scene, 2, 6, layer: 2);
+            scene.Groups.Add(ImmutableHashSet.Create(wide.Id.Value, companion.Id.Value));
+            linkedFollower = AddElement(scene, 10, 1, layer: 2);
+            if (locked) AddElement(scene, 8.5, 0.5, layer: 2).IsLocked.Value = true;
+        }
+        using var session = new AgentToolkitTestSession(scene);
+        await using InProcessAgentToolkitServer server = await StartAsync(session);
+
+        var result = await CallAsync(server.Client, "split_on_silence",
+            ("elementIds", new[] { Id(wide), Id(nested), Id(other) }), ("mode", "ripple_delete"), ("paddingMilliseconds", 0));
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.RemovedRanges,
+                Is.EquivalentTo(new TimelineSilenceRange[] { new(Id(wide), 2, 8), new(Id(nested), 5, 6), new(Id(other), 3, 4) }));
+            Assert.That(follower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(followerStart)));
+            Assert.That(otherFollower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(9)));
+            if (linkedFollower != null)
+                Assert.That(linkedFollower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(locked ? 10 : 4)));
+        });
+        await UndoOnlyEditAsync(server.Client);
+        Assert.That(follower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+        Assert.That(otherFollower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+    }
+
     [Test]
     public async Task Silence_split_rejects_analysis_if_a_user_edit_is_flushed_before_application()
     {
@@ -248,14 +293,14 @@ public sealed partial class TimelineEditToolsTests
         });
     }
 
-    private static SoundSource WriteWavWithSilence(Scene scene)
+    private static SoundSource WriteWavWithSilence(Scene scene, int seconds = 2, double silenceStart = 0.5, double silenceEnd = 1.5)
     {
         const int sampleRate = 48000;
         string path = Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "silence.wav");
         using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, 1)))
         {
-            for (int i = 0; i < sampleRate * 2; i++)
-                writer.WriteSample(i >= sampleRate / 2 && i < sampleRate * 3 / 2 ? 0 : 0.4f);
+            for (int i = 0; i < sampleRate * seconds; i++)
+                writer.WriteSample(i >= sampleRate * silenceStart && i < sampleRate * silenceEnd ? 0 : 0.4f);
         }
         var source = new SoundSource();
         source.ReadFrom(new Uri(path));

@@ -165,30 +165,96 @@ public sealed partial class SilenceSplitService(HistoryManager history, EditorCo
     private static void RippleBatch(Scene scene, List<(int[] Layers, TimeRange[] Ranges)> requests,
         CancellationToken cancellationToken)
     {
-        // Close windows from right to left so a shift cannot move a gap still to be closed.
-        // Process consecutive windows with the same layers in one sweep, as for a single clip.
-        var windows = requests.SelectMany(request => request.Ranges.Select(range => (request.Layers, Range: range)))
-            .OrderByDescending(window => window.Range.Start).ToArray();
-        for (int i = 0; i < windows.Length;)
+        // Find common gaps and lock barriers on the original timeline before moving any clip.
+        var elementsByLayer = scene.Children.ToLookup(element => element.ZIndex.Value);
+        var windowsByLayer = new Dictionary<int, List<RippleWindow>>();
+        foreach (var requestsOnLayers in requests.GroupBy(request => request.Layers, s_layerSetComparer))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            int[] layers = windows[i].Layers;
             var ranges = new List<TimeRange>();
-            do
+            foreach (TimeRange range in requestsOnLayers.SelectMany(request => request.Ranges).OrderBy(range => range.Start))
             {
-                TimeRange range = windows[i++].Range;
-                while (ranges.Count > 0 && range.End >= ranges[^1].Start)
-                {
-                    TimeRange next = ranges[^1];
-                    ranges.RemoveAt(ranges.Count - 1);
-                    if (next.End > range.End) range = TimeRange.FromRange(range.Start, next.End);
-                }
-                ranges.Add(range);
-            } while (i < windows.Length && windows[i].Layers.AsSpan().SequenceEqual(layers));
-            ranges.Reverse();
-            RippleGaps(scene, layers, ranges, []);
+                if (ranges.Count > 0 && range.Start <= ranges[^1].End) ranges[^1] = ranges[^1].Union(range);
+                else ranges.Add(range);
+            }
+
+            Element[] affected = requestsOnLayers.Key.SelectMany(layer => elementsByLayer[layer])
+                .OrderBy(element => element.Start.Value).ToArray();
+            MediaTime[] barriers = affected.Where(scene.IsElementLocked).Select(element => element.Start.Value).ToArray();
+            var windows = new List<RippleWindow>();
+            int nextBarrier = 0;
+            foreach (TimeRange gap in CommonGaps(affected, ranges))
+            {
+                while (nextBarrier < barriers.Length && barriers[nextBarrier] < gap.End) nextBarrier++;
+                MediaTime? barrier = nextBarrier < barriers.Length ? barriers[nextBarrier] : null;
+                if (barrier != gap.End) windows.Add(new RippleWindow(gap, barrier));
+            }
+
+            if (windows.Count == 0) continue;
+            foreach (int layer in requestsOnLayers.Key)
+            {
+                if (!windowsByLayer.TryGetValue(layer, out var layerWindows)) windowsByLayer.Add(layer, layerWindows = []);
+                layerWindows.AddRange(windows);
+            }
+        }
+
+        foreach ((int layer, List<RippleWindow> windows) in windowsByLayer)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RippleLayer(scene, elementsByLayer[layer], windows);
         }
     }
+
+    private readonly record struct RippleWindow(TimeRange Gap, MediaTime? Barrier);
+
+    // Close each part of the overlap once. A linked lock stops its request while another
+    // request covering the same part can still move clips on this layer.
+    private static void RippleLayer(Scene scene, IEnumerable<Element> elements, List<RippleWindow> windows)
+    {
+        windows.Sort(static (left, right) => left.Gap.Start.CompareTo(right.Gap.Start));
+        MediaTime[] edges = windows.Select(window => window.Gap.Start).Concat(windows.Select(window => window.Gap.End))
+            .Distinct().Order().ToArray();
+        var active = new PriorityQueue<RippleWindow, (bool Unbounded, MediaTime Barrier)>(
+            Comparer<(bool, MediaTime)>.Create(static (left, right) => right.CompareTo(left)));
+        var shifts = new SortedDictionary<MediaTime, MediaTime>();
+        int next = 0;
+        for (int i = 1; i < edges.Length; i++)
+        {
+            MediaTime start = edges[i - 1];
+            while (next < windows.Count && windows[next].Gap.Start == start)
+            {
+                RippleWindow window = windows[next++];
+                active.Enqueue(window, (!window.Barrier.HasValue, window.Barrier.GetValueOrDefault()));
+            }
+            while (active.TryPeek(out RippleWindow ended, out _) && ended.Gap.End <= start) active.Dequeue();
+            if (!active.TryPeek(out RippleWindow applicable, out _)) continue;
+
+            // There is no retained clip start inside this part of the gap.
+            MediaTime end = edges[i];
+            MediaTime duration = end - start;
+            shifts[end] = shifts.GetValueOrDefault(end) + duration;
+            if (applicable.Barrier is { } barrier) shifts[barrier] = shifts.GetValueOrDefault(barrier) - duration;
+        }
+
+        var changes = shifts.ToArray();
+        int changeIndex = 0;
+        MediaTime shift = MediaTime.Zero;
+        foreach (Element element in elements.OrderBy(element => element.Start.Value))
+        {
+            while (changeIndex < changes.Length && changes[changeIndex].Key <= element.Start.Value)
+                shift += changes[changeIndex++].Value;
+            if (shift > MediaTime.Zero && !scene.IsElementLocked(element)) element.Start.Value -= shift;
+        }
+    }
+
+    private static readonly EqualityComparer<int[]> s_layerSetComparer = EqualityComparer<int[]>.Create(
+        static (left, right) => left.AsSpan().SequenceEqual(right),
+        static layers =>
+        {
+            var hash = new HashCode();
+            foreach (int layer in layers) hash.Add(layer);
+            return hash.ToHashCode();
+        });
 
     private static void RippleGaps(Scene scene, int[] layers, IReadOnlyList<TimeRange> ranges, Element[] pending)
     {
