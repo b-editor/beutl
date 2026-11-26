@@ -1,6 +1,6 @@
 # Tool-tab extension guide
 
-`ToolTabExtension` adds a dockable tool to the Beutl editor. The public contract is defined in `src/Beutl.Extensibility/SceneEditorTabExtension.cs`; existing in-tree examples live under `src/Beutl.Editor.Components/*Tab/`.
+`ToolTabExtension` adds a dockable tool to the Beutl editor. Existing in-tree examples live under `src/Beutl.Editor.Components/*Tab/`. The public contract is defined in [`src/Beutl.Extensibility/ToolTabExtension.cs`](../../src/Beutl.Extensibility/ToolTabExtension.cs).
 
 ## Extension and context responsibilities
 
