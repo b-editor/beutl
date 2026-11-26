@@ -248,7 +248,7 @@ public partial class MainView
     {
         if (TopLevel.GetTopLevel(this) is not Window window
             || DataContext is not MainViewModel viewModel
-            || viewModel.EditorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editor)
+            || viewModel.EditorService.SelectedTabItem.Value?.Context.Value is not EditViewModel { IsEnabled.Value: true } editor) // Suspended editors take no edits, as with drag and drop.
         {
             return;
         }
@@ -258,9 +258,9 @@ public partial class MainView
             IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(
                 new FilePickerOpenOptions { AllowMultiple = true });
             using IDisposable fileOwnership = SharedFilePickerOptions.OwnStorageFiles(files);
-            // A scene can be closed or switched while the picker is open.
+            // A scene can be closed or switched, or its editor suspended by a pull, while the picker is open.
             if (DataContext != viewModel || TopLevel.GetTopLevel(this) != window
-                || viewModel.EditorService.SelectedTabItem.Value?.Context.Value != editor
+                || viewModel.EditorService.SelectedTabItem.Value?.Context.Value != editor || !editor.IsEnabled.Value
                 || SceneFileDrop.GetLocalPaths(files) is not { Length: > 0 } paths)
             {
                 return;
