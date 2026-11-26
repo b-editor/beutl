@@ -788,10 +788,19 @@ public sealed partial class ElementViewModel
         int height = ThumbnailHeight;
         bool replace = missing == null;
         int newCount = 0;
+        (int Start, int End)? legacyRange = null;
+        if (provider is not Beutl.Graphics.SourceVideo && missing == null)
+        {
+            bool currentLayout = _thumbnailCountVersion == _thumbnailLayoutVersion;
+            legacyRange = currentLayout && _lastVisibleStart >= 0 && _lastVisibleEnd >= _lastVisibleStart
+                ? (_lastVisibleStart, _lastVisibleEnd)
+                : (0, -1);
+        }
+
         var stream = provider is Beutl.Graphics.SourceVideo video
             ? video.GetVisibleThumbnailLeasesAsync(fonts, width, height, _thumbnailCacheService, ct,
                 PreferProxyForThumbnails, PreferredProxyPresetForThumbnails, decoders, SelectIndicesAsync)
-            : GetLegacyVideoThumbnailsAsync(provider, fonts, decoders, width, height, missing, ct);
+            : GetLegacyVideoThumbnailsAsync(provider, fonts, decoders, width, height, missing, legacyRange, ct);
 
         await PublishBatchesAsync(stream, 4, ct, batch =>
         {
@@ -800,6 +809,7 @@ public sealed partial class ElementViewModel
 
             ApplyLayout(batch[0].Count);
             PublishVideoBatch(batch);
+            MarkLoadedVideoSlots(ct, batch);
         }, static item => item.Thumbnail?.Dispose());
 
         if (CanPublish(layoutVersion, ct))
@@ -810,6 +820,13 @@ public sealed partial class ElementViewModel
             if (!replace)
                 return;
             replace = false;
+            if (legacyRange is { } range && count > 0)
+            {
+                int start = Math.Clamp(range.Start, 0, count - 1);
+                int end = range.End < 0 ? count - 1 : Math.Clamp(range.End, start, count - 1);
+                _loadingMediaSlots = (ct, CreateRangeIndices(start, end).ToHashSet());
+            }
+
             ResetMediaPreviewVisuals();
             ThumbnailsClear?.Invoke();
             Volatile.Write(ref _thumbnailCountVersion, layoutVersion);
@@ -837,7 +854,7 @@ public sealed partial class ElementViewModel
 
     private async IAsyncEnumerable<(int Index, int Count, Ref<Bitmap>? Thumbnail)> GetLegacyVideoThumbnailsAsync(
         IThumbnailsProvider provider, FontManager fonts, DecoderRegistry? decoders, int width, int height,
-        IReadOnlyList<int>? indices, [EnumeratorCancellation] CancellationToken ct)
+        IReadOnlyList<int>? indices, (int Start, int End)? initialRange, [EnumeratorCancellation] CancellationToken ct)
     {
         foreach (var (start, end) in GetRanges())
         {
@@ -850,9 +867,7 @@ public sealed partial class ElementViewModel
         {
             if (indices == null)
             {
-                bool currentLayout = _thumbnailCountVersion == _thumbnailLayoutVersion;
-                yield return currentLayout && _lastVisibleStart >= 0 && _lastVisibleEnd >= _lastVisibleStart
-                    ? (_lastVisibleStart, _lastVisibleEnd) : (0, -1);
+                yield return initialRange ?? (0, -1);
                 yield break;
             }
 
@@ -911,6 +926,7 @@ public sealed partial class ElementViewModel
                     return;
                 ApplyLayout();
                 PublishWaveformBatch(batch);
+                MarkLoadedWaveformSlots(ct, batch);
             });
         }
         finally
@@ -938,6 +954,24 @@ public sealed partial class ElementViewModel
     {
         if (_loadingMediaSlots?.Token == ct)
             _loadingMediaSlots = null;
+    }
+
+    private void MarkLoadedVideoSlots(CancellationToken ct, IReadOnlyList<(int Index, int Count, Ref<Bitmap>? Thumbnail)> batch)
+    {
+        if (_loadingMediaSlots is { } loading && loading.Token == ct)
+        {
+            foreach (var item in batch)
+                loading.Indices.Remove(item.Index);
+        }
+    }
+
+    private void MarkLoadedWaveformSlots(CancellationToken ct, IReadOnlyList<WaveformChunk> batch)
+    {
+        if (_loadingMediaSlots is { } loading && loading.Token == ct)
+        {
+            foreach (var chunk in batch)
+                loading.Indices.Remove(chunk.Index);
+        }
     }
 
     private void PublishVideoBatch(IReadOnlyList<(int Index, int Count, Ref<Bitmap>? Thumbnail)> batch)

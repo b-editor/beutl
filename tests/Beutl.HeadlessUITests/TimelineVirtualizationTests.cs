@@ -795,9 +795,11 @@ public sealed class TimelineVirtualizationTests
             using var host = new ViewportHost(scene);
             ElementViewModel model = host.Model.GetViewModelFor(video)!;
 
-            await HeadlessTestHelpers.WaitUntilAsync(() => model.VideoThumbnailCount.Value > 40);
-            int smallCount = model.VideoThumbnailCount.Value;
             ThumbnailStripControl strip = host.Panel.GetVisualDescendants().OfType<ThumbnailStripControl>().Single();
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                model.VideoThumbnailCount.Value > 40
+                && strip.GetMissingIndices(0, model.VideoThumbnailCount.Value - 1).Count == 0);
+            int smallCount = model.VideoThumbnailCount.Value;
 
             // Scroll near the right end so ElementViewModel caches a Small slot range past Large's total slot count.
             int scrolledStart = -1;
@@ -870,9 +872,11 @@ public sealed class TimelineVirtualizationTests
             using var host = new ViewportHost(scene);
             ElementViewModel model = host.Model.GetViewModelFor(video)!;
 
-            await HeadlessTestHelpers.WaitUntilAsync(() => model.VideoThumbnailCount.Value > 40);
-            int smallCount = model.VideoThumbnailCount.Value;
             ThumbnailStripControl strip = host.Panel.GetVisualDescendants().OfType<ThumbnailStripControl>().Single();
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                model.VideoThumbnailCount.Value > 40
+                && strip.GetMissingIndices(0, model.VideoThumbnailCount.Value - 1).Count == 0);
+            int smallCount = model.VideoThumbnailCount.Value;
 
             int requestsBeforeResize = videoSource.Requests;
             videoSource.FailNextVideoStrip = true;
