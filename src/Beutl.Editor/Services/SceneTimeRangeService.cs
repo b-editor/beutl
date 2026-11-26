@@ -39,7 +39,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
         ApplyEndDrag(scene, pointerTime);
     }
 
-    internal static Rational GetFrameRate(Scene scene) => scene.FindHierarchicalParent<Project>().GetFrameRate();
+    internal static Rational GetFrameRate(Scene scene) => scene.GetFrameRate();
 
     internal static MediaTime GetFrameDuration(Scene scene) => MediaTime.FromFrames(1, GetFrameRate(scene));
 

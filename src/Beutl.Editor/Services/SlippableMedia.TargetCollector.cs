@@ -51,8 +51,7 @@ internal static partial class SlippableMedia
             if (_scene is { } layerScene)
                 foreach (TimelineLayer layer in layerScene.Layers) _layers.TryAdd(layer.ZIndex.Value, layer);
             _hasSolo = _layers.Values.Any(layer => layer.IsSolo.Value);
-            Project? project = element.FindHierarchicalParent<Project>() ?? _scene?.FindHierarchicalParent<Project>();
-            _sampleRate = project.GetSampleRate();
+            _sampleRate = _scene.GetSampleRate();
         }
 
         public List<Target> Collect()

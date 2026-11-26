@@ -73,7 +73,7 @@ public static class KeyFrameNavigationHelper
         MediaTime? target = null;
         foreach (Element el in roots)
         {
-            Rational rate = el.FindHierarchicalParent<Project>().GetFrameRate();
+            Rational rate = el.FindHierarchicalParent<Scene>().GetFrameRate();
             foreach ((IKeyFrameAnimation anim, MediaTime offset) in EnumerateKeyFrameAnimations(el))
             {
                 foreach (IKeyFrame kf in anim.KeyFrames)

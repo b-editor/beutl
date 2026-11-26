@@ -14,10 +14,10 @@ public class SoundClipLayoutTests
     private readonly DecoderRegistry _decoders = TestMediaHelper.CreateRegistry();
 
     [Test]
-    public void GroupsAndScenesUseTheProjectLayout([Values] SpeakerLayout layout)
+    public void GroupsAndScenesUseTheSceneLayout([Values] SpeakerLayout layout)
     {
-        var project = new Project { ChannelLayout = { Value = layout } };
-        var expected = project.GetChannelLayout();
+        var scene = new Scene { ChannelLayout = { Value = layout } };
+        var expected = scene.GetChannelLayout();
         Assert.That(new SoundGroup().GetClipLayout(expected, MediaTime.Zero), Is.EqualTo(expected));
         Assert.That(new SceneSound().GetClipLayout(expected, MediaTime.Zero), Is.EqualTo(expected));
     }

@@ -17,9 +17,9 @@ public sealed partial class Reconciler
         JsonObject currentDocument,
         JsonObject desiredDocument)
     {
-        // The clone has no project, so its times are read on the live root's frame grid, as Apply reads them there.
-        using IDisposable? frameGrid = (session.Root as IHierarchical)?.FindHierarchicalParent<Project>() is { } project
-            ? MediaTimeJsonConverter.ReadOnFrameGrid(project.GetFrameRate())
+        // The clone may have no parent hierarchy, so its times are read on the live scene's frame grid, as Apply reads them there.
+        using IDisposable? frameGrid = (session.Root as IHierarchical)?.FindHierarchicalParent<Scene>(includeSelf: true) is { } scene
+            ? MediaTimeJsonConverter.ReadOnFrameGrid(scene.GetFrameRate())
             : null;
         CoreObject sandboxRoot;
         Dictionary<IncidentIdentity, int> existingIncidents;

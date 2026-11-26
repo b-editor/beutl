@@ -38,6 +38,8 @@ internal sealed class StorageWriteTransaction : IDisposable
     private readonly object _sync = new();
     // File entries and compensations, in the order they were recorded.
     private readonly List<object> _journal = [];
+    // Callbacks that update in-memory state only after the transaction commits.
+    private readonly List<Action> _onCommit = [];
     // Keyed by spelling. An alias of a journaled file, such as another case on a case-insensitive volume or a path
     // through a link, is journaled again, and newest-first replay still ends on the bytes the file held before the
     // transaction. A case-insensitive key would instead merge distinct files on a case-sensitive volume and leave
@@ -306,17 +308,36 @@ internal sealed class StorageWriteTransaction : IDisposable
         }
     }
 
+    /// <summary>Runs <paramref name="action"/> once this transaction commits.</summary>
+    /// <remarks>Use it for in-memory state that must not appear persisted while the transaction can still roll back.</remarks>
+    internal void OnCommit(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        lock (_sync)
+        {
+            ThrowIfCompleted();
+            _onCommit.Add(action);
+        }
+    }
+
     internal void Commit()
     {
+        Action[] onCommit;
         lock (_sync)
         {
             ThrowIfCompleted();
             _state = State.Committed;
+            onCommit = [.. _onCommit];
+            _onCommit.Clear();
             _journal.Clear();
             _files.Clear();
         }
 
         EndScope();
+        foreach (Action action in onCommit)
+        {
+            action();
+        }
     }
 
     /// <summary>
@@ -332,6 +353,7 @@ internal sealed class StorageWriteTransaction : IDisposable
             ThrowIfCompleted();
             _state = State.RolledBack;
             journal = [.. _journal];
+            _onCommit.Clear();
             _journal.Clear();
             _files.Clear();
         }

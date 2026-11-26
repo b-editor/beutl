@@ -41,9 +41,18 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             .ToReactiveProperty()
             .DisposeWith(_disposable);
 
-        ChannelLayout = (_scene.FindHierarchicalParent<Project>()?.ChannelLayout.GetObservable()
-                ?? Observable.Return(SpeakerLayout.Stereo))
-            .ToReactiveProperty().DisposeWith(_disposable);
+        FrameRateInput = _scene.FrameRate.GetObservable()
+            .Select(FrameRateText.Format)
+            .ToReactiveProperty()
+            .DisposeWith(_disposable)!;
+
+        SampleRate = _scene.SampleRate.GetObservable()
+            .ToReactiveProperty()
+            .DisposeWith(_disposable);
+
+        ChannelLayout = _scene.ChannelLayout.GetObservable()
+            .ToReactiveProperty()
+            .DisposeWith(_disposable);
 
         MasterVolume = _scene.MasterVolume.GetObservable()
             .ToReactiveProperty()
@@ -52,13 +61,16 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Width.SetValidateNotifyError(ValidateSize);
         Height.SetValidateNotifyError(ValidateSize);
         LayerCount.SetValidateNotifyError(ValidateSize);
+        FrameRateInput.SetValidateNotifyError(FrameRateText.Validate);
+        SampleRate.SetValidateNotifyError(ValidateSize);
         MasterVolume.SetValidateNotifyError(volume => volume >= 0 ? null : MessageStrings.ValueLessThanZero);
 
         StartInput.SetValidateNotifyError(StartValidator);
         DurationInput.SetValidateNotifyError(DurationValidator);
 
         CanApply = Width.CombineLatest(Height, StartInput, DurationInput, LayerCount, MasterVolume)
-            .Select(_ => TryReadSceneSettings(out var _, out var _, out var _) && LayerCount.Value > 0 && MasterVolume.Value >= 0)
+            .CombineLatest(FrameRateInput, SampleRate)
+            .Select(_ => TryReadSceneSettings(out var _, out var _, out var _, out var _) && LayerCount.Value > 0 && MasterVolume.Value >= 0)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
@@ -73,19 +85,21 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
     private async Task ApplyAsync()
     {
-        if (TryReadSceneSettings(out Media.PixelSize frameSize, out MediaTime start, out MediaTime duration))
+        if (TryReadSceneSettings(out Media.PixelSize frameSize, out MediaTime start, out MediaTime duration, out Rational frameRate))
         {
             // Pause playback before rebuilding the renderer to avoid UI freeze. Pause also returns a pause
             // still draining the last frame, which IsPlaying no longer shows.
             if ((frameSize != _scene.FrameSize.Value
                     || start != _scene.Start.Value
                     || duration != _scene.Duration.Value
-                    || ChannelLayout.Value != _scene.FindHierarchicalParent<Project>().GetSpeakerLayout())
+                    || frameRate != _scene.FrameRate.Value
+                    || SampleRate.Value != _scene.SampleRate.Value
+                    || ChannelLayout.Value != _scene.ChannelLayout.Value)
                 && _editorContext.GetService<IPreviewPlayer>() is { } player)
             {
                 await player.Pause();
 
-                if (!TryReadSceneSettings(out frameSize, out start, out duration) || MasterVolume.Value < 0)
+                if (!TryReadSceneSettings(out frameSize, out start, out duration, out frameRate) || MasterVolume.Value < 0)
                 {
                     // Pausing yielded to the UI thread, so the user may have invalidated an
                     // input meanwhile. Warn instead of returning silently.
@@ -101,6 +115,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 frameSize,
                 start,
                 duration,
+                frameRate,
+                SampleRate.Value,
                 ChannelLayout.Value,
                 MasterVolume.Value);
 
@@ -118,7 +134,9 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         StartInput.Value = TimeText.Format(_scene.Start.Value);
         DurationInput.Value = TimeText.Format(_scene.Duration.Value);
         LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
-        ChannelLayout.Value = _scene.FindHierarchicalParent<Project>().GetSpeakerLayout();
+        FrameRateInput.Value = FrameRateText.Format(_scene.FrameRate.Value);
+        SampleRate.Value = _scene.SampleRate.Value;
+        ChannelLayout.Value = _scene.ChannelLayout.Value;
         MasterVolume.Value = _scene.MasterVolume.Value;
     }
 
@@ -174,6 +192,12 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
     public ReactiveProperty<int> LayerCount { get; }
 
+    public ReactiveProperty<string> FrameRateInput { get; }
+
+    public IReadOnlyList<string> FrameRates => FrameRateText.Presets;
+
+    public ReactiveProperty<int> SampleRate { get; }
+
     public ReactiveProperty<SpeakerLayout> ChannelLayout { get; }
 
     public ReactiveProperty<float> MasterVolume { get; }
@@ -191,16 +215,22 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         return observable <= 0 ? MessageStrings.ValueLessThanOrEqualToZero : null;
     }
 
-    private bool TryReadSceneSettings(out Media.PixelSize frameSize, out MediaTime start, out MediaTime duration)
+    private bool TryReadSceneSettings(
+        out Media.PixelSize frameSize, out MediaTime start, out MediaTime duration, out Rational frameRate)
     {
         frameSize = new Media.PixelSize(Width.Value, Height.Value);
-        Rational rate = SceneTimeRangeService.GetFrameRate(_scene);
-        bool hasStart = TimeText.TryParse(StartInput.Value, _scene.Start.Value, rate, out start);
-        bool hasDuration = TimeText.TryParse(DurationInput.Value, _scene.Duration.Value, rate, out duration);
+        Rational? parsedRate = FrameRateText.Parse(FrameRateInput.Value);
+        bool hasValidRate = parsedRate is { Numerator: > 0, Denominator: > 0 };
+        frameRate = hasValidRate ? parsedRate!.Value : default;
+        Rational effectiveRate = hasValidRate ? frameRate : SceneTimeRangeService.GetFrameRate(_scene);
+        bool hasStart = TimeText.TryParse(StartInput.Value, _scene.Start.Value, effectiveRate, out start);
+        bool hasDuration = TimeText.TryParse(DurationInput.Value, _scene.Duration.Value, effectiveRate, out duration);
         return Width.Value > 0
             && Height.Value > 0
             && hasStart && start >= MediaTime.Zero
-            && hasDuration && duration > MediaTime.Zero;
+            && hasDuration && duration > MediaTime.Zero
+            && hasValidRate
+            && SampleRate.Value > 0;
     }
 
     public void Dispose()

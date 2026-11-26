@@ -31,9 +31,15 @@ public class ProjectPersistenceTests
         var sceneUri = new Uri(Path.Combine(_baseDir, "scene0", "scene0.scene"));
         var elementUri = new Uri(Path.Combine(_baseDir, "scene0", "clip.belm"));
 
-        var project = new Project { Uri = projectUri, FrameRate = { Value = new Rational(30000, 1001) }, SampleRate = { Value = 48000 } };
+        var project = new Project { Uri = projectUri };
 
-        var scene = new Scene(1920, 1080, "scene0") { Uri = sceneUri };
+        var scene = new Scene(1920, 1080, "scene0")
+        {
+            Uri = sceneUri,
+            FrameRate = { Value = new Rational(30000, 1001) },
+            SampleRate = { Value = 48000 },
+            ChannelLayout = { Value = SpeakerLayout.Surround51 },
+        };
         var element = new Element
         {
             Start = { Value = MediaTime.FromSeconds(2) },
@@ -56,17 +62,15 @@ public class ProjectPersistenceTests
 
         var restored = CoreSerializer.RestoreFromUri<Project>(projectUri);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(restored.Items, Has.Count.EqualTo(1));
-            Assert.That(restored.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
-            Assert.That(restored.SampleRate.Value, Is.EqualTo(48000));
-        });
+        Assert.That(restored.Items, Has.Count.EqualTo(1));
 
         var restoredScene = (Scene)restored.Items[0];
         Assert.Multiple(() =>
         {
             Assert.That(restoredScene.FrameSize.Value, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(restoredScene.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
+            Assert.That(restoredScene.SampleRate.Value, Is.EqualTo(48000));
+            Assert.That(restoredScene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
             Assert.That(restoredScene.Name.Value, Is.EqualTo("scene0"));
             Assert.That(restoredScene.Children, Has.Count.EqualTo(1));
         });
@@ -143,7 +147,7 @@ public class ProjectPersistenceTests
 
     [TestCase("2.0.0-alpha.1", FileFormat.Floor)]
     [TestCase("2.0.0-preview.2", FileFormat.Floor)]
-    [TestCase("2.0.0-preview.15", "2.0.0-preview.15")]
+    [TestCase("2.0.0-preview.16", "2.0.0-preview.16")]
     [TestCase("2.1.0", "2.1.0")]
     public void A_save_records_the_higher_of_the_recorded_minimum_and_the_floor(
         string recordedMinAppVersion,

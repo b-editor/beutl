@@ -419,14 +419,14 @@ public sealed partial class ProjectService
             var scene = new Scene(width, height, name)
             {
                 Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{EditorConstants.SceneFileExtension}")),
+                FrameRate = { Value = framerate },
+                SampleRate = { Value = samplerate },
+                ChannelLayout = { Value = channelLayout },
             };
             var project = new Project()
             {
                 Items = { scene },
                 Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{EditorConstants.ProjectFileExtension}")),
-                FrameRate = { Value = framerate },
-                SampleRate = { Value = samplerate },
-                ChannelLayout = { Value = channelLayout },
             };
 
             CoreSerializer.StoreToUri(scene, scene.Uri);

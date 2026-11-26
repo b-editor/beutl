@@ -31,6 +31,13 @@ public static class TimelineHelper
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 
+    internal static ReadOnlyReactivePropertySlim<Rational> ObserveFrameRate(Scene scene, CompositeDisposable disposables)
+        => scene.FrameRate.GetObservable()
+            .Select(_ => SceneTimeRangeService.GetFrameRate(scene))
+            .DistinctUntilChanged()
+            .ToReadOnlyReactivePropertySlim(SceneTimeRangeService.GetFrameRate(scene))
+            .DisposeWith(disposables);
+
     // The timeline and the graph editor place the scene's start and end bars and size the panel the same way.
     internal static (ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin,
         ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin,

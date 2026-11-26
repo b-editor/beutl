@@ -872,7 +872,7 @@ public class MultiElementPropertyTests
     public async Task KeyFramesOfTheCopyGoOnTheProjectsFrames()
     {
         (EditViewModel editor, Element[] elements) = await OpenElements(() => new RectShape(), () => new RectShape());
-        editor.Scene.FindHierarchicalParent<Project>()!.FrameRate.Value = new Rational(60);
+        editor.Scene.FrameRate.Value = new Rational(60);
         RectShape[] shapes = Shapes<RectShape>(elements);
         using ElementPropertyTabViewModel tab = OpenTab(editor, elements);
         var opacity = (NumberEditorViewModel<float>)Editor(tab, Copy<RectShape>(tab).Opacity);

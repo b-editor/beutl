@@ -44,8 +44,12 @@ public class DocumentRoundTripTests
     {
         string dir = TestWorkspace.CreateDirectory();
         var rate = new Rational(30000, 1001);
-        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        _ = new Project { FrameRate = { Value = rate }, Items = { scene } };
+        var scene = new Scene(1920, 1080, "Scene")
+        {
+            Uri = new Uri(Path.Combine(dir, "Scene.scene")),
+            FrameRate = { Value = rate },
+        };
+        _ = new Project { Items = { scene } };
         var element = new Element
         {
             Start = { Value = MediaTime.FromFrames(37, rate) },

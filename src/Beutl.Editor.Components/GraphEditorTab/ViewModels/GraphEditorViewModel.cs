@@ -101,6 +101,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
         (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
             Scene, _editorClock, timelineOptions.Scale, ViewportWidth, _disposables);
 
+        FrameRate = TimelineHelper.ObserveFrameRate(Scene, _disposables);
         TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig, _disposables);
 
         Factory = GraphEditorViewViewModelFactory.GetFactory(this);
@@ -168,7 +169,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
     // The rate and the format that the ruler writes times in, which are the player's.
-    public Rational FrameRate => SceneTimeRangeService.GetFrameRate(Scene);
+    public ReadOnlyReactivePropertySlim<Rational> FrameRate { get; }
 
     public ReadOnlyReactivePropertySlim<TimeDisplayFormat> TimeDisplayFormat { get; }
 

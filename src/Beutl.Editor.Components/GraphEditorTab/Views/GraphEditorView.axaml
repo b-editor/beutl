@@ -42,7 +42,7 @@
                                  VerticalAlignment="Bottom"
                                  EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                  EndingBarMargin="{Binding EndingBarMargin.Value}"
-                                 FrameRate="{Binding FrameRate}"
+                                 FrameRate="{Binding FrameRate.Value}"
                                  Scale="{Binding Options.Value.Scale}"
                                  ScaleBrush="{DynamicResource TextControlForeground}"
                                  SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"

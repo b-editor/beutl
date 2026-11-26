@@ -186,13 +186,19 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             .DisposeWith(_disposables);
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
+        FrameRate = Scene.FrameRate.GetObservable()
+            .Select(_ => GetFrameRate())
+            .DistinctUntilChanged()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         Duration = _editorClock.MaximumTime
             .CombineLatest(Scene.Duration.GetObservable(), Scene.Start.GetObservable(),
-                CurrentFrame)
+                CurrentFrame, FrameRate)
             .Select(i =>
             {
                 // このDurationはSliderの最大値に使うので、一フレーム分を引く
-                var frame = MediaTime.FromFrames(1, GetFrameRate());
+                var frame = MediaTime.FromFrames(1, i.Fifth);
                 return new MediaTime(Math.Max(
                     Math.Max(i.First.Flicks - frame.Flicks, i.Second.Flicks + i.Third.Flicks - frame.Flicks),
                     i.Fourth.Flicks));
@@ -203,11 +209,6 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         EndTime = Scene.Start.GetObservable()
             .CombineLatest(Scene.Duration.GetObservable(), (start, duration) => start + duration)
             .ToReadOnlyReactiveProperty()
-            .DisposeWith(_disposables);
-
-        FrameRate = (Project?.FrameRate.GetObservable() ?? Observable.Return(default(Rational)))
-            .Select(_ => GetFrameRate())
-            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         TimeDisplayFormat = SettingBinding.Bind(EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig.TimeDisplayFormat, _disposables);
@@ -759,7 +760,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         }
     }
 
-    public Rational GetFrameRate() => Project.GetFrameRate();
+    public Rational GetFrameRate() => Scene.GetFrameRate();
 
     // Writes a time as the player writes the current time.
     public string FormatTime(MediaTime time) => TimeDisplayFormatter.Format(time, FrameRate.Value, TimeDisplayFormat.Value);

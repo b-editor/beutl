@@ -627,7 +627,7 @@ public class PaletteCommandTests
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-scene-times");
         Scene scene = editor.Scene;
-        scene.FindHierarchicalParent<Project>()!.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        scene.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         scene.Start.Value = MediaTime.FromFrames(1, rate);
         scene.Duration.Value = MediaTime.FromFrames(301, rate);

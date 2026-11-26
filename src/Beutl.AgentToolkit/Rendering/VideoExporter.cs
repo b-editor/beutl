@@ -195,7 +195,7 @@ public sealed class VideoExporter(EncoderRegistration encoders, FontManager font
         controller.VideoSettings.DestinationSize.Value = scene.FrameSize.Value;
         controller.VideoSettings.FrameRate.Value = frameRate;
         controller.AudioSettings.SampleRate.Value = sampleRate;
-        controller.AudioSettings.SetChannels(scene.FindHierarchicalParent<Project>().GetChannelLayout().ChannelCount);
+        controller.AudioSettings.SetChannels(scene.GetChannelLayout().ChannelCount);
         return new List<string>(
             ApplyQualitySettings(controller.VideoSettings, crf, bitrate));
     }

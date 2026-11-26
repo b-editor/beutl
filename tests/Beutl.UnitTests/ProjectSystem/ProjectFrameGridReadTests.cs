@@ -86,14 +86,15 @@ public sealed class ProjectFrameGridReadTests
         WriteAsEarlier(first, "Length", frameTicks, frameTicks - 1);
 
         Project reopened = CoreSerializer.RestoreFromUri<Project>(uri);
-        Element read = ((Scene)reopened.Items.Single()).Children.Single(element => element.Id.Value == first.Id.Value);
+        var reopenedScene = (Scene)reopened.Items.Single();
+        Element read = reopenedScene.Children.Single(element => element.Id.Value == first.Id.Value);
         CoreSerializer.StoreToUri(reopened, uri);
 
         Assert.Multiple(() =>
         {
             Assert.That(read.Length.Value, Is.EqualTo(MediaTime.FromFrames(30, rate)));
             Assert.That(File.ReadAllText(first.Uri!.LocalPath), Does.Contain($"\"Length\": {MediaTime.FromFrames(30, rate).Flicks}"));
-            Assert.That(reopened.FrameRate.Value, Is.EqualTo(rate));
+            Assert.That(reopenedScene.FrameRate.Value, Is.EqualTo(rate));
         });
     }
 
@@ -169,6 +170,53 @@ public sealed class ProjectFrameGridReadTests
         });
     }
 
+    [Test]
+    public void Two_scenes_in_one_project_read_elements_on_their_own_frame_grids()
+    {
+        var rateA = new Rational(30);
+        var rateB = new Rational(30000, 1001);
+        var projectUri = new Uri(Path.Combine(_directory, "multi-grid.bep"));
+        var sceneA = new Scene
+        {
+            Uri = new Uri(Path.Combine(_directory, "sceneA", "sceneA.scene")),
+            FrameRate = { Value = rateA },
+        };
+        var sceneB = new Scene
+        {
+            Uri = new Uri(Path.Combine(_directory, "sceneB", "sceneB.scene")),
+            FrameRate = { Value = rateB },
+        };
+        var elA = new Element
+        {
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromFrames(31, rateA) },
+            Uri = new Uri(Path.Combine(_directory, "sceneA", "a.belm")),
+        };
+        var elB = new Element
+        {
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromFrames(31, rateB) },
+            Uri = new Uri(Path.Combine(_directory, "sceneB", "b.belm")),
+        };
+        sceneA.AddChild(elA);
+        sceneB.AddChild(elB);
+        var project = new Project { Uri = projectUri, Items = { sceneA, sceneB } };
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            CoreSerializer.StoreToUri(project, projectUri);
+
+        Project reopened = CoreSerializer.RestoreFromUri<Project>(projectUri);
+        Scene reopenedA = (Scene)reopened.Items[0];
+        Scene reopenedB = (Scene)reopened.Items[1];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reopenedA.FrameRate.Value, Is.EqualTo(rateA));
+            Assert.That(reopenedB.FrameRate.Value, Is.EqualTo(rateB));
+            Assert.That(reopenedA.Children.Single().Length.Value, Is.EqualTo(MediaTime.FromFrames(31, rateA)));
+            Assert.That(reopenedB.Children.Single().Length.Value, Is.EqualTo(MediaTime.FromFrames(31, rateB)));
+        });
+    }
+
     // Clips at frames 0 to 30 and 61 to 70 on layer 0, saved and read back into the project: a 31-frame gap.
     private (Scene Scene, Rational Rate) Reopen(string rateText)
     {
@@ -190,11 +238,16 @@ public sealed class ProjectFrameGridReadTests
             CoreSerializer.StoreToUri(project, uri);
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(uri.LocalPath))!.AsObject();
-        json.Remove(nameof(Project.FrameRate));
-        json.Remove(nameof(Project.SampleRate));
         json["variables"] = new JsonObject { ["framerate"] = rateText, ["samplerate"] = "44100" };
         json["minAppVersion"] = "2.0.0-preview.1";
         File.WriteAllText(uri.LocalPath, json.ToJsonString());
+
+        JsonObject sceneJson = JsonNode.Parse(File.ReadAllText(scene.Uri!.LocalPath))!.AsObject();
+        sceneJson.Remove(nameof(Scene.FrameRate));
+        sceneJson.Remove(nameof(Scene.SampleRate));
+        sceneJson.Remove(nameof(Scene.ChannelLayout));
+        sceneJson["minAppVersion"] = "2.0.0-preview.1";
+        File.WriteAllText(scene.Uri!.LocalPath, sceneJson.ToJsonString());
         return uri;
     }
 

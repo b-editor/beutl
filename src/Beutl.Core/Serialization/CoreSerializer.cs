@@ -447,7 +447,7 @@ public static partial class CoreSerializer
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
         // The files a project references are read while it is, and record it as their project.
         using (RootFileVersions.BeginReading(obj as Project))
-        using (ReadOnProjectFrameGrid(obj))
+        using (ReadOnSceneFrameGrid(obj))
         {
             PopulateFromJsonObjectCore(obj, type, json, options, fromStorage: true);
         }
@@ -458,14 +458,14 @@ public static partial class CoreSerializer
         }
     }
 
-    // A file read into a project outside the read of the project itself, such as a reload, is read on its frame grid.
-    private static IDisposable? ReadOnProjectFrameGrid(ICoreSerializable obj)
+    // A file read into a scene outside the read of the scene itself, such as an element reload, is read on its frame grid.
+    private static IDisposable? ReadOnSceneFrameGrid(ICoreSerializable obj)
     {
-        if (obj is Project || MediaTimeJsonConverter.ReadsOnFrameGrid)
+        if (obj is Project or IFrameRateSource || MediaTimeJsonConverter.ReadsOnFrameGrid)
             return null;
 
-        Project? project = (obj as IHierarchical)?.FindHierarchicalParent<Project>() ?? RootFileVersions.GetProject(obj);
-        return project is null ? null : MediaTimeJsonConverter.ReadOnFrameGrid(Project.ReadFrameRate(project));
+        IFrameRateSource? source = (obj as IHierarchical)?.FindHierarchicalParent<IFrameRateSource>();
+        return source is null ? null : MediaTimeJsonConverter.ReadOnFrameGrid(source.GetFrameRate());
     }
 
     private static void AddLegacyTypeDiscriminator(JsonObject json, Type type)

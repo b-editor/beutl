@@ -230,15 +230,15 @@ public sealed partial class RenderTools(
     }
 
     [McpServerTool(Name = "export_video")]
-    [Description("Exports the current scene through a registered headless encoder to an absolute output path. Omitted frame and audio sample rates use the project settings (30 fps / 44100 Hz without a project rate). Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. The warnings also name each node graph node that failed while frames drew. Pass background:true to run as a job and poll read_render_job(jobId).")]
+    [Description("Exports the current scene through a registered headless encoder to an absolute output path. Omitted frame and audio sample rates use the scene settings (30 fps / 44100 Hz without a scene rate). Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. The warnings also name each node graph node that failed while frames drew. Pass background:true to run as a job and poll read_render_job(jobId).")]
     public ValueTask<ToolResult<ExportVideoResult>> ExportVideo(
         [Description("Absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Existing files require confirmOverwrite.")]
         string outputPath,
-        [Description("Frame-rate numerator. Defaults to the project frame rate, or 30 without a project rate.")]
+        [Description("Frame-rate numerator. Defaults to the scene frame rate, or 30 without a scene rate.")]
         int? frameRateNumerator = null,
         [Description("Frame-rate denominator.")]
         int frameRateDenominator = 1,
-        [Description("Audio sample rate. Defaults to the project sample rate, or 44100 without a project rate.")]
+        [Description("Audio sample rate. Defaults to the scene sample rate, or 44100 without a scene rate.")]
         int? sampleRate = null,
         [Description(RenderScaleDescription)]
         float renderScale = 1,
@@ -271,11 +271,10 @@ public sealed partial class RenderTools(
                     "The stdio MCP host (source-run or standalone install) does not place the FFmpeg worker next to the server. Use the in-app MCP endpoint (Tools > AI Agents) for video export, or run from the installed Beutl app directory where the worker is copied under FFmpegWorker/."));
             }
 
-            Project? project = scene.FindHierarchicalParent<Project>();
             Rational frameRate = frameRateNumerator is { } numerator
                 ? new Rational(numerator, frameRateDenominator)
-                : project.GetFrameRate();
-            int resolvedSampleRate = sampleRate ?? project.GetSampleRate();
+                : scene.GetFrameRate();
+            int resolvedSampleRate = sampleRate ?? scene.GetSampleRate();
             ValidateExportOptions(frameRate, crf, bitrate);
 
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);

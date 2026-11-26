@@ -132,7 +132,7 @@ public sealed partial class SceneCompositor : ICompositor
                     && (compositor.Services.EditorConfig?.PreviewSourceMode.Value ?? PreviewSourceMode.PreferProxy) == PreviewSourceMode.PreferProxy,
                 PreferredProxyPreset = ToPreset(compositor.Services.ProxyConfig?.DefaultPreset.Value ?? ProxyStoreConfig.DefaultPresetValue),
                 TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1)),
-                FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate(),
+                FrameRate = compositor.Scene.GetFrameRate(),
                 EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this),
                 DisabledObjects = compositor.DisabledObjects,
                 ColorStagesSkipped = compositor.ColorStagesSkipped,

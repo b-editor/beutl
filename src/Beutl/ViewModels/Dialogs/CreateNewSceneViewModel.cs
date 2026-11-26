@@ -26,9 +26,17 @@ public sealed class CreateNewSceneViewModel
         Name.SetValidateNotifyError(n => NewDocumentValidation.ValidateName(n, Location.Value));
         Location.Subscribe(_ => Name.ForceValidate());
         Size.SetValidateNotifyError(NewDocumentValidation.ValidateSize);
+        FrameRate.SetValidateNotifyError(NewDocumentValidation.ValidateFrameRate);
+        SampleRate.SetValidateNotifyError(NewDocumentValidation.ValidatePositive);
 
-        CanCreate = Name.CombineLatest(Location, Size)
-            .Select(t => NewDocumentValidation.CanCreateAt(t.First, t.Second, t.Third))
+        CanCreate = Name.CombineLatest(Location, Size, FrameRate, SampleRate)
+            .Select(t =>
+            {
+                (string name, string location, PixelSize size, string framerate, int samplerate) = t;
+                return NewDocumentValidation.CanCreateAt(name, location, size)
+                    && NewDocumentValidation.ParseFrameRate(framerate) is { Numerator: > 0, Denominator: > 0 }
+                    && samplerate > 0;
+            })
             .ToReadOnlyReactivePropertySlim();
         Create = new AsyncReactiveCommand(CanCreate);
         Create.Subscribe(async () =>
@@ -45,7 +53,12 @@ public sealed class CreateNewSceneViewModel
             Scene scene;
             try
             {
-                scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
+                scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value)
+                {
+                    FrameRate = { Value = NewDocumentValidation.ParseFrameRate(FrameRate.Value)!.Value },
+                    SampleRate = { Value = SampleRate.Value },
+                    ChannelLayout = { Value = ChannelLayout.Value },
+                };
                 CoreSerializer.StoreToUri(scene,
                     UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
                         $"{Name.Value}.{EditorConstants.SceneFileExtension}")));
@@ -67,6 +80,15 @@ public sealed class CreateNewSceneViewModel
     }
 
     public ReactiveProperty<PixelSize> Size { get; } = new(new PixelSize(1920, 1080));
+
+    // A rate from FrameRates or another, such as 12 or 30000/1001.
+    public ReactiveProperty<string> FrameRate { get; } = new("30");
+
+    public IReadOnlyList<string> FrameRates => FrameRateText.Presets;
+
+    public ReactiveProperty<int> SampleRate { get; } = new(44100);
+
+    public ReactiveProperty<SpeakerLayout> ChannelLayout { get; } = new(SpeakerLayout.Stereo);
 
     public ReactiveProperty<string> Name { get; } = new();
 
