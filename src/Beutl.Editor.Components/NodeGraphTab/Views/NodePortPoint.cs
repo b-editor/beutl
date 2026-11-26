@@ -311,6 +311,12 @@ public sealed partial class NodePortPoint : Control
     {
         if (_canvas == null || DataContext is not NodePortViewModel viewModel) return;
 
+        if (Tag is ConnectionViewModel slot)
+        {
+            viewModel.DisconnectConnection(slot);
+            return;
+        }
+
         foreach (ConnectionViewModel connection in viewModel.Connections.ToArray())
         {
             NodePortViewModel? target = viewModel is InputPortViewModel
