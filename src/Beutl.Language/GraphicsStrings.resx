@@ -1833,6 +1833,18 @@
   <data name="ClipTransition" xml:space="preserve">
     <value>Transition</value>
   </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>Fades &amp; Dissolves</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>Wipes</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>Stylized</value>
+  </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>Duration</value>
   </data>

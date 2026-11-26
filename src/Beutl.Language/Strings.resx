@@ -4103,7 +4103,7 @@ when history recording is enabled.</value>
     <value>Revision {0}</value>
   </data>
   <data name="EffectCategory" xml:space="preserve">
-    <value>Effect category</value>
+    <value>Category</value>
   </data>
   <data name="AllEffectCategories" xml:space="preserve">
     <value>All categories</value>

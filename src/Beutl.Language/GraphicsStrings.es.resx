@@ -1832,6 +1832,18 @@
   <data name="ClipTransition" xml:space="preserve">
     <value>Transición</value>
   </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>Fundidos y disoluciones</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>Barridos</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>Movimiento</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>Estilización</value>
+  </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>Duración</value>
   </data>

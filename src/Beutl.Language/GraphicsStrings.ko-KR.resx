@@ -1832,6 +1832,18 @@
   <data name="ClipTransition" xml:space="preserve">
     <value>전환</value>
   </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>페이드 및 디졸브</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>와이프</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>모션</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>스타일화</value>
+  </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>길이</value>
   </data>
