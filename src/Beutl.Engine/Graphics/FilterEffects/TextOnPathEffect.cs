@@ -14,6 +14,13 @@ public sealed partial class TextOnPathEffect : FilterEffect
     public TextOnPathEffect()
     {
         ScanProperties<TextOnPathEffect>();
+
+        const float baseline = 72;
+        var figure = new PathFigure { StartPoint = { Value = new Point(0, baseline) } };
+        figure.Segments.Add(new LineSegment(480, baseline));
+        var path = new PathGeometry();
+        path.Figures.Add(figure);
+        Path.Value = path;
     }
 
     [Display(Name = nameof(GraphicsStrings.TextOnPathEffect_Path), ResourceType = typeof(GraphicsStrings))]

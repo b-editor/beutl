@@ -33,13 +33,17 @@ namespace Beutl.HeadlessUITests;
 public sealed class TextOnPathEditingTests
 {
     [AvaloniaTest]
-    public async Task EditInTabMovesTheTextAndUndoRestoresIt()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EditInTabMovesTheTextAndUndoRestoresIt(bool useDefaultPath)
     {
         TestGpu.RequireAnyDevice();
         var (_, scene, editor) = await TestShell.OpenNewSceneAsync("text-on-path", width: 520, height: 300);
-        var path = PathGeometry.Parse("M42 218 C150 48 304 44 447 170");
+        var effect = new TextOnPathEffect();
+        if (!useDefaultPath)
+            effect.Path.Value = PathGeometry.Parse("M42 218 C150 48 304 44 447 170");
+        var path = (PathGeometry)effect.Path.Value!;
         path.Transform.Value = new TranslateTransform(12, 8);
-        var effect = new TextOnPathEffect { Path = { Value = path } };
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 0 } });
         animation.KeyFrames.Add(new KeyFrame<float>
@@ -102,7 +106,8 @@ public sealed class TextOnPathEditingTests
             var menu = row!.GetVisualDescendants().OfType<ToggleButton>().Select(button => button.ContextFlyout)
                 .OfType<FAMenuFlyout>().Single();
             ClickMenuItem(menu, Strings.EditInFrame);
-            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.PathEditor.GeometryResource.Value is not null);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.PathEditor.GeometryResource.Value is not null
+                && editor.Player.PathEditor.AvaMatrix.Value != Matrix.Identity);
             Assert.That(editor.Player.PathEditor.AvaMatrix.Value.Transform(default(Point)), Is.EqualTo(new Point(21, 14)));
             ClickMenuItem(menu, Strings.EditInFrame);
 
@@ -117,10 +122,12 @@ public sealed class TextOnPathEditingTests
                     .Single(item => ReferenceEquals(item.DataContext, effectEditor)).BringIntoView();
             }
             byte[] initial = await Render(editor);
-            HeadlessCapture.SaveIfRequested(window, nameof(TextOnPathEditingTests), "curve-and-path-editor");
+            HeadlessCapture.SaveIfRequested(window, nameof(TextOnPathEditingTests),
+                useDefaultPath ? "default-path-and-editor" : "curve-and-path-editor");
 
-            var segment = (CubicBezierSegment)figure.Segments.Single();
-            var originalEnd = segment.EndPoint.Value;
+            PathSegment segment = figure.Segments.Single();
+            var endPoint = segment.GetEndPoint();
+            var originalEnd = endPoint.Value;
             Thumb anchor = PathEditorInteractionTests.Fixture.FindAnchor(tab, segment);
             Point start = anchor.TranslatePoint(new Point(anchor.Bounds.Width / 2, anchor.Bounds.Height / 2), window)!.Value;
             Point end = start + new Vector(-36, 50);
@@ -130,15 +137,16 @@ public sealed class TextOnPathEditingTests
             HeadlessTestHelpers.Render();
             window.MouseUp(end, MouseButton.Left);
 
-            Assert.That(segment.EndPoint.Value, Is.Not.EqualTo(originalEnd));
+            Assert.That(endPoint.Value, Is.Not.EqualTo(originalEnd));
             Assert.That(await Render(editor), Is.Not.EqualTo(initial));
             Assert.That(editor.HistoryManager.Undo(), Is.True);
-            Assert.That(segment.EndPoint.Value, Is.EqualTo(originalEnd));
+            Assert.That(endPoint.Value, Is.EqualTo(originalEnd));
             Assert.That(await Render(editor), Is.EqualTo(initial));
 
             editor.GetRequiredService<IEditorClock>().Seek(MediaTime.FromSeconds(1));
             Assert.That(await Render(editor), Is.Not.EqualTo(initial));
-            HeadlessCapture.SaveIfRequested(window, nameof(TextOnPathEditingTests), "animated-offset");
+            HeadlessCapture.SaveIfRequested(window, nameof(TextOnPathEditingTests),
+                useDefaultPath ? "default-path-offset" : "animated-offset");
         }
         finally
         {

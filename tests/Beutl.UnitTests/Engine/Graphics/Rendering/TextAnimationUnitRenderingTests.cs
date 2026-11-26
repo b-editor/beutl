@@ -325,13 +325,24 @@ public sealed class TextAnimationUnitRenderingTests
         Assert.That(after.Parts, Has.Length.EqualTo(1));
     }
 
+    [Test]
+    public void ANewEffectHasItsOwnPathAndDisplaysSplitText()
+    {
+        var effect = new TextOnPathEffect();
+        var probe = new Probe();
+        Assert.That(effect.Path.Value, Is.TypeOf<PathGeometry>());
+        Assert.That(new TextOnPathEffect().Path.Value, Is.Not.SameAs(effect.Path.Value));
+
+        Render(CreateText("AB", Chain(effect, probe.Effect)));
+
+        Assert.That(probe.Parts.Select(part => part.Tag?.Indices.Character), Is.EqualTo(new[] { 0, 1 }));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void AnUnassignedPathPassesThroughAndAnEmptyContourHidesSplitText(bool assignEmptyGeometry)
     {
-        var path = new TextOnPathEffect();
-        if (assignEmptyGeometry)
-            path.Path.Value = new PathGeometry();
+        var path = new TextOnPathEffect { Path = { Value = assignEmptyGeometry ? new PathGeometry() : null } };
 
         using var text = CreateText("AB", path).ToResource(AtTime(0));
         using var root = Record(text);
