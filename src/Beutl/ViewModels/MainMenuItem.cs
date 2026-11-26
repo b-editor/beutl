@@ -28,8 +28,11 @@ public sealed class MainMenuItem(string? header)
 
     public object? CommandParameter { get; init; }
 
-    // The id of the MainViewExtension command whose key gesture the item shows.
+    // The id of the command whose key gesture the item shows.
     public string? GestureCommand { get; init; }
+
+    // Context shortcuts are displayed in-window only. The native menu would claim them before the focused control.
+    internal Type? InWindowGestureExtensionType { get; init; }
 
     // The native menu shows no icons.
     public Icon? Icon { get; init; }

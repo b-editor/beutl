@@ -983,6 +983,9 @@
   <data name="Exit_Description" xml:space="preserve">
     <value>退出应用程序</value>
   </data>
+  <data name="Playback" xml:space="preserve">
+    <value>播放</value>
+  </data>
   <data name="PlayPause" xml:space="preserve">
     <value>播放/暂停</value>
   </data>
@@ -1012,6 +1015,9 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>移到场景的结尾。</value>
+  </data>
+  <data name="Markers" xml:space="preserve">
+    <value>标记</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
     <value>切换标记</value>

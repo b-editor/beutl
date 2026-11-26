@@ -1014,6 +1014,9 @@
   <data name="Exit_Description" xml:space="preserve">
     <value>アプリケーションを終了します</value>
   </data>
+  <data name="Playback" xml:space="preserve">
+    <value>再生</value>
+  </data>
   <data name="PlayPause" xml:space="preserve">
     <value>再生/一時停止</value>
   </data>
@@ -1043,6 +1046,9 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>シーンの最後のフレームに移動。</value>
+  </data>
+  <data name="Markers" xml:space="preserve">
+    <value>マーカー</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
     <value>マーカーを切り替え</value>

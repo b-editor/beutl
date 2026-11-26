@@ -10,6 +10,7 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentIcons.Common;
 using Microsoft.Extensions.DependencyInjection;
+using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
@@ -165,6 +166,9 @@ public sealed partial class MainViewModel
                 new(Strings.SceneSettings) { Command = MenuBar.ShowSceneSettings },
                 new(MissingMediaStrings.Title) { Command = MenuBar.RelinkMedia },
                 new(UndisplayableDataStrings.Title) { Command = MenuBar.ShowUndisplayableData },
+                MainMenuItem.Separator,
+                .. CreateSceneMarkerAndPlaybackMenus(),
+                MainMenuItem.Separator,
                 new(Strings.Element)
                 {
                     Items =
@@ -203,6 +207,71 @@ public sealed partial class MainViewModel
     ];
 
     private IObservable<bool> UnderDebugger => Observable.Return(IsDebuggerAttached);
+
+    private MainMenuItem[] CreateSceneMarkerAndPlaybackMenus()
+    {
+        var definitions = SceneEditorExtension.Instance.ContextCommands.ToDictionary(command => command.Id);
+        IObservable<EditViewModel?> selectedEditor = _editorService.SelectedTabItem
+            .Select(tab => tab?.Context.Select(context => context as EditViewModel)
+                ?? Observable.Return<EditViewModel?>(null))
+            .Switch();
+        return
+        [
+            new(Strings.Markers)
+            {
+                Items = [CreateItem("editor.toggleMarker"), CreateItem("editor.previousMarker"), CreateItem("editor.nextMarker")]
+            },
+            new(Strings.Playback)
+            {
+                Items =
+                [
+                    CreateItem("editor.playPause"),
+                    CreateItem("editor.toggleLoop"),
+                    MainMenuItem.Separator,
+                    CreateItem("editor.seekStart"),
+                    CreateItem("editor.previous"),
+                    CreateItem("editor.next"),
+                    CreateItem("editor.seekEnd"),
+                    MainMenuItem.Separator,
+                    CreateItem("editor.shuttleBackward"),
+                    CreateItem("editor.shuttleBackwardFine"),
+                    CreateItem("editor.shuttleStop"),
+                    CreateItem("editor.shuttleForward"),
+                    CreateItem("editor.shuttleForwardFine"),
+                ]
+            },
+        ];
+
+        MainMenuItem CreateItem(string id)
+        {
+            ContextCommandDefinition definition = definitions[id];
+            IObservable<bool> canExecute = selectedEditor
+                .Select(editor => editor is null
+                    ? Observable.Return(false)
+                    : editor.CanExecuteChanged.StartWith(Unit.Default)
+                        .Select(_ => definition.CanRun(editor, new ContextCommandExecution(id) { EditorContext = editor })))
+                .Switch()
+                .DistinctUntilChanged()
+                .ObserveOnUIDispatcher();
+            var command = new AsyncReactiveCommand(canExecute).WithSubscribe(Execute);
+            _menuSubscriptions.Add(command);
+            return new MainMenuItem(definition.DisplayName ?? id)
+            {
+                Command = command,
+                GestureCommand = id,
+                InWindowGestureExtensionType = typeof(SceneEditorExtension)
+            };
+
+            Task Execute()
+            {
+                if (_editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editor)
+                    return Task.CompletedTask;
+
+                var execution = new ContextCommandExecution(id) { EditorContext = editor };
+                return definition.CanRun(editor, execution) ? definition.RunAsync(editor, execution) : Task.CompletedTask;
+            }
+        }
+    }
 
     // Shown only while the selected tab's file is one the editor can open.
     private MainMenuItem CreateEditorItem(EditorExtension extension) => new(extension.DisplayName)

@@ -983,6 +983,9 @@
   <data name="Exit_Description" xml:space="preserve">
     <value>애플리케이션 종료</value>
   </data>
+  <data name="Playback" xml:space="preserve">
+    <value>재생</value>
+  </data>
   <data name="PlayPause" xml:space="preserve">
     <value>재생/일시 정지</value>
   </data>
@@ -1012,6 +1015,9 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>장면의 끝으로 이동합니다.</value>
+  </data>
+  <data name="Markers" xml:space="preserve">
+    <value>마커</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
     <value>마커 전환</value>

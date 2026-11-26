@@ -983,6 +983,9 @@
   <data name="Exit_Description" xml:space="preserve">
     <value>Salir de la aplicación</value>
   </data>
+  <data name="Playback" xml:space="preserve">
+    <value>Reproducción</value>
+  </data>
   <data name="PlayPause" xml:space="preserve">
     <value>Reproducir/Pausar</value>
   </data>
@@ -1012,6 +1015,9 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>Mover al final de la escena.</value>
+  </data>
+  <data name="Markers" xml:space="preserve">
+    <value>Marcadores</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
     <value>Alternar marcador</value>

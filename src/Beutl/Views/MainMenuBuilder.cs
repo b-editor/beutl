@@ -70,7 +70,7 @@ internal static class MainMenuBuilder
         if (item.Header is null)
             return new NativeMenuItemSeparator();
 
-        KeyGesture? gesture = GetGesture(item);
+        KeyGesture? gesture = item.InWindowGestureExtensionType is null ? GetGesture(item) : null;
         var menuItem = new NativeMenuItem
         {
             Header = item.Header,
@@ -86,12 +86,15 @@ internal static class MainMenuBuilder
             menuItem.Command = editCommand;
         }
 
-        // The key the entry shows is also the key equivalent AppKit gives it.
-        FollowGesture(item, moved =>
+        if (item.InWindowGestureExtensionType is null)
         {
-            menuItem.Gesture = moved;
-            editCommand?.ShownGesture = moved;
-        }, disposables);
+            // The key the entry shows is also the key equivalent AppKit gives it.
+            FollowGesture(item, moved =>
+            {
+                menuItem.Gesture = moved;
+                editCommand?.ShownGesture = moved;
+            }, disposables);
+        }
         if (item.IsVisible is { } isVisible)
             disposables.Add(isVisible.Subscribe(visible => menuItem.IsVisible = visible));
         if (item.Items is { } items)
@@ -107,7 +110,7 @@ internal static class MainMenuBuilder
 
     private static KeyGesture? GetGesture(MainMenuItem item) => item switch
     {
-        { GestureCommand: { } id } => GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), id),
+        { GestureCommand: { } id } => GetCommandGestureExtension.GetKeyGesture(item.InWindowGestureExtensionType ?? typeof(MainViewExtension), id),
         { EditAction: { } action } => FocusedEditCommand.GetKeyGesture(action),
         _ => null
     };
