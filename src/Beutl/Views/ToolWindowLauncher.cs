@@ -30,20 +30,8 @@ internal sealed class ToolWindowLauncher
                 is not { } context)
                 return;
 
-            if (ExtensionGuard.Call(extension, notifications, () => extension.TryCreateContent(out Window? created) ? created : null)
-                is not { } window)
-            {
-                context.Dispose();
+            if (CreateWindow(extension, context, owner, notifications) is not { } window)
                 return;
-            }
-
-            window.DataContext = context;
-            HostServices.CopyFrom(window, owner);
-            AppHelper.GetContextCommandManager?.Invoke()?.Attach(window, extension);
-            if (string.IsNullOrEmpty(window.Title))
-            {
-                window.Title = context.Header;
-            }
 
             switch (extension.Mode)
             {
@@ -76,6 +64,35 @@ internal sealed class ToolWindowLauncher
         catch (Exception ex)
         {
             await ex.Handle(notifications);
+        }
+    }
+
+    internal static Window? CreateWindow(
+        ToolWindowExtension extension, IToolWindowContext context, Window owner, INotificationService notifications)
+    {
+        if (ExtensionGuard.Call(extension, notifications, () => extension.TryCreateContent(out Window? created) ? created : null)
+            is not { } window)
+        {
+            context.Dispose();
+            return null;
+        }
+
+        try
+        {
+            window.DataContext = context;
+            HostServices.CopyFrom(window, owner);
+            AppHelper.GetContextCommandManager?.Invoke()?.Attach(window, extension);
+            if (string.IsNullOrEmpty(window.Title))
+            {
+                window.Title = context.Header;
+            }
+
+            return window;
+        }
+        catch
+        {
+            context.Dispose();
+            throw;
         }
     }
 }
