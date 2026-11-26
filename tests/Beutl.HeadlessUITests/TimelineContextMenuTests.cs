@@ -41,9 +41,8 @@ public sealed class TimelineContextMenuTests
         }));
         FAMenuFlyoutItem duplicate = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Duplicate);
         Assert.That(duplicate.InputGesture, Is.EqualTo(new KeyGesture(Key.D, KeyGestureHelper.GetCommandModifier())));
-        var groupGesture = new KeyGesture(Key.G, KeyGestureHelper.GetCommandModifier());
-        Assert.That(FindItem(menu, Strings.GroupSelectedElements).InputGesture, Is.EqualTo(groupGesture));
-        Assert.That(FindItem(menu, Strings.UngroupSelectedElements).InputGesture, Is.EqualTo(groupGesture));
+        Assert.That(FindItem(menu, Strings.GroupSelectedElements).InputGesture, Is.Null);
+        Assert.That(FindItem(menu, Strings.UngroupSelectedElements).InputGesture, Is.Null);
         var original = host.Scene.Children.Single();
         Assert.That(host.Model.SelectedElements.Single().Model, Is.SameAs(original));
         Assert.That(duplicate.IsEffectivelyEnabled, Is.True);
@@ -53,6 +52,46 @@ public sealed class TimelineContextMenuTests
         Assert.That(host.Scene.Children, Has.Count.EqualTo(2));
         Assert.That(host.Scene.Children, Does.Contain(original));
         Assert.That(menu.IsOpen, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task The_group_shortcut_labels_the_action_it_runs_for_a_mixed_selection()
+    {
+        using TimelineTestHost host = await CreateHostAsync(clipCount: 3);
+        var clips = host.Model.AllElements();
+        host.Scene.Groups.Add([clips[0].Model.Id.Value, clips[1].Model.Id.Value]);
+        host.Model.SelectElement(clips[1]);
+        host.Model.SelectElement(clips[2]);
+        HeadlessTestHelpers.Render(3);
+
+        var border = host.View.GetVisualDescendants().OfType<ElementView>()
+            .Single(view => ReferenceEquals(view.DataContext, clips[2])).FindControl<Border>("border")!;
+        FAMenuFlyout menu = OpenMenu(border, "toggle-group-mixed");
+        FAMenuFlyoutItem group = FindItem(menu, Strings.GroupSelectedElements);
+        FAMenuFlyoutItem ungroup = FindItem(menu, Strings.UngroupSelectedElements);
+        var gesture = new KeyGesture(Key.G, KeyGestureHelper.GetCommandModifier());
+        Assert.Multiple(() =>
+        {
+            Assert.That(group.IsEffectivelyEnabled, Is.True);
+            Assert.That(ungroup.IsEffectivelyEnabled, Is.True);
+            Assert.That(group.InputGesture, Is.Null);
+            Assert.That(ungroup.InputGesture, Is.EqualTo(gesture));
+        });
+
+        menu.Hide();
+        TestShell.MainViewModel.ContextCommandManager!.Attach(host.View, TimelineTabExtension.Instance);
+        Assert.That(host.View.Focus(), Is.True);
+        host.Window.KeyPress(Key.G, TimelineTestHost.CommandModifier, PhysicalKey.G, null);
+        host.Window.KeyRelease(Key.G, TimelineTestHost.CommandModifier, PhysicalKey.G, null);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(host.Scene.Groups, Is.Empty);
+
+        OpenMenu(border, "toggle-group-ungrouped");
+        Assert.Multiple(() =>
+        {
+            Assert.That(group.InputGesture, Is.EqualTo(gesture));
+            Assert.That(ungroup.InputGesture, Is.Null);
+        });
     }
 
     [AvaloniaTest]

@@ -16,6 +16,8 @@ namespace Beutl.Services.PrimitiveImpls;
 // palette on the editor's selected element, whether or not the timeline is open.
 public sealed partial class TimelineTabExtension : IContextCommandEditorStateNotifier
 {
+    internal const string ToggleGroupCommandId = "timeline.toggleGroup";
+
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
         Command("timeline.paste", Strings.Paste, Strings.Paste_Description,
@@ -109,10 +111,10 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
             -1, TimelineTabViewModel.NudgeUnit.Second),
         Nudge("timeline.nudgeRightSecond", Strings.NudgeRightSecond, [new("Alt+OemPeriod")],
             +1, TimelineTabViewModel.NudgeUnit.Second),
-        Command("timeline.toggleGroup", Strings.Group, "",
-            [new("Ctrl+G"), new("Cmd+G", OSPlatform.OSX)], ToggleGroup,
-            timeline => timeline.SelectedElements.FirstOrDefault() is { } first
-                && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements())),
+        Command(ToggleGroupCommandId, Strings.Group, "",
+            [new("Ctrl+G"), new("Cmd+G", OSPlatform.OSX)],
+            timeline => GetGroupToggleAction(timeline)?.Command.Execute(),
+            timeline => GetGroupToggleAction(timeline) is not null),
         ToolMode("timeline.toggleRazorMode", Strings.RazorTool, Strings.RazorTool_Description,
             [new("C")], timeline => timeline.IsRazorMode),
         ExitToolMode("timeline.exitRazorMode", Strings.ExitRazorTool, Strings.ExitRazorTool_Description,
@@ -205,17 +207,15 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         => Shortcut(id, displayName, description, [new("V"), new("Escape")],
             timeline => mode(timeline).Value = false, timeline => mode(timeline).Value);
 
-    private static void ToggleGroup(TimelineTabViewModel timeline)
+    internal static (ReactiveCommand Command, bool IsUngroup)? GetGroupToggleAction(TimelineTabViewModel timeline)
     {
         ElementViewModel? first = timeline.SelectedElements.FirstOrDefault();
         if (first?.CanUngroupSelectedElements() == true)
         {
-            first.UngroupSelectedElements.Execute();
+            return (first.UngroupSelectedElements, true);
         }
-        else if (first?.CanGroupSelectedElements() == true)
-        {
-            first.GroupSelectedElements.Execute();
-        }
+
+        return first?.CanGroupSelectedElements() == true ? (first.GroupSelectedElements, false) : null;
     }
 
     private static Task OnSelectedElement(
