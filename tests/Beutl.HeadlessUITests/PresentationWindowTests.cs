@@ -213,7 +213,7 @@ public class PresentationWindowTests
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]
-    public async Task Output_omits_boundaries_and_onion_skin_without_removing_them_from_the_editor(bool cache, bool onion)
+    public async Task Output_omits_onion_skin_without_removing_it_from_the_editor(bool cache, bool onion)
     {
         TestGpu.RequireAnyDevice();
         var config = TestShell.Configuration.EditorConfig;
@@ -264,7 +264,7 @@ public class PresentationWindowTests
                     Assert.That(cleanPixels.Red, Is.GreaterThan(0));
                     Assert.That(cleanPixels.White, Is.Zero);
                     Assert.That(cleanPixels.Blue, Is.Zero);
-                    Assert.That(editorPixels.White, Is.GreaterThan(0));
+                    Assert.That(editorPixels.White, Is.Zero, "the editor draws no selection outline (#4608)");
                     if (onion) Assert.That(editorPixels.Blue, Is.GreaterThan(0));
                 });
             }
