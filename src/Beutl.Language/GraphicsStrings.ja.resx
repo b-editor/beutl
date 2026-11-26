@@ -1483,6 +1483,24 @@
   <data name="Scene3D_RenderSize" xml:space="preserve">
     <value>レンダリングサイズ</value>
   </data>
+  <data name="Scene3D_AntiAliasing" xml:space="preserve">
+    <value>アンチエイリアス</value>
+  </data>
+  <data name="Scene3D_AntiAliasing_Description" xml:space="preserve">
+    <value>3D の物体の輪郭を滑らかにします。サンプル数を増やすほど滑らかになりますが、GPU メモリと描画時間が増えます。</value>
+  </data>
+  <data name="AntiAliasingMode_Off" xml:space="preserve">
+    <value>オフ</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa2x" xml:space="preserve">
+    <value>2x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa4x" xml:space="preserve">
+    <value>4x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa8x" xml:space="preserve">
+    <value>8x</value>
+  </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>塗りつぶし</value>
   </data>

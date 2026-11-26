@@ -91,9 +91,10 @@ public sealed class GizmoPass : GraphicsNode3D
         // Color is loaded to draw over the scene. Depth is cleared so the gizmo stays visible inside the
         // object it is attached to, while its own handles still occlude each other. This is the last pass to
         // use the shared depth buffer in a frame.
-        RenderPass = Context.CreateRenderPass3D(
+        RenderPass = CreateAttachmentPass(
             [TextureFormat.RGBA16Float],
             TextureFormat.Depth32Float,
+            _depthTexture.SampleCount,
             AttachmentLoadOp.Load,
             AttachmentLoadOp.Clear);
 

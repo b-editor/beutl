@@ -24,11 +24,18 @@ public sealed class GeometryPass : GraphicsNode3D
 
     // Default material for objects without a material
     private readonly BasicMaterial _defaultMaterial = new();
+    private readonly int _sampleCount;
     private BasicMaterial.Resource? _defaultMaterialResource;
 
     public GeometryPass(IGraphicsContext context, IShaderCompiler shaderCompiler)
+        : this(context, shaderCompiler, 1)
+    {
+    }
+
+    internal GeometryPass(IGraphicsContext context, IShaderCompiler shaderCompiler, int sampleCount)
         : base(context, shaderCompiler)
     {
+        _sampleCount = sampleCount;
     }
 
     /// <summary>
@@ -76,13 +83,13 @@ public sealed class GeometryPass : GraphicsNode3D
 
         DisposeGBuffer();
 
-        PositionTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-        NormalMetallicTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-        AlbedoRoughnessTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
-        EmissionAOTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-        DepthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+        PositionTexture = CreateAttachment(width, height, TextureFormat.RGBA16Float, _sampleCount);
+        NormalMetallicTexture = CreateAttachment(width, height, TextureFormat.RGBA16Float, _sampleCount);
+        AlbedoRoughnessTexture = CreateAttachment(width, height, TextureFormat.RGBA8Unorm, _sampleCount);
+        EmissionAOTexture = CreateAttachment(width, height, TextureFormat.RGBA16Float, _sampleCount);
+        DepthTexture = CreateAttachment(width, height, TextureFormat.Depth32Float, _sampleCount);
 
-        RenderPass = Context.CreateRenderPass3D(GBufferFormats, TextureFormat.Depth32Float);
+        RenderPass = CreateAttachmentPass(GBufferFormats, TextureFormat.Depth32Float, _sampleCount);
         Framebuffer = Context.CreateFramebuffer3D(
             RenderPass,
             new[] { PositionTexture, NormalMetallicTexture, AlbedoRoughnessTexture, EmissionAOTexture },

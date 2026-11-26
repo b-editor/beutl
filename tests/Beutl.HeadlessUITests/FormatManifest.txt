@@ -826,7 +826,7 @@ Beutl.Utilities
   abstract
 [Beutl.Engine]Beutl.Graphics3D:Scene3D
   unsealed
-  keys: AlignmentX, AlignmentY, AmbientColor, AmbientIntensity, Animations, BackgroundColor, BlendMode, Camera, Expressions, FilterEffect, Id, IsEnabled, Lights, Name, Objects, Opacity, RenderHeight, RenderWidth, Transform, TransformOrigin
+  keys: AlignmentX, AlignmentY, AmbientColor, AmbientIntensity, Animations, AntiAliasing, BackgroundColor, BlendMode, Camera, Expressions, FilterEffect, Id, IsEnabled, Lights, Name, Objects, Opacity, RenderHeight, RenderWidth, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Graphics:Drawable
   abstract
 [Beutl.Engine]Beutl.Graphics:DrawableDecorator

@@ -121,6 +121,9 @@
   <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
     <value>3D 렌더링 표면을 만들 수 없습니다.</value>
   </data>
+  <data name="Scene3DAntiAliasingReduced" xml:space="preserve">
+    <value>GPU 메모리가 부족하여 3D 안티앨리어싱을 {0}x로 낮췄습니다.</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>출력 중 예외가 발생했습니다.</value>
   </data>

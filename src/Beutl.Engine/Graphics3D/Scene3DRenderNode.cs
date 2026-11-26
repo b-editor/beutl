@@ -131,6 +131,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             scene.BackgroundColor,
             scene.AmbientColor,
             scene.AmbientIntensity,
+            scene.AntiAliasing,
             gizmoTarget,
             gizmoMode,
             textureBindings);
@@ -241,6 +242,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         Color BackgroundColor,
         Color AmbientColor,
         float AmbientIntensity,
+        AntiAliasingMode AntiAliasing,
         Object3D.Resource? GizmoTarget,
         GizmoMode GizmoMode,
         SceneTextureBinding[] TextureBindings);
@@ -316,9 +318,16 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         float density = session.OutputPlacement.Scale.Value;
         (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(snapshot.Bounds, density);
+        int requestedSamples = snapshot.AntiAliasing switch
+        {
+            AntiAliasingMode.Msaa2x => 2,
+            AntiAliasingMode.Msaa4x => 4,
+            AntiAliasingMode.Msaa8x => 8,
+            _ => 1,
+        };
         Renderer3D renderer = snapshot.Scene.Renderer ??= new Renderer3D(graphicsContext);
 
-        if (renderer.Width != deviceWidth || renderer.Height != deviceHeight)
+        if (renderer.Width != deviceWidth || renderer.Height != deviceHeight || renderer.RequestedSampleCount != requestedSamples)
         {
             if (deviceWidth > 0 && deviceHeight > 0
                 && Renderer3D.FindExceededExtentLimit(Device3DExtentBudget.FromContext(graphicsContext), deviceWidth, deviceHeight)
@@ -331,9 +340,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             try
             {
                 if (renderer.Width == 0 || renderer.Height == 0)
-                    renderer.Initialize(deviceWidth, deviceHeight);
+                    renderer.Initialize(deviceWidth, deviceHeight, requestedSamples);
                 else
-                    renderer.Resize(deviceWidth, deviceHeight);
+                    renderer.Resize(deviceWidth, deviceHeight, requestedSamples);
             }
             catch (Exception ex)
             {
@@ -362,7 +371,17 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 session.ReportPreviewWarning(MessageStrings.Scene3DSurfaceUnavailable);
                 return;
             }
+
+            if (renderer.LastSampleAllocationFailure is { } failure)
+            {
+                s_logger.LogWarning(failure,
+                    "3D multisample allocation failed ({Width}x{Height} px, requested {Requested}x). Rendering at {Samples}x.",
+                    deviceWidth, deviceHeight, requestedSamples, renderer.SampleCount);
+            }
         }
+
+        if (session.Intent == RenderIntent.Preview && renderer.LastSampleAllocationFailure is not null)
+            session.ReportPreviewWarning(string.Format(MessageStrings.Scene3DAntiAliasingReduced, renderer.SampleCount));
 
         renderer.SurfaceDensity = density;
         renderer.Render(

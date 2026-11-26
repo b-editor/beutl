@@ -1487,6 +1487,24 @@
   <data name="Scene3D_RenderSize" xml:space="preserve">
     <value>Tamaño de renderizado</value>
   </data>
+  <data name="Scene3D_AntiAliasing" xml:space="preserve">
+    <value>Suavizado de bordes</value>
+  </data>
+  <data name="Scene3D_AntiAliasing_Description" xml:space="preserve">
+    <value>Suaviza los bordes de los objetos 3D. Usar más muestras mejora el suavizado, pero consume más memoria de la GPU y aumenta el tiempo de renderizado.</value>
+  </data>
+  <data name="AntiAliasingMode_Off" xml:space="preserve">
+    <value>Desactivado</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa2x" xml:space="preserve">
+    <value>2x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa4x" xml:space="preserve">
+    <value>4x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa8x" xml:space="preserve">
+    <value>8x</value>
+  </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>Sólido</value>
   </data>
