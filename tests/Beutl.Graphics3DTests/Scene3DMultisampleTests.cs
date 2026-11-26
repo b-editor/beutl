@@ -102,6 +102,139 @@ public sealed class Scene3DMultisampleTests
     }
 
     [Test]
+    public void CoplanarMaterials_ResolveTheSeamWhenPositionAndNormalMatch()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        var (off, msaa, coverage) = GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            IShaderCompiler compiler = context.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
+            CompositionContext composition = CompositionContext.Default;
+            using var camera = (PerspectiveCamera.Resource)new PerspectiveCamera
+            {
+                Position = { Value = new Vector3(0, 0, 5) },
+                Up = { Value = Vector3.Transform(Vector3.UnitY, Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 6)) },
+                FieldOfView = { Value = 45 },
+            }.ToResource(composition);
+            using var red = (Cube3D.Resource)CreateCube(-1, Colors.Red).ToResource(composition);
+            using var blue = (Cube3D.Resource)CreateCube(1, Colors.Blue).ToResource(composition);
+
+            var (singleSample, _) = Render(1);
+            var (multisampled, redCoverage) = Render(4);
+            return (singleSample, multisampled, redCoverage);
+
+            (byte[] Color, byte[] RedCoverage) Render(int samples)
+            {
+                using var geometry = new GeometryPass(context, compiler, samples);
+                geometry.Initialize(Size, Size);
+                geometry.Execute(composition, camera, [red, blue], 1, [], Colors.White, 0.5f);
+                geometry.PrepareForSampling();
+
+                byte[] redCoverage = samples > 1 ? ReadCoplanarCoverage(context, compiler, geometry) : [];
+                using var lighting = new LightingPass(context, compiler, geometry.DepthTexture!);
+                lighting.Initialize(Size, Size);
+                lighting.BindGBuffer(geometry);
+                lighting.Execute(camera, [], Colors.Transparent, Colors.White, 0.5f);
+                lighting.PrepareForSampling();
+
+                using var flip = new FlipPass(context, compiler);
+                flip.SetInputTexture(lighting.OutputTexture!);
+                flip.Initialize(Size, Size);
+                flip.Execute();
+                return (flip.OutputTexture!.DownloadPixels(), redCoverage);
+            }
+        });
+
+        var coverages = new HashSet<float>();
+        var offColors = new HashSet<Vector4>();
+        var msaaColors = new HashSet<Vector4>();
+        ReadOnlySpan<Half> redFractions = MemoryMarshal.Cast<byte, Half>(coverage);
+        for (int pixel = 0; pixel < Size * Size; pixel++)
+        {
+            float fraction = (float)redFractions[pixel * 4];
+            if (fraction is > 0f and < 1f)
+            {
+                coverages.Add(fraction);
+                offColors.Add(ReadColor(off, pixel));
+                msaaColors.Add(ReadColor(msaa, pixel));
+            }
+        }
+
+        Assert.That(coverages, Is.EquivalentTo(new[] { 0.25f, 0.5f, 0.75f }),
+            "The G-buffer must contain mixed-albedo samples with equal positions and normals at the seam.");
+        Assert.That(offColors, Is.EquivalentTo(new[] { new Vector4(0.5f, 0, 0, 1), new Vector4(0, 0, 0.5f, 1) }));
+        Assert.That(msaaColors, Has.Count.GreaterThan(2), "4x must blend the two face colors at the coplanar seam.");
+        Assert.That(msaaColors, Is.EquivalentTo(coverages.Select(f => new Vector4(f * 0.5f, 0, (1f - f) * 0.5f, 1))));
+    }
+
+    private static Cube3D CreateCube(float x, Color albedo) => new()
+    {
+        Position = { Value = new Vector3(x, 0, 0) },
+        Width = { Value = 2 },
+        Height = { Value = 2 },
+        Depth = { Value = 2 },
+        Material = { Value = new PBRMaterial { Albedo = { Value = albedo } } },
+    };
+
+    private static Vector4 ReadColor(byte[] image, int pixel)
+    {
+        ReadOnlySpan<Half> rgba = MemoryMarshal.Cast<byte, Half>(image.AsSpan(pixel * 8, 8));
+        return new Vector4((float)rgba[0], (float)rgba[1], (float)rgba[2], (float)rgba[3]);
+    }
+
+    private static byte[] ReadCoplanarCoverage(IGraphicsContext context, IShaderCompiler compiler, GeometryPass geometry)
+    {
+        using ITexture2D target = context.CreateTexture2D(Size, Size, TextureFormat.RGBA16Float);
+        using IRenderPass3D pass = context.CreateRenderPass3D([target.Format], null);
+        using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(pass, [target], null);
+        using IPipeline3D pipeline = context.CreatePipeline3D(pass,
+            compiler.CompileToSpirv(Graphics3DTestHelpers.FullscreenVertexShader, ShaderStage.Vertex),
+            compiler.CompileToSpirv(CoplanarCoverageShader, ShaderStage.Fragment),
+            [new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment),
+                new(1, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment),
+                new(2, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)],
+            VertexInputDescription.Empty, PipelineOptions.Fullscreen);
+        using ISampler sampler = context.CreateSampler(SamplerFilter.Nearest, SamplerFilter.Nearest);
+        using IDescriptorSet descriptors = context.CreateDescriptorSet(pipeline, [new(DescriptorType.CombinedImageSampler, 3)]);
+        descriptors.UpdateTexture(0, geometry.PositionTexture!, sampler);
+        descriptors.UpdateTexture(1, geometry.NormalMetallicTexture!, sampler);
+        descriptors.UpdateTexture(2, geometry.AlbedoRoughnessTexture!, sampler);
+
+        pass.Begin(framebuffer, [Colors.Transparent]);
+        pass.BindPipeline(pipeline);
+        pass.BindDescriptorSet(pipeline, descriptors);
+        pass.Draw(3);
+        pass.End();
+        return target.DownloadPixels();
+    }
+
+    private const string CoplanarCoverageShader = """
+        #version 450
+        layout(binding = 0) uniform sampler2DMS positions;
+        layout(binding = 1) uniform sampler2DMS normals;
+        layout(binding = 2) uniform sampler2DMS albedos;
+        layout(location = 0) out vec4 outColor;
+
+        void main() {
+            ivec2 pixel = ivec2(gl_FragCoord.xy);
+            // Match the final image's Y orientation.
+            pixel.y = textureSize(positions).y - 1 - pixel.y;
+            vec4 position = texelFetch(positions, pixel, 0);
+            if (position.a < 0.5 || position.z != 1.0) discard;
+            vec4 normal = texelFetch(normals, pixel, 0);
+            int count = textureSamples(positions);
+            int redCount = 0;
+            for (int i = 0; i < count; i++) {
+                if (texelFetch(positions, pixel, i) != position || texelFetch(normals, pixel, i) != normal) discard;
+                vec3 albedo = texelFetch(albedos, pixel, i).rgb;
+                if (albedo == vec3(1.0, 0.0, 0.0)) redCount++;
+                else if (albedo != vec3(0.0, 0.0, 1.0)) discard;
+            }
+            outColor = vec4(float(redCount) / float(count), 0.0, 0.0, 1.0);
+        }
+        """;
+
+    [Test]
     public void Requested8x_UsesTheDeviceAnswerWithoutAnAllocationWarning()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();

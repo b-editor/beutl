@@ -579,18 +579,22 @@ public sealed class LightingPass : GraphicsNode3D
             vec4 firstPosition = texelFetch(gPosition, pixel, 0);
             bool firstCovered = firstPosition.a >= 0.5;
             vec4 firstNormal = firstCovered ? texelFetch(gNormalMetallic, pixel, 0) : vec4(0.0);
+            vec4 firstAlbedoRoughness = firstCovered ? texelFetch(gAlbedoRoughness, pixel, 0) : vec4(0.0);
+            vec4 firstEmissionAO = firstCovered ? texelFetch(gEmissionAO, pixel, 0) : vec4(0.0);
 
-            // Geometry shades once per fragment. Only pixels spanning surfaces need per-sample lighting.
+            // Coplanar fragments can share a position and normal while using different materials.
             int sampleIndex = 1;
             for (; sampleIndex < count; sampleIndex++) {
                 if (texelFetch(gPosition, pixel, sampleIndex) != firstPosition
-                    || (firstCovered && texelFetch(gNormalMetallic, pixel, sampleIndex) != firstNormal)) {
+                    || (firstCovered && (texelFetch(gNormalMetallic, pixel, sampleIndex) != firstNormal
+                        || texelFetch(gAlbedoRoughness, pixel, sampleIndex) != firstAlbedoRoughness
+                        || texelFetch(gEmissionAO, pixel, sampleIndex) != firstEmissionAO))) {
                     break;
                 }
             }
             if (sampleIndex == count) {
                 if (!firstCovered) discard;
-                outColor = shadeSample(pixel, 0, firstPosition, firstNormal);
+                outColor = shade(firstPosition, firstNormal, firstAlbedoRoughness, firstEmissionAO);
                 return;
             }
 
