@@ -30,6 +30,16 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
 
     private sealed record Source(string Path, string Key, ProxyFingerprint? Fingerprint, VideoDeinterlaceOptions Deinterlace);
 
+    private sealed record SourceSelection(
+        IReadOnlyDictionary<(string Key, VideoDeinterlaceOptions Deinterlace), Source> ElementSources,
+        IReadOnlyDictionary<string, Source> ExplicitPaths,
+        ProxyPreset? Preset)
+    {
+        public bool Matches(ProxyFingerprint source, ProxyPreset preset, VideoDeinterlaceOptions deinterlace)
+            => (Preset is null || Preset == preset)
+                && (ExplicitPaths.ContainsKey(source.AbsolutePath) || ElementSources.ContainsKey((source.AbsolutePath, deinterlace)));
+    }
+
     [McpServerTool(Name = "generate_proxies")]
     [Description("Queues proxy generation in the running editor for selected video media. Returns job IDs immediately. Poll read_proxy_status with those IDs for progress and outcomes.")]
     public ValueTask<ToolResult<GenerationResponse>> GenerateProxies(
@@ -69,7 +79,7 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
     [Description("Reports proxy states and pending jobs for the requested media or for the scene's video sources. Pass jobIds to poll generation, including recent terminal results.")]
     public ToolResult<StatusResponse> ReadProxyStatus(
         [Description("Scene element IDs from read_document_summary.")] string[]? elementIds = null,
-        [Description("Absolute paths to original video files.")] string[]? mediaPaths = null,
+        [Description("Absolute paths to original video files. Includes all cached and pending deinterlace variants.")] string[]? mediaPaths = null,
         [Description("Filter proxy entries by half, quarter, or eighth.")] string? preset = null,
         [Description("Job IDs returned by generate_proxies. With only jobIds, returns job status.")] Guid[]? jobIds = null)
         => Execute(() =>
@@ -77,10 +87,25 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
             ProxyPreset? quality = ReadPreset(preset);
             IEditingSession session = sessions.RequireSession();
             var (store, queue) = ReadServices(session);
-            Source[] sources = ReadSources(session, elementIds, mediaPaths, includeAll: jobIds is not { Length: > 0 });
-            var keys = sources.Select(source => (source.Key, source.Deinterlace)).ToHashSet();
-            var jobs = queue.Pending().Where(job => Matches(job.Source, job.Preset, job.Deinterlace, keys, quality))
+            SourceSelection selection = ReadProxySelection(session, elementIds, mediaPaths, quality, includeAll: jobIds is not { Length: > 0 });
+            var jobs = queue.Pending().Where(job => selection.Matches(job.Source, job.Preset, job.Deinterlace))
                 .ToDictionary(job => job.JobId);
+            var entries = store.Enumerate().Where(entry => selection.Matches(entry.Source, entry.Preset, entry.Deinterlace))
+                .ToLookup(entry => (entry.Source.AbsolutePath, entry.Deinterlace, entry.Preset));
+            var sources = selection.ElementSources.Values.ToList();
+            if (selection.ExplicitPaths.Count > 0)
+            {
+                var variantsByPath = entries.Select(group => (group.Key.AbsolutePath, group.Key.Deinterlace))
+                    .Concat(jobs.Values.Select(job => (job.Source.AbsolutePath, job.Deinterlace)))
+                    .ToLookup(variant => variant.AbsolutePath, variant => variant.Deinterlace, StringComparer.Ordinal);
+                foreach (Source path in selection.ExplicitPaths.Values)
+                {
+                    // A path with no matching proxies or jobs still has a missing status.
+                    foreach (VideoDeinterlaceOptions variant in variantsByPath[path.Key].Distinct().DefaultIfEmpty())
+                        sources.Add(path with { Deinterlace = variant });
+                }
+            }
+
             var unknown = new List<Guid>();
             foreach (Guid id in (jobIds ?? []).Distinct())
             {
@@ -89,8 +114,7 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
             }
 
             ProxyPreset[] presets = quality is { } selected ? [selected] : [.. ProxyPresetDefinitions.All.Keys];
-            var entries = store.Enumerate().ToLookup(entry => (entry.Source.AbsolutePath, entry.Deinterlace, entry.Preset));
-            ProxyInfo[] proxies = [.. from source in sources
+            ProxyInfo[] proxies = [.. from source in sources.DistinctBy(source => (source.Key, source.Deinterlace))
                 from variant in presets
                 select DescribeProxy(source, variant, entries[(source.Key, source.Deinterlace, variant)])];
             return new StatusResponse(proxies, jobs.Values.Select(DescribeJob).ToArray(), unknown);
@@ -109,21 +133,17 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
             ProxyPreset? quality = ReadPreset(preset);
             IEditingSession session = sessions.RequireSession();
             var (store, queue) = ReadServices(session);
-            var sources = ReadSources(session, elementIds, mediaPaths: null, includeAll: false)
-                .ToDictionary(source => (source.Key, source.Deinterlace));
-            var explicitSources = (mediaPaths ?? [])
-                .Select(path => ResolveSource((MissingMediaTools.ReadAbsolutePath(path, nameof(mediaPaths)), default)))
-                .DistinctBy(source => source.Key).ToDictionary(source => source.Key, StringComparer.Ordinal);
-            var pending = queue.Pending().Where(job => MatchesRemoval(job.Source, job.Preset, job.Deinterlace)).ToArray();
+            SourceSelection selection = ReadProxySelection(session, elementIds, mediaPaths, quality, includeAll: false);
+            var pending = queue.Pending().Where(job => selection.Matches(job.Source, job.Preset, job.Deinterlace)).ToArray();
             await CancelJobsAsync(queue, pending, cancellationToken).ConfigureAwait(false);
 
             var removed = new List<ProxyInfo>();
             var failed = new List<ProxyInfo>();
-            foreach (ProxyEntry entry in store.Enumerate().Where(entry => MatchesRemoval(entry.Source, entry.Preset, entry.Deinterlace)))
+            foreach (ProxyEntry entry in store.Enumerate().Where(entry => selection.Matches(entry.Source, entry.Preset, entry.Deinterlace)))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Source source = sources.GetValueOrDefault((entry.Source.AbsolutePath, entry.Deinterlace))
-                    ?? (explicitSources[entry.Source.AbsolutePath] with { Deinterlace = entry.Deinterlace });
+                Source source = selection.ElementSources.GetValueOrDefault((entry.Source.AbsolutePath, entry.Deinterlace))
+                    ?? (selection.ExplicitPaths[entry.Source.AbsolutePath] with { Deinterlace = entry.Deinterlace });
                 ProxyInfo info = DescribeProxy(source, entry.Preset, [entry]);
                 if (store.Delete(entry.Source, entry.Preset, entry.Deinterlace)) removed.Add(info);
                 else if (store.TryGet(entry.Source, entry.Preset, entry.Deinterlace) is not null) failed.Add(info);
@@ -131,11 +151,6 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
 
             return new RemoveResponse(removed, failed,
                 pending.Where(job => job.Status == ProxyJobStatus.Canceled).Select(job => job.JobId).ToArray());
-
-            // Paths select cached and queued variants even after the scene stops referencing the file.
-            bool MatchesRemoval(ProxyFingerprint source, ProxyPreset entryPreset, VideoDeinterlaceOptions deinterlace)
-                => (quality is null || quality == entryPreset)
-                    && (explicitSources.ContainsKey(source.AbsolutePath) || sources.ContainsKey((source.AbsolutePath, deinterlace)));
         });
 
     private (IProxyStore Store, IProxyJobQueue Queue) ReadServices(IEditingSession session)
@@ -146,6 +161,17 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
             // Capture one store/queue pair. The queue must still report terminal events if a settings change replaces it.
             return ((IProxyStore)services.Store, (IProxyJobQueue)services.Queue);
         });
+
+    private static SourceSelection ReadProxySelection(IEditingSession session, string[]? elementIds, string[]? mediaPaths,
+        ProxyPreset? preset, bool includeAll)
+    {
+        var paths = (mediaPaths ?? [])
+            .Select(path => ResolveSource((MissingMediaTools.ReadAbsolutePath(path, nameof(mediaPaths)), default)))
+            .DistinctBy(source => source.Key).ToDictionary(source => source.Key, StringComparer.Ordinal);
+        var elements = ReadSources(session, elementIds, mediaPaths: null, includeAll: includeAll && paths.Count == 0)
+            .ToDictionary(source => (source.Key, source.Deinterlace));
+        return new SourceSelection(elements, paths, preset);
+    }
 
     private static Source[] ReadSources(IEditingSession session, string[]? elementIds, string[]? mediaPaths, bool includeAll)
     {
@@ -202,10 +228,6 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
         => ProxyFingerprint.TryFromFile(use.Path, out ProxyFingerprint fingerprint)
             ? new Source(use.Path, fingerprint.AbsolutePath, fingerprint, use.Deinterlace)
             : new Source(use.Path, ProxyFingerprint.NormalizeAbsolutePath(use.Path), null, use.Deinterlace);
-
-    private static bool Matches(ProxyFingerprint fingerprint, ProxyPreset preset, VideoDeinterlaceOptions deinterlace,
-        HashSet<(string, VideoDeinterlaceOptions)> keys, ProxyPreset? quality)
-        => (quality is null || quality == preset) && keys.Contains((fingerprint.AbsolutePath, deinterlace));
 
     private static ProxyInfo DescribeProxy(Source source, ProxyPreset preset, IEnumerable<ProxyEntry> entries)
     {

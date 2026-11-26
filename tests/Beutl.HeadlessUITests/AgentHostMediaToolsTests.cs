@@ -18,6 +18,7 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using Moq;
 using SkiaSharp;
@@ -146,7 +147,7 @@ public sealed class AgentHostMediaToolsTests
     }
 
     [AvaloniaTest]
-    public async Task Removing_by_path_covers_cached_and_queued_variants_of_an_unreferenced_video()
+    public async Task Status_and_removal_by_path_cover_cached_and_queued_variants_of_an_unreferenced_video()
     {
         var factory = new GeneratorFactory((_, _) => new DelegateGenerator(async job =>
             await Task.Delay(Timeout.InfiniteTimeSpan, job.CancellationToken)));
@@ -158,6 +159,7 @@ public sealed class AgentHostMediaToolsTests
             var cachedVariant = new VideoDeinterlaceOptions(DeinterlaceMode.On, DeinterlaceFieldOrder.Auto,
                 DeinterlaceMethod.Bwdif, DeinterlaceFrameRateMode.Field);
             var queuedVariant = cachedVariant with { FieldOrder = DeinterlaceFieldOrder.TopFieldFirst };
+            var halfVariant = cachedVariant with { FieldOrder = DeinterlaceFieldOrder.BottomFieldFirst };
             foreach (ProxyPreset preset in new[] { ProxyPreset.Quarter, ProxyPreset.Half })
             {
                 string relative = $"{preset}.mp4";
@@ -165,7 +167,7 @@ public sealed class AgentHostMediaToolsTests
                 proxy.Store.Register(new ProxyEntry(fingerprint, preset, ProxyState.Ready, relative,
                     fingerprint.FileSizeBytes, new PixelSize(96, 64), new PixelSize(24, 16), DateTime.UtcNow, DateTime.UtcNow, null)
                 {
-                    Deinterlace = cachedVariant
+                    Deinterlace = preset == ProxyPreset.Quarter ? cachedVariant : halfVariant
                 });
             }
 
@@ -174,13 +176,22 @@ public sealed class AgentHostMediaToolsTests
             arguments["mediaPaths"] = new[] { unreferenced };
             arguments["preset"] = "quarter";
 
+            var status = Success(await client.CallToolAsync("read_proxy_status", arguments))
+                .Deserialize<ProxyTools.StatusResponse>(McpJsonUtilities.DefaultOptions)!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(status.Proxies.Select(proxy => (proxy.Deinterlace, proxy.Preset, proxy.State)),
+                    Is.EquivalentTo(new[] { (cachedVariant, "quarter", "ready"), (queuedVariant, "quarter", "missing") }));
+                Assert.That(status.Jobs.Select(found => (found.JobId, found.Deinterlace)), Is.EqualTo(new[] { (job.JobId, queuedVariant) }));
+            });
+
             var result = Success(await client.CallToolAsync("remove_proxies", arguments));
             Assert.Multiple(() =>
             {
                 Assert.That(result["removed"]!.AsArray(), Has.Count.EqualTo(1));
                 Assert.That(result["canceledJobIds"]!.AsArray().Single()!.GetValue<string>(), Is.EqualTo(job.JobId.ToString()));
                 Assert.That(proxy.Store.TryGet(fingerprint, ProxyPreset.Quarter, cachedVariant), Is.Null);
-                Assert.That(proxy.Store.TryGet(fingerprint, ProxyPreset.Half, cachedVariant), Is.Not.Null);
+                Assert.That(proxy.Store.TryGet(fingerprint, ProxyPreset.Half, halfVariant), Is.Not.Null);
             });
         });
     }
