@@ -11,9 +11,9 @@ public static class BeutlDataFormats
     public static readonly DataFormat<string> Element = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.Element);
     public static readonly DataFormat<string> Elements = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.Elements);
     public static readonly DataFormat<string> ElementGroups = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.ElementGroups);
-    public static readonly DataFormat<string> KeyFrame = DataFormat.CreateStringApplicationFormat(nameof(Animation.KeyFrame));
-    public static readonly DataFormat<string> KeyFrameAnimation = DataFormat.CreateStringApplicationFormat(nameof(Animation.KeyFrameAnimation<object>));
-    public static readonly DataFormat<string> KeyFrameSelection = DataFormat.CreateStringApplicationFormat("Beutl.KeyFrameSelection");
+    public static readonly DataFormat<string> KeyFrame = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.KeyFrame);
+    public static readonly DataFormat<string> KeyFrameAnimation = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.KeyFrameAnimation);
+    public static readonly DataFormat<string> KeyFrameSelection = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.KeyFrameSelection);
     public static readonly DataFormat<string> EngineObject = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.EngineObject);
     public static readonly DataFormat<string> GraphNode = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.GraphNode);
     public static readonly DataFormat<string> Transform = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Transform);

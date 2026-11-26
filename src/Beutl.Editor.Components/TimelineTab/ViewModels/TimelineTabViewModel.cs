@@ -60,6 +60,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             Scene, _editorClock, Scale, ViewportWidth, _disposables);
 
         EditorConfig editorConfig = editorContext.GetRequiredService<GlobalConfiguration>().EditorConfig;
+        FrameRate = TimelineHelper.ObserveFrameRate(Scene, _disposables);
         TimeDisplayFormat = TimelineHelper.ObserveTimeDisplayFormat(editorConfig, _disposables);
         LayerRowHeight = editorConfig.TimelineLayerSize.GetObservable()
             .Select(size => Enum.IsDefined(size) ? (double)size : FrameNumberHelper.LayerHeight)
@@ -329,7 +330,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
     // The rate and the format that the ruler writes times in, which are the player's.
-    public Rational FrameRate => SceneTimeRangeService.GetFrameRate(Scene);
+    public ReadOnlyReactivePropertySlim<Rational> FrameRate { get; }
 
     public ReadOnlyReactivePropertySlim<TimeDisplayFormat> TimeDisplayFormat { get; }
 

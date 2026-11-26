@@ -414,7 +414,7 @@ public sealed partial class RenderTools
         return MediaTime.FromSeconds(0.5d / frameRate.ToDouble());
     }
 
-    internal static Rational GetSceneFrameRate(Scene scene) => scene.FindHierarchicalParent<Project>().GetFrameRate();
+    internal static Rational GetSceneFrameRate(Scene scene) => scene.GetFrameRate();
 
     private static bool IsDuplicateStoryboardTime(MediaTime left, MediaTime right, MediaTime tolerance)
     {

@@ -21,8 +21,17 @@
   <data name="EffectInput" xml:space="preserve">
     <value>효과 입력</value>
   </data>
-  <data name="Shapes" xml:space="preserve">
-    <value>도형</value>
+  <data name="InputAndOutput" xml:space="preserve">
+    <value>입출력</value>
+  </data>
+  <data name="Drawing" xml:space="preserve">
+    <value>그리기</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
+    <value>기하 도형</value>
+  </data>
+  <data name="OtherEffects" xml:space="preserve">
+    <value>기타</value>
   </data>
   <data name="Groups" xml:space="preserve">
     <value>그룹</value>
@@ -515,6 +524,15 @@
   </data>
   <data name="ToolsAndValues" xml:space="preserve">
     <value>도구와 값</value>
+  </data>
+  <data name="Math" xml:space="preserve">
+    <value>수학</value>
+  </data>
+  <data name="Values" xml:space="preserve">
+    <value>값</value>
+  </data>
+  <data name="Debugging" xml:space="preserve">
+    <value>디버깅</value>
   </data>
   <data name="ConditionalSwitch" xml:space="preserve">
     <value>조건부 전환</value>

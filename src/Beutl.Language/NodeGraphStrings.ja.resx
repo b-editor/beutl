@@ -21,8 +21,17 @@
   <data name="EffectInput" xml:space="preserve">
     <value>エフェクト入力</value>
   </data>
-  <data name="Shapes" xml:space="preserve">
-    <value>図形</value>
+  <data name="InputAndOutput" xml:space="preserve">
+    <value>入出力</value>
+  </data>
+  <data name="Drawing" xml:space="preserve">
+    <value>描画</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
+    <value>ジオメトリー</value>
+  </data>
+  <data name="OtherEffects" xml:space="preserve">
+    <value>その他</value>
   </data>
   <data name="Groups" xml:space="preserve">
     <value>グループ</value>
@@ -515,6 +524,15 @@
   </data>
   <data name="ToolsAndValues" xml:space="preserve">
     <value>ツールと値</value>
+  </data>
+  <data name="Math" xml:space="preserve">
+    <value>演算</value>
+  </data>
+  <data name="Values" xml:space="preserve">
+    <value>値</value>
+  </data>
+  <data name="Debugging" xml:space="preserve">
+    <value>デバッグ</value>
   </data>
   <data name="ConditionalSwitch" xml:space="preserve">
     <value>条件で切り替え</value>

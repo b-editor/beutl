@@ -61,14 +61,12 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         LibraryItems = new CoreList<LibraryItemViewModel>(libItems.Count);
         LibraryItems.AddRange(libItems.Select(x => LibraryItemViewModel.CreateFromLibraryItem(x)));
 
-        IList<GraphNodeRegistry.BaseRegistryItem> nodes = GraphNodeRegistry.GetRegistered();
+        IList<GraphNodeRegistry.BaseRegistryItem> nodes = NodeMenuCatalog.GetItems(_libraryService);
         Nodes = new CoreList<LibraryItemViewModel>(nodes.Count);
         Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(x)));
 
         AllItems = new(CreateAllItems());
-        Effects = new(LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.FilterEffect, Thumbnails));
-        UpdateEffectSections(libItems);
-        Transitions = new(LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.ClipTransition, Thumbnails));
+        UpdateGalleries(libItems);
         UpdateEasings();
     }
 
@@ -114,11 +112,13 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     public CoreList<LibraryItemViewModel> AllItems { get; }
 
     // The tiles of the effect and transition galleries, in the library's order.
-    public CoreList<LibraryGalleryItemViewModel> Effects { get; }
+    public CoreList<LibraryGalleryItemViewModel> Effects { get; } = [];
 
     internal CoreList<LibraryGallerySection> EffectSections { get; } = [];
 
-    public CoreList<LibraryGalleryItemViewModel> Transitions { get; }
+    public CoreList<LibraryGalleryItemViewModel> Transitions { get; } = [];
+
+    internal CoreList<LibraryGallerySection> TransitionSections { get; } = [];
 
     public ReactiveCollection<LibraryItemViewModel> SearchResult { get; } = [];
 
@@ -169,18 +169,14 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             LibraryItemViewModel.CreateFromLibraryItem,
             item => (item as GroupLibraryItem)?.Items);
         // The registry hands out copies of its groups, so match them by ID or display name.
-        SyncItems<GraphNodeRegistry.BaseRegistryItem>(Nodes, [.. GraphNodeRegistry.GetRegistered()], null,
+        SyncItems<GraphNodeRegistry.BaseRegistryItem>(Nodes, [.. NodeMenuCatalog.GetItems(_libraryService)], null,
             item => item is GraphNodeRegistry.GroupableRegistryItem group
                 ? LibraryCategoryKey.Create(group.Id, group.DisplayName)
                 : item,
             LibraryItemViewModel.CreateFromGraphNodeRegistryItem,
             item => (item as GraphNodeRegistry.GroupableRegistryItem)?.Items);
         AllItems.Replace(CreateAllItems(AllItems.Count));
-        Effects.Replace(
-            LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.FilterEffect, Thumbnails, Effects));
-        UpdateEffectSections(registeredItems);
-        Transitions.Replace(
-            LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.ClipTransition, Thumbnails, Transitions));
+        UpdateGalleries(registeredItems);
         UpdateEasings();
         if (_query is { } query)
             _ = SearchCore(query, CancellationToken.None, recordUsage: false);
@@ -216,14 +212,22 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             Easings.RemoveAt(Easings.Count - 1);
     }
 
-    private void UpdateEffectSections(IReadOnlyList<LibraryItem> registeredItems)
+    private void UpdateGalleries(IReadOnlyList<LibraryItem> registeredItems)
     {
-        var categories = LibraryEffectCategories.Collect(registeredItems, KnownLibraryItemFormats.FilterEffect);
-        var groups = Effects
+        UpdateGallery(registeredItems, KnownLibraryItemFormats.FilterEffect, Effects, EffectSections);
+        UpdateGallery(registeredItems, KnownLibraryItemFormats.ClipTransition, Transitions, TransitionSections);
+    }
+
+    private void UpdateGallery(IReadOnlyList<LibraryItem> registeredItems, string format,
+        CoreList<LibraryGalleryItemViewModel> tiles, CoreList<LibraryGallerySection> sections)
+    {
+        tiles.Replace(LibraryGalleryItemViewModel.Collect(LibraryItems, format, Thumbnails, tiles));
+        var categories = LibraryEffectCategories.Collect(registeredItems, format);
+        var groups = tiles
             .Select(tile => (Tile: tile, Category: categories.GetValueOrDefault((LibraryItem)tile.Item.Data!)))
             .GroupBy(item => item.Category?.Key ?? default)
             .OrderBy(group => group.Key == default);
-        var sections = new List<LibraryGallerySection>();
+        var nextSections = new List<LibraryGallerySection>();
         foreach (var group in groups)
         {
             LibraryEffectCategory? category = group.First().Category;
@@ -232,15 +236,15 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             if (string.IsNullOrEmpty(description))
                 description = null;
 
-            IEnumerable<LibraryGalleryItemViewModel> tiles = group.Select(item => item.Tile);
-            LibraryGallerySection? previous = EffectSections.FirstOrDefault(section => section.Key == group.Key);
-            sections.Add(previous != null && previous.Title == title && previous.Description == description
-                && previous.Items.SequenceEqual(tiles)
+            IEnumerable<LibraryGalleryItemViewModel> sectionTiles = group.Select(item => item.Tile);
+            LibraryGallerySection? previous = sections.FirstOrDefault(section => section.Key == group.Key);
+            nextSections.Add(previous != null && previous.Title == title && previous.Description == description
+                && previous.Items.SequenceEqual(sectionTiles)
                 ? previous
-                : new LibraryGallerySection(group.Key, title, description, [.. tiles]));
+                : new LibraryGallerySection(group.Key, title, description, [.. sectionTiles]));
         }
 
-        EffectSections.Replace(sections);
+        sections.Replace(nextSections);
     }
 
     // Brings `viewModels` in line with `items`. The view models of the items that stay are kept, with their
@@ -406,6 +410,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         Effects.Clear();
         EffectSections.Clear();
         Transitions.Clear();
+        TransitionSections.Clear();
         SearchResult.Clear();
     }
 

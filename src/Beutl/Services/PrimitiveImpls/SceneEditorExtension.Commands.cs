@@ -12,6 +12,7 @@ namespace Beutl.Services.PrimitiveImpls;
 
 public sealed partial class SceneEditorExtension
 {
+    internal const string PreviewZoomFitCommandId = "editor.previewZoomFit";
     internal const string SelectPreviewMoveToolCommandId = "editor.selectPreviewMoveTool";
     internal const string SelectPreviewHandToolCommandId = "editor.selectPreviewHandTool";
     internal const string SelectPreviewCropToolCommandId = "editor.selectPreviewCropTool";
@@ -86,7 +87,7 @@ public sealed partial class SceneEditorExtension
             editor => editor.Player.RequestPreviewZoom(PreviewZoomAction.ZoomIn)),
         KeyCommand("editor.previewZoomOut", Strings.PreviewZoomOut, "", [new("Alt+OemMinus")],
             editor => editor.Player.RequestPreviewZoom(PreviewZoomAction.ZoomOut)),
-        KeyCommand("editor.previewZoomFit", Strings.PreviewZoomFit, "", [new("Alt+D0")],
+        KeyCommand(PreviewZoomFitCommandId, Strings.PreviewZoomFit, "", [new("Alt+D0")],
             editor => editor.Player.RequestPreviewZoom(PreviewZoomAction.Fit)),
         PreviewToolCommand(SelectPreviewMoveToolCommandId, Strings.Move, "V", PreviewTool.Move),
         PreviewToolCommand(SelectPreviewHandToolCommandId, Strings.Hand, "H", PreviewTool.Hand),

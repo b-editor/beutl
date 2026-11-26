@@ -1102,7 +1102,7 @@
     <value>Y</value>
   </data>
   <data name="ArcSegment" xml:space="preserve">
-    <value>Elliptical arc</value>
+    <value>Elliptical Arc</value>
   </data>
   <data name="ArcSegment_IsLargeArc" xml:space="preserve">
     <value>Is Large Arc</value>
@@ -1144,7 +1144,7 @@
     <value>Up</value>
   </data>
   <data name="ConicGradientBrush" xml:space="preserve">
-    <value>Conical gradient</value>
+    <value>Conical Gradient</value>
   </data>
   <data name="ConicGradientBrush_Center" xml:space="preserve">
     <value>Center</value>
@@ -1165,7 +1165,7 @@
     <value>Cube Mesh</value>
   </data>
   <data name="CubicBezierSegment" xml:space="preserve">
-    <value>Cubic Bezier curve</value>
+    <value>Cubic Bezier Curve</value>
   </data>
   <data name="CubicBezierSegment_ControlPoint1" xml:space="preserve">
     <value>Control Point 1</value>
@@ -1249,7 +1249,7 @@
     <value>Point</value>
   </data>
   <data name="LinearGradientBrush" xml:space="preserve">
-    <value>Linear gradient</value>
+    <value>Linear Gradient</value>
   </data>
   <data name="LinearGradientBrush_StartPoint" xml:space="preserve">
     <value>Start Point</value>
@@ -1372,7 +1372,7 @@
     <value>Offset</value>
   </data>
   <data name="PerlinNoiseBrush" xml:space="preserve">
-    <value>Perlin noise</value>
+    <value>Perlin Noise</value>
   </data>
   <data name="PerlinNoiseBrush_BaseFrequencyX" xml:space="preserve">
     <value>Base Frequency X</value>
@@ -1432,13 +1432,13 @@
     <value>Range</value>
   </data>
   <data name="QuadraticBezierSegment" xml:space="preserve">
-    <value>Quadratic Bezier curve</value>
+    <value>Quadratic Bezier Curve</value>
   </data>
   <data name="QuadraticBezierSegment_ControlPoint" xml:space="preserve">
     <value>Control Point</value>
   </data>
   <data name="RadialGradientBrush" xml:space="preserve">
-    <value>Radial gradient</value>
+    <value>Radial Gradient</value>
   </data>
   <data name="RadialGradientBrush_Center" xml:space="preserve">
     <value>Center</value>
@@ -1859,6 +1859,18 @@
   </data>
   <data name="ClipTransition" xml:space="preserve">
     <value>Transition</value>
+  </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>Fades &amp; Dissolves</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>Wipes</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>Stylized</value>
   </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>Duration</value>

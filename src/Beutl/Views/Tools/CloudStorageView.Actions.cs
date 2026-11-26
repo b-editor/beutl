@@ -93,28 +93,28 @@ public sealed partial class CloudStorageView
         }
         if (targets.Length == 0)
         {
-            Add("createFolder", Strings.NewFolder, Icon.FolderAdd, 0);
+            Add("createFolder", Strings.CloudStorageNewFolderMenu, Icon.FolderAdd, 0);
             Add("refresh", Strings.Refresh, Icon.ArrowClockwise, 1);
         }
         else if (targets is [var folder] && folder.IsFolder)
         {
             if (folder.Can("open")) Add("open", Strings.Open, Icon.FolderOpen, 0);
-            if (folder.Can("rename")) Add("rename", Strings.Rename, Icon.Rename, 1);
-            if (folder.Can("move")) Add("move", Strings.Move, Icon.FolderArrowRight, 1);
-            if (folder.Can("delete")) Add("delete", Strings.Delete, Icon.Delete, 3);
+            if (folder.Can("rename")) Add("rename", Strings.RenameMenu, Icon.Rename, 1);
+            if (folder.Can("move")) Add("move", Strings.CloudStorageMoveMenu, Icon.FolderArrowRight, 1);
+            if (folder.Can("delete")) Add("delete", Strings.DeleteWithConfirmation, Icon.Delete, 3);
         }
         else
         {
             var single = targets.Length == 1 ? targets[0] : null;
             if (single?.Can("open") == true) Add("open", Strings.Open, Icon.Open, 0);
-            if (single?.Can("download") == true) Add("download", Strings.CloudStorageDownload, Icon.ArrowDownload, 0);
+            if (single?.Can("download") == true) Add("download", Strings.CloudStorageDownloadMenu, Icon.ArrowDownload, 0);
             if (single?.Can("copyLink") == true) Add("copyLink", Strings.CloudStorageCopyLink, Icon.Link, 0);
-            if (single?.Can("rename") == true) Add("rename", Strings.Rename, Icon.Rename, 1);
-            if (targets.All(x => x.Can("move"))) Add("move", Strings.Move, Icon.FolderArrowRight, 1);
+            if (single?.Can("rename") == true) Add("rename", Strings.RenameMenu, Icon.Rename, 1);
+            if (targets.All(x => x.Can("move"))) Add("move", Strings.CloudStorageMoveMenu, Icon.FolderArrowRight, 1);
             if (single?.Can("details") == true) Add("details", Strings.Details, Icon.Info, 1);
             if (targets.All(x => x.Can("setPublic"))) Add("setPublic", Strings.CloudStorageSetPublic, Icon.Globe, 2);
             if (targets.All(x => x.Can("setPrivate"))) Add("setPrivate", Strings.CloudStorageSetPrivate, Icon.LockClosed, 2);
-            if (targets.Any(x => x.Can("delete"))) Add("delete", Strings.Delete, Icon.Delete, 3);
+            if (targets.Any(x => x.Can("delete"))) Add("delete", Strings.DeleteWithConfirmation, Icon.Delete, 3);
             if (targets.All(x => x.Entry?.Visibility == "DEDICATED"))
             {
                 menu.Items.Add(new FAMenuFlyoutSeparator());

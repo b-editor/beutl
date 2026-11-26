@@ -74,7 +74,9 @@ internal sealed partial class DeclarativeDocumentApplier
             }
         }
 
-        if (desired.TryGetPropertyValue(nameof(KeyFrame.KeyTime), out JsonNode? keyTimeNode) && keyTimeNode is not null)
+        if (desired.TryGetPropertyValue(nameof(KeyFrame.KeyTime), out JsonNode? keyTimeNode)
+            && keyTimeNode is not null
+            && !IsUnchangedDocumentTime(keyTimeNode, keyFrame.KeyTime.Value))
         {
             keyFrame.KeyTime.Value = (MediaTime)CoreSerializer.DeserializeFromJsonNode(
                 keyTimeNode.DeepClone(),

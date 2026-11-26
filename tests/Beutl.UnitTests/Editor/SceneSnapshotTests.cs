@@ -10,13 +10,24 @@ namespace Beutl.UnitTests.Editor;
 public sealed class SceneSnapshotTests
 {
     [Test]
-    public void Create_CopiesProjectAudioLayout()
+    public void Create_CopiesSceneAudioLayoutAndRates()
     {
-        var scene = new Scene(320, 240, "Surround");
-        var project = new Project { Items = { scene }, ChannelLayout = { Value = SpeakerLayout.Surround51 } };
+        var scene = new Scene(320, 240, "Surround")
+        {
+            FrameRate = { Value = new Rational(60) },
+            SampleRate = { Value = 48000 },
+            ChannelLayout = { Value = SpeakerLayout.Surround51 },
+        };
         Scene snapshot = SceneSnapshot.Create(scene);
-        project.ChannelLayout.Value = SpeakerLayout.Stereo;
-        Assert.That(snapshot.FindHierarchicalParent<Project>()!.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+        scene.FrameRate.Value = new Rational(30);
+        scene.SampleRate.Value = 44100;
+        scene.ChannelLayout.Value = SpeakerLayout.Stereo;
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.FrameRate.Value, Is.EqualTo(new Rational(60)));
+            Assert.That(snapshot.SampleRate.Value, Is.EqualTo(48000));
+            Assert.That(snapshot.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+        });
     }
 
     [Test]

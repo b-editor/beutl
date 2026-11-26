@@ -21,8 +21,17 @@
   <data name="EffectInput" xml:space="preserve">
     <value>效果输入</value>
   </data>
-  <data name="Shapes" xml:space="preserve">
-    <value>形状</value>
+  <data name="InputAndOutput" xml:space="preserve">
+    <value>输入与输出</value>
+  </data>
+  <data name="Drawing" xml:space="preserve">
+    <value>绘制</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
+    <value>几何</value>
+  </data>
+  <data name="OtherEffects" xml:space="preserve">
+    <value>其他</value>
   </data>
   <data name="Groups" xml:space="preserve">
     <value>分组</value>
@@ -515,6 +524,15 @@
   </data>
   <data name="ToolsAndValues" xml:space="preserve">
     <value>工具与数值</value>
+  </data>
+  <data name="Math" xml:space="preserve">
+    <value>数学</value>
+  </data>
+  <data name="Values" xml:space="preserve">
+    <value>数值</value>
+  </data>
+  <data name="Debugging" xml:space="preserve">
+    <value>调试</value>
   </data>
   <data name="ConditionalSwitch" xml:space="preserve">
     <value>条件切换</value>

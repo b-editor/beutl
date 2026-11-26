@@ -24,4 +24,19 @@ public interface ISceneSettingsService
         scene.MasterVolume.Value = masterVolume;
         return Apply(scene, frameSize, start, duration, channelLayout);
     }
+
+    bool Apply(
+        Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration,
+        Rational frameRate, int sampleRate, SpeakerLayout channelLayout, float masterVolume)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+
+        if (scene.FrameRate.Value != frameRate || scene.SampleRate.Value != sampleRate)
+        {
+            throw new NotSupportedException(
+                "Changing scene FrameRate or SampleRate requires an ISceneSettingsService implementation that overrides this Apply overload.");
+        }
+
+        return Apply(scene, frameSize, start, duration, channelLayout, masterVolume);
+    }
 }

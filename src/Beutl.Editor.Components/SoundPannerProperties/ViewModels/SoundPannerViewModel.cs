@@ -134,19 +134,19 @@ public sealed class SoundPannerViewModel : IPropertyEditorContext, IServiceProvi
         _scene = _element?.FindHierarchicalParent<Scene>() ?? _services?.GetService<Scene>();
         _editabilitySubscription = ElementEditability.Observe(_element, _scene).Subscribe(_ => RefreshValues());
         _layoutSubscription?.Dispose();
-        var project = Sound.FindHierarchicalParent<Project>();
-        _layoutSubscription = project?.ChannelLayout.GetObservable().Subscribe(_ => RefreshLayout());
+        var scene = Sound.FindHierarchicalParent<Scene>() ?? _scene;
+        _layoutSubscription = scene?.ChannelLayout.GetObservable().Subscribe(_ => RefreshLayout());
         // Subscribing replays the current layout, and each refresh can open the media file.
-        if (project == null) RefreshLayout();
+        if (scene == null) RefreshLayout();
     }
 
     private void RefreshLayout()
     {
-        var project = Sound.FindHierarchicalParent<Project>();
-        Layout.Value = project.GetSpeakerLayout();
+        var scene = Sound.FindHierarchicalParent<Scene>() ?? _scene;
+        Layout.Value = scene.GetSpeakerLayout();
         var decoders = ExtensionGuard.FindService<DecoderRegistry>(_services);
-        AudioChannelLayout output = project.GetChannelLayout();
-        // The short-circuit keeps mono and stereo projects from reading the clip layout.
+        AudioChannelLayout output = scene.GetChannelLayout();
+        // The short-circuit keeps mono and stereo scenes from reading the clip layout.
         IsHorizontalOnly.Value = !PannerNode.PositionsOnto(output)
             || !PannerNode.IsPositionedClip((Sound is SourceSound && decoders == null
                 ? output : Sound.GetClipLayout(output, CurrentTime.Value, decoders)).ChannelCount);

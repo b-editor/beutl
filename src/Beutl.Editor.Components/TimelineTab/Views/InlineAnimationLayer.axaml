@@ -37,7 +37,7 @@
             </ui:FAMenuFlyoutItem>
             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.DeleteCurrentAnimationCommand"
                                  Command="{Binding DeleteCurrentAnimationCommand}"
-                                 Text="{x:Static lang:Strings.Delete}">
+                                 Text="{x:Static lang:CommandNames.DeleteAnimation}">
                 <ui:FAMenuFlyoutItem.IconSource>
                     <icons:FluentIconSource Icon="Delete" />
                 </ui:FAMenuFlyoutItem.IconSource>

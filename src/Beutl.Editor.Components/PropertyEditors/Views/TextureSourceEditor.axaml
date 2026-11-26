@@ -41,7 +41,7 @@
                             <ui:FARadioMenuFlyoutItem Click="ChangeTextureSourceType"
                                                     IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                     Tag="Null"
-                                                    Text="{x:Static lang:Strings.Null}" />
+                                                    Text="{x:Static lang:StatusStrings.None}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
                     <icons:FluentIcon Icon="Compose" />

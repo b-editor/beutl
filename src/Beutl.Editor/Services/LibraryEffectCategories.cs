@@ -1,6 +1,7 @@
-﻿using Beutl.Services;
+﻿using Beutl.Language;
+using Beutl.Services;
 
-namespace Beutl.Editor.Components.Helpers;
+namespace Beutl.Editor.Services;
 
 internal readonly record struct LibraryCategoryKey(string? Id, string? DisplayName)
 {
@@ -21,6 +22,7 @@ internal static class LibraryEffectCategories
         {
             KnownLibraryItemFormats.FilterEffect => (KnownLibraryGroupIds.FilterEffect, GraphicsStrings.FilterEffect),
             KnownLibraryItemFormats.AudioEffect => (KnownLibraryGroupIds.AudioEffect, AudioStrings.AudioEffect),
+            KnownLibraryItemFormats.ClipTransition => (KnownLibraryGroupIds.ClipTransition, GraphicsStrings.ClipTransition),
             _ => (null, null),
         };
         if (rootId == null)

@@ -322,7 +322,7 @@ public sealed partial class ColorPaletteView : TemplatedControl
 
         (PaletteScope scope, int index) = (header.Scope, header.Palette);
         ImmutableArray<ColorPalette> palettes = service.GetPalettes(scope);
-        menu.Items.Add(CreateItem(Strings.Rename, Icon.Rename, () =>
+        menu.Items.Add(CreateItem(Strings.RenameMenu, Icon.Rename, () =>
             AskName((Control?)FindHeader(header) ?? this, Strings.Rename, palettes[index].Name,
                 name => service.EditPalette(scope, index, p => p.WithName(name)))));
         menu.Items.Add(CreateItem(Strings.ColorPalette_MoveUp, Icon.ArrowUp,
@@ -353,7 +353,7 @@ public sealed partial class ColorPaletteView : TemplatedControl
         if (swatch.Kind == SwatchKind.Editable)
         {
             (PaletteScope scope, int palette, int index) = (swatch.Scope, swatch.Palette, swatch.Index);
-            menu.Items.Add(CreateItem(Strings.Rename, Icon.Rename, () =>
+            menu.Items.Add(CreateItem(Strings.RenameMenu, Icon.Rename, () =>
                 AskName(target, Strings.Rename, swatch.Color.Name ?? string.Empty,
                     name => service.EditPalette(scope, palette,
                         p => p.SetColor(index, swatch.Color with { Name = name.Length > 0 ? name : null })),
@@ -405,7 +405,7 @@ public sealed partial class ColorPaletteView : TemplatedControl
             }
 
             addTo.Items.Add(new FAMenuFlyoutSeparator());
-            addTo.Items.Add(CreateItem(Strings.ColorPalette_NewPalette, Icon.Add, AddToNewPalette));
+            addTo.Items.Add(CreateItem(Strings.ColorPalette_NewPaletteMenu, Icon.Add, AddToNewPalette));
             menu.Items.Add(addTo);
         }
 

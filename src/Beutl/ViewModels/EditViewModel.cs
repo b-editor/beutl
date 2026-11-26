@@ -104,14 +104,14 @@ public sealed partial class EditViewModel
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
-        Project? project = Scene.FindHierarchicalParent<Project>();
-        var channelLayout = new ReactivePropertySlim<AudioChannelLayout>(project.GetChannelLayout())
+        var audioFormat = new ReactivePropertySlim<(int SampleRate, AudioChannelLayout ChannelLayout)>(
+                (Scene.GetSampleRate(), Scene.GetChannelLayout()))
             .DisposeWith(_disposables);
-        Composer = scene.FrameSize.GetObservable().CombineLatest(channelLayout)
+        Composer = scene.FrameSize.GetObservable().CombineLatest(audioFormat)
             .Select(t => new SceneComposer(Scene, CreateRenderServices())
             {
-                SampleRate = project.GetSampleRate(),
-                ChannelLayout = t.Second
+                SampleRate = t.Second.SampleRate,
+                ChannelLayout = t.Second.ChannelLayout
             })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
@@ -130,16 +130,33 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables)!;
 
         Player = new PlayerViewModel(this);
-        project?.ChannelLayout.GetObservable().Skip(1)
-            .Select(layout => Observable.FromAsync(async () =>
+        Scene.SampleRate.GetObservable()
+            .CombineLatest(Scene.ChannelLayout.GetObservable(), (_, _) => (Scene.GetSampleRate(), Scene.GetChannelLayout()))
+            .DistinctUntilChanged()
+            .Skip(1)
+            .Select(format => Observable.FromAsync(async () =>
             {
                 // Retire the device queue before disposing the composer it is reading.
                 await Player.Pause();
-                return layout.ToAudioChannelLayout();
+                return format;
             }))
             .Switch()
             .ObserveOnUIDispatcher()
-            .Subscribe(layout => channelLayout.Value = layout, ex => _logger.LogError(ex, "Could not change audio layout."))
+            .Subscribe(format => audioFormat.Value = format, ex => _logger.LogError(ex, "Could not change audio format."))
+            .DisposeWith(_disposables);
+        Scene.FrameRate.GetObservable()
+            .Select(_ => Scene.GetFrameRate())
+            .DistinctUntilChanged()
+            .Skip(1)
+            .Select(_ => Observable.FromAsync(async () => await Player.Pause()))
+            .Switch()
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ =>
+            {
+                if (_disposed || FrameCacheManager.Value.IsDisposed) return;
+                FrameCacheManager.Value.Clear();
+                Player.QueuePreviewRender();
+            }, ex => _logger.LogError(ex, "Could not change frame rate."))
             .DisposeWith(_disposables);
         this.GetRequiredService<GlobalConfiguration>().EditorConfig.PreviewSourceMode.GetObservable()
             .Skip(1)

@@ -477,7 +477,7 @@ public sealed partial class PathPointDragBehavior : Behavior<Thumb>
     {
         var scene = viewModel.EditorContext.GetRequiredService<Scene>();
         var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-        Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
+        Rational rate = scene.GetFrameRate();
         MediaTime globalkeyTime = clock.CurrentTime.Value;
 
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<BtlPoint> animation)

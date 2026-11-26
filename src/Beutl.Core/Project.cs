@@ -5,12 +5,17 @@ using Beutl.Serialization;
 
 namespace Beutl;
 
-// The variables that held the rates before 2.0.0-preview.9, which a project reads once into its rate members.
+// The variables that held the rates before 2.0.0-preview.9, which a project reads once and passes to its scenes.
 internal static class ProjectVariableKeys
 {
     public const string FrameRate = "framerate";
     public const string SampleRate = "samplerate";
 }
+
+internal readonly record struct LegacyProjectRates(
+    Rational? FrameRate,
+    int? SampleRate,
+    SpeakerLayout? ChannelLayout);
 
 // Development builds since #4110 kept the project's color palettes in the project file under ColorPalettes. They are
 // in a file of their own now (ProjectColorPaletteFile), and a project drops that key rather than keeping it as an
@@ -18,6 +23,13 @@ internal static class ProjectVariableKeys
 [DroppedMembers("ColorPalettes")]
 public sealed partial class Project : Hierarchical
 {
+    private const string LegacyFrameRateKey = "FrameRate";
+    private const string LegacySampleRateKey = "SampleRate";
+    private const string LegacyChannelLayoutKey = "ChannelLayout";
+
+    private static readonly AsyncLocal<LegacyProjectRates?> s_legacyRates = new();
+    private LegacyProjectRates? _unpersistedLegacyRates;
+
     public Project()
     {
         // The dictionary is a value rather than a default, as its CoreProperty form had no default.
@@ -31,13 +43,6 @@ public sealed partial class Project : Hierarchical
 
     [NotAutoSerialized]
     public IProperty<Dictionary<string, string>> Variables { get; } = Property.CreateValue<Dictionary<string, string>>(null!);
-
-    // A whole number such as 30 or a fraction such as 30000/1001.
-    public IProperty<Rational> FrameRate { get; } = Property.CreateValue(new Rational(30));
-
-    public IProperty<int> SampleRate { get; } = Property.CreateValue(44100);
-
-    public IProperty<SpeakerLayout> ChannelLayout { get; } = Property.CreateValue(SpeakerLayout.Stereo);
 
     /// <summary>
     /// Gets the version of Beutl that last saved the project file, as the file records it, or the running
@@ -55,16 +60,28 @@ public sealed partial class Project : Hierarchical
     /// </remarks>
     public string MinAppVersion => RootFileVersions.GetMinAppVersion(this) ?? FileFormat.Floor;
 
-    // The rate GetFrameRate gives: the project's when it is positive, or 30.
-    internal static Rational ReadFrameRate(Project? project)
-        => project?.FrameRate.Value is { Numerator: > 0, Denominator: > 0 } rate ? rate : new Rational(30);
+    internal static LegacyProjectRates? CurrentLegacyRates => s_legacyRates.Value;
+
+    private static LegacyRatesScope PushLegacyRates(LegacyProjectRates? rates)
+    {
+        LegacyProjectRates? previous = s_legacyRates.Value;
+        s_legacyRates.Value = rates;
+        return new LegacyRatesScope(previous);
+    }
+
+    private readonly struct LegacyRatesScope(LegacyProjectRates? previous) : IDisposable
+    {
+        public void Dispose()
+        {
+            s_legacyRates.Value = previous;
+        }
+    }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");
         base.Deserialize(context);
 
-        // The variables and rates come first: the items are read on the project's frame grid.
         if (context.GetValue<Dictionary<string, string>>("variables") is { } vars)
         {
             Variables.Value.Clear();
@@ -74,26 +91,71 @@ public sealed partial class Project : Hierarchical
             }
         }
 
-        // Earlier versions kept the rates as variables, which a read moves to the rate members.
-        if (Variables.Value.Remove(ProjectVariableKeys.FrameRate, out string? frameRate) && !context.Contains(nameof(FrameRate))
+        // Earlier versions kept audio/video settings on the project (as variables before 2.0.0-preview.9,
+        // then as project members before 2.0.0-preview.16). Read them once and pass them to the scenes
+        // restored below so scenes that do not record their own settings inherit them.
+        Rational? legacyFrameRate = null;
+        int? legacySampleRate = null;
+        SpeakerLayout? legacyChannelLayout = null;
+
+        bool hasFrameRateMember = context.Contains(LegacyFrameRateKey);
+        if (hasFrameRateMember)
+        {
+            Optional<Rational> value = context.GetValue<Optional<Rational>>(LegacyFrameRateKey);
+            if (value.HasValue)
+            {
+                legacyFrameRate = value.Value;
+            }
+        }
+
+        bool hasSampleRateMember = context.Contains(LegacySampleRateKey);
+        if (hasSampleRateMember)
+        {
+            Optional<int> value = context.GetValue<Optional<int>>(LegacySampleRateKey);
+            if (value.HasValue)
+            {
+                legacySampleRate = value.Value;
+            }
+        }
+
+        if (context.Contains(LegacyChannelLayoutKey))
+        {
+            Optional<SpeakerLayout> value = context.GetValue<Optional<SpeakerLayout>>(LegacyChannelLayoutKey);
+            if (value.HasValue)
+            {
+                legacyChannelLayout = value.Value;
+            }
+        }
+
+        if (Variables.Value.Remove(ProjectVariableKeys.FrameRate, out string? frameRate) && !hasFrameRateMember
             && Rational.TryParse(frameRate, CultureInfo.InvariantCulture, out Rational rate))
         {
-            FrameRate.Value = rate;
+            legacyFrameRate = rate;
         }
 
-        if (Variables.Value.Remove(ProjectVariableKeys.SampleRate, out string? sampleRate) && !context.Contains(nameof(SampleRate))
+        if (Variables.Value.Remove(ProjectVariableKeys.SampleRate, out string? sampleRate) && !hasSampleRateMember
             && int.TryParse(sampleRate, NumberStyles.Integer, CultureInfo.InvariantCulture, out int samples))
         {
-            SampleRate.Value = samples;
+            legacySampleRate = samples;
         }
 
-        using (MediaTimeJsonConverter.ReadOnFrameGrid(ReadFrameRate(this)))
+        LegacyProjectRates? legacyRates = legacyFrameRate.HasValue || legacySampleRate.HasValue || legacyChannelLayout.HasValue
+            ? new LegacyProjectRates(legacyFrameRate, legacySampleRate, legacyChannelLayout)
+            : null;
+
+        using (PushLegacyRates(legacyRates))
+        using (MediaTimeJsonConverter.ReadOnFrameGrid(
+            IFrameRateSource.Normalize(legacyFrameRate ?? IFrameRateSource.DefaultFrameRate)))
         {
             if (context.GetValue<ProjectItem[]>("items") is { } items)
             {
                 Items.Replace(items);
             }
         }
+
+        _unpersistedLegacyRates = legacyRates.HasValue && Items.Any(static item => item.HasUnpersistedLegacyRates)
+            ? legacyRates
+            : null;
 
         activity?.SetTag("appVersion", AppVersion);
         activity?.SetTag("minAppVersion", MinAppVersion);
@@ -108,6 +170,21 @@ public sealed partial class Project : Hierarchical
         activity?.SetTag("itemsCount", Items.Count);
 
         base.Serialize(context);
+
+        // When saving only the project file (such as an auto-save after editing one scene), retain
+        // legacy project-level rates while any migrated scene still has unpersisted legacy rates.
+        if (_unpersistedLegacyRates is { } legacy
+            && !context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects)
+            && !context.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects)
+            && Items.Any(static item => item.HasUnpersistedLegacyRates))
+        {
+            if (legacy.FrameRate is { } frameRate)
+                context.SetValue(LegacyFrameRateKey, frameRate);
+            if (legacy.SampleRate is { } sampleRate)
+                context.SetValue(LegacySampleRateKey, sampleRate);
+            if (legacy.ChannelLayout is { } channelLayout)
+                context.SetValue(LegacyChannelLayoutKey, channelLayout);
+        }
 
         context.SetValue("items", Items);
 

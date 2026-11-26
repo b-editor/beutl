@@ -34,8 +34,8 @@
                             Theme="{StaticResource TransparentButton}">
                         <Button.ContextFlyout>
                             <ui:FAMenuFlyout>
-                                <ui:FAMenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.Initialize}" />
-                                <ui:FAMenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
+                                <ui:FAMenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.ResetList}" />
+                                <ui:FAMenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.ClearValue}" />
                             </ui:FAMenuFlyout>
                         </Button.ContextFlyout>
                         <icons:FluentIcon x:Name="addIcon" Classes.add="{Binding List.Value, Converter={x:Static ObjectConverters.IsNotNull}}">

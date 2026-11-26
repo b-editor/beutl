@@ -189,7 +189,7 @@ public sealed partial class MeshWarp : FilterEffect, IEditingStageProvider, ICom
             return;
         }
 
-        Rational rate = Project.ReadFrameRate(this.FindHierarchicalParent<Project>());
+        Rational rate = IFrameRateSource.ReadFromHierarchy(this);
         MediaTime localTime = animation.ToLocal(time).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         var key = animation.KeyFrames.OfType<KeyFrame<MeshWarpGrid>>()
             .FirstOrDefault(key => MediaTimeJsonConverter.SnapToFrame(key.KeyTime.Value, rate) == localTime);

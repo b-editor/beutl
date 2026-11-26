@@ -117,11 +117,10 @@ public class V1ProjectFixtureTests
         var text = new StringBuilder();
         void Line(string line = "") => text.Append(line).Append('\n');
 
-        Line($"Project rates: {project.FrameRate.Value} fps, {project.SampleRate.Value} Hz");
         Line($"Project variables: {string.Join(", ", project.Variables.Value.OrderBy(v => v.Key).Select(v => $"{v.Key}={v.Value}"))}".TrimEnd());
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
-            Line($"Scene \"{scene.Name.Value}\": {scene.FrameSize.Value.Width}x{scene.FrameSize.Value.Height}, duration {scene.Duration.Value.ToTimeSpan()}, {scene.Children.Count} elements");
+            Line($"Scene \"{scene.Name.Value}\": {scene.FrameSize.Value.Width}x{scene.FrameSize.Value.Height}, {scene.FrameRate.Value} fps, {scene.SampleRate.Value} Hz, duration {scene.Duration.Value.ToTimeSpan()}, {scene.Children.Count} elements");
         }
 
         Line();

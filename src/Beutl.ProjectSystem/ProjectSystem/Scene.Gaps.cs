@@ -211,7 +211,7 @@ public partial class Scene
     public SceneGap? FindNextGap(MediaTime currentTime, TimeRange searchRange)
     {
         // A gap start within a tick of a frame, as after a clip from a template, counts as that frame.
-        Rational rate = this.FindHierarchicalParent<Project>().GetFrameRate();
+        Rational rate = this.GetFrameRate();
         return EnumerateGaps()
             .Select(g => (Raw: g, Visible: ClampGap(g, searchRange)))
             .Where(x => x.Visible is { } v && MediaTimeJsonConverter.SnapToFrame(v.Range.Start, rate) >= currentTime)

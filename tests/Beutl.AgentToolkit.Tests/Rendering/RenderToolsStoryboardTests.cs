@@ -264,11 +264,11 @@ public sealed class RenderToolsStoryboardTests
 
         static Scene CreateScene(int frameRate)
         {
-            var scene = new Scene(16, 9, "frame-rate") { Duration = { Value = MediaTime.FromSeconds(1) } };
-            var project = new Project();
-            project.FrameRate.Value = new Rational(frameRate);
-            project.Items.Add(scene);
-            return scene;
+            return new Scene(16, 9, "frame-rate")
+            {
+                Duration = { Value = MediaTime.FromSeconds(1) },
+                FrameRate = { Value = new Rational(frameRate) },
+            };
         }
     }
 

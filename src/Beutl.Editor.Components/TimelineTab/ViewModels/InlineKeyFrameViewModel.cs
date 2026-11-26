@@ -1,10 +1,9 @@
 ﻿using System.Text.Json.Nodes;
-using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Serialization;
@@ -69,28 +68,28 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private async Task CopyAsync()
     {
-        await KeyFrameClipboardCommands.CopyAsync(Model, BeutlDataFormats.KeyFrame, ex =>
+        await KeyFrameClipboardCommands.CopyAsync(Timeline.EditorContext, Model, BeutlClipboardFormats.KeyFrame, ex =>
         {
             _logger.LogError(ex, "Failed to copy keyframe");
             Timeline.EditorContext.GetRequiredService<INotificationService>().ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
         });
     }
 
-    internal async Task PasteAsync(IClipboard? clipboard = null)
+    internal async Task PasteAsync(IClipboardGateway? clipboard = null)
     {
         if (!Parent.IsEditable) return;
-        clipboard ??= ClipboardHelper.GetClipboard();
+        clipboard ??= AvaloniaClipboardGateway.Resolve(Timeline.EditorContext);
         if (clipboard == null) return;
 
         try
         {
-            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
+            if (await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrame) is { } json
                 && JsonNode.Parse(json) is JsonObject jsonObj)
             {
                 ApplyPastedKeyFrame(jsonObj);
                 return;
             }
-            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
+            else if (await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrameSelection) is { } selectionJson)
             {
                 if (!Parent.IsEditable || !ReferenceEquals(Parent.Property.Animation, Animation)
                     || !Animation.KeyFrames.Contains(Model)) return;

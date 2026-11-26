@@ -51,11 +51,11 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                     Icon = Icon.New,
                     Items =
                     [
-                        new(Strings.CreateNewProject)
+                        new(Strings.CreateProjectMenu)
                         {
                             Command = MenuBar.CreateNewProject, GestureCommand = "main.createNewProject"
                         },
-                        new(Strings.CreateNewScene) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
+                        new(Strings.CreateSceneMenu) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
                     ]
                 },
                 MainMenuItem.Separator,
@@ -64,8 +64,8 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                     Icon = Icon.Open,
                     Items =
                     [
-                        new(Strings.Project) { Command = MenuBar.OpenProject, GestureCommand = "main.openProject" },
-                        new(Strings.File) { Command = MenuBar.OpenFile, GestureCommand = "main.openFile" },
+                        new(Strings.OpenProjectMenu) { Command = MenuBar.OpenProject, GestureCommand = "main.openProject" },
+                        new(Strings.OpenFileMenu) { Command = MenuBar.OpenFile, GestureCommand = "main.openFile" },
                     ]
                 },
                 new(Strings.ImportMedia) { Command = MenuBar.ImportMedia, Icon = Icon.ArrowImport },
@@ -91,7 +91,7 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                     Items = CreateRecentItems(MenuBar.RecentProjectItems, MenuBar.OpenRecentProject)
                 },
                 MainMenuItem.Separator,
-                new(Strings.Settings)
+                new(Strings.OpenSettingsMenu)
                 {
                     Command = MenuBar.ShowSettings, GestureCommand = MainViewExtension.ShowSettingsCommandId, IsInWindowOnly = true
                 },
@@ -132,8 +132,8 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
         {
             Items =
             [
-                new(Strings.CreateNew) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
-                new(Strings.Remove) { Command = MenuBar.RemoveFromProject },
+                new(Strings.CreateNewSceneMenu) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
+                new(Strings.RemoveFromProjectMenu) { Command = MenuBar.RemoveFromProject },
                 new(Strings.SceneSettings) { Command = MenuBar.ShowSceneSettings },
                 new(MissingMediaStrings.Title) { Command = MenuBar.RelinkMedia },
                 new(UndisplayableDataStrings.Title) { Command = MenuBar.ShowUndisplayableData },
@@ -166,14 +166,14 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
         {
             Items =
             [
-                new(Strings.Tutorials) { Command = MenuBar.ShowTutorials, GestureCommand = "main.showTutorials" },
+                new(Strings.TutorialsMenu) { Command = MenuBar.ShowTutorials, GestureCommand = "main.showTutorials" },
                 MainMenuItem.Separator,
-                new("GC.Collect") { Command = MenuBar.CollectGarbage, IsVisible = UnderDebugger },
-                new("Monitor KeyModifier") { Command = MenuBar.MonitorKeyModifiers, IsVisible = UnderDebugger },
+                new("Collect Garbage") { Command = MenuBar.CollectGarbage, IsVisible = UnderDebugger },
+                new("Monitor Key Modifiers") { Command = MenuBar.MonitorKeyModifiers, IsVisible = UnderDebugger },
                 new("Throw Unhandled Exception") { Command = MenuBar.ThrowUnhandledException, IsVisible = UnderDebugger },
-                new("Start Window Capture") { Command = MenuBar.StartWindowCapture, IsVisible = UnderDebugger },
+                new("Start Window Capture…") { Command = MenuBar.StartWindowCapture, IsVisible = UnderDebugger },
                 new("Stop Window Capture") { Command = MenuBar.StopWindowCapture, IsVisible = UnderDebugger },
-                new(Strings.Info) { Command = MenuBar.ShowInformation },
+                new(Strings.AboutBeutl) { Command = MenuBar.ShowInformation, IsInWindowOnly = true },
             ]
         },
     ];

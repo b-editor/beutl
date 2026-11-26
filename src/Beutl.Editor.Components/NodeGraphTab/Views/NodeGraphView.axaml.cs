@@ -9,9 +9,13 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.NodeGraph;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
@@ -28,6 +32,7 @@ public partial class NodeGraphView : UserControl
     private readonly List<(GraphNodeView GraphNode, bool IsSelectedOriginal)> _rangeSelection = [];
     private bool _matrixUpdating;
     private FAMenuFlyout? _portDropMenu;
+    private int _addNodeMenuRefreshQueued;
 
     // Test seam: tests reach the menu a port drop opens through this.
     internal FAMenuFlyout? PortDropMenu => _portDropMenu;
@@ -42,7 +47,6 @@ public partial class NodeGraphView : UserControl
         _usesGestureAxes = usesGestureAxes;
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
         InitializeComponent();
-        InitializeMenuItems();
         this.SubscribeDataContextChange<NodeGraphViewModel>(OnDataContextAttached, OnDataContextDetached);
         LayoutUpdated += (_, _) =>
         {
@@ -159,6 +163,7 @@ public partial class NodeGraphView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        GraphNodeRegistry.Changed += OnNodeRegistryChanged;
         DetachNativeInput();
         if (TopLevel.GetTopLevel(this) is { } root)
         {
@@ -181,6 +186,8 @@ public partial class NodeGraphView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        GraphNodeRegistry.Changed -= OnNodeRegistryChanged;
+        ClearAddNodeMenu();
         DetachNativeInput();
         base.OnDetachedFromVisualTree(e);
     }
@@ -263,27 +270,65 @@ public partial class NodeGraphView : UserControl
         }
     }
 
-    private void InitializeMenuItems()
+    private void OnNodeRegistryChanged(object? sender, EventArgs e)
     {
-        foreach (GraphNodeRegistry.BaseRegistryItem item in GraphNodeRegistry.GetRegistered())
+        if (Interlocked.Exchange(ref _addNodeMenuRefreshQueued, 1) != 0)
+            return;
+
+        Dispatcher.UIThread.Post(() =>
         {
-            addNode.Items.Add(CreateNodeMenuItem(item));
+            Volatile.Write(ref _addNodeMenuRefreshQueued, 0);
+            if (this.IsAttachedToVisualTree())
+                RebuildAddNodeMenu();
+        }, DispatcherPriority.Background);
+    }
+
+    private void CanvasMenuOpening(object? sender, EventArgs e) => RebuildAddNodeMenu();
+
+    private void ClearAddNodeMenu()
+    {
+        zoomBorder.ContextFlyout?.Hide();
+        addNode.Items.Clear();
+    }
+
+    private void RebuildAddNodeMenu()
+    {
+        addNode.Items.Clear();
+        if (DataContext is not NodeGraphViewModel viewModel)
+            return;
+
+        Func<Type, bool> isAvailable = NodeGraphViewModel.GetNodeTypeFilter(viewModel.NodeGraph);
+        LibraryService? library = viewModel.EditorContext.GetService<LibraryService>();
+        foreach (GraphNodeRegistry.BaseRegistryItem registry in NodeMenuCatalog.GetItems(library))
+        {
+            if (CreateMenuItem(registry, CreateNodeItem) is { } item)
+                addNode.Items.Add(item);
+        }
+
+        Control? CreateNodeItem(GraphNodeRegistry.RegistryItem item)
+        {
+            if (!isAvailable(item.Type)) return null;
+            var menuItem = new FAMenuFlyoutItem { Text = item.DisplayName, DataContext = item };
+            menuItem.Click += AddNodeClick;
+            return menuItem;
         }
     }
 
-    private Control CreateNodeMenuItem(GraphNodeRegistry.BaseRegistryItem item)
+    private static Control? CreateMenuItem(GraphNodeRegistry.BaseRegistryItem item,
+        Func<GraphNodeRegistry.RegistryItem, Control?> createNodeItem)
     {
         if (item is GraphNodeRegistry.GroupableRegistryItem group)
         {
-            var subMenu = new FAMenuFlyoutSubItem { Text = item.DisplayName };
+            var subMenu = new FAMenuFlyoutSubItem { Text = group.DisplayName };
             foreach (GraphNodeRegistry.BaseRegistryItem child in group.Items)
-                subMenu.Items.Add(CreateNodeMenuItem(child));
-            return subMenu;
+            {
+                if (CreateMenuItem(child, createNodeItem) is { } childItem)
+                    subMenu.Items.Add(childItem);
+            }
+            return subMenu.Items.Count > 0 ? subMenu : null;
         }
 
-        var menuItem = new FAMenuFlyoutItem { Text = item.DisplayName, DataContext = item };
-        menuItem.Click += AddNodeClick;
-        return menuItem;
+        return item is GraphNodeRegistry.RegistryItem node ? createNodeItem(node) : null;
     }
 
     internal void ShowCompatibleNodeMenu(NodePortViewModel source, Point canvasPoint)
@@ -296,13 +341,14 @@ public partial class NodeGraphView : UserControl
             return;
 
         _portDropMenu?.Hide();
-        IList<GraphNodeRegistry.BaseRegistryItem> registered = GraphNodeRegistry.GetRegistered();
+        LibraryService? library = viewModel.EditorContext.GetService<LibraryService>();
+        IList<GraphNodeRegistry.BaseRegistryItem> registered = NodeMenuCatalog.GetItems(library);
         var candidates = CompatibleNodeFinder.Find(viewModel.NodeGraph, sourcePort, registered);
         FAMenuFlyout? menu = null;
         var items = new List<Control>();
         foreach (GraphNodeRegistry.BaseRegistryItem registry in registered)
         {
-            if (CreateMenuItem(registry) is { } item) items.Add(item);
+            if (CreateMenuItem(registry, CreateCandidateItem) is { } item) items.Add(item);
         }
         if (items.Count == 0) return;
 
@@ -315,23 +361,9 @@ public partial class NodeGraphView : UserControl
         _portDropMenu = menu;
         menu.ShowAt(canvas, true);
 
-        Control? CreateMenuItem(GraphNodeRegistry.BaseRegistryItem registry)
+        Control? CreateCandidateItem(GraphNodeRegistry.RegistryItem nodeRegistry)
         {
-            if (registry is GraphNodeRegistry.GroupableRegistryItem group)
-            {
-                var children = new List<Control>();
-                foreach (GraphNodeRegistry.BaseRegistryItem child in group.Items)
-                {
-                    if (CreateMenuItem(child) is { } item) children.Add(item);
-                }
-                if (children.Count == 0) return null;
-                var subMenu = new FAMenuFlyoutSubItem { Text = group.DisplayName };
-                foreach (var item in children) subMenu.Items.Add(item);
-                return subMenu;
-            }
-
-            if (registry is not GraphNodeRegistry.RegistryItem nodeRegistry
-                || !candidates.TryGetValue(nodeRegistry, out CompatibleNodeFinder.Candidate? candidate))
+            if (!candidates.TryGetValue(nodeRegistry, out CompatibleNodeFinder.Candidate? candidate))
                 return null;
 
             if (candidate.Ports.Count == 1)
@@ -413,16 +445,27 @@ public partial class NodeGraphView : UserControl
 
     internal static ConnectionLine CreateLine(ConnectionViewModel connVM)
     {
-        return new ConnectionLine()
+        var line = new ConnectionLine()
         {
             [!Line.StartPointProperty] = connVM.InputPortPosition.ToBinding(),
             [!Line.EndPointProperty] = connVM.OutputPortPosition.ToBinding(),
             [!ConnectionLine.InputPortProperty] = connVM.InputPortVM.ToBinding(),
             [!ConnectionLine.OutputPortProperty] = connVM.OutputPortVM.ToBinding(),
-            [!IsVisibleProperty] = connVM.InputPortVM.CombineLatest(connVM.OutputPortVM,
-                (input, output) => input != null && output != null).ToBinding(),
+            [!IsVisibleProperty] = connVM.InputPortVM.CombineLatest(connVM.OutputPortVM, (input, output) =>
+                (input != null || connVM.FallbackInput != null) && (output != null || connVM.FallbackOutput != null)).ToBinding(),
             ConnectionViewModel = connVM
         };
+        if (connVM.HasFallback)
+        {
+            line.StrokeDashArray = [3, 2];
+            var disconnect = new FAMenuFlyoutItem { Text = Strings.Disconnect };
+            disconnect.Click += (_, _) => connVM.Disconnect();
+            var flyout = new FAMenuFlyout();
+            flyout.Items.Add(disconnect);
+            flyout.Opening += (_, _) => disconnect.IsEnabled = connVM.CanEdit;
+            line.ContextFlyout = flyout;
+        }
+        return line;
     }
 
     private void InitializeConnectionPositions(ConnectionViewModel connVM)
@@ -431,8 +474,8 @@ public partial class NodeGraphView : UserControl
         {
             if (child is GraphNodeView { DataContext: GraphNodeViewModel nodeVM } nodeView)
             {
-                bool hasInput = nodeVM.GraphNode.EnumerateMembers().Any(i => i.Id.Value == connVM.Connection.Input.Value.Id);
-                bool hasOutput = nodeVM.GraphNode.EnumerateMembers().Any(i => i.Id.Value == connVM.Connection.Output.Value.Id);
+                bool hasInput = nodeVM == connVM.InputPortVM.Value?.GraphNodeViewModel || nodeVM.GraphNode == connVM.FallbackInput;
+                bool hasOutput = nodeVM == connVM.OutputPortVM.Value?.GraphNodeViewModel || nodeVM.GraphNode == connVM.FallbackOutput;
 
                 if (hasInput || hasOutput)
                 {
@@ -528,6 +571,7 @@ public partial class NodeGraphView : UserControl
 
     private void OnDataContextDetached(NodeGraphViewModel obj)
     {
+        ClearAddNodeMenu();
         _portDropMenu?.Hide();
         _portDropMenu = null;
         _disposables.Clear();

@@ -149,7 +149,7 @@ public class BrowserToolPanelsTests
 
             window.Height = 220;
             view.PageScriptRunner = _ => Task.FromResult<string?>("{\"Index\":2,\"Count\":24}");
-            OpenMenu(view, Strings.BrowserFind);
+            OpenMenu(view, Strings.BrowserFindMenu);
             view.FindControl<TextBox>("FindTextBox")!.Text = "forest";
             Dispatcher.UIThread.RunJobs();
             await view.FindInPageAsync(0);

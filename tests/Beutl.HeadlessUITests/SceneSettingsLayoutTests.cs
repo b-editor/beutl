@@ -20,23 +20,23 @@ namespace Beutl.HeadlessUITests;
 public class SceneSettingsLayoutTests
 {
     [AvaloniaTest]
-    public async Task Project_layout_apply_undo_and_redo_rebuild_the_preview_composer()
+    public async Task Scene_layout_apply_undo_and_redo_rebuild_the_preview_composer()
     {
-        (Project project, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("layout-settings");
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("layout-settings");
         using var model = new SceneSettingsTabViewModel(editor);
         int before = editor.HistoryManager.UndoCount;
         var previous = editor.Composer.Value;
         model.ChannelLayout.Value = SpeakerLayout.Surround51;
-        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+        Assert.That(scene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
         await model.Apply.ExecuteAsync();
         HeadlessTestHelpers.Settle();
-        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+        Assert.That(scene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
         await WaitForLayout(6);
         Assert.That(previous.IsDisposed, Is.True);
         Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
         editor.HistoryManager.Undo();
         HeadlessTestHelpers.Settle();
-        Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+        Assert.That(scene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
         Assert.That(model.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
         await WaitForLayout(2);
         editor.HistoryManager.Redo();
@@ -51,6 +51,41 @@ public class SceneSettingsLayoutTests
         model.ChannelLayout.Value = SpeakerLayout.Mono;
         model.Revert.Execute();
         Assert.That(model.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+    }
+
+    [AvaloniaTest]
+    public async Task Scene_rates_apply_undo_and_redo_update_player_and_composer()
+    {
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("rate-settings");
+        using var model = new SceneSettingsTabViewModel(editor);
+        model.FrameRateInput.Value = "29.97";
+        model.SampleRate.Value = 48000;
+        await model.Apply.ExecuteAsync();
+        HeadlessTestHelpers.Settle();
+
+        for (int attempt = 0; attempt < 200 && editor.Composer.Value.SampleRate != 48000; attempt++)
+            await Task.Delay(10);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
+            Assert.That(editor.Player.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
+            Assert.That(scene.SampleRate.Value, Is.EqualTo(48000));
+            Assert.That(editor.Composer.Value.SampleRate, Is.EqualTo(48000));
+        });
+
+        editor.HistoryManager.Undo();
+        HeadlessTestHelpers.Settle();
+        for (int attempt = 0; attempt < 200 && editor.Composer.Value.SampleRate != 44100; attempt++)
+            await Task.Delay(10);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.FrameRate.Value, Is.EqualTo(new Rational(30)));
+            Assert.That(editor.Player.FrameRate.Value, Is.EqualTo(new Rational(30)));
+            Assert.That(scene.SampleRate.Value, Is.EqualTo(44100));
+            Assert.That(editor.Composer.Value.SampleRate, Is.EqualTo(44100));
+        });
     }
 
     [AvaloniaTest]
@@ -90,8 +125,8 @@ public class SceneSettingsLayoutTests
     [AvaloniaTest]
     [TestCase(320, 160, false)]
     [TestCase(320, 160, true)]
-    [TestCase(640, 480, false)]
-    [TestCase(640, 480, true)]
+    [TestCase(640, 640, false)]
+    [TestCase(640, 640, true)]
     public async Task Inputs_and_actions_remain_reachable_in_short_docks(int width, int height, bool light)
     {
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("scene-settings");

@@ -42,7 +42,7 @@
                                  VerticalAlignment="Bottom"
                                  EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                  EndingBarMargin="{Binding EndingBarMargin.Value}"
-                                 FrameRate="{Binding FrameRate}"
+                                 FrameRate="{Binding FrameRate.Value}"
                                  Scale="{Binding Options.Value.Scale}"
                                  ScaleBrush="{DynamicResource TextControlForeground}"
                                  SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
@@ -104,7 +104,7 @@
                                              Tag="EaseOut" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Velocity"
                                              Click="GraphActionClick"
-                                             Text="{x:Static lang:Strings.GraphVelocity}"
+                                             Text="{x:Static lang:Strings.GraphVelocityMenu}"
                                              IsEnabled="{Binding CanEdit.Value}"
                                              Tag="Velocity" />
                         <ui:FAMenuFlyoutSeparator />
@@ -120,7 +120,7 @@
                                              Tag="Reverse" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.ScaleValues"
                                              Click="GraphActionClick"
-                                             Text="{x:Static lang:Strings.GraphScaleValues}"
+                                             Text="{x:Static lang:Strings.GraphScaleValuesMenu}"
                                              IsEnabled="{Binding CanEditSelection.Value}"
                                              Tag="ScaleValues" />
                         <ui:FAMenuFlyoutSeparator />

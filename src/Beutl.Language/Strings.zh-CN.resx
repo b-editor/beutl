@@ -71,8 +71,17 @@
   <data name="CreateNewProject" xml:space="preserve">
     <value>创建新项目</value>
   </data>
+  <data name="CreateProjectMenu" xml:space="preserve">
+    <value>项目…</value>
+  </data>
   <data name="CreateNewScene" xml:space="preserve">
     <value>创建新场景</value>
+  </data>
+  <data name="CreateSceneMenu" xml:space="preserve">
+    <value>场景…</value>
+  </data>
+  <data name="CreateNewSceneMenu" xml:space="preserve">
+    <value>新建…</value>
   </data>
   <data name="Project" xml:space="preserve">
     <value>项目</value>
@@ -157,6 +166,9 @@
   </data>
   <data name="Settings" xml:space="preserve">
     <value>设置</value>
+  </data>
+  <data name="OpenSettingsMenu" xml:space="preserve">
+    <value>设置…</value>
   </data>
   <data name="Properties" xml:space="preserve">
     <value>属性</value>
@@ -299,8 +311,14 @@
   <data name="Delete" xml:space="preserve">
     <value>删除</value>
   </data>
+  <data name="DeleteWithConfirmation" xml:space="preserve">
+    <value>删除…</value>
+  </data>
   <data name="Remove" xml:space="preserve">
     <value>移除</value>
+  </data>
+  <data name="RemoveFromProjectMenu" xml:space="preserve">
+    <value>从项目中移除…</value>
   </data>
   <data name="Back" xml:space="preserve">
     <value>返回</value>
@@ -333,6 +351,9 @@
     <value>采样率</value>
   </data>
   <data name="SceneSettings" xml:space="preserve">
+    <value>场景设置</value>
+  </data>
+  <data name="TimelineSceneSettings" xml:space="preserve">
     <value>场景设置</value>
   </data>
   <data name="Apply" xml:space="preserve">
@@ -370,6 +391,9 @@
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>新建文件夹</value>
+  </data>
+  <data name="CloudStorageNewFolderMenu" xml:space="preserve">
+    <value>新建文件夹…</value>
   </data>
   <data name="Left" xml:space="preserve">
     <value>左</value>
@@ -445,6 +469,9 @@
   </data>
   <data name="Rename" xml:space="preserve">
     <value>重命名</value>
+  </data>
+  <data name="RenameMenu" xml:space="preserve">
+    <value>重命名…</value>
   </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>完成编辑</value>
@@ -615,7 +642,7 @@
     <value>图层数</value>
   </data>
   <data name="ChangeColor" xml:space="preserve">
-    <value>更改颜色</value>
+    <value>更改颜色…</value>
   </data>
   <data name="EditAnimationInInlineView" xml:space="preserve">
     <value>在内联视图中编辑动画</value>
@@ -659,26 +686,44 @@
   <data name="AddNode" xml:space="preserve">
     <value>添加节点</value>
   </data>
-  <data name="Change" xml:space="preserve">
-    <value>更改</value>
+  <data name="ChangeTransformType" xml:space="preserve">
+    <value>更改变换类型</value>
+  </data>
+  <data name="ReplaceEffectMenu" xml:space="preserve">
+    <value>替换效果…</value>
+  </data>
+  <data name="ReplaceObject" xml:space="preserve">
+    <value>替换对象</value>
+  </data>
+  <data name="ReplaceObjectMenu" xml:space="preserve">
+    <value>替换对象…</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
     <value>断开连接</value>
   </data>
-  <data name="Initialize" xml:space="preserve">
-    <value>初始化</value>
+  <data name="CreateEmptyPath" xml:space="preserve">
+    <value>创建空路径</value>
+  </data>
+  <data name="ResetList" xml:space="preserve">
+    <value>重置列表</value>
+  </data>
+  <data name="ResetStroke" xml:space="preserve">
+    <value>重置描边</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
+    <value>重置缩放</value>
+  </data>
+  <data name="ResetZoomMenu" xml:space="preserve">
     <value>重置缩放</value>
   </data>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>移除动画</value>
   </data>
   <data name="EditExpression" xml:space="preserve">
-    <value>编辑表达式</value>
+    <value>编辑表达式…</value>
   </data>
   <data name="RemoveExpression" xml:space="preserve">
-    <value>移除表达式</value>
+    <value>删除表达式</value>
   </data>
   <data name="Expression_ReturnsBothValues" xml:space="preserve">
     <value>输入一个同时返回所有值的表达式,例如 {0}。</value>
@@ -714,10 +759,10 @@
     <value>显示详细信息</value>
   </data>
   <data name="SaveSelectedElementAsImage" xml:space="preserve">
-    <value>将所选元素保存为图像</value>
+    <value>将所选元素保存为图像…</value>
   </data>
   <data name="SaveFrameAsImage" xml:space="preserve">
-    <value>将帧保存为图像</value>
+    <value>将帧保存为图像…</value>
   </data>
   <data name="SaveImageScale" xml:space="preserve">
     <value>缩放</value>
@@ -727,6 +772,9 @@
   </data>
   <data name="Move" xml:space="preserve">
     <value>移动</value>
+  </data>
+  <data name="CloudStorageMoveMenu" xml:space="preserve">
+    <value>移动…</value>
   </data>
   <data name="Hand" xml:space="preserve">
     <value>抓手</value>
@@ -786,7 +834,7 @@
     <value>正在运行启动任务</value>
   </data>
   <data name="SaveAsImage" xml:space="preserve">
-    <value>另存为图像</value>
+    <value>另存为图像…</value>
   </data>
   <data name="CopyAsImage" xml:space="preserve">
     <value>复制为图像</value>
@@ -803,14 +851,8 @@
   <data name="Unlocked" xml:space="preserve">
     <value>已解锁</value>
   </data>
-  <data name="DeleteAll" xml:space="preserve">
-    <value>全部删除</value>
-  </data>
   <data name="Lock" xml:space="preserve">
     <value>锁定</value>
-  </data>
-  <data name="Unlock" xml:space="preserve">
-    <value>解锁</value>
   </data>
   <data name="Solo" xml:space="preserve">
     <value>独奏</value>
@@ -820,6 +862,18 @@
   </data>
   <data name="FrameCache" xml:space="preserve">
     <value>帧缓存</value>
+  </data>
+  <data name="DeleteAllCachedFrames" xml:space="preserve">
+    <value>删除所有缓存帧</value>
+  </data>
+  <data name="DeleteCachedFrameRange" xml:space="preserve">
+    <value>删除缓存帧范围</value>
+  </data>
+  <data name="LockCachedFrameRange" xml:space="preserve">
+    <value>锁定缓存帧范围</value>
+  </data>
+  <data name="UnlockCachedFrameRange" xml:space="preserve">
+    <value>解锁缓存帧范围</value>
   </data>
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>右键单击以操作缓存</value>
@@ -869,6 +923,9 @@
   <data name="ColorPalette_NewPalette" xml:space="preserve">
     <value>新建调色板</value>
   </data>
+  <data name="ColorPalette_NewPaletteMenu" xml:space="preserve">
+    <value>新建调色板…</value>
+  </data>
   <data name="ColorPalette_NewPaletteName" xml:space="preserve">
     <value>调色板 {0}</value>
   </data>
@@ -900,7 +957,7 @@
     <value>添加到调色板</value>
   </data>
   <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
-    <value>添加到新调色板</value>
+    <value>添加到新调色板…</value>
   </data>
   <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
     <value>替换为当前颜色</value>
@@ -928,6 +985,9 @@
   </data>
   <data name="ImportSvgPath" xml:space="preserve">
     <value>导入 SVG 路径</value>
+  </data>
+  <data name="ImportSvgPathMenu" xml:space="preserve">
+    <value>导入 SVG 路径…</value>
   </data>
   <data name="ImportSvgPath_Description" xml:space="preserve">
     <value>当前形状将被覆盖。</value>
@@ -959,8 +1019,14 @@
   <data name="OpenProject" xml:space="preserve">
     <value>打开项目</value>
   </data>
+  <data name="OpenProjectMenu" xml:space="preserve">
+    <value>项目…</value>
+  </data>
   <data name="OpenFile" xml:space="preserve">
     <value>打开文件</value>
+  </data>
+  <data name="OpenFileMenu" xml:space="preserve">
+    <value>文件…</value>
   </data>
   <data name="Save_Description" xml:space="preserve">
     <value>保存当前文件</value>
@@ -1291,6 +1357,12 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Null" xml:space="preserve">
     <value>空</value>
   </data>
+  <data name="ClearValue" xml:space="preserve">
+    <value>清除值</value>
+  </data>
+  <data name="ClearReference" xml:space="preserve">
+    <value>清除引用</value>
+  </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>在选项卡中打开</value>
   </data>
@@ -1355,10 +1427,10 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>清除</value>
   </data>
   <data name="ExportProject" xml:space="preserve">
-    <value>导出项目...</value>
+    <value>导出项目…</value>
   </data>
   <data name="ImportProject" xml:space="preserve">
-    <value>导入项目...</value>
+    <value>导入项目…</value>
   </data>
   <data name="ImportMedia" xml:space="preserve">
     <value>导入媒体…</value>
@@ -1394,8 +1466,11 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Tutorials" xml:space="preserve">
     <value>教程</value>
   </data>
+  <data name="TutorialsMenu" xml:space="preserve">
+    <value>教程…</value>
+  </data>
   <data name="BpmGrid" xml:space="preserve">
-    <value>BPM 网格</value>
+    <value>BPM 网格…</value>
   </data>
   <data name="ShowBpmGrid" xml:space="preserve">
     <value>显示 BPM 网格</value>
@@ -1438,6 +1513,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="SaveAsTemplate" xml:space="preserve">
     <value>另存为模板</value>
+  </data>
+  <data name="SaveAsTemplateMenu" xml:space="preserve">
+    <value>另存为模板…</value>
   </data>
   <data name="ApplyTemplate" xml:space="preserve">
     <value>应用模板</value>
@@ -1623,7 +1701,7 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>删除所选</value>
   </data>
   <data name="ProxyDeleteProjectProxies" xml:space="preserve">
-    <value>删除项目代理</value>
+    <value>删除项目代理…</value>
   </data>
   <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
     <value>代理存储在整个机器的共享缓存中。删除此项目使用的 {0} 个代理文件也会将它们从引用相同源文件的每个其他项目中移除，并且必须重新生成。继续吗？</value>
@@ -1817,6 +1895,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>从磁盘彻底删除</value>
   </data>
+  <data name="DeleteFromDiskMenu" xml:space="preserve">
+    <value>从磁盘彻底删除…</value>
+  </data>
   <data name="PropertyHover_Type" xml:space="preserve">
     <value>类型：{0}</value>
   </data>
@@ -1970,6 +2051,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="GraphVelocity" xml:space="preserve">
     <value>关键帧速度</value>
   </data>
+  <data name="GraphVelocityMenu" xml:space="preserve">
+    <value>关键帧速度…</value>
+  </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>传入</value>
   </data>
@@ -1999,6 +2083,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>缩放数值</value>
+  </data>
+  <data name="GraphScaleValuesMenu" xml:space="preserve">
+    <value>缩放数值…</value>
   </data>
   <data name="GraphScaleFactor" xml:space="preserve">
     <value>倍数</value>
@@ -2064,7 +2151,7 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>在默认浏览器中打开</value>
   </data>
   <data name="Print" xml:space="preserve">
-    <value>打印</value>
+    <value>打印…</value>
   </data>
   <data name="WebBrowserActionFailed" xml:space="preserve">
     <value>无法完成浏览器操作。</value>
@@ -2729,6 +2816,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_Restore" xml:space="preserve">
     <value>恢复</value>
   </data>
+  <data name="VersionControl_RestoreMenu" xml:space="preserve">
+    <value>恢复…</value>
+  </data>
   <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
     <value>恢复到新分支…</value>
   </data>
@@ -3096,6 +3186,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="WebDownloadMedia" xml:space="preserve">
     <value>下载文件</value>
   </data>
+  <data name="WebDownloadMediaMenu" xml:space="preserve">
+    <value>下载文件…</value>
+  </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>项目目录</value>
   </data>
@@ -3145,7 +3238,7 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>已将“{0}”添加到书签。</value>
   </data>
   <data name="BrowserSettings" xml:space="preserve">
-    <value>搜索与隐私</value>
+    <value>搜索与隐私…</value>
   </data>
   <data name="BrowserRetry" xml:space="preserve">
     <value>重新下载</value>
@@ -3188,6 +3281,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="BrowserFind" xml:space="preserve">
     <value>在页面中查找</value>
+  </data>
+  <data name="BrowserFindMenu" xml:space="preserve">
+    <value>在页面中查找…</value>
   </data>
   <data name="BrowserFindNext" xml:space="preserve">
     <value>下一个匹配项</value>
@@ -3342,6 +3438,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="CloudStorageDownload" xml:space="preserve">
     <value>下载</value>
+  </data>
+  <data name="CloudStorageDownloadMenu" xml:space="preserve">
+    <value>下载…</value>
   </data>
   <data name="CloudStorageCopyLink" xml:space="preserve">
     <value>复制链接</value>
@@ -3850,6 +3949,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>按静音自动分割</value>
   </data>
+  <data name="AutoSplitBySilenceMenu" xml:space="preserve">
+    <value>按静音自动分割…</value>
+  </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>阈值 (dB)</value>
   </data>
@@ -4072,6 +4174,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="HostedGit_Clone" xml:space="preserve">
     <value>克隆</value>
   </data>
+  <data name="HostedGit_CloneMenu" xml:space="preserve">
+    <value>克隆…</value>
+  </data>
   <data name="HostedGit_ClonedProject" xml:space="preserve">
     <value>本地副本</value>
   </data>
@@ -4121,7 +4226,7 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>修订版本 {0}</value>
   </data>
   <data name="EffectCategory" xml:space="preserve">
-    <value>效果类别</value>
+    <value>类别</value>
   </data>
   <data name="AllEffectCategories" xml:space="preserve">
     <value>所有类别</value>

@@ -17,6 +17,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
     private bool _editorsCreated;
     private IPropertyAdapter? _bandCountAdapter;
     private IDisposable? _clockSubscription;
+    private IDisposable? _sampleRateSubscription;
     private Element? _element;
 
     public EqualizerPropertiesViewModel(IReadOnlyList<IPropertyAdapter> props)
@@ -67,7 +68,23 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
             CreateEditors();
             AcceptChildren(revisitBands);
             AttachClock();
-            SampleRate.Value = _element?.FindHierarchicalParent<Project>()?.GetSampleRate() ?? 44100;
+            AttachSampleRate(serviceProvider);
+        }
+    }
+
+    private void AttachSampleRate(IServiceProvider serviceProvider)
+    {
+        _sampleRateSubscription?.Dispose();
+        _sampleRateSubscription = null;
+        Scene? scene = _element?.FindHierarchicalParent<Scene>() ?? serviceProvider.GetService<Scene>();
+        if (scene is not null)
+        {
+            _sampleRateSubscription = scene.SampleRate.GetObservable()
+                .Subscribe(_ => SampleRate.Value = scene.GetSampleRate());
+        }
+        else
+        {
+            SampleRate.Value = 44100;
         }
     }
 
@@ -100,6 +117,8 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
         _clockSubscription?.Dispose();
         _clockSubscription = null;
+        _sampleRateSubscription?.Dispose();
+        _sampleRateSubscription = null;
         CurrentTime.Dispose();
         SampleRate.Dispose();
 

@@ -1,7 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Headless;
+﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
@@ -11,7 +8,9 @@ using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Editor.Components.PropertyEditors.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Language;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
 
@@ -24,9 +23,11 @@ public class Avalonia12MenuTests
     public async Task Player_context_flyout_resets_zoom_and_stays_closed_in_camera_mode()
     {
         using var graph = await GraphEditorContextMenuTests.GraphScope.CreateAsync();
-        var editor = (Beutl.ViewModels.EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 640, Height = 480 };
+        var actions = new List<PreviewZoomAction>();
+        using var subscription = editor.Player.PreviewZoomRequested.Subscribe(actions.Add);
         try
         {
             window.Show();
@@ -40,16 +41,14 @@ public class Avalonia12MenuTests
             editor.Player.FrameMatrix.Value = Beutl.Graphics.Matrix.CreateScale(2, 2);
             flyout.ShowAt(anchor);
             HeadlessTestHelpers.Render();
-            FAMenuFlyoutItem reset = flyout.Items.OfType<FAMenuFlyoutItem>()
-                .Single(item => item.Text == Beutl.Language.Strings.ResetZoom);
+            HeadlessCapture.SaveIfRequested(flyout.Popup.Child!, nameof(Avalonia12MenuTests), "preview-menu");
+            FAMenuFlyoutItem fit = flyout.Items.OfType<FAMenuFlyoutItem>()
+                .Single(item => item.Text == Strings.PreviewZoomFit);
+            Assert.That(fit.InputGesture, Is.EqualTo(new KeyGesture(Key.D0, KeyModifiers.Alt)));
             Assert.That(flyout.Items.OfType<FAMenuFlyoutItem>()
-                .Single(item => item.Text == Beutl.Language.Strings.SaveSelectedElementAsImage).IsEnabled, Is.False);
-            TopLevel popup = TopLevel.GetTopLevel(reset)!;
-            Avalonia.Point center = reset.TranslatePoint(new Avalonia.Point(reset.Bounds.Width / 2, reset.Bounds.Height / 2), popup)!.Value;
-            popup.MouseMove(center);
-            popup.MouseDown(center, MouseButton.Left);
-            popup.MouseUp(center, MouseButton.Left);
-            HeadlessTestHelpers.Settle();
+                .Single(item => item.Text == Strings.SaveSelectedElementAsImage).IsEnabled, Is.False);
+            HeadlessTestHelpers.Click(fit, move: true);
+            Assert.That(actions, Is.EqualTo(new[] { PreviewZoomAction.Fit }));
             Assert.That(editor.Player.FrameMatrix.Value, Is.EqualTo(Beutl.Graphics.Matrix.Identity));
             Assert.That(flyout.IsOpen, Is.False);
         }

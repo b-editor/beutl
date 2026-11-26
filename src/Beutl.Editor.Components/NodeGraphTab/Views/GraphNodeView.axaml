@@ -132,7 +132,7 @@
                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Rename"
                                          Click="RenameClick"
                                          IsEnabled="{Binding CanEdit.Value}"
-                                         Text="{x:Static lang:Strings.Rename}">
+                                         Text="{x:Static lang:Strings.RenameMenu}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />
                         </ui:FAMenuFlyoutItem.IconSource>

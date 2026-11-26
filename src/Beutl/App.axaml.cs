@@ -377,7 +377,7 @@ public sealed class App : Application
     // follows the key map after that.
     private void ShowSettingsGestureInApplicationMenu()
     {
-        if (NativeMenu.GetMenu(this)?.Items.OfType<NativeMenuItem>().FirstOrDefault(item => item.Header == Strings.Settings) is not { } settings)
+        if (NativeMenu.GetMenu(this)?.Items.OfType<NativeMenuItem>().FirstOrDefault(item => item.Header == Strings.OpenSettingsMenu) is not { } settings)
             return;
 
         void Show() => settings.Gesture = GetCommandGestureExtension.GetKeyGesture(

@@ -64,9 +64,8 @@ public sealed class TickShortSceneBoundaryTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tick-short-scene");
-        Project project = editor.Scene.FindHierarchicalParent<Project>()!;
-        project.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
-        Rational rate = project.GetFrameRate();
+        editor.Scene.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        Rational rate = editor.Scene.GetFrameRate();
         editor.Scene.Start.Value = MediaTime.Zero;
         editor.Scene.Duration.Value = TickShort(MediaTime.FromFrames(frames, rate));
         HeadlessTestHelpers.Settle();

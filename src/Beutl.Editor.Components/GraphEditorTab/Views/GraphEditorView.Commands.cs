@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using static Avalonia.Input.KeyModifiers;
 using static Beutl.Editor.Components.Helpers.EditorShortcutGestures;
 
@@ -32,11 +33,13 @@ public partial class GraphEditorView
         Command("deselectAll", Strings.DeselectAll, [.. WithCommand(Key.A, Shift, AllModifiers), .. Gestures(Key.F2, Shift, AllModifiers)],
             (_, _, channel) => channel.SetSelection([])),
         AsyncCommand("copy", Strings.Copy, WithCommand(Key.C, optional: AllModifiers),
-            (view, model, _) => model.CopySelectionAsync(TopLevel.GetTopLevel(view)?.Clipboard)),
+            (view, model, _) => model.CopySelectionAsync(
+                AvaloniaClipboardGateway.Resolve(model.EditorContext, TopLevel.GetTopLevel(view)?.Clipboard))),
         AsyncCommand("cut", Strings.Cut, WithCommand(Key.X, optional: AllModifiers),
-            (view, _, _) => view.CutSelectionAsync(TopLevel.GetTopLevel(view)?.Clipboard)),
+            (view, _, _) => view.CutSelectionAsync()),
         AsyncCommand("paste", Strings.Paste, WithCommand(Key.V, optional: AllModifiers),
-            (view, model, _) => model.PasteSelectionAsync(TopLevel.GetTopLevel(view)?.Clipboard)),
+            (view, model, _) => model.PasteSelectionAsync(
+                AvaloniaClipboardGateway.Resolve(model.EditorContext, TopLevel.GetTopLevel(view)?.Clipboard))),
         Command("delete", Strings.Delete,
             [.. Gestures(Key.Delete, optional: AllModifiers), .. Gestures(Key.Back, optional: AllModifiers)],
             (view, _, _) => view.DeleteSelection()),

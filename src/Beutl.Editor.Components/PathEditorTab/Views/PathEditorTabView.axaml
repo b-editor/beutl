@@ -132,7 +132,7 @@
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="PathEditor.ResetZoom"
                                              Click="ResetZoomClicked"
-                                             Text="{x:Static lang:Strings.ResetZoom}" />
+                                             Text="{x:Static lang:Strings.ResetZoomMenu}" />
                     </ui:FAMenuFlyout>
                 </Canvas.ContextFlyout>
             </Canvas>

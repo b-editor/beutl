@@ -223,10 +223,10 @@ public sealed class TransformEditorAddMenuTests
             Assert.Multiple(() =>
             {
                 Assert.That(
-                    menu.Items.OfType<FAMenuFlyoutSubItem>().Single(item => item.Text == Strings.Change).IsVisible,
+                    menu.Items.OfType<FAMenuFlyoutSubItem>().Single(item => item.Text == Strings.ChangeTransformType).IsVisible,
                     Is.EqualTo(unreadable));
                 Assert.That(
-                    menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Null).IsVisible,
+                    menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.ClearValue).IsVisible,
                     Is.EqualTo(unreadable));
                 Assert.That(menu.Items.OfType<Control>().First(item => item.IsVisible), Is.Not.TypeOf<FAMenuFlyoutSeparator>());
                 Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Copy).IsVisible, Is.True);

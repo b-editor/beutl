@@ -173,9 +173,7 @@ public class ElementResizeServiceTests
     [TestCase("2147483647", 1)]
     public void Resize_FrameRate_AlwaysProducesPositiveLength(string rate, long expectedFlicks)
     {
-        var project = new Project();
-        project.FrameRate.Value = Rational.Parse(rate, CultureInfo.InvariantCulture);
-        project.Items.Add(_scene);
+        _scene.FrameRate.Value = Rational.Parse(rate, CultureInfo.InvariantCulture);
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
         _service.Resize(_scene, [new ElementResizeRequest(element, element.Start.Value, MediaTime.Zero, 0)]);

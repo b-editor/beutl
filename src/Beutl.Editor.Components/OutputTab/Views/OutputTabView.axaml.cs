@@ -176,7 +176,7 @@ public partial class OutputTabView : UserControl
                     removeItem.Click += (_, _) => RemoveAndSave(viewModel, profile);
                     menu.Items.Add(removeItem);
 
-                    var renameItem = new FAMenuFlyoutItem { Text = Language.Strings.Rename };
+                    var renameItem = new FAMenuFlyoutItem { Text = Language.Strings.RenameMenu };
                     renameItem.Click += (_, _) => ShowRenameFlyout(profile, args.Anchor);
                     menu.Items.Add(renameItem);
 
@@ -189,7 +189,7 @@ public partial class OutputTabView : UserControl
                 {
                     var removeItem = new FAMenuFlyoutItem
                     {
-                        Text = Language.Strings.Remove,
+                        Text = Language.Strings.Delete,
                         IconSource = new FluentIconSource { Icon = Icon.Delete }
                     };
                     removeItem.Click += (_, _) =>
@@ -199,7 +199,7 @@ public partial class OutputTabView : UserControl
                     };
                     menu.Items.Add(removeItem);
 
-                    var renameItem = new FAMenuFlyoutItem { Text = Language.Strings.Rename };
+                    var renameItem = new FAMenuFlyoutItem { Text = Language.Strings.RenameMenu };
                     renameItem.Click += (_, _) => ShowRenameFlyout(preset, args.Anchor);
                     menu.Items.Add(renameItem);
                     break;

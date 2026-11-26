@@ -150,7 +150,7 @@
     <comment/>
   </data>
   <data name="AutoAdjustSceneDuration" xml:space="preserve">
-    <value>Automatically adjusts scene duration</value>
+    <value>Automatically Adjust Scene Duration</value>
     <comment/>
   </data>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
@@ -302,7 +302,7 @@
     <comment/>
   </data>
   <data name="TimeDisplayFormat_Frames" xml:space="preserve">
-    <value>Frame number (75)</value>
+    <value>Frame Number (75)</value>
     <comment/>
   </data>
   <data name="ClampResizeToOriginalLength" xml:space="preserve">

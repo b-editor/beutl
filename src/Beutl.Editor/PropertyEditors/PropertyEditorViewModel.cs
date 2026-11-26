@@ -376,7 +376,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     {
         if (GetAnimation() is { } animation)
         {
-            Rational rate = _scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
+            Rational rate = _scene.GetFrameRate();
 
             MediaTime keyTime = (t.First - AnimationOperations.GetTimeOrigin(animation, _node))
                 .RoundToFrame(rate, MidpointRounding.AwayFromZero);
@@ -440,6 +440,8 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
                 if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
                 {
+                    IObservable<Rational> frameRate = _scene?.FrameRate.GetObservable()
+                        ?? Observable.ReturnThenNever(IFrameRateSource.DefaultFrameRate);
                     _currentFrameRevoker = _clock.CurrentTime
                         .Do(_currentTime.OnNext)
                         .CombineLatest(animatableProperty.ObserveAnimation
@@ -450,7 +452,9 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
                                     .StartWith(animation.KeyFrames)
                                     .CombineLatest(AnimationOperations.ObserveTimeOrigin(animation, _node),
                                         (keyFrames, _) => keyFrames))
-                            .Switch())
+                            .Switch(),
+                            frameRate,
+                            static (time, keyFrames, _) => (time, keyFrames))
                         .Subscribe(UpdateKeyFrameIndicator);
                 }
                 else

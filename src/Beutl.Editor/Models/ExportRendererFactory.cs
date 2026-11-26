@@ -56,7 +56,7 @@ public static class ExportRendererFactory
         return new SceneComposer(scene, new SceneRenderServices(fonts, decoders), disableResourceShare: true, forceOriginalSource: true)
         {
             SampleRate = sampleRate,
-            ChannelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout(),
+            ChannelLayout = scene.GetChannelLayout(),
         };
     }
 

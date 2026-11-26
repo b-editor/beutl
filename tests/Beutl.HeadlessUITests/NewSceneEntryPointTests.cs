@@ -5,6 +5,7 @@ using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -76,10 +77,10 @@ public class NewSceneEntryPointTests
             await MainViewExtension.Instance.RunAsync(mainViewModel, new ContextCommandExecution("main.createNewFile"));
 
             MenuItem fileNewScene = view.GetLogicalDescendants().OfType<MenuItem>()
-                .Single(item => Equals(item.Header, Strings.CreateNewScene));
+                .Single(item => Equals(item.Header, Strings.CreateSceneMenu));
             NativeMenu macFileMenu = FindMenuItem(NativeMenu.GetMenu(macWindow)!, Strings.File).Menu!;
             NativeMenu macNewMenu = FindMenuItem(macFileMenu, Strings.CreateNew).Menu!;
-            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateNewScene);
+            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateSceneMenu);
             TitleBreadcrumbBar breadcrumb = view.GetVisualDescendants().OfType<TitleBreadcrumbBar>().Single();
             var fileFlyout = (Flyout)breadcrumb.FindControl<Button>("FileButton")!.Flyout!;
             fileFlyout.ShowAt(breadcrumb);
@@ -136,10 +137,10 @@ public class NewSceneEntryPointTests
             HeadlessTestHelpers.Render();
 
             MenuItem fileNewScene = view.GetLogicalDescendants().OfType<MenuItem>()
-                .Single(item => Equals(item.Header, Strings.CreateNewScene));
+                .Single(item => Equals(item.Header, Strings.CreateSceneMenu));
             NativeMenu macFileMenu = FindMenuItem(NativeMenu.GetMenu(macWindow)!, Strings.File).Menu!;
             NativeMenu macNewMenu = FindMenuItem(macFileMenu, Strings.CreateNew).Menu!;
-            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateNewScene);
+            NativeMenuItem macNewScene = FindMenuItem(macNewMenu, Strings.CreateSceneMenu);
 
             Assert.Multiple(() =>
             {
@@ -155,6 +156,42 @@ public class NewSceneEntryPointTests
             view.DataContext = null;
             window.Close();
             HeadlessTestHelpers.Settle();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task New_scene_dialog_persists_frame_rate_sample_rate_and_channel_layout()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            Project project = await TestShell.CreateProjectAsync("new-scene-rates");
+            var vm = new CreateNewSceneViewModel(TestShell.Project, TestShell.Editor);
+            vm.Name.Value = "CustomRates";
+            vm.FrameRate.Value = "29.97";
+            vm.SampleRate.Value = 48000;
+            vm.ChannelLayout.Value = SpeakerLayout.Surround51;
+            HeadlessTestHelpers.Settle();
+            Assert.That(vm.CanCreate.Value, Is.True);
+
+            await vm.Create.ExecuteAsync();
+            HeadlessTestHelpers.Settle();
+
+            Scene created = project.Items.OfType<Scene>().Single(s => s.Name.Value == "CustomRates");
+            System.Text.Json.Nodes.JsonNode file = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(created.Uri!.LocalPath))!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(created.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
+                Assert.That((string?)file["FrameRate"], Is.EqualTo("30000/1001"));
+                Assert.That(created.SampleRate.Value, Is.EqualTo(48000));
+                Assert.That((int?)file["SampleRate"], Is.EqualTo(48000));
+                Assert.That(created.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+                Assert.That((int?)file["ChannelLayout"], Is.EqualTo((int)SpeakerLayout.Surround51));
+            });
+        }
+        finally
+        {
             await TestReset.ResetShellAsync();
         }
     }

@@ -25,8 +25,8 @@ internal static class SilenceWaveform
         TaskScheduler owner = SynchronizationContext.Current is null
             ? TaskScheduler.Current : TaskScheduler.FromCurrentSynchronizationContext();
         var range = element.Range;
-        int sampleRate = scene.FindHierarchicalParent<Project>().GetSampleRate();
-        AudioChannelLayout channelLayout = scene.FindHierarchicalParent<Project>().GetChannelLayout();
+        int sampleRate = scene.GetSampleRate();
+        AudioChannelLayout channelLayout = scene.GetChannelLayout();
         if (range.Duration <= MediaTime.Zero) yield break;
         long totalSamples = range.Duration.ToSamples(sampleRate, MidpointRounding.ToZero);
         if (totalSamples < chunkCount) yield break;

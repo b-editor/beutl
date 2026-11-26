@@ -134,7 +134,7 @@ public sealed partial class ElementView
                 if (_isSlipDrag)
                 {
                     SnapResult slipSnap = view.SnapTime(pointerFrame, scale, _lastAlt);
-                    MediaTime requestedDelta = GetSlipDelta(view, scale, viewModel.Timeline.FrameRate, slipSnap.Time);
+                    MediaTime requestedDelta = GetSlipDelta(view, scale, viewModel.Timeline.FrameRate.Value, slipSnap.Time);
                     var slipPlan = ElementSlipService.PlanSlip(_slipMediaTargets, requestedDelta);
                     MediaTime previewDelta = slipPlan?.Delta ?? MediaTime.Zero;
                     double offsetX = -previewDelta.TimeToPixel(scale);
