@@ -443,6 +443,9 @@
   <data name="Tools" xml:space="preserve">
     <value>工具</value>
   </data>
+  <data name="ToolWindows" xml:space="preserve">
+    <value>工具窗口</value>
+  </data>
   <data name="Rename" xml:space="preserve">
     <value>重命名</value>
   </data>

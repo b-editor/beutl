@@ -447,6 +447,9 @@
   <data name="Tools" xml:space="preserve">
     <value>ツール</value>
   </data>
+  <data name="ToolWindows" xml:space="preserve">
+    <value>ツールウィンドウ</value>
+  </data>
   <data name="Rename" xml:space="preserve">
     <value>名前を変更</value>
   </data>

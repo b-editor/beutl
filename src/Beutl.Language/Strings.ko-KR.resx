@@ -443,6 +443,9 @@
   <data name="Tools" xml:space="preserve">
     <value>도구</value>
   </data>
+  <data name="ToolWindows" xml:space="preserve">
+    <value>도구 창</value>
+  </data>
   <data name="Rename" xml:space="preserve">
     <value>이름 바꾸기</value>
   </data>

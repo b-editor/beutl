@@ -117,6 +117,17 @@ public sealed partial class MainViewModel
                             Command = MenuBar.OpenToolTab, CommandParameter = extension
                         })
                 },
+                new(Strings.ToolWindows)
+                {
+                    Items = ToMenuItems(
+                        ToolWindowExtensions.ToObservableChangeSet().ObserveOnUIDispatcher(),
+                        extension => new MainMenuItem(extension.DisplayName)
+                        {
+                            Command = MenuBar.OpenToolWindow,
+                            CommandParameter = extension,
+                            IconSource = ExtensionGuard.Call(extension, AppServices.GetService<INotificationService>(), extension.GetIcon)
+                        })
+                },
                 MainMenuItem.Separator,
                 new(Strings.ResetDockLayout) { Command = MenuBar.ResetDockLayout },
                 new(Strings.ApplyDockLayout)
@@ -144,17 +155,6 @@ public sealed partial class MainViewModel
                     Command = MenuBar.ToggleFullScreen, GestureCommand = "main.toggleFullScreen", IsInNativeMenuOnly = true
                 },
             ]
-        },
-        new(Strings.Tools)
-        {
-            Items = ToMenuItems(
-                ToolWindowExtensions.ToObservableChangeSet().ObserveOnUIDispatcher(),
-                extension => new MainMenuItem(extension.DisplayName)
-                {
-                    Command = MenuBar.OpenToolWindow,
-                    CommandParameter = extension,
-                    IconSource = ExtensionGuard.Call(extension, AppServices.GetService<INotificationService>(), extension.GetIcon)
-                })
         },
         new(Strings.Scene)
         {

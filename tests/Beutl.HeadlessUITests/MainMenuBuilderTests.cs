@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
@@ -8,6 +9,7 @@ using Avalonia.Input;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -74,6 +76,52 @@ public sealed class MainMenuBuilderTests
             Assert.That(Describe(menu, viewModel), Is.EqualTo(Describe(viewModel.MenuItems, true, viewModel)));
             Assert.That(Describe(nativeMenu, viewModel), Is.EqualTo(Describe(viewModel.MenuItems, false, viewModel)));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Tool_windows_registered_after_the_menus_appear_under_View_and_follow_removal()
+    {
+        await TestReset.ResetShellAsync();
+        MainViewModel viewModel = TestShell.MainViewModel;
+        var view = new MainView { DataContext = viewModel };
+        var macWindow = new MacWindow { DataContext = viewModel };
+        ItemCollection inWindow = view.FindControl<Menu>("MenuBar")!.Items;
+        IList<NativeMenuItemBase> native = NativeMenu.GetMenu(macWindow)!.Items;
+        var extension = new SampleToolWindowExtension();
+        const int packageId = -4633;
+        try
+        {
+            viewModel.ExtensionProvider.AddExtensions(packageId, [extension]);
+            HeadlessTestHelpers.Settle();
+            MenuItem inWindowList = inWindow.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.View))
+                .Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.ToolWindows));
+            NativeMenu nativeList = native.OfType<NativeMenuItem>().Single(item => item.Header == Strings.View)
+                .Menu!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.ToolWindows).Menu!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(inWindow.OfType<MenuItem>().Select(item => item.Header), Does.Not.Contain(Strings.Tools));
+                Assert.That(native.OfType<NativeMenuItem>().Select(item => item.Header), Does.Not.Contain(Strings.Tools));
+                Assert.That(inWindowList.Items.OfType<MenuItem>().Select(item => item.CommandParameter),
+                    Is.EqualTo(viewModel.ToolWindowExtensions).And.Contain(extension));
+                Assert.That(nativeList.Items.OfType<NativeMenuItem>().Select(item => item.CommandParameter),
+                    Is.EqualTo(viewModel.ToolWindowExtensions).And.Contain(extension));
+            });
+
+            viewModel.ExtensionProvider.RemoveExtensions(packageId);
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(inWindowList.Items.OfType<MenuItem>().Select(item => item.CommandParameter), Does.Not.Contain(extension));
+                Assert.That(nativeList.Items.OfType<NativeMenuItem>().Select(item => item.CommandParameter), Does.Not.Contain(extension));
+            });
+        }
+        finally
+        {
+            viewModel.ExtensionProvider.RemoveExtensions(packageId);
+            macWindow.DataContext = view.DataContext = null;
+            macWindow.Close();
+        }
     }
 
     [AvaloniaTest]
@@ -332,4 +380,21 @@ public sealed class MainMenuBuilderTests
     private static string CommandName(object? command, MainViewModel viewModel)
         => command is null ? "" : typeof(MenuBarViewModel).GetProperties()
             .First(p => ReferenceEquals(p.GetValue(viewModel.MenuBar), (command as FocusedEditCommand)?.Fallback ?? command)).Name;
+
+    private sealed class SampleToolWindowExtension : ToolWindowExtension
+    {
+        public override string DisplayName => "Sample tool window";
+
+        public override bool TryCreateContent([NotNullWhen(true)] out Window? window)
+        {
+            window = null;
+            return false;
+        }
+
+        public override bool TryCreateContext([NotNullWhen(true)] out IToolWindowContext? context)
+        {
+            context = null;
+            return false;
+        }
+    }
 }
