@@ -34,6 +34,11 @@ public class GraphNodeRegistryTests
     [TestCase(typeof(OutputNode))]
     [TestCase(typeof(FilterEffectNode<Blur>))]
     [TestCase(typeof(FilterEffectNode<FilmGrain>))]
+    [TestCase(typeof(FilterEffectNode<Bloom>))]
+    [TestCase(typeof(FilterEffectNode<LightRays>))]
+    [TestCase(typeof(FilterEffectNode<WaveRefraction>))]
+    [TestCase(typeof(FilterEffectNode<Puppet>))]
+    [TestCase(typeof(FilterEffectNode<DelayAnimationEffect>))]
     [TestCase(typeof(TranslateMatrixNode))]
     public void RegisterAll_RegistersTopLevelGroupAndNestedGroupNodes(Type nodeType)
     {
