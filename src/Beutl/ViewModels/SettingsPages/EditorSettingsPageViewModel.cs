@@ -9,7 +9,6 @@ namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class EditorSettingsPageViewModel : IDisposable
 {
-    private readonly ViewConfig _viewConfig;
     private readonly EditorConfig _editorConfig;
     private readonly GraphicsConfig _graphicsConfig;
     private readonly ProxyStoreConfig _proxyStoreConfig;
@@ -18,7 +17,6 @@ public sealed class EditorSettingsPageViewModel : IDisposable
 
     public EditorSettingsPageViewModel(GlobalConfiguration configuration)
     {
-        _viewConfig = configuration.ViewConfig;
         _editorConfig = configuration.EditorConfig;
         _graphicsConfig = configuration.GraphicsConfig;
         _proxyStoreConfig = configuration.ProxyStoreConfig;
@@ -27,10 +25,6 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         AutoAdjustSceneDuration = CreateSetting(
             _editorConfig.AutoAdjustSceneDuration.GetObservable(),
             b => _editorConfig.AutoAdjustSceneDuration.Value = b);
-
-        ShowExactBoundaries = CreateSetting(
-            _viewConfig.ShowExactBoundaries.GetObservable(),
-            b => _viewConfig.ShowExactBoundaries.Value = b);
 
         IsFrameCacheEnabled = CreateSetting(
             _editorConfig.IsFrameCacheEnabled.GetObservable(),
@@ -293,8 +287,6 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     }
 
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
-
-    public ReactiveProperty<bool> ShowExactBoundaries { get; }
 
     public ReactiveProperty<bool> IsFrameCacheEnabled { get; }
 

@@ -92,43 +92,6 @@ public partial class PlayerViewModel
         }
     }
 
-    private void DrawBoundaries(Renderer renderer, SKCanvas canvas, Size canvasSize)
-    {
-        int? selected = _editorSelection.SelectedLayerNumber.Value;
-        if (selected.HasValue)
-        {
-            var frameSize = new Size(renderer.FrameSize.Width, renderer.FrameSize.Height);
-            var frameScale = canvasSize.Width / frameSize.Width;
-            float strokeScale = Stretch.Uniform.CalculateScaling(MaxFrameSize, frameSize).X;
-            if (strokeScale < 1)
-                strokeScale = 1;
-
-            Rect[] boundary = renderer.RecalculateBoundaries(selected.Value);
-            if (boundary.Length > 0)
-            {
-                using var paint = new SKPaint
-                {
-                    Color = SKColors.White,
-                    Style = SKPaintStyle.Stroke,
-                    StrokeWidth = strokeScale
-                };
-                bool exactBounds = EditViewModel.GetRequiredService<GlobalConfiguration>().ViewConfig.ShowExactBoundaries.Value;
-
-                foreach (Rect item in boundary)
-                {
-                    Rect rect = item;
-                    if (!exactBounds)
-                    {
-                        rect = item.Inflate(4 / strokeScale);
-                    }
-
-                    rect *= frameScale;
-                    canvas.DrawRect(rect.ToSKRect(), paint);
-                }
-            }
-        }
-    }
-
     // Re-render the current frame into the viewport. Used when something outside the normal edit /
     // playback path (e.g. a PreviewSourceMode switch) invalidates the shown frame while paused.
     public void QueuePreviewRender() => QueueRender();
@@ -183,16 +146,14 @@ public partial class PlayerViewModel
         if (token.IsCancellationRequested)
             return;
 
-        // Read the onion-skin settings and the path editor's state here on the UI thread; reading them on the render
-        // thread would race their UI-thread writes.
+        // Read the onion-skin settings here on the UI thread; reading them on the render thread would race their
+        // UI-thread writes.
         EditorConfig editorConfig = EditViewModel.GetRequiredService<GlobalConfiguration>().EditorConfig;
         bool onionEnabled = editorConfig.IsOnionSkinEnabled.Value;
         int onionPrevCount = editorConfig.OnionSkinPrevCount.Value;
         int onionNextCount = editorConfig.OnionSkinNextCount.Value;
         float onionPrevOpacity = editorConfig.OnionSkinPrevOpacity.Value;
         float onionNextOpacity = editorConfig.OnionSkinNextOpacity.Value;
-        // The path editor draws the shape it edits, and the selection's boundary would only cover its points.
-        bool drawBoundaries = !PathEditor.IsVisible.Value;
         IEditingStageProvider? stage = IsPlaybackActive ? null : _editingStageEffect.Value;
         IReadOnlySet<EngineObject>? disabledEffects = GetEditingStageDisabledEffects(stage);
         if (disabledEffects is null)
@@ -201,7 +162,7 @@ public partial class PlayerViewModel
         RenderThread.Dispatcher.Dispatch(
             () => RenderPreviewFrame(
                 token, onionEnabled, onionPrevCount, onionNextCount, onionPrevOpacity, onionNextOpacity,
-                drawBoundaries, stage, disabledEffects),
+                stage, disabledEffects),
             ct: token);
     }
 
@@ -213,7 +174,6 @@ public partial class PlayerViewModel
         int onionNextCount,
         float onionPrevOpacity,
         float onionNextOpacity,
-        bool drawBoundaries,
         IEditingStageProvider? stage,
         IReadOnlySet<EngineObject>? disabledEffects)
     {
@@ -269,12 +229,10 @@ public partial class PlayerViewModel
                 useCache: !useOnionSkin && disabledEffects is null, out string? warning);
             Bitmap bitmap = bitmapRef.Value;
             using Ref<Bitmap>? cleanFrame = CopyCleanFrame(renderer, bitmap);
-            using (var canvas = new SKCanvas(bitmap.SKBitmap))
+            if (useOnionSkin)
             {
-                if (useOnionSkin)
-                    DrawOnionSkin(renderer, canvas, time, frame, onionSamples, disabledEffects, token);
-                if (drawBoundaries)
-                    DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height));
+                using var canvas = new SKCanvas(bitmap.SKBitmap);
+                DrawOnionSkin(renderer, canvas, time, frame, onionSamples, disabledEffects, token);
             }
 
             if (token.IsCancellationRequested)

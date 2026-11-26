@@ -232,17 +232,6 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         InitializeEditingStage();
         InitializePuppetPinEditor();
 
-        // The frame shows no boundary while the path editor is open (RenderOnRenderThread), so a paused frame is drawn
-        // again when it opens or closes.
-        PathEditor.IsVisible
-            .Skip(1)
-            .Subscribe(_ =>
-            {
-                if (!IsPlaying.Value)
-                    QueueRender();
-            })
-            .DisposeWith(_disposables);
-
         IsCameraMode.Subscribe(isCameraMode =>
             {
                 if (!isCameraMode)
