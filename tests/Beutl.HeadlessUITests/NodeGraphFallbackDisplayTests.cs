@@ -81,9 +81,12 @@ public class NodeGraphFallbackDisplayTests
     }
 
     [AvaloniaTest]
-    public void WarningLineContextMenuCutsAConnectionBetweenUnavailableNodes()
+    [TestCase(24)]
+    [TestCase(360)]
+    public void WarningLineContextMenuCutsAConnectionBetweenUnavailableNodes(int receivingNodeY)
     {
         GraphModel graph = RestoreGraph(failed: false, bothUnavailable: true);
+        graph.Nodes[1].Position.Value = (360, receivingNodeY);
         var sequence = new OperationSequenceGenerator();
         using var history = new HistoryManager(sequence);
         using var observer = new CoreObjectOperationObserver(null, graph, sequence);
@@ -97,14 +100,22 @@ public class NodeGraphFallbackDisplayTests
             window.Show();
             HeadlessTestHelpers.Render(3);
             ConnectionLine line = view.GetVisualDescendants().OfType<ConnectionLine>().Single();
-            Point start = line.TranslatePoint(line.StartPoint, window)!.Value;
-            Point end = line.TranslatePoint(line.EndPoint, window)!.Value;
-            Point hit = Enumerable.Range((int)end.X + 3, (int)(start.X - end.X) - 6)
-                .Select(x => new Point(x, start.Y)).First(point => window.InputHitTest(point) == line);
-            window.MouseMove(hit);
-            window.MouseDown(hit, MouseButton.Right);
-            window.MouseUp(hit, MouseButton.Right);
-            HeadlessTestHelpers.Render(3);
+            var geometry = line.RenderedGeometry;
+            Assert.That(geometry, Is.Not.Null);
+            double length = geometry!.ContourLength;
+            Point? hit = null;
+            for (double distance = 1; distance < length; distance++)
+            {
+                if (geometry.TryGetPointAtDistance(distance, out Point point)
+                    && line.TranslatePoint(point, window) is { } position
+                    && window.InputHitTest(position) == line)
+                {
+                    hit = point;
+                    break;
+                }
+            }
+            Assert.That(hit, Is.Not.Null, "The visible warning line must accept pointer input.");
+            HeadlessTestHelpers.Click(line, hit, MouseButton.Right, move: true, ticks: 3);
             var menu = (FAMenuFlyout)line.ContextFlyout!;
             Assert.That(menu.IsOpen, Is.True);
             var cut = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Text, Strings.Disconnect));
