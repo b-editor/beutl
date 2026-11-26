@@ -46,7 +46,8 @@ public sealed class AgentHostSceneRoutingTests
             string[] sceneTools =
             [
                 "apply_edit", "read_document", "undo", "render_still", "add_scene", "save_project",
-                "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap"
+                "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap",
+                "split_on_silence", "find_gaps", "close_all_gaps"
             ];
             foreach (string name in sceneTools)
             {
@@ -114,6 +115,37 @@ public sealed class AgentHostSceneRoutingTests
         Assert.That(undo["applied"]!.AsArray(), Has.Count.EqualTo(1));
         Assert.That(second.Children.Single(), Is.SameAs(clip));
         Assert.That(clip.Length.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+
+        seed["patch"] = new JsonObject
+        {
+            ["Elements"] = new JsonArray(new JsonObject
+            {
+                ["$type"] = "[Beutl.ProjectSystem]:Element",
+                ["Start"] = "00:00:04.5",
+                ["Length"] = "00:00:00.5"
+            })
+        };
+        Success(await client.CallToolAsync("apply_edit", seed));
+        Element follower = second.Children.Single(element => element != clip);
+        var gapArgs = Target(second.Id.Value);
+        JsonObject gap = Success(await client.CallToolAsync("find_gaps", gapArgs))["gaps"]!.AsArray().Single()!.AsObject();
+        Assert.That(gap["startSeconds"]!.GetValue<double>(), Is.EqualTo(4));
+        Assert.That(gap["endSeconds"]!.GetValue<double>(), Is.EqualTo(4.5));
+        Assert.That(Success(await client.CallToolAsync("close_all_gaps", gapArgs))["closedGapCount"]!.GetValue<int>(), Is.EqualTo(1));
+        Assert.That(follower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+        undo = Success(await client.CallToolAsync("undo", gapArgs));
+        Assert.That(undo["applied"]!.AsArray(), Has.Count.EqualTo(1));
+        Assert.That(follower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4.5)));
+
+        clip.AddObject(new SceneSound { ReferencedScene = { Value = first } });
+        var silence = Target(second.Id.Value);
+        silence["elementIds"] = new[] { clip.Id.Value.ToString() };
+        silence["mode"] = "delete_silence";
+        Assert.That(Success(await client.CallToolAsync("split_on_silence", silence))["changed"]!.GetValue<bool>(), Is.True);
+        Assert.That(second.Children.Single(), Is.SameAs(follower));
+        undo = Success(await client.CallToolAsync("undo", gapArgs));
+        Assert.That(undo["applied"]!.AsArray(), Has.Count.EqualTo(1));
+        Assert.That(second.Children, Does.Contain(clip));
         Assert.That(SelectedScene(), Is.SameAs(first));
         JsonObject status = Success(await client.CallToolAsync("read_operation_status"));
         Assert.That(status["hasActiveSession"]!.GetValue<bool>(), Is.False,

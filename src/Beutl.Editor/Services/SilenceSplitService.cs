@@ -40,11 +40,15 @@ public sealed partial class SilenceSplitService(HistoryManager history, EditorCo
     public void Apply(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode, bool includeLinked)
         => ApplyCore(scene, element, ranges, mode, includeLinked, history);
 
-    private void ApplyCore(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode,
+    internal bool Apply(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode,
+        bool includeLinked, CancellationToken cancellationToken)
+        => ApplyCore(scene, element, ranges, mode, includeLinked, history, cancellationToken);
+
+    private bool ApplyCore(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode,
         bool includeLinked, HistoryManager? recorder = null, CancellationToken cancellationToken = default,
         IProgress<int>? progress = null)
     {
-        if (!TryResolveTargets(scene, element, ranges, includeLinked, out var group, out int groupIndex, out Element[] originals)) return;
+        if (!TryResolveTargets(scene, element, ranges, includeLinked, out var group, out int groupIndex, out Element[] originals)) return false;
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
         if (originals.Any(scene.IsElementLocked)) throw new InvalidOperationException(Strings.SilenceSplit_LockedLinked);
         int[] layers = originals.Select(e => e.ZIndex.Value).Distinct().ToArray();
@@ -58,9 +62,11 @@ public sealed partial class SilenceSplitService(HistoryManager history, EditorCo
                 && o is not ITimeMappedSource { Speed.HasExpression: true }))
             ? new SplitBatch(scene) : null;
         MediaTime maximumEnd = originals.Max(e => e.Range.End);
+        bool changed = false;
 
         if (recorder is null) Edit();
         else recorder.ExecuteInTransaction(Edit, CommandNames.AutoSplitBySilence);
+        return changed;
 
         void Edit()
         {
@@ -94,6 +100,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, EditorCo
                         && part.Range.End <= orderedRanges[rangeIndex].End) removed.Add(part);
                 }
             var removedSet = removed.ToHashSet();
+            changed = parts.Count > originals.Length || removed.Count > 0;
             Element[] removedFromScene = batch != null ? originals.Where(removedSet.Contains).ToArray() : removed.ToArray();
             foreach (Element part in removedFromScene) scene.RemoveChild(part);
             scene.RemoveElementsFromGroups(removedFromScene.Select(e => e.Id.Value).ToArray());
@@ -130,7 +137,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, EditorCo
         originals = [];
         if (!scene.Children.Contains(element) || scene.IsElementLocked(element) || scene.Uri == null || ranges.Count == 0) return false;
 
-        ImmutableHashSet<Guid>? linked = includeLinked ? scene.Groups.FirstOrDefault(g => g.Contains(element.Id.Value)) : null;
+        ImmutableHashSet<Guid>? linked = includeLinked ? scene.FindGroup(element.Id.Value) : null;
         group = linked;
         groupIndex = linked == null ? scene.Groups.Count : scene.Groups.IndexOf(linked);
         originals = linked == null ? [element] : scene.Children.Where(e => linked.Contains(e.Id.Value)).ToArray();
