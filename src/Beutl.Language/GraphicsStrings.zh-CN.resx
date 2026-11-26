@@ -1472,6 +1472,69 @@
   <data name="Scene3D_BackgroundColor" xml:space="preserve">
     <value>背景颜色</value>
   </data>
+  <data name="Scene3D_Skybox" xml:space="preserve">
+    <value>天空盒</value>
+  </data>
+  <data name="Skybox3D_Tint" xml:space="preserve">
+    <value>色调</value>
+  </data>
+  <data name="Skybox3D_Intensity" xml:space="preserve">
+    <value>强度</value>
+  </data>
+  <data name="EquirectangularSkybox" xml:space="preserve">
+    <value>等距柱状投影天空盒</value>
+  </data>
+  <data name="EquirectangularSkybox_Texture" xml:space="preserve">
+    <value>全景纹理</value>
+  </data>
+  <data name="CubemapSkybox" xml:space="preserve">
+    <value>立方体贴图天空盒</value>
+  </data>
+  <data name="CubemapSkybox_PositiveX" xml:space="preserve">
+    <value>+X 面</value>
+  </data>
+  <data name="CubemapSkybox_NegativeX" xml:space="preserve">
+    <value>−X 面</value>
+  </data>
+  <data name="CubemapSkybox_PositiveY" xml:space="preserve">
+    <value>+Y 面</value>
+  </data>
+  <data name="CubemapSkybox_NegativeY" xml:space="preserve">
+    <value>−Y 面</value>
+  </data>
+  <data name="CubemapSkybox_PositiveZ" xml:space="preserve">
+    <value>+Z 面</value>
+  </data>
+  <data name="CubemapSkybox_NegativeZ" xml:space="preserve">
+    <value>−Z 面</value>
+  </data>
+  <data name="ProceduralSkybox" xml:space="preserve">
+    <value>程序化天空盒</value>
+  </data>
+  <data name="ProceduralSkybox_SkyColor" xml:space="preserve">
+    <value>天空颜色</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonColor" xml:space="preserve">
+    <value>地平线颜色</value>
+  </data>
+  <data name="ProceduralSkybox_GroundColor" xml:space="preserve">
+    <value>地面颜色</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonExponent" xml:space="preserve">
+    <value>地平线指数</value>
+  </data>
+  <data name="ProceduralSkybox_SunDirection" xml:space="preserve">
+    <value>太阳方向</value>
+  </data>
+  <data name="ProceduralSkybox_SunColor" xml:space="preserve">
+    <value>太阳颜色</value>
+  </data>
+  <data name="ProceduralSkybox_SunSize" xml:space="preserve">
+    <value>太阳角半径</value>
+  </data>
+  <data name="ProceduralSkybox_SunIntensity" xml:space="preserve">
+    <value>太阳强度</value>
+  </data>
   <data name="Scene3D_Camera" xml:space="preserve">
     <value>相机</value>
   </data>

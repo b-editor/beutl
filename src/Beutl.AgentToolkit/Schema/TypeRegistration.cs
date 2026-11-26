@@ -8,6 +8,7 @@ using Beutl.Graphics.Transformation;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Materials;
+using Beutl.Graphics3D.Skyboxes;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
@@ -162,6 +163,9 @@ public static class TypeRegistration
         Register<PBRMaterial>(KnownLibraryItemFormats.EngineObject);
         Register<UnlitMaterial>(KnownLibraryItemFormats.EngineObject);
         Register<TransparentMaterial>(KnownLibraryItemFormats.EngineObject);
+        Register<EquirectangularSkybox>(KnownLibraryItemFormats.EngineObject);
+        Register<CubemapSkybox>(KnownLibraryItemFormats.EngineObject);
+        Register<ProceduralSkybox>(KnownLibraryItemFormats.EngineObject);
         Register<BarSpectrumShape>(KnownLibraryItemFormats.EngineObject);
         Register<FilledAreaSpectrumShape>(KnownLibraryItemFormats.EngineObject);
         Register<LineSpectrumShape>(KnownLibraryItemFormats.EngineObject);

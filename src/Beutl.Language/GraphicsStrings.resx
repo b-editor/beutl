@@ -1473,6 +1473,69 @@
   <data name="Scene3D_BackgroundColor" xml:space="preserve">
     <value>Background Color</value>
   </data>
+  <data name="Scene3D_Skybox" xml:space="preserve">
+    <value>Skybox</value>
+  </data>
+  <data name="Skybox3D_Tint" xml:space="preserve">
+    <value>Tint</value>
+  </data>
+  <data name="Skybox3D_Intensity" xml:space="preserve">
+    <value>Intensity</value>
+  </data>
+  <data name="EquirectangularSkybox" xml:space="preserve">
+    <value>Equirectangular Skybox</value>
+  </data>
+  <data name="EquirectangularSkybox_Texture" xml:space="preserve">
+    <value>Panorama Texture</value>
+  </data>
+  <data name="CubemapSkybox" xml:space="preserve">
+    <value>Cubemap Skybox</value>
+  </data>
+  <data name="CubemapSkybox_PositiveX" xml:space="preserve">
+    <value>+X Face</value>
+  </data>
+  <data name="CubemapSkybox_NegativeX" xml:space="preserve">
+    <value>−X Face</value>
+  </data>
+  <data name="CubemapSkybox_PositiveY" xml:space="preserve">
+    <value>+Y Face</value>
+  </data>
+  <data name="CubemapSkybox_NegativeY" xml:space="preserve">
+    <value>−Y Face</value>
+  </data>
+  <data name="CubemapSkybox_PositiveZ" xml:space="preserve">
+    <value>+Z Face</value>
+  </data>
+  <data name="CubemapSkybox_NegativeZ" xml:space="preserve">
+    <value>−Z Face</value>
+  </data>
+  <data name="ProceduralSkybox" xml:space="preserve">
+    <value>Procedural Skybox</value>
+  </data>
+  <data name="ProceduralSkybox_SkyColor" xml:space="preserve">
+    <value>Sky Color</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonColor" xml:space="preserve">
+    <value>Horizon Color</value>
+  </data>
+  <data name="ProceduralSkybox_GroundColor" xml:space="preserve">
+    <value>Ground Color</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonExponent" xml:space="preserve">
+    <value>Horizon Exponent</value>
+  </data>
+  <data name="ProceduralSkybox_SunDirection" xml:space="preserve">
+    <value>Sun Direction</value>
+  </data>
+  <data name="ProceduralSkybox_SunColor" xml:space="preserve">
+    <value>Sun Color</value>
+  </data>
+  <data name="ProceduralSkybox_SunSize" xml:space="preserve">
+    <value>Sun Angular Radius</value>
+  </data>
+  <data name="ProceduralSkybox_SunIntensity" xml:space="preserve">
+    <value>Sun Intensity</value>
+  </data>
   <data name="Scene3D_Camera" xml:space="preserve">
     <value>Camera</value>
   </data>

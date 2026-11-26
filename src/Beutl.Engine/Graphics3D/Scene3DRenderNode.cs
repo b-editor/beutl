@@ -8,7 +8,7 @@ using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
-using Beutl.Graphics3D.Materials;
+using Beutl.Graphics3D.Skyboxes;
 using Beutl.Graphics3D.Textures;
 using Beutl.Language;
 using Beutl.Logging;
@@ -115,9 +115,14 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             ? FindObjectById(objects, targetId)
             : null;
         GizmoMode gizmoMode = gizmoTarget is null ? GizmoMode.None : scene.GizmoMode;
+        Skybox3D.Resource? skybox = scene.Skybox is { IsEnabled: true, Opacity: > 0 } activeSkybox
+            && activeSkybox.HasContent
+            ? activeSkybox
+            : null;
         SceneTextureBinding[] textureBindings = RecordDrawableTextures(
             context,
             objects,
+            skybox,
             workingScale);
         var execution = new SceneExecutionSnapshot(
             scene,
@@ -129,6 +134,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             scene.DisableResourceShare,
             scene.Conditions,
             scene.BackgroundColor,
+            skybox,
             scene.AmbientColor,
             scene.AmbientIntensity,
             scene.AntiAliasing,
@@ -150,7 +156,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 current => Render(session, current)),
             bounds: OpaqueRenderBoundsContract.Source(bounds),
             hitTest: RenderHitTestContract.Custom(
-                new SceneHitTest(camera, objects, bounds, workingScale, scene.BackgroundColor.A > 0),
+                new SceneHitTest(camera, objects, bounds, workingScale, scene.BackgroundColor.A > 0 || skybox is not null),
                 static (state, context, point) => state.HitTest(context, point)),
             valueCardinality: RenderValueCardinality.ZeroOrOne,
             scale: RenderScaleContract.MaterializeAtWorkingScale,
@@ -162,19 +168,25 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
     private static SceneTextureBinding[] RecordDrawableTextures(
         RenderNodeContext context,
         IEnumerable<Object3D.Resource> objects,
+        Skybox3D.Resource? skybox,
         float outputScale)
     {
         var seen = new HashSet<IRecordedTextureSource>(ReferenceEqualityComparer.Instance);
         var result = new List<SceneTextureBinding>();
         foreach (Object3D.Resource obj in EnumerateObjects(objects))
         {
-            Material3D.Resource? material = obj.Material;
-            if (material is null)
-                continue;
+            if (obj.Material is { } material)
+                RecordSources(material.EnumerateTextureSources());
+        }
 
-            foreach (IRecordedTextureSource source in material
-                         .EnumerateTextureSources()
-                         .OfType<IRecordedTextureSource>())
+        if (skybox is not null)
+            RecordSources(skybox.EnumerateTextureSources());
+
+        return [.. result];
+
+        void RecordSources(IEnumerable<TextureSource.Resource> sources)
+        {
+            foreach (IRecordedTextureSource source in sources.OfType<IRecordedTextureSource>())
             {
                 if (!seen.Add(source))
                     continue;
@@ -190,8 +202,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 result.Add(new SceneTextureBinding(source, nested.Binding));
             }
         }
-
-        return [.. result];
     }
 
     private static IEnumerable<Object3D.Resource> EnumerateObjects(
@@ -240,6 +250,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         bool DisableResourceShare,
         CompositionConditions Conditions,
         Color BackgroundColor,
+        Skybox3D.Resource? Skybox,
         Color AmbientColor,
         float AmbientIntensity,
         AntiAliasingMode AntiAliasing,
@@ -327,9 +338,11 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         };
         Renderer3D renderer = snapshot.Scene.Renderer ??= new Renderer3D(graphicsContext);
 
-        if (renderer.Width != deviceWidth || renderer.Height != deviceHeight || renderer.RequestedSampleCount != requestedSamples)
+        bool needsResize = renderer.Width != deviceWidth || renderer.Height != deviceHeight || renderer.RequestedSampleCount != requestedSamples;
+        bool needsSkyboxTarget = snapshot.Skybox is not null && (needsResize || !renderer.HasSkyboxTarget);
+        if (needsResize || needsSkyboxTarget)
         {
-            if (deviceWidth > 0 && deviceHeight > 0
+            if (needsResize && deviceWidth > 0 && deviceHeight > 0
                 && Renderer3D.FindExceededExtentLimit(Device3DExtentBudget.FromContext(graphicsContext), deviceWidth, deviceHeight)
                     is { } exceeded)
             {
@@ -339,10 +352,16 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
             try
             {
-                if (renderer.Width == 0 || renderer.Height == 0)
-                    renderer.Initialize(deviceWidth, deviceHeight, requestedSamples);
-                else
-                    renderer.Resize(deviceWidth, deviceHeight, requestedSamples);
+                if (needsResize)
+                {
+                    if (renderer.Width == 0 || renderer.Height == 0)
+                        renderer.Initialize(deviceWidth, deviceHeight, requestedSamples);
+                    else
+                        renderer.Resize(deviceWidth, deviceHeight, requestedSamples);
+                }
+
+                if (needsSkyboxTarget)
+                    renderer.EnsureSkyboxTarget();
             }
             catch (Exception ex)
             {
@@ -372,7 +391,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 return;
             }
 
-            if (renderer.LastSampleAllocationFailure is { } failure)
+            if (needsResize && renderer.LastSampleAllocationFailure is { } failure)
             {
                 s_logger.LogWarning(failure,
                     "3D multisample allocation failed ({Width}x{Height} px, requested {Requested}x). Rendering at {Samples}x.",
@@ -397,7 +416,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             snapshot.AmbientColor,
             snapshot.AmbientIntensity,
             snapshot.GizmoTarget,
-            snapshot.GizmoMode);
+            snapshot.GizmoMode,
+            snapshot.Skybox);
 
         using SKSurface? surface = renderer.CreateSkiaSurface();
         if (surface is null)
