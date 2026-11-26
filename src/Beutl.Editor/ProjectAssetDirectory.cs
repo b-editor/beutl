@@ -19,20 +19,25 @@ internal sealed partial class ProjectAssetDirectory : IDisposable
     {
         string root = Path.GetPathRoot(path) ?? throw new IOException($"No filesystem root for '{path}'.");
         SafeFileHandle handle = OperatingSystem.IsWindows() ? Windows.OpenRoot(root) : Unix.OpenRoot(root);
-        var current = new ProjectAssetDirectory(handle, root);
+        return new ProjectAssetDirectory(handle, root).OpenExistingPath(path[root.Length..], leaveStartOpen: false);
+    }
+
+    internal ProjectAssetDirectory OpenExistingPath(string relativePath, bool leaveStartOpen = true)
+    {
+        ProjectAssetDirectory current = this;
         try
         {
-            foreach (string name in path[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+            foreach (string name in relativePath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
             {
                 ProjectAssetDirectory child = current.OpenDirectory(name, create: false, out _);
-                current.Dispose();
+                if (!leaveStartOpen || current != this) current.Dispose();
                 current = child;
             }
             return current;
         }
         catch
         {
-            current.Dispose();
+            if (!leaveStartOpen || current != this) current.Dispose();
             throw;
         }
     }
@@ -51,6 +56,20 @@ internal sealed partial class ProjectAssetDirectory : IDisposable
         string path = ChildPath(name);
         return OperatingSystem.IsWindows() ? Windows.CreateFile(_handle, name, path) : Unix.CreateFile(_handle, name, path);
     }
+
+    internal bool? IsSameDirectory(ProjectAssetDirectory other)
+    {
+        if (this == other) return true;
+        DirectoryIdentity? identity = GetIdentity();
+        DirectoryIdentity? otherIdentity = other.GetIdentity();
+        return identity.HasValue && otherIdentity.HasValue ? identity == otherIdentity : null;
+    }
+
+    private DirectoryIdentity? GetIdentity() => OperatingSystem.IsWindows()
+        ? Windows.GetIdentity(_handle)
+        : Unix.GetIdentity(_handle);
+
+    private readonly record struct DirectoryIdentity(ulong Volume, ulong FileId, ulong FileIdHigh = 0);
 
     // When an exclusive rename is unavailable, publication can leave the staging name for cleanup.
     internal bool PublishFile(string name, ProjectAssetDirectory destination, string destinationName)

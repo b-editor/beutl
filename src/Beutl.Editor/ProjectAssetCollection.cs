@@ -9,7 +9,6 @@ internal sealed class ProjectAssetCollection(string root)
     private static readonly ILogger s_logger = Log.CreateLogger<ProjectAssetCollection>();
     private readonly ProjectAssetDirectory _root = ProjectAssetDirectory.OpenRoot(root);
     private readonly Dictionary<string, ProjectAssetDirectory> _stagingDirectories = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, ProjectAssetDirectory> _publicationDirectories = new(StringComparer.Ordinal);
     private readonly List<(ProjectAssetDirectory Parent, ProjectAssetDirectory Child, string Name, bool Created)> _openedDirectories = [];
     private readonly List<StagedFile> _files = [];
 
@@ -18,7 +17,7 @@ internal sealed class ProjectAssetCollection(string root)
     internal async Task StageAsync(ProjectAssetFile file, CancellationToken token)
     {
         await using FileStream source = ResourceRelocationService.OpenCopySource(file.Path);
-        ProjectAssetDirectory directory = OpenParent(file.Destination, create: true);
+        ProjectAssetDirectory directory = OpenStagingParent(file.Destination);
         string name = $".{Guid.NewGuid():N}.tmp";
         using SafeFileHandle handle = directory.CreateFile(name);
         _files.Add(new StagedFile(file, directory, name));
@@ -32,11 +31,21 @@ internal sealed class ProjectAssetCollection(string root)
 
     internal void Publish(StagedFile staged)
     {
-        // Walk again from the same root. A changed destination parent must pass the same
-        // link checks, and the staging file still comes from the original opened parent.
-        ProjectAssetDirectory directory = OpenParent(staged.File.Destination, create: false);
-        staged.HasStagingName = staged.Parent.PublishFile(staged.Name, directory, Path.GetFileName(staged.File.Destination));
-        staged.PublishedParent = directory;
+        // Open the destination from the root for each file. When it is the same directory,
+        // the staging handle can also serve for rollback.
+        string parentPath = Path.GetDirectoryName(GetRelativePath(staged.File.Destination))!;
+        ProjectAssetDirectory directory = _root.OpenExistingPath(parentPath);
+        try
+        {
+            bool? sameDirectory = directory.IsSameDirectory(staged.Parent);
+            if (sameDirectory == false) throw new ProjectAssetPlanChangedException();
+            staged.HasStagingName = staged.Parent.PublishFile(staged.Name, directory, Path.GetFileName(staged.File.Destination));
+            staged.PublishedParent = sameDirectory == true ? staged.Parent : directory;
+        }
+        finally
+        {
+            if (staged.PublishedParent != directory && directory != _root) directory.Dispose();
+        }
     }
 
     internal void Cleanup(bool preserveCopies)
@@ -46,8 +55,9 @@ internal sealed class ProjectAssetCollection(string root)
             foreach (StagedFile staged in _files)
             {
                 if (staged.HasStagingName) TryDelete(staged.Parent, staged.Name, directory: false);
-                if (!preserveCopies && staged.PublishedParent is { } published)
-                    TryDelete(published, Path.GetFileName(staged.File.Destination), directory: false);
+                if (staged.PublishedParent is not { } published) continue;
+                if (!preserveCopies) TryDelete(published, Path.GetFileName(staged.File.Destination), directory: false);
+                if (published != staged.Parent && published != _root) published.Dispose();
             }
         }
         finally
@@ -55,29 +65,33 @@ internal sealed class ProjectAssetCollection(string root)
             for (int i = _openedDirectories.Count - 1; i >= 0; i--)
             {
                 var (parent, child, name, created) = _openedDirectories[i];
+                bool remove = created && !preserveCopies && IsCurrentDirectory(parent, child, name);
                 child.Dispose();
-                if (created && !preserveCopies) TryDelete(parent, name, directory: true);
+                if (remove) TryDelete(parent, name, directory: true);
             }
             _root.Dispose();
         }
     }
 
-    private ProjectAssetDirectory OpenParent(string path, bool create)
+    private string GetRelativePath(string path)
     {
         if (!ProjectAssetPaths.IsBelow(root, path)) throw new IOException($"The path is outside the project: '{path}'.");
-        string relative = Path.GetRelativePath(root, path);
-        string[] components = relative.Split(Path.DirectorySeparatorChar);
-        var directories = create ? _stagingDirectories : _publicationDirectories;
+        return Path.GetRelativePath(root, path);
+    }
+
+    private ProjectAssetDirectory OpenStagingParent(string path)
+    {
+        string[] components = GetRelativePath(path).Split(Path.DirectorySeparatorChar);
         ProjectAssetDirectory parent = _root;
         for (int i = 0; i < components.Length - 1; i++)
         {
             string name = components[i];
             string childPath = Path.Combine(parent.DisplayPath, name);
-            if (!directories.TryGetValue(childPath, out ProjectAssetDirectory? child))
+            if (!_stagingDirectories.TryGetValue(childPath, out ProjectAssetDirectory? child))
             {
-                child = parent.OpenDirectory(name, create, out bool created);
+                child = parent.OpenDirectory(name, create: true, out bool created);
                 _openedDirectories.Add((parent, child, name, created));
-                directories.Add(childPath, child);
+                _stagingDirectories.Add(childPath, child);
             }
             parent = child;
         }
@@ -93,6 +107,19 @@ internal sealed class ProjectAssetCollection(string root)
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             s_logger.LogWarning(ex, "Could not remove an uncommitted asset entry {Name} in {Directory}.", name, parent.DisplayPath);
+        }
+    }
+
+    private static bool IsCurrentDirectory(ProjectAssetDirectory parent, ProjectAssetDirectory opened, string name)
+    {
+        try
+        {
+            using ProjectAssetDirectory current = parent.OpenDirectory(name, create: false, out _);
+            return current.IsSameDirectory(opened) == true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 

@@ -60,6 +60,15 @@ internal sealed partial class ProjectAssetDirectory
             return new SafeFileHandle(result, ownsHandle: true);
         }
 
+        internal static DirectoryIdentity? GetIdentity(SafeFileHandle handle)
+        {
+            const int FileIdInfo = 18;
+            return GetFileInformationByHandleEx(handle, FileIdInfo, out FileIdentity info, (uint)sizeof(FileIdentity))
+                   && (info.Low != 0 || info.High != 0)
+                ? new DirectoryIdentity(info.Volume, info.Low, info.High)
+                : null;
+        }
+
         internal static void Rename(SafeFileHandle source, string name, string sourcePath,
             SafeFileHandle destination, string destinationName, string destinationPath)
         {
@@ -172,9 +181,21 @@ internal sealed partial class ProjectAssetDirectory
             public char FileName;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct FileIdentity
+        {
+            public ulong Volume;
+            public ulong Low;
+            public ulong High;
+        }
+
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
         private static extern SafeFileHandle CreateFileW(string fileName, uint access, uint share, nint security,
             uint disposition, uint flags, nint template);
+
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetFileInformationByHandleEx(SafeFileHandle handle, int informationClass, out FileIdentity info, uint length);
 
         [DllImport("ntdll.dll")]
         private static extern int NtCreateFile(out nint handle, uint access, ObjectAttributes* attributes, out IoStatusBlock io,

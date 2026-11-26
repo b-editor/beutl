@@ -42,6 +42,42 @@ public class ProjectAssetCollectionTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Each_publication_checks_for_a_changed_destination_parent(bool replaceDirectory)
+    {
+        using var temporary = new TemporaryDirectory();
+        Directory.CreateDirectory(temporary.Path);
+        string root = FilePathComparison.ResolveCanonicalPath(temporary.Path);
+        string resources = Path.Combine(root, "resources");
+        string renamed = Path.Combine(root, "previous-resources");
+        ProjectAssetFile first = CreateCopy(root, resources);
+        ProjectAssetFile second = first with { Destination = Path.Combine(resources, "other-asset.txt") };
+
+        var copies = new ProjectAssetCollection(root);
+        try
+        {
+            await copies.StageAsync(first, CancellationToken.None);
+            await copies.StageAsync(second, CancellationToken.None);
+            copies.Publish(copies.Files[0]);
+            Directory.Move(resources, renamed);
+            if (replaceDirectory) Directory.CreateDirectory(resources);
+
+            Assert.Catch<IOException>(() => copies.Publish(copies.Files[1]));
+        }
+        finally
+        {
+            copies.Cleanup(preserveCopies: false);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.EnumerateFileSystemEntries(renamed), Is.Empty);
+            Assert.That(File.Exists(second.Destination), Is.False);
+            Assert.That(Directory.Exists(resources), Is.EqualTo(replaceDirectory));
+        });
+    }
+
     [Test]
     public async Task Publication_refuses_to_overwrite_a_file_added_during_collection()
     {

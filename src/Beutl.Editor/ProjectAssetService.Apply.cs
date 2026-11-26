@@ -188,6 +188,8 @@ internal sealed partial class ProjectAssetService
             {
                 token.ThrowIfCancellationRequested();
                 RequireUnchanged(file);
+                paths.RequireWritable(file.Destination);
+                if (!File.Exists(file.Destination)) throw new ProjectAssetPlanChangedException();
             }
         }, token);
     }

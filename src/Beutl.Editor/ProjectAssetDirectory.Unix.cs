@@ -55,6 +55,34 @@ internal sealed partial class ProjectAssetDirectory
             return OwnFileHandle(fd, path);
         }
 
+        internal static DirectoryIdentity? GetIdentity(SafeFileHandle handle)
+        {
+            if (s_mac)
+            {
+                const uint DeviceAndFileId = 0x02000002; // ATTR_CMN_FILEID | ATTR_CMN_DEVID
+                const int IdentitySize = 16;
+                var attributes = new MacAttributeList { BitmapCount = 5, CommonAttributes = DeviceAndFileId };
+                return GetMacAttributes(handle, ref attributes, out MacFileIdentity info, IdentitySize, 0) == 0
+                       && info.Size == IdentitySize && info.FileId != 0
+                    ? new DirectoryIdentity(info.Device, info.FileId)
+                    : null;
+            }
+
+            try
+            {
+                const int EmptyPath = 0x1000;
+                const uint Inode = 0x100;
+                return Statx(handle, "", EmptyPath, Inode, out LinuxFileIdentity info) == 0
+                       && (info.Mask & Inode) != 0 && info.Inode != 0
+                    ? new DirectoryIdentity(((ulong)info.DeviceMajor << 32) | info.DeviceMinor, info.Inode)
+                    : null;
+            }
+            catch (EntryPointNotFoundException)
+            {
+                return null;
+            }
+        }
+
         internal static bool Publish(SafeFileHandle source, string name, SafeFileHandle destination, string destinationName, string path)
         {
             try
@@ -120,6 +148,44 @@ internal sealed partial class ProjectAssetDirectory
             }
             return new SafeFileHandle(fd, ownsHandle: true);
         }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MacAttributeList
+        {
+            public ushort BitmapCount;
+            public ushort Reserved;
+            public uint CommonAttributes;
+            public uint VolumeAttributes;
+            public uint DirectoryAttributes;
+            public uint FileAttributes;
+            public uint ForkAttributes;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        private struct MacFileIdentity
+        {
+            public uint Size;
+            public uint Device;
+            public ulong FileId;
+        }
+
+        // Linux statx has one ABI across the supported Linux architectures.
+        [StructLayout(LayoutKind.Explicit, Size = 256)]
+        private struct LinuxFileIdentity
+        {
+            [FieldOffset(0)] public uint Mask;
+            [FieldOffset(32)] public ulong Inode;
+            [FieldOffset(136)] public uint DeviceMajor;
+            [FieldOffset(140)] public uint DeviceMinor;
+        }
+
+        [DllImport("libc", EntryPoint = "fgetattrlist")]
+        private static extern int GetMacAttributes(SafeFileHandle handle, ref MacAttributeList attributes,
+            out MacFileIdentity info, nuint length, nuint flags);
+
+        [DllImport("libc", EntryPoint = "statx")]
+        private static extern int Statx(SafeFileHandle handle, [MarshalAs(UnmanagedType.LPUTF8Str)] string path,
+            int flags, uint mask, out LinuxFileIdentity info);
 
         [DllImport("libc", EntryPoint = "open", SetLastError = true)]
         private static extern int Open([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
