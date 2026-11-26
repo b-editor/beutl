@@ -1429,6 +1429,33 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ExportProject" xml:space="preserve">
     <value>导出项目…</value>
   </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>导出字幕…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>导出字幕</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>要导出的片段</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>选中的元素</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>时间轴图层</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>没有包含片段的图层。</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>文件格式</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>未找到文本片段。</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>已跳过 {0} 个没有文本的片段。</value>
+  </data>
   <data name="ImportProject" xml:space="preserve">
     <value>导入项目…</value>
   </data>

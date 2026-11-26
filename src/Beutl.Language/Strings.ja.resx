@@ -1505,6 +1505,33 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="ExportProject" xml:space="preserve">
     <value>プロジェクトをエクスポート…</value>
   </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>字幕をエクスポート…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>字幕をエクスポート</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>エクスポートするクリップ</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>選択中の要素</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>タイムラインのレイヤー</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>クリップがあるレイヤーはありません。</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>ファイル形式</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>テキストクリップが見つかりませんでした。</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>テキストのないクリップを {0} 件スキップしました。</value>
+  </data>
   <data name="ImportProject" xml:space="preserve">
     <value>プロジェクトをインポート…</value>
   </data>

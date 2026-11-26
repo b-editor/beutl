@@ -1,7 +1,11 @@
 ﻿using System.Buffers;
 using System.Globalization;
 using System.Text;
+using Beutl.Engine;
+using Beutl.Graphics;
+using Beutl.Graphics.Shapes;
 using Beutl.Media.TextFormatting;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services.Captions;
 
@@ -10,6 +14,17 @@ internal static class CaptionTextUtilities
     // The tags of the subtitle formats, which keep the look they have: a text object draws nothing for those it does
     // not know. SRT cannot mark one as words, and WebVTT's decoded text does not say whether it did.
     private static readonly string[] s_subtitleTags = ["b", "i", "u", "s", "font", "br", "c", "v", "lang", "ruby", "rt"];
+
+    public static IEnumerable<TextBlock> FindTextBlocks(Element element)
+        => element.Objects.SelectMany(FindTextBlocks);
+
+    private static IEnumerable<TextBlock> FindTextBlocks(EngineObject value) => value switch
+    {
+        TextBlock text => [text],
+        DrawableGroup group => group.Children.SelectMany(FindTextBlocks),
+        DrawableDecorator decorator => decorator.Children.SelectMany(FindTextBlocks),
+        _ => [],
+    };
 
     // What a text object holds for a cue's text. It reads angle brackets as tags and draws nothing for one it does not
     // know, so any other tag goes in as the words it is. The cue keeps its text, which also goes to exports and translation.
@@ -41,6 +56,46 @@ internal static class CaptionTextUtilities
         }
 
         return builder.ToString();
+    }
+
+    public static string ToSubtitleText(string text)
+    {
+        if (!text.Contains('<')) return NormalizeLineEndings(text);
+
+        var tokenizer = new FormattedTextTokenizer(text);
+        tokenizer.Tokenize();
+        var builder = new StringBuilder(text.Length);
+        bool noParse = false;
+        foreach (FormattedTextTokenizer.Token token in tokenizer.Result)
+        {
+            ReadOnlySpan<char> value = token.Text.AsSpan();
+            if (token.Type == FormattedTextTokenizer.TokenType.TagClose
+                && FormattedTextParser.GetCloseTagType(token.Text) == FormattedTextParser.TagType.NoParse)
+            {
+                noParse = false;
+            }
+            else if (noParse || token.Type == FormattedTextTokenizer.TokenType.Content)
+            {
+                builder.Append(value);
+            }
+            else if (FormattedTextParser.TryParseTag(token.Text, out FormattedTextParser.TagInfo tag)
+                     && tag.Type == FormattedTextParser.TagType.NoParse)
+            {
+                noParse = true;
+            }
+            else if (value.Equals("<br>", StringComparison.OrdinalIgnoreCase)
+                     || value.Equals("<br/>", StringComparison.OrdinalIgnoreCase)
+                     || value.Equals("<br />", StringComparison.OrdinalIgnoreCase))
+            {
+                builder.Append('\n');
+            }
+            else if (!IsFormattingTag(token))
+            {
+                builder.Append(value);
+            }
+        }
+
+        return NormalizeLineEndings(builder.ToString());
     }
 
     private static bool IsFormattingTag(FormattedTextTokenizer.Token token)

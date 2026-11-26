@@ -1,0 +1,37 @@
+<ui:FAContentDialog x:Class="Beutl.Views.Dialogs.ExportSubtitlesDialog"
+                    xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
+                    Title="{x:Static lang:Strings.ExportSubtitles}"
+                    CloseButtonText="{x:Static lang:Strings.Cancel}"
+                    DefaultButton="Primary"
+                    PrimaryButtonText="{x:Static lang:Strings.Save}">
+    <ui:FAContentDialog.Resources>
+        <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
+    </ui:FAContentDialog.Resources>
+
+    <StackPanel Spacing="16">
+        <StackPanel Spacing="4">
+            <TextBlock Theme="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Static lang:Strings.ExportSubtitles_Source}" />
+            <RadioButton x:Name="SelectionSource"
+                         GroupName="SubtitleSource"
+                         Content="{x:Static lang:Strings.ExportSubtitles_SelectedElements}" />
+            <RadioButton x:Name="LayersSource"
+                         GroupName="SubtitleSource"
+                         Content="{x:Static lang:Strings.ExportSubtitles_Layers}" />
+            <ScrollViewer x:Name="LayerList" Margin="24,0,0,0" MaxHeight="160" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="LayerOptions" />
+            </ScrollViewer>
+            <TextBlock x:Name="NoLayersMessage" Margin="24,0,0,0"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Text="{x:Static lang:Strings.ExportSubtitles_NoLayers}" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Theme="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Static lang:Strings.ExportSubtitles_Format}" />
+            <ComboBox x:Name="FormatPicker" HorizontalAlignment="Stretch"
+                      AutomationProperties.Name="{x:Static lang:Strings.ExportSubtitles_Format}" />
+        </StackPanel>
+    </StackPanel>
+</ui:FAContentDialog>
