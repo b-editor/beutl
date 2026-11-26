@@ -82,7 +82,7 @@ public partial class NodeGraphView : UserControl
         GraphNodeViewModel[] nodes = [.. model.Nodes.Where(node => node.IsSelected.Value)];
         if (nodes.Length == 0 && source is Visual visual
             && visual.FindAncestorOfType<GraphNodeView>(includeSelf: true) is
-                { IsHeaderFocused: true, DataContext: GraphNodeViewModel focusedNode })
+            { IsHeaderFocused: true, DataContext: GraphNodeViewModel focusedNode })
         {
             nodes = [focusedNode];
         }

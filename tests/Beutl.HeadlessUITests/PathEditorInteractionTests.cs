@@ -1193,6 +1193,41 @@ public class PathEditorInteractionTests
     }
 
     [AvaloniaTest]
+    [TestCase(Key.F8, true)]
+    [TestCase(Key.Escape, false)]
+    public async Task Only_the_configured_cancel_key_rolls_back_a_point_drag(Key key, bool cancels)
+    {
+        using var editor = await Fixture.Create();
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(PathEditorTabExtension.Instance);
+        var cancel = manager.GetDefinitions<PathEditorTabExtension>().Single(entry => entry.Definition.Id == "pathEditor.cancel");
+        manager.ChangeKeyGesture(cancel, new KeyGesture(Key.F8), ContextCommandManager.CurrentPlatform);
+
+        var previous = AppHelper.GetContextCommandManager;
+        AppHelper.GetContextCommandManager = () => manager;
+        try
+        {
+            var point = editor.Figure.Segments[0].GetEndPoint();
+            editor.MouseDown(new(80, 100), MouseButton.Left);
+            editor.MouseMove(new(110, 120), RawInputModifiers.LeftMouseButton);
+            Assert.That(point.Value, Is.EqualTo(new BtlPoint(110, 120)));
+
+            editor.Key(key);
+            editor.MouseUp(new(110, 120), MouseButton.Left);
+            Assert.Multiple(() =>
+            {
+                Assert.That(point.Value, Is.EqualTo(cancels ? new BtlPoint(80, 100) : new BtlPoint(110, 120)));
+                Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(cancels ? 0 : 1));
+                Assert.That(editor.View.SkipUpdatePosition, Is.False);
+            });
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task Escape_keeps_a_nudge_made_just_before_the_gesture_in_its_own_entry(bool pen)
