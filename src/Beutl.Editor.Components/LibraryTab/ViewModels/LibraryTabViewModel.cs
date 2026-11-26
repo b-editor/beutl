@@ -231,6 +231,9 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             LibraryEffectCategory? category = group.First().Category;
             string title = category?.Title ?? Strings.Others;
             string? description = category?.Description;
+            if (string.IsNullOrEmpty(description))
+                description = null;
+
             IEnumerable<LibraryGalleryItemViewModel> tiles = group.Select(item => item.Tile);
             LibraryGallerySection? previous = EffectSections.FirstOrDefault(section => section.Key == group.Key);
             sections.Add(previous != null && previous.Title == title && previous.Description == description

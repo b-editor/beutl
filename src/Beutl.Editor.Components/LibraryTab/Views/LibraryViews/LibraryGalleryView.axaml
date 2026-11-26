@@ -41,13 +41,8 @@
                                    FontWeight="SemiBold"
                                    IsVisible="{Binding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                    Text="{Binding Title}"
-                                   TextTrimming="CharacterEllipsis" />
-                        <TextBlock Classes="effectCategoryDescription"
-                                   FontSize="12"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                   Text="{Binding Description}"
-                                   TextWrapping="Wrap" />
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding Description}" />
                         <ItemsRepeater ItemsSource="{Binding Items}">
                             <ItemsRepeater.Layout>
                                 <controls:HorizontalGridLayout ColumnSpacing="8"

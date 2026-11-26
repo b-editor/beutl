@@ -18,6 +18,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Testing.Headless;
+using static Avalonia.VisualExtensions;
 
 namespace Beutl.HeadlessUITests;
 
@@ -175,18 +176,18 @@ public sealed class LibraryEffectCategoryTests
     }
 
     [AvaloniaTest, SetUICulture("en-US")]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task The_gallery_displays_a_description_only_when_one_is_registered(bool withDescription)
+    [TestCase(null)]
+    [TestCase("")]
+    public async Task The_gallery_shows_a_tooltip_only_for_a_registered_category_description(string? missingDescription)
     {
         const string description = "Soften details, add motion blur, or sharpen edges.";
         using var library = new LibraryService();
         library.RegisterGroup(GraphicsStrings.FilterEffect, root => root
-            .AddGroup(GraphicsStrings.FilterEffectCategory_BlurAndSharpen, withDescription ? description : null, group => group
+            .AddGroup(GraphicsStrings.FilterEffectCategory_BlurAndSharpen, description, group => group
                 .Add<Blur>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Blur)
                 .Add<Sharpen>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Sharpen)
                 .Add<MotionBlur>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.MotionBlur))
-            .AddGroup(GraphicsStrings.FilterEffectCategory_ColorCorrection, group => group
+            .AddGroup(GraphicsStrings.FilterEffectCategory_ColorCorrection, missingDescription, group => group
                 .Add<Brightness>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Brightness)
                 .Add<Curves>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Curves)
                 .Add<Saturate>(KnownLibraryItemFormats.FilterEffect, GraphicsStrings.Saturate)));
@@ -198,13 +199,21 @@ public sealed class LibraryEffectCategoryTests
             window.Show();
             HeadlessTestHelpers.Render(3);
 
-            string?[] descriptions = gallery.GetVisualDescendants().OfType<TextBlock>()
-                .Where(text => text.IsVisible && text.Classes.Contains("effectCategoryDescription"))
-                .Select(text => text.Text)
+            TextBlock[] headings = gallery.GetVisualDescendants().OfType<TextBlock>()
+                .Where(text => text.IsVisible && text.Classes.Contains("effectCategoryHeading"))
                 .ToArray();
-            Assert.That(descriptions, Is.EqualTo(withDescription ? new[] { description } : Array.Empty<string>()));
+            TextBlock described = headings.Single(text => text.Text == GraphicsStrings.FilterEffectCategory_BlurAndSharpen);
+            TextBlock undescribed = headings.Single(text => text.Text == GraphicsStrings.FilterEffectCategory_ColorCorrection);
+            Assert.Multiple(() =>
+            {
+                Assert.That(ToolTip.GetTip(described), Is.EqualTo(description));
+                Assert.That(ToolTip.GetTip(undescribed), Is.Null);
+                Assert.That(gallery.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(text => text.IsVisible && text.Text == description), Is.False);
+            });
 
-            if (HeadlessCapture.IsRequested)
+            bool capture = HeadlessCapture.IsRequested && missingDescription == null;
+            if (capture)
             {
                 await HeadlessTestHelpers.WaitUntilAsync(() =>
                 {
@@ -214,8 +223,23 @@ public sealed class LibraryEffectCategoryTests
                     return shown.Length > 0 && shown.All(thumbnail =>
                         thumbnail.Source!.Still != null || thumbnail.Source is LibraryThumbnailSource { Failed: true });
                 });
-                HeadlessCapture.SaveIfRequested(window, nameof(LibraryEffectCategoryTests),
-                    withDescription ? "library-gallery-after" : "library-gallery-before");
+            }
+
+            var hoverPoint = described.TranslatePoint(new Avalonia.Point(12, described.Bounds.Height / 2), window)!.Value;
+            window.MouseMove(hoverPoint, RawInputModifiers.None);
+            await HeadlessTestHelpers.WaitUntilAsync(() => ToolTip.GetIsOpen(described));
+            HeadlessTestHelpers.Render();
+            ToolTip tooltip = window.GetVisualDescendants().OfType<ToolTip>().Single();
+            Assert.That(tooltip.Content, Is.EqualTo(description));
+
+            if (capture)
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(() =>
+                {
+                    HeadlessTestHelpers.Render();
+                    return tooltip.Opacity >= 0.99;
+                });
+                HeadlessCapture.SaveIfRequested(window, nameof(LibraryEffectCategoryTests), "library-gallery-tooltip");
             }
         }
         finally
