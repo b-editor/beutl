@@ -656,6 +656,9 @@
   <data name="GeometryShape" xml:space="preserve">
     <value>기하 도형</value>
   </data>
+  <data name="GeometryShapeNode" xml:space="preserve">
+    <value>도형</value>
+  </data>
   <data name="Geometry" xml:space="preserve">
     <value>기하 도형</value>
   </data>
@@ -1469,6 +1472,69 @@
   <data name="Scene3D_BackgroundColor" xml:space="preserve">
     <value>배경 색상</value>
   </data>
+  <data name="Scene3D_Skybox" xml:space="preserve">
+    <value>스카이박스</value>
+  </data>
+  <data name="Skybox3D_Tint" xml:space="preserve">
+    <value>색조</value>
+  </data>
+  <data name="Skybox3D_Intensity" xml:space="preserve">
+    <value>강도</value>
+  </data>
+  <data name="EquirectangularSkybox" xml:space="preserve">
+    <value>정거원통형 스카이박스</value>
+  </data>
+  <data name="EquirectangularSkybox_Texture" xml:space="preserve">
+    <value>파노라마 텍스처</value>
+  </data>
+  <data name="CubemapSkybox" xml:space="preserve">
+    <value>큐브맵 스카이박스</value>
+  </data>
+  <data name="CubemapSkybox_PositiveX" xml:space="preserve">
+    <value>+X 면</value>
+  </data>
+  <data name="CubemapSkybox_NegativeX" xml:space="preserve">
+    <value>−X 면</value>
+  </data>
+  <data name="CubemapSkybox_PositiveY" xml:space="preserve">
+    <value>+Y 면</value>
+  </data>
+  <data name="CubemapSkybox_NegativeY" xml:space="preserve">
+    <value>−Y 면</value>
+  </data>
+  <data name="CubemapSkybox_PositiveZ" xml:space="preserve">
+    <value>+Z 면</value>
+  </data>
+  <data name="CubemapSkybox_NegativeZ" xml:space="preserve">
+    <value>−Z 면</value>
+  </data>
+  <data name="ProceduralSkybox" xml:space="preserve">
+    <value>절차적 스카이박스</value>
+  </data>
+  <data name="ProceduralSkybox_SkyColor" xml:space="preserve">
+    <value>하늘 색상</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonColor" xml:space="preserve">
+    <value>수평선 색상</value>
+  </data>
+  <data name="ProceduralSkybox_GroundColor" xml:space="preserve">
+    <value>지면 색상</value>
+  </data>
+  <data name="ProceduralSkybox_HorizonExponent" xml:space="preserve">
+    <value>수평선 지수</value>
+  </data>
+  <data name="ProceduralSkybox_SunDirection" xml:space="preserve">
+    <value>태양 방향</value>
+  </data>
+  <data name="ProceduralSkybox_SunColor" xml:space="preserve">
+    <value>태양 색상</value>
+  </data>
+  <data name="ProceduralSkybox_SunSize" xml:space="preserve">
+    <value>태양의 각반지름</value>
+  </data>
+  <data name="ProceduralSkybox_SunIntensity" xml:space="preserve">
+    <value>태양 강도</value>
+  </data>
   <data name="Scene3D_Camera" xml:space="preserve">
     <value>카메라</value>
   </data>
@@ -1651,6 +1717,9 @@
   </data>
   <data name="Drawable" xml:space="preserve">
     <value>드로어블</value>
+  </data>
+  <data name="DrawableBrushNode" xml:space="preserve">
+    <value>드로어블을 브러시로</value>
   </data>
   <data name="EndPoint" xml:space="preserve">
     <value>끝점</value>

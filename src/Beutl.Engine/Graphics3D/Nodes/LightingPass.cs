@@ -26,6 +26,8 @@ public sealed class LightingPass : GraphicsNode3D
 
     private ITextureArray? _dummyShadowArray;
     private ITextureCubeArray? _dummyShadowCubeArray;
+    private ITexture2D? _dummySkybox;
+    private ITexture2D? _boundSkybox;
 
     public LightingPass(IGraphicsContext context, IShaderCompiler shaderCompiler, ITexture2D depthTexture)
         : base(context, shaderCompiler)
@@ -67,6 +69,8 @@ public sealed class LightingPass : GraphicsNode3D
         _shadowSampler?.Dispose();
         _dummyShadowArray?.Dispose();
         _dummyShadowCubeArray?.Dispose();
+        _dummySkybox?.Dispose();
+        _boundSkybox = null;
 
         int sampleCount = _depthTexture.SampleCount;
         OutputTexture = CreateAttachment(width, height, TextureFormat.RGBA16Float, sampleCount);
@@ -104,6 +108,9 @@ public sealed class LightingPass : GraphicsNode3D
 
         _dummyShadowArray = Context.CreateTextureArray(1, 1, ShadowManager.MaxShadowMaps2D, TextureFormat.Depth32Float);
         _dummyShadowCubeArray = Context.CreateTextureCubeArray(1, ShadowManager.MaxShadowMapsCube, TextureFormat.Depth32Float);
+        // The descriptor is always bound. The shader only reads the image when a skybox was rendered.
+        _dummySkybox = Context.CreateTexture2D(1, 1, TextureFormat.BGRA8Unorm);
+        _dummySkybox.PrepareForSampling();
 
         _cameraUniformBuffer = MaterialGpuResources.CreateUniformBuffer<LightingPassUBO>(Context);
 
@@ -114,7 +121,7 @@ public sealed class LightingPass : GraphicsNode3D
         var vertexSpirv = ShaderCompiler.CompileToSpirv(LightingVertexShader, ShaderStage.Vertex);
         var fragmentSpirv = ShaderCompiler.CompileToSpirv(LightingFragmentShader(_depthTexture.SampleCount > 1), ShaderStage.Fragment);
 
-        // Descriptor bindings: 4 G-Buffer samplers + 3 uniform buffers + shadow samplers
+        // Descriptor bindings: 4 G-Buffer samplers, 3 uniform buffers, 2 shadow samplers and the skybox
         var descriptorBindings = new DescriptorBinding[]
         {
             new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // Position
@@ -125,7 +132,8 @@ public sealed class LightingPass : GraphicsNode3D
             new(5, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment),        // Lights
             new(6, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment),        // Shadow UBO
             new(7, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // Shadow map 2D array
-            new(8, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)  // Shadow cube map array
+            new(8, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // Shadow cube map array
+            new(9, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)  // Skybox
         };
 
         // Use fullscreen pipeline (no vertex input, no depth test)
@@ -139,7 +147,7 @@ public sealed class LightingPass : GraphicsNode3D
 
         var poolSizes = new DescriptorPoolSize[]
         {
-            new(DescriptorType.CombinedImageSampler, 6),  // 4 G-Buffer + 2 shadow
+            new(DescriptorType.CombinedImageSampler, 7),  // 4 G-Buffer + 2 shadow + skybox
             new(DescriptorType.UniformBuffer, 3)          // Camera + Lights + Shadow
         };
 
@@ -150,6 +158,7 @@ public sealed class LightingPass : GraphicsNode3D
 
         _descriptorSet.UpdateTextureArray(7, _dummyShadowArray, _shadowSampler);
         _descriptorSet.UpdateTextureCubeArray(8, _dummyShadowCubeArray, _shadowSampler);
+        _descriptorSet.UpdateTexture(9, _dummySkybox, _gBufferSampler);
     }
 
     /// <summary>
@@ -205,15 +214,32 @@ public sealed class LightingPass : GraphicsNode3D
         Color ambientColor,
         float ambientIntensity,
         ShadowUBO? shadowData = null)
+        => Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity, shadowData, skybox: null);
+
+    internal void Execute(
+        Camera.Camera3D.Resource camera,
+        IReadOnlyList<LightData> lightDataList,
+        Color backgroundColor,
+        Color ambientColor,
+        float ambientIntensity,
+        ShadowUBO? shadowData,
+        ITexture2D? skybox)
     {
         if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null)
             return;
+
+        if (!ReferenceEquals(skybox, _boundSkybox))
+        {
+            _descriptorSet.UpdateTexture(9, skybox ?? _dummySkybox!, _gBufferSampler!);
+            _boundSkybox = skybox;
+        }
 
         var ubo = new LightingPassUBO
         {
             CameraPosition = camera.Position,
             AmbientColor = ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
-            BackgroundColor = backgroundColor.ToLinearPremultiplied()
+            BackgroundColor = backgroundColor.ToLinearPremultiplied(),
+            HasSkybox = skybox is null ? 0 : 1,
         };
         _cameraUniformBuffer!.Upload(new ReadOnlySpan<LightingPassUBO>(ref ubo));
 
@@ -240,7 +266,7 @@ public sealed class LightingPass : GraphicsNode3D
     protected override void OnDispose()
     {
         DisposeResources([_descriptorSet, _pipeline, _lightsBuffer, _cameraUniformBuffer, _shadowBuffer,
-            _gBufferSampler, _shadowSampler, _dummyShadowArray, _dummyShadowCubeArray,
+            _gBufferSampler, _shadowSampler, _dummyShadowArray, _dummyShadowCubeArray, _dummySkybox,
             Framebuffer, RenderPass, OutputTexture]);
     }
 
@@ -340,7 +366,7 @@ public sealed class LightingPass : GraphicsNode3D
             vec3 cameraPosition;
             float _pad1;
             vec3 ambientColor;
-            float _pad2;
+            int hasSkybox;
             vec4 backgroundColor;
         } camera;
 
@@ -362,6 +388,7 @@ public sealed class LightingPass : GraphicsNode3D
 
         layout(binding = 7) uniform sampler2DArray shadowMapArray;
         layout(binding = 8) uniform samplerCubeArray shadowMapCubeArray;
+        layout(binding = 9) uniform sampler2D skyBackground;
 
         layout(location = 0) out vec4 outColor;
 
@@ -572,6 +599,17 @@ public sealed class LightingPass : GraphicsNode3D
         }
         #endif
 
+        vec4 effectiveBackground() {
+            if (camera.hasSkybox == 0) return camera.backgroundColor;
+            vec4 sky = texelFetch(skyBackground, ivec2(gl_FragCoord.xy), 0);
+            return sky + camera.backgroundColor * (1.0 - sky.a);
+        }
+
+        void writeBackground() {
+            if (camera.hasSkybox == 0) discard;
+            outColor = effectiveBackground();
+        }
+
         void main() {
         #if MULTISAMPLED
             ivec2 pixel = ivec2(gl_FragCoord.xy);
@@ -593,8 +631,11 @@ public sealed class LightingPass : GraphicsNode3D
                 }
             }
             if (sampleIndex == count) {
-                if (!firstCovered) discard;
-                outColor = shade(firstPosition, firstNormal, firstAlbedoRoughness, firstEmissionAO);
+                if (firstCovered) {
+                    outColor = shade(firstPosition, firstNormal, firstAlbedoRoughness, firstEmissionAO);
+                } else {
+                    writeBackground();
+                }
                 return;
             }
 
@@ -607,11 +648,18 @@ public sealed class LightingPass : GraphicsNode3D
                     covered++;
                 }
             }
-            if (covered == 0) discard;
-            outColor = (sum + camera.backgroundColor * float(count - covered)) / float(count);
+            if (covered == 0) {
+                writeBackground();
+                return;
+            }
+            if (covered < count) sum += effectiveBackground() * float(count - covered);
+            outColor = sum / float(count);
         #else
             vec4 position = texture(gPosition, fragTexCoord);
-            if (position.a < 0.5) discard;
+            if (position.a < 0.5) {
+                writeBackground();
+                return;
+            }
             outColor = shade(position, texture(gNormalMetallic, fragTexCoord),
                 texture(gAlbedoRoughness, fragTexCoord), texture(gEmissionAO, fragTexCoord));
         #endif
@@ -624,7 +672,7 @@ public sealed class LightingPass : GraphicsNode3D
         public Vector3 CameraPosition;
         private float _pad1;
         public Vector3 AmbientColor;
-        private float _pad2;
+        public int HasSkybox;
         public Vector4 BackgroundColor;
     }
 

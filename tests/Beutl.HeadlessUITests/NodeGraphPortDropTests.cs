@@ -74,6 +74,10 @@ public class NodeGraphPortDropTests
             Assert.That(menu.IsOpen, Is.True);
             Assert.That(graph.Nodes, Has.Count.EqualTo(1));
             Assert.That(feedback.Pulses, Is.Empty);
+            FAMenuFlyoutSubItem brushes = menu.Items.OfType<FAMenuFlyoutSubItem>()
+                .Single(item => Equals(item.Text, GraphicsStrings.Brush));
+            Assert.That(brushes.Items.OfType<FAMenuFlyoutItem>().Select(item => item.Text),
+                Does.Contain(GraphicsStrings.DrawableBrushNode));
             FAMenuFlyoutSubItem utilities = menu.Items.OfType<FAMenuFlyoutSubItem>()
                 .Single(item => Equals(item.Text, NodeGraphStrings.ToolsAndValues));
             FAMenuFlyoutSubItem math = utilities.Items.OfType<FAMenuFlyoutSubItem>()

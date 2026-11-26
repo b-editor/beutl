@@ -33,6 +33,8 @@ public sealed partial class DrawableTextureSource : TextureSource
     {
         private DrawableRenderNode? _drawableNode;
 
+        internal override bool HasContent => Drawable is { IsEnabled: true } && TextureWidth > 0 && TextureHeight > 0;
+
         internal Rect TextureDomain
             => new(0, 0, TextureWidth, TextureHeight);
 

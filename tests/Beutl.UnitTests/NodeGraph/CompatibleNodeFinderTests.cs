@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
@@ -82,6 +83,30 @@ public class CompatibleNodeFinderTests
         graph.Nodes.Add(new GroupInput());
         results = CompatibleNodeFinder.Find(graph, source.Maximum, [dynamicItem]);
         Assert.That(results.ContainsKey(dynamicItem), Is.False);
+    }
+
+    [Test]
+    public void Find_ShapeFill_OffersDrawableAsBrush()
+    {
+        if (GraphNodeRegistry.FindItem(typeof(FactoryNode<DrawableBrush>)) is null)
+        {
+            NodesRegistrar.RegisterAll();
+        }
+
+        var graph = new GraphModel();
+        var shape = new GeometryShapeNode();
+        graph.Nodes.Add(shape);
+        var brushes = GraphNodeRegistry.GetRegistered().OfType<GraphNodeRegistry.GroupableRegistryItem>()
+            .Single(group => group.DisplayName == GraphicsStrings.Brush);
+
+        var candidates = CompatibleNodeFinder.Find(graph, shape.Fill, [brushes]);
+        var candidate = candidates.Values.Single(item => item.Registry.Type == typeof(FactoryNode<DrawableBrush>));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(candidate.Registry.DisplayName, Is.EqualTo(GraphicsStrings.DrawableBrushNode));
+            Assert.That(candidate.Ports.Single()?.AssociatedType, Is.EqualTo(typeof(DrawableBrush)));
+        }
     }
 
     [Test]

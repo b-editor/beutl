@@ -27,7 +27,7 @@ internal sealed class DrawableContentTexture : TextureSource.Resource, IRecorded
 
     public Rect TextureDomain => ContentBounds;
 
-    public bool HasContent => ContentBounds.Width > 0 && ContentBounds.Height > 0;
+    internal override bool HasContent => ContentBounds.Width > 0 && ContentBounds.Height > 0;
 
     /// <summary>Lays the drawables out on a canvas of <paramref name="canvasSize"/> and measures what they cover.</summary>
     /// <param name="canvasSize">The logical size of the 2D canvas.</param>
