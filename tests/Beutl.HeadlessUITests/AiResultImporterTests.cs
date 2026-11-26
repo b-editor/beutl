@@ -485,7 +485,7 @@ public sealed class AiResultImporterTests
             // As a save command holds it, so the auto-save of the undo waits for this check.
             using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None))
             {
-                Assert.That(await editor.SaveAsync(), Is.True);
+                Assert.That(await editor.SaveInReservedWorkspaceAsync(), Is.True);
                 using (Assert.EnterMultipleScope())
                 {
                     Assert.That(File.Exists(unsavedSidecar.LocalPath), Is.True,
@@ -673,7 +673,7 @@ public sealed class AiResultImporterTests
                            }
                        }))
                 {
-                    await Assert.CatchAsync<Exception>(async () => await editor.SaveAsync());
+                    await Assert.CatchAsync<Exception>(async () => await editor.SaveInReservedWorkspaceAsync());
                 }
 
                 using (Assert.EnterMultipleScope())
@@ -687,7 +687,7 @@ public sealed class AiResultImporterTests
                     Assert.That(File.ReadAllBytes(sceneFile), Is.EqualTo(sceneBefore));
                 }
 
-                Assert.That(await editor.SaveAsync(), Is.True);
+                Assert.That(await editor.SaveInReservedWorkspaceAsync(), Is.True);
                 Assert.That(Directory.GetFiles(sceneDirectory, "*.belm"), Has.Length.EqualTo(1));
             }
         }

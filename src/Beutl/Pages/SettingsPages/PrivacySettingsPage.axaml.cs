@@ -2,9 +2,9 @@
 
 namespace Beutl.Pages.SettingsPages;
 
-public sealed partial class TelemetrySettingsPage : UserControl
+public sealed partial class PrivacySettingsPage : UserControl
 {
-    public TelemetrySettingsPage()
+    public PrivacySettingsPage()
     {
         InitializeComponent();
     }

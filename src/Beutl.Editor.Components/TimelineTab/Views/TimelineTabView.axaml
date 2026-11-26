@@ -227,12 +227,6 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
-                        <ui:FAMenuFlyoutSubItem x:Name="EditingModeMenu" Text="{x:Static lang:Strings.EditingMode}">
-                            <ui:FAMenuFlyoutSubItem.IconSource>
-                                <icons:FluentIconSource Icon="Edit" />
-                            </ui:FAMenuFlyoutSubItem.IconSource>
-                        </ui:FAMenuFlyoutSubItem>
-                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:FAMenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.AddAdjustmentLayer"
@@ -242,6 +236,13 @@
                                 <icons:FluentIconSource Icon="Color" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutSubItem x:Name="EditingModeMenu" Text="{x:Static lang:Strings.EditingMode}">
+                            <ui:FAMenuFlyoutSubItem.IconSource>
+                                <icons:FluentIconSource Icon="Edit" />
+                            </ui:FAMenuFlyoutSubItem.IconSource>
+                        </ui:FAMenuFlyoutSubItem>
+                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Paste"
                                              Command="{CompiledBinding Paste}"
                                              InputGesture="{h:GetCommandGesture timeline.paste}"
@@ -250,7 +251,6 @@
                                 <icons:FluentIconSource Icon="ClipboardPaste" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
-                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SetStartTimeToPointerPosition"
                                              Command="{Binding SetStartTimeToPointerPosition}"
                                              InputGesture="{h:GetCommandGesture timeline.setStartTime}"
@@ -295,6 +295,7 @@
                                 <icons:FluentIconSource Icon="Settings" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.ShowBpmGridFlyout"
                                              Click="ShowBpmGridFlyout"
                                              Text="{x:Static lang:Strings.BpmGrid}">
@@ -302,6 +303,7 @@
                                 <icons:FluentIconSource Icon="MusicNote1" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutSubItem x:Name="ZoomMenu" Text="{x:Static lang:Strings.TimelineZoom}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
                                 <icons:FluentIconSource Icon="ZoomIn" />
@@ -336,6 +338,8 @@
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Zoom"
                                                  Click="ZoomClick"
                                                  CommandParameter="1.0"
+                                                 InputGesture="{h:GetCommandGesture timeline.resetZoom,
+                                                                                  ExtensionType={x:Type p:TimelineTabExtension}}"
                                                  Text="100%" />
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.Zoom"
                                                  Click="ZoomClick"

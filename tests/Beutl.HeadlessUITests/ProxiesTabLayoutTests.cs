@@ -18,6 +18,7 @@ using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 using Moq;
 using PixelSize = Beutl.Media.PixelSize;
 using Point = Avalonia.Point;
@@ -148,9 +149,9 @@ public class ProxiesTabLayoutTests
 
             Button more = view.FindControl<Button>("MoreActionsButton")!;
             Click(more);
-            var menu = (MenuFlyout)more.Flyout!;
-            MenuItem[] actions = menu.Items.OfType<MenuItem>().ToArray();
-            Assert.That(actions.Select(x => x.Command), Is.EquivalentTo(new System.Windows.Input.ICommand[]
+            var menu = (FAMenuFlyout)more.Flyout!;
+            FAMenuFlyoutItem[] actions = menu.Items.OfType<FAMenuFlyoutItem>().ToArray();
+            Assert.That(actions.Select(x => x.Command), Is.EqualTo(new System.Windows.Input.ICommand[]
             {
                 model.GenerateAllCommand, model.RegenerateSelectedCommand,
                 model.DeleteSelectedCommand, model.DeleteAllForProjectCommand
@@ -203,6 +204,17 @@ public class ProxiesTabLayoutTests
             Point focused = rowMore.TranslatePoint(default, window)!.Value;
             Assert.That(focused.Y, Is.GreaterThanOrEqualTo(38));
             Assert.That(focused.Y + rowMore.Bounds.Height, Is.LessThanOrEqualTo(window.ClientSize.Height));
+
+            window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            HeadlessTestHelpers.Render(3);
+            var rowMenu = (FAMenuFlyout)rowMore.Flyout!;
+            Assert.That(rowMenu.IsOpen, Is.True);
+            Assert.That(rowMenu.Items.OfType<FAMenuFlyoutItem>().Select(item => item.Command), Is.EqualTo(new System.Windows.Input.ICommand[]
+            {
+                FindClip().RegenerateCommand, FindClip().DeleteCommand
+            }));
+            rowMenu.Hide();
 
             scene.Children.Clear();
             HeadlessTestHelpers.Render(3);

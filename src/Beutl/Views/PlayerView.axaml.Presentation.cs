@@ -2,6 +2,7 @@
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Beutl.ViewModels;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views;
 
@@ -14,19 +15,19 @@ public partial class PlayerView
         if (sender is not Control button || TopLevel.GetTopLevel(this) is not Window owner)
             return;
 
-        var menu = new MenuFlyout();
+        var menu = new FAMenuFlyout();
         if (Presentation is { } existing)
         {
-            var fullscreen = new MenuItem { Header = Strings.PresentationToggleFullScreen };
+            var fullscreen = new FAMenuFlyoutItem { Text = Strings.PresentationToggleFullScreen };
             fullscreen.Click += (_, _) => existing.ToggleFullScreen();
-            var close = new MenuItem { Header = Strings.PresentationClose };
+            var close = new FAMenuFlyoutItem { Text = Strings.PresentationClose };
             close.Click += (_, _) => existing.Close();
             menu.Items.Add(fullscreen);
             menu.Items.Add(close);
         }
         else
         {
-            var windowed = new MenuItem { Header = Strings.PresentationWindowed };
+            var windowed = new FAMenuFlyoutItem { Text = Strings.PresentationWindowed };
             windowed.Click += (_, _) => OpenPresentation(owner.Screens.ScreenFromWindow(owner), false);
             menu.Items.Add(windowed);
             int number = 0;
@@ -34,16 +35,16 @@ public partial class PlayerView
             {
                 number++;
                 string name = screen.DisplayName ?? string.Format(Strings.PresentationDisplay, number);
-                var item = new MenuItem
+                var item = new FAMenuFlyoutItem
                 {
-                    Header = $"{Strings.PresentationFullScreen}: {name} ({screen.Bounds.Width} × {screen.Bounds.Height})"
+                    Text = $"{Strings.PresentationFullScreen}: {name} ({screen.Bounds.Width} × {screen.Bounds.Height})"
                 };
                 item.Click += (_, _) => OpenPresentation(screen, true);
                 menu.Items.Add(item);
             }
         }
-        menu.Items.Add(new Separator());
-        var mobile = new MenuItem { Header = Strings.MobilePreview };
+        menu.Items.Add(new FAMenuFlyoutSeparator());
+        var mobile = new FAMenuFlyoutItem { Text = Strings.MobilePreview };
         mobile.Click += (_, _) => OpenMobilePreview();
         menu.Items.Add(mobile);
         menu.ShowAt(button);

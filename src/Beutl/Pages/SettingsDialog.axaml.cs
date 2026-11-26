@@ -1,10 +1,10 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
-using Beutl.Configuration;
 using Beutl.Controls.Navigation;
 using Beutl.Logging;
 using Beutl.Pages.SettingsPages;
 using Beutl.ViewModels;
+using Beutl.ViewModels.SettingsPages;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
@@ -131,50 +131,69 @@ public sealed partial class SettingsDialog : FAAppWindow
                 Strings.View, typeof(ViewSettingsPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.Eye }),
             GetContext: settings => settings.View),
-        new(typeof(EditorSettingsPage), "EditorSettingsPageViewModel", 2,
+        new(typeof(EditorSettingsPage), nameof(EditorSettingsPageViewModel), 2,
             CreateItem: () => NavigationItem(
                 Strings.Editor, typeof(EditorSettingsPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.Edit }),
             GetContext: settings => settings.Editor),
-        new(typeof(KeyMapSettingsPage), "KeyMapSettingsPageViewModel", 3,
+        new(typeof(PreviewSettingsPage), nameof(PreviewSettingsPageViewModel), 3,
+            CreateItem: () => NavigationItem(
+                Strings.Preview, typeof(PreviewSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.Video }),
+            GetContext: settings => settings.Preview),
+        new(typeof(PerformanceSettingsPage), nameof(PerformanceSettingsPageViewModel), 4,
+            CreateItem: () => NavigationItem(
+                SettingsStrings.Performance, typeof(PerformanceSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.TopSpeed }),
+            GetContext: settings => settings.Performance),
+        new(typeof(VersionControlSettingsPage), nameof(VersionControlSettingsPageViewModel), 5,
+            CreateItem: () => NavigationItem(
+                Strings.VersionControl, typeof(VersionControlSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.BranchFork }),
+            GetContext: settings => settings.VersionControl),
+        new(typeof(KeyMapSettingsPage), "KeyMapSettingsPageViewModel", 6,
             CreateItem: () => NavigationItem(
                 SettingsStrings.Keymap, typeof(KeyMapSettingsPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.Keyboard }),
             GetContext: settings => settings.KeyMap),
-        new(typeof(FontSettingsPage), "FontSettingsPageViewModel", 4,
+        new(typeof(FontSettingsPage), "FontSettingsPageViewModel", 7,
             CreateItem: () => NavigationItem(
                 SettingsStrings.Font, typeof(FontSettingsPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.TextFont }),
             GetContext: settings => settings.Font),
-        new(typeof(ExtensionsSettingsPage), "ExtensionsSettingsPageViewModel", 5,
+        new(typeof(ExtensionsSettingsPage), "ExtensionsSettingsPageViewModel", 8,
             CreateItem: () => NavigationItem(
                 Strings.Extensions, typeof(ExtensionsSettingsPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.PuzzlePiece }),
             GetContext: settings => settings.ExtensionsPage),
-        new(typeof(EditorExtensionPriorityPage), "EditorExtensionPriorityPageViewModel", 5, IsSubPage: true),
-        new(typeof(DecoderPriorityPage), "DecoderPriorityPageViewModel", 5, IsSubPage: true),
-        new(typeof(AnExtensionSettingsPage), "AnExtensionSettingsPageViewModel", 5, IsSubPage: true),
-        new(typeof(AiAgentSettingsPage), "AiAgentSettingsPageViewModel", 6,
+        new(typeof(EditorExtensionPriorityPage), "EditorExtensionPriorityPageViewModel", 8, IsSubPage: true),
+        new(typeof(DecoderPriorityPage), "DecoderPriorityPageViewModel", 8, IsSubPage: true),
+        new(typeof(AnExtensionSettingsPage), "AnExtensionSettingsPageViewModel", 8, IsSubPage: true),
+        new(typeof(AiAgentSettingsPage), "AiAgentSettingsPageViewModel", 9,
             CreateItem: () => NavigationItem(
                 SettingsStrings.AiAgents, typeof(AiAgentSettingsPage),
                 new FluentIcons.Avalonia.Fluent.SymbolIconSource { Symbol = FluentIcons.Common.Symbol.Chat }),
             GetContext: settings => settings.AiAgent),
-        new(typeof(BrowserSettingsPage), "BrowserSettingsPageViewModel", 7,
+        new(typeof(BrowserSettingsPage), "BrowserSettingsPageViewModel", 10,
             CreateItem: () => NavigationItem(
                 Strings.WebBrowser, typeof(BrowserSettingsPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.Globe }),
             GetContext: settings => settings.Browser),
-        new(typeof(TerminalSettingsPage), nameof(TerminalConfig), 8,
+        new(typeof(TerminalSettingsPage), nameof(TerminalSettingsPageViewModel), 11,
             CreateItem: () => NavigationItem(
                 Strings.Terminal, typeof(TerminalSettingsPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.WindowConsole }),
             GetContext: settings => settings.Terminal),
-        new(typeof(InformationPage), "InformationPageViewModel", 9,
+        new(typeof(PrivacySettingsPage), nameof(PrivacySettingsPageViewModel), 12,
+            CreateItem: () => NavigationItem(
+                SettingsStrings.Privacy, typeof(PrivacySettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.LockClosed }),
+            GetContext: settings => settings.Privacy),
+        new(typeof(InformationPage), "InformationPageViewModel", 13,
             CreateItem: () => NavigationItem(
                 Strings.Info, typeof(InformationPage),
                 new FluentIconSource { Icon = FluentIcons.Common.Icon.Info }),
             GetContext: settings => settings.Information),
-        new(typeof(TelemetrySettingsPage), "TelemetrySettingsPageViewModel", 9, IsSubPage: true),
     ];
 
     private static FANavigationViewItem NavigationItem(string content, Type pageType, FAIconSource icon)

@@ -626,6 +626,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:StrokeEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Offset, Pen
+[Beutl.Engine]Beutl.Graphics.Effects:TextOnPathEffect
+  sealed
+  keys: Animations, Expressions, FollowRotation, Id, IsEnabled, Name, Path, PathOffset
 [Beutl.Engine]Beutl.Graphics.Effects:Threshold
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Smoothness, Strength, Value

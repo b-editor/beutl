@@ -48,7 +48,8 @@ internal sealed class TextShaper : IDisposable
         }
     }
 
-    internal readonly record struct Result(uint[] Codepoints, uint[] Clusters, SKPoint[] Points, SKPoint Advance);
+    internal readonly record struct Result(
+        uint[] Codepoints, uint[] Clusters, SKPoint[] Points, SKPoint Advance, SKPoint[]? PenPositions = null);
 
     public SKShaper.Result Shape(HarfBuzzSharp.Buffer buffer, SKFont font)
     {
@@ -56,7 +57,8 @@ internal sealed class TextShaper : IDisposable
         return new SKShaper.Result(result.Codepoints, result.Clusters, result.Points, result.Advance.X);
     }
 
-    public Result ShapeWithAdvance(HarfBuzzSharp.Buffer buffer, SKFont font, bool letterSpacing = false)
+    public Result ShapeWithAdvance(HarfBuzzSharp.Buffer buffer, SKFont font, bool letterSpacing = false,
+        bool capturePenPositions = false)
     {
         _font.Shape(buffer, letterSpacing ? s_letterSpacingFeatures : []);
 
@@ -70,6 +72,7 @@ internal sealed class TextShaper : IDisposable
         var codepoints = new uint[length];
         var clusters = new uint[length];
         var points = new SKPoint[length];
+        SKPoint[]? pens = capturePenPositions ? new SKPoint[length + 1] : null;
         float x = 0;
         float y = 0;
         for (int i = 0; i < length; i++)
@@ -80,9 +83,11 @@ internal sealed class TextShaper : IDisposable
 
             x += positions[i].XAdvance * textSizeX;
             y -= positions[i].YAdvance * textSizeY;
+            if (pens is not null)
+                pens[i + 1] = new SKPoint(x, y);
         }
 
-        return new Result(codepoints, clusters, points, new SKPoint(x, y));
+        return new Result(codepoints, clusters, points, new SKPoint(x, y), pens);
     }
 
     public bool HasVariationGlyph(int unicode, uint selector) =>

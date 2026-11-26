@@ -2711,4 +2711,16 @@
   <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
     <value>脚本与节点</value>
   </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>路径文字</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>路径</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>路径偏移 (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>沿路径排列文字。请在文字对象上启用按字符分割。</value>
+  </data>
 </root>

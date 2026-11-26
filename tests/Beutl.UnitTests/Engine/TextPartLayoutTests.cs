@@ -104,11 +104,11 @@ public class TextPartLayoutTests
 
         Assert.That(layout.Counts, Is.EqualTo(new TextPartCounts(5, 2, 4)));
         Assert.That(columns[0].Runs.Select(run => run.Text.Text.Start), Is.EqualTo(new[] { 0, 1, 3 }));
-        Assert.That(columns[0].Runs.SelectMany(run => layout.GetGlyphs(run.Text).ToArray()), Is.EqualTo(new TextPartIndices[]
+        Assert.That(layout.Runs.Take(columns[0].Runs.Count).SelectMany(run => run.Glyphs), Is.EqualTo(new TextPartIndices[]
         {
             new(0, 0, 0), new(1, 0, 0), new(2, 0, 0), new(3, 0, 0),
         }));
-        Assert.That(layout.GetGlyphs(columns[2].Runs.Single().Text).ToArray(), Is.EqualTo(new[] { new TextPartIndices(4, 1, 2) }));
+        Assert.That(layout.Runs[^1].Glyphs, Is.EqualTo(new[] { new TextPartIndices(4, 1, 2) }));
     }
 
     [Test]
@@ -139,14 +139,7 @@ public class TextPartLayoutTests
     }
 
     private static TextPartIndices[] GetGlyphs(TextBlock.Resource text)
-    {
-        var layout = text.GetTextPartLayout();
-        var glyphs = new List<TextPartIndices>();
-        foreach (var line in text.GetTextElements().Lines)
-            foreach (var run in line)
-                glyphs.AddRange(layout.GetGlyphs(run).ToArray());
-        return glyphs.ToArray();
-    }
+        => text.GetTextPartLayout().Runs.SelectMany(run => run.Glyphs).ToArray();
 
     private static TextBlock Create(string content) => new()
     {

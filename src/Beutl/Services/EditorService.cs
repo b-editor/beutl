@@ -162,6 +162,10 @@ public sealed partial class EditorService
         _projectVersionControlService.Value = service;
     }
 
+    internal static ValueTask<bool> SaveEditorInReservedWorkspaceAsync(ISavableEditorContext editor)
+        => editor is EditViewModel sceneEditor ? sceneEditor.SaveInReservedWorkspaceAsync() : editor.SaveAsync();
+
+    // Lifecycle callers reserve the workspace before saving the project and its editors.
     internal async Task<bool> SaveProjectFilesAsync(
         Project project,
         CancellationToken cancellationToken)
@@ -195,7 +199,7 @@ public sealed partial class EditorService
             cancellationToken.ThrowIfCancellationRequested();
             if (item.Context.Value is EditViewModel sceneEditor)
                 await sceneEditor.FlushMediaFingerprintsAsync();
-            if (item.Context.Value is ISavableEditorContext editor && !await editor.SaveAsync())
+            if (item.Context.Value is ISavableEditorContext editor && !await SaveEditorInReservedWorkspaceAsync(editor))
             {
                 return false;
             }
@@ -309,7 +313,7 @@ public sealed partial class EditorService
                 editor.HistoryManager.FlushPendingMutations();
                 editor.HistoryManager.Commit();
                 await editor.FlushMediaFingerprintsAsync();
-                if (!await editor.SaveAsync())
+                if (!await editor.SaveInReservedWorkspaceAsync())
                     throw new IOException(MessageStrings.FileSaveException);
             }
 

@@ -41,6 +41,11 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         return DuplicateAtClickedPositionCore(scene, sources, clickedFrame, clickedLayer, sourceGroups);
     }
 
+    // Scene children must be editable. Deserialized clipboard sources keep their own layer indices,
+    // which must not pick up the destination scene's locks.
+    internal static bool IsEligibleSource(Scene scene, Element element)
+        => !scene.Children.Contains(element) || !scene.IsElementLocked(element);
+
     private DuplicateOutcome DuplicateAtClickedPositionCore(
         Scene scene,
         IReadOnlyList<Element> sources,
@@ -51,13 +56,8 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(sources);
 
-        // Duplicating a locked clip would bypass the lock's editing freeze — the
-        // same rule ElementMoveService applies to Alt+drag duplicates. Only scene
-        // children are checked: PasteElementsAsync routes deserialized clipboard
-        // elements here, and their source ZIndex must not pick up this scene's
-        // layer locks.
         Element[] sourceArray = sources
-            .Where(e => !scene.Children.Contains(e) || !scene.IsElementLocked(e))
+            .Where(e => IsEligibleSource(scene, e))
             .ToArray();
         if (sourceArray.Length == 0) return DuplicateOutcome.Failed;
 

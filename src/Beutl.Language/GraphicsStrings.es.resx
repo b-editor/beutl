@@ -2711,4 +2711,16 @@
   <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
     <value>Scripts y nodos</value>
   </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>Texto en un trazado</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>Trazado</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>Desplazamiento en el trazado (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>Coloca texto a lo largo de un trazado. Activa Dividir por caracteres en el texto.</value>
+  </data>
 </root>

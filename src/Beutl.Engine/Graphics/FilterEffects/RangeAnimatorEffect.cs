@@ -98,8 +98,8 @@ public sealed partial class RangeAnimatorEffect : FilterEffect
     {
         int count = effectContext.Targets.Count;
         Span<float> amounts = count <= 128 ? stackalloc float[count] : new float[count];
-        DelayAnimationOrdering.ComputeTargetRanks(data.Order, data.RandomSeed, effectContext.Targets, amounts, data.Unit);
-        RangeAnimatorSelector.ConvertRanksToAmounts(amounts, data.RangeStart, data.RangeEnd, data.RangeOffset, data.Shape, data.Smoothness);
+        float maxRank = DelayAnimationOrdering.ComputeTargetRanks(data.Order, data.RandomSeed, effectContext.Targets, amounts, data.Unit);
+        RangeAnimatorSelector.ConvertRanksToAmounts(amounts, data.RangeStart, data.RangeEnd, data.RangeOffset, data.Shape, data.Smoothness, maxRank);
         Dictionary<TextPartTag, Rect>? characterBounds = data.Scale != 1 || data.Rotation != 0
             ? GetCharacterBounds(effectContext.Targets)
             : null;
@@ -210,11 +210,9 @@ public sealed partial class RangeAnimatorEffect : FilterEffect
 internal static class RangeAnimatorSelector
 {
     internal static void ConvertRanksToAmounts(
-        Span<float> ranks, float start, float end, float offset, RangeAnimatorShape shape, float smoothness)
+        Span<float> ranks, float start, float end, float offset, RangeAnimatorShape shape, float smoothness, float? maximumRank = null)
     {
-        float maxRank = 0;
-        foreach (float rank in ranks)
-            maxRank = Math.Max(maxRank, rank);
+        float maxRank = maximumRank ?? DelayAnimationOrdering.MaximumRank(ranks);
 
         start = float.IsFinite(start) ? Math.Clamp(start, 0, 100) : 0;
         end = float.IsFinite(end) ? Math.Clamp(end, 0, 100) : 100;
