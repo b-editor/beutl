@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
@@ -10,6 +9,7 @@ using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -379,11 +379,11 @@ public sealed partial class GraphEditorViewModel : IDisposable
         Element = null;
     }
 
-    private Task CopyAllKeyFramesAsync() => KeyFrameClipboardCommands.CopyAnimationAsync(EditorContext.GetRequiredService<INotificationService>(), Animation, _logger);
+    private Task CopyAllKeyFramesAsync() => KeyFrameClipboardCommands.CopyAnimationAsync(EditorContext, Animation, _logger);
 
-    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboard? clipboard = null)
+    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboardGateway? clipboard = null)
     {
-        clipboard ??= ClipboardHelper.GetClipboard();
+        clipboard ??= AvaloniaClipboardGateway.Resolve(EditorContext);
         if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
         var canPaste = CapturePasteContext();
 

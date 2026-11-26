@@ -1,8 +1,6 @@
 ﻿using System.Collections.ObjectModel;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Beutl.Configuration;
-using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
@@ -16,21 +14,23 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.PropertyEditors.ViewModels;
 
-public class SelectLibraryItemDialogViewModel
+public class SelectLibraryItemDialogViewModel : SearchablePickerViewModel<LibraryItem>
 {
+    private const string PinnedItemsKey = "LibraryService.PinnedItems";
+    private const string ShowTilesKey = "LibraryItemPicker.ShowTiles";
+    private static readonly TimeSpan s_searchDelay = TimeSpan.FromMilliseconds(100);
+
     private readonly LibraryService _libraryService = null!;
     private readonly string _format;
     private readonly Type _baseType;
     private readonly Task<PinnableLibraryItem[]> _itemsTask;
-    private readonly List<Type> _pinnedItems;
     private readonly Dictionary<LibraryItem, LibraryEffectCategory?> _effectCategories = [];
     private readonly List<LibraryCategoryKey> _categoryKeys = [];
     private readonly ObservableCollection<string> _categories = [];
     private Task<PinnableLibraryItem[]>? _allItemsTask;
     private PinnableLibraryItem[] _allReferenceItems = [];
-    private int _searchVersion;
+    private int _catalogVersion;
     private bool _updatingCategories;
-    private string? _appliedSearchText;
     private string? _appliedReferenceSearchText;
 
     public SelectLibraryItemDialogViewModel(Beutl.Media.FontManager fonts, LibraryService libraryService, string format, Type baseType)
@@ -49,6 +49,7 @@ public class SelectLibraryItemDialogViewModel
     internal SelectLibraryItemDialogViewModel(Beutl.Media.FontManager fonts, LibraryService libraryService, string format, Type baseType,
         Task<PinnableLibraryItem[]>? itemsTask, Task<PinnableLibraryItem[]>? allItemsTask,
         Func<CancellationToken, Task<LibraryThumbnailSubject?>>? thumbnailContent = null, DecoderRegistry? decoders = null)
+        : base(PinnedItemsKey, s_searchDelay, static name => TypeFormat.ToType(name) is { } type ? TypeFormat.ToString(type) : null)
     {
         _libraryService = libraryService;
         _format = format;
@@ -71,7 +72,7 @@ public class SelectLibraryItemDialogViewModel
                 _categories.Add(Strings.Others);
             }
 
-            SelectedCategoryIndex.Skip(1).Where(_ => !_updatingCategories).Subscribe(_ => ProcessSearchText());
+            SelectedCategoryIndex.Skip(1).Where(_ => !_updatingCategories).Subscribe(_ => RefreshCatalog());
         }
 
         IReadOnlySet<Type> items = _libraryService.GetTypesFromFormat(_format);
@@ -79,12 +80,6 @@ public class SelectLibraryItemDialogViewModel
         {
             ShowAll.Value = true;
         }
-
-        string json = Preferences.Default.Get("LibraryService.PinnedItems", "[]");
-        _pinnedItems = (JsonSerializer.Deserialize<string[]>(json) ?? [])
-            .Select(TypeFormat.ToType)
-            .Where(t => t != null)
-            .ToList()!;
 
         _itemsTask = itemsTask ?? Task.Run(() =>
         {
@@ -101,36 +96,27 @@ public class SelectLibraryItemDialogViewModel
                 IsBusy.Value = false;
             }
         });
-        ShowAll.Skip(1).Subscribe(_ => ProcessSearchText());
-
-        FlushSearchAfterTypingPause();
-
-        ProcessSearchText();
+        ShowAll.Skip(1).Subscribe(_ => RefreshCatalog());
+        RefreshCatalog();
     }
 
     // Lists only the given references, for picking the target of a presenter, so no types are looked up.
     internal SelectLibraryItemDialogViewModel(IReadOnlyList<TargetObjectInfo> targets)
+        : base(null, s_searchDelay)
     {
         _format = string.Empty;
         _baseType = typeof(object);
         _itemsTask = Task.FromResult<PinnableLibraryItem[]>([]);
-        _pinnedItems = [];
         ShowsOnlyReferences = true;
-
-        FlushSearchAfterTypingPause();
 
         InitializeReferences(targets);
     }
-
-    private const string ShowTilesKey = "LibraryItemPicker.ShowTiles";
 
     // Whether the listed types have moving thumbnails, which the picker can show as tiles.
     public bool HasThumbnails { get; }
 
     // Whether the picker shows the items as tiles, remembered across pickers.
     public ReactiveProperty<bool> ShowTiles { get; } = new();
-
-    public ReactiveCollection<PinnableLibraryItem> Items { get; } = [];
 
     public IReadOnlyList<string> Categories => _categories;
 
@@ -139,10 +125,6 @@ public class SelectLibraryItemDialogViewModel
     public ReactiveProperty<bool> ShowAll { get; } = new();
 
     public ReactiveProperty<bool> IsBusy { get; } = new();
-
-    public ReactiveProperty<string?> SearchText { get; } = new();
-
-    public ReactiveProperty<PinnableLibraryItem?> SelectedItem { get; } = new();
 
     public ReactiveCollection<PinnableLibraryItem> ReferenceItems { get; } = [];
 
@@ -153,25 +135,26 @@ public class SelectLibraryItemDialogViewModel
 
     internal Task SearchTask { get; private set; } = Task.CompletedTask;
 
-    // Applies the search text right away instead of after the typing pause, so that a key acting on the results,
-    // such as Down or Enter, sees the results for what was typed. A catalog still loading shows no results until it
-    // finishes, so there is nothing stale to act on.
-    public void FlushSearch()
+    protected override bool PinnedItemsFirst => true;
+
+    protected override bool ManageSelection => false;
+
+    protected override void OnSearchFlushed()
     {
-        if (!ShowsOnlyReferences && !string.Equals(SearchText.Value, _appliedSearchText, StringComparison.Ordinal))
-            ProcessSearchText();
         if (!string.Equals(SearchText.Value, _appliedReferenceSearchText, StringComparison.Ordinal))
             ProcessReferenceSearchText();
     }
 
-    private void FlushSearchAfterTypingPause()
+    protected override Func<LibraryItem, int?>? Search(string searchText)
     {
-        // SearchBoxが並列で変更された場合、最後の一つを処理する
-        SearchText
-            .Skip(1)
-            .Throttle(TimeSpan.FromMilliseconds(100))
-            .ObserveOnUIDispatcher()
-            .Subscribe(_ => FlushSearch());
+        if (ShowsOnlyReferences || string.IsNullOrWhiteSpace(searchText)) return null;
+
+        Regex[] regexes = RegexHelper.CreateRegexes(searchText);
+        return item =>
+        {
+            int score = LibraryItemViewModel.CreateFromLibraryItem(item).Match(regexes);
+            return score > 0 ? score : null;
+        };
     }
 
     public async Task SelectTypeAsync(Type? type)
@@ -222,34 +205,6 @@ public class SelectLibraryItemDialogViewModel
         });
     }
 
-    public void Pin(PinnableLibraryItem item)
-    {
-        Type? type = GetImplementationType((LibraryItem)item.UserData);
-        if (type == null) return;
-
-        _pinnedItems.Add(type);
-        SavePinnedItems();
-        ProcessSearchText();
-    }
-
-    public void Unpin(PinnableLibraryItem item)
-    {
-        Type? type = GetImplementationType((LibraryItem)item.UserData);
-        if (type == null) return;
-
-        _pinnedItems.Remove(type);
-        SavePinnedItems();
-        ProcessSearchText();
-    }
-
-    private void SavePinnedItems()
-    {
-        string[] array = _pinnedItems
-            .Select(TypeFormat.ToString)
-            .ToArray();
-        Preferences.Default.Set("LibraryService.PinnedItems", JsonSerializer.Serialize(array));
-    }
-
     private Type? GetImplementationType(LibraryItem item)
     {
         return item switch
@@ -260,11 +215,15 @@ public class SelectLibraryItemDialogViewModel
         };
     }
 
-    private IAnimatedThumbnailSource? GetThumbnail(LibraryItem item)
+    private SearchablePickerEntry<LibraryItem> CreateEntry(PinnableLibraryItem item)
     {
-        return Thumbnails != null && GetImplementationType(item) is { } type
-            ? Thumbnails.GetSource(type)
-            : null;
+        var libraryItem = (LibraryItem)item.UserData;
+        Type? type = GetImplementationType(libraryItem);
+        return new SearchablePickerEntry<LibraryItem>(
+            libraryItem, item.DisplayName, type == null ? null : TypeFormat.ToString(type), libraryItem, item.Description)
+        {
+            Thumbnail = type == null ? null : Thumbnails?.GetSource(type),
+        };
     }
 
     // The tiles' thumbnails, while the picker is open.
@@ -276,13 +235,6 @@ public class SelectLibraryItemDialogViewModel
         Thumbnails?.Dispose();
     }
 
-    private bool IsPinned(LibraryItem item)
-    {
-        Type? type = GetImplementationType(item);
-        if (type == null) return false;
-        return _pinnedItems.Contains(type);
-    }
-
     public void InitializeReferences(IReadOnlyList<TargetObjectInfo> targets)
     {
         _allReferenceItems = targets
@@ -291,22 +243,20 @@ public class SelectLibraryItemDialogViewModel
         ProcessReferenceSearchText();
     }
 
-    private async void ProcessSearchText()
+    private async void RefreshCatalog()
     {
-        await (SearchTask = ProcessSearchTextAsync());
+        await (SearchTask = RefreshCatalogAsync());
     }
 
-    private async Task ProcessSearchTextAsync()
+    private async Task RefreshCatalogAsync()
     {
-        int searchVersion = Interlocked.Increment(ref _searchVersion);
-        Items.ClearOnScheduler();
+        int version = Interlocked.Increment(ref _catalogVersion);
+        SetEntries([]);
         var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
-        if (searchVersion != Volatile.Read(ref _searchVersion)) return;
+        if (version != Volatile.Read(ref _catalogVersion)) return;
 
         UpdateOtherCategory(items);
 
-        // Read after the wait, so this is the text the results are for, whichever path asked for them.
-        _appliedSearchText = SearchText.Value;
         IEnumerable<PinnableLibraryItem> matchingItems = items;
         int categoryIndex = SelectedCategoryIndex.Value;
         if (categoryIndex > 0 && categoryIndex < Categories.Count)
@@ -315,30 +265,8 @@ public class SelectLibraryItemDialogViewModel
             matchingItems = matchingItems.Where(item => GetEffectCategoryKey(item) == category);
         }
 
-        items = matchingItems.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description)
-        {
-            Thumbnail = GetThumbnail((LibraryItem)i.UserData),
-        })
-            .OrderByDescending(t => t.IsPinned)
-            .ToArray();
-
-        if (string.IsNullOrWhiteSpace(SearchText.Value))
-        {
-            Items.AddRange(items);
-        }
-        else
-        {
-            Regex[] regexes = RegexHelper.CreateRegexes(SearchText.Value);
-
-            var newItems = items
-                .Select(v => (score: LibraryItemViewModel.CreateFromLibraryItem((LibraryItem)v.UserData).Match(regexes), item: v))
-                .Where(v => v.score > 0)
-                .OrderByDescending(t => t.item.IsPinned)
-                .ThenByDescending(v => v.score)
-                .Select(v => v.item)
-                .ToArray();
-            Items.AddRange(newItems);
-        }
+        // Apply the latest search text, including input received while the catalog was loading.
+        SetEntries(matchingItems.Select(CreateEntry));
     }
 
     private LibraryCategoryKey GetEffectCategoryKey(PinnableLibraryItem item)

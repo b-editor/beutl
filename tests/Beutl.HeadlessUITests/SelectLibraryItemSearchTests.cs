@@ -4,6 +4,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
@@ -121,6 +122,50 @@ public sealed class SelectLibraryItemSearchTests
         Assert.That(viewModel.Items.Select(i => i.DisplayName), Is.EqualTo(new[] { "Preferred catalog" }));
     }
 
+    [AvaloniaTest]
+    public async Task A_pin_survives_reopening_and_sorts_before_a_higher_scoring_result()
+    {
+        const string key = "LibraryService.PinnedItems";
+        string savedPins = Preferences.Default.Get(key, "[]");
+        try
+        {
+            Preferences.Default.Set(key, "[]");
+            Task<PinnableLibraryItem[]> catalog = Task.FromResult(new[]
+            {
+                CreateItem(typeof(RectShape), "Shape"),
+                CreateItem(typeof(EllipseShape), "Ellipse", "A rounded shape"),
+            });
+            var first = CreateViewModel(catalog, catalog);
+            using var firstShowAll = first.ShowAll;
+            using var firstSearchText = first.SearchText;
+            await first.SearchTask;
+            first.SearchText.Value = "Shape";
+            first.FlushSearch();
+            Assert.That(first.Items.Select(item => item.DisplayName), Is.EqualTo(new[] { "Shape", "Ellipse" }));
+
+            first.Pin(first.Items[1]);
+            Assert.That(first.Items[0].IsPinned, Is.True);
+            Assert.That(first.Items[0].DisplayName, Is.EqualTo("Ellipse"));
+
+            var reopened = CreateViewModel(catalog, catalog);
+            using var reopenedShowAll = reopened.ShowAll;
+            using var reopenedSearchText = reopened.SearchText;
+            await reopened.SearchTask;
+            reopened.SearchText.Value = "Shape";
+            reopened.FlushSearch();
+            Assert.That(reopened.Items[0].IsPinned, Is.True);
+            Assert.That(reopened.Items[0].DisplayName, Is.EqualTo("Ellipse"));
+
+            reopened.Unpin(reopened.Items[0]);
+            Assert.That(reopened.Items.Select(item => item.DisplayName), Is.EqualTo(new[] { "Shape", "Ellipse" }));
+            Assert.That(Preferences.Default.Get(key, "[]"), Is.EqualTo("[]"));
+        }
+        finally
+        {
+            Preferences.Default.Set(key, savedPins);
+        }
+    }
+
     // The editor creates the chosen type with its parameterless constructor.
     [AvaloniaTest]
     public async Task Show_all_lists_only_types_the_editor_can_create()
@@ -184,6 +229,7 @@ public sealed class SelectLibraryItemSearchTests
             await viewModel.SearchTask;
             HeadlessTestHelpers.Render(3);
             var presenter = window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
+            HeadlessCapture.SaveIfRequested(presenter, nameof(SelectLibraryItemSearchTests), "catalog");
             string word = viewModel.Items[^1].DisplayName;
             int unfiltered = viewModel.Items.Count;
 
@@ -196,6 +242,7 @@ public sealed class SelectLibraryItemSearchTests
                 && viewModel.Items.Count < unfiltered && viewModel.Items.Any(i => i.DisplayName == word));
             await viewModel.SearchTask;
             HeadlessTestHelpers.Render(2);
+            HeadlessCapture.SaveIfRequested(presenter, nameof(SelectLibraryItemSearchTests), "search-results");
             PinnableLibraryItem first = viewModel.Items[0];
 
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
@@ -395,10 +442,10 @@ public sealed class SelectLibraryItemSearchTests
     private static TaskCompletionSource<PinnableLibraryItem[]> CreateCompletion()
         => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private static PinnableLibraryItem CreateItem(Type type, string displayName)
+    private static PinnableLibraryItem CreateItem(Type type, string displayName, string? description = null)
     {
-        var item = new SingleTypeLibraryItem(KnownLibraryItemFormats.Drawable, type, displayName);
-        return new PinnableLibraryItem(displayName, false, item);
+        var item = new SingleTypeLibraryItem(KnownLibraryItemFormats.Drawable, type, displayName, description);
+        return new PinnableLibraryItem(displayName, false, item, description);
     }
 }
 
