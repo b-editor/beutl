@@ -121,6 +121,9 @@ porque el nuevo nombre entra en conflicto con una carpeta existente.</value>
   <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
     <value>No se pudo crear la superficie de renderizado 3D.</value>
   </data>
+  <data name="Scene3DAntiAliasingReduced" xml:space="preserve">
+    <value>Se ha reducido el suavizado de bordes 3D a {0}x por falta de memoria de la GPU.</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>Se produjo una excepción durante la salida.</value>
   </data>

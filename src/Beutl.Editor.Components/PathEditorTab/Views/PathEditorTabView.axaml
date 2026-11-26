@@ -47,8 +47,7 @@
                             usage:UsageTracking.Feature="PathEditor.ZoomOut"
                             AutomationProperties.Name="{x:Static lang:Strings.PathEditor_ZoomOut}"
                             Classes="toolbar"
-                            Click="ZoomOutClicked"
-                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_ZoomOut}">
+                            Click="ZoomOutClicked">
                         <icons:FluentIcon Icon="Subtract" FontSize="16" />
                     </Button>
                     <Button x:Name="ZoomValueButton"
@@ -57,22 +56,19 @@
                             AutomationProperties.Name="{x:Static lang:Strings.ResetZoom}"
                             Classes="toolbar"
                             Click="ResetZoomClicked"
-                            Content="100%"
-                            ToolTip.Tip="{x:Static lang:Strings.ResetZoom}" />
+                            Content="100%" />
                     <Button x:Name="ZoomInButton"
                             usage:UsageTracking.Feature="PathEditor.ZoomIn"
                             AutomationProperties.Name="{x:Static lang:Strings.PathEditor_ZoomIn}"
                             Classes="toolbar"
-                            Click="ZoomInClicked"
-                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_ZoomIn}">
+                            Click="ZoomInClicked">
                         <icons:FluentIcon Icon="Add" FontSize="16" />
                     </Button>
                     <Button x:Name="FitButton"
                             usage:UsageTracking.Feature="PathEditor.Fit"
                             AutomationProperties.Name="{x:Static lang:Strings.PathEditor_Fit}"
                             Classes="toolbar"
-                            Click="FitClicked"
-                            ToolTip.Tip="{x:Static lang:Strings.PathEditor_Fit}">
+                            Click="FitClicked">
                         <icons:FluentIcon Icon="ArrowAutofitWidth" FontSize="16" />
                     </Button>
                     <Button x:Name="CompactSettingsButton"

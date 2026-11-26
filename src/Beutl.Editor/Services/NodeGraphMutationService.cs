@@ -93,10 +93,28 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         Element? element = graph.FindHierarchicalParent<Element>();
         if (!ElementEditability.CanRepair(element, node)) return;
 
-        RemoveNodeCore(graph, node);
-        if (element != null) ElementRecoveryService.TryCompleteRepair(element, _historyManager);
+        RemoveNodesCore(graph, [node], element);
 
         _historyManager.Commit(CommandNames.RemoveNode);
+    }
+
+    public void RemoveNode(GraphModel graph, IReadOnlyList<GraphNode> nodes)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(nodes);
+        Element? element = graph.FindHierarchicalParent<Element>();
+        GraphNode[] removable = [.. nodes.Distinct()
+            .Where(node => graph.Nodes.Contains(node) && ElementEditability.CanRepair(element, node))];
+        if (removable.Length == 0) return;
+
+        _historyManager.ExecuteInTransaction(() => RemoveNodesCore(graph, removable, element), CommandNames.RemoveNode);
+    }
+
+    private void RemoveNodesCore(GraphModel graph, IReadOnlyList<GraphNode> nodes, Element? element)
+    {
+        foreach (GraphNode node in nodes)
+            RemoveNodeCore(graph, node);
+        if (element != null) ElementRecoveryService.TryCompleteRepair(element, _historyManager);
     }
 
     // Severs every connection of the node, then removes it, without committing.

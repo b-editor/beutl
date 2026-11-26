@@ -42,17 +42,24 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
     // Test seam: the Headless platform has no AppKit event to look at.
     internal Func<bool> IsKeyEquivalent { get; init; } = () => IsCurrentEventKeyDown(window);
 
+    internal (Func<bool> IsEnabled, IObservable<Unit> Changed)? Availability { get; init; }
+
     // A text input takes the action whether or not the fallback, which may need a scene, is available.
     public bool CanExecute(object? parameter)
-        => fallback.CanExecute(parameter) || IsTextInput(window.FocusManager?.GetFocusedElement());
+        => Availability?.IsEnabled() != false
+            && (fallback.CanExecute(parameter) || IsTextInput(window.FocusManager?.GetFocusedElement()));
 
-    // Keeps the entry's state with the focus until disposed.
+    // Keeps the entry's state with the focus and its availability until disposed.
     internal IDisposable FollowFocus() => new CompositeDisposable(
         window.AddDisposableHandler(InputElement.GotFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true),
-        window.AddDisposableHandler(InputElement.LostFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true));
+        window.AddDisposableHandler(InputElement.LostFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true),
+        Availability?.Changed.Subscribe(_ => _focusChanged?.Invoke(this, EventArgs.Empty)) ?? Disposable.Empty);
 
     public void Execute(object? parameter)
     {
+        if (Availability?.IsEnabled() == false)
+            return;
+
         bool isDialogOpen = IsDialogOpen(window);
         var target = window.FocusManager?.GetFocusedElement() as Interactive ?? window;
         // Not every dialog takes the focus when it opens, and what it covers must not get the key.
@@ -62,7 +69,8 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
         if (!isDialogOpen && SendToNativeResponder())
             return;
 
-        bool isKey = IsKeyEquivalent();
+        // Delete has no key equivalent, even when the menu item is chosen with the keyboard.
+        bool isKey = action != StandardEditAction.Delete && IsKeyEquivalent();
         bool isTextInput = IsTextInput(target);
         // A text input knows only the standard keys. Elsewhere a key map can have moved the entry's key, and the
         // standard one may then run another command.
@@ -102,6 +110,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
             StandardEditAction.Cut => new KeyGesture(Key.X, command),
             StandardEditAction.Copy => new KeyGesture(Key.C, command),
             StandardEditAction.Paste => new KeyGesture(Key.V, command),
+            StandardEditAction.Delete => new KeyGesture(Key.Delete),
             _ => new KeyGesture(Key.A, command)
         };
     }
@@ -123,6 +132,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
             StandardEditAction.Cut => "cut:",
             StandardEditAction.Copy => "copy:",
             StandardEditAction.Paste => "paste:",
+            StandardEditAction.Delete => "delete:",
             _ => "selectAll:"
         };
         // No target: AppKit walks the responder chain from the key window's first responder, as for any Edit menu.

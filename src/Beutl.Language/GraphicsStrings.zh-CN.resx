@@ -549,7 +549,7 @@
     <value>装饰器</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>时间控制器（视频）</value>
+    <value>时间控制器</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>调整时间范围</value>
@@ -654,6 +654,9 @@
     <value>伽马</value>
   </data>
   <data name="GeometryShape" xml:space="preserve">
+    <value>几何图形</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
     <value>几何图形</value>
   </data>
   <data name="GeometryShape_Data" xml:space="preserve">
@@ -1454,6 +1457,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>3D 场景</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D (实验性)</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>环境色</value>
   </data>
@@ -1480,6 +1486,24 @@
   </data>
   <data name="Scene3D_RenderSize" xml:space="preserve">
     <value>渲染大小</value>
+  </data>
+  <data name="Scene3D_AntiAliasing" xml:space="preserve">
+    <value>抗锯齿</value>
+  </data>
+  <data name="Scene3D_AntiAliasing_Description" xml:space="preserve">
+    <value>平滑 3D 对象的边缘。采样数越多，边缘越平滑，但需要更多 GPU 内存和渲染时间。</value>
+  </data>
+  <data name="AntiAliasingMode_Off" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa2x" xml:space="preserve">
+    <value>2x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa4x" xml:space="preserve">
+    <value>4x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa8x" xml:space="preserve">
+    <value>8x</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>纯色</value>
@@ -1682,6 +1706,9 @@
   <data name="Stroke" xml:space="preserve">
     <value>描边</value>
   </data>
+  <data name="Pen" xml:space="preserve">
+    <value>画笔</value>
+  </data>
   <data name="StrokeEffect" xml:space="preserve">
     <value>轮廓线</value>
   </data>
@@ -1831,6 +1858,18 @@
   </data>
   <data name="ClipTransition" xml:space="preserve">
     <value>转场</value>
+  </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>淡入淡出与溶解</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>擦除</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>运动</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>风格化</value>
   </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>时长</value>
@@ -2710,5 +2749,17 @@
   </data>
   <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
     <value>脚本与节点</value>
+  </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>路径文字</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>路径</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>路径偏移 (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>沿路径排列文字。请在文字对象上启用按字符分割。</value>
   </data>
 </root>

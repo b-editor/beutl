@@ -27,6 +27,18 @@ public abstract class GraphicsNode3D : RenderNode3D
     /// </summary>
     public IFramebuffer3D? Framebuffer { get; protected set; }
 
+    private protected ITexture2D CreateAttachment(int width, int height, TextureFormat format, int sampleCount)
+        => sampleCount > 1
+            ? Context.CreateTexture2D(width, height, format, sampleCount)
+            : Context.CreateTexture2D(width, height, format);
+
+    private protected IRenderPass3D CreateAttachmentPass(
+        IReadOnlyList<TextureFormat> colorFormats, TextureFormat? depthFormat, int sampleCount,
+        AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear, AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
+        => sampleCount > 1
+            ? Context.CreateRenderPass3D(colorFormats, depthFormat, colorLoadOp, depthLoadOp, sampleCount)
+            : Context.CreateRenderPass3D(colorFormats, depthFormat, colorLoadOp, depthLoadOp);
+
     /// <summary>
     /// Begins the render pass with the specified clear colors.
     /// </summary>

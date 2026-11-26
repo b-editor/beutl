@@ -626,6 +626,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:StrokeEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Offset, Pen
+[Beutl.Engine]Beutl.Graphics.Effects:TextOnPathEffect
+  sealed
+  keys: Animations, Expressions, FollowRotation, Id, IsEnabled, Name, Path, PathOffset
 [Beutl.Engine]Beutl.Graphics.Effects:Threshold
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Smoothness, Strength, Value
@@ -823,7 +826,7 @@ Beutl.Utilities
   abstract
 [Beutl.Engine]Beutl.Graphics3D:Scene3D
   unsealed
-  keys: AlignmentX, AlignmentY, AmbientColor, AmbientIntensity, Animations, BackgroundColor, BlendMode, Camera, Expressions, FilterEffect, Id, IsEnabled, Lights, Name, Objects, Opacity, RenderHeight, RenderWidth, Transform, TransformOrigin
+  keys: AlignmentX, AlignmentY, AmbientColor, AmbientIntensity, Animations, AntiAliasing, BackgroundColor, BlendMode, Camera, Expressions, FilterEffect, Id, IsEnabled, Lights, Name, Objects, Opacity, RenderHeight, RenderWidth, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Graphics:Drawable
   abstract
 [Beutl.Engine]Beutl.Graphics:DrawableDecorator
@@ -1778,6 +1781,30 @@ editor.toggleMarker
 editor.toggleOnionSkin
 editor.togglePreviewCheckerboard
 editor.togglePreviewGuides
+graphEditor.cancel
+graphEditor.copy
+graphEditor.cut
+graphEditor.delete
+graphEditor.deselectAll
+graphEditor.distributeEvenly
+graphEditor.ease
+graphEditor.easeIn
+graphEditor.easeOut
+graphEditor.fitAll
+graphEditor.fitSelection
+graphEditor.nextKeyFrame
+graphEditor.nudgeLeftFrame
+graphEditor.nudgeLeftLarge
+graphEditor.nudgeRightFrame
+graphEditor.nudgeRightLarge
+graphEditor.pan
+graphEditor.paste
+graphEditor.previousKeyFrame
+graphEditor.redo
+graphEditor.reverse
+graphEditor.selectAll
+graphEditor.undo
+graphEditor.velocity
 history.jumpToHistory
 library.addElement
 library.addElementFromTemplate
@@ -1793,6 +1820,12 @@ main.exit
 main.minimizeWindow
 main.nextTab
 main.nextToolTab
+main.openAiImageEdit
+main.openAiImageGeneration
+main.openAiJobCenter
+main.openAiSubtitles
+main.openAiVideoEditing
+main.openAiVideoGeneration
 main.openFile
 main.openProject
 main.openRecentFile
@@ -1807,6 +1840,29 @@ main.showSettings
 main.showTutorials
 main.toggleFullScreen
 main.undo
+nodeGraph.delete
+pathEditor.bend
+pathEditor.cancel
+pathEditor.delete
+pathEditor.finish
+pathEditor.fitAll
+pathEditor.fitSelection
+pathEditor.hand
+pathEditor.move
+pathEditor.nudgeDown
+pathEditor.nudgeDownLarge
+pathEditor.nudgeLeft
+pathEditor.nudgeLeftLarge
+pathEditor.nudgeRight
+pathEditor.nudgeRightLarge
+pathEditor.nudgeUp
+pathEditor.nudgeUpLarge
+pathEditor.pan
+pathEditor.pen
+pathEditor.resetZoom
+pathEditor.selectAll
+pathEditor.zoomIn
+pathEditor.zoomOut
 previewSettings.changePreviewRenderQuality
 sceneSettings.changeSceneDuration
 sceneSettings.changeSceneSize

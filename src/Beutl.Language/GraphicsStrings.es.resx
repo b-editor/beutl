@@ -549,7 +549,7 @@
     <value>Decorador</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>Controlador de tiempo (video)</value>
+    <value>Controlador de tiempo</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>Ajustar rango de tiempo</value>
@@ -654,6 +654,9 @@
     <value>Gamma</value>
   </data>
   <data name="GeometryShape" xml:space="preserve">
+    <value>Geometría</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
     <value>Geometría</value>
   </data>
   <data name="GeometryShape_Data" xml:space="preserve">
@@ -1454,6 +1457,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>Escena 3D</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D (Experimental)</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>Color ambiental</value>
   </data>
@@ -1480,6 +1486,24 @@
   </data>
   <data name="Scene3D_RenderSize" xml:space="preserve">
     <value>Tamaño de renderizado</value>
+  </data>
+  <data name="Scene3D_AntiAliasing" xml:space="preserve">
+    <value>Suavizado de bordes</value>
+  </data>
+  <data name="Scene3D_AntiAliasing_Description" xml:space="preserve">
+    <value>Suaviza los bordes de los objetos 3D. Usar más muestras mejora el suavizado, pero consume más memoria de la GPU y aumenta el tiempo de renderizado.</value>
+  </data>
+  <data name="AntiAliasingMode_Off" xml:space="preserve">
+    <value>Desactivado</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa2x" xml:space="preserve">
+    <value>2x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa4x" xml:space="preserve">
+    <value>4x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa8x" xml:space="preserve">
+    <value>8x</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>Sólido</value>
@@ -1682,6 +1706,9 @@
   <data name="Stroke" xml:space="preserve">
     <value>Trazo</value>
   </data>
+  <data name="Pen" xml:space="preserve">
+    <value>Trazo</value>
+  </data>
   <data name="StrokeEffect" xml:space="preserve">
     <value>Contorno</value>
   </data>
@@ -1831,6 +1858,18 @@
   </data>
   <data name="ClipTransition" xml:space="preserve">
     <value>Transición</value>
+  </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>Fundidos y disoluciones</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>Barridos</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>Movimiento</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>Estilización</value>
   </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>Duración</value>
@@ -2710,5 +2749,17 @@
   </data>
   <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
     <value>Scripts y nodos</value>
+  </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>Texto en un trazado</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>Trazado</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>Desplazamiento en el trazado (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>Coloca texto a lo largo de un trazado. Activa Dividir por caracteres en el texto.</value>
   </data>
 </root>

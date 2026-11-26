@@ -460,7 +460,7 @@ public class VersionControlTabViewTests
                 view.FindControl<TextBox>("CommitMessageTextBox")!;
             Grid commitComposer =
                 view.FindControl<Grid>("CommitComposer")!;
-            var primaryActionFlyout = (MenuFlyout)primaryAction.Flyout!;
+            var primaryActionFlyout = (FAMenuFlyout)primaryAction.Flyout!;
             Assert.Multiple(() =>
             {
                 Assert.That(
@@ -477,8 +477,14 @@ public class VersionControlTabViewTests
 
             primaryActionFlyout.ShowAt(primaryAction);
             HeadlessTestHelpers.Render();
-            Assert.That(primaryActionFlyout.Items.OfType<MenuItem>().Single(item =>
-                Equals(item.Header, Strings.HostedGit_OpenOnWeb)).IsVisible, Is.False);
+            FAMenuFlyoutItem[] items = primaryActionFlyout.Items.OfType<FAMenuFlyoutItem>().ToArray();
+            FAMenuFlyoutItem openOnWeb = items.Single(item => item.Text == Strings.HostedGit_OpenOnWeb);
+            FAMenuFlyoutItem cancel = items.Single(item => item.Name == "CancelRemoteOperationMenuItem");
+            Assert.Multiple(() =>
+            {
+                Assert.That(openOnWeb.IsVisible, Is.False);
+                Assert.That(cancel.IsVisible, Is.False);
+            });
             primaryActionFlyout.Hide();
 
             VersionControlPickerFlyout tabPrompt = view.PromptFlyout;

@@ -66,9 +66,8 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(x)));
 
         AllItems = new(CreateAllItems());
-        Effects = new(LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.FilterEffect, Thumbnails));
-        UpdateEffectSections(libItems);
-        Transitions = new(LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.ClipTransition, Thumbnails));
+        UpdateGalleries(libItems);
+        UpdateEasings();
     }
 
     // The thumbnails take the preview's frame again once it has drawn a new one and stopped playing for a moment;
@@ -104,41 +103,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     // The thumbnails of the galleries, on the frame the preview shows.
     internal LibraryThumbnailSet Thumbnails { get; }
 
-    public ReactiveCollection<Easing> Easings { get; } =
-    [
-        new BackEaseIn(),
-        new BackEaseInOut(),
-        new BackEaseOut(),
-        new BounceEaseIn(),
-        new BounceEaseInOut(),
-        new BounceEaseOut(),
-        new CircularEaseIn(),
-        new CircularEaseInOut(),
-        new CircularEaseOut(),
-        new CubicEaseIn(),
-        new CubicEaseInOut(),
-        new CubicEaseOut(),
-        new ElasticEaseIn(),
-        new ElasticEaseInOut(),
-        new ElasticEaseOut(),
-        new ExponentialEaseIn(),
-        new ExponentialEaseInOut(),
-        new ExponentialEaseOut(),
-        new QuadraticEaseIn(),
-        new QuadraticEaseInOut(),
-        new QuadraticEaseOut(),
-        new QuarticEaseIn(),
-        new QuarticEaseInOut(),
-        new QuarticEaseOut(),
-        new QuinticEaseIn(),
-        new QuinticEaseInOut(),
-        new QuinticEaseOut(),
-        new SineEaseIn(),
-        new SineEaseInOut(),
-        new SineEaseOut(),
-        new LinearEasing(),
-        new HoldEasing(),
-    ];
+    public ReactiveCollection<Easing> Easings { get; } = [];
 
     public CoreList<LibraryItemViewModel> LibraryItems { get; }
 
@@ -147,11 +112,13 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     public CoreList<LibraryItemViewModel> AllItems { get; }
 
     // The tiles of the effect and transition galleries, in the library's order.
-    public CoreList<LibraryGalleryItemViewModel> Effects { get; }
+    public CoreList<LibraryGalleryItemViewModel> Effects { get; } = [];
 
     internal CoreList<LibraryGallerySection> EffectSections { get; } = [];
 
-    public CoreList<LibraryGalleryItemViewModel> Transitions { get; }
+    public CoreList<LibraryGalleryItemViewModel> Transitions { get; } = [];
+
+    internal CoreList<LibraryGallerySection> TransitionSections { get; } = [];
 
     public ReactiveCollection<LibraryItemViewModel> SearchResult { get; } = [];
 
@@ -209,23 +176,58 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             LibraryItemViewModel.CreateFromGraphNodeRegistryItem,
             item => (item as GraphNodeRegistry.GroupableRegistryItem)?.Items);
         AllItems.Replace(CreateAllItems(AllItems.Count));
-        Effects.Replace(
-            LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.FilterEffect, Thumbnails, Effects));
-        UpdateEffectSections(registeredItems);
-        Transitions.Replace(
-            LibraryGalleryItemViewModel.Collect(LibraryItems, KnownLibraryItemFormats.ClipTransition, Thumbnails, Transitions));
+        UpdateGalleries(registeredItems);
+        UpdateEasings();
         if (_query is { } query)
             _ = SearchCore(query, CancellationToken.None, recordUsage: false);
     }
 
-    private void UpdateEffectSections(IReadOnlyList<LibraryItem> registeredItems)
+    private void UpdateEasings()
     {
-        var categories = LibraryEffectCategories.Collect(registeredItems, KnownLibraryItemFormats.FilterEffect);
-        var groups = Effects
+        // Reuse previews for types that are still offered, including when unrelated library items change.
+        int index = 0;
+        foreach (Type type in EasingItems.GetLibraryTypes(_libraryService))
+        {
+            int existingIndex = index;
+            while (existingIndex < Easings.Count && Easings[existingIndex].GetType() != type)
+                existingIndex++;
+
+            if (existingIndex == Easings.Count)
+            {
+                var item = EasingItems.TryCreateItem(type, _libraryService.FindItem(type));
+                if (item == null)
+                    continue;
+
+                Easings.Insert(index, item.Preview);
+            }
+            else if (existingIndex != index)
+            {
+                Easings.Move(existingIndex, index);
+            }
+
+            index++;
+        }
+
+        while (Easings.Count > index)
+            Easings.RemoveAt(Easings.Count - 1);
+    }
+
+    private void UpdateGalleries(IReadOnlyList<LibraryItem> registeredItems)
+    {
+        UpdateGallery(registeredItems, KnownLibraryItemFormats.FilterEffect, Effects, EffectSections);
+        UpdateGallery(registeredItems, KnownLibraryItemFormats.ClipTransition, Transitions, TransitionSections);
+    }
+
+    private void UpdateGallery(IReadOnlyList<LibraryItem> registeredItems, string format,
+        CoreList<LibraryGalleryItemViewModel> tiles, CoreList<LibraryGallerySection> sections)
+    {
+        tiles.Replace(LibraryGalleryItemViewModel.Collect(LibraryItems, format, Thumbnails, tiles));
+        var categories = LibraryEffectCategories.Collect(registeredItems, format);
+        var groups = tiles
             .Select(tile => (Tile: tile, Category: categories.GetValueOrDefault((LibraryItem)tile.Item.Data!)))
             .GroupBy(item => item.Category?.Key ?? default)
             .OrderBy(group => group.Key == default);
-        var sections = new List<LibraryGallerySection>();
+        var nextSections = new List<LibraryGallerySection>();
         foreach (var group in groups)
         {
             LibraryEffectCategory? category = group.First().Category;
@@ -234,15 +236,15 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             if (string.IsNullOrEmpty(description))
                 description = null;
 
-            IEnumerable<LibraryGalleryItemViewModel> tiles = group.Select(item => item.Tile);
-            LibraryGallerySection? previous = EffectSections.FirstOrDefault(section => section.Key == group.Key);
-            sections.Add(previous != null && previous.Title == title && previous.Description == description
-                && previous.Items.SequenceEqual(tiles)
+            IEnumerable<LibraryGalleryItemViewModel> sectionTiles = group.Select(item => item.Tile);
+            LibraryGallerySection? previous = sections.FirstOrDefault(section => section.Key == group.Key);
+            nextSections.Add(previous != null && previous.Title == title && previous.Description == description
+                && previous.Items.SequenceEqual(sectionTiles)
                 ? previous
-                : new LibraryGallerySection(group.Key, title, description, [.. tiles]));
+                : new LibraryGallerySection(group.Key, title, description, [.. sectionTiles]));
         }
 
-        EffectSections.Replace(sections);
+        sections.Replace(nextSections);
     }
 
     // Brings `viewModels` in line with `items`. The view models of the items that stay are kept, with their
@@ -408,6 +410,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         Effects.Clear();
         EffectSections.Clear();
         Transitions.Clear();
+        TransitionSections.Clear();
         SearchResult.Clear();
     }
 

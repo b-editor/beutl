@@ -17,6 +17,7 @@ using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
+using Beutl.Language;
 using Beutl.Pages.SettingsPages;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
@@ -166,8 +167,8 @@ public sealed class PickerFlyoutLayoutTests
             group.ContentTransition = null;
             group.IsExpanded = true;
             HeadlessTestHelpers.Render();
-            OptionsDisplayItem row = page.GetVisualDescendants().OfType<OptionsDisplayItem>().First(row => row.ActionButton is Button);
-            var button = (Button)row.ActionButton!;
+            Button button = page.GetVisualDescendants().OfType<Button>()
+                .First(button => button.Name == "AssignShortcutButton" && button.IsEffectivelyVisible);
             ((KeyMapSettingsItem)button.DataContext!).KeyGesture.Value = new KeyGesture(Key.A);
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var presenter = GetPresenter<ContentControl>(window);
@@ -182,7 +183,7 @@ public sealed class PickerFlyoutLayoutTests
             Assert.That(TopLevel.GetTopLevel(presenter)!.ClientSize.Width, Is.GreaterThan(width));
             var grid = (Grid)presenter.Content!;
             HeadlessTestHelpers.Click(grid.Children.OfType<Button>().Single());
-            Assert.That(grid.Children.OfType<TextBox>().Single().Text, Is.EqualTo("(None)"));
+            Assert.That(grid.Children.OfType<TextBox>().Single().Text, Is.EqualTo(SettingsStrings.Keymap_Unassigned));
         }
         finally { window.Close(); }
     }

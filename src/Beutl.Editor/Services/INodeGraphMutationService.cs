@@ -19,6 +19,13 @@ public interface INodeGraphMutationService
     /// <paramref name="node"/>, removes it, and commits one <c>RemoveNode</c>.</summary>
     void RemoveNode(GraphModel graph, GraphNode node);
 
+    /// <summary>Removes nodes selected together, along with their connections.</summary>
+    void RemoveNode(GraphModel graph, IReadOnlyList<GraphNode> nodes)
+    {
+        foreach (GraphNode node in nodes)
+            RemoveNode(graph, node);
+    }
+
     /// <summary>Bulk-writes <see cref="GraphNode.Position"/> for each pair, then
     /// commits one <c>MoveNode</c>.</summary>
     void MoveNodes(IReadOnlyList<(GraphNode Node, double X, double Y)> moves);

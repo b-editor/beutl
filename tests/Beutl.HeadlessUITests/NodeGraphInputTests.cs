@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Runtime.InteropServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Headless;
@@ -7,7 +8,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Extensibility;
@@ -22,6 +25,117 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class NodeGraphInputTests
 {
+    [AvaloniaTest]
+    public async Task Node_deletion_uses_the_configured_key_from_the_node_header()
+    {
+        using GraphSession session = await GraphSession.CreateAsync();
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(NodeGraphTabExtension.Instance);
+        var entry = manager.GetDefinitions<NodeGraphTabExtension>().Single();
+        manager.ChangeKeyGesture(entry, new KeyGesture(Key.F8), ContextCommandManager.CurrentPlatform);
+        var previous = AppHelper.GetContextCommandManager;
+        AppHelper.GetContextCommandManager = () => manager;
+        try
+        {
+            GraphNodeView node = session.Canvas.Children.OfType<GraphNodeView>()
+                .Single(view => view.DataContext is GraphNodeViewModel { GraphNode: ExpressionNode });
+            Assert.That(node.FindControl<Border>("handle")!.Focus(), Is.True);
+            session.PressKey(Key.Delete);
+            Assert.That(session.Model.Nodes, Has.Count.EqualTo(2));
+            Assert.That(session.PressKey(Key.F8).Handled, Is.True);
+            Assert.That(session.Model.Nodes.Single().GraphNode, Is.TypeOf<OutputNode>());
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
+    }
+
+    [AvaloniaTest]
+    public void The_macOS_keymap_keeps_Delete_and_adds_Backspace()
+    {
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(NodeGraphTabExtension.Instance);
+        ContextCommandEntry entry = manager.GetDefinitions<NodeGraphTabExtension>().Single();
+
+        Assert.That(entry.KeyGestures.Where(gesture => gesture.Platform == OSPlatform.OSX).Select(gesture => gesture.KeyGesture?.Key),
+            Is.EqualTo(new[] { Key.Delete, Key.Back }));
+        Assert.That(entry.KeyGestures.Where(gesture => gesture.Platform == OSPlatform.Windows).Select(gesture => gesture.KeyGesture?.Key),
+            Is.EqualTo(new[] { Key.Delete }));
+    }
+
+    [AvaloniaTest]
+    [TestCase(Key.Delete)]
+    [TestCase(Key.Back)]
+    public async Task Delete_and_backspace_remove_the_selection_as_one_undo_step(Key key)
+    {
+        using GraphSession session = await GraphSession.CreateAsync(attachToScene: true);
+        var history = ((EditViewModel)session.Model.EditorContext).HistoryManager;
+        int before = history.UndoCount;
+        foreach (GraphNodeViewModel node in session.Model.Nodes) node.IsSelected.Value = true;
+
+        var previous = AppHelper.GetContextCommandManager;
+        ContextCommandManager keymap = CreateDeleteKeymap();
+        AppHelper.GetContextCommandManager = () => keymap;
+        try
+        {
+            Assert.That(session.Zoom.Focus(), Is.True);
+            Assert.That(session.PressKey(key).Handled, Is.True);
+            Assert.That(session.Model.Nodes, Is.Empty);
+            Assert.That(history.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(history.Undo(), Is.True);
+            Assert.That(session.Model.Nodes, Has.Count.EqualTo(2));
+            Assert.That(session.Model.AllConnections, Has.Count.EqualTo(1));
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(Key.Delete, "13")]
+    [TestCase(Key.Back, "23")]
+    public async Task Delete_and_backspace_edit_text_when_a_node_input_has_focus(Key key, string expectedText)
+    {
+        using GraphSession session = await GraphSession.CreateAsync();
+        foreach (GraphNodeViewModel node in session.Model.Nodes) node.IsSelected.Value = true;
+        TextBox input = session.View.GetVisualDescendants().OfType<TextBox>().Single();
+        Assert.That(input.Focus(), Is.True);
+        input.Text = "123";
+        input.CaretIndex = 1;
+
+        var previous = AppHelper.GetContextCommandManager;
+        ContextCommandManager keymap = CreateDeleteKeymap();
+        AppHelper.GetContextCommandManager = () => keymap;
+        try
+        {
+            session.PressKey(key);
+            Assert.Multiple(() =>
+            {
+                Assert.That(input.Text, Is.EqualTo(expectedText));
+                Assert.That(session.Model.Nodes, Has.Count.EqualTo(2));
+            });
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
+    }
+
+    private static ContextCommandManager CreateDeleteKeymap()
+    {
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(NodeGraphTabExtension.Instance);
+        if (!OperatingSystem.IsMacOS())
+        {
+            // Exercise the macOS chord through the same input path on other test hosts.
+            var entry = manager.GetDefinitions<NodeGraphTabExtension>().Single();
+            manager.ChangeKeyGesture(entry, new KeyGesture(Key.Back), ContextCommandManager.CurrentPlatform, gestureIndex: 1);
+        }
+        return manager;
+    }
+
     [AvaloniaTest]
     [TestCase(Key.OemPlus, RawInputModifiers.Shift, "+")]
     [TestCase(Key.OemPlus, RawInputModifiers.None, "=")]
@@ -221,7 +335,7 @@ public class NodeGraphInputTests
         public Canvas Canvas { get; }
         public Point ScrollPosition => new(Window.ClientSize.Width - 30, Window.ClientSize.Height - 30);
 
-        public static async Task<GraphSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector = null)
+        public static async Task<GraphSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector = null, bool attachToScene = false)
         {
             (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("node-input");
             var expression = new ExpressionNode { Position = { Value = (24, 24) } };
@@ -230,6 +344,9 @@ public class NodeGraphInputTests
             var graph = new GraphModel();
             graph.Nodes.AddRange([expression, output]);
             graph.Connect(output.InputPort, expression.Output);
+            if (attachToScene)
+                await TestShell.AddElementAsync(editor, () => new NodeGraphDrawable { Model = { Value = graph } },
+                    MediaTime.Zero, MediaTime.FromSeconds(2));
             return new GraphSession(new NodeGraphViewModel(graph, editor), detector);
         }
 

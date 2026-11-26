@@ -424,6 +424,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton(_projectService.Fonts)
             .AddSingleton<Beutl.AgentToolkit.Sessions.IOpenProjectFonts>(new OpenProjectFonts(_projectService))
             .AddSingleton(_editorService.AppServices.GetRequiredService<DecoderRegistry>())
+            .AddSingleton(_editorService.AppServices.GetRequiredService<GlobalConfiguration>())
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)
             .AddSingleton(InstanceRouter)

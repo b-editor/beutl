@@ -121,6 +121,9 @@
   <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
     <value>无法创建 3D 渲染表面。</value>
   </data>
+  <data name="Scene3DAntiAliasingReduced" xml:space="preserve">
+    <value>由于 GPU 内存不足，3D 抗锯齿已降至 {0}x。</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>输出期间发生异常。</value>
   </data>

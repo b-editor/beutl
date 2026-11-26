@@ -4,11 +4,12 @@ using Avalonia.Interactivity;
 
 namespace Beutl.Editor.Components.Helpers;
 
-// A Space key that pans while held and, when tapped, still does what the key map binds to it.
+// A panning shortcut (Space by default) that still reaches the outer keymap when tapped.
 // Only its release can tell the two apart, so the owner keeps the press from the key map until then.
 internal sealed class SpacePanKey
 {
     private readonly Control _owner;
+    private Key? _pressedKey;
     // What the held key was pressed with, until a pointer press makes the hold a gesture rather than a tap.
     private KeyModifiers? _tap;
 
@@ -18,26 +19,35 @@ internal sealed class SpacePanKey
         owner.AddHandler(InputElement.PointerPressedEvent, (_, _) => _tap = null, RoutingStrategies.Tunnel);
     }
 
-    public bool IsPressed { get; private set; }
+    public bool IsPressed => _pressedKey.HasValue;
+
+    public bool HandleRepeat(KeyEventArgs e)
+    {
+        if (_pressedKey != e.Key) return false;
+        e.Handled = true;
+        return true;
+    }
 
     // canTap is false during a pointer gesture. A held key repeats its press, which changes nothing.
     public void Press(KeyEventArgs e, bool canTap)
     {
-        if (!IsPressed && canTap) _tap = e.KeyModifiers;
-        IsPressed = true;
-        e.Handled = true;
+        if (IsPressed) return;
+        _pressedKey = e.Key;
+        if (canTap) _tap = e.KeyModifiers;
     }
 
-    public void Release(KeyEventArgs e)
+    public bool Release(KeyEventArgs e)
     {
+        if (_pressedKey != e.Key) return false;
         KeyModifiers? tap = _tap;
         Reset();
         if (tap is { } modifiers) ReplayTap(e, modifiers);
+        return true;
     }
 
     public void Reset()
     {
-        IsPressed = false;
+        _pressedKey = null;
         _tap = null;
     }
 

@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
@@ -17,11 +18,23 @@ public interface IRenderer3D : IDisposable
     /// <summary>Creates a renderer whose lifetime is owned by the caller.</summary>
     /// <remarks>Call this method on the graphics context's owning thread.</remarks>
     static IRenderer3D Create(Beutl.Graphics.Backend.IGraphicsContext context, float surfaceDensity = 1)
+        => Create(context, surfaceDensity, 1);
+
+    /// <summary>Creates a caller-owned renderer with the requested sample count.</summary>
+    /// <param name="context">The graphics context to render with.</param>
+    /// <param name="surfaceDensity">The number of device pixels per logical unit.</param>
+    /// <param name="sampleCount">The requested sample count, a power of two from 1 through 64.</param>
+    /// <remarks>Call this method on the graphics context's owning thread.</remarks>
+    static IRenderer3D Create(IGraphicsContext context, float surfaceDensity, int sampleCount)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (!float.IsFinite(surfaceDensity) || surfaceDensity <= 0) throw new ArgumentOutOfRangeException(nameof(surfaceDensity));
-        return new Renderer3D(context) { SurfaceDensity = surfaceDensity };
+        return new Renderer3D(context, sampleCount) { SurfaceDensity = surfaceDensity };
     }
+
+    /// <summary>Gets the effective sample count of the allocated attachments.</summary>
+    int SampleCount => 1;
+
     /// <summary>
     /// Gets the current render width.
     /// </summary>

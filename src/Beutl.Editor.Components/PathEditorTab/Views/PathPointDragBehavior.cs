@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
+using Beutl.Api.Services;
 using Beutl.Composition;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
@@ -348,7 +349,10 @@ public sealed partial class PathPointDragBehavior : Behavior<Thumb>
 
     private void OnGestureKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Escape) return;
+        var cancel = AppHelper.GetContextCommandManager?.Invoke()?.GetDefinitions<PathEditorTabExtension>()
+            .FirstOrDefault(entry => entry.Definition.Id == "pathEditor.cancel");
+        if (cancel is null || !ContextCommandManager.Matches(cancel, e)) return;
+
         var pointer = _gesturePointer;
         if (_dragState != null && _gestureHost?.DataContext is IPathEditorContext context)
             context.EditorContext.GetRequiredService<HistoryManager>().Rollback();
@@ -381,7 +385,7 @@ public sealed partial class PathPointDragBehavior : Behavior<Thumb>
         if (prop != null && ElementEditability.IsEditable(viewModel.Element.Value))
         {
             HistoryManager history = viewModel.EditorContext.GetRequiredService<HistoryManager>();
-            // Commits a pending nudge on its own and stops its timer, so Escape reverts only this drag.
+            // Commits a pending nudge on its own and stops its timer, so cancellation reverts only this drag.
             history.FlushPendingMutations();
             history.Commit();
             _dragState = CreateThumbDragState(viewModel, segment, prop);

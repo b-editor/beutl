@@ -247,7 +247,7 @@
     <value>Opacity</value>
   </data>
   <data name="ChromaKey" xml:space="preserve">
-    <value>Chroma key</value>
+    <value>Chroma Key</value>
   </data>
   <data name="ChromaKey_Boundary" xml:space="preserve">
     <value>Boundary correction</value>
@@ -262,7 +262,7 @@
     <value>Spill suppression</value>
   </data>
   <data name="LumaKey" xml:space="preserve">
-    <value>Luma key</value>
+    <value>Luma Key</value>
   </data>
   <data name="LumaKey_Lower" xml:space="preserve">
     <value>Lower Limit (%)</value>
@@ -355,7 +355,7 @@
     <value>Vibrance</value>
   </data>
   <data name="ColorKey" xml:space="preserve">
-    <value>Color key</value>
+    <value>Color Key</value>
   </data>
   <data name="ColorKey_Boundary" xml:space="preserve">
     <value>Boundary correction</value>
@@ -550,7 +550,7 @@
     <value>Decorator</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>Time Controller (Video)</value>
+    <value>Time Controller</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>Adjust Time Range</value>
@@ -657,6 +657,9 @@
   <data name="GeometryShape" xml:space="preserve">
     <value>Geometry</value>
   </data>
+  <data name="Geometry" xml:space="preserve">
+    <value>Geometry</value>
+  </data>
   <data name="GeometryShape_Data" xml:space="preserve">
     <value>Data</value>
   </data>
@@ -697,7 +700,7 @@
     <value>Multiplication</value>
   </data>
   <data name="LumaColor" xml:space="preserve">
-    <value>LumaColor</value>
+    <value>Luma Color</value>
   </data>
   <data name="LutEffect" xml:space="preserve">
     <value>LUT (Cube File)</value>
@@ -835,7 +838,7 @@
     <value>Visual</value>
   </data>
   <data name="PartsSplitEffect" xml:space="preserve">
-    <value>Split by parts</value>
+    <value>Split by Parts</value>
   </data>
   <data name="PathFollowEffect" xml:space="preserve">
     <value>Path Follow</value>
@@ -868,7 +871,7 @@
     <value>Rotation Z</value>
   </data>
   <data name="RoundedRectShape" xml:space="preserve">
-    <value>Rounded rectangle</value>
+    <value>Rounded Rectangle</value>
   </data>
   <data name="RoundedRectShape_CornerRadius" xml:space="preserve">
     <value>Corner Radius</value>
@@ -1000,7 +1003,7 @@
     <value>Offset Position</value>
   </data>
   <data name="SplitEffect" xml:space="preserve">
-    <value>Split equally</value>
+    <value>Split Equally</value>
   </data>
   <data name="SplitEffect_HorizontalDivisions" xml:space="preserve">
     <value>Horizontal divisions</value>
@@ -1455,6 +1458,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>3D Scene</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D (Experimental)</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>Ambient Color</value>
   </data>
@@ -1481,6 +1487,24 @@
   </data>
   <data name="Scene3D_RenderSize" xml:space="preserve">
     <value>Render Size</value>
+  </data>
+  <data name="Scene3D_AntiAliasing" xml:space="preserve">
+    <value>Anti-aliasing</value>
+  </data>
+  <data name="Scene3D_AntiAliasing_Description" xml:space="preserve">
+    <value>Smooths the edges of 3D objects. More samples look smoother but use more GPU memory and time.</value>
+  </data>
+  <data name="AntiAliasingMode_Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa2x" xml:space="preserve">
+    <value>2x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa4x" xml:space="preserve">
+    <value>4x</value>
+  </data>
+  <data name="AntiAliasingMode_Msaa8x" xml:space="preserve">
+    <value>8x</value>
   </data>
   <data name="SolidColorBrush" xml:space="preserve">
     <value>Solid</value>
@@ -1683,6 +1707,9 @@
   <data name="Stroke" xml:space="preserve">
     <value>Stroke</value>
   </data>
+  <data name="Pen" xml:space="preserve">
+    <value>Pen</value>
+  </data>
   <data name="StrokeEffect" xml:space="preserve">
     <value>Outline</value>
   </data>
@@ -1832,6 +1859,18 @@
   </data>
   <data name="ClipTransition" xml:space="preserve">
     <value>Transition</value>
+  </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>Fades &amp; Dissolves</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>Wipes</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>Stylized</value>
   </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>Duration</value>
@@ -2095,7 +2134,7 @@
     <value>Mirror</value>
   </data>
   <data name="WaveRefraction" xml:space="preserve">
-    <value>Wave refraction</value>
+    <value>Wave Refraction</value>
   </data>
   <data name="WaveRefraction_Amount" xml:space="preserve">
     <value>Displacement</value>
@@ -2107,7 +2146,7 @@
     <value>Phase (degrees)</value>
   </data>
   <data name="LightRays" xml:space="preserve">
-    <value>Light rays</value>
+    <value>Light Rays</value>
   </data>
   <data name="LightRays_Center_Description" xml:space="preserve">
     <value>Relative to the complete input image. The center can also be placed outside the image.</value>
@@ -2134,7 +2173,7 @@
     <value>Vertical</value>
   </data>
   <data name="MotionBlur" xml:space="preserve">
-    <value>Motion blur</value>
+    <value>Motion Blur</value>
   </data>
   <data name="MotionBlur_Description" xml:space="preserve">
     <value>Samples this drawable, its transforms, opacity and preceding effects at explicit times. Following effects apply once to the average in parent coordinates.</value>
@@ -2245,7 +2284,7 @@
     <value>Alpha Cutoff</value>
   </data>
   <data name="MeshWarp" xml:space="preserve">
-    <value>Mesh warp</value>
+    <value>Mesh Warp</value>
   </data>
   <data name="MeshWarp_Rows" xml:space="preserve">
     <value>Rows</value>
@@ -2644,7 +2683,7 @@
     <value>Sweeps a warm light leak and a flare across the cut (film burn, light flash).</value>
   </data>
   <data name="RangeAnimatorEffect" xml:space="preserve">
-    <value>Range animator</value>
+    <value>Range Animator</value>
   </data>
   <data name="RangeAnimatorEffect_LibraryDescription" xml:space="preserve">
     <value>Animates a selected range of split text characters or parts produced by Split by parts.</value>
@@ -2711,5 +2750,17 @@
   </data>
   <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
     <value>Scripts &amp; Nodes</value>
+  </data>
+  <data name="TextOnPathEffect" xml:space="preserve">
+    <value>Text on Path</value>
+  </data>
+  <data name="TextOnPathEffect_Path" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="TextOnPathEffect_PathOffset" xml:space="preserve">
+    <value>Path Offset (px)</value>
+  </data>
+  <data name="TextOnPathEffect_LibraryDescription" xml:space="preserve">
+    <value>Lay out text along a path. Enable Split by characters on the text.</value>
   </data>
 </root>

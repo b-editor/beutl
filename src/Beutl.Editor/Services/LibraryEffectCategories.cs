@@ -22,6 +22,7 @@ internal static class LibraryEffectCategories
         {
             KnownLibraryItemFormats.FilterEffect => (KnownLibraryGroupIds.FilterEffect, GraphicsStrings.FilterEffect),
             KnownLibraryItemFormats.AudioEffect => (KnownLibraryGroupIds.AudioEffect, AudioStrings.AudioEffect),
+            KnownLibraryItemFormats.ClipTransition => (KnownLibraryGroupIds.ClipTransition, GraphicsStrings.ClipTransition),
             _ => (null, null),
         };
         if (rootId == null)

@@ -144,61 +144,73 @@ public sealed partial class Reconciler
 
     // A locked element's blend at each edge stays: the deciding transition, even the neighbour's, and its time range.
     private static ToolError? FindChangedTransitionAtLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
+        => scene.HasTransitions || sandbox.HasTransitions
+            ? CaptureLockedTransitionCheck(scene, lockedElements)?.Invoke(sandbox)
+            : null;
+
+    // Snapshot the blends before editing so the same check works for sandbox and in-place edits.
+    internal static Func<Scene, ToolError?>? CaptureLockedTransitionCheck(Scene scene, Element[] lockedElements)
     {
-        if (lockedElements.Length == 0)
-        {
-            return null;
-        }
+        if (lockedElements.Length == 0) return null;
 
-        // Only these have a boundary at either end; any other element blends with nothing.
-        HashSet<Element> before = ElementTransitions.GetParticipants(scene);
-        HashSet<Element> after = ElementTransitions.GetParticipants(sandbox);
-        if (before.Count == 0 && after.Count == 0)
+        HashSet<Element> participants = ElementTransitions.GetParticipants(scene);
+        var before = lockedElements.Select(element =>
         {
-            return null;
-        }
+            bool participates = participants.Contains(element);
+            return (Element: element, Participates: participates,
+                Start: CaptureBlend(scene, element, ElementEdge.Start, participates),
+                End: CaptureBlend(scene, element, ElementEdge.End, participates));
+        }).ToArray();
 
-        Dictionary<Guid, (int Index, Element Element)> applied = IndexElementsById(sandbox.Children);
-        foreach (Element locked in lockedElements)
+        return Check;
+
+        ToolError? Check(Scene after)
         {
-            if (!applied.TryGetValue(locked.Id.Value, out (int Index, Element Element) match)
-                || (!before.Contains(locked) && !after.Contains(match.Element)))
+            HashSet<Element> afterParticipants = ElementTransitions.GetParticipants(after);
+            Dictionary<Guid, (int Index, Element Element)> applied = IndexElementsById(after.Children);
+
+            foreach (var snapshot in before)
             {
-                continue;
-            }
+                Element locked = snapshot.Element;
+                if (!applied.TryGetValue(locked.Id.Value, out var match)) continue;
+                bool participates = afterParticipants.Contains(match.Element);
+                if (!snapshot.Participates && !participates) continue;
 
-            foreach (ElementEdge edge in (ElementEdge[])[ElementEdge.Start, ElementEdge.End])
-            {
-                if (BlendsTheSame(scene, locked, sandbox, match.Element, edge))
+                foreach (ElementEdge edge in (ElementEdge[])[ElementEdge.Start, ElementEdge.End])
                 {
-                    continue;
-                }
+                    var original = edge == ElementEdge.Start ? snapshot.Start : snapshot.End;
+                    var current = CaptureBlend(after, match.Element, edge, participates);
+                    if (original.Region == current.Region && JsonNode.DeepEquals(original.Transition, current.Transition))
+                    {
+                        continue;
+                    }
 
-                return new ToolError(
-                    ErrorCode.ValidationRejected,
-                    $"Element {DescribeElement(locked)} is locked, so the transition at its {(edge == ElementEdge.Start ? "start" : "end")} and the time it blends over cannot change, also when the element next to it sets them.",
-                    ElementTarget(locked),
-                    $"Keep the transitions and the timing of the elements next to it as they are, or ask the user to unlock the element in the timeline. {LockHint}");
+                    return new ToolError(
+                        ErrorCode.ValidationRejected,
+                        $"Element {DescribeElement(locked)} is locked, so the transition at its {(edge == ElementEdge.Start ? "start" : "end")} and the time it blends over cannot change, also when the element next to it sets them.",
+                        ElementTarget(locked),
+                        $"Keep the transitions and the timing of the elements next to it as they are, or ask the user to unlock the element in the timeline. {LockHint}");
+                }
             }
+
+            return null;
+        }
+    }
+
+    private static (JsonObject? Transition, TimeRange? Region) CaptureBlend(
+        Scene scene, Element element, ElementEdge edge, bool participates)
+    {
+        TransitionBoundary? boundary = null;
+        if (participates)
+        {
+            boundary = edge == ElementEdge.Start
+                ? ElementTransitions.GetBoundaryAtStart(element)
+                : ElementTransitions.GetBoundaryAtEnd(element);
         }
 
-        return null;
+        ClipTransition? transition = boundary?.Transition ?? ElementTransitionEdits.GetTransition(element, edge);
+        return (transition is null ? null : SerializeTransition(scene, transition), boundary?.Region);
     }
-
-    private static bool BlendsTheSame(Scene scene, Element locked, Scene sandbox, Element applied, ElementEdge edge)
-    {
-        ClipTransition? before = ElementTransitionEdits.GetDecidingTransition(locked, edge);
-        ClipTransition? after = ElementTransitionEdits.GetDecidingTransition(applied, edge);
-        bool sameTransition = before is null || after is null
-            ? before is null && after is null
-            : JsonNode.DeepEquals(SerializeTransition(scene, before), SerializeTransition(sandbox, after));
-        return sameTransition && BoundaryRegion(locked, edge) == BoundaryRegion(applied, edge);
-    }
-
-    private static TimeRange? BoundaryRegion(Element element, ElementEdge edge)
-        => (edge == ElementEdge.Start
-            ? ElementTransitions.GetBoundaryAtStart(element)
-            : ElementTransitions.GetBoundaryAtEnd(element))?.Region;
 
     private static JsonObject SerializeTransition(Scene scene, ClipTransition transition)
         => CoreSerializer.SerializeToJsonObject(transition, DocumentAdapter.CreateOptions(scene));

@@ -10,16 +10,35 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentIcons.Common;
 using Microsoft.Extensions.DependencyInjection;
+using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class MainViewModel
+public sealed partial class MainViewModel : IContextCommandStateNotifier
 {
     // The followed lists subscribe to app-wide sources such as the dock layout presets, so disposal ends them.
     private readonly CompositeDisposable _menuSubscriptions = [];
+    private IObservable<Unit>? _editorAvailabilityChanges;
 
     public IReadOnlyList<MainMenuItem> MenuItems { get; }
+
+    internal EditViewModel? EnabledSceneEditor =>
+        _editorService.SelectedTabItem.Value?.Context.Value is EditViewModel { IsEnabled.Value: true } editor
+            ? editor
+            : null;
+
+    IObservable<Unit> IContextCommandStateNotifier.CanExecuteChanged => EditorAvailabilityChanges;
+
+    private IObservable<Unit> EditorAvailabilityChanges =>
+        _editorAvailabilityChanges ??= ObserveSelectedEditor()
+            .Select(editor => editor?.IsEnabled.Select(_ => Unit.Default) ?? Observable.Return(Unit.Default))
+            .Switch()
+            .ObserveOnUIDispatcher();
+
+    private IObservable<IEditorContext?> ObserveSelectedEditor() => _editorService.SelectedTabItem
+        .Select(tab => tab?.Context.Select(context => (IEditorContext?)context) ?? Observable.Return<IEditorContext?>(null))
+        .Switch();
 
     private MainMenuItem[] CreateMenuItems() =>
     [
@@ -96,78 +115,34 @@ public sealed partial class MainViewModel
                 new(Strings.Cut) { Command = MenuBar.CutLayer, EditAction = StandardEditAction.Cut, IsInNativeMenuOnly = true },
                 new(Strings.Copy) { Command = MenuBar.CopyLayer, EditAction = StandardEditAction.Copy, IsInNativeMenuOnly = true },
                 new(Strings.Paste) { Command = MenuBar.PasteLayer, EditAction = StandardEditAction.Paste, IsInNativeMenuOnly = true },
+                new(Strings.Delete)
+                {
+                    Command = MenuBar.DeleteLayer,
+                    EditAction = StandardEditAction.Delete,
+                    IsInNativeMenuOnly = true,
+                    EditActionAvailability = (
+                        () => _editorService.SelectedTabItem.Value?.Context.Value is not { IsEnabled.Value: false },
+                        EditorAvailabilityChanges)
+                },
                 new(Strings.SelectAll) { Command = MenuBar.SelectAll, EditAction = StandardEditAction.SelectAll, IsInNativeMenuOnly = true },
             ]
         },
-        new(Strings.View)
-        {
-            Items =
-            [
-                new(Strings.Editors)
-                {
-                    Items = ToMenuItems(
-                        EditorExtensions.ToObservableChangeSet().ObserveOnUIDispatcher(), CreateEditorItem)
-                },
-                new(Strings.Tools)
-                {
-                    Items = ToMenuItems(
-                        ToolTabExtensions.ToObservableChangeSet().ObserveOnUIDispatcher()
-                            .Filter(extension => extension.Header != null),
-                        extension => new MainMenuItem(extension.Header)
-                        {
-                            Command = MenuBar.OpenToolTab, CommandParameter = extension
-                        })
-                },
-                MainMenuItem.Separator,
-                new(Strings.ResetDockLayout) { Command = MenuBar.ResetDockLayout },
-                new(Strings.ApplyDockLayout)
-                {
-                    // An empty submenu would be a dead end.
-                    IsVisible = MenuBar.DockLayoutPresets.ObserveProperty(presets => presets.Count)
-                        .Select(count => count > 0)
-                        .ObserveOnUIDispatcher(),
-                    // A rename replaces the entry.
-                    Items = ToMenuItems(
-                        MenuBar.DockLayoutPresets
-                            .ToObservableChangeSet<ICoreReadOnlyList<DockLayoutPresetItem>, DockLayoutPresetItem>()
-                            .AutoRefreshOnObservable(preset => preset.Name.Skip(1))
-                            .ObserveOnUIDispatcher(),
-                        preset => new MainMenuItem(preset.Name.Value)
-                        {
-                            Command = MenuBar.ApplyDockLayout, CommandParameter = preset
-                        },
-                        transformOnRefresh: true)
-                },
-                new(Strings.ManageDockLayouts) { Command = MenuBar.OpenDockLayoutTab },
-                new(null) { IsInNativeMenuOnly = true },
-                new(Strings.ToggleFullScreen)
-                {
-                    Command = MenuBar.ToggleFullScreen, GestureCommand = "main.toggleFullScreen", IsInNativeMenuOnly = true
-                },
-            ]
-        },
-        new(Strings.Tools)
-        {
-            Items = ToMenuItems(
-                ToolWindowExtensions.ToObservableChangeSet().ObserveOnUIDispatcher(),
-                extension => new MainMenuItem(extension.DisplayName)
-                {
-                    Command = MenuBar.OpenToolWindow,
-                    CommandParameter = extension,
-                    IconSource = ExtensionGuard.Call(extension, AppServices.GetService<INotificationService>(), extension.GetIcon)
-                })
-        },
+        new(Strings.View) { Items = CreateViewMenuItems() },
         new(Strings.Scene)
         {
             Items =
             [
-                new(Strings.CreateNew) { Command = MenuBar.NewScene },
+                new(Strings.CreateNew) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
                 new(Strings.Remove) { Command = MenuBar.RemoveFromProject },
                 new(Strings.SceneSettings) { Command = MenuBar.ShowSceneSettings },
                 new(MissingMediaStrings.Title) { Command = MenuBar.RelinkMedia },
                 new(UndisplayableDataStrings.Title) { Command = MenuBar.ShowUndisplayableData },
+                MainMenuItem.Separator,
+                .. CreateSceneMarkerAndPlaybackMenus(),
+                new(null) { IsInWindowOnly = true },
                 new(Strings.Element)
                 {
+                    IsInWindowOnly = true,
                     Items =
                     [
                         new(Strings.Delete) { Command = MenuBar.DeleteLayer },
@@ -176,19 +151,6 @@ public sealed partial class MainViewModel
                         new(Strings.Paste) { Command = MenuBar.PasteLayer },
                     ]
                 },
-            ]
-        },
-        new(Strings.Ai)
-        {
-            Items =
-            [
-                new(Strings.AiJobCenter) { Command = MenuBar.ShowAiJobs, Icon = Icon.History },
-                MainMenuItem.Separator,
-                new(Strings.AiGenerateImage) { Command = MenuBar.GenerateImage, Icon = Icon.SparkleCircle },
-                new(Strings.AiGenerateSubtitles) { Command = MenuBar.GenerateSubtitles, Icon = Icon.Subtitles },
-                new(Strings.AiEditImage) { Command = MenuBar.EditImage, Icon = Icon.ImageEdit },
-                new(Strings.AiGenerateVideo) { Command = MenuBar.GenerateVideo, Icon = Icon.Video },
-                new(Strings.AiVideoEditing) { Command = MenuBar.EditVideo, Icon = Icon.VideoClipWand },
             ]
         },
         new(Strings.Window)
@@ -217,6 +179,150 @@ public sealed partial class MainViewModel
     ];
 
     private IObservable<bool> UnderDebugger => Observable.Return(IsDebuggerAttached);
+
+    private ReadOnlyObservableCollection<MainMenuItem> CreateViewMenuItems()
+    {
+        MainMenuItem[] leading =
+        [
+            new(Strings.Editors)
+            {
+                Items = ToMenuItems(EditorExtensions.ToObservableChangeSet().ObserveOnUIDispatcher(), CreateEditorItem)
+            },
+            new(Strings.Tools)
+            {
+                Items = ToMenuItems(
+                    ToolTabExtensions.ToObservableChangeSet().ObserveOnUIDispatcher()
+                        .Filter(extension => extension.Header != null),
+                    extension => new MainMenuItem(extension.Header)
+                    {
+                        Command = MenuBar.OpenToolTab, CommandParameter = extension
+                    })
+            },
+        ];
+        var toolWindowSeparator = new MainMenuItem(null);
+        var layoutSeparator = new MainMenuItem(null);
+        MainMenuItem[] trailing =
+        [
+            layoutSeparator,
+            new(Strings.ResetDockLayout) { Command = MenuBar.ResetDockLayout },
+            new(Strings.ApplyDockLayout)
+            {
+                // An empty submenu would be a dead end.
+                IsVisible = MenuBar.DockLayoutPresets.ObserveProperty(presets => presets.Count)
+                    .Select(count => count > 0)
+                    .ObserveOnUIDispatcher(),
+                // A rename replaces the entry.
+                Items = ToMenuItems(
+                    MenuBar.DockLayoutPresets
+                        .ToObservableChangeSet<ICoreReadOnlyList<DockLayoutPresetItem>, DockLayoutPresetItem>()
+                        .AutoRefreshOnObservable(preset => preset.Name.Skip(1))
+                        .ObserveOnUIDispatcher(),
+                    preset => new MainMenuItem(preset.Name.Value)
+                    {
+                        Command = MenuBar.ApplyDockLayout, CommandParameter = preset
+                    },
+                    transformOnRefresh: true)
+            },
+            new(Strings.ManageDockLayouts) { Command = MenuBar.OpenDockLayoutTab },
+            MainMenuItem.Separator,
+            new(Strings.ToggleFullScreen) { Command = MenuBar.ToggleFullScreen, GestureCommand = "main.toggleFullScreen" },
+        ];
+
+        var items = new ObservableCollection<MainMenuItem>([.. leading, .. trailing]);
+        _menuSubscriptions.Add(ToolWindowExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
+            .Transform(extension => new MainMenuItem(extension.DisplayName)
+            {
+                Command = MenuBar.OpenToolWindow,
+                CommandParameter = extension,
+                IconSource = ExtensionGuard.Call(extension, AppServices.GetService<INotificationService>(), extension.GetIcon)
+            })
+            .ToCollection()
+            .Subscribe(toolWindows =>
+            {
+                MainMenuItem[] section = toolWindows.Count == 0 ? [] : [toolWindowSeparator, .. toolWindows];
+                // Update this section in place. The editors, tool tabs and layout controls keep their items.
+                for (int i = items.IndexOf(layoutSeparator) - 1; i >= leading.Length; i--)
+                {
+                    if (!section.Contains(items[i]))
+                        items.RemoveAt(i);
+                }
+
+                for (int i = 0; i < section.Length; i++)
+                {
+                    int target = leading.Length + i;
+                    int current = items.IndexOf(section[i]);
+                    if (current < 0)
+                        items.Insert(target, section[i]);
+                    else if (current != target)
+                        items.Move(current, target);
+                }
+            }));
+        return new ReadOnlyObservableCollection<MainMenuItem>(items);
+    }
+
+    private MainMenuItem[] CreateSceneMarkerAndPlaybackMenus()
+    {
+        var definitions = SceneEditorExtension.Instance.ContextCommands.ToDictionary(command => command.Id);
+        IObservable<EditViewModel?> selectedEditor = ObserveSelectedEditor().Select(editor => editor as EditViewModel);
+        return
+        [
+            new(Strings.Markers)
+            {
+                Items = [CreateItem("editor.toggleMarker"), CreateItem("editor.previousMarker"), CreateItem("editor.nextMarker")]
+            },
+            new(Strings.Playback)
+            {
+                Items =
+                [
+                    CreateItem("editor.playPause"),
+                    CreateItem("editor.toggleLoop"),
+                    MainMenuItem.Separator,
+                    CreateItem("editor.seekStart"),
+                    CreateItem("editor.previous"),
+                    CreateItem("editor.next"),
+                    CreateItem("editor.seekEnd"),
+                    MainMenuItem.Separator,
+                    CreateItem("editor.shuttleBackward"),
+                    CreateItem("editor.shuttleBackwardFine"),
+                    CreateItem("editor.shuttleStop"),
+                    CreateItem("editor.shuttleForward"),
+                    CreateItem("editor.shuttleForwardFine"),
+                ]
+            },
+        ];
+
+        MainMenuItem CreateItem(string id)
+        {
+            ContextCommandDefinition definition = definitions[id];
+            IObservable<bool> canExecute = selectedEditor
+                .Select(editor => editor is null
+                    ? Observable.Return(false)
+                    : editor.IsEnabled.CombineLatest(editor.CanExecuteChanged.StartWith(Unit.Default),
+                        (enabled, _) => enabled && definition.CanRun(editor, new ContextCommandExecution(id) { EditorContext = editor })))
+                .Switch()
+                .DistinctUntilChanged()
+                .ObserveOnUIDispatcher();
+            var command = new AsyncReactiveCommand(canExecute).WithSubscribe(Execute);
+            _menuSubscriptions.Add(command);
+            return new MainMenuItem(definition.DisplayName ?? id)
+            {
+                Command = command,
+                GestureCommand = id,
+                InWindowGestureExtensionType = typeof(SceneEditorExtension),
+                BlockNativeCommandWhileDialogOpen = true
+            };
+
+            Task Execute()
+            {
+                if (EnabledSceneEditor is not { } editor)
+                    return Task.CompletedTask;
+
+                var execution = new ContextCommandExecution(id) { EditorContext = editor };
+                return definition.CanRun(editor, execution) ? definition.RunAsync(editor, execution) : Task.CompletedTask;
+            }
+        }
+    }
 
     // Shown only while the selected tab's file is one the editor can open.
     private MainMenuItem CreateEditorItem(EditorExtension extension) => new(extension.DisplayName)

@@ -45,20 +45,25 @@ public sealed class StandardShortcutsTests
     [TestCase("main.showTutorials", "Cmd+Shift+OemQuestion")]
     [TestCase("main.minimizeWindow", "Cmd+M")]
     [TestCase("main.toggleFullScreen", "Cmd+Ctrl+F")]
-    [TestCase("timeline.selectAll", "Cmd+A")]
-    [TestCase("timeline.deselectAll", "Cmd+Shift+A")]
     [TestCase("timeline.zoomIn", "Cmd+OemPlus")]
     [TestCase("timeline.zoomIn", "Cmd+Shift+OemPlus")]
     [TestCase("timeline.zoomOut", "Cmd+OemMinus")]
     [TestCase("timeline.resetZoom", "Cmd+D0")]
     public void A_standard_macOS_key_belongs_to_its_command_alone(string id, string gesture)
+        => Assert.That(GetMacOSShortcutOwners(gesture), Is.EqualTo(new[] { id }));
+
+    [AvaloniaTest]
+    [TestCase("Cmd+A", "timeline.selectAll", "graphEditor.selectAll", "pathEditor.selectAll")]
+    [TestCase("Cmd+Shift+A", "timeline.deselectAll", "graphEditor.deselectAll")]
+    public void A_macOS_selection_shortcut_is_shared_by_its_editor_contexts(string gesture, params string[] ids)
+        => Assert.That(GetMacOSShortcutOwners(gesture), Is.EquivalentTo(ids));
+
+    private static string[] GetMacOSShortcutOwners(string gesture)
     {
         KeyGesture expected = KeyGesture.Parse(gesture);
-        string[] owners = [.. TestShell.MainViewModel.ContextCommandManager.GetDefinitions()
+        return [.. TestShell.MainViewModel.ContextCommandManager.GetDefinitions()
             .Where(entry => entry.KeyGestures.Any(g => g.Platform == OSPlatform.OSX && expected.Equals(g.KeyGesture)))
             .Select(entry => entry.Definition.Id)];
-
-        Assert.That(owners, Is.EqualTo(new[] { id }));
     }
 
     // Undo in a text box: the regression that key equivalents caused, since the menu takes the key before the box.
@@ -242,6 +247,8 @@ public sealed class StandardShortcutsTests
     [TestCase(StandardEditAction.Redo, true, 1)]
     [TestCase(StandardEditAction.Cut, false, 1)]
     [TestCase(StandardEditAction.SelectAll, false, 1)]
+    [TestCase(StandardEditAction.Delete, false, 1)]
+    [TestCase(StandardEditAction.Delete, true, 1)]
     public void What_no_control_takes_falls_back_unless_a_key_has_no_panel_for_it(StandardEditAction action, bool isKey, int runs)
     {
         var fallback = new RecordingCommand();
@@ -1036,7 +1043,8 @@ public sealed class StandardShortcutsTests
         group.ContentTransition = null;
         group.IsExpanded = true;
         HeadlessTestHelpers.Render();
-        var button = (Button)page.GetVisualDescendants().OfType<OptionsDisplayItem>().First(row => row.ActionButton is Button).ActionButton!;
+        Button button = page.GetVisualDescendants().OfType<Button>()
+            .First(button => button.Name == "AssignShortcutButton" && button.IsEffectivelyVisible);
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         HeadlessTestHelpers.Render(3);
         return (button, (ContentControl)window.OpenedPopups.Single(popup => popup.Child is ContentControl).Child!);

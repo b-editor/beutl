@@ -242,6 +242,7 @@ public class TimelineFitTests
         await HeadlessTestHelpers.WaitUntilAsync(() => TopLevel.GetTopLevel((Visual)items[0]) is not null);
         HeadlessTestHelpers.Render(3);
         HeadlessCapture.SaveIfRequested(menu, nameof(TimelineFitTests), "zoom-menu");
+        FAMenuFlyoutItem reset = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == "100%");
 
         Assert.Multiple(() =>
         {
@@ -256,6 +257,7 @@ public class TimelineFitTests
             Assert.That(fitSelection.Text, Is.EqualTo(Strings.GraphFitSelection));
             Assert.That(fitSelection.InputGesture, Is.EqualTo(KeyGesture.Parse("Shift+F")));
             Assert.That(fitSelection.IsEffectivelyEnabled, Is.False, "Nothing is selected.");
+            Assert.That(reset.InputGesture, Is.EqualTo(new KeyGesture(Key.D0, KeyGestureHelper.GetCommandModifier())));
         });
     }
 

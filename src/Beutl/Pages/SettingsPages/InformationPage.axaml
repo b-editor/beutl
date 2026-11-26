@@ -71,15 +71,6 @@
                         </ctrls:OptionsDisplayItem.ActionButton>
                     </ctrls:OptionsDisplayItem>
 
-                    <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.Telemetry_ShortDescription}"
-                                              Header="{x:Static lang:SettingsStrings.Telemetry}"
-                                              Navigates="True"
-                                              NavigationCommand="{Binding NavigateToTelemetry}">
-                        <ctrls:OptionsDisplayItem.Icon>
-                            <icons:FluentIcon Icon="LockClosed" />
-                        </ctrls:OptionsDisplayItem.Icon>
-                    </ctrls:OptionsDisplayItem>
-
                     <ctrls:OptionsDisplayItem Expands="True"
                                               Header="{x:Static lang:SettingsStrings.Links}"
                                               Icon="Link"

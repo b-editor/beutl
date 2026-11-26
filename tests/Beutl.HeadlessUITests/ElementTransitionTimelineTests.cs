@@ -248,26 +248,11 @@ public class ElementTransitionTimelineTests
         var view = new TransitionTabView { DataContext = TransitionTabOf(editor) };
         var window = new Window { Content = view, Width = 400, Height = 600 };
 
-        async Task<LibraryItemPickerFlyoutPresenter> OpenPicker()
-        {
-            view.FindControl<DropDownPickerEditor>("typeEditor")!
-                .RaiseEvent(new RoutedEventArgs(DropDownPickerEditor.DropDownClickEvent));
-            LibraryItemPickerFlyoutPresenter? picker = null;
-            await HeadlessTestHelpers.WaitUntilAsync(() =>
-            {
-                HeadlessTestHelpers.Render(2);
-                picker = window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().SingleOrDefault();
-                return picker != null;
-            });
-            HeadlessTestHelpers.Render(3);
-            return picker!;
-        }
-
         try
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
-            LibraryItemPickerFlyoutPresenter picker = await OpenPicker();
+            LibraryItemPickerFlyoutPresenter picker = await OpenTypePicker(view, window);
             // Transitions have thumbnails, so the picker shows them as tiles or as a list, whichever was last chosen.
             ListBox list = picker.GetVisualDescendants().OfType<ListBox>()
                 .Single(control => control.Name is "PART_ListBox" or "PART_TileListBox" && control.IsEffectivelyVisible);
@@ -284,7 +269,7 @@ public class ElementTransitionTimelineTests
             Assert.That(outgoing.Model.ExitTransition.Value, Is.TypeOf<FadeTransition>());
             int undoCount = editor.HistoryManager.UndoCount;
 
-            picker = await OpenPicker();
+            picker = await OpenTypePicker(view, window);
             Assert.That((picker.SelectedItem?.UserData as SingleTypeLibraryItem)?.ImplementationType, Is.EqualTo(typeof(FadeTransition)));
             picker.SelectedItem = picker.Items!.Single(item => item.UserData is SingleTypeLibraryItem single
                 && single.ImplementationType == typeof(WipeTransition));
@@ -294,11 +279,58 @@ public class ElementTransitionTimelineTests
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
 
             // The drop-down button that opened the picker closes it again.
-            await OpenPicker();
+            await OpenTypePicker(view, window);
             view.FindControl<DropDownPickerEditor>("typeEditor")!
                 .RaiseEvent(new RoutedEventArgs(DropDownPickerEditor.DropDownClickEvent));
             HeadlessTestHelpers.Render();
             Assert.That(window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>(), Is.Empty);
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TheTypePicker_FiltersTransitionsByCategory()
+    {
+        (EditViewModel editor, _, ElementViewModel incoming) = await OpenCut();
+        incoming.OpenTransition(ElementEdge.Start);
+        HeadlessTestHelpers.Settle();
+        var view = new TransitionTabView { DataContext = TransitionTabOf(editor) };
+        var window = new Window { Content = view, Width = 480, Height = 640 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            LibraryItemPickerFlyoutPresenter picker = await OpenTypePicker(view, window);
+            var categoryPicker = picker.GetVisualDescendants().OfType<ComboBox>().Single(control => control.Name == "CategoryPicker");
+            var root = TestShell.Library.Items.OfType<GroupLibraryItem>().Single(group => group.Id == KnownLibraryGroupIds.ClipTransition);
+            GroupLibraryItem[] groups = root.Items.OfType<GroupLibraryItem>().ToArray();
+            string[] titles = [Strings.AllEffectCategories, .. groups.Select(group => group.DisplayName)];
+            Assert.Multiple(() =>
+            {
+                Assert.That(categoryPicker.IsEffectivelyVisible, Is.True);
+                Assert.That(categoryPicker.Items, Is.EqualTo(titles));
+                Assert.That(categoryPicker.SelectedItem, Is.EqualTo(Strings.AllEffectCategories));
+            });
+
+            if (HeadlessCapture.IsRequested)
+            {
+                categoryPicker.IsDropDownOpen = true;
+                HeadlessTestHelpers.Render(3);
+                HeadlessCapture.SaveIfRequested(view, nameof(ElementTransitionTimelineTests), "transition-picker-categories");
+                categoryPicker.IsDropDownOpen = false;
+            }
+
+            var wipes = groups.Single(group => group.Id == KnownLibraryGroupIds.ClipTransitionWipes);
+            categoryPicker.SetCurrentValue(ComboBox.SelectedItemProperty, wipes.DisplayName);
+            Type[] wipeTypes = [typeof(WipeTransition), typeof(IrisTransition), typeof(SplitTransition), typeof(BlindsTransition), typeof(CheckerboardTransition)];
+            await HeadlessTestHelpers.WaitUntilAsync(() => picker.Items?.Count == wipeTypes.Length);
+            Assert.That(picker.Items!.Select(item => ((SingleTypeLibraryItem)item.UserData).ImplementationType),
+                Is.EquivalentTo(wipeTypes));
         }
         finally
         {
@@ -677,6 +709,21 @@ public class ElementTransitionTimelineTests
         window.MouseDown(point, MouseButton.Left);
         window.MouseUp(point, MouseButton.Left);
         HeadlessTestHelpers.Settle(4);
+    }
+
+    private static async Task<LibraryItemPickerFlyoutPresenter> OpenTypePicker(TransitionTabView view, Window window)
+    {
+        view.FindControl<DropDownPickerEditor>("typeEditor")!
+            .RaiseEvent(new RoutedEventArgs(DropDownPickerEditor.DropDownClickEvent));
+        LibraryItemPickerFlyoutPresenter? picker = null;
+        await HeadlessTestHelpers.WaitUntilAsync(() =>
+        {
+            HeadlessTestHelpers.Render(2);
+            picker = window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().SingleOrDefault();
+            return picker != null;
+        });
+        HeadlessTestHelpers.Render(3);
+        return picker!;
     }
 
     // Two rectangles on layer 0 meeting at two seconds.

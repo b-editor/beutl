@@ -6,6 +6,7 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:views="using:Beutl.Editor.Components.ProxiesTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.ProxiesTab.ViewModels"
@@ -109,24 +110,24 @@
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
                             ToolTip.Tip="{x:Static lang:Strings.ProxyMoreActions}">
                         <Button.Flyout>
-                            <MenuFlyout>
-                                <MenuItem usage:UsageTracking.Feature="Proxies.GenerateAllCommand"
-                                          Command="{Binding GenerateAllCommand}"
-                                          Header="{x:Static lang:Strings.ProxyGenerateAll}" />
-                                <Separator />
-                                <MenuItem usage:UsageTracking.Feature="Proxies.RegenerateSelectedCommand"
-                                          Command="{Binding RegenerateSelectedCommand}"
-                                          Header="{x:Static lang:Strings.ProxyRegenerateSelected}"
-                                          IsEnabled="{Binding HasSelection.Value}" />
-                                <MenuItem usage:UsageTracking.Feature="Proxies.DeleteSelectedCommand"
-                                          Command="{Binding DeleteSelectedCommand}"
-                                          Header="{x:Static lang:Strings.ProxyDeleteSelected}"
-                                          IsEnabled="{Binding HasSelection.Value}" />
-                                <Separator />
-                                <MenuItem usage:UsageTracking.Feature="Proxies.DeleteAllForProjectCommand"
-                                          Command="{Binding DeleteAllForProjectCommand}"
-                                          Header="{x:Static lang:Strings.ProxyDeleteProjectProxies}" />
-                            </MenuFlyout>
+                            <ui:FAMenuFlyout>
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Proxies.GenerateAllCommand"
+                                                     Command="{Binding GenerateAllCommand}"
+                                                     Text="{x:Static lang:Strings.ProxyGenerateAll}" />
+                                <ui:FAMenuFlyoutSeparator />
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Proxies.RegenerateSelectedCommand"
+                                                     Command="{Binding RegenerateSelectedCommand}"
+                                                     IsEnabled="{Binding HasSelection.Value}"
+                                                     Text="{x:Static lang:Strings.ProxyRegenerateSelected}" />
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Proxies.DeleteSelectedCommand"
+                                                     Command="{Binding DeleteSelectedCommand}"
+                                                     IsEnabled="{Binding HasSelection.Value}"
+                                                     Text="{x:Static lang:Strings.ProxyDeleteSelected}" />
+                                <ui:FAMenuFlyoutSeparator />
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Proxies.DeleteAllForProjectCommand"
+                                                     Command="{Binding DeleteAllForProjectCommand}"
+                                                     Text="{x:Static lang:Strings.ProxyDeleteProjectProxies}" />
+                            </ui:FAMenuFlyout>
                         </Button.Flyout>
                         <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
                     </Button>
@@ -196,14 +197,14 @@
                                                         AutomationProperties.Name="{x:Static lang:Strings.ProxyMoreActions}"
                                                         Theme="{StaticResource ToolTabBarIconButtonTheme}" ToolTip.Tip="{x:Static lang:Strings.ProxyMoreActions}">
                                                     <Button.Flyout>
-                                                        <MenuFlyout>
-                                                            <MenuItem usage:UsageTracking.Feature="Proxies.RegenerateCommand"
-                                                                      Command="{Binding RegenerateCommand}"
-                                                                      Header="{x:Static lang:Strings.ProxyRegenerate}" />
-                                                            <MenuItem usage:UsageTracking.Feature="Proxies.DeleteCommand"
-                                                                      Command="{Binding DeleteCommand}"
-                                                                      Header="{x:Static lang:Strings.Delete}" />
-                                                        </MenuFlyout>
+                                                        <ui:FAMenuFlyout>
+                                                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Proxies.RegenerateCommand"
+                                                                                 Command="{Binding RegenerateCommand}"
+                                                                                 Text="{x:Static lang:Strings.ProxyRegenerate}" />
+                                                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Proxies.DeleteCommand"
+                                                                                 Command="{Binding DeleteCommand}"
+                                                                                 Text="{x:Static lang:Strings.Delete}" />
+                                                        </ui:FAMenuFlyout>
                                                     </Button.Flyout>
                                                     <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
                                                 </Button>

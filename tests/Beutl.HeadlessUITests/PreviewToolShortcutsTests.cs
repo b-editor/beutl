@@ -88,7 +88,7 @@ public sealed class PreviewToolShortcutsTests
         {
             PlayerView preview = FindPreview(window);
             var manager = TestShell.MainViewModel.ContextCommandManager;
-            var keymap = new KeyMapSettingsPageViewModel(manager, TestShell.Extensions);
+            using var keymap = new KeyMapSettingsPageViewModel(manager, TestShell.Extensions);
             string[] toolIds =
             [
                 SceneEditorExtension.SelectPreviewMoveToolCommandId,

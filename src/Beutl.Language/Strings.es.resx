@@ -980,6 +980,9 @@
   <data name="Exit_Description" xml:space="preserve">
     <value>Salir de la aplicación</value>
   </data>
+  <data name="Playback" xml:space="preserve">
+    <value>Reproducción</value>
+  </data>
   <data name="PlayPause" xml:space="preserve">
     <value>Reproducir/Pausar</value>
   </data>
@@ -1009,6 +1012,9 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>Mover al final de la escena.</value>
+  </data>
+  <data name="Markers" xml:space="preserve">
+    <value>Marcadores</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
     <value>Alternar marcador</value>
@@ -1370,9 +1376,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Seleccionar carpeta de destino</value>
   </data>
   
-  <data name="Experimental" xml:space="preserve">
-    <value>Experimental</value>
-  </data>
   <data name="Home" xml:space="preserve">
     <value>Inicio</value>
   </data>
@@ -1830,25 +1833,52 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Abrir en el gestor de archivos</value>
   </data>
   <data name="PathEditor_MoveTool" xml:space="preserve">
-    <value>Mover (V) · Mayús: añadir a la selección</value>
+    <value>Mover</value>
+  </data>
+  <data name="PathEditor_MoveTool_Description" xml:space="preserve">
+    <value>Mayús: añadir a la selección</value>
   </data>
   <data name="PathEditor_PenTool" xml:space="preserve">
-    <value>Pluma (P) · Clic: añadir punto · Arrastrar: curva</value>
+    <value>Pluma</value>
+  </data>
+  <data name="PathEditor_PenTool_Description" xml:space="preserve">
+    <value>Haz clic para añadir un punto. Arrastra para curvar.</value>
   </data>
   <data name="PathEditor_BendTool" xml:space="preserve">
-    <value>Curvar (B) · Haz clic en un punto para añadir o quitar controles</value>
+    <value>Curvar</value>
+  </data>
+  <data name="PathEditor_BendTool_Description" xml:space="preserve">
+    <value>Haz clic en un punto para añadir o quitar controles</value>
   </data>
   <data name="PathEditor_HandTool" xml:space="preserve">
-    <value>Mano (H) · Espacio + arrastrar: desplazar</value>
+    <value>Mano</value>
+  </data>
+  <data name="PathEditor_HandTool_Description" xml:space="preserve">
+    <value>Arrastra para desplazar la vista</value>
   </data>
   <data name="PathEditor_ZoomIn" xml:space="preserve">
-    <value>Acercar (+)</value>
+    <value>Acercar</value>
   </data>
   <data name="PathEditor_ZoomOut" xml:space="preserve">
-    <value>Alejar (-)</value>
+    <value>Alejar</value>
   </data>
   <data name="PathEditor_Fit" xml:space="preserve">
-    <value>Ajustar trazado (Mayús+1)</value>
+    <value>Ajustar trazado</value>
+  </data>
+  <data name="PanView" xml:space="preserve">
+    <value>Desplazar la vista</value>
+  </data>
+  <data name="PathEditor_NudgeLeft" xml:space="preserve">
+    <value>Desplazar a la izquierda ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeRight" xml:space="preserve">
+    <value>Desplazar a la derecha ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeUp" xml:space="preserve">
+    <value>Desplazar hacia arriba ({0} px)</value>
+  </data>
+  <data name="PathEditor_NudgeDown" xml:space="preserve">
+    <value>Desplazar hacia abajo ({0} px)</value>
   </data>
   <data name="PathEditor_NoSelection" xml:space="preserve">
     <value>Ningún punto seleccionado</value>
@@ -2078,9 +2108,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Ai" xml:space="preserve">
     <value>IA</value>
   </data>
-  <data name="AiGenerateImage" xml:space="preserve">
-    <value>Generar imagen</value>
-  </data>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>Generación de imágenes con IA</value>
   </data>
@@ -2180,9 +2207,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiImageAddedToScene" xml:space="preserve">
     <value>Se ha añadido la imagen a la escena.</value>
   </data>
-  <data name="AiGenerateSubtitles" xml:space="preserve">
-    <value>Generar subtítulos</value>
-  </data>
   <data name="AiSubtitle" xml:space="preserve">
     <value>Subtítulos con IA</value>
   </data>
@@ -2216,9 +2240,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitleAddedToScene" xml:space="preserve">
     <value>Se han añadido los subtítulos a la escena.</value>
   </data>
-  <data name="AiEditImage" xml:space="preserve">
-    <value>Editar imagen</value>
-  </data>
   <data name="AiImageEdit" xml:space="preserve">
     <value>Edición de imágenes con IA</value>
   </data>
@@ -2239,9 +2260,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiEditSelectSource" xml:space="preserve">
     <value>Selecciona primero un archivo de imagen.</value>
-  </data>
-  <data name="AiGenerateVideo" xml:space="preserve">
-    <value>Generar vídeo</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>Generación de vídeos con IA</value>
@@ -4103,7 +4121,7 @@ cuando el registro del historial está activado.</value>
     <value>Revisión {0}</value>
   </data>
   <data name="EffectCategory" xml:space="preserve">
-    <value>Categoría de efecto</value>
+    <value>Categoría</value>
   </data>
   <data name="AllEffectCategories" xml:space="preserve">
     <value>Todas las categorías</value>

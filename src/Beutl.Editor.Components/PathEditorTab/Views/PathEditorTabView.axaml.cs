@@ -36,6 +36,10 @@ public partial class PathEditorTabView : PathEditorViewBase
         InitializeComponent();
         PointProperties.Bind(DataContextProperty, this.GetObservable(DataContextProperty));
         InitializeEditor(canvas, view, delta => Matrix *= Matrix.CreateTranslation(delta), Zoom, Fit, ToolSlot);
+        PathEditorInteraction.SetShortcutToolTip(ZoomOutButton, "zoomOut", Strings.PathEditor_ZoomOut);
+        PathEditorInteraction.SetShortcutToolTip(ZoomValueButton, "resetZoom", Strings.ResetZoom);
+        PathEditorInteraction.SetShortcutToolTip(ZoomInButton, "zoomIn", Strings.PathEditor_ZoomIn);
+        PathEditorInteraction.SetShortcutToolTip(FitButton, "fitAll", Strings.PathEditor_Fit);
 
         PointPropertyList.AddHandler(PropertyEditor.ValueChangedEvent, OnInspectorPropertyChanged, handledEventsToo: true);
         PointPropertyList.AddHandler(PropertyEditor.ValueConfirmedEvent, OnInspectorPropertyChanged, handledEventsToo: true);

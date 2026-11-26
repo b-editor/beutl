@@ -72,7 +72,7 @@ internal static class LibraryRegistrar
                 .BindSound<SourceSound>()
             );
 
-        library.RegisterGroup($"3D ({Strings.Experimental})", null, KnownLibraryGroupIds.ThreeD, g => g
+        library.RegisterGroup(GraphicsStrings.LibraryGroup3D, null, KnownLibraryGroupIds.ThreeD, g => g
             .AddMultiple(GraphicsStrings.Scene3D, GraphicsStrings.Scene3D_LibraryDescription, m => m
                 .BindDrawable<Scene3D>()
             )
@@ -257,6 +257,8 @@ internal static class LibraryRegistrar
                         GraphicsStrings.ShakeEffect_LibraryDescription)
                     .AddFilterEffect<PathFollowEffect>(GraphicsStrings.PathFollowEffect,
                         GraphicsStrings.PathFollowEffect_LibraryDescription)
+                    .AddFilterEffect<TextOnPathEffect>(GraphicsStrings.TextOnPathEffect,
+                        GraphicsStrings.TextOnPathEffect_LibraryDescription)
                     .AddFilterEffect<DelayAnimationEffect>(GraphicsStrings.DelayAnimationEffect,
                         GraphicsStrings.DelayAnimationEffect_LibraryDescription)
                     .AddFilterEffect<RangeAnimatorEffect>(GraphicsStrings.RangeAnimatorEffect,
@@ -304,36 +306,48 @@ internal static class LibraryRegistrar
 
         library
             .RegisterGroup(GraphicsStrings.ClipTransition, null, KnownLibraryGroupIds.ClipTransition, g => g
-                .AddClipTransition<CrossDissolveTransition>(GraphicsStrings.CrossDissolveTransition,
-                    GraphicsStrings.CrossDissolveTransition_LibraryDescription)
-                .AddClipTransition<FadeTransition>(GraphicsStrings.FadeTransition,
-                    GraphicsStrings.FadeTransition_LibraryDescription)
-                .AddClipTransition<WipeTransition>(GraphicsStrings.WipeTransition,
-                    GraphicsStrings.WipeTransition_LibraryDescription)
-                .AddClipTransition<DipToColorTransition>(GraphicsStrings.DipToColorTransition,
-                    GraphicsStrings.DipToColorTransition_LibraryDescription)
-                .AddClipTransition<PushTransition>(GraphicsStrings.PushTransition,
-                    GraphicsStrings.PushTransition_LibraryDescription)
-                .AddClipTransition<SlideTransition>(GraphicsStrings.SlideTransition,
-                    GraphicsStrings.SlideTransition_LibraryDescription)
-                .AddClipTransition<ZoomTransition>(GraphicsStrings.ZoomTransition,
-                    GraphicsStrings.ZoomTransition_LibraryDescription)
-                .AddClipTransition<IrisTransition>(GraphicsStrings.IrisTransition,
-                    GraphicsStrings.IrisTransition_LibraryDescription)
-                .AddClipTransition<SplitTransition>(GraphicsStrings.SplitTransition,
-                    GraphicsStrings.SplitTransition_LibraryDescription)
-                .AddClipTransition<BlindsTransition>(GraphicsStrings.BlindsTransition,
-                    GraphicsStrings.BlindsTransition_LibraryDescription)
-                .AddClipTransition<CheckerboardTransition>(GraphicsStrings.CheckerboardTransition,
-                    GraphicsStrings.CheckerboardTransition_LibraryDescription)
-                .AddClipTransition<ZoomBlurTransition>(GraphicsStrings.ZoomBlurTransition,
-                    GraphicsStrings.ZoomBlurTransition_LibraryDescription)
-                .AddClipTransition<WhipPanTransition>(GraphicsStrings.WhipPanTransition,
-                    GraphicsStrings.WhipPanTransition_LibraryDescription)
-                .AddClipTransition<GlitchTransition>(GraphicsStrings.GlitchTransition,
-                    GraphicsStrings.GlitchTransition_LibraryDescription)
-                .AddClipTransition<LightLeakTransition>(GraphicsStrings.LightLeakTransition,
-                    GraphicsStrings.LightLeakTransition_LibraryDescription)
+                .AddGroup(GraphicsStrings.ClipTransitionCategory_FadesAndDissolves, null,
+                    KnownLibraryGroupIds.ClipTransitionFadesAndDissolves, group => group
+                    .AddClipTransition<CrossDissolveTransition>(GraphicsStrings.CrossDissolveTransition,
+                        GraphicsStrings.CrossDissolveTransition_LibraryDescription)
+                    .AddClipTransition<FadeTransition>(GraphicsStrings.FadeTransition,
+                        GraphicsStrings.FadeTransition_LibraryDescription)
+                    .AddClipTransition<DipToColorTransition>(GraphicsStrings.DipToColorTransition,
+                        GraphicsStrings.DipToColorTransition_LibraryDescription)
+                )
+                .AddGroup(GraphicsStrings.ClipTransitionCategory_Wipes, null,
+                    KnownLibraryGroupIds.ClipTransitionWipes, group => group
+                    .AddClipTransition<WipeTransition>(GraphicsStrings.WipeTransition,
+                        GraphicsStrings.WipeTransition_LibraryDescription)
+                    .AddClipTransition<IrisTransition>(GraphicsStrings.IrisTransition,
+                        GraphicsStrings.IrisTransition_LibraryDescription)
+                    .AddClipTransition<SplitTransition>(GraphicsStrings.SplitTransition,
+                        GraphicsStrings.SplitTransition_LibraryDescription)
+                    .AddClipTransition<BlindsTransition>(GraphicsStrings.BlindsTransition,
+                        GraphicsStrings.BlindsTransition_LibraryDescription)
+                    .AddClipTransition<CheckerboardTransition>(GraphicsStrings.CheckerboardTransition,
+                        GraphicsStrings.CheckerboardTransition_LibraryDescription)
+                )
+                .AddGroup(GraphicsStrings.ClipTransitionCategory_Motion, null,
+                    KnownLibraryGroupIds.ClipTransitionMotion, group => group
+                    .AddClipTransition<PushTransition>(GraphicsStrings.PushTransition,
+                        GraphicsStrings.PushTransition_LibraryDescription)
+                    .AddClipTransition<SlideTransition>(GraphicsStrings.SlideTransition,
+                        GraphicsStrings.SlideTransition_LibraryDescription)
+                    .AddClipTransition<ZoomTransition>(GraphicsStrings.ZoomTransition,
+                        GraphicsStrings.ZoomTransition_LibraryDescription)
+                    .AddClipTransition<ZoomBlurTransition>(GraphicsStrings.ZoomBlurTransition,
+                        GraphicsStrings.ZoomBlurTransition_LibraryDescription)
+                    .AddClipTransition<WhipPanTransition>(GraphicsStrings.WhipPanTransition,
+                        GraphicsStrings.WhipPanTransition_LibraryDescription)
+                )
+                .AddGroup(GraphicsStrings.ClipTransitionCategory_Stylized, null,
+                    KnownLibraryGroupIds.ClipTransitionStylized, group => group
+                    .AddClipTransition<GlitchTransition>(GraphicsStrings.GlitchTransition,
+                        GraphicsStrings.GlitchTransition_LibraryDescription)
+                    .AddClipTransition<LightLeakTransition>(GraphicsStrings.LightLeakTransition,
+                        GraphicsStrings.LightLeakTransition_LibraryDescription)
+                )
             );
 
         library
