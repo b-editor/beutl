@@ -171,7 +171,7 @@ public partial class MenuBarViewModel
             {
                 if (item.Context.Value is ISavableEditorContext editor)
                 {
-                    if (await editor.SaveAsync())
+                    if (await EditorService.SaveEditorInReservedWorkspaceAsync(editor))
                     {
                         itemsCount++;
                         if (editor is EditViewModel sceneEditor) savedSceneEditors.Add(sceneEditor);
@@ -233,7 +233,8 @@ public partial class MenuBarViewModel
             }
 
             EditViewModel? savedSceneEditor = item.Context.Value as EditViewModel;
-            bool result = item.Context.Value is ISavableEditorContext editor && await editor.SaveAsync();
+            bool result = item.Context.Value is ISavableEditorContext editor
+                && await EditorService.SaveEditorInReservedWorkspaceAsync(editor);
             if (result)
             {
                 Notifications.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName.Value));

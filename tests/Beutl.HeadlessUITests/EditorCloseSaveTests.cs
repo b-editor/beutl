@@ -32,8 +32,10 @@ public class EditorCloseSaveTests
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(sceneUri.LocalPath)!, $"clip-{i}.belm")),
             Name = { Value = $"Clip {i}" },
         }).ToArray();
+        bool suppressed = EditViewModel.IsAutoSaveSuppressedForTesting;
         try
         {
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
             editor.Scene.Children.AddRange(elements);
             editor.HistoryManager.Commit();
             Assert.That(await editor.SaveAsync(), Is.True);
@@ -58,6 +60,68 @@ public class EditorCloseSaveTests
         }
         finally
         {
+            EditViewModel.IsAutoSaveSuppressedForTesting = suppressed;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_direct_save_holds_the_project_writer_while_auto_save_is_queued()
+    {
+        EditViewModel editor = await OpenEditorAsync();
+        string elementPath = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "clip.belm");
+        bool suppressed = EditViewModel.IsAutoSaveSuppressedForTesting;
+        bool autoSaveStarted = false;
+        var autoSaveCompleted = new TaskCompletionSource<Exception?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var replacingElement = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var autoSave = (AutoSaveService)editor.GetService(typeof(AutoSaveService))!;
+        using IDisposable subscription = autoSave.SaveProgress.Subscribe(progress =>
+        {
+            autoSaveStarted = true;
+            if (progress.Percentage == 100) autoSaveCompleted.TrySetResult(progress.Error);
+        });
+        using IDisposable faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+        {
+            if (step != StorageWriteStep.Replace || path != elementPath || !replacingElement.TrySetResult()) return;
+            if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException();
+        });
+
+        try
+        {
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
+            editor.Scene.Children.Add(new Element { Uri = new Uri(elementPath) });
+            Task<bool> save = editor.SaveAsync().AsTask();
+            bool writerWasHeld;
+            bool autoSaveStartedDuringSave;
+            try
+            {
+                await replacingElement.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                using (IDisposable? competingWrite = TestShell.Editor.TryBeginProjectFileWrite())
+                    writerWasHeld = competingWrite is null;
+
+                EditViewModel.IsAutoSaveSuppressedForTesting = false;
+                editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
+                editor.HistoryManager.Commit();
+                HeadlessTestHelpers.Settle();
+                autoSaveStartedDuringSave = autoSaveStarted;
+            }
+            finally
+            {
+                release.Set();
+            }
+
+            Assert.That(await save.WaitAsync(TimeSpan.FromSeconds(10)), Is.True);
+            Assert.That(await autoSaveCompleted.Task.WaitAsync(TimeSpan.FromSeconds(10)), Is.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(writerWasHeld, Is.True);
+                Assert.That(autoSaveStartedDuringSave, Is.False);
+            });
+        }
+        finally
+        {
+            EditViewModel.IsAutoSaveSuppressedForTesting = suppressed;
             await TestReset.ResetShellAsync();
         }
     }
