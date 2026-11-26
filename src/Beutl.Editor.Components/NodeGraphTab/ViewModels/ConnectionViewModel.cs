@@ -1,5 +1,7 @@
 ﻿using Avalonia;
+using Beutl.Editor.Services;
 using Beutl.NodeGraph;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
@@ -13,14 +15,16 @@ public class ConnectionViewModel : IDisposable
     {
         _nodeGraph = nodeGraph;
         Connection = connection;
+        FallbackInput = nodeGraph.NodeGraph.FindSavedFallbackPort(connection, input: true)?.Node;
+        FallbackOutput = nodeGraph.NodeGraph.FindSavedFallbackPort(connection, input: false)?.Node;
         InputPortVM = connection.Input.GetObservable()
-            .Select(i => i.Value is IInputPort input
+            .Select(i => FallbackInput == null && i.Value is IInputPort input
                 ? _nodeGraph.FindNodePortViewModel(input) as InputPortViewModel
                 : null)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         OutputPortVM = connection.Output.GetObservable()
-            .Select(i => i.Value is IOutputPort output
+            .Select(i => FallbackOutput == null && i.Value is IOutputPort output
                 ? _nodeGraph.FindNodePortViewModel(output) as OutputPortViewModel
                 : null)
             .ToReactiveProperty()
@@ -55,6 +59,21 @@ public class ConnectionViewModel : IDisposable
     }
 
     public Connection Connection { get; }
+
+    internal FallbackGraphNode? FallbackInput { get; }
+
+    internal FallbackGraphNode? FallbackOutput { get; }
+
+    internal bool HasFallback => FallbackInput != null || FallbackOutput != null;
+
+    internal bool CanEdit => _nodeGraph.CanEdit.Value;
+
+    internal void Disconnect()
+    {
+        if (CanEdit)
+            _nodeGraph.EditorContext.GetRequiredService<INodeGraphMutationService>()
+                .DisconnectConnection(_nodeGraph.NodeGraph, Connection);
+    }
 
     public ReactiveProperty<InputPortViewModel?> InputPortVM { get; }
 

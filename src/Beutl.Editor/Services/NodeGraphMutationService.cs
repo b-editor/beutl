@@ -122,25 +122,15 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         // Snapshot touching connections first so disconnect calls don't
         // invalidate the iteration.
-        Connection[] touching = node.EnumerateMembers()
-            .SelectMany<INodeMember, Reference<Connection>>(i => i switch
-            {
-                IOutputPort output => output.Connections,
-                IListPort list => list.Connections,
-                IInputPort { Connection.Value: var connection } => [connection],
-                _ => [],
-            })
-            .Select(conn => graph.AllConnections.FirstOrDefault(a => a.Id.Value == conn.Id))
-            .Where(a => a is not null)
-            // A connection a node makes to itself is listed by both of its ports.
-            .Distinct()
-            .ToArray()!;
-        // A missing plugin's node has no ports; its connections name the ports it was saved with.
-        if (node is FallbackGraphNode fallback)
-        {
-            HashSet<Guid> ports = [.. fallback.SavedPortIds()];
-            touching = [.. graph.AllConnections.Where(c => ports.Contains(c.Input.Value.Id) || ports.Contains(c.Output.Value.Id))];
-        }
+        Connection[] touching = node is FallbackGraphNode fallback
+            ? [.. graph.AllConnections.Where(c => graph.FindSavedFallbackPort(c, input: true)?.Node == fallback
+                || graph.FindSavedFallbackPort(c, input: false)?.Node == fallback)]
+            : [.. node.EnumerateMembers()
+                .SelectMany(GraphModel.GetPortConnections)
+                .Select(conn => graph.AllConnections.FirstOrDefault(a => a.Id.Value == conn.Id))
+                .OfType<Connection>()
+                // A connection a node makes to itself is listed by both of its ports.
+                .Distinct()];
 
         foreach (Connection connection in touching)
         {
@@ -419,11 +409,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
                 c => c.Input.Value.Id == input.Id.Value && c.Output.Value.Id == output.Id.Value);
         }
 
-        if (connection is null) return false;
-
-        graph.Disconnect(connection);
-        _historyManager.Commit(CommandNames.DisconnectPort);
-        return true;
+        return connection != null && DisconnectConnectionCore(graph, connection);
     }
 
     public bool DisconnectAll(GraphModel graph, INodePort port)
@@ -440,10 +426,15 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(connection);
-        if (!IsEditable(graph)) return;
+        if (IsEditable(graph)) DisconnectConnectionCore(graph, connection);
+    }
 
+    private bool DisconnectConnectionCore(GraphModel graph, Connection connection)
+    {
+        if (!graph.AllConnections.Contains(connection)) return false;
         graph.Disconnect(connection);
         _historyManager.Commit(CommandNames.DisconnectPort);
+        return true;
     }
 
     private static bool SortPortDirection(INodePort a, INodePort b,

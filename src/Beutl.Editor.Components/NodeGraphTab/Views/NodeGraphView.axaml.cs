@@ -11,6 +11,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
@@ -444,16 +445,27 @@ public partial class NodeGraphView : UserControl
 
     internal static ConnectionLine CreateLine(ConnectionViewModel connVM)
     {
-        return new ConnectionLine()
+        var line = new ConnectionLine()
         {
             [!Line.StartPointProperty] = connVM.InputPortPosition.ToBinding(),
             [!Line.EndPointProperty] = connVM.OutputPortPosition.ToBinding(),
             [!ConnectionLine.InputPortProperty] = connVM.InputPortVM.ToBinding(),
             [!ConnectionLine.OutputPortProperty] = connVM.OutputPortVM.ToBinding(),
-            [!IsVisibleProperty] = connVM.InputPortVM.CombineLatest(connVM.OutputPortVM,
-                (input, output) => input != null && output != null).ToBinding(),
+            [!IsVisibleProperty] = connVM.InputPortVM.CombineLatest(connVM.OutputPortVM, (input, output) =>
+                (input != null || connVM.FallbackInput != null) && (output != null || connVM.FallbackOutput != null)).ToBinding(),
             ConnectionViewModel = connVM
         };
+        if (connVM.HasFallback)
+        {
+            line.StrokeDashArray = [3, 2];
+            var disconnect = new FAMenuFlyoutItem { Text = Strings.Disconnect };
+            disconnect.Click += (_, _) => connVM.Disconnect();
+            var flyout = new FAMenuFlyout();
+            flyout.Items.Add(disconnect);
+            flyout.Opening += (_, _) => disconnect.IsEnabled = connVM.CanEdit;
+            line.ContextFlyout = flyout;
+        }
+        return line;
     }
 
     private void InitializeConnectionPositions(ConnectionViewModel connVM)
@@ -462,8 +474,8 @@ public partial class NodeGraphView : UserControl
         {
             if (child is GraphNodeView { DataContext: GraphNodeViewModel nodeVM } nodeView)
             {
-                bool hasInput = nodeVM.GraphNode.EnumerateMembers().Any(i => i.Id.Value == connVM.Connection.Input.Value.Id);
-                bool hasOutput = nodeVM.GraphNode.EnumerateMembers().Any(i => i.Id.Value == connVM.Connection.Output.Value.Id);
+                bool hasInput = nodeVM == connVM.InputPortVM.Value?.GraphNodeViewModel || nodeVM.GraphNode == connVM.FallbackInput;
+                bool hasOutput = nodeVM == connVM.OutputPortVM.Value?.GraphNodeViewModel || nodeVM.GraphNode == connVM.FallbackOutput;
 
                 if (hasInput || hasOutput)
                 {

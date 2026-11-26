@@ -309,29 +309,26 @@ public sealed partial class NodePortPoint : Control
 
     private void DisconnectAll()
     {
-        if (_canvas != null && DataContext is NodePortViewModel viewModel)
-        {
-            for (int i = _canvas.Children.Count - 1; i >= 0; i--)
-            {
-                Control item = _canvas.Children[i];
-                if (item is ConnectionLine cline && cline.Match(viewModel))
-                {
-                    NodePortViewModel? target = cline.GetTarget(viewModel);
-                    if (target != null)
-                    {
-                        var args = new NodePortConnectRequestedEventArgs(target, true)
-                        {
-                            Connection = Tag as ConnectionViewModel // IListPortの場合TagにConnectionViewModelを持っている
-                        };
-                        DisconnectRequested?.Invoke(this, args);
-                        if (args.IsConnected)
-                        {
-                            continue;
-                        }
-                    }
+        if (_canvas == null || DataContext is not NodePortViewModel viewModel) return;
 
-                    _canvas.Children.Remove(cline);
-                }
+        if (Tag is ConnectionViewModel slot)
+        {
+            viewModel.DisconnectConnection(slot);
+            return;
+        }
+
+        foreach (ConnectionViewModel connection in viewModel.Connections.ToArray())
+        {
+            NodePortViewModel? target = viewModel is InputPortViewModel
+                ? connection.OutputPortVM.Value : connection.InputPortVM.Value;
+            if (target != null)
+            {
+                var args = new NodePortConnectRequestedEventArgs(target, true) { Connection = connection };
+                DisconnectRequested?.Invoke(this, args);
+            }
+            else
+            {
+                connection.Disconnect();
             }
         }
     }
