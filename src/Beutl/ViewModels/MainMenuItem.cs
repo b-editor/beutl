@@ -54,4 +54,6 @@ public sealed class MainMenuItem(string? header)
 
     // In the native menu, the focused control gets this action first, and Command does what no control took.
     public StandardEditAction? EditAction { get; init; }
+
+    internal (Func<bool> IsEnabled, IObservable<Unit> Changed)? EditActionAvailability { get; init; }
 }

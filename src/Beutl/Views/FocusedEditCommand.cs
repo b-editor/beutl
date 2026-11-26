@@ -42,17 +42,24 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
     // Test seam: the Headless platform has no AppKit event to look at.
     internal Func<bool> IsKeyEquivalent { get; init; } = () => IsCurrentEventKeyDown(window);
 
+    internal (Func<bool> IsEnabled, IObservable<Unit> Changed)? Availability { get; init; }
+
     // A text input takes the action whether or not the fallback, which may need a scene, is available.
     public bool CanExecute(object? parameter)
-        => fallback.CanExecute(parameter) || IsTextInput(window.FocusManager?.GetFocusedElement());
+        => Availability?.IsEnabled() != false
+            && (fallback.CanExecute(parameter) || IsTextInput(window.FocusManager?.GetFocusedElement()));
 
-    // Keeps the entry's state with the focus until disposed.
+    // Keeps the entry's state with the focus and its availability until disposed.
     internal IDisposable FollowFocus() => new CompositeDisposable(
         window.AddDisposableHandler(InputElement.GotFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true),
-        window.AddDisposableHandler(InputElement.LostFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true));
+        window.AddDisposableHandler(InputElement.LostFocusEvent, (_, _) => _focusChanged?.Invoke(this, EventArgs.Empty), handledEventsToo: true),
+        Availability?.Changed.Subscribe(_ => _focusChanged?.Invoke(this, EventArgs.Empty)) ?? Disposable.Empty);
 
     public void Execute(object? parameter)
     {
+        if (Availability?.IsEnabled() == false)
+            return;
+
         bool isDialogOpen = IsDialogOpen(window);
         var target = window.FocusManager?.GetFocusedElement() as Interactive ?? window;
         // Not every dialog takes the focus when it opens, and what it covers must not get the key.

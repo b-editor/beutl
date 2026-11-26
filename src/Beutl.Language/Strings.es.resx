@@ -443,9 +443,6 @@
   <data name="Tools" xml:space="preserve">
     <value>Herramientas</value>
   </data>
-  <data name="ToolWindows" xml:space="preserve">
-    <value>Ventanas de herramientas</value>
-  </data>
   <data name="Rename" xml:space="preserve">
     <value>Renombrar</value>
   </data>

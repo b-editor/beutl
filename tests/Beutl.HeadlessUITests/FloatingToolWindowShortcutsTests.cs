@@ -308,9 +308,10 @@ public sealed class FloatingToolWindowShortcutsTests
         Assert.That(menu!.Items.OfType<NativeMenuItem>().Select(item => item.Header),
             Is.EqualTo(TestShell.MainViewModel.MenuItems.Where(item => !item.IsInWindowOnly).Select(item => item.Header)));
         Assert.That(menu.Items.OfType<NativeMenuItem>().Select(item => item.Header), Does.Not.Contain(Strings.Tools));
-        NativeMenuItem toolWindows = menu.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.View)
-            .Menu!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.ToolWindows);
-        Assert.That(toolWindows.Menu!.Items.OfType<NativeMenuItem>().Select(item => item.CommandParameter),
+        NativeMenu viewMenu = menu.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.View).Menu!;
+        Assert.That(viewMenu.Items.OfType<NativeMenuItem>()
+                .Where(item => ReferenceEquals(item.Command, TestShell.MainViewModel.MenuBar.OpenToolWindow))
+                .Select(item => item.CommandParameter),
             Is.EqualTo(TestShell.MainViewModel.ToolWindowExtensions));
         var box = new TextBox();
         ((ContentControl)floated.Inside.Parent!).Content = box;

@@ -81,7 +81,10 @@ internal static class MainMenuBuilder
         FocusedEditCommand? editCommand = null;
         if (item.EditAction is { } action)
         {
-            editCommand = new FocusedEditCommand(action, item.Command!, window, gesture);
+            editCommand = new FocusedEditCommand(action, item.Command!, window, gesture)
+            {
+                Availability = item.EditActionAvailability
+            };
             disposables.Add(editCommand.FollowFocus());
             menuItem.Command = editCommand;
         }

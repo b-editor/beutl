@@ -19,6 +19,7 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -83,7 +84,7 @@ public sealed class MainMenuBuilderTests
     }
 
     [AvaloniaTest]
-    public async Task Tool_windows_registered_after_the_menus_appear_under_View_and_follow_removal()
+    public async Task Tool_windows_appear_directly_in_View_and_follow_registration_and_removal()
     {
         await TestReset.ResetShellAsync();
         MainViewModel viewModel = TestShell.MainViewModel;
@@ -95,30 +96,46 @@ public sealed class MainMenuBuilderTests
         const int packageId = -4633;
         try
         {
+            HeadlessTestHelpers.Settle();
+            MenuItem inWindowView = inWindow.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.View));
+            NativeMenu nativeView = native.OfType<NativeMenuItem>().Single(item => item.Header == Strings.View).Menu!;
+            MenuItem[] originalInWindow = InWindowToolWindows();
+            NativeMenuItem[] originalNative = NativeToolWindows();
+
             viewModel.ExtensionProvider.AddExtensions(packageId, [extension]);
             HeadlessTestHelpers.Settle();
-            MenuItem inWindowList = inWindow.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.View))
-                .Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.ToolWindows));
-            NativeMenu nativeList = native.OfType<NativeMenuItem>().Single(item => item.Header == Strings.View)
-                .Menu!.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.ToolWindows).Menu!;
+            MenuItem[] inWindowEntries = InWindowToolWindows();
+            NativeMenuItem[] nativeEntries = NativeToolWindows();
 
             Assert.Multiple(() =>
             {
                 Assert.That(inWindow.OfType<MenuItem>().Select(item => item.Header), Does.Not.Contain(Strings.Tools));
                 Assert.That(native.OfType<NativeMenuItem>().Select(item => item.Header), Does.Not.Contain(Strings.Tools));
-                Assert.That(inWindowList.Items.OfType<MenuItem>().Select(item => item.CommandParameter),
+                Assert.That(inWindowEntries.Select(item => item.CommandParameter),
                     Is.EqualTo(viewModel.ToolWindowExtensions).And.Contain(extension));
-                Assert.That(nativeList.Items.OfType<NativeMenuItem>().Select(item => item.CommandParameter),
+                Assert.That(nativeEntries.Select(item => item.CommandParameter),
                     Is.EqualTo(viewModel.ToolWindowExtensions).And.Contain(extension));
+                Assert.That(inWindowView.Items[2], Is.TypeOf<Separator>());
+                Assert.That(inWindowView.Items.Skip(3).Take(inWindowEntries.Length), Is.EqualTo(inWindowEntries));
+                Assert.That(inWindowView.Items[3 + inWindowEntries.Length], Is.TypeOf<Separator>());
+                Assert.That(nativeView.Items[2], Is.TypeOf<NativeMenuItemSeparator>());
+                Assert.That(nativeView.Items.Skip(3).Take(nativeEntries.Length), Is.EqualTo(nativeEntries));
+                Assert.That(nativeView.Items[3 + nativeEntries.Length], Is.TypeOf<NativeMenuItemSeparator>());
             });
 
             viewModel.ExtensionProvider.RemoveExtensions(packageId);
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
-                Assert.That(inWindowList.Items.OfType<MenuItem>().Select(item => item.CommandParameter), Does.Not.Contain(extension));
-                Assert.That(nativeList.Items.OfType<NativeMenuItem>().Select(item => item.CommandParameter), Does.Not.Contain(extension));
+                Assert.That(InWindowToolWindows(), Is.EqualTo(originalInWindow));
+                Assert.That(NativeToolWindows(), Is.EqualTo(originalNative));
             });
+
+            MenuItem[] InWindowToolWindows() => [.. inWindowView.Items.OfType<MenuItem>()
+                .Where(item => ReferenceEquals(item.Command, viewModel.MenuBar.OpenToolWindow))];
+
+            NativeMenuItem[] NativeToolWindows() => [.. nativeView.Items.OfType<NativeMenuItem>()
+                .Where(item => ReferenceEquals(item.Command, viewModel.MenuBar.OpenToolWindow))];
         }
         finally
         {
@@ -322,6 +339,67 @@ public sealed class MainMenuBuilderTests
     }
 
     [AvaloniaTest]
+    public async Task Scene_menu_commands_are_disabled_while_the_editor_is_suspended()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("scene-menu-suspension");
+        MainViewModel viewModel = TestShell.MainViewModel;
+        var view = new MainView { DataContext = viewModel };
+        var macWindow = new MacWindow { DataContext = viewModel };
+        var window = new Window { Width = 1000, Height = 680 };
+        try
+        {
+            window.Show();
+            window.Content = view;
+            Menu menu = view.FindControl<Menu>("MenuBar")!;
+            menu.IsVisible = true;
+            MenuItem scene = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Scene));
+            MenuItem[] sections = [.. scene.Items.OfType<MenuItem>()
+                .Where(item => Equals(item.Header, Strings.Markers) || Equals(item.Header, Strings.Playback))];
+            NativeMenu nativeScene = NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>()
+                .Single(item => item.Header == Strings.Scene).Menu!;
+            NativeMenuItem[] nativeEntries = [.. nativeScene.Items.OfType<NativeMenuItem>()
+                .Where(item => item.Header == Strings.Markers || item.Header == Strings.Playback)
+                .SelectMany(item => item.Menu!.Items.OfType<NativeMenuItem>())
+                .Where(item => item is not NativeMenuItemSeparator)];
+            var marker = (AsyncReactiveCommand)sections.SelectMany(item => item.Items.OfType<MenuItem>())
+                .Single(item => Equals(item.Header, Strings.ToggleMarker)).Command!;
+            NativeMenuItem nativeMarker = nativeEntries.Single(item => item.Header == Strings.ToggleMarker);
+
+            HeadlessTestHelpers.Settle();
+            Assert.That(nativeMarker.IsEnabled, Is.True);
+            using (TestShell.Editor.SuspendEditors())
+            {
+                Assert.That(editor.IsEnabled.Value, Is.False);
+                // Run the command directly to exercise the guard even if a menu still shows its old state.
+                await marker.ExecuteAsync();
+                HeadlessTestHelpers.Settle();
+                using (Assert.EnterMultipleScope())
+                {
+                    Assert.That(editor.Scene.Markers, Is.Empty);
+                    Assert.That(nativeEntries.Select(item => item.IsEnabled), Is.All.False);
+                    scene.Open();
+                    foreach (MenuItem section in sections)
+                    {
+                        section.Open();
+                        HeadlessTestHelpers.Render();
+                        Assert.That(section.Items.OfType<MenuItem>().Select(item => item.IsEffectivelyEnabled), Is.All.False);
+                        section.Close();
+                    }
+                }
+            }
+
+            HeadlessTestHelpers.Settle();
+            Assert.That(nativeMarker.IsEnabled, Is.True);
+        }
+        finally
+        {
+            macWindow.DataContext = view.DataContext = null;
+            macWindow.Close();
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Menus_expose_the_expected_edit_and_window_commands()
     {
         await TestReset.ResetShellAsync();
@@ -445,8 +523,9 @@ public sealed class MainMenuBuilderTests
         var menu = new NativeMenu();
         using var subscriptions = new CompositeDisposable();
         MainMenuBuilder.AddMenus(menu, TestShell.MainViewModel.MenuItems, window, subscriptions);
-        ICommand delete = menu.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Edit).Menu!.Items
-            .OfType<NativeMenuItem>().Single(item => item.Header == Strings.Delete).Command!;
+        NativeMenuItem deleteItem = menu.Items.OfType<NativeMenuItem>().Single(item => item.Header == Strings.Edit).Menu!.Items
+            .OfType<NativeMenuItem>().Single(item => item.Header == Strings.Delete);
+        ICommand delete = deleteItem.Command!;
         try
         {
             window.Show();
@@ -461,6 +540,17 @@ public sealed class MainMenuBuilderTests
             });
 
             Assert.That(button.Focus(), Is.True);
+            using (TestShell.Editor.SuspendEditors())
+            {
+                HeadlessTestHelpers.Settle();
+                Assert.That(deleteItem.IsEnabled, Is.False);
+                delete.Execute(null);
+                HeadlessTestHelpers.Settle();
+                Assert.That(scene.Children, Does.Contain(element));
+            }
+
+            HeadlessTestHelpers.Settle();
+            Assert.That(deleteItem.IsEnabled, Is.True);
             delete.Execute(null);
             await HeadlessTestHelpers.WaitUntilAsync(() => !scene.Children.Contains(element));
         }

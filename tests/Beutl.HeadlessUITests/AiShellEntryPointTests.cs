@@ -3,7 +3,9 @@ using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.AiWorkspaceTab;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
@@ -73,6 +75,35 @@ public sealed class AiShellEntryPointTests
         {
             palette.Close();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task CommandPalette_DisablesAiPagesWhileTheEditorIsSuspended()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-palette-suspension");
+        MainViewModel main = TestShell.MainViewModel;
+        CommandPaletteViewModel palette = main.CommandPalette;
+        palette.Open();
+        try
+        {
+            Assert.That(AiPagesAreEnabled(true), Is.True);
+            using (TestShell.Editor.SuspendEditors())
+            {
+                await CommandPaletteTestHost.UntilAsync(() => AiPagesAreEnabled(false));
+                foreach (var page in s_aiPages)
+                    await MainViewExtension.Instance.RunAsync(main, new ContextCommandExecution(page.Id));
+                Assert.That(CountAiTabs(editor), Is.Zero);
+            }
+
+            await CommandPaletteTestHost.UntilAsync(() => AiPagesAreEnabled(true));
+        }
+        finally
+        {
+            palette.Close();
+        }
+
+        bool AiPagesAreEnabled(bool enabled) => s_aiPages.All(page =>
+            palette.FilteredCommands.Single(item => item.Command.Id == page.Id).IsEnabled == enabled);
     }
 
     [AvaloniaTest]

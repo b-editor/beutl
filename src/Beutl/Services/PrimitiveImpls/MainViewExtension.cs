@@ -128,8 +128,10 @@ public class MainViewExtension : ViewExtension
     private static ContextCommandDefinition<MainViewModel> OpenAiPage(string id, string displayName, AiWorkspaceSection section)
         => new(id, displayName, "", [])
         {
-            CanExecuteOn = (main, _) => main.EditorService.SelectedTabItem.Value?.Context.Value is EditViewModel,
-            ExecuteOnAsync = (main, _) => main.OpenAiWorkspaceAsync(section)
+            CanExecuteOn = (main, _) => main.EnabledSceneEditor is not null,
+            ExecuteOnAsync = (main, _) => main.EnabledSceneEditor is { } editor
+                ? main.OpenAiWorkspaceAsync(section, editor)
+                : Task.CompletedTask
         };
 
     // Palette-only: it asks for its argument, so it has no default gesture.
