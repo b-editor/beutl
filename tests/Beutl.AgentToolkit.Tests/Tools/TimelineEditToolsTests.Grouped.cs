@@ -123,6 +123,38 @@ public sealed partial class TimelineEditToolsTests
         });
     }
 
+    [TestCase(3, 90, 90)]
+    [TestCase(0.5, 15, 31)]
+    public async Task Grouped_ripple_trim_shifts_followers_once_for_a_shared_end(
+        double timeSeconds, int firstEndFrame, int secondEndFrame)
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element first = AddElement(scene, 0, 2);
+        Element second = AddElement(scene, 1, 1);
+        Element follower = AddElement(scene, 2, 1);
+        scene.Groups.Add([first.Id.Value, second.Id.Value]);
+        using var session = new AgentToolkitTestSession(scene);
+        await using InProcessAgentToolkitServer server = await StartAsync(session);
+
+        var result = await CallAsync(server.Client, "ripple_trim",
+            ("elementId", Id(first)), ("edge", "end"), ("timeSeconds", timeSeconds), ("includeLinked", true));
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        var rate = scene.GetFrameRate();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.ChangedElementIds, Is.EquivalentTo(new[] { Id(first), Id(second), Id(follower) }));
+            Assert.That(first.Range.End, Is.EqualTo(MediaTime.FromFrames(firstEndFrame, rate)));
+            Assert.That(second.Range.End, Is.EqualTo(MediaTime.FromFrames(secondEndFrame, rate)));
+            Assert.That(follower.Start.Value, Is.EqualTo(second.Range.End));
+        });
+
+        await UndoOnlyEditAsync(server.Client);
+        Assert.That(first.Range.End, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(second.Range.End, Is.EqualTo(first.Range.End));
+        Assert.That(follower.Start.Value, Is.EqualTo(first.Range.End));
+    }
+
     [TestCase("start")]
     [TestCase("end")]
     public async Task Roll_moves_aligned_group_cuts_and_undoes_with_the_shared_media_offset(string edge)
