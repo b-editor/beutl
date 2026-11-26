@@ -81,6 +81,9 @@ internal interface IProjectVersionControlBackend :
         RepositoryInfo repository,
         CancellationToken cancellationToken);
 
+    /// <summary>Checks known Git refusals before the caller saves project files for a manual commit.</summary>
+    Task CheckManualCommitBeforeSaveAsync(bool interactive, CancellationToken cancellationToken);
+
     Task<CommitResult> CommitAllAsync(
         string message,
         SnapshotKind kind,

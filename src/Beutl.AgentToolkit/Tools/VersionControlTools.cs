@@ -140,7 +140,11 @@ public sealed class VersionControlTools(
                 throw new SessionUnavailableException();
 
             if (session.IsDirty)
+            {
+                service.CheckManualCommitBeforeSaveAsync(interactive: false, cancellationToken).GetAwaiter().GetResult();
+                cancellationToken.ThrowIfCancellationRequested();
                 session.Save(skipConflictCheck: false);
+            }
             return service.CommitNonInteractiveAsync(message, cancellationToken).GetAwaiter().GetResult();
         }, cancellationToken);
     }

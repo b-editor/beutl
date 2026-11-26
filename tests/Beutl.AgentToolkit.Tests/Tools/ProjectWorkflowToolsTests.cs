@@ -6,6 +6,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Editor.Services;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -239,6 +240,10 @@ public sealed class ProjectWorkflowToolsTests
         string root = await InitializeGitAsync(session);
         string initialSha = await RunGitAsync(root, "rev-parse", "HEAD");
         File.WriteAllText(Path.Combine(root, "note.txt"), "Changed.");
+        string scenePath = session.Scene.Uri!.LocalPath;
+        byte[] sceneBefore = File.ReadAllBytes(scenePath);
+        session.Scene.Name.Value = "Pending scene edit";
+        session.MarkDirty();
 
         await RunGitAsync(root, "config", "commit.gpgSign", "on");
         Assert.That((await Call<CommitProjectResponse>(server.Client, "commit_project", ("message", "Signed")))
@@ -249,6 +254,69 @@ public sealed class ProjectWorkflowToolsTests
             .Error?.Message, Does.Contain("name and email"));
         Assert.That(await RunGitAsync(root, "rev-parse", "HEAD"), Is.EqualTo(initialSha));
         Assert.That(await RunGitAsync(root, "diff", "--cached", "--name-only"), Is.Empty);
+        Assert.That(File.ReadAllBytes(scenePath), Is.EqualTo(sceneBefore));
+        Assert.That(session.IsDirty, Is.True);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Commit_project_preserves_project_files_during_an_external_merge(bool resolveConflicts)
+    {
+        await using InProcessAgentToolkitServer server = await InProcessAgentToolkitServer.StartAsync(TestWorkspace.CreateDirectory());
+        FileEditingSession session = await CreateProjectAsync(server);
+        Element element = TestWorkspace.AddElement(session.Scene, MediaTime.Zero, MediaTime.FromSeconds(1));
+        session.Save(skipConflictCheck: false);
+        string root = await InitializeGitAsync(session);
+        string projectPath = session.Project.Uri!.LocalPath;
+        string scenePath = session.Scene.Uri!.LocalPath;
+        string elementPath = element.Uri!.LocalPath;
+        string sceneEntry = Path.GetRelativePath(root, scenePath).Replace('\\', '/');
+        string elementEntry = Path.GetRelativePath(root, elementPath).Replace('\\', '/');
+
+        await RunGitAsync(root, "switch", "-c", "incoming");
+        File.WriteAllText(scenePath, "Incoming scene change\n");
+        File.WriteAllText(elementPath, "Incoming element change\n");
+        await RunGitAsync(root, "add", "--", sceneEntry, elementEntry);
+        await RunGitAsync(root, "commit", "-m", "Incoming changes");
+        await RunGitAsync(root, "switch", "main");
+        File.WriteAllText(scenePath, "Local scene change\n");
+        File.WriteAllText(elementPath, "Local element change\n");
+        await RunGitAsync(root, "add", "--", sceneEntry, elementEntry);
+        await RunGitAsync(root, "commit", "-m", "Local changes");
+        string previousHead = await RunGitAsync(root, "rev-parse", "HEAD");
+        await RunGitAsync(root, 1, "merge", "--no-edit", "incoming");
+
+        if (resolveConflicts)
+        {
+            File.WriteAllText(scenePath, "Resolved scene\n");
+            File.WriteAllText(elementPath, "Resolved element\n");
+            await RunGitAsync(root, "add", "--", sceneEntry, elementEntry);
+        }
+        string unmergedEntries = await RunGitAsync(root, "ls-files", "--unmerged");
+        Assert.That(unmergedEntries.Length > 0, Is.EqualTo(!resolveConflicts));
+        Assert.That(File.Exists(Path.Combine(root, ".git", "MERGE_HEAD")), Is.True);
+        byte[] projectBefore = File.ReadAllBytes(projectPath);
+        byte[] sceneBefore = File.ReadAllBytes(scenePath);
+        byte[] elementBefore = File.ReadAllBytes(elementPath);
+        byte[] indexBefore = File.ReadAllBytes(Path.Combine(root, ".git", "index"));
+        session.Scene.Name.Value = "Pending project edit";
+        element.Name.Value = "Pending element edit";
+        session.MarkDirty();
+
+        ToolResult<CommitProjectResponse> result = await Call<CommitProjectResponse>(
+            server.Client, "commit_project", ("message", "Keep merge files"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error?.Message, Is.EqualTo(Strings.VersionControl_ConflictGuidance));
+            Assert.That(File.ReadAllBytes(projectPath), Is.EqualTo(projectBefore));
+            Assert.That(File.ReadAllBytes(scenePath), Is.EqualTo(sceneBefore));
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(elementBefore));
+            Assert.That(File.ReadAllBytes(Path.Combine(root, ".git", "index")), Is.EqualTo(indexBefore));
+            Assert.That(session.IsDirty, Is.True);
+        });
+        Assert.That(await RunGitAsync(root, "rev-parse", "HEAD"), Is.EqualTo(previousHead));
     }
 
     private static async Task<FileEditingSession> CreateProjectAsync(InProcessAgentToolkitServer server)
@@ -271,7 +339,10 @@ public sealed class ProjectWorkflowToolsTests
         return root;
     }
 
-    private static async Task<string> RunGitAsync(string directory, params string[] arguments)
+    private static Task<string> RunGitAsync(string directory, params string[] arguments)
+        => RunGitAsync(directory, 0, arguments);
+
+    private static async Task<string> RunGitAsync(string directory, int expectedExitCode, params string[] arguments)
     {
         var start = new ProcessStartInfo("git")
         {
@@ -286,7 +357,7 @@ public sealed class ProjectWorkflowToolsTests
         Task<string> output = git.StandardOutput.ReadToEndAsync();
         Task<string> errors = git.StandardError.ReadToEndAsync();
         await git.WaitForExitAsync();
-        Assert.That(git.ExitCode, Is.Zero, await errors);
+        Assert.That(git.ExitCode, Is.EqualTo(expectedExitCode), await errors);
         return (await output).Trim();
     }
 

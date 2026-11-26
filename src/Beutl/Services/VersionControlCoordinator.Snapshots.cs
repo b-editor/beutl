@@ -75,6 +75,7 @@ internal partial class VersionControlCoordinator
         // after the captured tree. An identity prompt runs between helper calls with editors
         // enabled; the retry therefore acquires a fresh suspension and saves again.
         using IDisposable editorSuspension = SuspendEditorsBehindActivity(ProjectLifecycleActivity.CommittingVersion);
+        await service.CheckManualCommitBeforeSaveAsync(interactive, cancellationToken);
         if (_projectService.CurrentProject.Value is { } project
             && !await TrySaveOpenProjectAsync(project, cancellationToken))
         {

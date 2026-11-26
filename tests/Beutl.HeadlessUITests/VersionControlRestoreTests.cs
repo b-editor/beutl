@@ -8088,6 +8088,9 @@ public class VersionControlRestoreTests
             }
         }
 
+        public Task CheckManualCommitBeforeSaveAsync(bool interactive, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
         public Task<CommitResult> CommitNonInteractiveAsync(string message, CancellationToken cancellationToken)
             => CommitAllAsync(message, SnapshotKind.Manual, cancellationToken);
 

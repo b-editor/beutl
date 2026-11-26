@@ -5,6 +5,8 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Configuration;
 using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.ViewModels;
@@ -133,6 +135,58 @@ public sealed class AgentHostProjectWorkflowTests
                 Assert.That(newest["sha"]!.GetValue<string>(), Is.EqualTo(created["sha"]!.GetValue<string>()));
                 Assert.That(newest["subject"]!.GetValue<string>(), Is.EqualTo("Manual agent snapshot"));
                 Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Name.Value, Is.EqualTo("Saved by MCP"));
+                Assert.That(editor.IsEnabled.Value, Is.True);
+            });
+        }
+        finally
+        {
+            EditViewModel.IsAutoSaveSuppressedForTesting = autoSaveSuppressed;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Live_commit_refuses_an_external_merge_before_saving_the_editor()
+    {
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: false, autoCommitOnClose: false, useLfsWhenAvailable: false);
+        Project project = await git.CreateProjectAsync("agent-live-vcs-merge", "Workflow");
+        Scene scene = project.Items.OfType<Scene>().Single();
+        TestShell.Editor.ActivateTabItem(scene);
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        string root = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        string scenePath = scene.Uri!.LocalPath;
+        string sceneEntry = Path.GetRelativePath(root, scenePath).Replace('\\', '/');
+        string branch = (await GitTestSupport.RunGitAsync(git.GitPath, root, "branch", "--show-current")).Trim();
+        await GitTestSupport.RunGitAsync(git.GitPath, root, "switch", "-c", "incoming");
+        File.WriteAllText(scenePath, "Incoming scene changes\n");
+        await GitTestSupport.RunGitAsync(git.GitPath, root, "add", "--", sceneEntry);
+        await GitTestSupport.RunGitAsync(git.GitPath, root, "commit", "-m", "Incoming changes");
+        await GitTestSupport.RunGitAsync(git.GitPath, root, "switch", branch);
+        await GitTestSupport.RunGitAsync(git.GitPath, root, "merge", "--no-ff", "--no-commit", "incoming");
+
+        byte[] projectBefore = File.ReadAllBytes(project.Uri.LocalPath);
+        byte[] sceneBefore = File.ReadAllBytes(scenePath);
+        bool autoSaveSuppressed = EditViewModel.IsAutoSaveSuppressedForTesting;
+        try
+        {
+            EditViewModel.IsAutoSaveSuppressedForTesting = true;
+            editor.HistoryManager.ExecuteInTransaction(() => scene.Name.Value = "Pending editor change", "Rename");
+            await using AgentHostEndpoint host = CreateHost();
+            await host.StartAsync();
+            await using McpClient client = await ConnectAsync(host);
+            var arguments = Target(scene);
+            arguments["message"] = "Preserve the merge";
+
+            var refused = await client.CallToolAsync("commit_project", arguments);
+            AssertError(refused, ErrorCode.ValidationRejected);
+            Assert.That(Payload(refused)["error"]!["message"]!.GetValue<string>(), Is.EqualTo(Strings.VersionControl_ConflictGuidance));
+            await Assert.ThatAsync(() => TestShell.VersionControl.CommitManualAsync("Manual commit"),
+                Throws.TypeOf<VersionControlConflictedException>());
+            Assert.Multiple(() =>
+            {
+                Assert.That(File.ReadAllBytes(project.Uri.LocalPath), Is.EqualTo(projectBefore));
+                Assert.That(File.ReadAllBytes(scenePath), Is.EqualTo(sceneBefore));
+                Assert.That(editor.HasUnsavedSceneChanges, Is.True);
                 Assert.That(editor.IsEnabled.Value, Is.True);
             });
         }

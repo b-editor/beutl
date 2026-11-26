@@ -36,6 +36,25 @@ internal sealed partial class GitCliVersionControlService
             : $":(top,literal){repository.Pathspec}";
     }
 
+    public Task CheckManualCommitBeforeSaveAsync(bool interactive, CancellationToken cancellationToken)
+    {
+        return RunSerializedAsync(async () =>
+        {
+            RepositoryInfo repository = GetRepository();
+            await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+            IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+            await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+            if (!interactive
+                && await GetSnapshotIdentityAsync(repository, runner, allowSigning: false, cancellationToken)
+                    .ConfigureAwait(false) is null)
+            {
+                throw new GitIdentityRequiredException();
+            }
+
+            await EnsureSnapshotCanBeStagedAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+        }, cancellationToken);
+    }
+
     private async Task<CommitResult> CommitAllCoreAsync(
         string message,
         SnapshotKind kind,
@@ -65,14 +84,7 @@ internal sealed partial class GitCliVersionControlService
             return new CommitResult.NoChanges();
         }
 
-        if (!allowSigning
-            && await TryGetConfigValueAsync(repository, runner, "commit.gpgSign", cancellationToken, asBoolean: true)
-                .ConfigureAwait(false) == "true")
-        {
-            throw new GitInteractiveSigningException();
-        }
-
-        GitIdentity? identity = await GetIdentityCoreAsync(repository, runner, cancellationToken)
+        GitIdentity? identity = await GetSnapshotIdentityAsync(repository, runner, allowSigning, cancellationToken)
             .ConfigureAwait(false);
         if (identity is null)
         {
@@ -112,6 +124,26 @@ internal sealed partial class GitCliVersionControlService
         return new CommitResult.Committed(revision);
     }
 
+    private static async Task<GitIdentity?> GetSnapshotIdentityAsync(
+        RepositoryInfo repository, IGitCliRunner runner, bool allowSigning, CancellationToken cancellationToken)
+    {
+        if (!allowSigning
+            && await TryGetConfigValueAsync(repository, runner, "commit.gpgSign", cancellationToken, asBoolean: true)
+                .ConfigureAwait(false) == "true")
+        {
+            throw new GitInteractiveSigningException();
+        }
+
+        return await GetIdentityCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task EnsureSnapshotCanBeStagedAsync(
+        RepositoryInfo repository, IGitCliRunner runner, CancellationToken cancellationToken)
+    {
+        await EnsureNoExternalRepositoryOperationAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+        await EnsureNoNestedRepositoryWouldBeStagedAsync(repository, runner, cancellationToken).ConfigureAwait(false);
+    }
+
     // Stages the project and commits it with git commit --only, which records the project scope alone
     // and leaves anything else the user has staged in place. Git runs the hooks, signs the commit and
     // updates the branch under its own locks; returns null when staging found nothing to record.
@@ -123,10 +155,7 @@ internal sealed partial class GitCliVersionControlService
         CancellationToken cancellationToken,
         bool allowSigning = true)
     {
-        await EnsureNoExternalRepositoryOperationAsync(repository, runner, cancellationToken)
-            .ConfigureAwait(false);
-        await EnsureNoNestedRepositoryWouldBeStagedAsync(repository, runner, cancellationToken)
-            .ConfigureAwait(false);
+        await EnsureSnapshotCanBeStagedAsync(repository, runner, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<string> pathspecs = CreateSnapshotPathspecs(repository);
         var pathspecOptions = new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
         {
