@@ -84,16 +84,16 @@ public partial class FileBrowserTabView : UserControl
         _projectAssetsMenuBinding = null;
         if (ViewModel is not { } vm) return;
 
-        var menu = new MenuFlyout();
+        var menu = new FAMenuFlyout();
         if (vm.HasStorageProviders)
         {
-            var local = new MenuItem { Header = Strings.LocalFiles };
+            var local = new FAMenuFlyoutItem { Text = Strings.LocalFiles };
             local.Click += (_, _) => vm.ShowLocalFiles();
             menu.Items.Add(local);
-            menu.Items.Add(new Separator());
+            menu.Items.Add(new FAMenuFlyoutSeparator());
             foreach (var provider in vm.StorageProviders)
             {
-                var item = new MenuItem { Header = provider.DisplayName, DataContext = provider };
+                var item = new FAMenuFlyoutItem { Text = provider.DisplayName, DataContext = provider };
                 item.Click += OnStorageProviderClick;
                 menu.Items.Add(item);
             }
@@ -101,8 +101,8 @@ public partial class FileBrowserTabView : UserControl
 
         if (vm.ProjectAssets != null)
         {
-            if (menu.Items.Count > 0) menu.Items.Add(new Separator());
-            var item = new MenuItem { Header = ProjectAssetsStrings.MenuLabel };
+            if (menu.Items.Count > 0) menu.Items.Add(new FAMenuFlyoutSeparator());
+            var item = new FAMenuFlyoutItem { Text = ProjectAssetsStrings.MenuLabel };
             _projectAssetsMenuBinding = item.Bind(IsEnabledProperty, vm.CanManageProjectAssets);
             item.Click += (_, _) => vm.OpenProjectAssets();
             menu.Items.Add(item);

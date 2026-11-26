@@ -127,24 +127,30 @@ public class GraphNodeRegistry
         item = Copy(item);
         lock (s_lock)
         {
-            if (item is GroupableRegistryItem groupable)
-            {
-                if (s_nodes.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
-                {
-                    registered.Merge(groupable.Items);
-                }
-                else
-                {
-                    s_nodes.Add(groupable);
-                }
-            }
-            else
-            {
-                s_nodes.Add(item);
-            }
+            MergeInto(s_nodes, item);
         }
 
         Changed?.Invoke(null, EventArgs.Empty);
+    }
+
+    private static void MergeInto(List<BaseRegistryItem> items, BaseRegistryItem item)
+    {
+        if (item is GroupableRegistryItem group)
+        {
+            IEnumerable<GroupableRegistryItem> groups = items.OfType<GroupableRegistryItem>();
+            GroupableRegistryItem? existing = group.Id == null ? null : groups.FirstOrDefault(other => other.Id == group.Id);
+            existing ??= groups.FirstOrDefault(other => (group.Id == null || other.Id == null)
+                && other.DisplayName == group.DisplayName);
+
+            if (existing != null)
+            {
+                existing.Id ??= group.Id;
+                existing.Merge(group.Items);
+                return;
+            }
+        }
+
+        items.Add(item);
     }
 
     private static BaseRegistryItem Copy(BaseRegistryItem item)
@@ -152,7 +158,7 @@ public class GraphNodeRegistry
         if (item is not GroupableRegistryItem group)
             return item;
 
-        var copy = new GroupableRegistryItem(group.DisplayName, group.AccentColor);
+        var copy = new GroupableRegistryItem(group.DisplayName, group.AccentColor) { Id = group.Id };
         copy.Items.AddRange(group.Items.Select(Copy));
         return copy;
     }
@@ -169,21 +175,15 @@ public class GraphNodeRegistry
     public record GroupableRegistryItem(string DisplayName, Color AccentColor)
         : BaseRegistryItem(DisplayName, AccentColor)
     {
+        internal string? Id { get; set; }
+
         public List<BaseRegistryItem> Items { get; } = [];
 
         internal void Merge(List<BaseRegistryItem> items)
         {
             foreach (BaseRegistryItem item in items)
             {
-                if (item is GroupableRegistryItem groupable1
-                    && Items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem groupable2)
-                {
-                    groupable2.Merge(groupable1.Items);
-                }
-                else
-                {
-                    Items.Add(item);
-                }
+                MergeInto(Items, item);
             }
         }
     }
@@ -197,6 +197,12 @@ public class GraphNodeRegistry
         {
             _item = item;
             _register = register ?? (item => GraphNodeRegistry.Register(item));
+        }
+
+        internal RegistrationHelper WithId(string id)
+        {
+            _item.Id = id;
+            return this;
         }
 
         public RegistrationHelper Add<

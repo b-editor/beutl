@@ -72,6 +72,8 @@ https://github.com/user-attachments/assets/30d412f5-4e6e-405b-988d-342a406f595a
 
 _Claude Code in Beutl's Terminal tab replaying recorded agent edits, sped up. The agent fixes a defect it found in its own render, then the same project is refined by hand in the Graph Editor._
 
+In **Settings → AI Agents**, select your client, enable **MCP server**, and choose **Install** to register `beutl-agent`. Clients that support Skills over MCP discover the bundled skills through that connection. The `get_started` tool provides the resource URIs, and the **Skills** option installs local copies. [MCP Skills extension](https://github.com/modelcontextprotocol/ext-skills)
+
 ### Extensions
 
 Add effects, objects, codecs, and UI through the [extension store](https://beutl.beditor.net/en/store). You can also develop and publish your own extensions.

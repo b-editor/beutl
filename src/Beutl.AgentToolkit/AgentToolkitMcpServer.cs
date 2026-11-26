@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Installation;
 using Beutl.AgentToolkit.Live;
 using Beutl.AgentToolkit.NodeGraphs;
 using Beutl.AgentToolkit.Rendering;
@@ -11,6 +12,7 @@ using Beutl.Extensibility;
 using Beutl.Media.Decoding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Extensions.Skills;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit;
@@ -66,8 +68,28 @@ public static class AgentToolkitMcpServer
                 filters.AddToolkitCallToolErrorFilter();
             })
             .WithTools<LiveInstanceTools>()
-            .WithSharedAgentToolkitTools();
+            .WithSharedAgentToolkitTools()
+            .WithAgentToolkitSkills();
     }
+
+    public static IMcpServerBuilder WithAgentToolkitSkills(this IMcpServerBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+#pragma warning disable MCPEXP005 // The SDK marks its Skills extension experimental.
+        var packages = BundledAgentToolkitAssets.Load()
+            .Where(asset => asset.Kind == AgentToolkitAssetKind.Skill)
+            .GroupBy(asset => asset.RelativePath.Split('/', 2)[0], StringComparer.Ordinal)
+            .Select(skill => McpServerSkillPackage.Create(
+                skill.Select(asset => McpServerSkillFile.FromText(
+                    asset.RelativePath[(skill.Key.Length + 1)..], asset.Content)),
+                new McpServerSkillPackageCreateOptions { Uri = GetSkillUri(skill.Key) }));
+
+        return builder.WithSkillPackages(packages);
+#pragma warning restore MCPEXP005
+    }
+
+    internal static string GetSkillUri(string name) => $"skill://beutl/{Uri.EscapeDataString(name)}/SKILL.md";
 
     // The services and tools both hosts share; each host adds its own lease provider, sessions and tools.
     public static IServiceCollection AddAgentToolkitRendering(this IServiceCollection services)

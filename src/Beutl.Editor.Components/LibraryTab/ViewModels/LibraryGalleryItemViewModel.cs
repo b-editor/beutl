@@ -1,10 +1,12 @@
 ﻿using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryThumbnails;
 using Beutl.Services;
 
 namespace Beutl.Editor.Components.LibraryTab.ViewModels;
 
-internal sealed record LibraryGallerySection(string? Title, IReadOnlyList<LibraryGalleryItemViewModel> Items);
+internal sealed record LibraryGallerySection(
+    LibraryCategoryKey Key, string? Title, string? Description, IReadOnlyList<LibraryGalleryItemViewModel> Items);
 
 /// <summary>A tile of the library's effect or transition gallery: one library item and its moving thumbnail.</summary>
 public sealed class LibraryGalleryItemViewModel

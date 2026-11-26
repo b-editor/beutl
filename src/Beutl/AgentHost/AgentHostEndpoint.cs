@@ -462,6 +462,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithTools<AgentHostInstanceTools>()
             .WithTools<AgentHostTools>()
             .WithSharedAgentToolkitTools()
+            .WithAgentToolkitSkills()
             .WithTools<AgentHostAiTools>();
 
         WebApplication app = builder.Build();

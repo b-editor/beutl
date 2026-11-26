@@ -22,6 +22,7 @@ using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
@@ -137,12 +138,11 @@ public class PresentationWindowTests
             void ClickItem(int index)
             {
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                HeadlessTestHelpers.Settle();
-                var popup = owner.OpenedPopups.Single(p => p.Child is MenuFlyoutPresenter);
-                var menu = (MenuFlyoutPresenter)popup.Child!;
-                menu.Items.OfType<MenuItem>().ElementAt(index).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-                popup.IsOpen = false;
-                HeadlessTestHelpers.Settle();
+                HeadlessTestHelpers.Render(3);
+                var popup = owner.OpenedPopups.Single(p => p.Child is FAMenuFlyoutPresenter);
+                var menu = (FAMenuFlyoutPresenter)popup.Child!;
+                HeadlessTestHelpers.Click(menu.Items.OfType<FAMenuFlyoutItem>().ElementAt(index), move: true);
+                Assert.That(popup.IsOpen, Is.False);
             }
 
             // The windowed entry is followed by one fullscreen entry per connected display.

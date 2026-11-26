@@ -245,6 +245,30 @@ public sealed class LibraryTabRegistrationTests
     }
 
     [AvaloniaTest]
+    public void A_node_registered_by_name_keeps_the_built_in_group_view_model()
+    {
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
+        const string id = "Beutl.Nodes.ToolsAndValues";
+        LibraryItemViewModel group = viewModel.Nodes.Single(item => item.NodeGroupKey?.Id == id);
+        try
+        {
+            GraphNodeRegistry.RegisterNodes(group.DisplayName).Add<LateNode>(LateName).Register();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.Nodes.Single(item => item.NodeGroupKey?.Id == id), Is.SameAs(group));
+                Assert.That(group.Children.Select(item => item.DisplayName), Does.Contain(LateName));
+            });
+        }
+        finally
+        {
+            TypeUnloadNotifier.NotifyUnloading([typeof(LateNode)]);
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task A_search_runs_again_when_a_node_is_registered()
     {
         using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);

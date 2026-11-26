@@ -1,3 +1,33 @@
+<!--
+For AI agents only. Human authors can skip this note and fill in the sections below as usual.
+
+Start the description with up to three slides, so that the reviewer takes in the PR on one screen:
+  1. What changes: a one-line headline and a picture of the change, such as before/after captures.
+  2. Why and how: why the change is needed and how it works, in a few points or a small diagram.
+  3. What to check: the trade-offs the reviewer accepts, breaking changes, whether the format floor
+     rises, and the test results, failures included. Write "None" or "No" instead of leaving one out.
+A small PR may put slides 1 and 2 on one slide. Write the slides in English with few words. Lay each
+one out in HTML at 1600x900 with no text under 28 px, render it to a PNG with a headless browser,
+look at the PNG, and attach it with `--attach` under alt text that names it:
+![1. What changes](./slide1.png). Do not draw slides with an image-generation model; it garbles text.
+
+Under the slides, put the "Fixed issues / References" section, so that `Closes #...` stays outside
+any fold. Then fold every other section, in full, into one <details> block; full-size captures stay in
+"Screenshots / Render output". Leave a blank line after </summary> and before </details>, or GitHub
+shows the Markdown inside as plain text:
+
+<details><summary>Full description</summary>
+
+## Description
+...
+
+</details>
+
+Do not hide the text in an HTML comment instead: `--attach` does not rewrite images inside a comment,
+and on the PR page only people who can edit the PR can read it. When the description changes, for
+example after review fixes, update the slides to match.
+-->
+
 ## Description
 <!-- What does this PR do and why? Bullet points encouraged. -->
 

@@ -630,21 +630,15 @@ public sealed partial class EditViewModel
 
     public async ValueTask<bool> SaveAsync()
     {
-        // A direct explicit save (including media repair) must not race an older auto-save's
-        // background replacements. Lifecycle callers may already hold the project write lease.
-        // A queued auto-save can replace the task while this waits, so wait until it settles.
-        Task pending;
-        do
-        {
-            pending = _autoSaveTask;
-            try { await pending; }
-            catch (Exception ex) when (!_disposed)
-            {
-                // The auto-save reported its own failure; the explicit save still runs.
-                _logger.LogDebug(ex, "An earlier auto-save did not complete.");
-            }
-        }
-        while (!ReferenceEquals(pending, _autoSaveTask));
+        using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(CancellationToken.None);
+        return await SaveInReservedWorkspaceAsync();
+    }
+
+    // The caller holds either the project-file write lease or a worktree reservation.
+    internal async ValueTask<bool> SaveInReservedWorkspaceAsync()
+    {
+        if (_disposed) return false;
+
         using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("scene.save");
         Scene scene = Scene;
         _logger.LogInformation("Saving scene ({SceneId}).", scene.Id.Value);
@@ -685,7 +679,6 @@ public sealed partial class EditViewModel
         if (savedAll && scene.FindHierarchicalParent<Project>() is { } project)
             await Task.Run(() => DuplicateIds.Report(project, "save"));
 
-        // A version-control cycle saves without the write lease, so its tab can have closed by now.
         if (_disposed) return true;
 
         SaveState(isExplicitUserSave: true);
