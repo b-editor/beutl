@@ -1,9 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -17,34 +17,34 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 // Callers pass their own logger so the log category stays that of the calling view model.
 internal static class KeyFrameClipboardCommands
 {
-    internal static Task CopyAnimationAsync(INotificationService notifications, ICoreSerializable animation, ILogger logger)
+    internal static Task CopyAnimationAsync(IServiceProvider services, ICoreSerializable animation, ILogger logger)
     {
-        return CopyAsync(animation, BeutlDataFormats.KeyFrameAnimation, ex =>
+        return CopyAsync(services, animation, BeutlClipboardFormats.KeyFrameAnimation, ex =>
         {
             logger.LogError(ex, "Failed to copy all keyframes");
-            notifications.ShowError(Strings.Copy, MessageStrings.FailedToCopyAnimation);
+            services.GetRequiredService<INotificationService>().ShowError(Strings.Copy, MessageStrings.FailedToCopyAnimation);
         });
     }
 
     // Pastes the first of a keyframe, a keyframe selection and an animation that the clipboard holds.
     // Reading the clipboard yields, so canPaste is asked again before anything is pasted.
     internal static async Task PasteAtPositionAsync(INotificationService notifications,
-        IClipboard clipboard, Func<bool> canPaste, Func<bool> canShowFailure, Action<string> pasteKeyFrame,
+        IClipboardGateway clipboard, Func<bool> canPaste, Func<bool> canShowFailure, Action<string> pasteKeyFrame,
         Action<string> pasteSelection, Action<string> pasteAnimation, ILogger logger)
     {
         try
         {
-            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } keyFrameJson)
+            if (await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrame) is { } keyFrameJson)
             {
                 if (canPaste()) pasteKeyFrame(keyFrameJson);
                 return;
             }
-            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
+            else if (await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrameSelection) is { } selectionJson)
             {
                 if (canPaste()) pasteSelection(selectionJson);
                 return;
             }
-            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
+            else if (await clipboard.TryGetStringAsync(BeutlClipboardFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
             {
                 if (canPaste()) pasteAnimation(keyFrameAnimationJson);
                 return;
@@ -111,20 +111,16 @@ internal static class KeyFrameClipboardCommands
         return easing != null;
     }
 
-    internal static async Task CopyAsync(ICoreSerializable source, DataFormat<string> format, Action<Exception> onFailure)
+    internal static async Task CopyAsync(IServiceProvider services, ICoreSerializable source, string format, Action<Exception> onFailure)
     {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
+        var clipboard = AvaloniaClipboardGateway.Resolve(services);
         if (clipboard == null) return;
 
         try
         {
             ObjectRegenerator.Regenerate(source, out string json);
 
-            var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateText(json));
-            data.Add(DataTransferItem.Create(format, json));
-
-            await clipboard.SetDataAsync(data);
+            await clipboard.SetAsync([new(BeutlClipboardFormats.Text, json), new(format, json)]);
         }
         catch (Exception ex)
         {

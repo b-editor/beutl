@@ -1,13 +1,13 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Language;
 using FluentAvalonia.UI.Controls;
@@ -383,13 +383,13 @@ public partial class GraphEditorView
         else if (e.Key is Key.C or Key.X && e.KeyModifiers.HasFlag(command))
         {
             e.Handled = true;
-            if (e.Key == Key.X) await CutSelectionAsync(TopLevel.GetTopLevel(this)?.Clipboard);
-            else await model.CopySelectionAsync(TopLevel.GetTopLevel(this)?.Clipboard);
+            if (e.Key == Key.X) await CutSelectionAsync();
+            else await model.CopySelectionAsync(AvaloniaClipboardGateway.Resolve(model.EditorContext, TopLevel.GetTopLevel(this)?.Clipboard));
         }
         else if (e.Key == Key.V && e.KeyModifiers.HasFlag(command))
         {
             e.Handled = true;
-            await model.PasteSelectionAsync(TopLevel.GetTopLevel(this)?.Clipboard);
+            await model.PasteSelectionAsync(AvaloniaClipboardGateway.Resolve(model.EditorContext, TopLevel.GetTopLevel(this)?.Clipboard));
         }
         else if (e.Key is Key.Delete or Key.Back) DeleteSelection();
         else if (e.Key == Key.K && e.KeyModifiers.HasFlag(command | KeyModifiers.Shift))
@@ -441,10 +441,11 @@ public partial class GraphEditorView
         if (target.HasValue) model.Seek(target.Value);
     }
 
-    internal async Task CutSelectionAsync(IClipboard? clipboard = null)
+    internal async Task CutSelectionAsync(IClipboardGateway? clipboard = null)
     {
         if (DataContext is not GraphEditorViewModel { IsDisposed: false, SelectedView.Value: { } channel } model
             || TopLevel.GetTopLevel(this) is not { PlatformImpl: not null } topLevel) return;
+        clipboard ??= AvaloniaClipboardGateway.Resolve(model.EditorContext, topLevel.Clipboard);
         int contextVersion = _contextVersion;
         var copied = channel.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
         bool edited = false;

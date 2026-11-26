@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Serialization;
@@ -18,17 +19,21 @@ public static class CoreObjectClipboard
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return false;
 
-        string json = CoreSerializer.SerializeToJsonString(obj);
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.CreateText(json));
-        data.Add(DataTransferItem.Create(format, json));
-        await clipboard.SetDataAsync(data);
-        return true;
+        return await CopyAsync(new AvaloniaClipboardGateway(clipboard, format), obj, AvaloniaClipboardGateway.GetStringFormatName(format));
     }
 
-    public static async ValueTask<string?> TryGetJsonAsync(IClipboard clipboard, DataFormat<string> format)
+    internal static async ValueTask<bool> CopyAsync(IClipboardGateway clipboard, ICoreSerializable obj, string format)
     {
-        if (await clipboard.TryGetValueAsync(format) is not { } data) return null;
+        string json = CoreSerializer.SerializeToJsonString(obj);
+        return await clipboard.SetAsync([new(BeutlClipboardFormats.Text, json), new(format, json)]);
+    }
+
+    public static ValueTask<string?> TryGetJsonAsync(IClipboard clipboard, DataFormat<string> format)
+        => TryGetJsonAsync(new AvaloniaClipboardGateway(clipboard, format), AvaloniaClipboardGateway.GetStringFormatName(format));
+
+    internal static async ValueTask<string?> TryGetJsonAsync(IClipboardGateway clipboard, string format)
+    {
+        string? data = await clipboard.TryGetStringAsync(format);
         return IsJsonData(data) ? data : null;
     }
 

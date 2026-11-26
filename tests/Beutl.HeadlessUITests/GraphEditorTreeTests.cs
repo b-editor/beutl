@@ -13,6 +13,7 @@ using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
+using Beutl.Editor.Components.Services;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
@@ -408,10 +409,10 @@ public class GraphEditorTreeTests
         {
             Task operation = entry switch
             {
-                "cut" => view.CutSelectionAsync(clipboard.Object),
-                "key" => old.SelectedView.Value!.KeyFrames[0].PasteAsync(clipboard.Object),
-                "selection" => old.PasteSelectionAsync(clipboard.Object),
-                _ => old.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), clipboard.Object)
+                "cut" => view.CutSelectionAsync(new AvaloniaClipboardGateway(clipboard.Object)),
+                "key" => old.SelectedView.Value!.KeyFrames[0].PasteAsync(new AvaloniaClipboardGateway(clipboard.Object)),
+                "selection" => old.PasteSelectionAsync(new AvaloniaClipboardGateway(clipboard.Object)),
+                _ => old.PasteKeyFrameAtPositionAsync(MediaTime.FromSeconds(3), new AvaloniaClipboardGateway(clipboard.Object))
             };
             Assert.That(operation.IsCompleted, Is.True, "The continuation must run before dispatching the queued disposal.");
             await operation;

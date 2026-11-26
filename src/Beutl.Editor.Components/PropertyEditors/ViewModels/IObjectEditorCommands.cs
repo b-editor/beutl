@@ -1,5 +1,6 @@
 ﻿using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Services;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Serialization;
@@ -44,17 +45,20 @@ internal static class ObjectEditorCommands
     {
         if (editor.PasteFormat is not { } format) return false;
         if (editor.GetCopyTarget() is not { } obj) return false;
-        return await CoreObjectClipboard.CopyAsync(obj, format);
+        var clipboard = AvaloniaClipboardGateway.Resolve((PropertyEditorViewModel)editor, stringFormat: format);
+        if (clipboard == null) return false;
+        return await CoreObjectClipboard.CopyAsync(clipboard, obj, AvaloniaClipboardGateway.GetStringFormatName(format));
     }
 
     public static async ValueTask<bool> PasteAsync(this IObjectEditorCommands editor)
     {
         // TryPasteJson checks the edit it makes; a paste over content that could not be loaded repairs it.
-        if (!((PropertyEditorViewModel)editor).CanReplaceContent) return false;
+        var viewModel = (PropertyEditorViewModel)editor;
+        if (!viewModel.CanReplaceContent) return false;
         if (editor.PasteFormat is not { } format) return false;
-        var clipboard = ClipboardHelper.GetClipboard();
+        var clipboard = AvaloniaClipboardGateway.Resolve(viewModel, stringFormat: format);
         if (clipboard == null) return false;
-        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, format);
+        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, AvaloniaClipboardGateway.GetStringFormatName(format));
         return json != null && editor.TryPasteJson(json);
     }
 
@@ -65,7 +69,7 @@ internal static class ObjectEditorCommands
             editor.CanPaste.Value = false;
             return;
         }
-        var clipboard = ClipboardHelper.GetClipboard();
+        var clipboard = AvaloniaClipboardGateway.Resolve((PropertyEditorViewModel)editor, stringFormat: format);
         if (clipboard == null)
         {
             editor.CanPaste.Value = false;
@@ -73,7 +77,7 @@ internal static class ObjectEditorCommands
         }
         try
         {
-            string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, format);
+            string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, AvaloniaClipboardGateway.GetStringFormatName(format));
             editor.CanPaste.Value = json != null;
         }
         catch
