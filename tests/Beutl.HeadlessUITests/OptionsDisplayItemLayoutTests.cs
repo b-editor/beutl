@@ -160,9 +160,19 @@ public class OptionsDisplayItemLayoutTests
                 CheckRows((Control)frame.Content!);
             }
 
-            frame.Navigate(typeof(EditorSettingsPage), model.Editor, new FASuppressNavigationTransitionInfo());
-            HeadlessTestHelpers.Render(3);
-            CheckRows((Control)frame.Content!);
+            (Type Page, object Context)[] splitPages =
+            [
+                (typeof(EditorSettingsPage), model.Editor),
+                (typeof(PreviewSettingsPage), model.Preview),
+                (typeof(PerformanceSettingsPage), model.Performance),
+                (typeof(VersionControlSettingsPage), model.VersionControl),
+            ];
+            foreach ((Type page, object context) in splitPages)
+            {
+                frame.Navigate(page, context, new FASuppressNavigationTransitionInfo());
+                HeadlessTestHelpers.Render(3);
+                CheckRows((Control)frame.Content!);
+            }
 
             nav.PaneDisplayMode = FANavigationViewPaneDisplayMode.Auto;
             dialog.Width = 480;

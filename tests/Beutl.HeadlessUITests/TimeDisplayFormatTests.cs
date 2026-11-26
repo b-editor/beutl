@@ -317,10 +317,7 @@ public sealed class TimeDisplayFormatTests
     [AvaloniaTest]
     public void The_settings_page_chooses_the_format()
     {
-        TestGpu.RequireAnyDevice();
-
         TimeDisplayFormat original = Config.TimeDisplayFormat.Value;
-        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
         Config.TimeDisplayFormat.Value = TimeDisplayFormat.Timecode;
         using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration);
         var page = new EditorSettingsPage { DataContext = viewModel };
@@ -358,7 +355,6 @@ public sealed class TimeDisplayFormatTests
         {
             window.Close();
             Config.TimeDisplayFormat.Value = original;
-            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 

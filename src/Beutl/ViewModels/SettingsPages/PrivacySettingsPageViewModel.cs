@@ -1,15 +1,14 @@
 ﻿using Beutl.Configuration;
-using Beutl.ViewModels.ExtensionsPages;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class TelemetrySettingsPageViewModel : BasePageViewModel
+public sealed class PrivacySettingsPageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly TelemetryConfig _config;
 
-    public TelemetrySettingsPageViewModel(TelemetryConfig configuration)
+    public PrivacySettingsPageViewModel(TelemetryConfig configuration)
     {
         _config = configuration;
 
@@ -57,7 +56,7 @@ public sealed class TelemetrySettingsPageViewModel : BasePageViewModel
 
     public ReactiveProperty<bool> Beutl_Logging { get; }
 
-    public override void Dispose()
+    public void Dispose()
     {
         _disposables.Dispose();
     }

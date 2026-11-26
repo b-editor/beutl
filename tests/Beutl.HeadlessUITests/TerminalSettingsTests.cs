@@ -12,6 +12,7 @@ using Beutl.Extensibility;
 using Beutl.Pages;
 using Beutl.Pages.SettingsPages;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels.SettingsPages;
 using FluentAvalonia.UI.Controls;
 using Moq;
 using RoyalTerminal.Avalonia.Controls;
@@ -59,7 +60,8 @@ public class TerminalSettingsTests
             var frame = dialog.FindControl<FAFrame>("frame")!;
             await HeadlessTestHelpers.WaitUntilAsync(() => frame.Content is TerminalSettingsPage);
             var page = (TerminalSettingsPage)frame.Content!;
-            Assert.That(page.DataContext, Is.SameAs(settings));
+            Assert.That(page.DataContext, Is.SameAs(model.Terminal));
+            Assert.That(model.Terminal.Config, Is.SameAs(settings));
             uint applicationBackground = terminal.DefaultBackground.ToUInt32();
             if (HeadlessCapture.IsRequested)
             {
@@ -180,7 +182,7 @@ public class TerminalSettingsTests
                 message: "The original terminal shell did not start.");
             using var originalShell = Process.GetProcessById(terminal.Pty!.ChildPid);
 
-            var page = new TerminalSettingsPage { DataContext = settings };
+            var page = new TerminalSettingsPage { DataContext = new TerminalSettingsPageViewModel(settings) };
             using (var settingsHost = new ControlHost(page, 640, 520))
             {
                 page.FindControl<NumericUpDown>("FontSizeBox")!.Value = 22;
