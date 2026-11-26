@@ -15,7 +15,6 @@ namespace Beutl.Graphics3D.Nodes;
 public sealed class TransparentPass : GraphicsNode3D
 {
     private readonly ITexture2D _depthTexture;
-    private ITexture2D? _colorInput;
 
     public TransparentPass(IGraphicsContext context, IShaderCompiler shaderCompiler, ITexture2D depthTexture)
         : base(context, shaderCompiler)
@@ -24,7 +23,7 @@ public sealed class TransparentPass : GraphicsNode3D
     }
 
     /// <summary>
-    /// Gets the output texture containing the scene with transparent objects.
+    /// Gets the borrowed color texture containing the scene with transparent objects.
     /// </summary>
     public ITexture2D? OutputTexture { get; private set; }
 
@@ -34,7 +33,13 @@ public sealed class TransparentPass : GraphicsNode3D
     /// <param name="colorTexture">The color texture from LightingPass.</param>
     public void SetColorTexture(ITexture2D colorTexture)
     {
-        _colorInput = colorTexture;
+        if (ReferenceEquals(OutputTexture, colorTexture))
+            return;
+
+        IFramebuffer3D? oldFramebuffer = Framebuffer;
+        Framebuffer = RenderPass is { } pass ? Context.CreateFramebuffer3D(pass, [colorTexture], _depthTexture) : null;
+        OutputTexture = colorTexture;
+        oldFramebuffer?.Dispose();
     }
 
     protected override void OnInitialize(int width, int height)
@@ -49,27 +54,22 @@ public sealed class TransparentPass : GraphicsNode3D
 
     private void CreateResources(int width, int height)
     {
-        // This pass allocates the extent it is handed, so the device limit is asked here, before anything
-        // is disposed: a refused resize keeps the resources it had.
         DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
         BeginReplacingResources();
 
         Framebuffer?.Dispose();
+        Framebuffer = null;
         RenderPass?.Dispose();
-        OutputTexture?.Dispose();
 
-        OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-
-        RenderPass = Context.CreateRenderPass3D(
+        RenderPass = CreateAttachmentPass(
             [TextureFormat.RGBA16Float],
             TextureFormat.Depth32Float,
+            _depthTexture.SampleCount,
             AttachmentLoadOp.Load,  // Preserve color from LightingPass
             AttachmentLoadOp.Load); // Preserve depth from GeometryPass
 
-        Framebuffer = Context.CreateFramebuffer3D(
-            RenderPass,
-            [OutputTexture],
-            _depthTexture);
+        if (OutputTexture is { } color)
+            Framebuffer = Context.CreateFramebuffer3D(RenderPass, [color], _depthTexture);
     }
 
     /// <summary>
@@ -92,12 +92,7 @@ public sealed class TransparentPass : GraphicsNode3D
         float aspectRatio,
         float surfaceDensity = 1f)
     {
-        if (Framebuffer == null || RenderPass == null || OutputTexture == null || _colorInput == null)
-            return;
-
-        Context.CopyTexture(_colorInput, OutputTexture);
-
-        if (transparentObjects.Count == 0)
+        if (Framebuffer == null || RenderPass == null || transparentObjects.Count == 0)
             return;
 
         var viewMatrix = camera.GetViewMatrix();
@@ -128,6 +123,6 @@ public sealed class TransparentPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        DisposeResources([Framebuffer, RenderPass, OutputTexture]);
+        DisposeResources([Framebuffer, RenderPass]);
     }
 }

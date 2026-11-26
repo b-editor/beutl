@@ -9,8 +9,8 @@ namespace Beutl.Graphics3D.Nodes;
 /// </summary>
 public sealed class FlipPass : GraphicsNode3D
 {
-    private IPipeline3D? _pipeline;
-    private IDescriptorSet? _descriptorSet;
+    private (IPipeline3D Pipeline, IDescriptorSet Descriptors)? _singleSamplePipeline;
+    private (IPipeline3D Pipeline, IDescriptorSet Descriptors)? _multisamplePipeline;
     private ISampler? _sampler;
     private ITexture2D? _inputTexture;
     private ITexture2D? _depthTexture;
@@ -46,9 +46,7 @@ public sealed class FlipPass : GraphicsNode3D
         RenderPass?.Dispose();
         OutputTexture?.Dispose();
         _depthTexture?.Dispose();
-        _pipeline?.Dispose();
-        _descriptorSet?.Dispose();
-        _sampler?.Dispose();
+        DisposePipelines();
 
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         _depthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
@@ -56,26 +54,32 @@ public sealed class FlipPass : GraphicsNode3D
         RenderPass = Context.CreateRenderPass3D([TextureFormat.RGBA16Float], TextureFormat.Depth32Float);
         Framebuffer = Context.CreateFramebuffer3D(RenderPass, [OutputTexture], _depthTexture);
 
-        CreatePipeline();
-    }
-
-    private void CreatePipeline()
-    {
         _sampler = Context.CreateSampler(
             SamplerFilter.Linear,
             SamplerFilter.Linear,
             SamplerAddressMode.ClampToEdge,
             SamplerAddressMode.ClampToEdge);
+        var pipeline = GetOrCreatePipeline(_inputTexture is { SampleCount: > 1 });
+        if (_inputTexture is { } input)
+            pipeline.Descriptors.UpdateTexture(0, input, _sampler);
+    }
 
+    private (IPipeline3D Pipeline, IDescriptorSet Descriptors) GetOrCreatePipeline(bool multisampled)
+        => multisampled
+            ? _multisamplePipeline ??= CreatePipeline(MultisampleFlipFragmentShader)
+            : _singleSamplePipeline ??= CreatePipeline(FlipFragmentShader);
+
+    private (IPipeline3D Pipeline, IDescriptorSet Descriptors) CreatePipeline(string fragmentShader)
+    {
         var vertexSpirv = ShaderCompiler.CompileToSpirv(FlipVertexShader, ShaderStage.Vertex);
-        var fragmentSpirv = ShaderCompiler.CompileToSpirv(FlipFragmentShader, ShaderStage.Fragment);
+        var fragmentSpirv = ShaderCompiler.CompileToSpirv(fragmentShader, ShaderStage.Fragment);
 
         var descriptorBindings = new DescriptorBinding[]
         {
             new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)
         };
 
-        _pipeline = Context.CreatePipeline3D(
+        IPipeline3D pipeline = Context.CreatePipeline3D(
             RenderPass!,
             vertexSpirv,
             fragmentSpirv,
@@ -88,7 +92,15 @@ public sealed class FlipPass : GraphicsNode3D
             new(DescriptorType.CombinedImageSampler, 1)
         };
 
-        _descriptorSet = Context.CreateDescriptorSet(_pipeline, poolSizes);
+        try
+        {
+            return (pipeline, Context.CreateDescriptorSet(pipeline, poolSizes));
+        }
+        catch
+        {
+            pipeline.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -98,9 +110,9 @@ public sealed class FlipPass : GraphicsNode3D
     {
         _inputTexture = inputTexture;
 
-        if (_descriptorSet != null && _sampler != null)
+        if (_sampler != null)
         {
-            _descriptorSet.UpdateTexture(0, inputTexture, _sampler);
+            GetOrCreatePipeline(inputTexture.SampleCount > 1).Descriptors.UpdateTexture(0, inputTexture, _sampler);
         }
     }
 
@@ -109,14 +121,18 @@ public sealed class FlipPass : GraphicsNode3D
     /// </summary>
     public void Execute()
     {
-        if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null || _inputTexture == null)
+        if (Framebuffer == null || RenderPass == null || _inputTexture == null)
+            return;
+
+        var pipeline = _inputTexture.SampleCount > 1 ? _multisamplePipeline : _singleSamplePipeline;
+        if (pipeline is not { } binding)
             return;
 
         Span<Color> clearColors = [new Color(0, 0, 0, 255)];
         using (UsePass(clearColors))
         {
-            RenderPass.BindPipeline(_pipeline);
-            RenderPass.BindDescriptorSet(_pipeline, _descriptorSet);
+            RenderPass.BindPipeline(binding.Pipeline);
+            RenderPass.BindDescriptorSet(binding.Pipeline, binding.Descriptors);
 
             RenderPass.Draw(3);
         }
@@ -124,7 +140,18 @@ public sealed class FlipPass : GraphicsNode3D
 
     protected override void OnDispose()
     {
-        DisposeResources([_descriptorSet, _pipeline, _sampler, Framebuffer, RenderPass, OutputTexture, _depthTexture]);
+        DisposeResources([_singleSamplePipeline?.Descriptors, _singleSamplePipeline?.Pipeline,
+            _multisamplePipeline?.Descriptors, _multisamplePipeline?.Pipeline, _sampler,
+            Framebuffer, RenderPass, OutputTexture, _depthTexture]);
+    }
+
+    private void DisposePipelines()
+    {
+        DisposeResources([_singleSamplePipeline?.Descriptors, _singleSamplePipeline?.Pipeline,
+            _multisamplePipeline?.Descriptors, _multisamplePipeline?.Pipeline, _sampler]);
+        _singleSamplePipeline = null;
+        _multisamplePipeline = null;
+        _sampler = null;
     }
 
     private static string FlipVertexShader => """
@@ -163,6 +190,24 @@ public sealed class FlipPass : GraphicsNode3D
 
         void main() {
             outColor = texture(inputTexture, fragTexCoord);
+        }
+        """;
+
+    private const string MultisampleFlipFragmentShader = """
+        #version 450
+        layout(location = 0) in vec2 fragTexCoord;
+        layout(binding = 0) uniform sampler2DMS inputTexture;
+        layout(location = 0) out vec4 outColor;
+
+        void main() {
+            ivec2 size = textureSize(inputTexture);
+            ivec2 pixel = clamp(ivec2(fragTexCoord * vec2(size)), ivec2(0), size - 1);
+            int count = textureSamples(inputTexture);
+            vec4 sum = vec4(0.0);
+            for (int i = 0; i < count; i++) {
+                sum += texelFetch(inputTexture, pixel, i);
+            }
+            outColor = sum / float(count);
         }
         """;
 }

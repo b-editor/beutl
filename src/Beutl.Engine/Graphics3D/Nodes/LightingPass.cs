@@ -68,13 +68,14 @@ public sealed class LightingPass : GraphicsNode3D
         _dummyShadowArray?.Dispose();
         _dummyShadowCubeArray?.Dispose();
 
-        OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        int sampleCount = _depthTexture.SampleCount;
+        OutputTexture = CreateAttachment(width, height, TextureFormat.RGBA16Float, sampleCount);
 
-        // Create lighting render pass and framebuffer (single color attachment)
-        // Use Load for depth to preserve GeometryPass depth for TransparentPass
-        RenderPass = Context.CreateRenderPass3D(
+        // Preserve geometry depth for the transparent pass.
+        RenderPass = CreateAttachmentPass(
             [TextureFormat.RGBA16Float],
             TextureFormat.Depth32Float,
+            sampleCount,
             AttachmentLoadOp.Clear,  // Clear color for background
             AttachmentLoadOp.Load);  // Preserve depth from GeometryPass
 
@@ -111,7 +112,7 @@ public sealed class LightingPass : GraphicsNode3D
         _shadowBuffer = MaterialGpuResources.CreateUniformBuffer<ShadowUBO>(Context);
 
         var vertexSpirv = ShaderCompiler.CompileToSpirv(LightingVertexShader, ShaderStage.Vertex);
-        var fragmentSpirv = ShaderCompiler.CompileToSpirv(LightingFragmentShader, ShaderStage.Fragment);
+        var fragmentSpirv = ShaderCompiler.CompileToSpirv(LightingFragmentShader(_depthTexture.SampleCount > 1), ShaderStage.Fragment);
 
         // Descriptor bindings: 4 G-Buffer samplers + 3 uniform buffers + shadow samplers
         var descriptorBindings = new DescriptorBinding[]
@@ -211,7 +212,8 @@ public sealed class LightingPass : GraphicsNode3D
         var ubo = new LightingPassUBO
         {
             CameraPosition = camera.Position,
-            AmbientColor = ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity
+            AmbientColor = ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
+            BackgroundColor = backgroundColor.ToLinearPremultiplied()
         };
         _cameraUniformBuffer!.Upload(new ReadOnlySpan<LightingPassUBO>(ref ubo));
 
@@ -267,8 +269,9 @@ public sealed class LightingPass : GraphicsNode3D
         }
         """;
 
-    private static string LightingFragmentShader => """
+    private static string LightingFragmentShader(bool multisampled) => $$"""
         #version 450
+        #define MULTISAMPLED {{(multisampled ? 1 : 0)}}
 
         const float PI = 3.14159265359;
         const int MAX_LIGHTS = 8;
@@ -322,16 +325,23 @@ public sealed class LightingPass : GraphicsNode3D
 
         layout(location = 0) in vec2 fragTexCoord;
 
-        layout(binding = 0) uniform sampler2D gPosition;
-        layout(binding = 1) uniform sampler2D gNormalMetallic;
-        layout(binding = 2) uniform sampler2D gAlbedoRoughness;
-        layout(binding = 3) uniform sampler2D gEmissionAO;
+        #if MULTISAMPLED
+        #define GBUFFER_SAMPLER sampler2DMS
+        #else
+        #define GBUFFER_SAMPLER sampler2D
+        #endif
+
+        layout(binding = 0) uniform GBUFFER_SAMPLER gPosition;
+        layout(binding = 1) uniform GBUFFER_SAMPLER gNormalMetallic;
+        layout(binding = 2) uniform GBUFFER_SAMPLER gAlbedoRoughness;
+        layout(binding = 3) uniform GBUFFER_SAMPLER gEmissionAO;
 
         layout(binding = 4) uniform CameraUBO {
             vec3 cameraPosition;
             float _pad1;
             vec3 ambientColor;
             float _pad2;
+            vec4 backgroundColor;
         } camera;
 
         layout(binding = 5) uniform LightsUBO {
@@ -525,18 +535,7 @@ public sealed class LightingPass : GraphicsNode3D
             return (kD * albedo / PI + specular) * radiance * NdotL * shadowFactor;
         }
 
-        void main() {
-            // Sample G-Buffer
-            vec4 positionSample = texture(gPosition, fragTexCoord);
-            vec4 normalMetallicSample = texture(gNormalMetallic, fragTexCoord);
-            vec4 albedoRoughnessSample = texture(gAlbedoRoughness, fragTexCoord);
-            vec4 emissionAOSample = texture(gEmissionAO, fragTexCoord);
-
-            // Discard background pixels (where no geometry was rendered)
-            if (positionSample.a < 0.5) {
-                discard;
-            }
-
+        vec4 shade(vec4 positionSample, vec4 normalMetallicSample, vec4 albedoRoughnessSample, vec4 emissionAOSample) {
             vec3 worldPos = positionSample.rgb;
             vec3 N = normalize(normalMetallicSample.rgb * 2.0 - 1.0);
             float metallic = normalMetallicSample.a;
@@ -563,7 +562,55 @@ public sealed class LightingPass : GraphicsNode3D
             // Final color
             vec3 color = ambient + Lo + emission;
 
-            outColor = vec4(color, 1.0);
+            return vec4(color, 1.0);
+        }
+
+        #if MULTISAMPLED
+        vec4 shadeSample(ivec2 pixel, int sampleIndex, vec4 position, vec4 normalMetallic) {
+            return shade(position, normalMetallic,
+                texelFetch(gAlbedoRoughness, pixel, sampleIndex), texelFetch(gEmissionAO, pixel, sampleIndex));
+        }
+        #endif
+
+        void main() {
+        #if MULTISAMPLED
+            ivec2 pixel = ivec2(gl_FragCoord.xy);
+            int count = textureSamples(gPosition);
+            vec4 firstPosition = texelFetch(gPosition, pixel, 0);
+            bool firstCovered = firstPosition.a >= 0.5;
+            vec4 firstNormal = firstCovered ? texelFetch(gNormalMetallic, pixel, 0) : vec4(0.0);
+
+            // Geometry shades once per fragment. Only pixels spanning surfaces need per-sample lighting.
+            int sampleIndex = 1;
+            for (; sampleIndex < count; sampleIndex++) {
+                if (texelFetch(gPosition, pixel, sampleIndex) != firstPosition
+                    || (firstCovered && texelFetch(gNormalMetallic, pixel, sampleIndex) != firstNormal)) {
+                    break;
+                }
+            }
+            if (sampleIndex == count) {
+                if (!firstCovered) discard;
+                outColor = shadeSample(pixel, 0, firstPosition, firstNormal);
+                return;
+            }
+
+            vec4 sum = vec4(0.0);
+            int covered = 0;
+            for (int i = 0; i < count; i++) {
+                vec4 position = texelFetch(gPosition, pixel, i);
+                if (position.a >= 0.5) {
+                    sum += shadeSample(pixel, i, position, texelFetch(gNormalMetallic, pixel, i));
+                    covered++;
+                }
+            }
+            if (covered == 0) discard;
+            outColor = (sum + camera.backgroundColor * float(count - covered)) / float(count);
+        #else
+            vec4 position = texture(gPosition, fragTexCoord);
+            if (position.a < 0.5) discard;
+            outColor = shade(position, texture(gNormalMetallic, fragTexCoord),
+                texture(gAlbedoRoughness, fragTexCoord), texture(gEmissionAO, fragTexCoord));
+        #endif
         }
         """;
 
@@ -574,6 +621,7 @@ public sealed class LightingPass : GraphicsNode3D
         private float _pad1;
         public Vector3 AmbientColor;
         private float _pad2;
+        public Vector4 BackgroundColor;
     }
 
     [StructLayout(LayoutKind.Sequential)]

@@ -121,6 +121,9 @@ because the new name conflicts with an existing folder.</value>
   <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
     <value>The 3D rendering surface could not be created.</value>
   </data>
+  <data name="Scene3DAntiAliasingReduced" xml:space="preserve">
+    <value>3D anti-aliasing was reduced to {0}x because there was not enough GPU memory.</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>An exception occurred during output.</value>
   </data>
