@@ -1678,6 +1678,9 @@
   <data name="Stroke" xml:space="preserve">
     <value>ストローク</value>
   </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>アウトライン</value>
+  </data>
   <data name="Target" xml:space="preserve">
     <value>ターゲット</value>
   </data>
@@ -1842,9 +1845,6 @@
   </data>
   <data name="DipToColorTransition" xml:space="preserve">
     <value>カラーへのディップ</value>
-  </data>
-  <data name="DipToWhiteTransition" xml:space="preserve">
-    <value>ホワイトへのディップ</value>
   </data>
   <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
     <value>左から右</value>
@@ -2384,13 +2384,13 @@
     <value>別のシーンの映像を一つのレイヤーとして表示します（プリコンポ、プリコンポーズ、ネスト、複合クリップ / precomp, pre-compose, nested sequence, compound clip）。</value>
   </data>
   <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
-    <value>複数のオブジェクトを一つのレイヤーとして扱い、エフェクトを適用します（調整レイヤー、エフェクトグループ / adjustment layer, effect group）。</value>
+    <value>子オブジェクトごとの範囲と変形の基準点を使い、変形、不透明度、ブレンド、エフェクトを個別に適用します（エフェクトグループ / effect group）。</value>
   </data>
   <data name="DrawableGroup_LibraryDescription" xml:space="preserve">
-    <value>子オブジェクトをまとめて移動・拡大縮小・回転します（親、ヌルオブジェクト、グループ制御 / parent, null object）。</value>
+    <value>子オブジェクトを共通の基準点で変形します。不透明度とブレンドはグループ全体に適用され、エフェクトは全体の範囲を参照できます（親、ヌルオブジェクト、グループ制御 / parent, null object）。</value>
   </data>
   <data name="DrawableTimeController_LibraryDescription" xml:space="preserve">
-    <value>オブジェクトの再生位置や速度を変えます（タイムリマップ、速度変更、フリーズフレーム / time remap, speed ramp, freeze frame）。</value>
+    <value>再生位置と速度を変えます。フレームレートでオブジェクトを評価する時刻を区切ります（タイムリマップ、速度変更、フリーズフレーム / time remap, speed ramp, freeze frame）。</value>
   </data>
   <data name="AudioWaveformDrawable_LibraryDescription" xml:space="preserve">
     <value>音声の振幅を時間に沿って描画します（音声波形、波形表示 / audio waveform, waveform visualizer）。</value>
@@ -2426,13 +2426,13 @@
     <value>一点を中心にズームや回転をしたように画像をぼかします（ズームブラー、回転ブラー / zoom blur, spin blur）。</value>
   </data>
   <data name="MotionBlur_LibraryDescription" xml:space="preserve">
-    <value>短い時間内の見た目を重ねて動きにブレを加えます（残像、シャッターブラー / motion trails, shutter blur）。</value>
+    <value>シャッターの露光時間内で見た目を平均し、動きにブレを加えます（シャッターブラー / shutter blur）。</value>
   </data>
   <data name="Echo_LibraryDescription" xml:space="preserve">
-    <value>過去や未来の時刻のコピーを不透明度を下げながら重ねます（残像、ゴースト、軌跡 / afterimage, ghost trail, motion trails）。</value>
+    <value>過去または未来の見た目を一定間隔でサンプリングし、不透明度を下げながら重ねます（残像、ゴースト、軌跡 / afterimage, ghost trail, motion trails）。</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>フレームを一定間隔で保持してコマ撮り風の動きにします（ストップモーション、低フレームレート、ポスタリゼーション時間 / frame hold, stop motion, posterize time）。</value>
+    <value>次のサンプルまでフレームを保持します。その間も後段のエフェクトは動かせます（ストップモーション、低フレームレート、ポスタリゼーション時間 / frame hold, stop motion, posterize time）。</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>レンズの絞りの形で画像をぼかします（レンズぼかし、デフォーカス / lens blur, defocus）。</value>
@@ -2498,7 +2498,7 @@
     <value>画像全体を明るくしたり暗くしたりします（明るさ調整、増光、減光 / brighten, darken）。</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>画像の透け具合を変えます（透明度、アルファ、フェード / alpha, transparency, fade）。</value>
+    <value>後続のエフェクトがかかる前に画像の透明度を変えます。オブジェクト全体には「不透明度」を使います（透明度、アルファ、フェード / alpha, transparency, fade）。</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>中間調の明るさを変えて階調を調整します（ガンマ補正、中間調 / gamma correction, midtones）。</value>
@@ -2516,16 +2516,16 @@
     <value>指定した中心から離れるほど画像を暗くし、量を負の値にすると明るくします（周辺減光、ビネット / lens vignette, edge darkening）。</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
-    <value>画像の色を反転します（色反転、ネガポジ反転 / negative, invert colors）。</value>
+    <value>画像の色を反転します。アルファチャンネルも反転できます（色反転 / invert colors）。</value>
   </data>
   <data name="LutEffect_LibraryDescription" xml:space="preserve">
     <value>ルックアップテーブルを使って画像の色を変換します（カラーグレーディング、色調補正、ルックアップテーブル / color lookup, LUT, color grading）。</value>
   </data>
   <data name="BlendEffect_LibraryDescription" xml:space="preserve">
-    <value>指定した描画モードで画像に色やブラシを重ねます（描画モード、合成モード、カラーオーバーレイ、色付け / blend mode, color overlay, tint）。</value>
+    <value>画像とブラシを合成します。下のレイヤーとの合成には、オブジェクトの「ブレンドモード」を使います（カラーオーバーレイ、色付け / color overlay, tint）。</value>
   </data>
   <data name="Negaposi_LibraryDescription" xml:space="preserve">
-    <value>赤・緑・青を個別に調整しながら画像の色を反転します（色反転、ネガポジ反転 / negative, invert colors）。</value>
+    <value>基準色のRGB値から画像の色を引いて反転します。初期設定では黒く表示されます（ネガポジ反転 / color negative）。</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
     <value>色相と彩度で背景を選んで透明にし、被写体に映り込んだ背景色も抑えます（グリーンバック、ブルーバック、キーイング、キーライト、スピル抑制、スピル除去 / green screen, blue screen, keylight, despill, spill suppressor）。</value>
@@ -2552,10 +2552,10 @@
     <value>画像の細部を色の付いたブロックに置き換えます（ピクセル化、モザイク処理、目隠し / pixelate, censor）。</value>
   </data>
   <data name="ColorShift_LibraryDescription" xml:space="preserve">
-    <value>画像の色チャンネルを個別にずらします（RGBずれ、RGB分離、色収差 / RGB split, chromatic aberration）。</value>
+    <value>赤・緑・青とアルファの各チャンネルを、個別に上下左右にずらします（RGBずれ、RGB分離 / RGB split, channel shift）。</value>
   </data>
   <data name="LensChromaticAberration_LibraryDescription" xml:space="preserve">
-    <value>指定した中心に対して色チャンネルをずらし、レンズのような色にじみを作ります（色収差、RGBずれ、色にじみ / RGB split, chromatic aberration）。</value>
+    <value>中心を基準に赤と青の一方を拡大し、もう一方を縮小してレンズの色にじみを再現します（色収差、色にじみ / chromatic aberration）。</value>
   </data>
   <data name="ShakeEffect_LibraryDescription" xml:space="preserve">
     <value>速さと強さを調整しながら画像を揺らします（ウィグル、カメラ揺れ、振動 / wiggle, camera shake）。</value>
@@ -2604,9 +2604,6 @@
   </data>
   <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
     <value>前のクリップを単色にフェードさせてから次のクリップを表示します（色を挟むフェード、暗転 / fade through color, dip to black）。</value>
-  </data>
-  <data name="DipToWhiteTransition_LibraryDescription" xml:space="preserve">
-    <value>前のクリップを白にフェードさせてから次のクリップを表示します（白転、ホワイトフラッシュ / fade to white, white flash）。</value>
   </data>
   <data name="PushTransition_LibraryDescription" xml:space="preserve">
     <value>次のクリップが移動しながら前のクリップを画面の外へ押し出します（押し出し、プッシュワイプ / push wipe, slide push）。</value>
@@ -2682,6 +2679,33 @@
   </data>
   <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
     <value>滑らか</value>
+  </data>
+  <data name="FilterEffectCategory_BlurAndSharpen" xml:space="preserve">
+    <value>ぼかし・シャープ</value>
+  </data>
+  <data name="FilterEffectCategory_ColorCorrection" xml:space="preserve">
+    <value>色補正</value>
+  </data>
+  <data name="FilterEffectCategory_LightAndShadow" xml:space="preserve">
+    <value>光・影</value>
+  </data>
+  <data name="FilterEffectCategory_MaskingAndKeying" xml:space="preserve">
+    <value>切り抜き・キーイング</value>
+  </data>
+  <data name="FilterEffectCategory_TransformAndDistort" xml:space="preserve">
+    <value>変形・歪み</value>
+  </data>
+  <data name="FilterEffectCategory_TimeAndAnimation" xml:space="preserve">
+    <value>時間・アニメーション</value>
+  </data>
+  <data name="FilterEffectCategory_Stylize" xml:space="preserve">
+    <value>スタイライズ</value>
+  </data>
+  <data name="FilterEffectCategory_Compositing" xml:space="preserve">
+    <value>合成</value>
+  </data>
+  <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
+    <value>スクリプト・ノード</value>
   </data>
   <data name="TextOnPathEffect" xml:space="preserve">
     <value>パスに沿うテキスト</value>

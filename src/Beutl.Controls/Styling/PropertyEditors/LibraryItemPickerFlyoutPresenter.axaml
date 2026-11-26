@@ -13,7 +13,10 @@
     <!--  The thumbnail plays while the pointer is over the tile or it is selected, from a style in Styles.axaml.  -->
     <!--  The name leaves room on the right for the pin, which the tile's template puts there.  -->
     <DataTemplate x:Key="LibraryItemPicker_TileTemplate" x:DataType="local:PinnableLibraryItem">
-        <StackPanel Spacing="4" ToolTip.Tip="{Binding Description}">
+        <StackPanel Spacing="4"
+                    ToolTip.Placement="Top"
+                    ToolTip.Tip="{Binding Description}"
+                    ToolTip.VerticalOffset="0">
             <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}"
                     BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
@@ -239,7 +242,7 @@
                         <!--  Its height comes from the styles below, which a value set here would override.  -->
                         <Grid Name="PART_ListArea"
                               Grid.Row="1"
-                              RowDefinitions="Auto,*">
+                              RowDefinitions="Auto,Auto,*">
                             <!--  Enter confirms the picker, so it must not move the focus out of the search box first.  -->
                             <TextBox x:Name="SearchTextBox"
                                      Margin="4,0,4,4"
@@ -249,7 +252,16 @@
                                      Text="{TemplateBinding SearchText, Mode=TwoWay}"
                                      PlaceholderText="{x:Static lang:Strings.Search}" />
 
-                            <Panel Grid.Row="1">
+                            <ComboBox x:Name="CategoryPicker"
+                                      Grid.Row="1"
+                                      Margin="4,0,4,4"
+                                      HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="{x:Static lang:Strings.EffectCategory}"
+                                      IsVisible="False"
+                                      ItemsSource="{TemplateBinding Categories}"
+                                      SelectedIndex="{TemplateBinding SelectedCategoryIndex, Mode=TwoWay}" />
+
+                            <Panel Grid.Row="2">
                                 <ListBox x:Name="PART_ListBox"
                                          Margin="4,4,4,0"
                                          ItemContainerTheme="{StaticResource LibraryItemPicker_ListBoxItem}"
@@ -328,6 +340,10 @@
             <Setter Property="IsVisible" Value="True" />
         </Style>
 
+        <Style Selector="^:has-categories /template/ ComboBox#CategoryPicker">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
         <Style Selector="^:no-results /template/ TextBlock#PART_NoResultsTextBlock">
             <Setter Property="IsVisible" Value="True" />
         </Style>
@@ -350,6 +366,9 @@
 
         <!-- Not needed for references -->
         <Style Selector="^:show-references /template/ ToggleButton#ShowAllButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:show-references /template/ ComboBox#CategoryPicker">
             <Setter Property="IsVisible" Value="False" />
         </Style>
 

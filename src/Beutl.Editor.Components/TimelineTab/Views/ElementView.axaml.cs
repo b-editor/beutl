@@ -285,6 +285,7 @@ public sealed partial class ElementView : UserControl
 
     private void OnDataContextDetached(ElementViewModel obj)
     {
+        _timeline?.ClearDragReadout(this);
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
         obj.RenameRequested = () => { };
         obj.GetClickedTime = null;
@@ -411,6 +412,7 @@ public sealed partial class ElementView : UserControl
     protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
+        _timeline?.ClearDragReadout(this);
         _timeline = null;
         BehaviorCollection behaviors = Interaction.GetBehaviors(this);
         behaviors.Clear();
@@ -523,7 +525,26 @@ public sealed partial class ElementView : UserControl
     private void UpdateSnapFeedback(MediaTime? target, float scale, ulong timestamp)
         => _snapFeedback.Update(ViewModel.Timeline, this, target, scale, timestamp);
 
-    private void ClearSnapFeedback() => _snapFeedback.Clear(ViewModel.Timeline);
+    private void ClearDragFeedback()
+    {
+        _timeline?.ClearDragReadout(this);
+        if (DataContext is ElementViewModel viewModel) _snapFeedback.Clear(viewModel.Timeline);
+    }
+
+    private string FormatDragTime(MediaTime time)
+    {
+        TimelineTabViewModel timeline = ViewModel.Timeline;
+        var format = timeline.TimeDisplayFormat.Value;
+        string text = TimeDisplayFormatter.Format(time, timeline.FrameRate, format);
+        return format == Beutl.Configuration.TimeDisplayFormat.Frames ? text + "f" : text;
+    }
+
+    private void ShowDragReadout(PointerEventArgs e, MediaTime delta, string details)
+    {
+        string change = delta < MediaTime.Zero ? "-" + FormatDragTime(-delta) : FormatDragTime(delta);
+        if (delta > MediaTime.Zero) change = "+" + change;
+        _timeline?.ShowDragReadout(this, e, change, details);
+    }
 
     // The pressed clip's group or selection and the clip itself. Locked members stay: the Roll/Slide check needs
     // them, and the slip service drops them itself.

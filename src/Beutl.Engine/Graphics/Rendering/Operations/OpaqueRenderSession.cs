@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using Beutl.Graphics.Rendering.Requests;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -14,8 +15,7 @@ public sealed class OpaqueRenderSession
     private readonly RenderPlacement _outputPlacement;
     private readonly float _outputScale;
     private readonly float _maxWorkingScale;
-    private readonly RenderIntent _intent;
-    private readonly RenderRequestPurpose _purpose;
+    private readonly RenderRequestOptions _requestOptions;
 
     internal OpaqueRenderSession(
         RenderExecutionSessionToken token,
@@ -25,8 +25,7 @@ public sealed class OpaqueRenderSession
         RenderPlacement outputPlacement,
         float outputScale,
         float maxWorkingScale,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
+        RenderRequestOptions requestOptions,
         IReadOnlyList<RenderResourceBinding> resources,
         Func<OpaqueRenderSession, Rect, float?, OpaqueRenderOutput> createOutput,
         Action<OpaqueRenderOutput> publish)
@@ -45,8 +44,7 @@ public sealed class OpaqueRenderSession
         _outputPlacement = outputPlacement;
         _outputScale = outputScale;
         _maxWorkingScale = maxWorkingScale;
-        _intent = intent;
-        _purpose = purpose;
+        _requestOptions = requestOptions;
         _resourceBindings = resources;
         _createOutput = createOutput;
         _publish = publish;
@@ -91,12 +89,18 @@ public sealed class OpaqueRenderSession
 
     public RenderIntent Intent
     {
-        get { _token.ThrowIfInactive(); return _intent; }
+        get { _token.ThrowIfInactive(); return _requestOptions.Intent; }
     }
 
     public RenderRequestPurpose Purpose
     {
-        get { _token.ThrowIfInactive(); return _purpose; }
+        get { _token.ThrowIfInactive(); return _requestOptions.Purpose; }
+    }
+
+    internal void ReportPreviewWarning(string message)
+    {
+        _token.ThrowIfInactive();
+        _requestOptions.ReportPreviewWarning(message);
     }
 
     /// <summary>Creates an unpublished output within the declared bounds.</summary>

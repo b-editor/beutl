@@ -43,6 +43,7 @@ public partial class EditViewModel
         .Add<IEditorFileUsage>(() => EditorService)
         .Add<Beutl.Editor.Components.WebBrowserTab.IBrowserSettingsHost>(() => EditorService.BrowserSettingsHost)
         .Add<Beutl.Editor.Components.FileBrowserTab.FileBrowserStorageProviderRegistry>(() => EditorService.StorageProviders)
+        .Add<Beutl.Editor.Components.FileBrowserTab.IProjectAssetHost>(() => EditorService.ProjectAssets)
         .Add<Beutl.Editor.Components.AiWorkspaceTab.IAiWorkspaceHost>(() => EditorService.AiWorkspaceHost)
         .Add<Scene>(() => Scene)
         .Add<EditViewModel>(() => this)

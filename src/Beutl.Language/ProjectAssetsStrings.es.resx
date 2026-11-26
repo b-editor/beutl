@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>Recursos del proyecto</value></data>
+  <data name="MenuLabel" xml:space="preserve"><value>Organizar recursos del proyecto</value></data>
+  <data name="OpenScene" xml:space="preserve"><value>Abre una escena para usar la pestaña Archivos.</value></data>
+  <data name="Collect" xml:space="preserve"><value>Reunir recursos</value></data>
+  <data name="Unused" xml:space="preserve"><value>Recursos sin usar</value></data>
+  <data name="Quarantined" xml:space="preserve"><value>Archivos apartados</value></data>
+  <data name="QuarantineFolder" xml:space="preserve"><value>Carpeta de resguardo del proyecto</value></data>
+  <data name="Copy" xml:space="preserve"><value>Copiar y volver a vincular</value></data>
+  <data name="MoveAside" xml:space="preserve"><value>Apartar</value></data>
+  <data name="Restore" xml:space="preserve"><value>Restaurar</value></data>
+  <data name="DeletePermanently" xml:space="preserve"><value>Eliminar permanentemente</value></data>
+  <data name="DeleteConfirmation" xml:space="preserve"><value>¿Eliminar permanentemente la selección ({0})?</value></data>
+  <data name="CurrentPath" xml:space="preserve"><value>Desde {0}</value></data>
+  <data name="Destination" xml:space="preserve"><value>Destino {0}</value></data>
+  <data name="Selection" xml:space="preserve"><value>{0} de {1} · {2}</value></data>
+  <data name="BundleSize" xml:space="preserve"><value>{0} archivos · {1}</value></data>
+  <data name="NoAssets" xml:space="preserve"><value>No hay archivos para mostrar.</value></data>
+  <data name="Scanning" xml:space="preserve"><value>Comprobando las referencias del proyecto…</value></data>
+  <data name="Working" xml:space="preserve"><value>Aplicando cambios…</value></data>
+  <data name="Finished" xml:space="preserve"><value>Operación completada.</value></data>
+  <data name="Canceled" xml:space="preserve"><value>Operación cancelada.</value></data>
+  <data name="DeleteCanceled" xml:space="preserve"><value>Eliminación cancelada (total eliminado de {0}).</value></data>
+  <data name="PlanChanged" xml:space="preserve"><value>El proyecto o sus archivos han cambiado. Revisa la lista actualizada antes de volver a aplicar los cambios.</value></data>
+  <data name="Missing" xml:space="preserve"><value>Falta el archivo de origen o una de sus dependencias.</value></data>
+  <data name="ValidationFailed" xml:space="preserve"><value>No se pudo leer la copia de {0}.</value></data>
+  <data name="UnsafePath" xml:space="preserve"><value>No se pudo comprobar que la ruta esté dentro del proyecto.</value></data>
+  <data name="SharedReference" xml:space="preserve"><value>Es posible que otro proyecto o escena comparta esta ubicación.</value></data>
+  <data name="IncompleteReferences" xml:space="preserve"><value>No se pudieron comprobar algunas referencias del proyecto.</value></data>
+  <data name="EditHistory" xml:space="preserve"><value>Se conserva el archivo para poder deshacer o rehacer cambios.</value></data>
+  <data name="InUse" xml:space="preserve"><value>Un proyecto o editor abierto hace referencia a este archivo.</value></data>
+  <data name="DestinationExists" xml:space="preserve"><value>La ubicación original ya está ocupada.</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>No se pudo leer el archivo o sus dependencias.</value></data>
+</root>

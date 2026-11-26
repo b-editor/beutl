@@ -1682,6 +1682,9 @@
   <data name="Stroke" xml:space="preserve">
     <value>획</value>
   </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>윤곽선</value>
+  </data>
   <data name="Target" xml:space="preserve">
     <value>대상</value>
   </data>
@@ -1846,9 +1849,6 @@
   </data>
   <data name="DipToColorTransition" xml:space="preserve">
     <value>색으로 디프</value>
-  </data>
-  <data name="DipToWhiteTransition" xml:space="preserve">
-    <value>흰색으로 디프</value>
   </data>
   <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
     <value>왼쪽에서 오른쪽</value>
@@ -2388,13 +2388,13 @@
     <value>다른 장면의 영상을 하나의 레이어로 표시합니다 (사전 컴포지션, 프리컴프, 중첩 시퀀스, 복합 클립 / precomp, pre-compose, nested sequence, compound clip).</value>
   </data>
   <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
-    <value>여러 오브젝트에 하나의 레이어처럼 효과를 적용합니다 (조정 레이어, 효과 그룹 / adjustment layer, effect group).</value>
+    <value>각 하위 오브젝트의 영역과 변형 기준점을 사용해 변형, 불투명도, 혼합, 효과를 개별적으로 적용합니다 (효과 그룹 / effect group).</value>
   </data>
   <data name="DrawableGroup_LibraryDescription" xml:space="preserve">
-    <value>하위 오브젝트를 함께 이동하고 크기를 조절하거나 회전합니다 (부모, 널 오브젝트, 널 개체, 그룹 제어 / parent, null object).</value>
+    <value>공통 기준점을 중심으로 하위 오브젝트를 함께 변형합니다. 불투명도와 혼합은 그룹 전체에 적용되며 효과는 그룹 전체 영역을 사용할 수 있습니다 (부모, 널 오브젝트, 널 개체, 그룹 제어 / parent, null object).</value>
   </data>
   <data name="DrawableTimeController_LibraryDescription" xml:space="preserve">
-    <value>오브젝트의 재생 위치와 속도를 바꿉니다 (시간 다시 매핑, 속도 램프, 프레임 고정 / time remap, speed ramp, freeze frame).</value>
+    <value>오브젝트의 재생 위치와 속도를 바꿉니다. 프레임 속도는 오브젝트를 평가하는 시간 간격을 정합니다 (시간 다시 매핑, 속도 램프, 프레임 고정 / time remap, speed ramp, freeze frame).</value>
   </data>
   <data name="AudioWaveformDrawable_LibraryDescription" xml:space="preserve">
     <value>시간에 따른 오디오 진폭을 그립니다 (오디오 파형, 파형 시각화 / audio waveform, waveform visualizer).</value>
@@ -2430,13 +2430,13 @@
     <value>한 점을 중심으로 확대하거나 회전하는 것처럼 이미지를 흐리게 합니다 (줌 블러, 회전 블러 / zoom blur, spin blur).</value>
   </data>
   <data name="MotionBlur_LibraryDescription" xml:space="preserve">
-    <value>짧은 시간 동안의 오브젝트 모습을 합쳐 움직임을 흐리게 합니다 (모션 블러, 움직임 잔상 / motion trails, shutter blur).</value>
+    <value>셔터가 열린 시간 동안 오브젝트의 모습을 평균 내어 움직임을 흐리게 합니다 (셔터 블러 / shutter blur).</value>
   </data>
   <data name="Echo_LibraryDescription" xml:space="preserve">
-    <value>이전 또는 이후 시점의 복사본을 점점 투명하게 현재 프레임 위에 겹쳐 그립니다 (잔상, 고스트 트레일 / afterimage, ghost trail, motion trails).</value>
+    <value>이전이나 이후 시점의 복사본을 일정 간격으로 가져와 불투명도를 줄이며 겹쳐 그립니다 (잔상, 고스트 트레일 / afterimage, ghost trail, motion trails).</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>프레임을 일정 간격으로 유지하여 스톱 모션처럼 보이게 합니다 (저프레임 레이트 / frame hold, stop motion, posterize time).</value>
+    <value>샘플링한 프레임을 다음 샘플까지 유지합니다. 그동안 뒤에 있는 효과의 애니메이션은 계속 재생될 수 있습니다 (저프레임 레이트 / frame hold, stop motion, posterize time).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>렌즈 조리개 모양으로 이미지를 흐리게 합니다 (렌즈 흐림, 디포커스 / lens blur, defocus).</value>
@@ -2502,7 +2502,7 @@
     <value>이미지 전체를 밝게 하거나 어둡게 합니다 (밝게 하기, 어둡게 하기 / brighten, darken).</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>이미지가 얼마나 투명하게 보일지 조절합니다 (알파, 투명도, 페이드 / alpha, transparency, fade).</value>
+    <value>효과 목록의 이 위치에서 이미지의 투명도를 바꿉니다. 오브젝트 전체를 페이드하려면 오브젝트의 불투명도를 사용합니다 (알파, 투명도 / alpha, transparency).</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>중간톤을 밝게 하거나 어둡게 하여 톤 균형을 조절합니다 (감마 보정, 중간톤 / gamma correction, midtones).</value>
@@ -2520,16 +2520,16 @@
     <value>지정한 중심에서 멀어질수록 이미지를 어둡게 하고, 양을 음수로 하면 밝게 합니다 (비네팅, 가장자리 어둡게 / lens vignette, edge darkening).</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
-    <value>이미지의 색을 반전합니다 (색상 반전, 네거티브 / negative, invert colors).</value>
+    <value>이미지의 색을 반전하며 알파 채널도 반전할 수 있습니다 (색상 반전 / invert colors).</value>
   </data>
   <data name="LutEffect_LibraryDescription" xml:space="preserve">
     <value>조회 테이블을 사용하여 이미지의 색을 변환합니다 (색상 조회 테이블, LUT, 컬러 그레이딩 / color lookup, LUT, color grading).</value>
   </data>
   <data name="BlendEffect_LibraryDescription" xml:space="preserve">
-    <value>혼합 모드를 사용해 이미지에 색이나 브러시를 겹칩니다 (혼합 모드, 색상 오버레이, 색조 / blend mode, color overlay, tint).</value>
+    <value>브러시와 이미지를 혼합합니다. 아래 레이어와 섞으려면 오브젝트의 혼합 모드를 사용합니다 (색상 오버레이, 색조 / color overlay, tint).</value>
   </data>
   <data name="Negaposi_LibraryDescription" xml:space="preserve">
-    <value>빨강, 초록, 파랑을 각각 조절하며 이미지의 색을 반전합니다 (색상 반전, 네거티브 / negative, invert colors).</value>
+    <value>기준 RGB 색에서 이미지의 색을 뺍니다. 기본 설정에서는 이미지가 검게 보입니다 (네거티브 / color negative).</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
     <value>색조와 채도로 배경을 골라 투명하게 만들고 피사체에 번진 배경색을 억제합니다 (그린 스크린, 블루 스크린, 크로마 키, 키잉, 스필 억제 / green screen, blue screen, keylight, despill, spill suppressor).</value>
@@ -2556,10 +2556,10 @@
     <value>이미지 세부를 단색 블록으로 바꿉니다 (픽셀화, 모자이크, 검열 / pixelate, censor).</value>
   </data>
   <data name="ColorShift_LibraryDescription" xml:space="preserve">
-    <value>이미지의 색상 채널을 개별적으로 이동합니다 (RGB 분리, 색수차 / RGB split, chromatic aberration).</value>
+    <value>빨강, 초록, 파랑, 알파 채널을 각각 가로와 세로로 이동합니다 (RGB 분리 / RGB split, channel shift).</value>
   </data>
   <data name="LensChromaticAberration_LibraryDescription" xml:space="preserve">
-    <value>중심점을 기준으로 색상 채널을 분리해 렌즈에서 생기는 듯한 색 번짐을 만듭니다 (RGB 분리, 색수차, 색 번짐 / RGB split, chromatic aberration).</value>
+    <value>중심점을 기준으로 빨강과 파랑 중 하나는 확대하고 다른 하나는 축소해 렌즈의 색 번짐을 재현합니다 (색수차, 색 번짐 / chromatic aberration).</value>
   </data>
   <data name="ShakeEffect_LibraryDescription" xml:space="preserve">
     <value>조절 가능한 속도와 강도로 이미지를 흔듭니다 (흔들기, 카메라 흔들림, 진동 / wiggle, camera shake).</value>
@@ -2608,9 +2608,6 @@
   </data>
   <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
     <value>나가는 클립을 단색으로 페이드한 다음 들어오는 클립을 표시합니다 (색상으로 페이드, 검정으로 페이드 / fade through color, dip to black).</value>
-  </data>
-  <data name="DipToWhiteTransition_LibraryDescription" xml:space="preserve">
-    <value>나가는 클립을 흰색으로 페이드한 다음 들어오는 클립을 표시합니다 (흰색으로 페이드, 흰색 섬광 / fade to white, white flash).</value>
   </data>
   <data name="PushTransition_LibraryDescription" xml:space="preserve">
     <value>들어오는 클립이 화면 안으로 이동하면서 나가는 클립을 밖으로 밀어냅니다 (밀어내기, 푸시 전환 / push wipe, slide push).</value>
@@ -2686,6 +2683,33 @@
   </data>
   <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
     <value>부드러운 곡선</value>
+  </data>
+  <data name="FilterEffectCategory_BlurAndSharpen" xml:space="preserve">
+    <value>흐림 및 선명화</value>
+  </data>
+  <data name="FilterEffectCategory_ColorCorrection" xml:space="preserve">
+    <value>색상 보정</value>
+  </data>
+  <data name="FilterEffectCategory_LightAndShadow" xml:space="preserve">
+    <value>빛과 그림자</value>
+  </data>
+  <data name="FilterEffectCategory_MaskingAndKeying" xml:space="preserve">
+    <value>마스킹 및 키잉</value>
+  </data>
+  <data name="FilterEffectCategory_TransformAndDistort" xml:space="preserve">
+    <value>변형 및 왜곡</value>
+  </data>
+  <data name="FilterEffectCategory_TimeAndAnimation" xml:space="preserve">
+    <value>시간 및 애니메이션</value>
+  </data>
+  <data name="FilterEffectCategory_Stylize" xml:space="preserve">
+    <value>스타일화</value>
+  </data>
+  <data name="FilterEffectCategory_Compositing" xml:space="preserve">
+    <value>합성</value>
+  </data>
+  <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
+    <value>스크립트 및 노드</value>
   </data>
   <data name="TextOnPathEffect" xml:space="preserve">
     <value>경로를 따르는 텍스트</value>

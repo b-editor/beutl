@@ -367,8 +367,12 @@
 
                 <ecv:TimelineOverlay x:Name="overlay"
                                      VerticalAlignment="Stretch"
+                                     IsHitTestVisible="False"
                                      EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                      EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                                     ReadoutBackground="{DynamicResource SolidBackgroundFillColorTertiaryBrush}"
+                                     ReadoutBorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                     ReadoutForeground="{DynamicResource TextFillColorPrimaryBrush}"
                                      SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                                      SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
                                      SnapBarBrush="{DynamicResource SystemFillColorAttentionBrush}"

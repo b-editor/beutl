@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using Beutl.Engine;
+using Beutl.Language;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 
@@ -45,16 +46,22 @@ public sealed class ElementSlipService : IElementSlipService
             applicable.AddRange(targets);
         }
 
-        if (applicable.Count == 0) return false;
-
-        MediaTime effective = SlippableMedia.ClampSharedDelta(applicable, delta);
-        if (effective == MediaTime.Zero) return false;
-
-        if (!SlippableMedia.TryGetOffsetChanges(applicable, effective, trim: false, out var changes)
-            || changes.Values.All(d => d == MediaTime.Zero)) return false;
-        SlippableMedia.ApplyOffsetChanges(changes);
+        if (PlanSlip(applicable, delta) is not { } plan) return false;
+        SlippableMedia.ApplyOffsetChanges(plan.Changes);
 
         _historyManager.Commit(CommandNames.SlipElement);
         return true;
+    }
+
+    internal static (MediaTime Delta, Dictionary<IProperty<MediaTime>, MediaTime> Changes)? PlanSlip(
+        IReadOnlyList<SlippableMedia.Target> targets, MediaTime delta)
+    {
+        if (delta == MediaTime.Zero || targets.Count == 0) return null;
+        MediaTime effective = SlippableMedia.ClampSharedDelta(targets, delta);
+        if (effective == MediaTime.Zero
+            || !SlippableMedia.TryGetOffsetChanges(targets, effective, trim: false, out var changes)
+            || changes.Values.All(change => change == MediaTime.Zero)) return null;
+
+        return (effective, changes);
     }
 }

@@ -150,14 +150,6 @@
     <value>Para mejorar Beutl, recopilamos datos de uso anónimos. Esta configuración se aplicará después de reiniciar la aplicación. Para obtener más información, consulta las siguientes páginas.</value>
     <comment />
   </data>
-  <data name="ShowExactBoundaries_Description" xml:space="preserve">
-    <value>Muestra los límites de los elementos con precisión durante la vista previa. Habilitar esta configuración puede hacer que el borde sea invisible.</value>
-    <comment />
-  </data>
-  <data name="ShowExactBoundaries" xml:space="preserve">
-    <value>Mostrar límites precisos</value>
-    <comment />
-  </data>
   <data name="AutoAdjustSceneDuration" xml:space="preserve">
     <value>Ajustar automáticamente la duración de la escena</value>
     <comment />

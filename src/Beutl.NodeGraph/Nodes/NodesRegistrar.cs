@@ -49,7 +49,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<DropShadow>>(GraphicsStrings.DropShadow)
             .Add<FilterEffectNode<InnerShadow>>(GraphicsStrings.InnerShadow)
             .Add<FilterEffectNode<FlatShadow>>(GraphicsStrings.FlatShadow)
-            .Add<FilterEffectNode<StrokeEffect>>(GraphicsStrings.Stroke)
+            .Add<FilterEffectNode<StrokeEffect>>(GraphicsStrings.StrokeEffect)
             .Add<FilterEffectNode<Clipping>>(GraphicsStrings.Clipping)
             .Add<FilterEffectNode<DiagonalClipping>>(GraphicsStrings.DiagonalClipping)
             .Add<FilterEffectNode<Dilate>>(GraphicsStrings.Dilate)

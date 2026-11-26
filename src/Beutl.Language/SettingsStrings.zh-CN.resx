@@ -150,14 +150,6 @@
     <value>为了改进 Beutl，我们收集匿名的使用数据。这些设置将在应用程序重新启动后生效。有关详细信息，请参阅以下页面。</value>
     <comment />
   </data>
-  <data name="ShowExactBoundaries_Description" xml:space="preserve">
-    <value>在预览期间准确显示元素的边界。启用此设置可能会使边框不可见。</value>
-    <comment />
-  </data>
-  <data name="ShowExactBoundaries" xml:space="preserve">
-    <value>显示精确边界</value>
-    <comment />
-  </data>
   <data name="AutoAdjustSceneDuration" xml:space="preserve">
     <value>自动调整场景时长</value>
     <comment />

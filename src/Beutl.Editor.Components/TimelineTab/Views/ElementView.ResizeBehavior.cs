@@ -138,6 +138,7 @@ public sealed partial class ElementView
         private bool _pressed;
         private AlignmentX _resizeType;
         private ElementResizeContext[] _resizeContexts = [];
+        private IReadOnlyDictionary<Element, SlippableMedia.ResizeConstraints>? _resizeMediaConstraints;
         private TrimDragContext _trimDrag;
         private Point _lastPosition;
         private bool _lastAlt;
@@ -189,12 +190,14 @@ public sealed partial class ElementView
         // Escape and Undo restore both ordinary resizing and Roll/Slide previews.
         private void CancelResize()
         {
+            AssociatedObject?.ClearDragFeedback();
             _drag = null;
             _pressed = false;
             TrimDragContext ctx = _trimDrag;
             _trimDrag = default;
             ElementResizeContext[] resizeContexts = _resizeContexts;
             _resizeContexts = [];
+            _resizeMediaConstraints = null;
             if (ctx.Kind is not TrimDragKind.None)
             {
                 RestoreTrimDragVisuals(ctx);
@@ -207,10 +210,6 @@ public sealed partial class ElementView
                 {
                     resizeCtx.ViewModel.EndMediaPreview(committed: false);
                 }
-            }
-            if (AssociatedObject is { ViewModel: { } } view)
-            {
-                view.ClearSnapFeedback();
             }
         }
 
@@ -240,7 +239,7 @@ public sealed partial class ElementView
 
             if (_trimDrag.Kind is not TrimDragKind.None)
             {
-                PreviewTrimDrag(view, pointerFrame, scale, alt, rate, e.Timestamp);
+                PreviewTrimDrag(view, pointerFrame, scale, alt, rate, e);
                 e.Handled = true;
                 return;
             }
@@ -273,9 +272,29 @@ public sealed partial class ElementView
                     + (_resizeType == AlignmentX.Right ? viewModel.Width.Value : 0);
                 bool reachedSnap = snap.DidSnap && Math.Abs(edge - point.X) < 0.01;
                 view.UpdateSnapFeedback(reachedSnap ? snap.Time : null, scale, e.Timestamp);
+                ShowResizeReadout(view, viewModel, ripple, leftEdge, scale, rate, e);
 
                 e.Handled = true;
             }
+        }
+
+        private void ShowResizeReadout(ElementView view, ElementViewModel viewModel, bool ripple, bool leftEdge,
+            float scale, Rational rate, PointerEventArgs e)
+        {
+            if (_resizeContexts.Length == 0
+                || viewModel.Timeline.EditorContext.GetService<IElementResizeService>() is not ElementResizeService resize)
+                return;
+
+            Element anchor = _resizeContexts.Any(ctx => ctx.ViewModel == viewModel)
+                ? viewModel.Model
+                : _resizeContexts[0].ViewModel.Model;
+            ElementResizeRequest[] requests = GetResizeRequests(_resizeContexts, ripple, leftEdge, scale, rate, addHeaders: false);
+            TimeRange result = resize.PreviewResize(viewModel.Scene, requests, ripple, anchor, _resizeMediaConstraints).Range;
+            MediaTime previousEdge = leftEdge ? anchor.Start.Value : anchor.Range.End;
+            MediaTime resultingEdge = leftEdge ? result.Start : result.End;
+            string details = string.Format(leftEdge ? Strings.TimelineDrag_StartLength : Strings.TimelineDrag_EndLength,
+                view.FormatDragTime(resultingEdge), view.FormatDragTime(result.Duration));
+            view.ShowDragReadout(e, resultingEdge - previousEdge, details);
         }
 
         private static void PreviewResizeMedia(ElementResizeContext[] contexts, bool ripple, bool leftEdge, float scale, Rational rate)
@@ -296,7 +315,7 @@ public sealed partial class ElementView
         // Mirror the release commit exactly: snap both endpoints with the same
         // function, round to the frame rate, clamp to the bounds captured at drag
         // start. Only the pointer's final, reachable target produces alignment feedback.
-        private void PreviewTrimDrag(ElementView view, MediaTime pointerFrame, float scale, bool alt, Rational rate, ulong timestamp)
+        private void PreviewTrimDrag(ElementView view, MediaTime pointerFrame, float scale, bool alt, Rational rate, PointerEventArgs e)
         {
             MediaTime pressTime = view.SnapTime(
                 _trimDrag.InitialPointerX.PixelToTime(scale), scale, alt).Time;
@@ -304,7 +323,24 @@ public sealed partial class ElementView
             MediaTime requestedDelta = (snap.Time - pressTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             MediaTime previewDelta = _trimDrag.ClampDelta(requestedDelta);
             ApplyTrimDragPreview(previewDelta, scale);
-            view.UpdateSnapFeedback(snap.DidSnap && previewDelta == requestedDelta ? snap.Time : null, scale, timestamp);
+            view.UpdateSnapFeedback(snap.DidSnap && previewDelta == requestedDelta ? snap.Time : null, scale, e.Timestamp);
+
+            Element anchor = view.ViewModel.Model;
+            string details;
+            if (_trimDrag.Kind == TrimDragKind.Roll)
+            {
+                ElementTrimPair pair = _trimDrag.RollPairs.First(pair => pair.Front == anchor || pair.Back == anchor);
+                details = string.Format(Strings.TimelineDrag_RollLengths,
+                    view.FormatDragTime(pair.Front.Length.Value + previewDelta),
+                    view.FormatDragTime(pair.Back.Length.Value - previewDelta));
+            }
+            else
+            {
+                details = string.Format(Strings.TimelineDrag_StartEnd,
+                    view.FormatDragTime(anchor.Start.Value + previewDelta),
+                    view.FormatDragTime(anchor.Range.End + previewDelta));
+            }
+            view.ShowDragReadout(e, previewDelta, details);
         }
 
         private static void PreviewRightEdge(ElementResizeContext ctx, double pointerX, float scale, double minWidth, bool ripple)
@@ -491,6 +527,9 @@ public sealed partial class ElementView
                     MediaConstraints: constraints,
                     ResampleRange: elem.RequiresResampledRangePreview(startChanges: _resizeType == AlignmentX.Left));
             }).ToArray();
+            _resizeMediaConstraints = clampToOriginal
+                ? _resizeContexts.ToDictionary(ctx => ctx.ViewModel.Model, ctx => ctx.MediaConstraints!)
+                : null;
         }
 
         private void AlignSharedResizeEdges(float scale)
@@ -616,15 +655,15 @@ public sealed partial class ElementView
         // Release, capture loss, playback start and detach all keep the resize where it reached.
         private async void ConfirmResize()
         {
+            AssociatedObject?.ClearDragFeedback();
             _drag = null;
             _pressed = false;
             ElementResizeContext[] contexts = _resizeContexts;
             _resizeContexts = [];
+            _resizeMediaConstraints = null;
 
             if (AssociatedObject is { ViewModel: { } viewModel } view)
             {
-                view.ClearSnapFeedback();
-
                 if (_trimDrag.Kind is not TrimDragKind.None)
                 {
                     CommitTrimDrag(view, viewModel);
@@ -721,6 +760,24 @@ public sealed partial class ElementView
                 : TimeRange.FromRange(ctx.RecordedStartTime, edge);
         }
 
+        private static ElementResizeRequest[] GetResizeRequests(ElementResizeContext[] contexts, bool ripple, bool leftEdge,
+            float scale, Rational rate, bool addHeaders)
+        {
+            if (contexts.Length == 1)
+                return [contexts[0].ViewModel.GetResizeRequest(ripple, leftEdge, scale, rate, addHeaders)];
+
+            MediaTime? sharedEdge = GetSharedResizeEdge(contexts, leftEdge, scale, rate);
+            var requests = new ElementResizeRequest[contexts.Length];
+            for (int i = 0; i < contexts.Length; i++)
+            {
+                ElementResizeContext ctx = contexts[i];
+                TimeRange range = GetGroupResizeRange(ctx, leftEdge, scale, rate, sharedEdge);
+                int zindex = ctx.ViewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value, addHeaders);
+                requests[i] = new ElementResizeRequest(ctx.ViewModel.Model, range.Start, range.Duration, zindex);
+            }
+            return requests;
+        }
+
         private static void CommitGroupResize(ElementViewModel viewModel, ElementResizeContext[] contexts, bool ripple, bool leftEdge)
         {
             var animations = contexts
@@ -730,15 +787,7 @@ public sealed partial class ElementView
             float scale = viewModel.Timeline.Options.Value.Scale;
             Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
 
-            MediaTime? sharedEdge = GetSharedResizeEdge(contexts, leftEdge, scale, rate);
-            var requests = new ElementResizeRequest[contexts.Length];
-            for (int i = 0; i < contexts.Length; i++)
-            {
-                ElementResizeContext ctx = contexts[i];
-                TimeRange range = GetGroupResizeRange(ctx, leftEdge, scale, rate, sharedEdge);
-                int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
-                requests[i] = new ElementResizeRequest(ctx.ViewModel.Model, range.Start, range.Duration, zindex);
-            }
+            ElementResizeRequest[] requests = GetResizeRequests(contexts, ripple, leftEdge, scale, rate, addHeaders: true);
 
             viewModel.Timeline.EditorContext
                 .GetRequiredService<IElementResizeService>()

@@ -1683,6 +1683,9 @@
   <data name="Stroke" xml:space="preserve">
     <value>Stroke</value>
   </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>Outline</value>
+  </data>
   <data name="Target" xml:space="preserve">
     <value>Target</value>
   </data>
@@ -1847,9 +1850,6 @@
   </data>
   <data name="DipToColorTransition" xml:space="preserve">
     <value>Dip to Color</value>
-  </data>
-  <data name="DipToWhiteTransition" xml:space="preserve">
-    <value>Dip to White</value>
   </data>
   <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
     <value>Left to Right</value>
@@ -2389,13 +2389,13 @@
     <value>Displays another scene as a single visual layer (precomp, pre-compose, nested sequence, compound clip).</value>
   </data>
   <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
-    <value>Applies effects to several objects as one layer (adjustment layer, effect group).</value>
+    <value>Applies transforms, opacity, blending and effects separately to each child, using its own bounds and transform origin (effect group).</value>
   </data>
   <data name="DrawableGroup_LibraryDescription" xml:space="preserve">
-    <value>Moves, scales and rotates its children together (parent, null object).</value>
+    <value>Transforms children around a shared origin. Opacity and blending apply to the whole group, and effects can use its bounds (parent, null object).</value>
   </data>
   <data name="DrawableTimeController_LibraryDescription" xml:space="preserve">
-    <value>Changes when and how fast an object plays (time remap, speed ramp, freeze frame).</value>
+    <value>Changes playback position and speed. Frame rate sets the time steps for evaluating the object (time remap, speed ramp, freeze frame).</value>
   </data>
   <data name="AudioWaveformDrawable_LibraryDescription" xml:space="preserve">
     <value>Draws the amplitude of audio over time (audio waveform, waveform visualizer).</value>
@@ -2431,13 +2431,13 @@
     <value>Blurs the image as if it zoomed or spun around a point (zoom blur, spin blur).</value>
   </data>
   <data name="MotionBlur_LibraryDescription" xml:space="preserve">
-    <value>Blurs motion by blending the object's appearance over a short time (motion trails, shutter blur).</value>
+    <value>Averages the object's appearance over a shutter interval, blurring movement (shutter blur).</value>
   </data>
   <data name="Echo_LibraryDescription" xml:space="preserve">
-    <value>Draws fading copies from earlier or later moments over the current frame (afterimage, ghost trail, motion trails).</value>
+    <value>Layers copies from earlier or later times at set intervals, with adjustable fading (afterimage, ghost trail, motion trails).</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>Holds frames at a lower rate for a stop-motion look (frame hold, stop motion, low frame rate, posterize time).</value>
+    <value>Holds each sampled frame until the next sample. Later effects can keep animating (frame hold, stop motion, low frame rate, posterize time).</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>Softens the image using the shape of a lens aperture (lens blur, defocus).</value>
@@ -2503,7 +2503,7 @@
     <value>Lightens or darkens the whole image (brighten, darken).</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>Changes how much of the image is visible (alpha, transparency, fade).</value>
+    <value>Changes transparency at this point in the effect stack. Use the object's Opacity for an overall fade (alpha, transparency).</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>Lightens or darkens midtones to adjust tonal balance (gamma correction, midtones).</value>
@@ -2521,16 +2521,16 @@
     <value>Darkens the edges of the image around a chosen center, or lightens them with a negative amount (lens vignette, edge darkening).</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
-    <value>Reverses the colors of an image (negative, invert colors).</value>
+    <value>Inverts image colors and can also invert the alpha channel (invert colors).</value>
   </data>
   <data name="LutEffect_LibraryDescription" xml:space="preserve">
     <value>Remaps colors using a lookup table (color lookup, LUT, color grading).</value>
   </data>
   <data name="BlendEffect_LibraryDescription" xml:space="preserve">
-    <value>Composites a color or brush over the image using a blend mode (blend mode, color overlay, tint).</value>
+    <value>Blends a brush with the image. Use the object's Blend Mode to blend with layers below (color overlay, tint).</value>
   </data>
   <data name="Negaposi_LibraryDescription" xml:space="preserve">
-    <value>Reverses image colors with separate red, green and blue adjustments (negative, invert colors).</value>
+    <value>Subtracts image colors from a reference RGB color. With the default settings, the image appears black (color negative).</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
     <value>Removes a background by its hue and saturation and suppresses the key color spilling onto the subject (green screen, blue screen, keylight, despill, spill suppressor).</value>
@@ -2557,10 +2557,10 @@
     <value>Replaces image detail with blocks of color (pixelate, censor).</value>
   </data>
   <data name="ColorShift_LibraryDescription" xml:space="preserve">
-    <value>Offsets the image's color channels independently (RGB split, chromatic aberration).</value>
+    <value>Moves red, green, blue and alpha by separate horizontal and vertical offsets (RGB split, channel shift).</value>
   </data>
   <data name="LensChromaticAberration_LibraryDescription" xml:space="preserve">
-    <value>Creates lens-like color fringes by separating color channels around a center (RGB split, chromatic aberration).</value>
+    <value>Scales red and blue around a center, enlarging one and shrinking the other to mimic lens fringing (chromatic aberration).</value>
   </data>
   <data name="ShakeEffect_LibraryDescription" xml:space="preserve">
     <value>Shakes the image at an adjustable speed and strength (wiggle, camera shake).</value>
@@ -2609,9 +2609,6 @@
   </data>
   <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
     <value>Fades the outgoing clip to a solid color before revealing the incoming clip (fade through color, dip to black).</value>
-  </data>
-  <data name="DipToWhiteTransition_LibraryDescription" xml:space="preserve">
-    <value>Fades the outgoing clip to white before revealing the incoming clip (fade to white, white flash).</value>
   </data>
   <data name="PushTransition_LibraryDescription" xml:space="preserve">
     <value>Moves the incoming clip into the frame as it pushes the outgoing clip out (push wipe, slide push).</value>
@@ -2687,6 +2684,33 @@
   </data>
   <data name="RangeAnimatorShape_Smooth" xml:space="preserve">
     <value>Smooth</value>
+  </data>
+  <data name="FilterEffectCategory_BlurAndSharpen" xml:space="preserve">
+    <value>Blur &amp; Sharpen</value>
+  </data>
+  <data name="FilterEffectCategory_ColorCorrection" xml:space="preserve">
+    <value>Color Correction</value>
+  </data>
+  <data name="FilterEffectCategory_LightAndShadow" xml:space="preserve">
+    <value>Light &amp; Shadow</value>
+  </data>
+  <data name="FilterEffectCategory_MaskingAndKeying" xml:space="preserve">
+    <value>Masking &amp; Keying</value>
+  </data>
+  <data name="FilterEffectCategory_TransformAndDistort" xml:space="preserve">
+    <value>Transform &amp; Distort</value>
+  </data>
+  <data name="FilterEffectCategory_TimeAndAnimation" xml:space="preserve">
+    <value>Time &amp; Animation</value>
+  </data>
+  <data name="FilterEffectCategory_Stylize" xml:space="preserve">
+    <value>Stylize</value>
+  </data>
+  <data name="FilterEffectCategory_Compositing" xml:space="preserve">
+    <value>Compositing</value>
+  </data>
+  <data name="FilterEffectCategory_ScriptAndNodes" xml:space="preserve">
+    <value>Scripts &amp; Nodes</value>
   </data>
   <data name="TextOnPathEffect" xml:space="preserve">
     <value>Text on Path</value>

@@ -27,11 +27,12 @@ internal sealed class UnavailableAgentAiBackend : IAgentAiBackend
     public Task<bool> RequiresPromptAsync(string imageEditTask, CancellationToken cancellationToken)
         => Task.FromResult(AiRequestRules.RequiresPrompt(null, imageEditTask));
 
-    public Task<AgentTranscript> TranscribeAsync(
+    public Task<AgentTranscriptionResult> TranscribeAsync(
         string path,
         string? language,
         string? modelId,
         IProgress<string> progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AgentTranscriptionRetry? retry = null)
         => throw new InvalidOperationException("AI generation is not available in this host.");
 }

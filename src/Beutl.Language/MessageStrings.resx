@@ -112,6 +112,15 @@ because the new name conflicts with an existing folder.</value>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>An exception occurred while drawing the frame.</value>
   </data>
+  <data name="Scene3DBackendUnavailable" xml:space="preserve">
+    <value>3D could not be rendered because Vulkan is unavailable.</value>
+  </data>
+  <data name="Scene3DExtentLimitExceeded" xml:space="preserve">
+    <value>3D rendering requires a {0} × {1} px buffer, which exceeds the GPU limit of {2} px per side.</value>
+  </data>
+  <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
+    <value>The 3D rendering surface could not be created.</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>An exception occurred during output.</value>
   </data>

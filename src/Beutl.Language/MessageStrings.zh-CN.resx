@@ -112,6 +112,15 @@
   <data name="FrameDrawingException" xml:space="preserve">
     <value>绘制帧时发生异常。</value>
   </data>
+  <data name="Scene3DBackendUnavailable" xml:space="preserve">
+    <value>Vulkan 不可用，无法渲染 3D 内容。</value>
+  </data>
+  <data name="Scene3DExtentLimitExceeded" xml:space="preserve">
+    <value>3D 渲染需要 {0} × {1} px 的缓冲区，超出了 GPU 单边 {2} px 的限制。</value>
+  </data>
+  <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
+    <value>无法创建 3D 渲染表面。</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>输出期间发生异常。</value>
   </data>

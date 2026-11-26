@@ -210,8 +210,24 @@ public class ResourceRelocationService
 
     private static async Task<string> CopyModelAsync(ModelSource model, string resourcesDirectory, CancellationToken token)
     {
-        string mainPath = Path.GetFullPath(model.Uri.LocalPath);
-        string[] files = model.Dependencies.Append(mainPath).Distinct(StringComparer.Ordinal).ToArray();
+        (string commonDirectory, string[] files) = GetModelFileLayout(model.Uri.LocalPath, [.. model.Dependencies]);
+        string mainPath = files[0];
+        string directory = GetUniqueFilePath(resourcesDirectory, Path.GetFileNameWithoutExtension(mainPath));
+        Directory.CreateDirectory(directory);
+        foreach (string file in files)
+        {
+            token.ThrowIfCancellationRequested();
+            string destination = Path.Combine(directory, Path.GetRelativePath(commonDirectory, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            await CopyFileAsync(file, destination, token);
+        }
+        return Path.Combine(directory, Path.GetRelativePath(commonDirectory, mainPath));
+    }
+
+    internal static (string Directory, string[] Files) GetModelFileLayout(string mainPath, string[] dependencies)
+    {
+        mainPath = Path.GetFullPath(mainPath);
+        string[] files = [.. dependencies.Select(Path.GetFullPath).Prepend(mainPath).Distinct(StringComparer.Ordinal)];
         string commonDirectory = Path.GetDirectoryName(mainPath)!;
         foreach (string file in files)
         {
@@ -220,17 +236,7 @@ public class ResourceRelocationService
                     ?? throw new IOException("Model dependencies must be on the same filesystem root.");
         }
 
-        string prefix = Path.EndsInDirectorySeparator(commonDirectory) ? commonDirectory : commonDirectory + Path.DirectorySeparatorChar;
-        string directory = GetUniqueFilePath(resourcesDirectory, Path.GetFileNameWithoutExtension(mainPath));
-        Directory.CreateDirectory(directory);
-        foreach (string file in files)
-        {
-            token.ThrowIfCancellationRequested();
-            string destination = Path.Combine(directory, file[prefix.Length..]);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            await CopyFileAsync(file, destination, token);
-        }
-        return Path.Combine(directory, mainPath[prefix.Length..]);
+        return (commonDirectory, files);
     }
 
     private static void UpdateUri(Project stagingProject, Guid id, string propertyName, Uri newUri)
@@ -420,10 +426,12 @@ public class ResourceRelocationService
         return destFilePath;
     }
 
+    internal static FileStream OpenCopySource(string sourcePath) => new(sourcePath, FileMode.Open, FileAccess.Read,
+        FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+
     internal static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
     {
-        await using FileStream sourceStream = new(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using FileStream sourceStream = OpenCopySource(sourcePath);
         await using FileStream destStream = new(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
         await sourceStream.CopyToAsync(destStream, cancellationToken);

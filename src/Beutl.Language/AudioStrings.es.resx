@@ -353,4 +353,16 @@
   <data name="RingModulatorEffect_LibraryDescription" xml:space="preserve">
     <value>Multiplica el audio por un tono para darle un sonido metálico (modulación en anillo, voz metálica / ring modulation, metallic voice).</value>
   </data>
+  <data name="AudioEffectCategory_EqAndCleanup" xml:space="preserve">
+    <value>Ecualización y limpieza</value>
+  </data>
+  <data name="AudioEffectCategory_Dynamics" xml:space="preserve">
+    <value>Dinámica</value>
+  </data>
+  <data name="AudioEffectCategory_TimeAndPitch" xml:space="preserve">
+    <value>Tiempo y tono</value>
+  </data>
+  <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
+    <value>Retardo y modulación</value>
+  </data>
 </root>

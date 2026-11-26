@@ -1,7 +1,9 @@
 ﻿using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics;
+using Beutl.Graphics.Transformation;
 
-namespace Beutl.Graphics.Transformation;
+namespace Beutl.Editor.Services;
 
 /// <summary>
 /// Helper for completing the canonical [T, R, S] layout.

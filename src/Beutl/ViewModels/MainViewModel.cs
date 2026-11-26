@@ -85,6 +85,8 @@ public sealed partial class MainViewModel : BasePageViewModel
         _projectService = new ProjectService(Configuration.ViewConfig, appServices.GetRequiredService<Beutl.Media.FontManager>(),
             appServices.GetRequiredService<INotificationService>(), _editorService);
         _editorService.ProjectFonts = _projectService.GetFonts;
+        _editorService.ProjectAssets = new ProjectAssetCoordinator(_projectService, _editorService,
+            appServices.GetRequiredService<DecoderRegistry>());
         _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         // After version control, whose preparation can refuse the close.
         _ = new ProjectThumbnailService(_projectService, _editorService, _versionControlCoordinator);
@@ -119,7 +121,8 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.GetResource<IAiTranscriptionService>(),
             CreateGenerativeModelCatalog,
             CreateGenerativeNodeExecutor,
-            _beutlClients.GetResource<IAiModelCatalogService>(), appServices.GetRequiredService<DecoderRegistry>()));
+            _beutlClients.GetResource<IAiModelCatalogService>(), appServices.GetRequiredService<DecoderRegistry>(),
+            _beutlClients.GetResource<IAiJobClient>()));
         _aiPlanCoordinator = new AiPlanCoordinator(
             _beutlClients.GetResource<IAiEntitlementService>(), Configuration.ViewConfig);
         _editorService.BrowserSettingsHost = new BrowserSettingsHost(CreateSettingsDialog);

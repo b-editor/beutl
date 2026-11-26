@@ -19,10 +19,10 @@ public partial class FrameCacheManager
         private int _height;
         private bool _isYuv;
 
-        public CacheEntry(Ref<Bitmap> bitmap, FrameCacheOptions options)
+        public CacheEntry(Ref<Bitmap> bitmap, FrameCacheOptions options, string? previewWarning)
         {
             _data = [];
-            SetBitmap(bitmap, options);
+            SetBitmap(bitmap, options, previewWarning);
         }
 
         public DateTime LastAccessTime { get; private set; }
@@ -31,13 +31,16 @@ public partial class FrameCacheManager
 
         public bool IsLocked { get; set; }
 
+        public string? PreviewWarning { get; private set; }
+
         [MemberNotNull(nameof(_data))]
-        public void SetBitmap(Ref<Bitmap> bitmap, FrameCacheOptions options)
+        public void SetBitmap(Ref<Bitmap> bitmap, FrameCacheOptions options, string? previewWarning)
         {
             ReturnBuffer();
             using Ref<Bitmap> t = bitmap.Clone();
             (_data, _dataLength, _width, _height, _isYuv) = ToCacheData(t, options);
 
+            PreviewWarning = previewWarning;
             LastAccessTime = DateTime.UtcNow;
         }
 

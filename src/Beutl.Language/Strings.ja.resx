@@ -4094,4 +4094,28 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="HostedGit_RevisionFormat" xml:space="preserve">
     <value>リビジョン {0}</value>
   </data>
+  <data name="EffectCategory" xml:space="preserve">
+    <value>エフェクトの種類</value>
+  </data>
+  <data name="AllEffectCategories" xml:space="preserve">
+    <value>すべての種類</value>
+  </data>
+  <data name="TimelineDrag_StartLength" xml:space="preserve">
+    <value>開始 {0}　長さ {1}</value>
+  </data>
+  <data name="TimelineDrag_EndLength" xml:space="preserve">
+    <value>終了 {0}　長さ {1}</value>
+  </data>
+  <data name="TimelineDrag_StartLayer" xml:space="preserve">
+    <value>開始 {0}　レイヤー {1}</value>
+  </data>
+  <data name="TimelineDrag_RollLengths" xml:space="preserve">
+    <value>左の長さ {0}　右の長さ {1}</value>
+  </data>
+  <data name="TimelineDrag_StartEnd" xml:space="preserve">
+    <value>開始 {0}　終了 {1}</value>
+  </data>
+  <data name="TimelineDrag_MediaOffset" xml:space="preserve">
+    <value>素材オフセット {0}</value>
+  </data>
 </root>

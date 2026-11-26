@@ -112,6 +112,15 @@
   <data name="FrameDrawingException" xml:space="preserve">
     <value>프레임을 그리는 동안 예외가 발생했습니다.</value>
   </data>
+  <data name="Scene3DBackendUnavailable" xml:space="preserve">
+    <value>Vulkan을 사용할 수 없어 3D를 렌더링할 수 없습니다.</value>
+  </data>
+  <data name="Scene3DExtentLimitExceeded" xml:space="preserve">
+    <value>3D 렌더링에 필요한 {0} × {1}px 버퍼가 GPU의 한 변당 {2}px 제한을 초과합니다.</value>
+  </data>
+  <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
+    <value>3D 렌더링 표면을 만들 수 없습니다.</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>출력 중 예외가 발생했습니다.</value>
   </data>

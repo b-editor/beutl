@@ -57,6 +57,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         _mediaSearcher = new MediaFileSearcher(_thumbnails);
         _directoryWatcher = directoryWatcher ?? new();
         InitializeStorage(storageProviders);
+        InitializeProjectAssets();
 
         _favoritesManager.Changed += OnFavoritesChanged;
 
@@ -527,6 +528,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         if (_disposed) return;
         _disposed = true;
         _transferCancellation.Cancel();
+        CloseProjectAssets();
         CloseStorageBrowser();
         _thumbnails.Decoders.DecodersChanged -= OnDecodersChanged;
         _mediaSearcher.Dispose();

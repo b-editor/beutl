@@ -4099,4 +4099,28 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="HostedGit_RevisionFormat" xml:space="preserve">
     <value>修订版本 {0}</value>
   </data>
+  <data name="EffectCategory" xml:space="preserve">
+    <value>效果类别</value>
+  </data>
+  <data name="AllEffectCategories" xml:space="preserve">
+    <value>所有类别</value>
+  </data>
+  <data name="TimelineDrag_StartLength" xml:space="preserve">
+    <value>开始 {0}   长度 {1}</value>
+  </data>
+  <data name="TimelineDrag_EndLength" xml:space="preserve">
+    <value>结束 {0}   长度 {1}</value>
+  </data>
+  <data name="TimelineDrag_StartLayer" xml:space="preserve">
+    <value>开始 {0}   图层 {1}</value>
+  </data>
+  <data name="TimelineDrag_RollLengths" xml:space="preserve">
+    <value>左侧 {0}   右侧 {1}</value>
+  </data>
+  <data name="TimelineDrag_StartEnd" xml:space="preserve">
+    <value>开始 {0}   结束 {1}</value>
+  </data>
+  <data name="TimelineDrag_MediaOffset" xml:space="preserve">
+    <value>素材偏移 {0}</value>
+  </data>
 </root>

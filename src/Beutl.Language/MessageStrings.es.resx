@@ -112,6 +112,15 @@ porque el nuevo nombre entra en conflicto con una carpeta existente.</value>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>Se produjo una excepción al dibujar el fotograma.</value>
   </data>
+  <data name="Scene3DBackendUnavailable" xml:space="preserve">
+    <value>No se puede renderizar en 3D porque Vulkan no está disponible.</value>
+  </data>
+  <data name="Scene3DExtentLimitExceeded" xml:space="preserve">
+    <value>El renderizado 3D requiere un búfer de {0} × {1} px que supera el límite de {2} px por lado de la GPU.</value>
+  </data>
+  <data name="Scene3DSurfaceUnavailable" xml:space="preserve">
+    <value>No se pudo crear la superficie de renderizado 3D.</value>
+  </data>
   <data name="OutputException" xml:space="preserve">
     <value>Se produjo una excepción durante la salida.</value>
   </data>

@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
+using Beutl.Serialization;
 using NUnit.Framework;
 
 namespace Beutl.UnitTests.Configuration;
@@ -66,6 +67,28 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
     }
 
     [Test]
+    public void A_removed_setting_in_an_older_file_is_ignored_and_not_saved_again()
+    {
+        // ShowExactBoundaries was removed with the preview's selection outline (#4608).
+        GlobalConfiguration config = Restore(new JsonObject
+        {
+            ["View"] = new JsonObject
+            {
+                ["ShowExactBoundaries"] = true,
+                ["UseCustomAccentColor"] = true,
+            },
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(config.ViewConfig.UseCustomAccentColor.Value, Is.True);
+            Assert.That(config.RestoreFailures, Is.Empty);
+            Assert.That(CoreSerializer.SerializeToJsonObject(config.ViewConfig).ContainsKey("ShowExactBoundaries"), Is.False,
+                "the retired key is not written back");
+        });
+    }
+
+    [Test]
     public void A_string_where_a_number_belongs_keeps_the_default_and_the_rest_of_the_file()
     {
         var defaults = new EditorConfig();
@@ -97,7 +120,7 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
             ["View"] = new JsonObject
             {
                 ["UICulture"] = 1,
-                ["ShowExactBoundaries"] = !defaults.ShowExactBoundaries.Value,
+                ["UseNativeContextMenus"] = !defaults.UseNativeContextMenus.Value,
             },
             ["Editor"] = new JsonObject { ["LastMediaDirectory"] = 2 },
             ["ProxyStore"] = new JsonObject { ["DefaultPreset"] = 3 },
@@ -106,7 +129,7 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
         Assert.Multiple(() =>
         {
             Assert.That(config.ViewConfig.UICulture.Value, Is.EqualTo(defaults.UICulture.Value));
-            Assert.That(config.ViewConfig.ShowExactBoundaries.Value, Is.EqualTo(!defaults.ShowExactBoundaries.Value));
+            Assert.That(config.ViewConfig.UseNativeContextMenus.Value, Is.EqualTo(!defaults.UseNativeContextMenus.Value));
             Assert.That(config.EditorConfig.LastMediaDirectory.Value, Is.Null);
             Assert.That(config.ProxyStoreConfig.DefaultPreset.Value, Is.EqualTo(3));
             Assert.That(config.RestoreFailures.Select(f => f.Setting),

@@ -297,6 +297,27 @@
                                TextWrapping="Wrap" />
                 </Border>
 
+                <Border Name="previewRenderWarning"
+                        Margin="12"
+                        Padding="10,7"
+                        MaxWidth="420"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                        BorderBrush="{DynamicResource SystemFillColorCautionBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        IsHitTestVisible="False"
+                        IsVisible="{Binding PreviewRenderWarning.Value,
+                                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <live:SafeLiveRegionTextBlock Name="previewRenderWarningMessage"
+                               AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.Name="{Binding PreviewRenderWarning.Value}"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               Text="{Binding PreviewRenderWarning.Value}"
+                               TextWrapping="Wrap" />
+                </Border>
+
                 <!-- Keep the error outside framePanel so preview pan/zoom does not transform it. -->
                 <Border Name="previewRenderErrorOverlay"
                         Padding="24"

@@ -27,6 +27,8 @@ internal sealed class AiAccountJobScope : IDisposable
         }
     }
 
+    public string? AccountId => _identity?.AccountId;
+
     public bool AccountChanged => _context is not null
         && (_identityCancellation.IsCancellationRequested || _context.GetCurrentIdentity() != _identity);
 

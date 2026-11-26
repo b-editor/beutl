@@ -52,10 +52,10 @@ public partial class ProjectService
     // one already running finishes first and the next waits for the change. Unlike a transition it
     // leaves a pending open alone, because deleting one project must not cancel opening another; an
     // open of the changed project itself goes on to find the files as the change left them.
-    internal async Task RunExclusiveOfTransitionsAsync(Func<Task> action)
+    internal async Task RunExclusiveOfTransitionsAsync(Func<Task> action, CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(action);
-        await _transitionGate.WaitAsync();
+        await _transitionGate.WaitAsync(token);
         await using ProjectTransitionScope transition = EnterTransition(
             ProjectTransitionPurpose.Normal,
             new ProjectFileChange());
