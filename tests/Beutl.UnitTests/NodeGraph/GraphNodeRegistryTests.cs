@@ -102,12 +102,12 @@ public class GraphNodeRegistryTests
             .AddGroup("Same name", null, KnownLibraryGroupIds.FilterEffectColorCorrection, group => group
                 .Add<Brightness>(KnownLibraryItemFormats.FilterEffect, "Brightness in library"))
             .Add<Sharpen>(KnownLibraryItemFormats.FilterEffect, "Uncategorized in library"));
-        GraphNodeRegistry.GroupableRegistryItem[] before = Sections();
+        GraphNodeRegistry.GroupableRegistryItem[] before = GetFilterEffectSections(library);
 
         library.RegisterGroup("Translated effects", null, KnownLibraryGroupIds.FilterEffect, root => root
             .AddGroup("Lighting", null, KnownLibraryGroupIds.FilterEffectLightAndShadow, group => group
                 .Add<Bloom>(KnownLibraryItemFormats.FilterEffect, "Late library entry")));
-        GraphNodeRegistry.GroupableRegistryItem[] after = Sections();
+        GraphNodeRegistry.GroupableRegistryItem[] after = GetFilterEffectSections(library);
 
         using (Assert.EnterMultipleScope())
         {
@@ -125,11 +125,45 @@ public class GraphNodeRegistryTests
             Assert.That(after[^1].DisplayName, Is.EqualTo(NodeGraphStrings.OtherEffects));
             Assert.That(NodeTypes(after[^1]), Does.Not.Contain(typeof(FilterEffectNode<Bloom>)));
         }
-
-        GraphNodeRegistry.GroupableRegistryItem[] Sections() => NodeMenuCatalog.GetItems(library)
-            .OfType<GraphNodeRegistry.GroupableRegistryItem>().Single(group => group.Id == NodesRegistrar.FilterEffectGroupId)
-            .Items.OfType<GraphNodeRegistry.GroupableRegistryItem>().ToArray();
     }
+
+    [Test]
+    public void NodeMenu_UsesTheTitleOfAnExtensionCategoryWithoutAnId()
+    {
+        const string categoryTitle = "Extension effects";
+        const string effectTitle = "Extension effect";
+        var nodeType = typeof(FilterEffectNode<ExtensionRegistryEffect>);
+        using var library = new LibraryService();
+        library.RegisterGroup(GraphicsStrings.FilterEffect, root => root
+            .AddGroup(categoryTitle, category => category
+                .Add<ExtensionRegistryEffect>(KnownLibraryItemFormats.FilterEffect, effectTitle)));
+
+        try
+        {
+            GraphNodeRegistry.RegisterNodes(GraphicsStrings.FilterEffect)
+                .Add<FilterEffectNode<ExtensionRegistryEffect>>(effectTitle)
+                .Register();
+
+            GraphNodeRegistry.GroupableRegistryItem[] sections = GetFilterEffectSections(library);
+            Assert.That(sections.Select(section => section.DisplayName),
+                Is.EqualTo(new[] { categoryTitle, NodeGraphStrings.OtherEffects }));
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(sections[0].Id, Is.Null);
+                Assert.That(NodeTypes(sections[0]), Is.EqualTo(new[] { nodeType }));
+                Assert.That(NodeTypes(sections[1]), Does.Contain(typeof(FilterEffectNode<Blur>)).And.Not.Contain(nodeType));
+            }
+        }
+        finally
+        {
+            TypeUnloadNotifier.NotifyUnloading([typeof(ExtensionRegistryEffect)]);
+        }
+    }
+
+    private static GraphNodeRegistry.GroupableRegistryItem[] GetFilterEffectSections(LibraryService library)
+        => NodeMenuCatalog.GetItems(library).OfType<GraphNodeRegistry.GroupableRegistryItem>()
+            .Single(group => group.Id == NodesRegistrar.FilterEffectGroupId)
+            .Items.OfType<GraphNodeRegistry.GroupableRegistryItem>().ToArray();
 
     private static IEnumerable<Type> NodeTypes(GraphNodeRegistry.GroupableRegistryItem group)
         => group.Items.OfType<GraphNodeRegistry.RegistryItem>().Select(item => item.Type);
@@ -226,3 +260,11 @@ public class GraphNodeRegistryTests
 internal sealed partial class RegistrySnapshotNode : GraphNode;
 
 internal sealed partial class RegistrySecondSnapshotNode : GraphNode;
+
+internal sealed partial class ExtensionRegistryEffect : FilterEffect
+{
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context) { }
+    }
+}

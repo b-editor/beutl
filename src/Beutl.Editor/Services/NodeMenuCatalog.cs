@@ -25,11 +25,10 @@ internal static class NodeMenuCatalog
             ? []
             : LibraryEffectCategories.Collect(library.Items, KnownLibraryItemFormats.FilterEffect);
         GroupableRegistryItem[] sections = categories.Values.OfType<LibraryEffectCategory>()
-            .Where(category => category.Id != null)
-            .DistinctBy(category => category.Id)
+            .DistinctBy(category => category.Key)
             .Select(category => new GroupableRegistryItem(category.Title, effects.AccentColor) { Id = category.Id })
             .ToArray();
-        var sectionsById = sections.ToDictionary(section => section.Id!);
+        var sectionsByKey = sections.ToDictionary(section => LibraryCategoryKey.Create(section.Id, section.DisplayName));
         var other = new GroupableRegistryItem(NodeGraphStrings.OtherEffects, effects.AccentColor)
         {
             Id = NodesRegistrar.FilterEffectGroupId + ".Other"
@@ -53,8 +52,8 @@ internal static class NodeMenuCatalog
                 return false;
 
             LibraryItem? effect = library?.FindItem(effectType);
-            string? categoryId = effect == null ? null : categories.GetValueOrDefault(effect)?.Id;
-            GroupableRegistryItem section = categoryId != null ? sectionsById[categoryId] : other;
+            LibraryEffectCategory? category = effect == null ? null : categories.GetValueOrDefault(effect);
+            GroupableRegistryItem section = category != null ? sectionsByKey[category.Key] : other;
             section.Items.Add(node);
             return true;
         }
