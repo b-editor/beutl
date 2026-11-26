@@ -28,7 +28,7 @@ public partial class PlayerView
     private static KeyFrameState<T>? FindKeyFramePair<T>(
         IProperty<T> property, IEditorClock clock, Scene scene)
     {
-        Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
+        Rational rate = scene.GetFrameRate();
         MediaTime globalKeyTime = clock.CurrentTime.Value;
 
         if (property.GetPropertyAnimation() is IComponentAnimation<T> components)

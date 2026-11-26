@@ -28,10 +28,8 @@ public sealed class ExportVideoRateTests
         };
         if (frameRate.HasValue && sampleRate.HasValue)
         {
-            var project = new Project();
-            project.FrameRate.Value = new Rational(frameRate.Value);
-            project.SampleRate.Value = sampleRate.Value;
-            project.Items.Add(scene);
+            scene.FrameRate.Value = new Rational(frameRate.Value);
+            scene.SampleRate.Value = sampleRate.Value;
         }
 
         using var session = new AgentToolkitTestSession(scene);

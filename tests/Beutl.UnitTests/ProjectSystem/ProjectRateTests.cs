@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.Audio;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -14,10 +15,10 @@ public sealed class ProjectRateTests
     [TestCase("-24", 0, "30", 44100)]
     [TestCase("30000/0", 48000, "30", 48000)]
     [TestCase("-30000/1001", 48000, "30", 48000)]
-    public void Reads_positive_project_rates_or_uses_defaults(
+    public void Reads_positive_scene_rates_or_uses_defaults(
         string frameRate, int sampleRate, string expectedFrameRate, int expectedSampleRate)
     {
-        var project = new Project
+        var scene = new Scene
         {
             FrameRate = { Value = Rational.Parse(frameRate, CultureInfo.InvariantCulture) },
             SampleRate = { Value = sampleRate },
@@ -25,83 +26,189 @@ public sealed class ProjectRateTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(project.GetFrameRate(), Is.EqualTo(Rational.Parse(expectedFrameRate, CultureInfo.InvariantCulture)));
-            Assert.That(project.GetSampleRate(), Is.EqualTo(expectedSampleRate));
+            Assert.That(scene.GetFrameRate(), Is.EqualTo(Rational.Parse(expectedFrameRate, CultureInfo.InvariantCulture)));
+            Assert.That(scene.GetSampleRate(), Is.EqualTo(expectedSampleRate));
         });
     }
 
     [Test]
     public void Detached_scene_uses_defaults()
     {
-        Project? project = null;
+        Scene? scene = null;
         Assert.Multiple(() =>
         {
-            Assert.That(project.GetFrameRate(), Is.EqualTo(new Rational(30)));
-            Assert.That(project.GetSampleRate(), Is.EqualTo(44100));
+            Assert.That(scene.GetFrameRate(), Is.EqualTo(new Rational(30)));
+            Assert.That(scene.GetSampleRate(), Is.EqualTo(44100));
         });
     }
 
     [Test]
-    public void ProjectLayout_DefaultsToStereoAndSurvivesSerialization()
+    public void SceneLayout_DefaultsToStereoAndSurvivesSerialization()
     {
-        Project? detached = null;
+        Scene? detached = null;
         Assert.That(detached.GetChannelLayout(), Is.EqualTo(AudioChannelLayout.Stereo));
-        Assert.That(Read(new JsonObject()).ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+        Assert.That(ReadScene(new JsonObject()).ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
         foreach (SpeakerLayout layout in Enum.GetValues<SpeakerLayout>())
         {
-            var project = new Project { ChannelLayout = { Value = layout } };
-            var restored = Read(CoreSerializer.SerializeToJsonObject(project));
+            var scene = new Scene { ChannelLayout = { Value = layout } };
+            Scene restored = ReadScene(SerializeEmbedded(scene));
             Assert.That(restored.ChannelLayout.Value, Is.EqualTo(layout));
             Assert.That(restored.GetChannelLayout(), Is.EqualTo(layout.ToAudioChannelLayout()));
         }
     }
 
-    // Earlier versions kept the rates as variables, which a read moves to the rate members once.
+    // Earlier versions (before 2.0.0-preview.9) kept rates as project variables, which opening migrates to scenes.
     [TestCase("24", "48000", "24", 48000)]
     [TestCase("30000/1001", "96000", "30000/1001", 96000)]
     [TestCase("invalid", "invalid", "30", 44100)]
     [TestCase("2147483648", "2147483648", "2147483648", 44100)]
-    public void A_project_of_an_earlier_version_moves_its_rate_variables_to_the_rates(
+    public void A_project_of_an_earlier_version_moves_its_rate_variables_to_its_scenes(
         string frameRate, string sampleRate, string expectedFrameRate, int expectedSampleRate)
     {
-        Project project = Read(new JsonObject
+        Project project = ReadProjectWithScene(new JsonObject
         {
             ["variables"] = new JsonObject { ["framerate"] = frameRate, ["samplerate"] = sampleRate, ["author"] = "beutl" },
         });
-        JsonObject saved = CoreSerializer.SerializeToJsonObject(project);
+        Scene scene = (Scene)project.Items.Single();
+        JsonObject savedProject = SerializeEmbedded(project);
+        JsonObject savedScene = SerializeEmbedded(scene);
 
         Assert.Multiple(() =>
         {
-            Assert.That(project.FrameRate.Value, Is.EqualTo(Rational.Parse(expectedFrameRate, CultureInfo.InvariantCulture)));
-            Assert.That(project.SampleRate.Value, Is.EqualTo(expectedSampleRate));
+            Assert.That(scene.FrameRate.Value, Is.EqualTo(Rational.Parse(expectedFrameRate, CultureInfo.InvariantCulture)));
+            Assert.That(scene.SampleRate.Value, Is.EqualTo(expectedSampleRate));
             Assert.That(project.Variables.Value, Is.EquivalentTo(new Dictionary<string, string> { ["author"] = "beutl" }));
-            Assert.That((string?)saved["FrameRate"], Is.EqualTo(expectedFrameRate));
-            Assert.That((int?)saved["SampleRate"], Is.EqualTo(expectedSampleRate));
-            Assert.That(saved["variables"]!.AsObject().Select(pair => pair.Key), Is.EqualTo(new[] { "author" }));
+            Assert.That(savedProject.ContainsKey("FrameRate"), Is.False);
+            Assert.That(savedProject.ContainsKey("SampleRate"), Is.False);
+            Assert.That(savedProject.ContainsKey("ChannelLayout"), Is.False);
+            Assert.That((string?)savedScene["FrameRate"], Is.EqualTo(expectedFrameRate));
+            Assert.That((int?)savedScene["SampleRate"], Is.EqualTo(expectedSampleRate));
+            Assert.That(savedProject["variables"]!.AsObject().Select(pair => pair.Key), Is.EqualTo(new[] { "author" }));
+        });
+    }
+
+    // Earlier versions (2.0.0-preview.9..15) kept rates as members on Project; opening migrates them to scenes.
+    [Test]
+    public void A_project_of_preview_15_moves_its_rates_and_layout_to_its_scenes()
+    {
+        Project project = ReadProjectWithScene(new JsonObject
+        {
+            ["FrameRate"] = "30000/1001",
+            ["SampleRate"] = 48000,
+            ["ChannelLayout"] = (int)SpeakerLayout.Surround51,
+            ["variables"] = new JsonObject { ["framerate"] = "60", ["samplerate"] = "22050" },
+        });
+        Scene scene = (Scene)project.Items.Single();
+        JsonObject savedProject = SerializeEmbedded(project);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
+            Assert.That(scene.SampleRate.Value, Is.EqualTo(48000));
+            Assert.That(scene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+            Assert.That(project.Variables.Value, Is.Empty);
+            Assert.That(savedProject.ContainsKey("FrameRate"), Is.False);
+            Assert.That(savedProject.ContainsKey("SampleRate"), Is.False);
+            Assert.That(savedProject.ContainsKey("ChannelLayout"), Is.False);
         });
     }
 
     [Test]
-    public void The_rates_win_over_rate_variables_left_in_a_file()
+    public void Scene_rates_win_over_legacy_project_rates()
     {
-        Project project = Read(new JsonObject
+        var sceneJson = new JsonObject
         {
-            ["FrameRate"] = "30000/1001",
+            ["$type"] = "[Beutl.ProjectSystem]:Scene",
+            ["FrameRate"] = "60",
+            ["SampleRate"] = 96000,
+            ["ChannelLayout"] = (int)SpeakerLayout.Surround71,
+            ["Width"] = 1920,
+            ["Height"] = 1080,
+        };
+        Project project = ReadProjectWithScene(new JsonObject
+        {
+            ["FrameRate"] = "24",
             ["SampleRate"] = 48000,
-            ["variables"] = new JsonObject { ["framerate"] = "60", ["samplerate"] = "22050" },
-        });
+            ["ChannelLayout"] = (int)SpeakerLayout.Mono,
+        }, sceneJson);
+        Scene scene = (Scene)project.Items.Single();
 
         Assert.Multiple(() =>
         {
-            Assert.That(project.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
-            Assert.That(project.SampleRate.Value, Is.EqualTo(48000));
-            Assert.That(project.Variables.Value, Is.Empty);
+            Assert.That(scene.FrameRate.Value, Is.EqualTo(new Rational(60)));
+            Assert.That(scene.SampleRate.Value, Is.EqualTo(96000));
+            Assert.That(scene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround71));
         });
     }
 
-    private static Project Read(JsonObject json)
+    [Test]
+    public void Multiple_scenes_in_one_project_keep_independent_rates_and_layouts()
     {
-        json["items"] = new JsonArray();
+        string dir = Path.Combine(Path.GetTempPath(), $"beutl-multi-scene-rates-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var projectUri = new Uri(Path.Combine(dir, "project.bep"));
+            var first = new Scene(1920, 1080, "first")
+            {
+                Uri = new Uri(Path.Combine(dir, "first", "first.scene")),
+                FrameRate = { Value = new Rational(24) },
+                SampleRate = { Value = 48000 },
+                ChannelLayout = { Value = SpeakerLayout.Surround51 },
+            };
+            var second = new Scene(1080, 1920, "second")
+            {
+                Uri = new Uri(Path.Combine(dir, "second", "second.scene")),
+                FrameRate = { Value = new Rational(60) },
+                SampleRate = { Value = 44100 },
+                ChannelLayout = { Value = SpeakerLayout.Stereo },
+            };
+            var project = new Project { Uri = projectUri, Items = { first, second } };
+
+            CoreSerializer.StoreToUri(project, projectUri);
+            Project reopened = CoreSerializer.RestoreFromUri<Project>(projectUri);
+            Scene reopenedFirst = (Scene)reopened.Items[0];
+            Scene reopenedSecond = (Scene)reopened.Items[1];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(reopenedFirst.FrameRate.Value, Is.EqualTo(new Rational(24)));
+                Assert.That(reopenedFirst.SampleRate.Value, Is.EqualTo(48000));
+                Assert.That(reopenedFirst.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+                Assert.That(reopenedSecond.FrameRate.Value, Is.EqualTo(new Rational(60)));
+                Assert.That(reopenedSecond.SampleRate.Value, Is.EqualTo(44100));
+                Assert.That(reopenedSecond.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+            });
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    private static JsonObject SerializeEmbedded(ICoreSerializable obj)
+    {
+        return CoreSerializer.SerializeToJsonObject(
+            obj,
+            new CoreSerializerOptions { Mode = CoreSerializationMode.EmbedReferencedObjects });
+    }
+
+    private static Scene ReadScene(JsonObject json)
+    {
+        return (Scene)CoreSerializer.DeserializeFromJsonObject(json, typeof(Scene));
+    }
+
+    private static Project ReadProjectWithScene(JsonObject json, JsonObject? sceneJson = null)
+    {
+        json["items"] = new JsonArray
+        {
+            sceneJson ?? new JsonObject
+            {
+                ["$type"] = "[Beutl.ProjectSystem]:Scene",
+                ["Width"] = 1920,
+                ["Height"] = 1080,
+            }
+        };
         return (Project)CoreSerializer.DeserializeFromJsonObject(json, typeof(Project));
     }
 }

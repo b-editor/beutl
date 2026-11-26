@@ -104,7 +104,7 @@ public sealed class CreateNewProjectViewModel
     // A rate from FrameRates or another, such as 12 or 30000/1001.
     public ReactiveProperty<string> FrameRate { get; } = new("30");
 
-    public IReadOnlyList<string> FrameRates { get; } = ["23.976", "24", "25", "29.97", "30", "50", "59.94", "60"];
+    public IReadOnlyList<string> FrameRates => FrameRateText.Presets;
 
     public ReactiveProperty<int> SampleRate { get; } = new(44100);
 

@@ -310,7 +310,7 @@ public sealed partial class GraphEditorTabViewModel
     {
         if (_disposed) return;
         var element = Element.Value;
-        Rational rate = (element?.FindHierarchicalParent<Project>()).GetFrameRate();
+        Rational rate = (element?.FindHierarchicalParent<Scene>()).GetFrameRate();
         MediaTime globalTime = _clock.CurrentTime.Value;
         foreach (var item in _treeCache.Values)
         {

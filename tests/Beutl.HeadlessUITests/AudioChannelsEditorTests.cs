@@ -122,8 +122,8 @@ public sealed class AudioChannelsEditorTests
         CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
         try
         {
-            var (project, _, edit) = await TestShell.OpenNewSceneAsync("audio-settings", 320, 180);
-            project.ChannelLayout.Value = SpeakerLayout.Surround51;
+            var (_, scene, edit) = await TestShell.OpenNewSceneAsync("audio-settings", 320, 180);
+            scene.ChannelLayout.Value = SpeakerLayout.Surround51;
             var encoder = new FFmpegControlledEncodingExtension();
             const int packageId = 3783;
             edit.ExtensionProvider.AddExtensions(packageId, [encoder, new FFmpegEncoderSpecializedPropertyExtension()]);

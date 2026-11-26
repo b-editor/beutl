@@ -24,4 +24,13 @@ public interface ISceneSettingsService
         scene.MasterVolume.Value = masterVolume;
         return Apply(scene, frameSize, start, duration, channelLayout);
     }
+
+    bool Apply(
+        Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration,
+        Rational frameRate, int sampleRate, SpeakerLayout channelLayout, float masterVolume)
+    {
+        scene.FrameRate.Value = frameRate;
+        scene.SampleRate.Value = sampleRate;
+        return Apply(scene, frameSize, start, duration, channelLayout, masterVolume);
+    }
 }

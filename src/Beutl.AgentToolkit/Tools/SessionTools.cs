@@ -241,12 +241,26 @@ public sealed class SessionTools(
         string start,
         string duration,
         string? name = null,
+        [Description("Optional frame-rate numerator for the new scene (defaults to 30).")]
+        int? frameRate = null,
+        [Description("Frame-rate denominator: frameRate 30000 with 1001 makes 29.97 fps.")]
+        int frameRateDenominator = 1,
+        [Description("Optional audio sample rate in Hz for the new scene (defaults to 44100).")]
+        int? sampleRate = null,
         CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
         {
             IEditingSession activeSession = RequireActiveSession(session);
-            ValidateProjectSettings(width, height, frameRate: 1);
+            ValidateProjectSettings(width, height, frameRate ?? 1, frameRate.HasValue ? frameRateDenominator : 1);
+            if (sampleRate is <= 0)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    "Sample rate must be positive.",
+                    nameof(sampleRate)));
+            }
+
             ProjectSceneResult result = await projects.AddSceneAsync(
                 activeSession,
                 new SceneCreateOptions(
@@ -254,7 +268,9 @@ public sealed class SessionTools(
                     height,
                     ParseNonNegativeTimeSpan(start, nameof(start)),
                     ParsePositiveTimeSpan(duration, nameof(duration)),
-                    name),
+                    name,
+                    frameRate is { } num ? ReduceFrameRate(num, frameRateDenominator) : null,
+                    sampleRate),
                 cancellationToken).ConfigureAwait(false);
             return new AddSceneResponse(
                 result.Scene.Id.Value.ToString(),

@@ -293,11 +293,7 @@ public partial class MenuBarViewModel
                 projItem = project.Items.FirstOrDefault(i => i.Uri is { IsFile: true } current
                     && FilePathComparison.AreSameCanonicalPath(current.LocalPath, uri.LocalPath));
 
-            // An item added to the open project is read on its frame grid.
-            using (project is null ? null : MediaTimeJsonConverter.ReadOnFrameGrid(project.GetFrameRate()))
-            {
-                projItem ??= CoreSerializer.RestoreFromUri<ProjectItem>(uri);
-            }
+            projItem ??= CoreSerializer.RestoreFromUri<ProjectItem>(uri);
 
             if (project != null)
             {

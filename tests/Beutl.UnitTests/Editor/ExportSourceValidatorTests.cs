@@ -371,7 +371,7 @@ public sealed class ExportSourceValidatorTests
         var (scene, portal, path) = CreateMattePortalScene();
         portal.Count.Expression = new StringExpression<int>("Time >= 0.125 && Time < 0.2 ? 1 : 0");
         Scene root = EmbedScene(scene);
-        root.FindHierarchicalParent<Project>()!.FrameRate.Value = new Rational(4);
+        root.FrameRate.Value = new Rational(4);
         var embedded = (SceneDrawable)root.Children[0].Objects[0];
         if (nested)
         {

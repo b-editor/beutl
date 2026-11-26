@@ -34,7 +34,7 @@ internal static class FlowInputDiagnostics
         if (!missing.Exists(obj => obj.GetCompositionTarget() == target)) return;
 
         TimeRange range = element.Range;
-        Rational frameRate = scene.FindHierarchicalParent<Project>().GetFrameRate();
+        Rational frameRate = scene.GetFrameRate();
         bool graphics = target == CompositionTarget.Graphics;
         if (graphics && range.Start.RoundToFrame(frameRate, MidpointRounding.ToPositiveInfinity) >= range.End)
         {

@@ -161,8 +161,8 @@ public class OpenProjectTests
             Assert.That(reopenedScene.FrameSize.Value.Width, Is.EqualTo(800));
             Assert.That(reopenedScene.FrameSize.Value.Height, Is.EqualTo(600));
             Assert.That(File.Exists(reopenedScene.Uri!.LocalPath), Is.True);
-            Assert.That(reopened.FrameRate.Value, Is.EqualTo(new Rational(60)));
-            Assert.That(reopened.SampleRate.Value, Is.EqualTo(22050));
+            Assert.That(reopenedScene.FrameRate.Value, Is.EqualTo(new Rational(60)));
+            Assert.That(reopenedScene.SampleRate.Value, Is.EqualTo(22050));
         });
     }
 

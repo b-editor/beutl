@@ -132,12 +132,10 @@ public class SceneSettingsTabViewModelTests
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         var scene = new Scene(640, 480, string.Empty)
         {
+            FrameRate = { Value = rate },
             Start = { Value = MediaTime.FromFrames(1, rate) },
             Duration = { Value = MediaTime.FromFrames(301, rate) },
         };
-        var project = new Project();
-        project.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
-        project.Items.Add(scene);
         using SceneSettingsTabViewModel viewModel = CreateViewModel(
             scene, out CaptureSceneSettingsService sceneSettingsService, out BlockingPreviewPlayer previewPlayer);
         previewPlayer.CompletePause();
@@ -197,6 +195,54 @@ public class SceneSettingsTabViewModelTests
         {
             Assert.That(viewModel.MasterVolume.Value, Is.EqualTo(60f));
             Assert.That(viewModel.CanApply.Value, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task FrameRate_and_SampleRate_validate_revert_and_apply()
+    {
+        var scene = new Scene(640, 480, string.Empty)
+        {
+            Duration = { Value = MediaTime.FromSeconds(5) },
+            FrameRate = { Value = new Rational(24) },
+            SampleRate = { Value = 48000 },
+        };
+        using SceneSettingsTabViewModel viewModel = CreateViewModel(
+            scene, out CaptureSceneSettingsService service, out BlockingPreviewPlayer player);
+        player.CompletePause();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.FrameRateInput.Value, Is.EqualTo("24"));
+            Assert.That(viewModel.SampleRate.Value, Is.EqualTo(48000));
+            Assert.That(viewModel.CanApply.Value, Is.True);
+        });
+
+        viewModel.FrameRateInput.Value = "invalid";
+        Assert.That(viewModel.CanApply.Value, Is.False);
+        viewModel.FrameRateInput.Value = "29.97";
+        Assert.That(viewModel.CanApply.Value, Is.True);
+
+        viewModel.SampleRate.Value = 0;
+        Assert.That(viewModel.CanApply.Value, Is.False);
+        viewModel.SampleRate.Value = 96000;
+        Assert.That(viewModel.CanApply.Value, Is.True);
+
+        await viewModel.Apply.ExecuteAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.CallCount, Is.EqualTo(1));
+            Assert.That(service.FrameRate, Is.EqualTo(new Rational(30000, 1001)));
+            Assert.That(service.SampleRate, Is.EqualTo(96000));
+        });
+
+        viewModel.FrameRateInput.Value = "60";
+        viewModel.SampleRate.Value = 22050;
+        viewModel.Revert.Execute();
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.FrameRateInput.Value, Is.EqualTo("24"));
+            Assert.That(viewModel.SampleRate.Value, Is.EqualTo(48000));
         });
     }
 
@@ -282,6 +328,22 @@ public class SceneSettingsTabViewModelTests
         public MediaTime Duration { get; private set; }
 
         public float MasterVolume { get; private set; }
+
+        public Rational FrameRate { get; private set; }
+
+        public int SampleRate { get; private set; }
+
+        public SpeakerLayout ChannelLayout { get; private set; }
+
+        public bool Apply(
+            Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration,
+            Rational frameRate, int sampleRate, SpeakerLayout channelLayout, float masterVolume)
+        {
+            FrameRate = frameRate;
+            SampleRate = sampleRate;
+            ChannelLayout = channelLayout;
+            return Apply(scene, frameSize, start, duration, channelLayout, masterVolume);
+        }
 
         public bool Apply(
             Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout, float masterVolume)

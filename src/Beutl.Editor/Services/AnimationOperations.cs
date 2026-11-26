@@ -54,8 +54,8 @@ internal static class AnimationOperations
             .Select(_ => GetTimeOrigin(animation, fallbackOwner))
             .DistinctUntilChanged();
 
-    // The frame rate key times snap to: the project's, or 30 fps outside a project.
-    internal static Rational GetFrameRate(Scene? scene) => scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
+    // The frame rate key times snap to: the scene's, or 30 fps outside a scene.
+    internal static Rational GetFrameRate(Scene? scene) => scene.GetFrameRate();
 
     // The keyframe at keyTime, where a key time within a tick of a frame, as a template's can be, is at that frame.
     internal static IKeyFrame? FindKeyFrameOnFrame(IEnumerable<IKeyFrame> keyFrames, MediaTime keyTime, Rational rate)

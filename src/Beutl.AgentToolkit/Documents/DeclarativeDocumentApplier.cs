@@ -25,14 +25,36 @@ internal sealed partial class DeclarativeDocumentApplier(FontManager fonts)
     public void Apply(CoreObject root, JsonObject document)
     {
         _documentBaseUri = ResolveBaseUri(root);
-        // Compared with the document as DocumentAdapter.Read wrote it; its times read on the project's frame grid.
+        // Compared with the document as DocumentAdapter.Read wrote it; its times read on the scene's frame grid.
         using (MediaTimeJsonConverter.WriteTimeSpanStrings())
-        using ((root as IHierarchical)?.FindHierarchicalParent<Project>() is { } project
-                   ? MediaTimeJsonConverter.ReadOnFrameGrid(project.GetFrameRate())
+        using (ResolveFrameRate(root, document) is { } rate
+                   ? MediaTimeJsonConverter.ReadOnFrameGrid(rate)
                    : null)
         {
             ApplyCoreObject(root, document);
         }
+    }
+
+    private static Rational? ResolveFrameRate(CoreObject root, JsonObject document)
+    {
+        if (root is Scene
+            && document.TryGetPropertyValue(nameof(Scene.FrameRate), out JsonNode? rateNode)
+            && rateNode is not null)
+        {
+            try
+            {
+                Rational desiredRate = rateNode.Deserialize<Rational>(JsonHelper.SerializerOptions);
+                if (desiredRate is { Numerator: > 0, Denominator: > 0 })
+                    return desiredRate;
+            }
+            catch (JsonException)
+            {
+            }
+        }
+
+        return (root as IHierarchical)?.FindHierarchicalParent<Scene>(includeSelf: true) is { } scene
+            ? scene.GetFrameRate()
+            : null;
     }
 
     // isNew is true for an object created for the document: a member the document leaves out keeps what the

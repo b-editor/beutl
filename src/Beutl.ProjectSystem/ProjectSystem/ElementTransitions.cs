@@ -344,7 +344,7 @@ internal static class ElementTransitions
 
     private static MediaTime Max(MediaTime a, MediaTime b) => a > b ? a : b;
 
-    private static Rational GetFrameRate(Element element) => element.FindHierarchicalParent<Project>().GetFrameRate();
+    private static Rational GetFrameRate(Element element) => element.FindHierarchicalParent<Scene>().GetFrameRate();
 }
 
 // A duration that stands in for one transition side's own, so an edit can be previewed before it is

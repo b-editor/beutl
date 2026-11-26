@@ -643,7 +643,7 @@ public sealed class CornerPinTests
         var original = Key(MediaTime.FromTimeSpan(TimeSpan.FromTicks(1)), Absolute(6, 8));
         effect.TopLeft.SetKeyFrameAnimation(new KeyFrameAnimation<RelativePoint> { KeyFrames = { original } });
         IProperty[] tracks = separate ? ComponentAnimations.Separate(effect.TopLeft).Components.ToArray() : [effect.TopLeft];
-        MediaTime frame = MediaTime.FromFrames(7, Project.ReadFrameRate(null));
+        MediaTime frame = MediaTime.FromFrames(7, IFrameRateSource.DefaultFrameRate);
         var nearFrame = frame + MediaTime.FromTimeSpan(TimeSpan.FromTicks(20));
 
         effect.BeginEditingHandleDrag("top-left", MediaTime.Zero, s_input)(new Point(22, 35));

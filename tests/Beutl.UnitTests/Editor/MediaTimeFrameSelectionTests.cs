@@ -15,10 +15,7 @@ public sealed class MediaTimeFrameSelectionTests
     public void A_frame_of_the_scene_rate_is_exact(string rateText)
     {
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
-        var project = new Project();
-        project.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
-        var scene = new Scene(100, 100, string.Empty);
-        project.Items.Add(scene);
+        var scene = new Scene(100, 100, string.Empty) { FrameRate = { Value = rate } };
 
         MediaTime frame = SceneTimeRangeService.GetFrameDuration(scene);
 

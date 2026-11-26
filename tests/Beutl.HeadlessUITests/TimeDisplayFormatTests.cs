@@ -182,7 +182,7 @@ public sealed class TimeDisplayFormatTests
         try
         {
             var rate = new Rational(30000, 1001);
-            editor.Scene.FindHierarchicalParent<Project>()!.FrameRate.Value = rate;
+            editor.Scene.FrameRate.Value = rate;
             SetFormat(TimeDisplayFormat.Timecode);
             Seek(editor, MediaTime.FromFrames(1800, rate));
             string atAMinute = view.Player.CurrentTime;

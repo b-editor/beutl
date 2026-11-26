@@ -18,7 +18,7 @@ internal static class SceneLayerSkipModel
         SceneLayerSnapshot layers = SceneLayerSnapshot.Build(scene);
         var visiting = new HashSet<Element>();
         HashSet<Element> participants = target == CompositionTarget.Graphics ? ElementTransitions.GetParticipants(scene) : [];
-        Rational rate = frameRate ?? scene.FindHierarchicalParent<Project>().GetFrameRate();
+        Rational rate = frameRate ?? scene.GetFrameRate();
         TimeRange? replayWindow = null;
         foreach (Element element in scene.Children)
             foreach (var item in Visit(element, window, false, frameOrigin))

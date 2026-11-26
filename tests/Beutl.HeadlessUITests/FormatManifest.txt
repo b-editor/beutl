@@ -94,7 +94,7 @@ Beutl.Utilities
   abstract
 [Beutl.Core]Beutl:Project
   sealed
-  keys: ChannelLayout, FrameRate, Id, Name, SampleRate, items, variables
+  keys: Id, Name, items, variables
 [Beutl.Core]Beutl:ProjectItem
   abstract
 [Beutl.Editor.Components].ElementPropertyTab.ViewModels:MultiElementEditSession:MultiEditRoot
@@ -1669,7 +1669,7 @@ Beutl.Utilities
   keys: Animations, Clear, Count, Expressions, Id, IsEnabled, Name
 [Beutl.ProjectSystem]:Scene
   unsealed
-  keys: Duration, Elements, FrameSize, Groups, Height, Id, Layers, Markers, MasterVolume, Name, Start, Width
+  keys: ChannelLayout, Duration, Elements, FrameRate, FrameSize, Groups, Height, Id, Layers, Markers, MasterVolume, Name, SampleRate, Start, Width
 [Beutl.ProjectSystem]:SceneDrawable
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, OffsetPosition, Opacity, ReferencedScene, Transform, TransformOrigin

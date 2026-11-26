@@ -32,8 +32,8 @@ public sealed class ExportPreviewFrameParityTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("frame-parity", 16, 16);
         Scene scene = editor.Scene;
-        scene.FindHierarchicalParent<Project>()!.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
-        Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
+        scene.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        Rational rate = scene.GetFrameRate();
         scene.Duration.Value = ThroughFile(new Element { Length = { Value = MediaTime.FromFrames(9, rate) } }).Length.Value;
         var starts = new List<MediaTime>();
         for (int i = 0; i < s_colors.Length; i++)

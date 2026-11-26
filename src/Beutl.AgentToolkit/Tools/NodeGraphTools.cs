@@ -209,7 +209,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
                         Hint: "No operations were provided. Nothing was applied.");
                 }
 
-                Rational? frameRate = scene.FindHierarchicalParent<Project>()?.GetFrameRate();
+                Rational? frameRate = scene.GetFrameRate();
                 Guid[] nodeIds = NodeGraphEditor.MintNodeIds(steps);
 
                 NodeGraphTarget copy = NodeGraphLocator.Locate(SceneSnapshot.Create(scene), graphId);

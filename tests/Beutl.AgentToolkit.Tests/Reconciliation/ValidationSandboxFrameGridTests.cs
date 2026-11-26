@@ -68,7 +68,8 @@ public sealed class ValidationSandboxFrameGridTests
     private static Scene CreateSceneInProject()
     {
         Scene scene = TestWorkspace.CreateScene();
-        _ = new Project { FrameRate = { Value = s_rate }, Items = { scene } };
+        scene.FrameRate.Value = s_rate;
+        _ = new Project { Items = { scene } };
         return scene;
     }
 

@@ -37,7 +37,30 @@
                              EditorStyle="Compact"
                              Header="{x:Static lang:Strings.Number_of_Layers}" />
 
-            <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.ProjectAudioChannels}" />
+            <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.FrameRate}" />
+            <Grid Margin="8,0" ColumnDefinitions="*,Auto">
+                <ComboBox x:Name="FrameRateComboBox"
+                          HorizontalAlignment="Stretch"
+                          IsEditable="True"
+                          ItemsSource="{Binding FrameRates}"
+                          Text="{Binding FrameRateInput.Value, Mode=TwoWay}" />
+                <Panel Grid.Column="1"
+                       Height="32"
+                       VerticalAlignment="Top">
+                    <TextBlock Margin="8,0,0,0"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="fps" />
+                </Panel>
+            </Grid>
+
+            <pe:NumberEditor x:Name="sampleRateEditor"
+                             x:TypeArguments="x:Int32"
+                             Margin="4,8,4,0"
+                             EditorStyle="Compact"
+                             Header="{x:Static lang:Strings.SampleRate}" />
+
+            <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.AudioChannels}" />
             <ComboBox Margin="8,0"
                       HorizontalAlignment="Stretch"
                       ItemsSource="{x:Static converters:EnumIndexConverters.SpeakerLayoutNames}"

@@ -29,7 +29,7 @@ public sealed partial class TimelineTabViewModel
     {
         Scene.Edited += OnEdited;
         Disposable.Create(() => Scene.Edited -= OnEdited).AddTo(_disposables);
-        Scene.FindHierarchicalParent<Project>()?.FrameRate.GetObservable().Skip(1)
+        Scene.FrameRate.GetObservable().Skip(1)
             .Subscribe(_ => Invalidate()).AddTo(_disposables);
 
         void OnEdited(object? sender, EventArgs e)

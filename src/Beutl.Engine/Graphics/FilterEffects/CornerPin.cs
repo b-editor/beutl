@@ -97,7 +97,7 @@ public sealed partial class CornerPin : FilterEffect, IEditingStageProvider
 
         var evaluation = new EvaluationContext(evaluationTime);
         RelativeUnit unit = property.Evaluate(evaluation).Unit;
-        Rational rate = Project.ReadFrameRate(this.FindHierarchicalParent<Project>());
+        Rational rate = IFrameRateSource.ReadFromHierarchy(this);
         return position =>
         {
             if (property.HasExpression) return;

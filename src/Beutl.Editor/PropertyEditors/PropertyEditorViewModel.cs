@@ -376,7 +376,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     {
         if (GetAnimation() is { } animation)
         {
-            Rational rate = _scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
+            Rational rate = _scene.GetFrameRate();
 
             MediaTime keyTime = (t.First - AnimationOperations.GetTimeOrigin(animation, _node))
                 .RoundToFrame(rate, MidpointRounding.AwayFromZero);
