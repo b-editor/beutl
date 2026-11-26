@@ -4121,7 +4121,7 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>修订版本 {0}</value>
   </data>
   <data name="EffectCategory" xml:space="preserve">
-    <value>效果类别</value>
+    <value>类别</value>
   </data>
   <data name="AllEffectCategories" xml:space="preserve">
     <value>所有类别</value>

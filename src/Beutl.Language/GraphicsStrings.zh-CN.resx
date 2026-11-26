@@ -1859,6 +1859,18 @@
   <data name="ClipTransition" xml:space="preserve">
     <value>转场</value>
   </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>淡入淡出与溶解</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>擦除</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>运动</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>风格化</value>
+  </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>时长</value>
   </data>

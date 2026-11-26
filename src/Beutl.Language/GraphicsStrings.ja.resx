@@ -1855,6 +1855,18 @@
   <data name="ClipTransition" xml:space="preserve">
     <value>トランジション</value>
   </data>
+  <data name="ClipTransitionCategory_FadesAndDissolves" xml:space="preserve">
+    <value>フェード・ディゾルブ</value>
+  </data>
+  <data name="ClipTransitionCategory_Wipes" xml:space="preserve">
+    <value>ワイプ</value>
+  </data>
+  <data name="ClipTransitionCategory_Motion" xml:space="preserve">
+    <value>モーション</value>
+  </data>
+  <data name="ClipTransitionCategory_Stylized" xml:space="preserve">
+    <value>スタイライズ</value>
+  </data>
   <data name="ClipTransition_Duration" xml:space="preserve">
     <value>長さ</value>
   </data>

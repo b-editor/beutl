@@ -4121,7 +4121,7 @@ cuando el registro del historial está activado.</value>
     <value>Revisión {0}</value>
   </data>
   <data name="EffectCategory" xml:space="preserve">
-    <value>Categoría de efecto</value>
+    <value>Categoría</value>
   </data>
   <data name="AllEffectCategories" xml:space="preserve">
     <value>Todas las categorías</value>

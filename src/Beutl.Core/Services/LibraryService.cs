@@ -204,7 +204,12 @@ public static class KnownLibraryGroupIds
     public const string ThreeD = "Beutl.Library.ThreeD";
     public const string AudioVisualizer = "Beutl.Library.AudioVisualizer";
     public const string Transform = "Beutl.Library.Transform";
+
     public const string ClipTransition = "Beutl.Library.ClipTransition";
+    public const string ClipTransitionFadesAndDissolves = ClipTransition + ".FadesAndDissolves";
+    public const string ClipTransitionWipes = ClipTransition + ".Wipes";
+    public const string ClipTransitionMotion = ClipTransition + ".Motion";
+    public const string ClipTransitionStylized = ClipTransition + ".Stylized";
 
     public const string FilterEffect = "Beutl.Library.FilterEffect";
     public const string FilterEffectBlurAndSharpen = FilterEffect + ".BlurAndSharpen";
