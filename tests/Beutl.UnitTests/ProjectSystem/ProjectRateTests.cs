@@ -292,6 +292,17 @@ public sealed class ProjectRateTests
             using (StorageWriteTransaction.Begin())
             {
                 CoreSerializer.StoreToUri(opened, projectUri);
+
+                // Even before rollback, a concurrent project-only snapshot must retain legacy keys until commit.
+                JsonObject midTransaction = CoreSerializer.SerializeToJsonObject(
+                    opened,
+                    new CoreSerializerOptions { BaseUri = projectUri, Mode = CoreSerializationMode.Write });
+                Assert.Multiple(() =>
+                {
+                    Assert.That(midTransaction.ContainsKey("FrameRate"), Is.True);
+                    Assert.That(midTransaction.ContainsKey("SampleRate"), Is.True);
+                    Assert.That(midTransaction.ContainsKey("ChannelLayout"), Is.True);
+                });
             }
 
             // A subsequent project-only save must still retain the legacy keys because the scene file was rolled back.
@@ -304,6 +315,22 @@ public sealed class ProjectRateTests
                 Assert.That(reopenedScene.FrameRate.Value, Is.EqualTo(new Rational(24)));
                 Assert.That(reopenedScene.SampleRate.Value, Is.EqualTo(48000));
                 Assert.That(reopenedScene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+            });
+
+            // Once a transaction commits, the scene's flag clears and a project-only save drops the legacy keys.
+            using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+            {
+                CoreSerializer.StoreToUri(reopenedScene, sceneUri, CoreSerializationMode.Write);
+                transaction.Commit();
+            }
+
+            CoreSerializer.StoreToUri(reopened, projectUri, CoreSerializationMode.Write);
+            JsonObject committedProject = JsonNode.Parse(File.ReadAllText(projectUri.LocalPath))!.AsObject();
+            Assert.Multiple(() =>
+            {
+                Assert.That(committedProject.ContainsKey("FrameRate"), Is.False);
+                Assert.That(committedProject.ContainsKey("SampleRate"), Is.False);
+                Assert.That(committedProject.ContainsKey("ChannelLayout"), Is.False);
             });
         }
         finally

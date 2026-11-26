@@ -199,8 +199,14 @@ public static partial class CoreSerializer
     {
         if (obj is ProjectItem { HasUnpersistedLegacyRates: true } item)
         {
-            item.HasUnpersistedLegacyRates = false;
-            StorageWriteTransaction.Current?.OnRollback(() => item.HasUnpersistedLegacyRates = true);
+            if (StorageWriteTransaction.Current is { } transaction)
+            {
+                transaction.OnCommit(() => item.HasUnpersistedLegacyRates = false);
+            }
+            else
+            {
+                item.HasUnpersistedLegacyRates = false;
+            }
         }
 
         if (minAppVersion is null) return;
