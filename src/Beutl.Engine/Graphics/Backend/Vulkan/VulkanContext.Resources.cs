@@ -379,8 +379,8 @@ internal sealed unsafe partial class VulkanContext
     }
 
     /// <summary>
-    /// Allocates device-local memory sized for <paramref name="image"/> and binds it. On failure the image
-    /// is destroyed and nothing stays allocated, so the caller never has to unwind a partial binding.
+    /// Allocates memory sized for <paramref name="image"/> and binds it, preferring device-local memory.
+    /// On failure the image is destroyed, so the caller never has to unwind a partial binding.
     /// </summary>
     /// <param name="resourceName">
     /// Names the image in the thrown message, e.g. <c>"cube map image"</c>.
@@ -397,11 +397,24 @@ internal sealed unsafe partial class VulkanContext
         vk.GetImageMemoryRequirements(device, image, &memReqs);
         allocationSize = memReqs.Size;
 
+        uint memoryTypeIndex;
+        try
+        {
+            PhysicalDeviceMemoryProperties memProps;
+            vk.GetPhysicalDeviceMemoryProperties(PhysicalDevice, &memProps);
+            memoryTypeIndex = VulkanPhysicalDeviceQueries.FindImageMemoryType(in memProps, memReqs);
+        }
+        catch
+        {
+            vk.DestroyImage(device, image, null);
+            throw;
+        }
+
         var allocInfo = new MemoryAllocateInfo
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = memReqs.Size,
-            MemoryTypeIndex = FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+            MemoryTypeIndex = memoryTypeIndex
         };
 
         DeviceMemory memory;

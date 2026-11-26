@@ -19,17 +19,35 @@ internal static unsafe class VulkanPhysicalDeviceQueries
     {
         PhysicalDeviceMemoryProperties memProps;
         vk.GetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
+        return FindCompatibleMemoryType(in memProps, typeFilter, properties, 0)
+            ?? throw new InvalidOperationException("Failed to find suitable memory type");
+    }
 
+    /// <summary>Prefers a device-local heap that can hold the whole image allocation.</summary>
+    internal static uint FindImageMemoryType(in PhysicalDeviceMemoryProperties memProps, MemoryRequirements requirements)
+    {
+        uint typeFilter = requirements.MemoryTypeBits;
+        ulong size = requirements.Size;
+        return FindCompatibleMemoryType(in memProps, typeFilter, MemoryPropertyFlags.DeviceLocalBit, size)
+            ?? FindCompatibleMemoryType(in memProps, typeFilter, 0, size)
+            ?? throw new InvalidOperationException($"No compatible Vulkan memory heap can hold an image allocation of {size} bytes.");
+    }
+
+    private static uint? FindCompatibleMemoryType(
+        in PhysicalDeviceMemoryProperties memProps, uint typeFilter, MemoryPropertyFlags properties, ulong allocationSize)
+    {
         for (uint i = 0; i < memProps.MemoryTypeCount; i++)
         {
+            MemoryType type = memProps.MemoryTypes[(int)i];
             if ((typeFilter & (1u << (int)i)) != 0 &&
-                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
+                (type.PropertyFlags & properties) == properties &&
+                memProps.MemoryHeaps[(int)type.HeapIndex].Size >= allocationSize)
             {
                 return i;
             }
         }
 
-        throw new InvalidOperationException("Failed to find suitable memory type");
+        return null;
     }
 
     /// <summary>Finds the first queue family of <paramref name="physicalDevice"/> that supports graphics.</summary>
