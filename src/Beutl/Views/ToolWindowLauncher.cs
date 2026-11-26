@@ -39,6 +39,7 @@ internal sealed class ToolWindowLauncher
 
             window.DataContext = context;
             HostServices.CopyFrom(window, owner);
+            AppHelper.GetContextCommandManager?.Invoke()?.Attach(window, extension);
             if (string.IsNullOrEmpty(window.Title))
             {
                 window.Title = context.Header;

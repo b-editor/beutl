@@ -188,6 +188,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
 
                 window.DataContext = context;
                 HostServices.CopyFrom(window, topLevel);
+                AppHelper.GetContextCommandManager?.Invoke()?.Attach(window, extension);
                 if (window is Pages.ExtensionsPage page)
                 {
                     page.OpenLibraryWithUpdates();

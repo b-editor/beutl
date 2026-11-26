@@ -34,17 +34,36 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore, IN
     internal event EventHandler? GesturesChanged;
 
     public void Register(ViewExtension extension)
+        => Register(extension.GetType(), extension.ContextCommands);
+
+    public void Register(ToolWindowExtension extension)
+        => Register(extension.GetType(), extension.ContextCommands);
+
+    internal void RegisterExtension(Extension extension)
     {
-        var definitions = extension.ContextCommands.Select(def
+        switch (extension)
+        {
+            case ViewExtension view:
+                Register(view);
+                break;
+            case ToolWindowExtension toolWindow:
+                Register(toolWindow);
+                break;
+        }
+    }
+
+    private void Register(Type extensionType, IEnumerable<ContextCommandDefinition> commands)
+    {
+        var definitions = commands.Select(def
                 => new ContextCommandEntry(
-                    extension.GetType(),
+                    extensionType,
                     def,
                     new(def.KeyGestures?.Select(ParseKeyGesture).Where(i => i != null!) ?? [])))
             .ToArray();
 
         Restore(definitions);
 
-        _entries[extension.GetType()] = definitions;
+        _entries[extensionType] = definitions;
         GesturesChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -70,6 +89,12 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore, IN
     }
 
     public void Unregister(ViewExtension extension)
+        => UnregisterExtension(extension);
+
+    public void Unregister(ToolWindowExtension extension)
+        => UnregisterExtension(extension);
+
+    internal void UnregisterExtension(Extension extension)
     {
         if (_entries.Remove(extension.GetType()))
             GesturesChanged?.Invoke(this, EventArgs.Empty);
@@ -181,35 +206,40 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore, IN
 
     public void Attach(InputElement element, ViewExtension extension)
     {
-        if (_entries.TryGetValue(extension.GetType(), out var entries))
-        {
-            element.Focusable = true;
-            var logger = _logger;
-            var hostNotifications = notifications;
-            element.KeyDown += async (sender, args) =>
-            {
-                if (sender is not InputElement { DataContext: { } context })
-                    return;
+        if (_entries.ContainsKey(extension.GetType()))
+            AttachRegistered(element, extension);
+    }
 
-                await HandleKeyDownAsync(extension, context, args, entries, logger, hostNotifications);
-            };
-        }
+    public void Attach(InputElement element, ToolWindowExtension extension)
+    {
+        if (_entries.TryGetValue(extension.GetType(), out var entries) && entries.Length > 0)
+            AttachRegistered(element, extension);
+    }
+
+    private void AttachRegistered(InputElement element, Extension extension)
+    {
+        element.Focusable = true;
+        element.KeyDown += (sender, args) =>
+        {
+            if (sender is InputElement { DataContext: { } context })
+                HandleKeyDown(extension, context, args);
+        };
     }
 
     /// <summary>
     /// Runs the first of <paramref name="extension"/>'s commands that the key matches on <paramref name="context"/>,
-    /// as for a key that reaches an element attached with <see cref="Attach"/>.
+    /// as for a key that reaches an attached element.
     /// </summary>
     /// <remarks>A command that runs marks the key handled before it awaits anything, so a key that none took can be
     /// passed on right after this returns.</remarks>
-    internal void HandleKeyDown(ViewExtension extension, object context, KeyEventArgs args)
+    internal void HandleKeyDown(Extension extension, object context, KeyEventArgs args)
     {
         if (_entries.TryGetValue(extension.GetType(), out var entries))
             _ = HandleKeyDownAsync(extension, context, args, entries, _logger, notifications);
     }
 
     private static Task HandleKeyDownAsync(
-        ViewExtension extension, object context, KeyEventArgs args, ContextCommandEntry[] entries, ILogger logger,
+        Extension extension, object context, KeyEventArgs args, ContextCommandEntry[] entries, ILogger logger,
         INotificationService hostNotifications)
     {
         var notifications = ExtensionGuard.FindNotifications(context) ?? hostNotifications;

@@ -257,10 +257,7 @@ public sealed partial class PackageManager
         {
             if (restoreSettings)
                 SetupExtensionSettings(extension);
-            if (extension is ViewExtension viewExtension)
-            {
-                commandManager.Register(viewExtension);
-            }
+            commandManager.RegisterExtension(extension);
 
             loadStarted = true;
             extension.Load(ExtensionContext);
@@ -284,16 +281,13 @@ public sealed partial class PackageManager
 
     private void RollbackExtensionLoad(Extension extension, bool unload)
     {
-        if (extension is ViewExtension viewExtension)
+        try
         {
-            try
-            {
-                commandManager.Unregister(viewExtension);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to unregister commands while rolling back extension {ExtensionName}.", extension.GetType().Name);
-            }
+            commandManager.UnregisterExtension(extension);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to unregister commands while rolling back extension {ExtensionName}.", extension.GetType().Name);
         }
 
         if (unload)
