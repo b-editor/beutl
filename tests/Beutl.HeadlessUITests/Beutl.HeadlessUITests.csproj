@@ -38,6 +38,8 @@
     <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\BeutlTestVariable.ttf" LogicalName="ProjectFontFixture.ttf" />
     <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\Roboto-Regular.ttf" LogicalName="ProjectFontSecondFixture.ttf" />
     <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\Roboto-Medium.ttf" LogicalName="ProjectFontMediumFixture.ttf" />
+    <None Include="..\Beutl.FFmpegIpc.Tests\Fixtures\deinterlace-offset-tff.mp4"
+          Link="Fixtures\deinterlace-offset-tff.mp4" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -55,5 +57,18 @@
   <ItemGroup Condition="'$(_WithoutMediaFoundation)' != 'true'">
     <ProjectReference Include="..\..\src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
   </ItemGroup>
+
+  <!-- Beutl builds the worker as a development dependency. Deploy it for the live proxy encode test. -->
+  <Target Name="CopyWorkerForProxyToolsTests" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <ProxyTestWorkerDir>..\..\src\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</ProxyTestWorkerDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <ProxyTestWorkerFiles Include="$(ProxyTestWorkerDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ProxyTestWorkerFiles)"
+          DestinationFiles="@(ProxyTestWorkerFiles->'$(OutDir)FFmpegWorker\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

@@ -45,6 +45,8 @@ public sealed class LiveEditingSession : IEditingSession
 
     public bool IsAlive => _binding.IsAlive && _binding.ActiveScene is not null && _binding.ActiveHistory is not null;
 
+    internal ILiveMediaRepairBinding? MediaRepair => _binding as ILiveMediaRepairBinding;
+
     // Run the liveness check on the editor's dispatcher (via the binding) instead of dereferencing
     // editor-owned Scene/History from the MCP request thread. LiveEditingSession.Invoke guards on
     // IsAlive and so cannot be used to probe liveness itself; reach the binding dispatcher directly.

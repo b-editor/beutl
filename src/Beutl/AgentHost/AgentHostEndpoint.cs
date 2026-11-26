@@ -435,6 +435,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddScoped<AgentSessionManager>()
             .AddSingleton<IOutputOperationLeaseProvider>(_ => _editorService)
             .AddAgentToolkitRendering()
+            .AddSingleton<ProxyTools.JobHistory>()
             .AddSingleton<AgentAiJobManager>()
             .AddSingleton(_aiBackend);
 
@@ -462,6 +463,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             })
             .WithTools<AgentHostInstanceTools>()
             .WithTools<AgentHostTools>()
+            .WithTools<ProxyTools>()
             .WithSharedAgentToolkitTools()
             .WithAgentToolkitSkills()
             .WithTools<AgentHostAiTools>();

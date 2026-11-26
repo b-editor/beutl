@@ -55,9 +55,9 @@ A batch that skips locked targets reports their IDs in `skippedLockedElementIds`
 | Editor feature | Built-in MCP tools | Coverage |
 | --- | --- | --- |
 | Use existing media in a scene | `get_schema`, `apply_edit` | Add or edit the file source of a media object. |
-| Relink missing media | `read_document`, `apply_edit` | Partial. An agent can replace an individual file source. The editor's missing-media scan, matching, and batch relink workflow has no tool. |
+| Scan and relink missing media | `scan_missing_media`, `relink_missing_media` | Lists missing media and fonts by scene. Relink a batch by absolute path pairs or search a folder using the editor's matching rules. |
 | Organize project assets | — | No tool for scanning or reorganizing project assets. |
-| Manage proxy media | — | No tool for proxy generation, status, or removal. |
+| Manage proxy media | `generate_proxies`, `read_proxy_status`, `remove_proxies` | Live editor tools. Queue generation for elements or video paths, poll jobs, and remove cached proxies. |
 | Analyze audio rhythm | `analyze_audio_rhythm` | Reports estimated beats and onsets. |
 | Generate or edit media with AI and follow jobs | `list_ai_models`, `generate_image`, `edit_image`, `generate_video`, `edit_video`, `list_ai_jobs`, `read_ai_job`, `cancel_ai_job` | Live editor tools. |
 | Transcribe speech | `transcribe_audio`, `read_ai_job` | Live tool that produces a timed transcript. |
@@ -65,5 +65,9 @@ A batch that skips locked targets reports their IDs in `skippedLockedElementIds`
 | Preview frames or compare rendered frames | `render_still`, `render_storyboard`, `measure_frame_differences` | Covers frame output and measurement. |
 | Control preview playback and playhead | — | No tool for interactive preview transport. |
 | Export video and manage render jobs | `export_video`, `read_render_job`, `cancel_render_job` | File-backed and live export. |
+
+Proxy tools use the running editor's queue and cache. Pass `sceneId` and, from the installed stdio server, `instanceId`. Pass `elementIds`, `mediaPaths`, or both to generate or remove proxies. Generation uses the configured preset unless you pass `half`, `quarter`, or `eighth`. Poll `read_proxy_status` with the returned `jobIds` for progress and recent outcomes. With no selectors, status lists the scene's video sources. Removing proxies cancels matching jobs and removes all presets for the selected sources unless you specify a preset.
+
+`relink_missing_media` takes `replacements` (objects with `missingPath` and `newPath`) or `searchFolder`. Folder search follows the Missing Media tab's saved-fingerprint and unique-name matching rules. The tool validates replacements, saves the repaired scene, and reports `relinked` and `remainingMissing`. Repairs leave the edit history intact, as in the Missing Media tab. File-backed calls have the same save conflict check as `save_project`.
 
 The tool registrations are in the [shared AgentToolkit server](../../src/Beutl.AgentToolkit/AgentToolkitMcpServer.cs) and the [in-app host](../../src/Beutl/AgentHost/AgentHostEndpoint.cs).
