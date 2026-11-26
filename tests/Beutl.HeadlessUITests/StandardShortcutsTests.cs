@@ -247,6 +247,8 @@ public sealed class StandardShortcutsTests
     [TestCase(StandardEditAction.Redo, true, 1)]
     [TestCase(StandardEditAction.Cut, false, 1)]
     [TestCase(StandardEditAction.SelectAll, false, 1)]
+    [TestCase(StandardEditAction.Delete, false, 1)]
+    [TestCase(StandardEditAction.Delete, true, 1)]
     public void What_no_control_takes_falls_back_unless_a_key_has_no_panel_for_it(StandardEditAction action, bool isKey, int runs)
     {
         var fallback = new RecordingCommand();

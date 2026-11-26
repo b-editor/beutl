@@ -980,6 +980,9 @@
   <data name="Exit_Description" xml:space="preserve">
     <value>애플리케이션 종료</value>
   </data>
+  <data name="Playback" xml:space="preserve">
+    <value>재생</value>
+  </data>
   <data name="PlayPause" xml:space="preserve">
     <value>재생/일시 정지</value>
   </data>
@@ -1009,6 +1012,9 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>장면의 끝으로 이동합니다.</value>
+  </data>
+  <data name="Markers" xml:space="preserve">
+    <value>마커</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
     <value>마커 전환</value>
@@ -2102,9 +2108,6 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="Ai" xml:space="preserve">
     <value>AI</value>
   </data>
-  <data name="AiGenerateImage" xml:space="preserve">
-    <value>이미지 생성</value>
-  </data>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>AI 이미지 생성</value>
   </data>
@@ -2204,9 +2207,6 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="AiImageAddedToScene" xml:space="preserve">
     <value>이미지를 장면에 추가했습니다.</value>
   </data>
-  <data name="AiGenerateSubtitles" xml:space="preserve">
-    <value>자막 생성</value>
-  </data>
   <data name="AiSubtitle" xml:space="preserve">
     <value>AI 자막</value>
   </data>
@@ -2240,9 +2240,6 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="AiSubtitleAddedToScene" xml:space="preserve">
     <value>자막을 장면에 추가했습니다.</value>
   </data>
-  <data name="AiEditImage" xml:space="preserve">
-    <value>이미지 편집</value>
-  </data>
   <data name="AiImageEdit" xml:space="preserve">
     <value>AI 이미지 편집</value>
   </data>
@@ -2263,9 +2260,6 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   </data>
   <data name="AiEditSelectSource" xml:space="preserve">
     <value>먼저 이미지 파일을 선택하세요.</value>
-  </data>
-  <data name="AiGenerateVideo" xml:space="preserve">
-    <value>동영상 생성</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>AI 동영상 생성</value>

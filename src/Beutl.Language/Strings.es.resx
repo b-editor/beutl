@@ -980,6 +980,9 @@
   <data name="Exit_Description" xml:space="preserve">
     <value>Salir de la aplicación</value>
   </data>
+  <data name="Playback" xml:space="preserve">
+    <value>Reproducción</value>
+  </data>
   <data name="PlayPause" xml:space="preserve">
     <value>Reproducir/Pausar</value>
   </data>
@@ -1009,6 +1012,9 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>Mover al final de la escena.</value>
+  </data>
+  <data name="Markers" xml:space="preserve">
+    <value>Marcadores</value>
   </data>
   <data name="ToggleMarker" xml:space="preserve">
     <value>Alternar marcador</value>
@@ -2102,9 +2108,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Ai" xml:space="preserve">
     <value>IA</value>
   </data>
-  <data name="AiGenerateImage" xml:space="preserve">
-    <value>Generar imagen</value>
-  </data>
   <data name="AiImageGeneration" xml:space="preserve">
     <value>Generación de imágenes con IA</value>
   </data>
@@ -2204,9 +2207,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiImageAddedToScene" xml:space="preserve">
     <value>Se ha añadido la imagen a la escena.</value>
   </data>
-  <data name="AiGenerateSubtitles" xml:space="preserve">
-    <value>Generar subtítulos</value>
-  </data>
   <data name="AiSubtitle" xml:space="preserve">
     <value>Subtítulos con IA</value>
   </data>
@@ -2240,9 +2240,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitleAddedToScene" xml:space="preserve">
     <value>Se han añadido los subtítulos a la escena.</value>
   </data>
-  <data name="AiEditImage" xml:space="preserve">
-    <value>Editar imagen</value>
-  </data>
   <data name="AiImageEdit" xml:space="preserve">
     <value>Edición de imágenes con IA</value>
   </data>
@@ -2263,9 +2260,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiEditSelectSource" xml:space="preserve">
     <value>Selecciona primero un archivo de imagen.</value>
-  </data>
-  <data name="AiGenerateVideo" xml:space="preserve">
-    <value>Generar vídeo</value>
   </data>
   <data name="AiVideoGeneration" xml:space="preserve">
     <value>Generación de vídeos con IA</value>

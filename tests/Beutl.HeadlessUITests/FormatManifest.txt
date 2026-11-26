@@ -1820,6 +1820,12 @@ main.exit
 main.minimizeWindow
 main.nextTab
 main.nextToolTab
+main.openAiImageEdit
+main.openAiImageGeneration
+main.openAiJobCenter
+main.openAiSubtitles
+main.openAiVideoEditing
+main.openAiVideoGeneration
 main.openFile
 main.openProject
 main.openRecentFile
