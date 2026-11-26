@@ -1,4 +1,4 @@
-using Beutl.AgentToolkit.Installation;
+﻿using Beutl.AgentToolkit.Installation;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using ModelContextProtocol.Extensions.Skills;
