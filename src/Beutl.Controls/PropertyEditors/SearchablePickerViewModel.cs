@@ -13,9 +13,12 @@ namespace Beutl.Controls.PropertyEditors;
 public sealed record SearchablePickerEntry<TSearchKey>(
     object Value,
     string DisplayName,
-    string PinName,
+    string? PinName,
     TSearchKey SearchKey,
-    string? Description = null);
+    string? Description = null)
+{
+    public IAnimatedThumbnailSource? Thumbnail { get; init; }
+}
 
 // What SearchablePickerFlyout shows and edits.
 public interface ISearchablePickerViewModel
@@ -37,9 +40,9 @@ public interface ISearchablePickerViewModel
 // in Preferences under pinnedItemsKey, so they last until the next start.
 public abstract class SearchablePickerViewModel<TSearchKey> : ISearchablePickerViewModel
 {
-    private readonly string _pinnedItemsKey;
-    private readonly SearchablePickerEntry<TSearchKey>[] _entries;
+    private readonly string? _pinnedItemsKey;
     private readonly List<string> _pinnedNames;
+    private SearchablePickerEntry<TSearchKey>[] _entries = [];
     // The value last highlighted. A search that matches nothing clears the selection but keeps this,
     // so clearing the search highlights it again.
     private object? _highlighted;
@@ -48,23 +51,29 @@ public abstract class SearchablePickerViewModel<TSearchKey> : ISearchablePickerV
     // searchDelay waits for typing to pause before the list is rebuilt; zero applies every change at once.
     protected SearchablePickerViewModel(
         IEnumerable<SearchablePickerEntry<TSearchKey>> entries, string pinnedItemsKey, TimeSpan searchDelay)
+        : this(pinnedItemsKey, searchDelay)
+    {
+        SetEntries(entries);
+    }
+
+    protected SearchablePickerViewModel(
+        string? pinnedItemsKey, TimeSpan searchDelay, Func<string, string?>? normalizePinName = null)
     {
         _pinnedItemsKey = pinnedItemsKey;
-        string json = Preferences.Default.Get(pinnedItemsKey, "[]");
-        _pinnedNames = (JsonSerializer.Deserialize<string[]>(json) ?? [])
-            .Where(s => s != null)
+        string json = pinnedItemsKey != null ? Preferences.Default.Get(pinnedItemsKey, "[]") : "[]";
+        _pinnedNames = (JsonSerializer.Deserialize<string?[]>(json) ?? [])
+            .OfType<string>()
+            .Select(name => normalizePinName != null ? normalizePinName(name) : name)
+            .OfType<string>()
             .ToList();
-        _entries = entries.ToArray();
 
         SelectedItem.Subscribe(item =>
         {
-            if (item != null)
+            if (item != null && ManageSelection)
             {
                 _highlighted = item.UserData;
             }
         });
-        UpdateItems();
-
         IObservable<string?> searches = SearchText.Skip(1);
         if (searchDelay > TimeSpan.Zero)
         {
@@ -83,6 +92,17 @@ public abstract class SearchablePickerViewModel<TSearchKey> : ISearchablePickerV
 
     public ReactiveProperty<PinnableLibraryItem?> SelectedItem { get; } = new();
 
+    protected virtual bool PinnedItemsFirst => false;
+
+    // A picker that lets the presenter own selection clears its old results before publishing new ones.
+    protected virtual bool ManageSelection => true;
+
+    protected void SetEntries(IEnumerable<SearchablePickerEntry<TSearchKey>> entries)
+    {
+        _entries = entries.ToArray();
+        UpdateItems();
+    }
+
     // Applies the search text right away instead of after the typing pause, so that a key acting on the
     // results, such as Enter, sees the results for what was typed.
     public void FlushSearch()
@@ -91,22 +111,26 @@ public abstract class SearchablePickerViewModel<TSearchKey> : ISearchablePickerV
         {
             UpdateItems();
         }
+
+        OnSearchFlushed();
     }
+
+    protected virtual void OnSearchFlushed() { }
 
     public void Pin(PinnableLibraryItem item)
     {
-        if (FindEntry(item) is not { } entry) return;
+        if (FindEntry(item)?.PinName is not { } pinName) return;
 
-        _pinnedNames.Add(entry.PinName);
+        _pinnedNames.Add(pinName);
         SavePinnedItems();
         UpdateItems();
     }
 
     public void Unpin(PinnableLibraryItem item)
     {
-        if (FindEntry(item) is not { } entry) return;
+        if (FindEntry(item)?.PinName is not { } pinName) return;
 
-        _pinnedNames.Remove(entry.PinName);
+        _pinnedNames.Remove(pinName);
         SavePinnedItems();
         UpdateItems();
     }
@@ -122,7 +146,10 @@ public abstract class SearchablePickerViewModel<TSearchKey> : ISearchablePickerV
 
     private void SavePinnedItems()
     {
-        Preferences.Default.Set(_pinnedItemsKey, JsonSerializer.Serialize(_pinnedNames));
+        if (_pinnedItemsKey != null)
+        {
+            Preferences.Default.Set(_pinnedItemsKey, JsonSerializer.Serialize(_pinnedNames));
+        }
     }
 
     // A query applied for the first time moves the highlight to its best match, whatever rebuilt the list:
@@ -143,19 +170,26 @@ public abstract class SearchablePickerViewModel<TSearchKey> : ISearchablePickerV
         }
         else
         {
-            // The best match comes first even over a pinned item, since Enter picks the first result.
-            items = _entries
+            var matches = _entries
                 .Select(e => (Entry: e, Score: search(e.SearchKey)))
                 .Where(t => t.Score.HasValue)
-                .Select(t => (Item: CreateItem(t.Entry), Score: t.Score!.Value))
-                .OrderByDescending(t => t.Score)
-                .ThenByDescending(t => t.Item.IsPinned)
-                .Select(t => t.Item)
-                .ToArray();
+                .Select(t => (Item: CreateItem(t.Entry), Score: t.Score!.Value));
+            var orderedMatches = PinnedItemsFirst
+                ? matches.OrderByDescending(t => t.Item.IsPinned).ThenByDescending(t => t.Score)
+                : matches.OrderByDescending(t => t.Score).ThenByDescending(t => t.Item.IsPinned);
+            items = orderedMatches.Select(t => t.Item).ToArray();
+        }
+
+        var collection = (ResettableCollection)Items;
+        if (!ManageSelection)
+        {
+            if (collection.Count > 0) collection.Clear();
+            if (items.Length > 0) collection.Reset(items);
+            return;
         }
 
         object? highlighted = _highlighted;
-        ((ResettableCollection)Items).Reset(items);
+        collection.Reset(items);
 
         SelectedItem.Value = highlightBestMatch && search != null
             ? items.FirstOrDefault()
@@ -164,8 +198,11 @@ public abstract class SearchablePickerViewModel<TSearchKey> : ISearchablePickerV
 
     private PinnableLibraryItem CreateItem(SearchablePickerEntry<TSearchKey> entry)
     {
-        return new PinnableLibraryItem(
-            entry.DisplayName, _pinnedNames.Contains(entry.PinName), entry.Value, entry.Description);
+        bool isPinned = entry.PinName != null && _pinnedNames.Contains(entry.PinName);
+        return new PinnableLibraryItem(entry.DisplayName, isPinned, entry.Value, entry.Description)
+        {
+            Thumbnail = entry.Thumbnail,
+        };
     }
 
     // Replaces every item with one Reset notification. Adding thousands of fonts one by one makes the list
