@@ -557,16 +557,21 @@ public sealed partial class ElementViewModel : IDisposable
         return new TimeRange(start, length);
     }
 
+    internal ElementResizeRequest GetResizeRequest(bool ripple, bool leftEdge, float scale, Rational rate, bool addHeaders)
+    {
+        TimeRange range = GetResizeRange(ripple, leftEdge, scale, rate);
+        int layer = Timeline.ToLayerNumber(Margin.Value, addHeaders);
+        return new ElementResizeRequest(Model, range.Start, range.Duration, layer);
+    }
+
     public async Task SubmitViewModelChanges(bool ripple = false, bool leftEdge = false)
     {
         PrepareAnimationContext context = PrepareAnimation();
         MediaTime beforeStart = Model.Start.Value;
         MediaTime beforeEnd = Model.Range.End;
 
-        TimeRange range = GetResizeRange(ripple, leftEdge, Timeline.Options.Value.Scale, SceneTimeRangeService.GetFrameRate(Scene));
-        int zindex = Timeline.ToLayerNumber(Margin.Value);
-
-        var request = new ElementResizeRequest(Model, range.Start, range.Duration, zindex);
+        ElementResizeRequest request = GetResizeRequest(ripple, leftEdge,
+            Timeline.Options.Value.Scale, Timeline.FrameRate, addHeaders: true);
         Timeline.EditorContext.GetRequiredService<IElementResizeService>()
             .Resize(Scene, [request], ripple);
 

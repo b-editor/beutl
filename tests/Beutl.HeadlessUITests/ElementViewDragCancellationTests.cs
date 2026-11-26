@@ -9,6 +9,7 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Editor.Components.Views;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -121,6 +122,8 @@ public class ElementViewDragCancellationTests
             RawInputModifiers modifiers = kind == "duplicate" ? RawInputModifiers.Alt : RawInputModifiers.None;
 
             DragToPreview();
+            var overlay = view.FindControl<TimelineOverlay>("overlay")!;
+            if (kind != "duplicate") Assert.That(overlay.DragReadout, Is.Not.Null);
             Assert.That(pointer, Is.Not.Null, "The actual input event must reach the clip.");
             foreach (ElementViewModel vm in elements)
             {
@@ -151,6 +154,7 @@ public class ElementViewDragCancellationTests
                 Assert.That(view.TimelinePanel.Children.OfType<Border>(), Is.Empty,
                     "No duplicate preview ghost may remain after the drag ends.");
                 Assert.That(timeline.SnapBarPosition.Value, Is.Null);
+                Assert.That(overlay.DragReadout, Is.Null);
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
                 Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
                 Assert.That(editor.HistoryManager.IsEditing, Is.False);
