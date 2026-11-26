@@ -1,7 +1,9 @@
 ﻿namespace Beutl.Graphics.Effects;
 
-internal interface IFEItem_Custom
+internal interface IFEItem_Custom : IFEItem
 {
+    bool IFEItem.KeepsPlacement => Options.HasFlag(CustomFilterEffectOptions.KeepsPlacement);
+
     CustomFilterEffectOptions Options { get; }
 
     void Accepts(CustomFilterEffectContext context);

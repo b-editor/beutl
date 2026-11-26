@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.NodeGraph.Nodes;
 
@@ -36,6 +37,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             if (inputHasMultipleConsumers)
                 binding.PrepareInputForFanOut();
             _compositionContext.Time = graphResource.LastTime;
+            _compositionContext.DisplayTime = graphResource.EvaluationContext?.DisplayTime;
             _compositionContext.DisableResourceShare = graphResource.DisableResourceShare;
             _compositionContext.Conditions = (graphResource.EvaluationContext?.Conditions ?? CompositionConditions.Default) with
             {
@@ -47,6 +49,11 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
 
             var outputRenderNodes = new List<RenderNode>();
             graphResource.Snapshot.CollectOutputRenderNodes(model, outputRenderNodes);
+            if (context is { Intent: RenderIntent.Preview, Purpose: RenderRequestPurpose.Frame }
+                && graphResource.GetOriginal() is { } graph)
+            {
+                EffectEditingPlacement.ObserveGraphOutputs(graph, outputRenderNodes);
+            }
             if (outputRenderNodes.Count == 0)
             {
                 context.PublishRange(binding.RecordSubtreeForPublication(inputFacade));

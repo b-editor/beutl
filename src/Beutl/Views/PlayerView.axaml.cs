@@ -15,9 +15,11 @@ using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
@@ -510,7 +512,10 @@ public partial class PlayerView : UserControl
         }
 
         transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, viewport);
-        transformHandlesOverlay.UpdateEditingHandles(provider ?? drawable as Beutl.Engine.IEditingHandleProvider, time);
+        BtlMatrix? downstream = provider is FilterEffect effect and IEditingStageProvider
+            ? vm.GetEditingGraphTransform(effect, time)
+            : BtlMatrix.Identity;
+        transformHandlesOverlay.UpdateEditingHandles(provider ?? drawable as IEditingHandleProvider, time, downstream);
     }
 
     // The render thread's answer, or fallback when it does not come within RenderThreadWait.
@@ -578,7 +583,7 @@ public partial class PlayerView : UserControl
 
         // The box is what the drawable draws (glyph extents, effects, offset geometry), measured inside its
         // transform: it turns with the drawable, and its axis-aligned extent is the boundary drawn in the frame.
-        if (renderer.GetLocalBoundary(target) is { } drawn)
+        if (renderer.GetLocalBoundary(target, allowDirectContent: allowLayoutFallback && target is NodeGraphDrawable) is { } drawn)
         {
             return (drawn.Bounds, drawn.Transform, pivot);
         }

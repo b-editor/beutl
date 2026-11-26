@@ -352,6 +352,7 @@ public sealed class GraphSnapshot : IDisposable
         foreach (var ctx in _contexts)
         {
             ctx.Time = context.Time;
+            ctx.DisplayTime = context.DisplayTime;
             ctx.DisableResourceShare = context.DisableResourceShare;
             ctx.Conditions = context.Conditions;
             ctx.LoopStep = (context as GraphCompositionContext)?.LoopStep;
