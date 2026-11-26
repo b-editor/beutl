@@ -43,6 +43,7 @@
 
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="ModelContextProtocol.Extensions.Skills" />
     <PackageReference Include="Tomlyn" />
   </ItemGroup>
 

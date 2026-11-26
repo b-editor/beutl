@@ -16,6 +16,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets;
 using ModelContextProtocol.Client;
+using ModelContextProtocol.Extensions.Skills;
 using ModelContextProtocol.Protocol;
 using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
@@ -672,6 +673,33 @@ public sealed class AgentHostEndpointTests
         finally
         {
             await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Endpoint_serves_skills_without_an_open_scene()
+    {
+        string directory = CreateDirectory("agent-host-skills-");
+        try
+        {
+            var editor = new EditorService(new ExtensionProvider(TestShell.Configuration.ExtensionConfig),
+                TestShell.MainViewModel.AppServices);
+            await using var endpoint = CreateHost(editor, directory, "test-token");
+            await endpoint.StartAsync();
+            await using McpClient client = await ConnectAsync(endpoint);
+
+#pragma warning disable MCPEXP005 // The SDK marks its Skills extension experimental.
+            Assert.That(client.ServerCapabilities.SupportsSkills(), Is.True);
+            var skills = await client.ListSkillsAsync();
+            var skill = skills.Single(entry => entry.Name == "beutl-agent-source-grounding");
+            var result = await client.ReadSkillResourceAsync(skill, skill.Uri);
+#pragma warning restore MCPEXP005
+            Assert.That(result.Contents.OfType<TextResourceContents>().Single().Text,
+                Does.Contain("# Beutl Runtime Grounding"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
         }
     }
 
