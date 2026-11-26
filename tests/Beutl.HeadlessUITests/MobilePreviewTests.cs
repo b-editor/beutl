@@ -23,6 +23,7 @@ using Beutl.PreviewStreaming;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -582,11 +583,11 @@ public sealed class MobilePreviewTests
                     .Single(button => AutomationProperties.GetName(button) == Beutl.Language.Strings.PresentationWindow);
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 HeadlessTestHelpers.Render();
-                var popup = owner.OpenedPopups.Single(popup => popup.Child is MenuFlyoutPresenter);
+                var popup = owner.OpenedPopups.Single(popup => popup.Child is FAMenuFlyoutPresenter);
                 HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "projection-menu");
-                var item = ((MenuFlyoutPresenter)popup.Child!).Items.OfType<MenuItem>()
-                    .Single(item => Equals(item.Header, Beutl.Language.Strings.MobilePreview));
-                item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                var item = ((FAMenuFlyoutPresenter)popup.Child!).Items.OfType<FAMenuFlyoutItem>()
+                    .Single(item => item.Text == Beutl.Language.Strings.MobilePreview);
+                item.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
                 popup.IsOpen = false;
             }
             OpenMobile();
