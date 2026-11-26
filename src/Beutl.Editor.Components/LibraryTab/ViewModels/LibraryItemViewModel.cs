@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Avalonia.Input;
 
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.Services;
 

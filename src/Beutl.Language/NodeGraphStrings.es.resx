@@ -21,8 +21,17 @@
   <data name="EffectInput" xml:space="preserve">
     <value>Entrada de efecto</value>
   </data>
-  <data name="Shapes" xml:space="preserve">
-    <value>Formas</value>
+  <data name="InputAndOutput" xml:space="preserve">
+    <value>Entrada y salida</value>
+  </data>
+  <data name="Drawing" xml:space="preserve">
+    <value>Dibujo</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
+    <value>Geometría</value>
+  </data>
+  <data name="OtherEffects" xml:space="preserve">
+    <value>Otros</value>
   </data>
   <data name="Groups" xml:space="preserve">
     <value>Grupos</value>
@@ -515,6 +524,15 @@
   </data>
   <data name="ToolsAndValues" xml:space="preserve">
     <value>Herramientas y valores</value>
+  </data>
+  <data name="Math" xml:space="preserve">
+    <value>Matemáticas</value>
+  </data>
+  <data name="Values" xml:space="preserve">
+    <value>Valores</value>
+  </data>
+  <data name="Debugging" xml:space="preserve">
+    <value>Depuración</value>
   </data>
   <data name="ConditionalSwitch" xml:space="preserve">
     <value>Selector condicional</value>

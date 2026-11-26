@@ -167,6 +167,30 @@ public class CompatibleNodeFinderTests
     }
 
     [Test]
+    public void Find_EffectInputIsOnlySuggestedWhereTheEffectBindsIt()
+    {
+        GraphModel effect = new NodeGraphFilterEffect().Model.Value!;
+        GraphModel drawable = new NodeGraphDrawable().Model.Value!;
+        var group = new GroupNode();
+        effect.Nodes.Add(group);
+        var item = Item<FilterEffectInputNode>("Effect input");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(IsOffered(effect), Is.True);
+            Assert.That(IsOffered(drawable), Is.False);
+            Assert.That(IsOffered(group.Group.Value), Is.False);
+        }
+
+        bool IsOffered(GraphModel graph)
+        {
+            var measure = new MeasureNode();
+            graph.Nodes.Add(measure);
+            return CompatibleNodeFinder.Find(graph, measure.Input, [item]).ContainsKey(item);
+        }
+    }
+
+    [Test]
     public void Find_CachesPortMetadataAndOnlyCreatesTheSelectedNodeAgain()
     {
         CountingNode.Constructions = 0;
