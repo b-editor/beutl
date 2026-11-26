@@ -57,35 +57,27 @@ internal sealed partial class ProjectAssetService
     private async Task<IReadOnlyCollection<CoreObject>> CollectAsync(Project project, ProjectAssetPaths paths, List<ProjectAssetItem> items,
         Dictionary<string, List<Relink>> sources, CancellationToken token)
     {
-        var temporary = new List<(string Path, ProjectAssetFile File)>();
-        var published = new List<string>();
-        var createdDirectories = new Stack<string>();
+        ProjectAssetCollection? copies = null;
         bool preserveCopies = false;
         try
         {
             await Task.Run(async () =>
             {
+                copies = new ProjectAssetCollection(paths.Root);
                 foreach (ProjectAssetFile file in items.SelectMany(item => item.Files))
                 {
                     token.ThrowIfCancellationRequested();
                     RequireUnchanged(file);
                     paths.RequireWritable(file.Destination);
-                    CreateParentDirectories(file.Destination, createdDirectories);
-                    string stagingPath = $"{file.Destination}.{Guid.NewGuid():N}.tmp";
-                    temporary.Add((stagingPath, file));
-                    await ResourceRelocationService.CopyFileAsync(file.Path, stagingPath, token, flushToDisk: true);
+                    await copies.StageAsync(file, token);
                     RequireUnchanged(file);
-                    if (new FileInfo(stagingPath).Length != file.Stamp!.Value.Length)
-                        throw new IOException($"The copied file has changed length: {file.Path}");
                 }
 
-                foreach ((string stagingPath, ProjectAssetFile file) in temporary)
+                foreach (ProjectAssetCollection.StagedFile staged in copies.Files)
                 {
                     token.ThrowIfCancellationRequested();
-                    paths.RequireWritable(file.Destination);
-                    RequireUnchanged(file);
-                    File.Move(stagingPath, file.Destination);
-                    published.Add(file.Destination);
+                    RequireUnchanged(staged.File);
+                    copies.Publish(staged);
                 }
             }, token);
 
@@ -167,15 +159,7 @@ internal sealed partial class ProjectAssetService
         }
         finally
         {
-            await Task.Run(() =>
-            {
-                foreach ((string path, _) in temporary) TryDeleteFile(paths, path);
-                if (!preserveCopies)
-                {
-                    foreach (string path in published) TryDeleteFile(paths, path);
-                    RemoveEmptyDirectories(paths, createdDirectories);
-                }
-            });
+            if (copies != null) await Task.Run(() => copies.Cleanup(preserveCopies));
         }
     }
 
@@ -294,18 +278,6 @@ internal sealed partial class ProjectAssetService
             {
                 s_logger.LogDebug(ex, "Could not remove the empty asset directory {Path}.", directory);
             }
-        }
-    }
-
-    private static void TryDeleteFile(ProjectAssetPaths paths, string path)
-    {
-        try
-        {
-            if (paths.IsWritable(path)) File.Delete(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            s_logger.LogWarning(ex, "Could not remove the uncommitted asset at {Path}.", path);
         }
     }
 }
