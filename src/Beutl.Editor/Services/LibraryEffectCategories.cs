@@ -1,6 +1,7 @@
-﻿using Beutl.Services;
+﻿using Beutl.Language;
+using Beutl.Services;
 
-namespace Beutl.Editor.Components.Helpers;
+namespace Beutl.Editor.Services;
 
 internal readonly record struct LibraryCategoryKey(string? Id, string? DisplayName)
 {

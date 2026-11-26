@@ -61,7 +61,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         LibraryItems = new CoreList<LibraryItemViewModel>(libItems.Count);
         LibraryItems.AddRange(libItems.Select(x => LibraryItemViewModel.CreateFromLibraryItem(x)));
 
-        IList<GraphNodeRegistry.BaseRegistryItem> nodes = GraphNodeRegistry.GetRegistered();
+        IList<GraphNodeRegistry.BaseRegistryItem> nodes = NodeMenuCatalog.GetItems(_libraryService);
         Nodes = new CoreList<LibraryItemViewModel>(nodes.Count);
         Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(x)));
 
@@ -202,7 +202,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             LibraryItemViewModel.CreateFromLibraryItem,
             item => (item as GroupLibraryItem)?.Items);
         // The registry hands out copies of its groups, so match them by ID or display name.
-        SyncItems<GraphNodeRegistry.BaseRegistryItem>(Nodes, [.. GraphNodeRegistry.GetRegistered()], null,
+        SyncItems<GraphNodeRegistry.BaseRegistryItem>(Nodes, [.. NodeMenuCatalog.GetItems(_libraryService)], null,
             item => item is GraphNodeRegistry.GroupableRegistryItem group
                 ? LibraryCategoryKey.Create(group.Id, group.DisplayName)
                 : item,

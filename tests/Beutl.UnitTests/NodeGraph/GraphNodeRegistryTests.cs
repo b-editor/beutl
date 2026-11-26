@@ -1,9 +1,11 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Editor.Services;
+using Beutl.Graphics.Effects;
 using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Utilities;
+using Beutl.Services;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -64,6 +66,73 @@ public class GraphNodeRegistryTests
                 Is.EqualTo(NodeGraphStrings.TranslationMatrix));
         });
     }
+
+    [Test]
+    public void RegisterAll_GroupsTheFormerRootNodesAndTools()
+    {
+        var groups = GraphNodeRegistry.GetRegistered().OfType<GraphNodeRegistry.GroupableRegistryItem>().ToArray();
+        var inputAndOutput = groups.Single(group => group.DisplayName == NodeGraphStrings.InputAndOutput);
+        var drawing = groups.Single(group => group.DisplayName == NodeGraphStrings.Drawing);
+        var geometry = groups.Single(group => group.DisplayName == NodeGraphStrings.Geometry);
+        var tools = groups.Single(group => group.DisplayName == NodeGraphStrings.ToolsAndValues);
+        var matrices = tools.Items.OfType<GraphNodeRegistry.GroupableRegistryItem>()
+            .Single(group => group.DisplayName == NodeGraphStrings.TransformMatrices);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(NodeTypes(inputAndOutput), Is.EqualTo(new[]
+                { typeof(LayerInputNode), typeof(OutputNode), typeof(FilterEffectInputNode) }));
+            Assert.That(NodeTypes(drawing), Is.EqualTo(new[]
+                { typeof(TextNode), typeof(ImageSourceNode), typeof(VideoSourceNode), typeof(SceneNode) }));
+            Assert.That(NodeTypes(geometry), Is.EqualTo(new[]
+                { typeof(GeometryShapeNode), typeof(RectGeometryNode), typeof(EllipseGeometryNode), typeof(RoundedRectGeometryNode) }));
+            Assert.That(tools.Items.Select(item => item.DisplayName), Is.EqualTo(new[]
+                { NodeGraphStrings.Math, NodeGraphStrings.TransformMatrices, NodeGraphStrings.Values, NodeGraphStrings.Debugging }));
+            Assert.That(NodeTypes(matrices), Does.Contain(typeof(TransformNode)));
+        }
+    }
+
+    [Test]
+    public void NodeMenu_UsesLibraryCategoryIdsAndPutsUncategorizedEffectsLast()
+    {
+        using var library = new LibraryService();
+        library.RegisterGroup("Effects", null, KnownLibraryGroupIds.FilterEffect, root => root
+            .AddGroup("Same name", null, KnownLibraryGroupIds.FilterEffectBlurAndSharpen, group => group
+                .Add<Blur>(KnownLibraryItemFormats.FilterEffect, "Blur in library"))
+            .AddGroup("Same name", null, KnownLibraryGroupIds.FilterEffectColorCorrection, group => group
+                .Add<Brightness>(KnownLibraryItemFormats.FilterEffect, "Brightness in library"))
+            .Add<Sharpen>(KnownLibraryItemFormats.FilterEffect, "Uncategorized in library"));
+        GraphNodeRegistry.GroupableRegistryItem[] before = Sections();
+
+        library.RegisterGroup("Translated effects", null, KnownLibraryGroupIds.FilterEffect, root => root
+            .AddGroup("Lighting", null, KnownLibraryGroupIds.FilterEffectLightAndShadow, group => group
+                .Add<Bloom>(KnownLibraryItemFormats.FilterEffect, "Late library entry")));
+        GraphNodeRegistry.GroupableRegistryItem[] after = Sections();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(before.Select(section => section.Id), Is.EqualTo(new[]
+            {
+                KnownLibraryGroupIds.FilterEffectBlurAndSharpen,
+                KnownLibraryGroupIds.FilterEffectColorCorrection,
+                NodesRegistrar.FilterEffectGroupId + ".Other"
+            }));
+            Assert.That(NodeTypes(before[0]), Is.EqualTo(new[] { typeof(FilterEffectNode<Blur>) }));
+            Assert.That(NodeTypes(before[1]), Is.EqualTo(new[] { typeof(FilterEffectNode<Brightness>) }));
+            Assert.That(NodeTypes(before[^1]), Does.Contain(typeof(FilterEffectNode<Sharpen>)).And.Contain(typeof(FilterEffectNode<Bloom>)));
+            Assert.That(after[2].Id, Is.EqualTo(KnownLibraryGroupIds.FilterEffectLightAndShadow));
+            Assert.That(NodeTypes(after[2]), Is.EqualTo(new[] { typeof(FilterEffectNode<Bloom>) }));
+            Assert.That(after[^1].DisplayName, Is.EqualTo(NodeGraphStrings.OtherEffects));
+            Assert.That(NodeTypes(after[^1]), Does.Not.Contain(typeof(FilterEffectNode<Bloom>)));
+        }
+
+        GraphNodeRegistry.GroupableRegistryItem[] Sections() => NodeMenuCatalog.GetItems(library)
+            .OfType<GraphNodeRegistry.GroupableRegistryItem>().Single(group => group.Id == NodesRegistrar.FilterEffectGroupId)
+            .Items.OfType<GraphNodeRegistry.GroupableRegistryItem>().ToArray();
+    }
+
+    private static IEnumerable<Type> NodeTypes(GraphNodeRegistry.GroupableRegistryItem group)
+        => group.Items.OfType<GraphNodeRegistry.RegistryItem>().Select(item => item.Type);
 
     [Test]
     public void GetRegistered_returns_a_copy_that_later_registrations_leave_unchanged()

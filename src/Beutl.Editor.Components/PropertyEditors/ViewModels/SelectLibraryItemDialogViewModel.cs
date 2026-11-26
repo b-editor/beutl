@@ -7,6 +7,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryThumbnails;
+using Beutl.Editor.Services;
 using Beutl.Editor.Services.LibraryThumbnails;
 using Beutl.Media.Decoding;
 using Beutl.Services;

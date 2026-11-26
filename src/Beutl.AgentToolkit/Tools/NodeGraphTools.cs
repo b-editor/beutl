@@ -9,6 +9,7 @@ using Beutl.Editor.Services;
 using Beutl.Media.Decoding;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
@@ -58,8 +59,13 @@ public sealed record EditNodeGraphResponse(
 
 // Builds and edits node graphs, the declarative way to compose GPU shader passes and other node-based content.
 [McpServerToolType]
-public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry? decoders = null) : ToolBase
+public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry? decoders, LibraryService? library) : ToolBase
 {
+    public NodeGraphTools(AgentSessionManager sessions, DecoderRegistry? decoders = null)
+        : this(sessions, decoders, null)
+    {
+    }
+
     // What undo and read_history call one edit_node_graph call.
     public const string HistoryEntryName = "Agent node graph edit";
 
@@ -80,8 +86,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
     {
         return Execute(() =>
         {
-            NodeTypeCatalog.EnsureBuiltInNodesRegistered();
-            IReadOnlyList<NodeTypeEntry> entries = NodeTypeCatalog.GetEntries();
+            IReadOnlyList<NodeTypeEntry> entries = NodeTypeCatalog.GetEntries(library);
             string[] categories = entries.Select(entry => entry.Category).Distinct(StringComparer.Ordinal).ToArray();
             IEnumerable<NodeTypeEntry> selected = entries;
             List<string>? unmatched = null;
@@ -97,7 +102,7 @@ public sealed class NodeGraphTools(AgentSessionManager sessions, DecoderRegistry
                 unmatched = [];
                 foreach (string token in type.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
-                    if (NodeTypeCatalog.Resolve(token, out _) is { } entry)
+                    if (NodeTypeCatalog.Resolve(token, out _, entries) is { } entry)
                     {
                         resolved.Add(entry);
                     }

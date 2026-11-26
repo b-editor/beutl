@@ -1,6 +1,6 @@
 ﻿using Beutl.Controls;
-using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryThumbnails;
+using Beutl.Editor.Services;
 using Beutl.Services;
 
 namespace Beutl.Editor.Components.LibraryTab.ViewModels;

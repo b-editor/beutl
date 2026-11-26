@@ -33,7 +33,7 @@
                             EnableDoubleClickZoom="False"
                             ZoomSpeed="1.2">
                 <paz:ZoomBorder.ContextFlyout>
-                    <ui:FAMenuFlyout Opened="CanvasMenuOpened">
+                    <ui:FAMenuFlyout Opened="CanvasMenuOpened" Opening="CanvasMenuOpening">
                         <ui:FAMenuFlyoutSubItem x:Name="addNode"
                                                 IsEnabled="{Binding CanEdit.Value}"
                                                 Text="{x:Static lang:Strings.AddNode}" />

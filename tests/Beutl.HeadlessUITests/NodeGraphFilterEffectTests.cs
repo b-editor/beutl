@@ -19,6 +19,8 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Group;
+using Beutl.NodeGraph.Nodes.Shaders;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -33,40 +35,138 @@ namespace Beutl.HeadlessUITests;
 public sealed class NodeGraphFilterEffectTests
 {
     [AvaloniaTest]
-    public void FilterEffectMenu_ListsTheAddedNodes()
+    public void FilterEffectMenu_FollowsLibraryCategories()
     {
-        using var model = new NodeGraphViewModel(new GraphModel(), NodeGraphTestContext.Create().Object);
+        using var model = new NodeGraphViewModel(new NodeGraphFilterEffect().Model.Value!, NodeGraphTestContext.Create().Object);
         var view = new NodeGraphView { DataContext = model };
-        // Leave enough room for the entire submenu in the headless capture.
-        var window = new Window { Content = view, Width = 820, Height = 2080 };
+        var window = new Window { Content = view, Width = 820, Height = 650 };
         bool previousOverlayPopups = TestAppBuilder.HeadlessOptions.OverlayPopups;
         try
         {
             TestAppBuilder.HeadlessOptions.OverlayPopups = true;
             window.Show();
-            HeadlessTestHelpers.Render(3);
-            var zoom = view.FindControl<ZoomBorder>("zoomBorder")!;
-            HeadlessTestHelpers.Click(zoom, new AvaPoint(32, 32), MouseButton.Right, move: true, ticks: 3);
-            var menu = (FAMenuFlyout)zoom.ContextFlyout!;
-            Assert.That(menu.IsOpen, Is.True);
-            var addNode = menu.Items.OfType<FAMenuFlyoutSubItem>().Single(item => item.Name == "addNode");
+            (FAMenuFlyout menu, FAMenuFlyoutSubItem addNode) = OpenCanvasMenu(view);
             OpenSubmenu(addNode);
-            var filterEffects = addNode.Items.OfType<FAMenuFlyoutSubItem>()
-                .Single(item => item.Text == GraphicsStrings.FilterEffect);
+            HeadlessCapture.SaveIfRequested(addNode, nameof(NodeGraphFilterEffectTests), "add-node-menu");
+            var filterEffects = Submenu(addNode, GraphicsStrings.FilterEffect);
             OpenSubmenu(filterEffects);
 
-            FAMenuFlyoutItem bloom = AssertMenuItem<FilterEffectNode<Bloom>>(filterEffects, GraphicsStrings.Bloom);
-            AssertMenuItem<FilterEffectNode<LightRays>>(filterEffects, GraphicsStrings.LightRays);
-            AssertMenuItem<FilterEffectNode<WaveRefraction>>(filterEffects, GraphicsStrings.WaveRefraction);
-            AssertMenuItem<FilterEffectNode<Puppet>>(filterEffects, GraphicsStrings.Puppet);
-            AssertMenuItem<FilterEffectNode<DelayAnimationEffect>>(filterEffects, GraphicsStrings.DelayAnimationEffect);
-            HeadlessCapture.SaveIfRequested(bloom, nameof(NodeGraphFilterEffectTests), "filter-effect-menu");
+            Assert.That(filterEffects.Items, Has.All.InstanceOf<FAMenuFlyoutSubItem>());
+            Assert.That(filterEffects.Items.OfType<FAMenuFlyoutSubItem>().Select(item => item.Text), Is.EqualTo(new[]
+            {
+                GraphicsStrings.FilterEffectCategory_BlurAndSharpen,
+                GraphicsStrings.FilterEffectCategory_ColorCorrection,
+                GraphicsStrings.FilterEffectCategory_LightAndShadow,
+                GraphicsStrings.FilterEffectCategory_MaskingAndKeying,
+                GraphicsStrings.FilterEffectCategory_TransformAndDistort,
+                GraphicsStrings.FilterEffectCategory_TimeAndAnimation,
+                GraphicsStrings.FilterEffectCategory_Stylize,
+                GraphicsStrings.FilterEffectCategory_Compositing,
+                GraphicsStrings.FilterEffectCategory_ScriptAndNodes
+            }));
+
+            var light = Submenu(filterEffects, GraphicsStrings.FilterEffectCategory_LightAndShadow);
+            OpenSubmenu(light);
+            AssertMenuItem<FilterEffectNode<Bloom>>(light, GraphicsStrings.Bloom);
+            AssertMenuItem<FilterEffectNode<LightRays>>(light, GraphicsStrings.LightRays);
+            HeadlessCapture.SaveIfRequested(light, nameof(NodeGraphFilterEffectTests), "filter-effect-menu");
+
+            var transform = Submenu(filterEffects, GraphicsStrings.FilterEffectCategory_TransformAndDistort);
+            OpenSubmenu(transform);
+            AssertMenuItem<FilterEffectNode<WaveRefraction>>(transform, GraphicsStrings.WaveRefraction);
+            AssertMenuItem<FilterEffectNode<Puppet>>(transform, GraphicsStrings.Puppet);
+            var time = Submenu(filterEffects, GraphicsStrings.FilterEffectCategory_TimeAndAnimation);
+            OpenSubmenu(time);
+            AssertMenuItem<FilterEffectNode<DelayAnimationEffect>>(time, GraphicsStrings.DelayAnimationEffect);
+            var scripts = Submenu(filterEffects, GraphicsStrings.FilterEffectCategory_ScriptAndNodes);
+            OpenSubmenu(scripts);
+            AssertMenuItem<FilterEffectNode<GLSLScriptEffect>>(scripts, GraphicsStrings.GLSLScriptEffect);
             menu.Hide();
         }
         finally
         {
             window.Close();
             TestAppBuilder.HeadlessOptions.OverlayPopups = previousOverlayPopups;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task AddNodeMenu_RefreshesWhileOpenWhenNodesRegisterOrUnloadOffTheUiThread()
+    {
+        using var model = new NodeGraphViewModel(new NodeGraphDrawable().Model.Value!, NodeGraphTestContext.Create().Object);
+        var view = new NodeGraphView { DataContext = model };
+        var window = new Window { Content = view, Width = 820, Height = 650 };
+        const string title = "Late node";
+
+        try
+        {
+            window.Show();
+            (FAMenuFlyout menu, FAMenuFlyoutSubItem addNode) = OpenCanvasMenu(view);
+            OpenSubmenu(addNode);
+            Assert.That(TypesIn(addNode), Does.Not.Contain(typeof(LateCanvasMenuNode)));
+
+            await Task.Run(() => GraphNodeRegistry.RegisterNode<LateCanvasMenuNode>(title));
+            HeadlessTestHelpers.Render(3);
+            Assert.That(menu.IsOpen, Is.True);
+            AssertMenuItem<LateCanvasMenuNode>(addNode, title);
+
+            await Task.Run(() => TypeUnloadNotifier.NotifyUnloading([typeof(LateCanvasMenuNode)]));
+            HeadlessTestHelpers.Render(3);
+            Assert.That(menu.IsOpen, Is.True);
+            Assert.That(TypesIn(addNode), Does.Not.Contain(typeof(LateCanvasMenuNode)));
+            menu.Hide();
+        }
+        finally
+        {
+            window.Close();
+            TypeUnloadNotifier.NotifyUnloading([typeof(LateCanvasMenuNode)]);
+        }
+    }
+
+    [AvaloniaTest]
+    public void AddNodeMenu_UsesTheGraphOwnerAndGroupBoundaries()
+    {
+        var editor = NodeGraphTestContext.Create(player: true).Object;
+        GraphModel effect = new NodeGraphFilterEffect().Model.Value!;
+        var group = new GroupNode();
+        effect.Nodes.Add(group);
+        var loop = new ShaderRepeatNode();
+        group.Group.Value.Nodes.Add(loop);
+        using var effectView = new NodeGraphViewModel(effect, editor);
+        using var groupView = new NodeGraphViewModel(group.Group.Value, editor);
+        using var loopView = new NodeGraphViewModel(loop.Group.Value, editor);
+        using var drawableView = new NodeGraphViewModel(new NodeGraphDrawable().Model.Value!, editor);
+        var view = new NodeGraphView();
+        var window = new Window { Content = view, Width = 820, Height = 650 };
+        try
+        {
+            window.Show();
+            Type[] effectTypes = ShowFor(effectView);
+            Type[] groupTypes = ShowFor(groupView);
+            Type[] loopTypes = ShowFor(loopView);
+            Type[] drawableTypes = ShowFor(drawableView);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(effectTypes, Does.Contain(typeof(FilterEffectInputNode)).And.Contain(typeof(OutputNode)));
+                Assert.That(drawableTypes, Does.Not.Contain(typeof(FilterEffectInputNode)).And.Contain(typeof(OutputNode)));
+                Assert.That(groupTypes, Does.Contain(typeof(GroupInput)).And.Contain(typeof(GroupOutput)));
+                Assert.That(groupTypes, Does.Not.Contain(typeof(FilterEffectInputNode)).And.Not.Contain(typeof(OutputNode)));
+                Assert.That(groupTypes, Does.Not.Contain(typeof(ShaderLoopInput)).And.Not.Contain(typeof(ShaderLoopInfoNode)));
+                Assert.That(loopTypes, Does.Contain(typeof(ShaderLoopInfoNode)).And.Not.Contain(typeof(ShaderLoopInput)));
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        Type[] ShowFor(NodeGraphViewModel model)
+        {
+            view.DataContext = model;
+            (FAMenuFlyout menu, FAMenuFlyoutSubItem addNode) = OpenCanvasMenu(view, new AvaPoint(620, 400));
+            Type[] types = TypesIn(addNode).ToArray();
+            menu.Hide();
+            return types;
         }
     }
 
@@ -210,6 +310,34 @@ public sealed class NodeGraphFilterEffectTests
         Assert.That(delay.Object.Value.Effect.Value, Is.TypeOf<OpacityEffect>());
     }
 
+    private static (FAMenuFlyout Menu, FAMenuFlyoutSubItem AddNode) OpenCanvasMenu(NodeGraphView view, AvaPoint? position = null)
+    {
+        HeadlessTestHelpers.Render(3);
+        var zoom = view.FindControl<ZoomBorder>("zoomBorder")!;
+        HeadlessTestHelpers.Click(zoom, position ?? new AvaPoint(32, 32), MouseButton.Right, move: true, ticks: 3);
+        var menu = (FAMenuFlyout)zoom.ContextFlyout!;
+        Assert.That(menu.IsOpen, Is.True);
+        return (menu, menu.Items.OfType<FAMenuFlyoutSubItem>().Single(item => item.Name == "addNode"));
+    }
+
+    private static FAMenuFlyoutSubItem Submenu(FAMenuFlyoutSubItem parent, string title)
+        => parent.Items.OfType<FAMenuFlyoutSubItem>().Single(item => item.Text == title);
+
+    private static IEnumerable<Type> TypesIn(FAMenuFlyoutSubItem menu)
+    {
+        foreach (object item in menu.Items)
+        {
+            if (item is FAMenuFlyoutSubItem submenu)
+            {
+                foreach (Type type in TypesIn(submenu)) yield return type;
+            }
+            else if (item is FAMenuFlyoutItem { DataContext: GraphNodeRegistry.RegistryItem registration })
+            {
+                yield return registration.Type;
+            }
+        }
+    }
+
     private static void OpenSubmenu(FAMenuFlyoutSubItem submenu)
     {
         Assert.That(submenu.Focus(), Is.True);
@@ -232,3 +360,5 @@ public sealed class NodeGraphFilterEffectTests
         return item;
     }
 }
+
+internal sealed partial class LateCanvasMenuNode : GraphNode;
