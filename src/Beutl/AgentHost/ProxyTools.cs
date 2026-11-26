@@ -109,18 +109,21 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
             ProxyPreset? quality = ReadPreset(preset);
             IEditingSession session = sessions.RequireSession();
             var (store, queue) = ReadServices(session);
-            var sources = ReadSources(session, elementIds, mediaPaths, includeAll: false)
+            var sources = ReadSources(session, elementIds, mediaPaths: null, includeAll: false)
                 .ToDictionary(source => (source.Key, source.Deinterlace));
-            var keys = sources.Keys.ToHashSet();
-            var pending = queue.Pending().Where(job => Matches(job.Source, job.Preset, job.Deinterlace, keys, quality)).ToArray();
+            var explicitSources = (mediaPaths ?? [])
+                .Select(path => ResolveSource((MissingMediaTools.ReadAbsolutePath(path, nameof(mediaPaths)), default)))
+                .DistinctBy(source => source.Key).ToDictionary(source => source.Key, StringComparer.Ordinal);
+            var pending = queue.Pending().Where(job => MatchesRemoval(job.Source, job.Preset, job.Deinterlace)).ToArray();
             await CancelJobsAsync(queue, pending, cancellationToken).ConfigureAwait(false);
 
             var removed = new List<ProxyInfo>();
             var failed = new List<ProxyInfo>();
-            foreach (ProxyEntry entry in store.Enumerate().Where(entry => Matches(entry.Source, entry.Preset, entry.Deinterlace, keys, quality)))
+            foreach (ProxyEntry entry in store.Enumerate().Where(entry => MatchesRemoval(entry.Source, entry.Preset, entry.Deinterlace)))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Source source = sources[(entry.Source.AbsolutePath, entry.Deinterlace)];
+                Source source = sources.GetValueOrDefault((entry.Source.AbsolutePath, entry.Deinterlace))
+                    ?? (explicitSources[entry.Source.AbsolutePath] with { Deinterlace = entry.Deinterlace });
                 ProxyInfo info = DescribeProxy(source, entry.Preset, [entry]);
                 if (store.Delete(entry.Source, entry.Preset, entry.Deinterlace)) removed.Add(info);
                 else if (store.TryGet(entry.Source, entry.Preset, entry.Deinterlace) is not null) failed.Add(info);
@@ -128,6 +131,11 @@ internal sealed class ProxyTools(AgentSessionManager sessions, EditorService edi
 
             return new RemoveResponse(removed, failed,
                 pending.Where(job => job.Status == ProxyJobStatus.Canceled).Select(job => job.JobId).ToArray());
+
+            // Paths select cached and queued variants even after the scene stops referencing the file.
+            bool MatchesRemoval(ProxyFingerprint source, ProxyPreset entryPreset, VideoDeinterlaceOptions deinterlace)
+                => (quality is null || quality == entryPreset)
+                    && (explicitSources.ContainsKey(source.AbsolutePath) || sources.ContainsKey((source.AbsolutePath, deinterlace)));
         });
 
     private (IProxyStore Store, IProxyJobQueue Queue) ReadServices(IEditingSession session)

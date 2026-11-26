@@ -325,7 +325,7 @@ public sealed class MissingMediaViewModel : IToolContext
             _token.ThrowIfCancellationRequested();
 
             var repair = MissingMediaRepair.Create(_scene, history, _editor.GetRequiredService<FontManager>(),
-                _host.ReloadBundledFonts, _host.GetMediaReferencesForRepair(), validated);
+                _host.ReloadBundledFonts, _host.GetMediaReferencesForRepair(), validated, includeRecoveryProtected: true);
             if (repair is null || repair.Applied.Length == 0)
             {
                 await RefreshRowsAsync();

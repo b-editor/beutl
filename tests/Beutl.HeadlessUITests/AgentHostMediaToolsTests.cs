@@ -146,6 +146,46 @@ public sealed class AgentHostMediaToolsTests
     }
 
     [AvaloniaTest]
+    public async Task Removing_by_path_covers_cached_and_queued_variants_of_an_unreferenced_video()
+    {
+        var factory = new GeneratorFactory((_, _) => new DelegateGenerator(async job =>
+            await Task.Delay(Timeout.InfiniteTimeSpan, job.CancellationToken)));
+        await WithProxyProjectAsync(factory, async (client, proxy, scene, _, path) =>
+        {
+            string unreferenced = Path.Combine(Path.GetDirectoryName(path)!, "unreferenced.mp4");
+            File.Copy(path, unreferenced);
+            var fingerprint = ProxyFingerprint.FromFile(unreferenced);
+            var cachedVariant = new VideoDeinterlaceOptions(DeinterlaceMode.On, DeinterlaceFieldOrder.Auto,
+                DeinterlaceMethod.Bwdif, DeinterlaceFrameRateMode.Field);
+            var queuedVariant = cachedVariant with { FieldOrder = DeinterlaceFieldOrder.TopFieldFirst };
+            foreach (ProxyPreset preset in new[] { ProxyPreset.Quarter, ProxyPreset.Half })
+            {
+                string relative = $"{preset}.mp4";
+                File.Copy(path, Path.Combine(proxy.Store.StoreRootPath, relative));
+                proxy.Store.Register(new ProxyEntry(fingerprint, preset, ProxyState.Ready, relative,
+                    fingerprint.FileSizeBytes, new PixelSize(96, 64), new PixelSize(24, 16), DateTime.UtcNow, DateTime.UtcNow, null)
+                {
+                    Deinterlace = cachedVariant
+                });
+            }
+
+            ProxyJob job = await proxy.Queue.EnqueueAsync(fingerprint, ProxyPreset.Quarter, deinterlace: queuedVariant);
+            var arguments = Target(scene);
+            arguments["mediaPaths"] = new[] { unreferenced };
+            arguments["preset"] = "quarter";
+
+            var result = Success(await client.CallToolAsync("remove_proxies", arguments));
+            Assert.Multiple(() =>
+            {
+                Assert.That(result["removed"]!.AsArray(), Has.Count.EqualTo(1));
+                Assert.That(result["canceledJobIds"]!.AsArray().Single()!.GetValue<string>(), Is.EqualTo(job.JobId.ToString()));
+                Assert.That(proxy.Store.TryGet(fingerprint, ProxyPreset.Quarter, cachedVariant), Is.Null);
+                Assert.That(proxy.Store.TryGet(fingerprint, ProxyPreset.Half, cachedVariant), Is.Not.Null);
+            });
+        });
+    }
+
+    [AvaloniaTest]
     public async Task A_short_video_generates_a_ready_proxy_and_the_job_remains_pollable()
     {
         if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))

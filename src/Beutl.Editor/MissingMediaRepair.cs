@@ -47,11 +47,12 @@ internal sealed class MissingMediaRepair(
     }
 
     public static MissingMediaRepair? Create(Scene scene, HistoryManager history, FontManager fonts, Action reloadFonts,
-        IReadOnlyList<MediaReference> references, IReadOnlyList<Item> items)
+        IReadOnlyList<MediaReference> references, IReadOnlyList<Item> items, bool includeRecoveryProtected = false)
     {
         var current = references.Where(reference => reference.Value is IFileSource)
             .ToLookup(reference => (MissingMediaService.GetKind(reference.Value), ((IFileSource)reference.Value).Uri));
-        var protectedSources = references.Where(reference => reference.Element?.IsRecoveryProtected == true)
+        // The tab can repair a recovered source for the current session. MCP reports repairs that can be saved.
+        var protectedSources = references.Where(reference => !includeRecoveryProtected && reference.Element?.IsRecoveryProtected == true)
             .Select(reference => reference.Value).ToHashSet(ReferenceEqualityComparer.Instance);
 
         var resolved = new List<Item>();
@@ -67,7 +68,6 @@ internal sealed class MissingMediaRepair(
             var matches = current[(media.Kind, uri)];
             if (!matches.Any()) return null;
 
-            // A recovered element keeps its original bytes on save. Only fix sources that can be persisted.
             MissingMediaReference[] editable = matches.Where(reference => !protectedSources.Contains(reference.Value))
                 .Select(reference => new MissingMediaReference((IFileSource)reference.Value, reference.Element)).ToArray();
             if (editable.Length > 0)
