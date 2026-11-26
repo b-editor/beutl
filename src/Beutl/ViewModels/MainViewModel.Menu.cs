@@ -309,7 +309,8 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
             {
                 Command = command,
                 GestureCommand = id,
-                InWindowGestureExtensionType = typeof(SceneEditorExtension)
+                InWindowGestureExtensionType = typeof(SceneEditorExtension),
+                BlockNativeCommandWhileDialogOpen = true
             };
 
             Task Execute()

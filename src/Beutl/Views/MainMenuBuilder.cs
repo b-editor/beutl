@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using System.Windows.Input;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -87,6 +88,10 @@ internal static class MainMenuBuilder
             };
             disposables.Add(editCommand.FollowFocus());
             menuItem.Command = editCommand;
+        }
+        else if (item.BlockNativeCommandWhileDialogOpen && item.Command is { } command)
+        {
+            menuItem.Command = new DialogGuardedCommand(command, window);
         }
 
         if (item.InWindowGestureExtensionType is null)
@@ -191,6 +196,25 @@ internal static class MainMenuBuilder
             };
             changes.CollectionChanged += handler;
             disposables.Add(Disposable.Create(() => changes.CollectionChanged -= handler));
+        }
+    }
+
+    internal sealed class DialogGuardedCommand(ICommand command, TopLevel window) : ICommand
+    {
+        public ICommand InnerCommand => command;
+
+        public event EventHandler? CanExecuteChanged
+        {
+            add => command.CanExecuteChanged += value;
+            remove => command.CanExecuteChanged -= value;
+        }
+
+        public bool CanExecute(object? parameter) => command.CanExecute(parameter);
+
+        public void Execute(object? parameter)
+        {
+            if (!FocusedEditCommand.IsDialogOpen(window))
+                command.Execute(parameter);
         }
     }
 }

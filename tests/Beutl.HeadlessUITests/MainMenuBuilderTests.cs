@@ -7,6 +7,7 @@ using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.DockLayoutTab;
 using Beutl.Editor.Components.Helpers;
@@ -19,6 +20,7 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using Beutl.Views.Dialogs;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -400,6 +402,70 @@ public sealed class MainMenuBuilderTests
     }
 
     [AvaloniaTest]
+    public async Task The_main_dialog_blocks_native_scene_commands()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("scene-menu-modal");
+        MainViewModel viewModel = TestShell.MainViewModel;
+        var macWindow = new MacWindow { Width = 1000, Height = 680 };
+        // Attach the view model after opening the test host to skip the app's startup work.
+        macWindow.Show();
+        try
+        {
+            macWindow.DataContext = viewModel;
+            NativeMenu scene = NativeMenu.GetMenu(macWindow)!.Items.OfType<NativeMenuItem>()
+                .Single(item => item.Header == Strings.Scene).Menu!;
+            NativeMenuItem marker = FindEntry(Strings.Markers, Strings.ToggleMarker);
+            NativeMenuItem loop = FindEntry(Strings.Playback, Strings.ToggleLoop);
+            HeadlessTestHelpers.Settle();
+            Assert.That(new[] { marker, loop }.Select(item => item.IsEnabled), Is.All.True);
+
+            Task dialogTask = viewModel.MenuBar.NewScene.ExecuteAsync();
+            try
+            {
+                HeadlessTestHelpers.Render(3);
+                if (dialogTask.IsFaulted)
+                    await dialogTask;
+                Assert.That(FocusedEditCommand.IsDialogOpen(macWindow), Is.True);
+                Assert.That(editor.IsEnabled.Value, Is.True);
+
+                ((INativeMenuItemExporterEventsImplBridge)marker).RaiseClicked();
+                ((INativeMenuItemExporterEventsImplBridge)loop).RaiseClicked();
+                HeadlessTestHelpers.Settle();
+                Assert.Multiple(() =>
+                {
+                    Assert.That(editor.Scene.Markers, Is.Empty);
+                    Assert.That(editor.Player.IsLoopEnabled.Value, Is.False);
+                });
+            }
+            finally
+            {
+                foreach (CreateNewScene dialog in macWindow.GetVisualDescendants().OfType<CreateNewScene>().ToArray())
+                    dialog.Hide();
+                HeadlessTestHelpers.Settle();
+                await dialogTask;
+            }
+
+            Assert.That(FocusedEditCommand.IsDialogOpen(macWindow), Is.False);
+            ((INativeMenuItemExporterEventsImplBridge)marker).RaiseClicked();
+            ((INativeMenuItemExporterEventsImplBridge)loop).RaiseClicked();
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.Scene.Markers, Has.Count.EqualTo(1));
+                Assert.That(editor.Player.IsLoopEnabled.Value, Is.True);
+            });
+
+            NativeMenuItem FindEntry(string group, string header) => scene.Items.OfType<NativeMenuItem>()
+                .Single(item => item.Header == group).Menu!.Items.OfType<NativeMenuItem>().Single(item => item.Header == header);
+        }
+        finally
+        {
+            macWindow.DataContext = null;
+            macWindow.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Menus_expose_the_expected_edit_and_window_commands()
     {
         await TestReset.ResetShellAsync();
@@ -641,7 +707,12 @@ public sealed class MainMenuBuilderTests
         {
             MenuItem m => Describe(m.Items).Prepend(((string?)m.Header, m.Command)),
             NativeMenuItemSeparator => [(null, null)],
-            NativeMenuItem n => Describe(n.Menu?.Items ?? []).Prepend((n.Header, (n.Command as FocusedEditCommand)?.Fallback ?? n.Command)),
+            NativeMenuItem n => Describe(n.Menu?.Items ?? []).Prepend((n.Header, n.Command switch
+            {
+                FocusedEditCommand edit => edit.Fallback,
+                MainMenuBuilder.DialogGuardedCommand guarded => guarded.InnerCommand,
+                _ => n.Command
+            })),
             _ => [(null, null)]
         });
 

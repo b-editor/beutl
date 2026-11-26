@@ -35,6 +35,8 @@ public sealed class MainMenuItem(string? header)
     // Context shortcuts are displayed in-window only. The native menu would claim them before the focused control.
     internal Type? InWindowGestureExtensionType { get; init; }
 
+    internal bool BlockNativeCommandWhileDialogOpen { get; init; }
+
     // The native menu shows no icons.
     public Icon? Icon { get; init; }
 
