@@ -11,14 +11,30 @@
              x:CompileBindings="True"
              x:DataType="viewModels:KeyMapSettingsPageViewModel"
              mc:Ignorable="d">
-    <Grid Margin="18" RowDefinitions="Auto,*">
+    <Grid Margin="18" RowDefinitions="Auto,Auto,*">
 
         <TextBlock Margin="10,8"
                    Text="{x:Static lang:SettingsStrings.Keymap}"
                    Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
 
-        <ScrollViewer Grid.Row="1" Margin="10,16,10,0">
-            <ItemsControl ItemsSource="{Binding Group}">
+        <TextBox x:Name="ShortcutSearchBox"
+                 Grid.Row="1"
+                 MinWidth="300"
+                 MaxWidth="420"
+                 Margin="10,8,10,0"
+                 HorizontalAlignment="Left"
+                 AutomationProperties.Name="{x:Static lang:SettingsStrings.Keymap_Search}"
+                 Text="{Binding SearchText.Value, Mode=TwoWay}"
+                 PlaceholderText="{x:Static lang:SettingsStrings.Keymap_Search}" />
+
+        <TextBlock Grid.Row="2"
+                   Margin="10,16"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   IsVisible="{Binding !HasResults.Value}"
+                   Text="{x:Static lang:SettingsStrings.Keymap_NoResults}" />
+
+        <ScrollViewer Grid.Row="2" Margin="10,16,10,0">
+            <ItemsControl ItemsSource="{Binding VisibleGroups.Value}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <StackPanel Spacing="16" />
@@ -27,7 +43,9 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:KeyMapSettingsGroup">
                         <Border Classes="options-group">
-                            <OptionsDisplayItem Expands="True" Header="{Binding Extension.DisplayName}">
+                            <OptionsDisplayItem Expands="True"
+                                                Header="{Binding Extension.DisplayName}"
+                                                IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
                                 <OptionsDisplayItem.Styles>
                                     <Style Selector="OptionsDisplayItem /template/ ContentPresenter#ExpandedContentPresenter">
                                         <Setter Property="Padding" Value="0,12,0,0" />
@@ -43,13 +61,33 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="viewModels:KeyMapSettingsItem">
-                                                <OptionsDisplayItem Description="{Binding Command.Definition.Description}" Header="{Binding DisplayName}">
+                                                <OptionsDisplayItem Description="{Binding Command.Definition.Description}">
+                                                    <OptionsDisplayItem.Header>
+                                                        <StackPanel Spacing="2">
+                                                            <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                                                            <TextBlock FontSize="12"
+                                                                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                                                       IsVisible="{Binding ConflictMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                                       Text="{Binding ConflictMessage}"
+                                                                       TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </OptionsDisplayItem.Header>
                                                     <OptionsDisplayItem.ActionButton>
-                                                        <Button Click="OnItemClicked"
-                                                                KeyDown="OnButtonKeyDown"
-                                                                Theme="{StaticResource TransparentButton}">
-                                                            <TextBlock Classes="shortcut" Text="{Binding KeyGesture.Value}" />
-                                                        </Button>
+                                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                                            <Button Click="OnItemClicked"
+                                                                    KeyDown="OnButtonKeyDown"
+                                                                    Theme="{StaticResource TransparentButton}">
+                                                                <TextBlock Classes="shortcut"
+                                                                           Text="{Binding KeyGesture.Value, TargetNullValue={x:Static lang:SettingsStrings.Keymap_Unassigned}}" />
+                                                            </Button>
+                                                            <Button x:Name="ResetShortcutButton"
+                                                                    AutomationProperties.Name="{x:Static lang:SettingsStrings.Keymap_Reset}"
+                                                                    Click="OnResetClicked"
+                                                                    Content="{x:Static lang:Strings.Reset}"
+                                                                    IsVisible="{Binding ShowReset.Value}"
+                                                                    ToolTip.Tip="{x:Static lang:SettingsStrings.Keymap_Reset}"
+                                                                    Theme="{StaticResource TransparentButton}" />
+                                                        </StackPanel>
                                                     </OptionsDisplayItem.ActionButton>
                                                 </OptionsDisplayItem>
                                             </DataTemplate>

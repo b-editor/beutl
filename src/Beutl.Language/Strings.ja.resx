@@ -3384,25 +3384,37 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
     <value>ファイルマネージャーで開く</value>
   </data>
   <data name="PathEditor_MoveTool" xml:space="preserve">
-    <value>選択 (V)・Shift: 選択に追加</value>
+    <value>選択</value>
+  </data>
+  <data name="PathEditor_MoveTool_Description" xml:space="preserve">
+    <value>Shift を押しながらクリックして選択に追加</value>
   </data>
   <data name="PathEditor_PenTool" xml:space="preserve">
-    <value>ペン (P)・クリック: 点を追加・ドラッグ: 曲線</value>
+    <value>ペン</value>
+  </data>
+  <data name="PathEditor_PenTool_Description" xml:space="preserve">
+    <value>クリックして点を追加。ドラッグして曲線を作成。</value>
   </data>
   <data name="PathEditor_BendTool" xml:space="preserve">
-    <value>曲線 (B)・点をクリックしてハンドルを追加／削除</value>
+    <value>曲線</value>
+  </data>
+  <data name="PathEditor_BendTool_Description" xml:space="preserve">
+    <value>点をクリックしてハンドルを追加／削除</value>
   </data>
   <data name="PathEditor_HandTool" xml:space="preserve">
-    <value>手のひら (H)・Space＋ドラッグ: 移動</value>
+    <value>手のひら</value>
+  </data>
+  <data name="PathEditor_HandTool_Description" xml:space="preserve">
+    <value>ドラッグしてビューを移動</value>
   </data>
   <data name="PathEditor_ZoomIn" xml:space="preserve">
-    <value>拡大 (+)</value>
+    <value>拡大</value>
   </data>
   <data name="PathEditor_ZoomOut" xml:space="preserve">
-    <value>縮小 (-)</value>
+    <value>縮小</value>
   </data>
   <data name="PathEditor_Fit" xml:space="preserve">
-    <value>パスを全体表示 (Shift+1)</value>
+    <value>パスを全体表示</value>
   </data>
   <data name="PanView" xml:space="preserve">
     <value>ビューをパン</value>

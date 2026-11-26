@@ -374,6 +374,21 @@
   <data name="Keymap" xml:space="preserve">
     <value>キーマップ</value>
   </data>
+  <data name="Keymap_Search" xml:space="preserve">
+    <value>ショートカットを検索</value>
+  </data>
+  <data name="Keymap_NoResults" xml:space="preserve">
+    <value>一致するショートカットがありません</value>
+  </data>
+  <data name="Keymap_Reset" xml:space="preserve">
+    <value>既定値に戻す</value>
+  </data>
+  <data name="Keymap_Conflict" xml:space="preserve">
+    <value>{0} と競合</value>
+  </data>
+  <data name="Keymap_Unassigned" xml:space="preserve">
+    <value>未割り当て</value>
+  </data>
   <data name="Language" xml:space="preserve">
     <value>言語</value>
   </data>

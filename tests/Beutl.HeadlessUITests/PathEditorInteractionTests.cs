@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -46,6 +47,42 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PathEditorInteractionTests
 {
+    [AvaloniaTest]
+    public async Task A_path_tool_tooltip_shows_the_current_shortcut()
+    {
+        using var editor = await Fixture.Create();
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        manager.Register(PathEditorTabExtension.Instance);
+        var entry = manager.GetDefinitions<PathEditorTabExtension>().Single(c => c.Definition.Id == "pathEditor.bend");
+        manager.ChangeKeyGesture(entry, new KeyGesture(Key.F8), ContextCommandManager.CurrentPlatform);
+        var previous = AppHelper.GetContextCommandManager;
+        AppHelper.GetContextCommandManager = () => manager;
+        try
+        {
+            RadioButton bend = editor.View.GetVisualDescendants().OfType<RadioButton>()
+                .Single(button => AutomationProperties.GetName(button) == Strings.PathEditor_BendTool);
+            ToolTip.SetIsOpen(bend, true);
+            try
+            {
+                Assert.That(ToolTip.GetTip(bend), Is.EqualTo(
+                    $"{Strings.PathEditor_BendTool} (F8)\n{Strings.PathEditor_BendTool_Description}"));
+            }
+            finally
+            {
+                ToolTip.SetIsOpen(bend, false);
+            }
+
+            editor.Key(Key.B);
+            Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Move));
+            editor.Key(Key.F8);
+            Assert.That(editor.View.Tool, Is.EqualTo(PathEditorTool.Bend));
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previous;
+        }
+    }
+
     [AvaloniaTest]
     public async Task Rebinding_a_path_nudge_moves_and_commits_on_the_new_key()
     {

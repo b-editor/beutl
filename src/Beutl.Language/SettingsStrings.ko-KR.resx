@@ -378,6 +378,21 @@
   <data name="Keymap" xml:space="preserve">
     <value>키맵</value>
   </data>
+  <data name="Keymap_Search" xml:space="preserve">
+    <value>단축키 검색</value>
+  </data>
+  <data name="Keymap_NoResults" xml:space="preserve">
+    <value>일치하는 단축키가 없습니다</value>
+  </data>
+  <data name="Keymap_Reset" xml:space="preserve">
+    <value>기본값으로 재설정</value>
+  </data>
+  <data name="Keymap_Conflict" xml:space="preserve">
+    <value>{0}과(와) 충돌</value>
+  </data>
+  <data name="Keymap_Unassigned" xml:space="preserve">
+    <value>할당되지 않음</value>
+  </data>
   <data name="Language" xml:space="preserve">
     <value>언어</value>
   </data>

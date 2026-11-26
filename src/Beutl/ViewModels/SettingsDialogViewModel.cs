@@ -96,6 +96,9 @@ public sealed class SettingsDialogViewModel : IDisposable
         if (_extensionsPage.IsValueCreated)
             _extensionsPage.Value.Dispose();
 
+        if (_keyMap.IsValueCreated)
+            _keyMap.Value.Dispose();
+
         if (_aiAgent.IsValueCreated)
             _aiAgent.Value.Dispose();
 

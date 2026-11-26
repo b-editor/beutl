@@ -3389,25 +3389,37 @@ when history recording is enabled.</value>
     <value>Open in File Manager</value>
   </data>
   <data name="PathEditor_MoveTool" xml:space="preserve">
-    <value>Move (V) · Shift: add to selection</value>
+    <value>Move</value>
+  </data>
+  <data name="PathEditor_MoveTool_Description" xml:space="preserve">
+    <value>Shift: add to selection</value>
   </data>
   <data name="PathEditor_PenTool" xml:space="preserve">
-    <value>Pen (P) · Click: add point · Drag: curve</value>
+    <value>Pen</value>
+  </data>
+  <data name="PathEditor_PenTool_Description" xml:space="preserve">
+    <value>Click to add a point. Drag to curve.</value>
   </data>
   <data name="PathEditor_BendTool" xml:space="preserve">
-    <value>Bend (B) · Click a point to add or remove handles</value>
+    <value>Bend</value>
+  </data>
+  <data name="PathEditor_BendTool_Description" xml:space="preserve">
+    <value>Click a point to add or remove handles</value>
   </data>
   <data name="PathEditor_HandTool" xml:space="preserve">
-    <value>Hand (H) · Space + drag: pan</value>
+    <value>Hand</value>
+  </data>
+  <data name="PathEditor_HandTool_Description" xml:space="preserve">
+    <value>Drag to pan</value>
   </data>
   <data name="PathEditor_ZoomIn" xml:space="preserve">
-    <value>Zoom in (+)</value>
+    <value>Zoom in</value>
   </data>
   <data name="PathEditor_ZoomOut" xml:space="preserve">
-    <value>Zoom out (-)</value>
+    <value>Zoom out</value>
   </data>
   <data name="PathEditor_Fit" xml:space="preserve">
-    <value>Fit path (Shift+1)</value>
+    <value>Fit path</value>
   </data>
   <data name="PanView" xml:space="preserve">
     <value>Pan view</value>

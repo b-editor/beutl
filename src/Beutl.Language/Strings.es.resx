@@ -1827,25 +1827,37 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Abrir en el gestor de archivos</value>
   </data>
   <data name="PathEditor_MoveTool" xml:space="preserve">
-    <value>Mover (V) · Mayús: añadir a la selección</value>
+    <value>Mover</value>
+  </data>
+  <data name="PathEditor_MoveTool_Description" xml:space="preserve">
+    <value>Mayús: añadir a la selección</value>
   </data>
   <data name="PathEditor_PenTool" xml:space="preserve">
-    <value>Pluma (P) · Clic: añadir punto · Arrastrar: curva</value>
+    <value>Pluma</value>
+  </data>
+  <data name="PathEditor_PenTool_Description" xml:space="preserve">
+    <value>Haz clic para añadir un punto. Arrastra para curvar.</value>
   </data>
   <data name="PathEditor_BendTool" xml:space="preserve">
-    <value>Curvar (B) · Haz clic en un punto para añadir o quitar controles</value>
+    <value>Curvar</value>
+  </data>
+  <data name="PathEditor_BendTool_Description" xml:space="preserve">
+    <value>Haz clic en un punto para añadir o quitar controles</value>
   </data>
   <data name="PathEditor_HandTool" xml:space="preserve">
-    <value>Mano (H) · Espacio + arrastrar: desplazar</value>
+    <value>Mano</value>
+  </data>
+  <data name="PathEditor_HandTool_Description" xml:space="preserve">
+    <value>Arrastra para desplazar la vista</value>
   </data>
   <data name="PathEditor_ZoomIn" xml:space="preserve">
-    <value>Acercar (+)</value>
+    <value>Acercar</value>
   </data>
   <data name="PathEditor_ZoomOut" xml:space="preserve">
-    <value>Alejar (-)</value>
+    <value>Alejar</value>
   </data>
   <data name="PathEditor_Fit" xml:space="preserve">
-    <value>Ajustar trazado (Mayús+1)</value>
+    <value>Ajustar trazado</value>
   </data>
   <data name="PanView" xml:space="preserve">
     <value>Desplazar la vista</value>

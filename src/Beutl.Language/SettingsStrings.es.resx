@@ -378,6 +378,21 @@
   <data name="Keymap" xml:space="preserve">
     <value>Mapa de teclas</value>
   </data>
+  <data name="Keymap_Search" xml:space="preserve">
+    <value>Buscar atajos</value>
+  </data>
+  <data name="Keymap_NoResults" xml:space="preserve">
+    <value>No hay atajos que coincidan</value>
+  </data>
+  <data name="Keymap_Reset" xml:space="preserve">
+    <value>Restablecer valores predeterminados</value>
+  </data>
+  <data name="Keymap_Conflict" xml:space="preserve">
+    <value>En conflicto con {0}</value>
+  </data>
+  <data name="Keymap_Unassigned" xml:space="preserve">
+    <value>Sin asignar</value>
+  </data>
   <data name="Language" xml:space="preserve">
     <value>Idioma</value>
   </data>
