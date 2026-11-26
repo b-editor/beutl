@@ -281,7 +281,15 @@ public sealed partial class ObjectTemplateService : IDisposable
                 filePath = Path.Combine(_directoryPath, item.Name.Value + ".json");
                 try
                 {
-                    File.Move(temporaryPath, filePath, overwrite: false);
+                    if (OperatingSystem.IsWindows())
+                    {
+                        File.Move(temporaryPath, filePath, overwrite: false);
+                    }
+                    else
+                    {
+                        // Unix File.Move can replace a file created between its existence check and rename.
+                        File.CreateHardLink(filePath, temporaryPath);
+                    }
                     break;
                 }
                 catch (IOException) when (File.Exists(filePath))
