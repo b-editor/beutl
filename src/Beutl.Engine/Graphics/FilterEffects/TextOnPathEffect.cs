@@ -57,7 +57,7 @@ public sealed partial class TextOnPathEffect : FilterEffect
             float distance = settings.Offset + start + placement.Distance;
             if (!TryPlace(measure, length, closed, distance, placement, settings.FollowRotation, out Matrix transform))
             {
-                context.Targets.RemoveAt(i);
+                context.Targets.ClipTextAt(i, tag);
                 continue;
             }
 

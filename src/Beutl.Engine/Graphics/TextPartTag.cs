@@ -26,3 +26,6 @@ internal readonly record struct TextPartTag(
         return first;
     }
 }
+
+// The occurrence precedes the target at TargetIndex, or follows every target when TargetIndex equals the count.
+internal readonly record struct ClippedTextOccurrence(int TargetIndex, TextPartTag Tag);

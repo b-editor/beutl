@@ -135,9 +135,8 @@ public class CustomFilterEffectContext
                     "The callback must return a list of its own, not the context's Targets.");
             }
 
-            Targets.RemoveAt(i);
             int inserted = newTargets.Count;
-            Targets.InsertRange(i, newTargets);
+            Targets.ReplaceAt(i, newTargets);
             i += inserted - 1;
         }
     }

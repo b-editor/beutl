@@ -295,7 +295,9 @@ internal static class RenderMaterializationDemandResolver
                 EnqueueInputs(
                     fragment,
                     targetScopeInputDemand,
-                    DemandUse.ReplayTarget,
+                    fragment.ValueCardinality.Equals(RenderValueCardinality.Single)
+                        ? DemandUse.ReplayTarget
+                        : DemandUse.MaterializeValue,
                     pending);
                 return;
             case RenderFragmentKind.OpaqueMap:

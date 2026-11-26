@@ -18,9 +18,12 @@ internal static class TextAnimationOrdering
         int nextOccurrence = 0;
         // Only positional orders read the units' bounds, so the others skip gathering them.
         bool readsBounds = DelayAnimationOrdering.ReadsBounds(order);
+        IReadOnlyList<ClippedTextOccurrence> clipped = readsBounds ? [] : targets.ClippedText;
+        int nextClipped = 0;
 
         for (int i = 0; i < targets.Count; i++)
         {
+            IncludeClippedBefore(i);
             EffectTarget target = targets[i];
             if (target.TextPart is not { } text)
             {
@@ -29,24 +32,7 @@ internal static class TextAnimationOrdering
                 continue;
             }
 
-            var source = (text.OccurrenceId, text.LayoutRevision);
-            if (!occurrences.TryGetValue(source, out int occurrence))
-            {
-                occurrence = nextOccurrence++;
-                occurrences.Add(source, occurrence);
-                if (!readsBounds && text is { IncludeHiddenUnits: true, Positions: { } positions })
-                {
-                    // Text on a path can hide some of its glyphs as it moves. Logical orders still rank the
-                    // whole text, including words and lines that currently have no target.
-                    foreach (var character in positions.Characters)
-                    {
-                        int sourceIndex = GetUnitIndex(unit, character.Indices);
-                        if (ids.TryAdd((occurrence, sourceIndex), units.Count))
-                            units.Add(new Unit(occurrence, sourceIndex, units.Count, null));
-                    }
-                }
-            }
-
+            int occurrence = IncludeOccurrence(text);
             if (text.Indices.Character < 0)
             {
                 targetUnits[i] = -1;
@@ -73,6 +59,7 @@ internal static class TextAnimationOrdering
 
             targetUnits[i] = id;
         }
+        IncludeClippedBefore(targets.Count);
 
         // Rank in logical order within each occurrence, then scatter back to paint order.
         units.Sort(static (a, b) => a.Occurrence == b.Occurrence
@@ -89,6 +76,33 @@ internal static class TextAnimationOrdering
         for (int i = 0; i < ranks.Length; i++)
             ranks[i] = targetUnits[i] < 0 ? Unranked : byId[targetUnits[i]];
         return readsBounds ? DelayAnimationOrdering.MaximumRank(byId) : Math.Max(0, units.Count - 1);
+
+        void IncludeClippedBefore(int index)
+        {
+            while (nextClipped < clipped.Count && clipped[nextClipped].TargetIndex == index)
+                IncludeOccurrence(clipped[nextClipped++].Tag);
+        }
+
+        int IncludeOccurrence(TextPartTag text)
+        {
+            var source = (text.OccurrenceId, text.LayoutRevision);
+            if (occurrences.TryGetValue(source, out int occurrence))
+                return occurrence;
+
+            occurrence = nextOccurrence++;
+            occurrences.Add(source, occurrence);
+            if (!readsBounds && text is { IncludeHiddenUnits: true, Positions: { } positions })
+            {
+                // Logical orders rank the original characters, words and lines even when clipped.
+                foreach (var character in positions.Characters)
+                {
+                    int sourceIndex = GetUnitIndex(unit, character.Indices);
+                    if (ids.TryAdd((occurrence, sourceIndex), units.Count))
+                        units.Add(new Unit(occurrence, sourceIndex, units.Count, null));
+                }
+            }
+            return occurrence;
+        }
     }
 
     private static int GetUnitIndex(TextAnimationUnit unit, DelayAnimationOrder order, TextPartTag part)
