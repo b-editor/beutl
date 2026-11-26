@@ -31,6 +31,42 @@ public class SpacePanKeyTests
     public enum Surface { GraphEditor, PathEditorTab, PathEditorOverlay }
 
     [AvaloniaTest]
+    public async Task Shift_j_reaches_the_shuttle_binding_only_outside_the_graph()
+    {
+        var keymap = new ContextCommandManager(new ContextCommandSettingsStore([], persist: false));
+        await using var scope = await Scope.CreateAsync(Surface.GraphEditor, keymap);
+        var model = (GraphEditorViewModel)scope.View.DataContext!;
+        ContextCommandEntry shuttle = TestShell.MainViewModel.ContextCommandManager.GetDefinitions<SceneEditorExtension>()
+            .Single(command => command.Definition.Id == "editor.shuttleBackwardFine");
+        int shuttleKeys = 0;
+        // Observe the real shuttle binding at the editor's input boundary without starting audio playback.
+        ((EditView)scope.Window.Content!).KeyDown += (_, key) =>
+        {
+            if (ContextCommandManager.Matches(shuttle, key)) shuttleKeys++;
+        };
+        model.Seek(MediaTime.FromSeconds(1));
+
+        Assert.That(scope.View.Focus(), Is.True);
+        PressShiftJ();
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+            Assert.That(shuttleKeys, Is.Zero);
+        });
+
+        PlayerView player = scope.Window.GetVisualDescendants().OfType<PlayerView>().Single();
+        Assert.That(player.framePanel.Focus(), Is.True);
+        PressShiftJ();
+        Assert.That(shuttleKeys, Is.EqualTo(1));
+
+        void PressShiftJ()
+        {
+            scope.Window.KeyPress(Key.J, RawInputModifiers.Shift, PhysicalKey.J, "J");
+            scope.Window.KeyRelease(Key.J, RawInputModifiers.Shift, PhysicalKey.J, "J");
+        }
+    }
+
+    [AvaloniaTest]
     public async Task A_tap_plays_and_pauses_on_release([Values] Surface surface)
     {
         await using var scope = await Scope.CreateAsync(surface);

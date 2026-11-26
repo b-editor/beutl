@@ -253,15 +253,14 @@ public class GraphEditorEditingTests
     }
 
     [AvaloniaTest]
-    [TestCase(KeyModifiers.Control)]
-    [TestCase(KeyModifiers.Meta)]
-    public async Task Cut_keyboard_shortcut_copies_and_deletes_with_one_undo(KeyModifiers command)
+    [TestCase(RawInputModifiers.None)]
+    [TestCase(RawInputModifiers.Alt)]
+    public async Task Cut_keyboard_shortcut_copies_and_deletes_with_one_undo(RawInputModifiers extra)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        using var commandModifier = CommandModifierScope.Use(command);
         graph.View.Focus();
         int undo = graph.Model.HistoryManager.UndoCount;
-        var modifier = command == KeyModifiers.Meta ? RawInputModifiers.Meta : RawInputModifiers.Control;
+        var modifier = (OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control) | extra;
         graph.Window.KeyPress(Key.X, modifier, PhysicalKey.X, null);
         graph.Window.KeyRelease(Key.X, modifier, PhysicalKey.X, null);
         await HeadlessTestHelpers.WaitUntilAsync(() => graph.Animation.KeyFrames.Count == 0);
@@ -402,10 +401,19 @@ public class GraphEditorEditingTests
     public async Task Selected_clipboard_paste_keeps_spacing_and_existing_keys_and_undo()
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        Assert.That(await graph.Model.CopySelectionAsync(new AvaloniaClipboardGateway(graph.Window.Clipboard!)), Is.True);
+        IClipboard clipboard = graph.Window.Clipboard!;
+        await clipboard.ClearAsync();
+        graph.View.Focus();
+        RawInputModifiers modifier = GraphScope.CommandModifier;
+        graph.Window.KeyPress(Key.C, modifier, PhysicalKey.C, null);
+        graph.Window.KeyRelease(Key.C, modifier, PhysicalKey.C, null);
+        Assert.That(await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection), Is.Not.Null);
+
         graph.Model.Seek(MediaTime.FromSeconds(3));
         int undo = graph.Model.HistoryManager.UndoCount;
-        await graph.Model.PasteSelectionAsync(new AvaloniaClipboardGateway(graph.Window.Clipboard!));
+        graph.Window.KeyPress(Key.V, modifier, PhysicalKey.V, null);
+        graph.Window.KeyRelease(Key.V, modifier, PhysicalKey.V, null);
+        await HeadlessTestHelpers.WaitUntilAsync(() => graph.Animation.KeyFrames.Count == 4);
         HeadlessTestHelpers.Render();
         Assert.That(graph.Animation.KeyFrames.Select(x => x.KeyTime.Value.ToSeconds()), Is.EqualTo(new[] { 0.5, 1.5, 3, 4 }));
         Assert.That(graph.Animation.KeyFrames.Select(x => x.Id.Value).Distinct().Count(), Is.EqualTo(4));

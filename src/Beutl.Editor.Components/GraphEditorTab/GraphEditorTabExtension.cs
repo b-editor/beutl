@@ -22,6 +22,8 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
 
     public override int DefaultOrder => 1;
 
+    public override IEnumerable<ContextCommandDefinition> ContextCommands => GraphEditorView.Commands;
+
     public override FAIconSource? GetIcon()
     {
         return new FluentIconSource { Icon = Icon.StarEmphasis };

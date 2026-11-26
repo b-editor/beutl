@@ -138,6 +138,21 @@ public class ContextCommandManager(ContextCommandSettingsStore settingsStore, IN
         GesturesChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    internal bool HasCustomKeyGestures(ContextCommandEntry entry, OSPlatform platform)
+        => settingsStore.Contains(entry.Definition.Id, platform);
+
+    internal void ResetKeyGestures(ContextCommandEntry entry, OSPlatform platform)
+    {
+        if (!settingsStore.Clear(entry.Definition.Id, platform)) return;
+
+        entry.KeyGestures.RemoveAll(entry.KeyGestures.Where(gesture => gesture.Platform == platform).ToArray());
+        if (entry.Definition.KeyGestures is { } defaults)
+        {
+            entry.KeyGestures.AddRange(defaults.Where(gesture => gesture.Platform == platform).Select(ParseKeyGesture));
+        }
+        GesturesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     private void Restore(ContextCommandEntry[] entries)
     {
         foreach (ContextCommandEntry entry in entries)
@@ -328,6 +343,37 @@ public sealed class ContextCommandSettingsStore : IBeutlApiResource
 
         SaveAll();
     }
+
+    /// <summary>Removes the saved gestures for a command on one platform so its defaults apply again.</summary>
+    public bool Clear(string name, OSPlatform os)
+    {
+        // Older files may spell a platform differently from OSPlatform.ToString().
+        var saved = PlatformSections(os).Where(section => section.ContainsKey(name))
+            .Select(section => (Section: section, Gestures: section[name])).ToArray();
+        if (saved.Length == 0) return false;
+
+        foreach (var (section, _) in saved)
+            section.Remove(name);
+
+        try
+        {
+            SaveAll();
+            return true;
+        }
+        catch
+        {
+            foreach (var (section, gestures) in saved)
+                section[name] = gestures;
+            throw;
+        }
+    }
+
+    internal bool Contains(string name, OSPlatform os)
+        => PlatformSections(os).Any(section => section.ContainsKey(name));
+
+    private IEnumerable<JsonObject> PlatformSections(OSPlatform os)
+        => _json.Where(pair => string.Equals(pair.Key, os.ToString(), StringComparison.OrdinalIgnoreCase))
+            .Select(pair => pair.Value).OfType<JsonObject>();
 
     private static bool ValidateKey(string key)
     {

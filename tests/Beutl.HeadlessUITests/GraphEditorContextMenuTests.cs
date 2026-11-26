@@ -25,11 +25,9 @@ namespace Beutl.HeadlessUITests;
 public class GraphEditorContextMenuTests
 {
     [AvaloniaTest]
-    [TestCase(KeyModifiers.Control)]
-    [TestCase(KeyModifiers.Meta)]
-    public async Task ContextMenu_ShowsEveryShortcutWithThePlatformCommandModifier(KeyModifiers command)
+    public async Task ContextMenu_ShowsTheKeymapShortcuts()
     {
-        using var commandModifier = CommandModifierScope.Use(command);
+        KeyModifiers command = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
         using var graph = await GraphScope.CreateAsync();
         graph.RightClick(new Point(500, 200));
         Assert.That(graph.BackgroundMenu.IsOpen, Is.True);
