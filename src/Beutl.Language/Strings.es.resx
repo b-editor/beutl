@@ -1363,6 +1363,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ImportProject" xml:space="preserve">
     <value>Importar proyecto...</value>
   </data>
+  <data name="ImportMedia" xml:space="preserve">
+    <value>Importar medios…</value>
+  </data>
   <data name="ExportingProject" xml:space="preserve">
     <value>Exportando proyecto...</value>
   </data>

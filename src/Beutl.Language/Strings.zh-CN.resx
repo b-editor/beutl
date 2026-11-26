@@ -1363,6 +1363,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ImportProject" xml:space="preserve">
     <value>导入项目...</value>
   </data>
+  <data name="ImportMedia" xml:space="preserve">
+    <value>导入媒体…</value>
+  </data>
   <data name="ExportingProject" xml:space="preserve">
     <value>正在导出项目...</value>
   </data>

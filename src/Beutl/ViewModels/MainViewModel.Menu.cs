@@ -50,6 +50,7 @@ public sealed partial class MainViewModel
                         new(Strings.File) { Command = MenuBar.OpenFile, GestureCommand = "main.openFile" },
                     ]
                 },
+                new(Strings.ImportMedia) { Command = MenuBar.ImportMedia, Icon = Icon.ArrowImport },
                 new(Strings.HostedGit_CloneRepositoryMenu) { Command = MenuBar.CloneRepository },
                 MainMenuItem.Separator,
                 new(Strings.CloseTab) { Command = MenuBar.CloseTab, GestureCommand = MainViewExtension.CloseTabCommandId },
@@ -352,7 +353,7 @@ public sealed partial class MainViewModel
         if (original is EditViewModel sceneEditor)
             await sceneEditor.FlushMediaFingerprintsAsync();
         if (original is ISavableEditorContext editor
-            && !await editor.SaveAsync())
+            && !await Beutl.Services.EditorService.SaveEditorInReservedWorkspaceAsync(editor))
         {
             AppServices.GetRequiredService<INotificationService>().ShowError(MessageStrings.UnableToSaveFile, selectedTab.FileName.Value);
             return;

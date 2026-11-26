@@ -1444,6 +1444,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ImportProject" xml:space="preserve">
     <value>Import Project...</value>
   </data>
+  <data name="ImportMedia" xml:space="preserve">
+    <value>Import Media…</value>
+  </data>
   <data name="ExportingProject" xml:space="preserve">
     <value>Exporting project...</value>
   </data>
