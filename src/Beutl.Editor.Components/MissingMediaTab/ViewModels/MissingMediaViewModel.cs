@@ -403,7 +403,7 @@ public sealed class MissingMediaViewModel : IToolContext
                 }
                 _host.HasMediaRepairs = true;
 
-                if (!await _editor.GetRequiredService<ISavableEditorContext>().SaveAsync())
+                if (!await _host.SaveRepairsAsync())
                     throw new IOException(MessageStrings.UnableToSaveFile);
             }
             catch

@@ -418,16 +418,19 @@ public sealed class ExplicitSaveTests
 
     // A version-control cycle saves without the write lease a tab's close waits for.
     [AvaloniaTest]
-    public async Task A_save_finishes_when_its_editor_closes_during_it()
+    public async Task Closing_an_editor_during_its_save_waits_for_the_write_to_finish()
     {
         (Scene scene, EditViewModel editor, _, _) = await OpenAsync();
         HeldWhileSaving held = AddHeldClip(scene, out Clip clip);
 
         Task<bool> save = await StartSaveAsync(editor, held);
-        await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!, saveChanges: false);
+        Task close = TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!, saveChanges: false).AsTask();
+        bool closeWaited = editor.IsDisposingOrDisposed && !close.IsCompleted;
         held.Release.Set();
 
         Assert.That(await save, Is.True);
+        await close;
+        Assert.That(closeWaited, Is.True);
         AssertFileHolds(clip.Element);
     }
 

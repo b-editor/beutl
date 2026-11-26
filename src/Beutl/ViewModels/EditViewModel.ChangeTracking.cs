@@ -244,8 +244,6 @@ public partial class EditViewModel
         }
     }
 
-    private Task _autoSaveTask = Task.CompletedTask;
-
     private void AutoSave(IList<ChangeOperation> list)
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
@@ -263,8 +261,7 @@ public partial class EditViewModel
                 _autoSaveFailed = false;
                 var savedMediaUris = CollectMediaUris();
                 var savedFingerprints = new Dictionary<string, MediaFileFingerprint>(Scene.MediaFingerprints);
-                _autoSaveTask = _autoSaveService.AutoSaveAsync(list, _autoSaveCancellation.Token);
-                await _autoSaveTask;
+                await _autoSaveService.AutoSaveAsync(list, _autoSaveCancellation.Token);
                 if (_disposed) return;
                 if (!_autoSaveFailed)
                 {
