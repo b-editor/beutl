@@ -2,12 +2,14 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Audio;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transitions;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -163,6 +165,41 @@ public sealed class TimelineEditToolsTests
         {
             Assert.That(scene.Children, Does.Contain(removed));
             Assert.That(follower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+        });
+    }
+
+    [Test]
+    public async Task Ripple_delete_preserves_the_transition_set_by_a_locked_clips_neighbor()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element outgoing = AddElement(scene, 0, 2);
+        Element locked = AddElement(scene, 2, 2);
+        locked.Name.Value = "Locked";
+        locked.IsLocked.Value = true;
+        var transition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(0.5) } };
+        outgoing.ExitTransition.Value = transition;
+        Assert.That(ElementTransitions.GetBoundaryAtStart(locked)?.Transition, Is.SameAs(transition));
+        using var session = new AgentToolkitTestSession(scene);
+        ToolResult<ApplyEditResponse> apply = session.CreateEditTools().ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject { ["Id"] = Id(outgoing), ["$delete"] = true })
+            },
+            schemaVersion: SchemaVersion.Current);
+        await using InProcessAgentToolkitServer server = await StartAsync(session);
+
+        var result = await CallAsync(server.Client, "ripple_delete", ("elementIds", new[] { Id(outgoing) }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error, Is.EqualTo(apply.Error));
+            Assert.That(result.Error?.Message, Does.Contain("transition at its start"));
+            Assert.That(scene.Children, Is.EqualTo(new[] { outgoing, locked }));
+            Assert.That(ElementTransitions.GetBoundaryAtStart(locked)?.Transition, Is.SameAs(transition));
+            Assert.That(session.History.HasPendingOperations, Is.False);
+            Assert.That(session.History.UndoCount, Is.Zero);
+            Assert.That(session.History.RedoCount, Is.Zero);
         });
     }
 
