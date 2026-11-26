@@ -9,6 +9,11 @@ namespace Beutl.Graphics.Backend;
 public interface IRenderPass3D : IDisposable
 {
     /// <summary>
+    /// Gets the number of samples per pixel required by the attachments.
+    /// </summary>
+    int SampleCount => 1;
+
+    /// <summary>
     /// Begins the render pass with multiple clear colors for MRT.
     /// </summary>
     /// <param name="framebuffer">The framebuffer to render to.</param>
