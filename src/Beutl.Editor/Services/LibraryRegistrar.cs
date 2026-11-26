@@ -264,7 +264,7 @@ internal static class LibraryRegistrar
                 )
                 .AddGroup(GraphicsStrings.FilterEffectCategory_Stylize, null,
                     KnownLibraryGroupIds.FilterEffectStylize, group => group
-                    .AddFilterEffect<StrokeEffect>(GraphicsStrings.Stroke,
+                    .AddFilterEffect<StrokeEffect>(GraphicsStrings.StrokeEffect,
                         GraphicsStrings.StrokeEffect_LibraryDescription)
                     .AddFilterEffect<Dilate>(GraphicsStrings.Dilate, GraphicsStrings.Dilate_LibraryDescription)
                     .AddFilterEffect<Erode>(GraphicsStrings.Erode, GraphicsStrings.Erode_LibraryDescription)

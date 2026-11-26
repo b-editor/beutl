@@ -1682,6 +1682,9 @@
   <data name="Stroke" xml:space="preserve">
     <value>描边</value>
   </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>轮廓线</value>
+  </data>
   <data name="Target" xml:space="preserve">
     <value>目标</value>
   </data>
@@ -2388,13 +2391,13 @@
     <value>将另一个场景的画面作为单个图层显示（预合成、嵌套序列、复合片段 / precomp, pre-compose, nested sequence, compound clip）。</value>
   </data>
   <data name="DrawableDecorator_LibraryDescription" xml:space="preserve">
-    <value>将多个对象作为一个图层应用效果（调整图层、效果组 / adjustment layer, effect group）。</value>
+    <value>按每个子对象的边界和变换原点，分别应用变换、不透明度、混合模式和效果（效果组 / effect group）。</value>
   </data>
   <data name="DrawableGroup_LibraryDescription" xml:space="preserve">
-    <value>统一移动、缩放和旋转子对象（父级、空对象、组控制 / parent, null object）。</value>
+    <value>围绕同一个原点变换子对象。不透明度和混合模式应用于整个组，效果可以使用整个组的边界（父级、空对象、组控制 / parent, null object）。</value>
   </data>
   <data name="DrawableTimeController_LibraryDescription" xml:space="preserve">
-    <value>改变对象的播放时间和播放速度（时间重映射、变速、定格帧 / time remap, speed ramp, freeze frame）。</value>
+    <value>改变对象的播放位置和速度。帧率设置用于计算对象状态的时间步长（时间重映射、变速、定格帧 / time remap, speed ramp, freeze frame）。</value>
   </data>
   <data name="AudioWaveformDrawable_LibraryDescription" xml:space="preserve">
     <value>绘制音频振幅随时间的变化（音频波形、波形可视化 / audio waveform, waveform visualizer）。</value>
@@ -2430,13 +2433,13 @@
     <value>围绕一个中心产生缩放或旋转模糊（缩放模糊、旋转模糊 / zoom blur, spin blur）。</value>
   </data>
   <data name="MotionBlur_LibraryDescription" xml:space="preserve">
-    <value>叠加对象在短时间内的画面来模糊运动（运动模糊、快门模糊 / motion trails, shutter blur）。</value>
+    <value>对快门曝光期间对象的多个画面取平均，让运动产生模糊（快门模糊 / shutter blur）。</value>
   </data>
   <data name="Echo_LibraryDescription" xml:space="preserve">
-    <value>在当前帧上叠加较早或较晚时刻逐渐淡出的副本（残影、重影、运动拖尾 / afterimage, ghost trail, motion trails）。</value>
+    <value>按固定间隔叠加过去或未来画面的副本，并逐渐降低副本的不透明度（残影、重影、运动拖尾 / afterimage, ghost trail, motion trails）。</value>
   </data>
   <data name="SteppedMotion_LibraryDescription" xml:space="preserve">
-    <value>以较低帧率保持画面，营造定格动画效果（帧保持、低帧率 / frame hold, stop motion, posterize time）。</value>
+    <value>保持每个采样帧直到下一次采样，之后的效果仍可继续播放动画（帧保持、低帧率 / frame hold, stop motion, posterize time）。</value>
   </data>
   <data name="Bokeh_LibraryDescription" xml:space="preserve">
     <value>按镜头光圈的形状模糊图像（镜头模糊、散焦 / lens blur, defocus）。</value>
@@ -2502,7 +2505,7 @@
     <value>调亮或调暗整幅图像（提亮、压暗 / brighten, darken）。</value>
   </data>
   <data name="OpacityEffect_LibraryDescription" xml:space="preserve">
-    <value>调整图像的透明程度（Alpha、透明度、淡入淡出 / alpha, transparency, fade）。</value>
+    <value>在效果链的当前位置调整图像的透明度。要让整个对象淡入淡出，请使用对象的“不透明度”（Alpha、透明度 / alpha, transparency）。</value>
   </data>
   <data name="Gamma_LibraryDescription" xml:space="preserve">
     <value>调亮或调暗中间调以平衡影调（伽马校正、中间调 / gamma correction, midtones）。</value>
@@ -2520,16 +2523,16 @@
     <value>围绕指定的中心压暗图像边缘，数量为负值时则提亮边缘（镜头暗角、边缘压暗 / lens vignette, edge darkening）。</value>
   </data>
   <data name="Invert_LibraryDescription" xml:space="preserve">
-    <value>反转图像颜色（负片、反相 / negative, invert colors）。</value>
+    <value>反转图像颜色，也可以反转 Alpha 通道（反相 / invert colors）。</value>
   </data>
   <data name="LutEffect_LibraryDescription" xml:space="preserve">
     <value>使用查找表重新映射颜色（颜色查找表、LUT、调色 / color lookup, LUT, color grading）。</value>
   </data>
   <data name="BlendEffect_LibraryDescription" xml:space="preserve">
-    <value>使用混合模式将颜色或画笔叠加到图像上（混合模式、颜色叠加、着色 / blend mode, color overlay, tint）。</value>
+    <value>将画笔与图像混合。要与下方图层混合，请使用对象的“混合模式”（颜色叠加、着色 / color overlay, tint）。</value>
   </data>
   <data name="Negaposi_LibraryDescription" xml:space="preserve">
-    <value>反转图像颜色，并可分别调整红、绿、蓝（负片、反相 / negative, invert colors）。</value>
+    <value>从参考 RGB 颜色中减去图像的颜色。使用默认设置时，图像显示为黑色（负片 / color negative）。</value>
   </data>
   <data name="ChromaKey_LibraryDescription" xml:space="preserve">
     <value>按色相和饱和度去除背景，并抑制溢到主体上的背景色（绿幕、蓝幕、色度抠像、溢色抑制 / green screen, blue screen, keylight, despill, spill suppressor）。</value>
@@ -2556,10 +2559,10 @@
     <value>将图像细节替换为大色块（像素化、马赛克、打码 / pixelate, censor）。</value>
   </data>
   <data name="ColorShift_LibraryDescription" xml:space="preserve">
-    <value>独立移动图像的各个颜色通道（RGB 分离、色差 / RGB split, chromatic aberration）。</value>
+    <value>分别在水平和垂直方向偏移红、绿、蓝和 Alpha 通道（RGB 分离、通道偏移 / RGB split, channel shift）。</value>
   </data>
   <data name="LensChromaticAberration_LibraryDescription" xml:space="preserve">
-    <value>围绕中心分离颜色通道，模拟镜头产生的彩边（RGB 分离、镜头色差、彩边 / RGB split, chromatic aberration）。</value>
+    <value>以一个中心点为基准，在红色与蓝色通道中放大一个、缩小另一个，模拟镜头产生的彩边（镜头色差、彩边 / chromatic aberration）。</value>
   </data>
   <data name="ShakeEffect_LibraryDescription" xml:space="preserve">
     <value>以可调节的速度和强度抖动图像（摆动、镜头抖动、振动 / wiggle, camera shake）。</value>

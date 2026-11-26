@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.StrokeEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class StrokeEffect : FilterEffect
 {
     public StrokeEffect()
