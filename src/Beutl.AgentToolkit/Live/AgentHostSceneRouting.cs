@@ -21,6 +21,7 @@ public static class AgentHostSceneRouting
     [
         "read_document_summary", "read_document", "apply_edit", "duplicate_object",
         "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap",
+        "duplicate_elements", "roll_elements", "slide_elements",
         "split_on_silence", "find_gaps", "close_all_gaps",
         "read_node_graph", "edit_node_graph",
         "plan_composition", "apply_composition", "measure_object_bounds",

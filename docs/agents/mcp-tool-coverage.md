@@ -26,18 +26,23 @@ Extensions can add live tools through `McpToolExtension`. The stdio server lists
 | Split one or more clips at a cut | `split_elements` | Returns the new right-half element IDs. |
 | Slip source media | `slip_elements` | Applies a shared shift to the source windows without changing element geometry. |
 | Ripple delete | `ripple_delete` | Removes clips and shifts following clips on each affected layer. |
-| Ripple trim | `ripple_trim` | Moves the start or end of one clip with the editor's ripple constraints. |
+| Ripple trim | `ripple_trim` | Moves a clip edge with the editor's ripple constraints. Can include group members with the same edge. |
 | Close a gap after a clip | `close_gap` | Closes the first gap after the clip's contiguous run on its layer. |
 | Find and close timeline gaps | `find_gaps`, `close_all_gaps` | Lists gaps by layer and closes gaps on all or selected layers, using the editor's ripple and lock rules. |
-| Roll a cut or slide a clip | — | No operation tool for the editor's coupled trim and media-offset adjustments. |
-| Duplicate timeline elements, copy, cut, or paste | `apply_edit`, `duplicate_object` | Partial. A patch can assemble new elements, and `duplicate_object` copies an engine object within an element. The timeline duplication and clipboard workflows have no tool. |
+| Roll a cut or slide clips | `roll_elements`, `slide_elements` | Moves grouped cuts or clip blocks with the editor's adjacent trims and media-offset adjustments. |
+| Duplicate timeline elements with their groups | `duplicate_elements` | Copies clips and their groups at a nearby free position and returns the new element IDs. |
+| Copy, cut, or paste timeline elements | — | No tool for the editor's timeline clipboard workflow. |
 | Save or reuse an element template | — | No tool for the element template library or Save as Template. |
 | Edit timeline markers | `apply_edit` | Edit the scene's marker list. |
 | Analyze and split clips on silence | `split_on_silence` | Analyzes audio on the selected clips or layers and applies the Silence Split tab's split, delete, or ripple-delete mode. |
 
-For split and ripple trim, `timeSeconds` is a position measured from timeline zero. For slip, `deltaSeconds` is a signed shift. Times are rounded to the scene's frame rate. Pass all intended clip IDs explicitly for split, slip, or ripple delete. A successful change has one undo step. An operation that cannot make a change can return `changed: false`.
+For split, duplication, and ripple trim, `timeSeconds` is a position measured from timeline zero. For slip, roll, and slide, `deltaSeconds` is a signed shift. Times are rounded to the scene's frame rate. Pass all intended clip IDs explicitly for split, slip, or ripple delete. Each edit that changes the scene has one undo step. An operation that cannot make a change can return `changed: false`.
 
 An element batch that skips locked targets reports their IDs in `skippedLockedElementIds`. An element batch with only locked targets returns a validation error. Ripple delete can remove a recovery-protected element while retaining its original file, as in the timeline.
+
+`duplicate_elements` takes `elementIds`, `timeSeconds`, and `layer` (the destination ZIndex for the copy on the lowest-indexed layer). The editor includes group members, skips locked sources, and searches for a free position on unlocked layers. `createdElementIds` identifies the copies.
+
+`ripple_trim` takes `elementId`, `edge` (`start` or `end`), and `timeSeconds`. Pass `includeLinked: true` to also trim unlocked group members that share that start or end. `roll_elements` takes `elementId`, `edge`, and `deltaSeconds` and includes the group's cuts at the same boundary. `slide_elements` takes `elementIds` and `deltaSeconds`. It slides the selected clips and their group members, which must form one contiguous block per affected layer with a neighboring clip on each side. A locked participant rejects a roll or slide. `changedElementIds` includes the neighbors changed by these edits.
 
 For `split_on_silence`, pass either `elementIds` or `layers` (timeline ZIndex values). The defaults are `thresholdDb: -40`, `minimumMilliseconds: 300`, `paddingMilliseconds: 100`, `mode: split_only`, and `includeLinked: true`. With linked clips enabled, the first eligible audio clip in each group supplies the cuts. The tool returns `createdElementIds` and reports `removedRanges` in the analyzed clips' original timeline coordinates. Use `delete_silence` to leave the gaps or `ripple_delete` to close them where the editor can.
 

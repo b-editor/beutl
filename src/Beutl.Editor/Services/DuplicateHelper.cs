@@ -27,11 +27,17 @@ public static class DuplicateHelper
         return ids;
     }
 
-    // The scene's elements among the seed and the rest of their groups, in scene order.
-    internal static Element[] FindWithGroupSiblings(Scene scene, IEnumerable<Guid> seedIds)
+    // The scene's elements among the seed and the rest of their groups, in scene order. A trim gesture
+    // can also include the pressed element's group when that element is outside the selection.
+    internal static Element[] FindWithGroupSiblings(Scene scene, IEnumerable<Guid> seedIds, Guid? anchorId = null)
     {
         HashSet<Guid> ids = ExpandWithGroupSiblings(seedIds, scene.Groups);
-        return [.. scene.Children.Where(element => ids.Contains(element.Id.Value))];
+        if (anchorId is { } id && scene.FindGroup(id) is { } group)
+        {
+            ids.UnionWith(group);
+        }
+
+        return ids.Count == 0 ? [] : [.. scene.Children.Where(element => ids.Contains(element.Id.Value))];
     }
 
     // The groups as far as the copies reach, naming the copies. copies[i] is the copy of sources[i].
