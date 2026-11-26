@@ -207,7 +207,6 @@ public static partial class CoreSerializer
         RootFileVersions.RaiseMinAppVersion(obj, minAppVersion);
         if (obj is Project savedProject)
         {
-            savedProject.ClearUnpersistedLegacyRatesIfPersisted();
             RootFileVersions.RecordAppVersion(savedProject, BeutlApplication.Version);
             RememberProjectFile(savedProject, uri.LocalPath, minAppVersion);
         }

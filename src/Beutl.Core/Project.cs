@@ -172,36 +172,22 @@ public sealed partial class Project : Hierarchical
         base.Serialize(context);
 
         // When saving only the project file (such as an auto-save after editing one scene), retain
-        // legacy project-level rates until every migrated scene has been persisted to its own file.
+        // legacy project-level rates while any migrated scene still has unpersisted legacy rates.
         if (_unpersistedLegacyRates is { } legacy
             && !context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects)
-            && !context.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects))
+            && !context.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects)
+            && Items.Any(static item => item.HasUnpersistedLegacyRates))
         {
-            if (Items.Any(static item => item.HasUnpersistedLegacyRates))
-            {
-                if (legacy.FrameRate is { } frameRate)
-                    context.SetValue(LegacyFrameRateKey, frameRate);
-                if (legacy.SampleRate is { } sampleRate)
-                    context.SetValue(LegacySampleRateKey, sampleRate);
-                if (legacy.ChannelLayout is { } channelLayout)
-                    context.SetValue(LegacyChannelLayoutKey, channelLayout);
-            }
-            else
-            {
-                _unpersistedLegacyRates = null;
-            }
+            if (legacy.FrameRate is { } frameRate)
+                context.SetValue(LegacyFrameRateKey, frameRate);
+            if (legacy.SampleRate is { } sampleRate)
+                context.SetValue(LegacySampleRateKey, sampleRate);
+            if (legacy.ChannelLayout is { } channelLayout)
+                context.SetValue(LegacyChannelLayoutKey, channelLayout);
         }
 
         context.SetValue("items", Items);
 
         context.SetValue("variables", Variables.Value);
-    }
-
-    internal void ClearUnpersistedLegacyRatesIfPersisted()
-    {
-        if (_unpersistedLegacyRates.HasValue && !Items.Any(static item => item.HasUnpersistedLegacyRates))
-        {
-            _unpersistedLegacyRates = null;
-        }
     }
 }

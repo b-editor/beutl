@@ -259,6 +259,59 @@ public sealed class ProjectRateTests
         }
     }
 
+    [Test]
+    public void Rolled_back_full_save_keeps_legacy_rates_for_later_project_only_save()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), $"beutl-legacy-rollback-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var projectUri = new Uri(Path.Combine(dir, "project.bep"));
+            var sceneUri = new Uri(Path.Combine(dir, "scene", "scene.scene"));
+            var scene = new Scene(1920, 1080, "scene") { Uri = sceneUri };
+            var project = new Project { Uri = projectUri, Items = { scene } };
+            CoreSerializer.StoreToUri(project, projectUri);
+
+            JsonObject projectJson = JsonNode.Parse(File.ReadAllText(projectUri.LocalPath))!.AsObject();
+            projectJson["FrameRate"] = "24";
+            projectJson["SampleRate"] = 48000;
+            projectJson["ChannelLayout"] = (int)SpeakerLayout.Surround51;
+            projectJson["minAppVersion"] = "2.0.0-preview.15";
+            File.WriteAllText(projectUri.LocalPath, projectJson.ToJsonString());
+
+            JsonObject sceneJson = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
+            sceneJson.Remove(nameof(Scene.FrameRate));
+            sceneJson.Remove(nameof(Scene.SampleRate));
+            sceneJson.Remove(nameof(Scene.ChannelLayout));
+            sceneJson["minAppVersion"] = "2.0.0-preview.15";
+            File.WriteAllText(sceneUri.LocalPath, sceneJson.ToJsonString());
+
+            Project opened = CoreSerializer.RestoreFromUri<Project>(projectUri);
+
+            // Simulate a full save inside a storage transaction that rolls back before commit.
+            using (StorageWriteTransaction.Begin())
+            {
+                CoreSerializer.StoreToUri(opened, projectUri);
+            }
+
+            // A subsequent project-only save must still retain the legacy keys because the scene file was rolled back.
+            CoreSerializer.StoreToUri(opened, projectUri, CoreSerializationMode.Write);
+
+            Project reopened = CoreSerializer.RestoreFromUri<Project>(projectUri);
+            Scene reopenedScene = (Scene)reopened.Items.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(reopenedScene.FrameRate.Value, Is.EqualTo(new Rational(24)));
+                Assert.That(reopenedScene.SampleRate.Value, Is.EqualTo(48000));
+                Assert.That(reopenedScene.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+            });
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     private static JsonObject SerializeEmbedded(ICoreSerializable obj)
     {
         return CoreSerializer.SerializeToJsonObject(
