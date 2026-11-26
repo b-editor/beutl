@@ -65,6 +65,80 @@ public sealed class ValidationSandboxFrameGridTests
         });
     }
 
+    [Test]
+    public void Changing_only_frame_rate_preserves_exact_untouched_times_and_reads_new_times_on_new_grid()
+    {
+        Scene scene = CreateSceneInProject();
+        MediaTime frame1At30 = MediaTime.FromFrames(1, s_rate);
+        MediaTime frame2At30 = MediaTime.FromFrames(2, s_rate);
+        scene.Start.Value = frame1At30;
+        scene.Duration.Value = MediaTime.FromFrames(301, s_rate);
+        scene.Markers.Add(new SceneMarker { Time = { Value = frame2At30 } });
+        Element untouched = AddElement(scene);
+        untouched.Start.Value = frame1At30;
+        untouched.Length.Value = frame2At30;
+        Element edited = new()
+        {
+            Start = { Value = MediaTime.FromSeconds(2) },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "edited.belm")),
+        };
+        scene.Children.Add(edited);
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<ApplyEditResponse> rateOnly = session.CreateEditTools().ApplyEdit(
+            patch: new JsonObject { [nameof(Scene.FrameRate)] = "24" },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rateOnly.IsSuccess, Is.True, rateOnly.Error?.Message);
+            Assert.That(scene.FrameRate.Value, Is.EqualTo(new Rational(24)));
+            Assert.That(scene.Start.Value, Is.EqualTo(frame1At30));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromFrames(301, s_rate)));
+            Assert.That(scene.Markers.Single().Time.Value, Is.EqualTo(frame2At30));
+            Assert.That(untouched.Start.Value, Is.EqualTo(frame1At30));
+            Assert.That(untouched.Length.Value, Is.EqualTo(frame2At30));
+        });
+
+        ToolResult<ApplyEditResponse> rateAndNewTime = session.CreateEditTools().ApplyEdit(
+            patch: new JsonObject
+            {
+                [nameof(Scene.FrameRate)] = "60",
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    ["Id"] = edited.Id.Value.ToString(),
+                    [nameof(Element.Start)] = "00:00:00.0166666",
+                }),
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rateAndNewTime.IsSuccess, Is.True, rateAndNewTime.Error?.Message);
+            Assert.That(scene.FrameRate.Value, Is.EqualTo(new Rational(60)));
+            Assert.That(untouched.Start.Value, Is.EqualTo(frame1At30));
+            Assert.That(untouched.Length.Value, Is.EqualTo(frame2At30));
+            Assert.That(edited.Start.Value, Is.EqualTo(MediaTime.FromFrames(1, new Rational(60))));
+        });
+    }
+
+    [Test]
+    public void Non_positive_document_frame_rate_normalizes_to_default_grid_on_direct_write()
+    {
+        Scene scene = CreateSceneInProject();
+        scene.FrameRate.Value = new Rational(24);
+        Element element = AddElement(scene);
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject doc = session.Documents.Read(scene);
+        doc[nameof(Scene.FrameRate)] = "0/1";
+        doc["Elements"]!.AsArray()[0]!.AsObject()[nameof(Element.Start)] = "00:00:00.0333333";
+
+        session.Documents.Write(scene, doc);
+
+        Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))));
+    }
+
     private static Scene CreateSceneInProject()
     {
         Scene scene = TestWorkspace.CreateScene();

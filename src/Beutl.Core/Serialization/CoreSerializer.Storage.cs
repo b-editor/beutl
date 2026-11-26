@@ -197,10 +197,17 @@ public static partial class CoreSerializer
 
     private static void RecordStoredVersion(ICoreSerializable obj, Uri uri, string? minAppVersion)
     {
+        if (obj is ProjectItem { HasUnpersistedLegacyRates: true } item)
+        {
+            item.HasUnpersistedLegacyRates = false;
+            StorageWriteTransaction.Current?.OnRollback(() => item.HasUnpersistedLegacyRates = true);
+        }
+
         if (minAppVersion is null) return;
         RootFileVersions.RaiseMinAppVersion(obj, minAppVersion);
         if (obj is Project savedProject)
         {
+            savedProject.ClearUnpersistedLegacyRatesIfPersisted();
             RootFileVersions.RecordAppVersion(savedProject, BeutlApplication.Version);
             RememberProjectFile(savedProject, uri.LocalPath, minAppVersion);
         }

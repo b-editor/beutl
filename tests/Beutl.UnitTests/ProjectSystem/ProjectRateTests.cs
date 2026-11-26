@@ -186,6 +186,79 @@ public sealed class ProjectRateTests
         }
     }
 
+    [Test]
+    public void Project_retains_legacy_rates_when_auto_saving_until_all_migrated_scenes_are_persisted()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), $"beutl-legacy-autosave-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var projectUri = new Uri(Path.Combine(dir, "project.bep"));
+            var firstUri = new Uri(Path.Combine(dir, "first", "first.scene"));
+            var secondUri = new Uri(Path.Combine(dir, "second", "second.scene"));
+            var first = new Scene(1920, 1080, "first") { Uri = firstUri };
+            var second = new Scene(1920, 1080, "second") { Uri = secondUri };
+            var project = new Project { Uri = projectUri, Items = { first, second } };
+            CoreSerializer.StoreToUri(project, projectUri);
+
+            // Rewrite files to look like a 2.0.0-preview.15 project: rates on project, absent from both scenes.
+            JsonObject projectJson = JsonNode.Parse(File.ReadAllText(projectUri.LocalPath))!.AsObject();
+            projectJson["FrameRate"] = "24";
+            projectJson["SampleRate"] = 48000;
+            projectJson["ChannelLayout"] = (int)SpeakerLayout.Surround51;
+            projectJson["minAppVersion"] = "2.0.0-preview.15";
+            File.WriteAllText(projectUri.LocalPath, projectJson.ToJsonString());
+
+            foreach (Uri sceneUri in new[] { firstUri, secondUri })
+            {
+                JsonObject sceneJson = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
+                sceneJson.Remove(nameof(Scene.FrameRate));
+                sceneJson.Remove(nameof(Scene.SampleRate));
+                sceneJson.Remove(nameof(Scene.ChannelLayout));
+                sceneJson["minAppVersion"] = "2.0.0-preview.15";
+                File.WriteAllText(sceneUri.LocalPath, sceneJson.ToJsonString());
+            }
+
+            // Reopen and simulate AutoSaveService saving only the first scene and the project file (CoreSerializationMode.Write).
+            Project opened = CoreSerializer.RestoreFromUri<Project>(projectUri);
+            Scene openedFirst = (Scene)opened.Items[0];
+            Scene openedSecond = (Scene)opened.Items[1];
+            openedFirst.FrameRate.Value = new Rational(60);
+            CoreSerializer.StoreToUri(openedFirst, firstUri, CoreSerializationMode.Write);
+            CoreSerializer.StoreToUri(opened, projectUri, CoreSerializationMode.Write);
+
+            // Reopen after an unexpected exit before the second scene was ever saved:
+            // first keeps its edited rate, second still inherits the legacy project rates.
+            Project afterCrash = CoreSerializer.RestoreFromUri<Project>(projectUri);
+            Scene afterCrashFirst = (Scene)afterCrash.Items[0];
+            Scene afterCrashSecond = (Scene)afterCrash.Items[1];
+            Assert.Multiple(() =>
+            {
+                Assert.That(afterCrashFirst.FrameRate.Value, Is.EqualTo(new Rational(60)));
+                Assert.That(afterCrashFirst.SampleRate.Value, Is.EqualTo(48000));
+                Assert.That(afterCrashFirst.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+                Assert.That(afterCrashSecond.FrameRate.Value, Is.EqualTo(new Rational(24)));
+                Assert.That(afterCrashSecond.SampleRate.Value, Is.EqualTo(48000));
+                Assert.That(afterCrashSecond.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+            });
+
+            // Once the second scene is persisted too, saving the project drops the legacy keys.
+            CoreSerializer.StoreToUri(afterCrashSecond, secondUri, CoreSerializationMode.Write);
+            CoreSerializer.StoreToUri(afterCrash, projectUri, CoreSerializationMode.Write);
+            JsonObject cleanedProject = JsonNode.Parse(File.ReadAllText(projectUri.LocalPath))!.AsObject();
+            Assert.Multiple(() =>
+            {
+                Assert.That(cleanedProject.ContainsKey("FrameRate"), Is.False);
+                Assert.That(cleanedProject.ContainsKey("SampleRate"), Is.False);
+                Assert.That(cleanedProject.ContainsKey("ChannelLayout"), Is.False);
+            });
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     private static JsonObject SerializeEmbedded(ICoreSerializable obj)
     {
         return CoreSerializer.SerializeToJsonObject(

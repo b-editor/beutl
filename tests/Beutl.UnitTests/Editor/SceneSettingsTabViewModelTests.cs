@@ -246,6 +246,34 @@ public class SceneSettingsTabViewModelTests
         });
     }
 
+    [Test]
+    public async Task Apply_parses_newly_typed_times_with_selected_frame_rate_while_keeping_unchanged_times()
+    {
+        var rate30 = new Rational(30);
+        var rate60 = new Rational(60);
+        var scene = new Scene(640, 480, string.Empty)
+        {
+            FrameRate = { Value = rate30 },
+            Start = { Value = MediaTime.FromFrames(1, rate30) },
+            Duration = { Value = MediaTime.FromFrames(301, rate30) },
+        };
+        using SceneSettingsTabViewModel viewModel = CreateViewModel(
+            scene, out CaptureSceneSettingsService service, out BlockingPreviewPlayer player);
+        player.CompletePause();
+
+        viewModel.FrameRateInput.Value = "60";
+        viewModel.DurationInput.Value = "00:00:00.0166666";
+        await viewModel.Apply.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.CallCount, Is.EqualTo(1));
+            Assert.That(service.FrameRate, Is.EqualTo(rate60));
+            Assert.That(service.Start, Is.EqualTo(MediaTime.FromFrames(1, rate30)));
+            Assert.That(service.Duration, Is.EqualTo(MediaTime.FromFrames(1, rate60)));
+        });
+    }
+
     private static SceneSettingsTabViewModel CreateViewModel(
         out CaptureSceneSettingsService sceneSettingsService,
         out BlockingPreviewPlayer previewPlayer,

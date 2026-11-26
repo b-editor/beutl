@@ -29,8 +29,14 @@ public interface ISceneSettingsService
         Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration,
         Rational frameRate, int sampleRate, SpeakerLayout channelLayout, float masterVolume)
     {
-        scene.FrameRate.Value = frameRate;
-        scene.SampleRate.Value = sampleRate;
+        ArgumentNullException.ThrowIfNull(scene);
+
+        if (scene.FrameRate.Value != frameRate || scene.SampleRate.Value != sampleRate)
+        {
+            throw new NotSupportedException(
+                "Changing scene FrameRate or SampleRate requires an ISceneSettingsService implementation that overrides this Apply overload.");
+        }
+
         return Apply(scene, frameSize, start, duration, channelLayout, masterVolume);
     }
 }

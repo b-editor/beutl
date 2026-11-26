@@ -219,16 +219,17 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         out Media.PixelSize frameSize, out MediaTime start, out MediaTime duration, out Rational frameRate)
     {
         frameSize = new Media.PixelSize(Width.Value, Height.Value);
-        Rational currentRate = SceneTimeRangeService.GetFrameRate(_scene);
-        bool hasStart = TimeText.TryParse(StartInput.Value, _scene.Start.Value, currentRate, out start);
-        bool hasDuration = TimeText.TryParse(DurationInput.Value, _scene.Duration.Value, currentRate, out duration);
         Rational? parsedRate = FrameRateText.Parse(FrameRateInput.Value);
-        frameRate = parsedRate ?? default;
+        bool hasValidRate = parsedRate is { Numerator: > 0, Denominator: > 0 };
+        frameRate = hasValidRate ? parsedRate!.Value : default;
+        Rational effectiveRate = hasValidRate ? frameRate : SceneTimeRangeService.GetFrameRate(_scene);
+        bool hasStart = TimeText.TryParse(StartInput.Value, _scene.Start.Value, effectiveRate, out start);
+        bool hasDuration = TimeText.TryParse(DurationInput.Value, _scene.Duration.Value, effectiveRate, out duration);
         return Width.Value > 0
             && Height.Value > 0
             && hasStart && start >= MediaTime.Zero
             && hasDuration && duration > MediaTime.Zero
-            && parsedRate is { Numerator: > 0, Denominator: > 0 }
+            && hasValidRate
             && SampleRate.Value > 0;
     }
 

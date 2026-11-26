@@ -210,4 +210,64 @@ public class SceneSettingsServiceTests
             Assert.That(_scene.Duration.Value, Is.EqualTo(originalDuration));
         });
     }
+
+    [Test]
+    public void Default_interface_Apply_rejects_rate_changes_without_mutating_scene_and_delegates_unchanged_rates()
+    {
+        var legacy = new LegacySceneSettingsService(_service);
+        ISceneSettingsService iface = legacy;
+        Rational originalFrameRate = _scene.FrameRate.Value;
+        int originalSampleRate = _scene.SampleRate.Value;
+
+        Assert.Throws<NotSupportedException>(() => iface.Apply(
+            _scene,
+            new PixelSize(1280, 720),
+            _scene.Start.Value,
+            _scene.Duration.Value,
+            new Rational(60),
+            originalSampleRate,
+            _scene.ChannelLayout.Value,
+            _scene.MasterVolume.Value));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.FrameRate.Value, Is.EqualTo(originalFrameRate));
+            Assert.That(_scene.SampleRate.Value, Is.EqualTo(originalSampleRate));
+            Assert.That(legacy.LegacyCallCount, Is.Zero);
+        });
+
+        bool delegated = iface.Apply(
+            _scene,
+            new PixelSize(1280, 720),
+            _scene.Start.Value,
+            _scene.Duration.Value,
+            originalFrameRate,
+            originalSampleRate,
+            _scene.ChannelLayout.Value,
+            _scene.MasterVolume.Value);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(delegated, Is.True);
+            Assert.That(legacy.LegacyCallCount, Is.EqualTo(1));
+            Assert.That(_scene.FrameSize.Value, Is.EqualTo(new PixelSize(1280, 720)));
+        });
+    }
+
+    private sealed class LegacySceneSettingsService(SceneSettingsService inner) : ISceneSettingsService
+    {
+        public int LegacyCallCount { get; private set; }
+
+        public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration)
+            => inner.Apply(scene, frameSize, start, duration);
+
+        public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout)
+            => inner.Apply(scene, frameSize, start, duration, channelLayout);
+
+        public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration, SpeakerLayout channelLayout, float masterVolume)
+        {
+            LegacyCallCount++;
+            return inner.Apply(scene, frameSize, start, duration, channelLayout, masterVolume);
+        }
+    }
 }

@@ -126,13 +126,18 @@ public partial class Scene
         // Read the rates before times and elements so the scene's own frame grid applies to them,
         // falling back to legacy project-level rates when opening an older project file.
         LegacyProjectRates? legacyRates = Project.CurrentLegacyRates;
+        bool hasFrameRate = false;
+        bool inheritedLegacyRates = false;
         if (context.Contains(nameof(FrameRate)))
         {
             FrameRate.DeserializeValue(context);
+            hasFrameRate = true;
         }
         else if (legacyRates?.FrameRate is { } legacyFrameRate)
         {
             FrameRate.Value = legacyFrameRate;
+            inheritedLegacyRates = true;
+            hasFrameRate = true;
         }
 
         if (context.Contains(nameof(SampleRate)))
@@ -142,6 +147,7 @@ public partial class Scene
         else if (legacyRates?.SampleRate is { } legacySampleRate)
         {
             SampleRate.Value = legacySampleRate;
+            inheritedLegacyRates = true;
         }
 
         if (context.Contains(nameof(ChannelLayout)))
@@ -151,9 +157,12 @@ public partial class Scene
         else if (legacyRates?.ChannelLayout is { } legacyChannelLayout)
         {
             ChannelLayout.Value = legacyChannelLayout;
+            inheritedLegacyRates = true;
         }
 
-        using (MediaTimeJsonConverter.ReadOnFrameGrid(ReadFrameRate(this)))
+        HasUnpersistedLegacyRates = inheritedLegacyRates;
+
+        using (hasFrameRate ? MediaTimeJsonConverter.ReadOnFrameGrid(ReadFrameRate(this)) : null)
         {
             DeserializeBody(context);
         }

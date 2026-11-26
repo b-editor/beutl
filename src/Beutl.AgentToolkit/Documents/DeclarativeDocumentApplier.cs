@@ -44,8 +44,7 @@ internal sealed partial class DeclarativeDocumentApplier(FontManager fonts)
             try
             {
                 Rational desiredRate = rateNode.Deserialize<Rational>(JsonHelper.SerializerOptions);
-                if (desiredRate is { Numerator: > 0, Denominator: > 0 })
-                    return desiredRate;
+                return IFrameRateSource.Normalize(desiredRate);
             }
             catch (JsonException)
             {
@@ -55,6 +54,30 @@ internal sealed partial class DeclarativeDocumentApplier(FontManager fonts)
         return (root as IHierarchical)?.FindHierarchicalParent<Scene>(includeSelf: true) is { } scene
             ? scene.GetFrameRate()
             : null;
+    }
+
+    private static bool IsUnchangedDocumentTime(JsonNode? desiredNode, MediaTime current)
+    {
+        if (desiredNode is not JsonValue value || value.GetValueKind() != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        JsonNode? currentNode = JsonSerializer.SerializeToNode(current, JsonHelper.SerializerOptions);
+        return JsonNode.DeepEquals(currentNode, desiredNode);
+    }
+
+    private static void StripUnchangedMediaTimeProperties(CoreObject target, JsonObject payload)
+    {
+        foreach (IProperty property in target.Properties)
+        {
+            if (property.Value is MediaTime current
+                && payload.TryGetPropertyValue(property.Name, out JsonNode? desiredNode)
+                && IsUnchangedDocumentTime(desiredNode, current))
+            {
+                payload.Remove(property.Name);
+            }
+        }
     }
 
     // isNew is true for an object created for the document: a member the document leaves out keeps what the
@@ -89,6 +112,11 @@ internal sealed partial class DeclarativeDocumentApplier(FontManager fonts)
                 break;
             default:
                 JsonObject payload = (JsonObject)desired.DeepClone();
+                if (!isNew)
+                {
+                    StripUnchangedMediaTimeProperties(target, payload);
+                }
+
                 NormalizeRegisteredPropertyValues(target, payload);
                 CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
                 break;
@@ -188,10 +216,20 @@ internal sealed partial class DeclarativeDocumentApplier(FontManager fonts)
             }
         }
 
-        ApplyRegisteredProperties(
-            scene,
-            desired,
-            new HashSet<string> { nameof(Scene.Children), nameof(Scene.FrameSize), "Groups", nameof(Scene.Markers) });
+        HashSet<string> excluded = [nameof(Scene.Children), nameof(Scene.FrameSize), "Groups", nameof(Scene.Markers)];
+        if (desired.TryGetPropertyValue(nameof(Scene.Start), out JsonNode? startNode)
+            && IsUnchangedDocumentTime(startNode, scene.Start.Value))
+        {
+            excluded.Add(nameof(Scene.Start));
+        }
+
+        if (desired.TryGetPropertyValue(nameof(Scene.Duration), out JsonNode? durationNode)
+            && IsUnchangedDocumentTime(durationNode, MediaTimeJsonConverter.LengthToWrite(scene.Start.Value, scene.Duration.Value)))
+        {
+            excluded.Add(nameof(Scene.Duration));
+        }
+
+        ApplyRegisteredProperties(scene, desired, excluded);
 
         int width = desired.TryGetPropertyValue("Width", out JsonNode? widthNode)
             ? widthNode!.GetValue<int>()
@@ -254,6 +292,23 @@ internal sealed partial class DeclarativeDocumentApplier(FontManager fonts)
         // Storage URIs are toolkit-managed sidecar paths; never let a desired document redirect an
         // existing element's .belm outside the project.
         payload.Remove("Uri");
+        if (!isNew)
+        {
+            if (payload.TryGetPropertyValue(nameof(Element.Start), out JsonNode? startNode)
+                && IsUnchangedDocumentTime(startNode, element.Start.Value))
+            {
+                payload.Remove(nameof(Element.Start));
+            }
+
+            if (payload.TryGetPropertyValue(nameof(Element.Length), out JsonNode? lengthNode)
+                && IsUnchangedDocumentTime(lengthNode, MediaTimeJsonConverter.LengthToWrite(element.Start.Value, element.Length.Value)))
+            {
+                payload.Remove(nameof(Element.Length));
+            }
+
+            StripUnchangedMediaTimeProperties(element, payload);
+        }
+
         NormalizeRegisteredPropertyValues(element, payload);
 
         CoreSerializer.PopulateFromJsonObject(element, element.GetType(), payload, CreateOptions(element));
@@ -283,6 +338,11 @@ internal sealed partial class DeclarativeDocumentApplier(FontManager fonts)
         foreach (IListProperty listProperty in target.Properties.OfType<IListProperty>().Where(list => !target.IsBaseField(list)))
         {
             payload.Remove(listProperty.Name);
+        }
+
+        if (!isNew)
+        {
+            StripUnchangedMediaTimeProperties(target, payload);
         }
 
         NormalizeRegisteredPropertyValues(target, payload);
@@ -350,6 +410,11 @@ internal sealed partial class DeclarativeDocumentApplier(FontManager fonts)
         foreach (IProperty field in SavedBaseFields(target))
         {
             if (excluded.Contains(field.Name) || !desired.TryGetPropertyValue(field.Name, out JsonNode? fieldNode))
+            {
+                continue;
+            }
+
+            if (field.Value is MediaTime currentTime && IsUnchangedDocumentTime(fieldNode, currentTime))
             {
                 continue;
             }

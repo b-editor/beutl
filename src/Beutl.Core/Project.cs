@@ -28,6 +28,7 @@ public sealed partial class Project : Hierarchical
     private const string LegacyChannelLayoutKey = "ChannelLayout";
 
     private static readonly AsyncLocal<LegacyProjectRates?> s_legacyRates = new();
+    private LegacyProjectRates? _unpersistedLegacyRates;
 
     public Project()
     {
@@ -143,15 +144,18 @@ public sealed partial class Project : Hierarchical
             : null;
 
         using (PushLegacyRates(legacyRates))
-        using (legacyFrameRate is { } legacyRate
-            ? MediaTimeJsonConverter.ReadOnFrameGrid(IFrameRateSource.Normalize(legacyRate))
-            : null)
+        using (MediaTimeJsonConverter.ReadOnFrameGrid(
+            IFrameRateSource.Normalize(legacyFrameRate ?? IFrameRateSource.DefaultFrameRate)))
         {
             if (context.GetValue<ProjectItem[]>("items") is { } items)
             {
                 Items.Replace(items);
             }
         }
+
+        _unpersistedLegacyRates = legacyRates.HasValue && Items.Any(static item => item.HasUnpersistedLegacyRates)
+            ? legacyRates
+            : null;
 
         activity?.SetTag("appVersion", AppVersion);
         activity?.SetTag("minAppVersion", MinAppVersion);
@@ -167,8 +171,37 @@ public sealed partial class Project : Hierarchical
 
         base.Serialize(context);
 
+        // When saving only the project file (such as an auto-save after editing one scene), retain
+        // legacy project-level rates until every migrated scene has been persisted to its own file.
+        if (_unpersistedLegacyRates is { } legacy
+            && !context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects)
+            && !context.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects))
+        {
+            if (Items.Any(static item => item.HasUnpersistedLegacyRates))
+            {
+                if (legacy.FrameRate is { } frameRate)
+                    context.SetValue(LegacyFrameRateKey, frameRate);
+                if (legacy.SampleRate is { } sampleRate)
+                    context.SetValue(LegacySampleRateKey, sampleRate);
+                if (legacy.ChannelLayout is { } channelLayout)
+                    context.SetValue(LegacyChannelLayoutKey, channelLayout);
+            }
+            else
+            {
+                _unpersistedLegacyRates = null;
+            }
+        }
+
         context.SetValue("items", Items);
 
         context.SetValue("variables", Variables.Value);
+    }
+
+    internal void ClearUnpersistedLegacyRatesIfPersisted()
+    {
+        if (_unpersistedLegacyRates.HasValue && !Items.Any(static item => item.HasUnpersistedLegacyRates))
+        {
+            _unpersistedLegacyRates = null;
+        }
     }
 }
