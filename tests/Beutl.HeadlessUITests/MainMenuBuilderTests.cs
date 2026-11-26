@@ -208,7 +208,7 @@ public sealed class MainMenuBuilderTests
                 Is.EquivalentTo(new[] { typeof(MainViewExtension), typeof(SceneEditorExtension) }));
             foreach (var group in shortcuts)
             {
-                string[] commands = [.. group.Select(item => item.GestureCommand!)];
+                string[] commands = [.. group.Select(item => item.GestureCommand!).Distinct()];
                 ContextCommandEntry[] definitions = [.. viewModel.ContextCommandManager.GetDefinitions(group.Key)];
                 Assert.That(commands, Is.SubsetOf(definitions.Select(entry => entry.Definition.Id)));
                 Assert.That(
@@ -267,9 +267,8 @@ public sealed class MainMenuBuilderTests
         }
     }
 
-    // The menus of a macOS menu bar that the title bars of the other platforms have no need of.
     [AvaloniaTest]
-    public async Task The_native_menu_has_what_macOS_users_expect_and_the_window_menu_stays_as_it_was()
+    public async Task Menus_expose_the_expected_edit_and_window_commands()
     {
         await TestReset.ResetShellAsync();
         MainViewModel viewModel = TestShell.MainViewModel;
@@ -309,8 +308,19 @@ public sealed class MainMenuBuilderTests
                 Assert.That(tops.Single(item => Equals(item.Header, Strings.Edit)).Items.OfType<MenuItem>().Select(item => item.Header),
                     Is.EqualTo(new[] { Strings.Undo, Strings.Redo }));
                 Assert.That(tops.Single(item => Equals(item.Header, Strings.Edit)).Items.OfType<MenuItem>().First().Command, Is.SameAs(menuBar.Undo));
-                Assert.That(tops.Single(item => Equals(item.Header, Strings.View)).Items.OfType<MenuItem>().Select(item => item.Header),
-                    Does.Not.Contain(Strings.ToggleFullScreen));
+                MenuItem fullScreen = tops.Single(item => Equals(item.Header, Strings.View)).Items.OfType<MenuItem>()
+                    .Single(item => Equals(item.Header, Strings.ToggleFullScreen));
+                Assert.That(fullScreen.Command, Is.SameAs(menuBar.ToggleFullScreen));
+
+                MenuItem newScene = tops.Single(item => Equals(item.Header, Strings.Scene)).Items.OfType<MenuItem>()
+                    .Single(item => Equals(item.Header, Strings.CreateNew));
+                NativeMenuItem nativeNewScene = NativeEntry(native, Strings.Scene, Strings.CreateNew);
+                KeyGesture gesture = GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), "main.createNewFile")!;
+                Assert.That(gesture, Is.Not.Null);
+                Assert.That(newScene.Command, Is.SameAs(menuBar.NewScene));
+                Assert.That(newScene.InputGesture, Is.EqualTo(gesture));
+                Assert.That(nativeNewScene.Command, Is.SameAs(menuBar.NewScene));
+                Assert.That(nativeNewScene.Gesture, Is.EqualTo(gesture));
             });
         }
         finally

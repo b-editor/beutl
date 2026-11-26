@@ -80,7 +80,7 @@ public class MainViewExtension : ViewExtension
             [new("Ctrl+OemComma"), new("Cmd+OemComma", OSPlatform.OSX)], menuBar => menuBar.ShowSettings),
         Menu("main.showTutorials", Strings.Tutorials, "",
             [new("Cmd+Shift+OemQuestion", OSPlatform.OSX)], menuBar => menuBar.ShowTutorials),
-        // The other platforms' title bars have these, so only macOS has keys for them by default.
+        // Only macOS gives these window commands default shortcuts.
         Menu("main.minimizeWindow", Strings.MinimizeWindow, "",
             [new("Cmd+M", OSPlatform.OSX)], menuBar => menuBar.MinimizeWindow),
         Menu("main.toggleFullScreen", Strings.ToggleFullScreen, "",

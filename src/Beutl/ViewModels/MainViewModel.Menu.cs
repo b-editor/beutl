@@ -150,10 +150,10 @@ public sealed partial class MainViewModel
                         transformOnRefresh: true)
                 },
                 new(Strings.ManageDockLayouts) { Command = MenuBar.OpenDockLayoutTab },
-                new(null) { IsInNativeMenuOnly = true },
+                MainMenuItem.Separator,
                 new(Strings.ToggleFullScreen)
                 {
-                    Command = MenuBar.ToggleFullScreen, GestureCommand = "main.toggleFullScreen", IsInNativeMenuOnly = true
+                    Command = MenuBar.ToggleFullScreen, GestureCommand = "main.toggleFullScreen"
                 },
             ]
         },
@@ -161,7 +161,7 @@ public sealed partial class MainViewModel
         {
             Items =
             [
-                new(Strings.CreateNew) { Command = MenuBar.NewScene },
+                new(Strings.CreateNew) { Command = MenuBar.NewScene, GestureCommand = "main.createNewFile" },
                 new(Strings.Remove) { Command = MenuBar.RemoveFromProject },
                 new(Strings.SceneSettings) { Command = MenuBar.ShowSceneSettings },
                 new(MissingMediaStrings.Title) { Command = MenuBar.RelinkMedia },
