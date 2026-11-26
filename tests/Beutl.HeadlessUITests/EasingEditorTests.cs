@@ -13,6 +13,7 @@ using Avalonia.VisualTree;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Engine;
@@ -67,11 +68,11 @@ public sealed class EasingEditorTests
     [Test]
     public void Registered_easings_follow_the_built_in_ones_with_their_display_names()
     {
-        EasingItem[] items = EasingEditorItems.Create(
+        EasingItem[] items = EasingItems.CreateEditorItems(
             typeof(Easing),
             [typeof(DisplayedEasing), typeof(AbstractEasing), typeof(ParameterizedEasing), typeof(ThrowingEasing), typeof(LinearEasing)],
             _ => null);
-        EasingItem[] splines = EasingEditorItems.Create(
+        EasingItem[] splines = EasingItems.CreateEditorItems(
             typeof(SplineEasing), [typeof(DisplayedEasing), typeof(DerivedSpline)], _ => null);
 
         Assert.Multiple(() =>
@@ -93,7 +94,7 @@ public sealed class EasingEditorTests
     {
         var registration = new SingleTypeLibraryItem(
             KnownLibraryItemFormats.Easing, typeof(DisplayedEasing), "Library wave", "Registered description");
-        EasingItem item = EasingEditorItems.Create(
+        EasingItem item = EasingItems.CreateEditorItems(
                 typeof(Easing), [typeof(DisplayedEasing)], type => type == typeof(DisplayedEasing) ? registration : null)
             .Single(item => item.Type == typeof(DisplayedEasing));
 
