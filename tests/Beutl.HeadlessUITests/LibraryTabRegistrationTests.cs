@@ -4,11 +4,13 @@ using System.Reflection;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
+using Beutl.Graphics.Transitions;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -191,6 +193,34 @@ public sealed class LibraryTabRegistrationTests
         Assert.That(item.DisplayName, Is.EqualTo(name), $"Library name for {type.Name}");
         Assert.That(type.GetCustomAttribute<DisplayAttribute>()?.GetName(), Is.EqualTo(name),
             $"Type display name for {type.Name}");
+    }
+
+    [AvaloniaTest]
+    public async Task DipToWhite_is_omitted_from_the_library_and_default_picker()
+    {
+        LibraryRegistrar.RegisterAll(_library);
+        var picker = new SelectLibraryItemDialogViewModel(TestShell.FontManager, _library,
+            KnownLibraryItemFormats.ClipTransition, typeof(ClipTransition));
+        try
+        {
+            await picker.SearchTask;
+            HeadlessTestHelpers.Settle();
+
+            IReadOnlySet<Type> registered = _library.GetTypesFromFormat(KnownLibraryItemFormats.ClipTransition);
+            Type[] choices = picker.Items.Select(item => ((SingleTypeLibraryItem)item.UserData).ImplementationType).ToArray();
+            Assert.Multiple(() =>
+            {
+                Assert.That(registered.Select(type => type.FullName),
+                    Does.Not.Contain("Beutl.Graphics.Transitions.DipToWhiteTransition"));
+                Assert.That(registered, Does.Contain(typeof(DipToColorTransition)));
+                Assert.That(picker.ShowAll.Value, Is.False);
+                Assert.That(choices, Is.EquivalentTo(registered));
+            });
+        }
+        finally
+        {
+            picker.ReleaseThumbnails();
+        }
     }
 
     // A format of its own, so that no other part of the app picks up the item while it is registered.

@@ -1860,9 +1860,6 @@
   <data name="DipToColorTransition" xml:space="preserve">
     <value>Dip to Color</value>
   </data>
-  <data name="DipToWhiteTransition" xml:space="preserve">
-    <value>Dip to White</value>
-  </data>
   <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
     <value>Left to Right</value>
   </data>
@@ -2621,9 +2618,6 @@
   </data>
   <data name="DipToColorTransition_LibraryDescription" xml:space="preserve">
     <value>Fades the outgoing clip to a solid color before revealing the incoming clip (fade through color, dip to black).</value>
-  </data>
-  <data name="DipToWhiteTransition_LibraryDescription" xml:space="preserve">
-    <value>Fades the outgoing clip to white before revealing the incoming clip (fade to white, white flash).</value>
   </data>
   <data name="PushTransition_LibraryDescription" xml:space="preserve">
     <value>Moves the incoming clip into the frame as it pushes the outgoing clip out (push wipe, slide push).</value>
