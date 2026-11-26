@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
@@ -97,6 +98,11 @@ internal static class CaptionTextUtilities
 
         return NormalizeLineEndings(builder.ToString());
     }
+
+    // SRT players can interpret tags as styling and display HTML entities verbatim.
+    // A zero-width word joiner after the opening bracket keeps the tag visible as text.
+    public static string ProtectSrtLiteralTags(string text)
+        => Regex.Replace(text, """<(?=/?[ \t]*[A-Za-z0-9_][^<>\r\n]*>)""", "<\u2060");
 
     private static bool IsFormattingTag(FormattedTextTokenizer.Token token)
     {

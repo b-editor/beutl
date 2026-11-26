@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
@@ -25,6 +26,82 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public sealed class SceneSubtitleExportTests
 {
+    [Test]
+    public void Export_evaluates_text_expressions_and_references_at_clip_start()
+    {
+        var scene = new Scene(640, 480, "Expression export");
+        var source = new TextBlock
+        {
+            Text =
+            {
+                Value = "Source fallback",
+                Expression = new StringExpression<string?>("""Time >= 0.5 && Time < 1 ? "Linked text" : "Wrong time" """),
+            },
+        };
+        Element linked = Clip(scene, 1200, 1800, 1, new TextBlock
+        {
+            Text = { Value = "Linked fallback", Expression = new ReferenceExpression<string?>(source.Id.Value, nameof(TextBlock.Text)) },
+        });
+        Element expression = Clip(scene, 2000, 3000, 1, new TextBlock
+        {
+            Text =
+            {
+                Value = "Expression fallback",
+                Expression = new StringExpression<string?>("""Time == 0 && Start == 2 ? "Expression text" : "Wrong time" """),
+            },
+        });
+        scene.Children.AddRange([Clip(scene, 500, 3000, 0, source), linked, expression]);
+
+        (CaptionDocument document, int skipped) = SceneCaptionExporter.BuildDocument([expression, linked], CaptionFormats.Srt);
+
+        Assert.That(skipped, Is.Zero);
+        Assert.That(document.Cues, Is.EqualTo(new[]
+        {
+            Cue(1200, 1800, "Linked text"),
+            Cue(2000, 3000, "Expression text"),
+        }));
+    }
+
+    [Test]
+    public void Srt_export_keeps_literal_tags_and_strips_scene_formatting()
+    {
+        var scene = new Scene(640, 480, "Literal text export");
+        Element element = Clip(scene, 0, 1000, 0, new TextBlock
+        {
+            Text = { Value = "<b>Styled</b> <noparse><b>Literal & text</b></noparse> 2 < 3" },
+        });
+        var codec = new SrtCaptionCodec();
+
+        (CaptionDocument document, _) = SceneCaptionExporter.BuildDocument([element], CaptionFormats.Srt);
+        CaptionImportResult result = codec.Decode(codec.Encode(document));
+
+        Assert.That(result.Document?.Cues, Is.EqualTo(new[]
+        {
+            Cue(0, 1000, "Styled <\u2060b>Literal & text<\u2060/b> 2 < 3"),
+        }));
+    }
+
+    [Test]
+    public void Srt_export_skips_and_counts_blank_clips()
+    {
+        var scene = new Scene(640, 480, "Blank text export");
+        Element blank = Clip(scene, 0, 1000, 0, new TextBlock { Text = { Value = " \t\r\n " } });
+        Element text = Clip(scene, 1000, 2000, 0, new DrawableGroup
+        {
+            Children =
+            {
+                new TextBlock { Text = { Value = "Keep this cue" } },
+                new TextBlock { Text = { Value = "<b> \t</b>" } },
+            },
+        });
+
+        (CaptionDocument document, int skipped) = SceneCaptionExporter.BuildDocument([blank, text], CaptionFormats.Srt);
+
+        Assert.That(skipped, Is.EqualTo(1));
+        Assert.That(document.Cues, Is.EqualTo(new[] { Cue(1000, 2000, "Keep this cue") }));
+        Assert.That(new SrtCaptionCodec().Encode(document), Does.Contain("Keep this cue"));
+    }
+
     [AvaloniaTest]
     [TestCase("SRT", "srt", 1855, 2452)]
     [TestCase("ASS", "ass", 1850, 2460)]
@@ -66,9 +143,10 @@ public sealed class SceneSubtitleExportTests
                 Assert.That(options.FileTypeChoices!.Single().Patterns, Is.EqualTo(new[] { $"*.{extension}" }));
             }
             CaptionFormatId format = extension == "vtt" ? CaptionFormats.WebVtt : new CaptionFormatId(extension);
+            string earlierText = format == CaptionFormats.Srt ? "First\n<\u2060note>" : "First\n<note>";
             Assert.That(ReadExport(path, format), Is.EqualTo(new[]
             {
-                Cue(210, 890, "First\n<note>"),
+                Cue(210, 890, earlierText),
                 Cue(laterStart, laterEnd, "Second — 日本語"),
             }));
         }
@@ -186,8 +264,11 @@ public sealed class SceneSubtitleExportTests
             ZIndex = { Value = layer },
             Objects = { value },
         };
-        string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
-        element.Uri = new Uri(Path.Combine(directory, $"{element.Id.Value:N}.belm"));
+        if (scene.Uri is { } uri)
+        {
+            string directory = Path.GetDirectoryName(uri.LocalPath)!;
+            element.Uri = new Uri(Path.Combine(directory, $"{element.Id.Value:N}.belm"));
+        }
         return element;
     }
 

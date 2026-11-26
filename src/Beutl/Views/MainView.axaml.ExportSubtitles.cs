@@ -34,10 +34,12 @@ public sealed partial class MainView
             if (await ShowMainDialogAsync(dialog) != FAContentDialogResult.Primary || !IsActive())
                 return;
 
+            var format = dialog.Format;
             HashSet<int> layers = dialog.GetSelectedLayers();
-            (CaptionDocument document, int skipped) = SceneCaptionExporter.BuildDocument(dialog.UsesSelection
+            IEnumerable<Element> elements = dialog.UsesSelection
                 ? scene.Children.Where(selection.Contains)
-                : scene.Children.Where(element => layers.Contains(element.ZIndex.Value)));
+                : scene.Children.Where(element => layers.Contains(element.ZIndex.Value));
+            (CaptionDocument document, int skipped) = SceneCaptionExporter.BuildDocument(elements, format.Id);
             string? skippedMessage = skipped > 0 ? string.Format(Strings.ExportSubtitles_SkippedClips, skipped) : null;
             if (document.Count == 0)
             {
@@ -47,7 +49,6 @@ public sealed partial class MainView
                 return;
             }
 
-            var format = dialog.Format;
             byte[] bytes = viewModel.CaptionSerializer.Export(document, format.Id);
             string name = Path.GetFileNameWithoutExtension(scene.Uri?.LocalPath) ?? "subtitles";
             using IStorageFile? file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
