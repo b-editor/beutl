@@ -23,6 +23,7 @@ public static class AgentHostSceneRouting
         "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap",
         "split_on_silence", "find_gaps", "close_all_gaps",
         "read_node_graph", "edit_node_graph",
+        "generate_proxies", "read_proxy_status", "remove_proxies", "scan_missing_media", "relink_missing_media",
         "plan_composition", "apply_composition", "measure_object_bounds",
         "undo", "redo", "read_history", "render_still", "render_storyboard",
         "measure_frame_differences", "export_video", "add_scene", "save_project"

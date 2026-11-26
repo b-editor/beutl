@@ -19,6 +19,7 @@ public sealed class ToolSurfaceTests
         typeof(TimelineEditTools),
         typeof(NodeGraphTools),
         typeof(HistoryTools),
+        typeof(MissingMediaTools),
         typeof(RenderTools)
     ];
 
@@ -71,6 +72,8 @@ public sealed class ToolSurfaceTests
             "list_node_types",
             "read_node_graph",
             "edit_node_graph",
+            "scan_missing_media",
+            "relink_missing_media",
             "plan_composition",
             "apply_composition",
             "render_still",
@@ -99,7 +102,7 @@ public sealed class ToolSurfaceTests
         Assert.Multiple(() =>
         {
             // Through a lambda, an async helper and a snapshot helper.
-            Assert.That(sessionTools, Is.SupersetOf(new[] { "apply_edit", "undo", "render_still", "find_gaps", "close_all_gaps", "split_on_silence" }));
+            Assert.That(sessionTools, Is.SupersetOf(new[] { "apply_edit", "undo", "render_still", "find_gaps", "close_all_gaps", "split_on_silence", "scan_missing_media", "relink_missing_media" }));
             Assert.That(sessionTools.Where(name => !AgentHostSceneRouting.AcceptsScene(name)), Is.Empty);
         });
     }

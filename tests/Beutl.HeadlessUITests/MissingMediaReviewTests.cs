@@ -63,6 +63,39 @@ public partial class MissingMediaTests
     }
 
     [AvaloniaTest]
+    public async Task Apply_repairs_a_recovery_protected_source_in_memory_and_keeps_its_retained_file()
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await CreateEditorAsync();
+        string directory = NewDirectory();
+        string replacement = Path.Combine(directory, "replacement.png");
+        File.WriteAllBytes(replacement, s_png);
+        try
+        {
+            Element element;
+            using (editor.HistoryManager.SuppressRecording())
+                element = AddImage(editor.Scene, Path.Combine(directory, "missing.png"));
+
+            Assert.That(await editor.SaveAsync(), Is.True);
+            Uri sidecar = element.Uri!;
+            byte[] retained = File.ReadAllBytes(sidecar.LocalPath);
+            element.SuppressedStorageSource = new SuppressedStorageSource(retained, sidecar);
+
+            using var vm = new MissingMediaViewModel(editor);
+            await vm.SetReplacementAsync(vm.Rows.Single(), replacement);
+
+            Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            Assert.Multiple(() =>
+            {
+                Assert.That(vm.Rows, Is.Empty);
+                Assert.That(((Beutl.Graphics.SourceImage)element.Objects.Single()).Source.Value!.Uri.LocalPath, Is.EqualTo(replacement));
+                Assert.That(File.ReadAllBytes(sidecar.LocalPath), Is.EqualTo(retained));
+            });
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
     public async Task Selected_fonts_exclude_conflicting_and_unreadable_folder_matches()
     {
         await TestReset.ResetShellAsync();
