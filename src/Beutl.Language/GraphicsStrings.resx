@@ -657,6 +657,9 @@
   <data name="GeometryShape" xml:space="preserve">
     <value>Geometry</value>
   </data>
+  <data name="GeometryShapeNode" xml:space="preserve">
+    <value>Shape</value>
+  </data>
   <data name="Geometry" xml:space="preserve">
     <value>Geometry</value>
   </data>
@@ -1652,6 +1655,9 @@
   </data>
   <data name="Drawable" xml:space="preserve">
     <value>Drawable</value>
+  </data>
+  <data name="DrawableBrushNode" xml:space="preserve">
+    <value>Drawable as Brush</value>
   </data>
   <data name="EndPoint" xml:space="preserve">
     <value>End Point</value>

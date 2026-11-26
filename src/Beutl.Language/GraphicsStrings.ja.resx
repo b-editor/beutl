@@ -652,6 +652,9 @@
   <data name="GeometryShape" xml:space="preserve">
     <value>ジオメトリー</value>
   </data>
+  <data name="GeometryShapeNode" xml:space="preserve">
+    <value>図形</value>
+  </data>
   <data name="Geometry" xml:space="preserve">
     <value>ジオメトリー</value>
   </data>
@@ -1647,6 +1650,9 @@
   </data>
   <data name="Drawable" xml:space="preserve">
     <value>描画オブジェクト</value>
+  </data>
+  <data name="DrawableBrushNode" xml:space="preserve">
+    <value>描画オブジェクトをブラシに</value>
   </data>
   <data name="EndPoint" xml:space="preserve">
     <value>終了点</value>

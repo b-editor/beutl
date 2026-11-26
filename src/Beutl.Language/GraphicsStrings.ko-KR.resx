@@ -656,6 +656,9 @@
   <data name="GeometryShape" xml:space="preserve">
     <value>기하 도형</value>
   </data>
+  <data name="GeometryShapeNode" xml:space="preserve">
+    <value>도형</value>
+  </data>
   <data name="Geometry" xml:space="preserve">
     <value>기하 도형</value>
   </data>
@@ -1651,6 +1654,9 @@
   </data>
   <data name="Drawable" xml:space="preserve">
     <value>드로어블</value>
+  </data>
+  <data name="DrawableBrushNode" xml:space="preserve">
+    <value>드로어블을 브러시로</value>
   </data>
   <data name="EndPoint" xml:space="preserve">
     <value>끝점</value>
