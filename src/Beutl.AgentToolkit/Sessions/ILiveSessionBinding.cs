@@ -31,3 +31,13 @@ public interface ILiveSessionBinding
         CancellationToken cancellationToken = default,
         TimeSpan? sessionWait = null);
 }
+
+internal interface ILiveMediaRepairBinding
+{
+    MissingMediaService MissingMediaDetector { get; }
+
+    IReadOnlyList<MediaReference> MediaReferencesForRepair { get; }
+
+    ValueTask<(MediaRepairSelection[] Applied, IReadOnlyList<MissingMedia> Remaining)> ApplyMediaRepairsAsync(
+        Scene scene, IReadOnlyList<MediaRepairSelection> selections, TimeSpan editWait, CancellationToken cancellationToken);
+}

@@ -14,6 +14,7 @@ using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
 using Microsoft.Extensions.Logging;
+using Reactive.Bindings;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 
 namespace Beutl.Pages;
@@ -27,6 +28,9 @@ public sealed partial class ExtensionsPage : Window
     // The navigation view's items. It gets them through MenuItemsSource, which leaves its MenuItems empty.
     private readonly List<FANavigationViewItem> _navigationItems;
     private PackageDetailsNavigation? _pendingPackage;
+
+    internal AsyncReactiveCommand? CurrentRefreshCommand
+        => frame.Content is Control { DataContext: ISupportRefreshViewModel viewModel } ? viewModel.Refresh : null;
 
     internal void OpenPackage(Package package, string? version)
     {
@@ -162,9 +166,7 @@ public sealed partial class ExtensionsPage : Window
         Type type1 = frame.CurrentSourcePageType;
         Type type2 = e.SourcePageType;
 
-        if (type1 == type2
-            && frame.Content is Control { DataContext: ISupportRefreshViewModel { Refresh: { } refreshCommand } }
-            && refreshCommand.CanExecute())
+        if (type1 == type2 && CurrentRefreshCommand is { } refreshCommand && refreshCommand.CanExecute())
         {
             refreshCommand.Execute();
         }

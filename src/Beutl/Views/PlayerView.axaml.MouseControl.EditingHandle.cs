@@ -36,7 +36,7 @@ public partial class PlayerView
         {
             if (model.IsPlaybackActive || !e.GetCurrentPoint(view.image).Properties.IsLeftButtonPressed
                 || view.transformHandlesOverlay.Viewport is not { } viewport
-                || !view.transformHandlesOverlay.UserMatrix.TryInvert(out _inverse)) return;
+                || !view.transformHandlesOverlay.EditingHandleMatrix.TryInvert(out _inverse)) return;
             _viewport = viewport;
             IEditorClock clock = model.EditViewModel.GetRequiredService<IEditorClock>();
             _time = clock.CurrentTime.Value;
@@ -53,7 +53,7 @@ public partial class PlayerView
             }
             else
             {
-                _moveUnbound = provider.BeginEditingHandleDrag(handle.Id, _time, view.transformHandlesOverlay.LocalBounds);
+                _moveUnbound = provider.BeginEditingHandleDrag(handle.Id, _time, view.transformHandlesOverlay.EditingHandleBounds);
             }
             _pointer = e.Pointer;
             _pointer.Capture(view.framePanel);

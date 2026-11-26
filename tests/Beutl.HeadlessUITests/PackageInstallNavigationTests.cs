@@ -1,12 +1,15 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Pages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
@@ -18,6 +21,46 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PackageInstallNavigationTests
 {
+    [AvaloniaTest]
+    public async Task F5RefreshesPackageDetailsInTheWindowOpenedByAnInstallLink()
+    {
+        await TestReset.ResetShellAsync();
+        using StoreHandler handler = CreateHandler();
+        using var http = new HttpClient(handler);
+        var configuration = TestShell.Configuration;
+        await using var app = new BeutlApiApplication(http,
+            new ExtensionProvider(configuration.ExtensionConfig), configuration.ViewConfig, configuration.UpdateConfig);
+        using var owner = new ControlHost(new Window());
+        Assert.That(PackageInstallRequest.TryParse("beutl://install?package=Beutl.Sample&version=1.2.3", out var request), Is.True);
+
+        await App.OpenPackageAsync(request!, owner.Window.OwnedWindows, owner.Window, TestShell.MainViewModel, app, CancellationToken.None);
+        ExtensionsPage window = owner.Window.OwnedWindows.OfType<ExtensionsPage>().Single();
+        try
+        {
+            HeadlessTestHelpers.Render();
+            var page = window.GetVisualDescendants().OfType<PackageDetailsPage>().Single();
+            var details = (PackageDetailsPageViewModel)page.DataContext!;
+            await HeadlessTestHelpers.WaitUntilAsync(details.Refresh.CanExecute);
+            Assert.That(details.SelectedRelease.Value?.Version.Value, Is.EqualTo("1.2.3"));
+
+            const string updatedDescription = "The package description was updated.";
+            handler.Package = TestStore.CreatePackageResponse(details.Package.Name, updatedDescription);
+            Assert.That(window.FindControl<TextBox>("searchTextBox")!.Focus(), Is.True);
+            window.KeyPressQwerty(PhysicalKey.F5, RawInputModifiers.None);
+            window.KeyReleaseQwerty(PhysicalKey.F5, RawInputModifiers.None);
+
+            await HeadlessTestHelpers.WaitUntilAsync(() => details.Package.Description.Value == updatedDescription
+                && details.Refresh.CanExecute(), message: "F5 did not refresh the linked package's details.");
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(window, nameof(PackageInstallNavigationTests), "package-link-refresh");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     [AvaloniaTest]
     public async Task LinkReceivedBeforeWindowLoadsOpensTheSelectedReleaseWithoutInstalling()
     {

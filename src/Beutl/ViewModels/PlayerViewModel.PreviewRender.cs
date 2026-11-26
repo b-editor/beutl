@@ -2,6 +2,7 @@
 using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -18,7 +19,7 @@ public partial class PlayerViewModel
 {
     // Both displayed images retain their own reference; the caller still owns the supplied frames.
     private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource, MediaTime time, long playbackId = 0,
-        IEditingStageProvider? editingStage = null)
+        IEditingStageProvider? editingStage = null, GraphEditingFrame? graphEditingFrame = null)
     {
         lock (_cleanPreviewLock)
         {
@@ -27,6 +28,7 @@ public partial class PlayerViewModel
             ReplaceImage(CleanPreviewImage, _cleanPreviewEnabled ? cleanSource : null);
         }
 
+        _graphEditingFrame = graphEditingFrame;
         ReplaceImage(PreviewImage, source);
         ShownEditingStage.Value = editingStage;
 
@@ -156,9 +158,6 @@ public partial class PlayerViewModel
         float onionNextOpacity = editorConfig.OnionSkinNextOpacity.Value;
         IEditingStageProvider? stage = IsPlaybackActive ? null : _editingStageEffect.Value;
         IReadOnlySet<EngineObject>? disabledEffects = GetEditingStageDisabledEffects(stage);
-        if (disabledEffects is null)
-            stage = null;
-
         RenderThread.Dispatcher.Dispatch(
             () => RenderPreviewFrame(
                 token, onionEnabled, onionPrevCount, onionNextCount, onionPrevOpacity, onionNextOpacity,
@@ -225,8 +224,8 @@ public partial class PlayerViewModel
                 }
             }
 
-            using Ref<Bitmap> bitmapRef = GetPreviewFrame(renderer, cacheManager, time, frame, disabledEffects,
-                useCache: !useOnionSkin && disabledEffects is null, out string? warning);
+            using Ref<Bitmap> bitmapRef = GetPreviewFrame(renderer, cacheManager, time, frame, disabledEffects, stage as FilterEffect,
+                useCache: !useOnionSkin && disabledEffects is null, out GraphEditingFrame? graphEditingFrame, out string? warning);
             Bitmap bitmap = bitmapRef.Value;
             using Ref<Bitmap>? cleanFrame = CopyCleanFrame(renderer, bitmap);
             if (useOnionSkin)
@@ -238,7 +237,7 @@ public partial class PlayerViewModel
             if (token.IsCancellationRequested)
                 return;
 
-            UpdateImage(bitmapRef, cleanFrame, time, editingStage: stage);
+            UpdateImage(bitmapRef, cleanFrame, time, editingStage: disabledEffects is null ? null : stage, graphEditingFrame: graphEditingFrame);
 
             // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
             if (!token.IsCancellationRequested)
@@ -283,9 +282,15 @@ public partial class PlayerViewModel
 
     private static Ref<Bitmap> GetPreviewFrame(
         SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame,
-        IReadOnlySet<EngineObject>? disabledEffects, bool useCache, out string? warning)
+        IReadOnlySet<EngineObject>? disabledEffects, FilterEffect? stage, bool useCache,
+        out GraphEditingFrame? graphEditingFrame, out string? warning)
     {
         warning = null;
+        graphEditingFrame = null;
+        using var placement = stage is not null && FindEditingGraph(stage) is { } graph
+            ? EffectEditingPlacement.Begin(stage, graph)
+            : null;
+        useCache &= placement is null;
         CompositionFrame compositionFrame = EvaluatePreviewFrame(renderer, time, disabledEffects);
         if (useCache && cacheManager.TryGet(frame, out var cache, out warning))
         {
@@ -298,6 +303,8 @@ public partial class PlayerViewModel
         }
 
         warning = renderer.RenderWithWarning(compositionFrame);
+        if (placement is not null)
+            graphEditingFrame = new GraphEditingFrame(stage!, time, placement.GetTransform());
         using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
         // Onion skin and an editing stage bypass the normal frame cache.
         if (useCache && cacheManager.IsEnabled)

@@ -116,6 +116,7 @@ public static class AgentToolkitMcpServer
             .WithTools<TimelineEditTools>()
             .WithTools<NodeGraphTools>()
             .WithTools<HistoryTools>()
+            .WithTools<MissingMediaTools>()
             .WithTools<RenderTools>();
     }
 }

@@ -32,7 +32,8 @@ public sealed partial class FilterEffectContext
                 .Inflate(BlurExtent(t.sigma))),
             transformSamplingBounds: static (t, region) => region.Union(region
                 .Translate(-t.position)
-                .Inflate(BlurExtent(t.sigma))));
+                .Inflate(BlurExtent(t.sigma))),
+            keepsPlacement: true);
     }
 
     public void Blur(Size sigma)
@@ -54,7 +55,8 @@ public sealed partial class FilterEffectContext
             transformBounds: static (sigma, bounds) =>
                 bounds.Inflate(BlurExtent(sigma)),
             transformSamplingBounds: static (sigma, region) =>
-                region.Inflate(BlurExtent(sigma)));
+                region.Inflate(BlurExtent(sigma)),
+            keepsPlacement: true);
     }
 
     /// <summary>How far a Gaussian blur reaches past its input: three sigmas, beyond which the kernel is negligible.</summary>
@@ -199,7 +201,8 @@ public sealed partial class FilterEffectContext
             (data, input) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
             (data, rect) => rect,
             // Erode shrinks its declared output but still reads the whole radius neighbourhood.
-            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)));
+            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)),
+            keepsPlacement: true);
     }
 
     public void Dilate(float radiusX, float radiusY)
@@ -211,7 +214,8 @@ public sealed partial class FilterEffectContext
             (radiusX, radiusY),
             (data, input) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
             (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)),
-            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)));
+            (data, region) => region.Inflate(new Thickness(data.radiusX, data.radiusY)),
+            keepsPlacement: true);
     }
 
     // Skia rejects a negative morphology radius, so it degrades to a pass-through. The all-zero
@@ -259,7 +263,8 @@ public sealed partial class FilterEffectContext
             // The rectangle stays where it is when the input moves.
             needsBoundsCoordinates: true,
             // Tiles repeat what the crop keeps of all the inputs together, across all of them.
-            needsOneTarget: spreadMethod != GradientSpreadMethod.Decal);
+            needsOneTarget: spreadMethod != GradientSpreadMethod.Decal,
+            keepsPlacement: spreadMethod == GradientSpreadMethod.Decal);
     }
 
     public void ColorMatrix(in ColorMatrix matrix)
