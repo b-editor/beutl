@@ -40,6 +40,12 @@ public sealed partial class ConnectionLine : Line
             .ObserveOnUIDispatcher()
             .Subscribe(x =>
             {
+                if (ConnectionViewModel?.HasFallback == true)
+                {
+                    Stroke = x.Third as IBrush;
+                    return;
+                }
+
                 switch (x.Fifth)
                 {
                     case ConnectionStatus.Disconnected:

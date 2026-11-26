@@ -1,4 +1,5 @@
-﻿using Beutl.Collections;
+﻿using System.Text.Json.Nodes;
+using Beutl.Collections;
 using Beutl.Engine;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.Serialization;
@@ -9,6 +10,9 @@ namespace Beutl.NodeGraph;
 public partial class GraphModel : EngineObject
 {
     private Dictionary<IProperty, (IInputPort Port, int Count)>? _connectedInputProperties;
+    private List<FallbackGraphNode>? _fallbackNodes;
+    private Dictionary<Connection, (Guid Id, FallbackGraphNode.SavedPort? Input, FallbackGraphNode.SavedPort? Output)>?
+        _removedFallbackConnections;
 
     public event EventHandler? TopologyChanged;
 
@@ -46,6 +50,7 @@ public partial class GraphModel : EngineObject
 
     private void OnNodeDetached(GraphNode obj)
     {
+        if (obj is FallbackGraphNode fallback) _fallbackNodes?.Remove(fallback);
         obj.TopologyChanged -= OnTopologyChanged;
         obj.Edited -= OnNodeEdited;
         RaiseTopologyChanged();
@@ -55,6 +60,7 @@ public partial class GraphModel : EngineObject
 
     private void OnNodeAttached(GraphNode obj)
     {
+        if (obj is FallbackGraphNode fallback) (_fallbackNodes ??= []).Add(fallback);
         obj.TopologyChanged += OnTopologyChanged;
         obj.Edited += OnNodeEdited;
         RaiseTopologyChanged();
@@ -73,6 +79,55 @@ public partial class GraphModel : EngineObject
         base.Deserialize(context);
     }
 
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        if (_removedFallbackConnections == null || context is not JsonSerializationContext json
+            || json.GetNode(Nodes.Name) is not JsonArray nodes) return;
+
+        // Write only the confirmed cuts into the outgoing JSON. Undo reattaches the same connection,
+        // so its saved references and their order are recovered from the fallback's original JSON.
+        foreach (var (connection, removed) in _removedFallbackConnections)
+        {
+            if (AllConnections.Contains(connection)) continue;
+            RemoveReference(removed.Input, removed.Id);
+            RemoveReference(removed.Output, removed.Id);
+        }
+
+        void RemoveReference(FallbackGraphNode.SavedPort? port, Guid connectionId)
+        {
+            if (port == null) return;
+            int index = Nodes.IndexOf(port.Node);
+            if (index >= 0 && nodes[index] is JsonObject serializedNode)
+                port.RemoveConnection(serializedNode, connectionId);
+        }
+    }
+
+    internal FallbackGraphNode.SavedPort? FindSavedFallbackPort(Connection connection, bool input)
+    {
+        if (_fallbackNodes is not { Count: > 0 }) return null;
+        Reference<NodeMember> endpoint = input ? connection.Input.Value : connection.Output.Value;
+        if (endpoint.IsNull || connection.Id.Value == Guid.Empty) return null;
+
+        FallbackGraphNode.SavedPort? saved = null;
+        foreach (FallbackGraphNode node in _fallbackNodes)
+        {
+            foreach (var candidate in node.FindSavedPorts(endpoint.Id, connection.Id.Value, input))
+            {
+                if (saved != null) return null;
+                saved = candidate;
+            }
+        }
+
+        if (saved == null) return null;
+        // If an available port also claims the endpoint, leave the fallback data alone.
+        // Matching the back-reference prevents a duplicated port Id from taking someone else's connection.
+        return Nodes.Where(node => node is not FallbackGraphNode).SelectMany(node => node.EnumerateMembers()).Any(member =>
+            member.Id.Value == endpoint.Id && (input ? member is IInputPort : member is IOutputPort)
+            && GetPortConnections(member).Any(r => r.Value == connection || r.Value == null && r.Id == connection.Id.Value))
+            ? null : saved;
+    }
+
     public Connection Connect(IInputPort inputNodePort, IOutputPort outputNodePort)
     {
         if (inputNodePort.FindHierarchicalParent<GraphNode>() is { } owner
@@ -86,20 +141,29 @@ public partial class GraphModel : EngineObject
 
     public void Disconnect(Connection connection)
     {
+        var input = FindSavedFallbackPort(connection, input: true);
+        var output = FindSavedFallbackPort(connection, input: false);
+        if ((input != null || output != null) && AllConnections.Contains(connection))
+        {
+            (_removedFallbackConnections ??= [])[connection] = (connection.Id.Value, input, output);
+        }
+
         AllConnections.Remove(connection);
         connection.Disconnect();
     }
 
+    internal static IEnumerable<Reference<Connection>> GetPortConnections(INodeMember port) => port switch
+    {
+        IOutputPort output => output.Connections,
+        IListPort list => list.Connections,
+        IInputPort input => [input.Connection.Value],
+        _ => [],
+    };
+
     // Severs every connection of the port, and says whether there was any.
     internal bool DisconnectPort(INodeMember port)
     {
-        Reference<Connection>[] connections = port switch
-        {
-            IOutputPort output => [.. output.Connections],
-            IListPort list => [.. list.Connections],
-            IInputPort { Connection.Value: var connection } => [connection],
-            _ => [],
-        };
+        Reference<Connection>[] connections = [.. GetPortConnections(port)];
 
         bool disconnected = false;
         foreach (Reference<Connection> connection in connections)

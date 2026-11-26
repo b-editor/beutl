@@ -11,15 +11,52 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
     // A node read from JSON has its metadata already.
     internal void MarkMetadataRead() => _metadataRestored = true;
 
-    // The Ids of the ports in the JSON this node stands in for, which its connections name.
-    internal IEnumerable<Guid> SavedPortIds()
+    // Only direct members with a matching connection reference establish ownership of a saved endpoint.
+    internal IEnumerable<SavedPort> FindSavedPorts(Guid portId, Guid connectionId, bool input)
     {
         foreach (string member in (string[])[nameof(Items), nameof(NestedInputPorts)])
         {
+            if (!input && member == nameof(NestedInputPorts)) continue;
             if (Json?[member] is not JsonArray ports) continue;
-            foreach (JsonNode? port in ports)
+            for (int i = 0; i < ports.Count; i++)
             {
-                if (port?[nameof(Id)] is JsonValue id && Guid.TryParse(id.ToString(), out Guid value)) yield return value;
+                if (ports[i] is not JsonObject port || !MatchesId(port[nameof(Id)], portId)) continue;
+                if (input && MatchesId(port[nameof(IInputPort.Connection)], connectionId))
+                {
+                    yield return new SavedPort(this, member, i, IsList: false);
+                }
+                else if (port[nameof(IListPort.Connections)] is JsonArray references
+                         && references.Any(reference => MatchesId(reference, connectionId)))
+                {
+                    yield return new SavedPort(this, member, i, IsList: true);
+                }
+            }
+        }
+    }
+
+    private static bool MatchesId(JsonNode? node, Guid id)
+        => node is JsonValue value
+           && (value.TryGetValue(out Guid savedId)
+               || value.TryGetValue<string>(out var text) && Guid.TryParse(text, out savedId))
+           && savedId == id;
+
+    internal sealed record SavedPort(FallbackGraphNode Node, string Member, int Index, bool IsList)
+    {
+        internal void RemoveConnection(JsonObject serializedNode, Guid connectionId)
+        {
+            if (serializedNode[Member] is not JsonArray ports || Index >= ports.Count
+                || ports[Index] is not JsonObject port) return;
+
+            if (IsList && port[nameof(IListPort.Connections)] is JsonArray references)
+            {
+                for (int i = references.Count - 1; i >= 0; i--)
+                {
+                    if (MatchesId(references[i], connectionId)) references.RemoveAt(i);
+                }
+            }
+            else if (!IsList && MatchesId(port[nameof(IInputPort.Connection)], connectionId))
+            {
+                port[nameof(IInputPort.Connection)] = Guid.Empty;
             }
         }
     }

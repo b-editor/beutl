@@ -643,6 +643,45 @@ public class NodeGraphMutationServiceTests
         });
     }
 
+    [Test]
+    public void RemovingUnavailableNodeKeepsAHealthyConnectionWithTheSamePortId()
+    {
+        var source = new RandomSingleNode();
+        var unavailable = new OutputNode();
+        var healthy = new OutputNode { InputPort = { Id = { Value = unavailable.InputPort.Id.Value } } };
+        var original = new GraphModel();
+        original.Nodes.AddRange([source, unavailable, healthy]);
+        Connection unavailableLink = original.Connect(unavailable.InputPort, source.Value);
+        Connection healthyLink = original.Connect(healthy.InputPort, source.Value);
+        JsonObject json = CoreSerializer.SerializeToJsonObject(original);
+        json["Nodes"]![1]!["$type"] = "[Missing.Plugin]Missing:Node";
+        var graph = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        using var harness = new HistoryHarness(graph);
+        var service = new NodeGraphMutationService(harness.History);
+        var fallback = (FallbackGraphNode)graph.Nodes[1];
+        var restoredHealthy = (OutputNode)graph.Nodes[2];
+        Connection restoredUnavailableLink = graph.AllConnections[0];
+        Connection restoredHealthyLink = graph.AllConnections[1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(restoredUnavailableLink.Id.Value, Is.EqualTo(unavailableLink.Id.Value));
+            Assert.That(restoredUnavailableLink.Input.Value.Id, Is.EqualTo(unavailable.InputPort.Id.Value));
+            Assert.That(restoredUnavailableLink.Input.Value.Value, Is.Null);
+            Assert.That(restoredHealthyLink.Input.Value.Value, Is.SameAs(restoredHealthy.InputPort));
+        });
+
+        service.RemoveNode(graph, fallback);
+        Assert.Multiple(() =>
+        {
+            Assert.That(graph.AllConnections.Single().Id.Value, Is.EqualTo(healthyLink.Id.Value));
+            Assert.That(restoredHealthy.InputPort.Connection.Value.Value, Is.SameAs(restoredHealthyLink));
+        });
+        Assert.That(harness.History.Undo(), Is.True);
+        Assert.That(graph.AllConnections, Is.EqualTo(new[] { restoredUnavailableLink, restoredHealthyLink }));
+        Assert.That(harness.History.Redo(), Is.True);
+        Assert.That(graph.AllConnections.Single(), Is.SameAs(restoredHealthyLink));
+    }
+
     public enum Mutation
     {
         AddNode, AddNodeAndConnect, RemoveNode, MoveNodes, RenameNode, RemovePort,

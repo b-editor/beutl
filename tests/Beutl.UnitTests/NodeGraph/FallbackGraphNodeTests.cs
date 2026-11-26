@@ -1,15 +1,21 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Composition;
+using Beutl.Editor.Services;
+using Beutl.Graphics.Transformation;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Utilities;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
 
 public class FallbackGraphNodeTests
 {
+    private const string MissingType = "[Missing.Plugin]Missing:Node";
+
     [Test]
     public void DisconnectUnavailableInput_UpdatesStatusAndHealthyOutput()
     {
@@ -19,7 +25,7 @@ public class FallbackGraphNodeTests
         graph.Nodes.AddRange([source, output]);
         graph.Connect(output.InputPort, source.Value);
         JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
-        json["Nodes"]![1]!["$type"] = "[Missing.Plugin]Missing:Node";
+        json["Nodes"]![1]!["$type"] = MissingType;
         var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         Connection connection = restored.AllConnections.Single();
         connection.Status.Value = ConnectionStatus.Success;
@@ -47,7 +53,7 @@ public class FallbackGraphNodeTests
         graph.Connect(output.InputPort, source.Value);
         JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
         JsonObject payload = json["Nodes"]![0]!.AsObject();
-        payload["$type"] = "[Missing.Plugin]Missing:Node";
+        payload["$type"] = MissingType;
         if (failed) payload.WriteDiscriminator(typeof(UnreadableDisplayNode));
         payload["PluginPayload"] = new JsonObject { ["Unknown"] = 42 };
         JsonNode original = payload.DeepClone();
@@ -90,7 +96,7 @@ public class FallbackGraphNodeTests
         graph.Connect(output.InputPort, source.Value);
         JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
         JsonObject payload = json["Nodes"]![0]!.AsObject();
-        payload["$type"] = "[Missing.Plugin]Missing:Node";
+        payload["$type"] = MissingType;
         payload["PluginPayload"] = new JsonObject { ["Unknown"] = 42 };
         JsonObject expected = (JsonObject)payload.DeepClone();
         expected["Position"] = "300,40";
@@ -115,6 +121,157 @@ public class FallbackGraphNodeTests
             Assert.That(reopened.AllConnections.Single().Output.Value.Id, Is.EqualTo(source.Value.Id.Value));
         });
     }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SceneSaveAndUndoKeepFallbackListOrderAndRestoreSurvivingEdges(bool failed)
+    {
+        var graph = new GraphModel();
+        var listNode = new ExpressionNode();
+        graph.Nodes.Add(listNode);
+        var ids = Enumerable.Range(0, 3)
+            .Select(i => graph.Connect(listNode.InputPort, NodeGraphTestHelpers.Source(graph, i)).Id.Value)
+            .ToArray();
+        listNode.InputPort.MoveConnection(2, 0);
+        using var fixture = NodeGraphTestHelpers.AttachToScene(graph, "beutl_fallback_list");
+        Uri sceneUri = fixture.Scene.Uri!;
+        string elementPath = fixture.Scene.Children.Single().Uri!.LocalPath;
+        CoreSerializer.StoreToUri(fixture.Scene, sceneUri);
+        JsonObject json = ReadElement(elementPath);
+        JsonObject node = FirstNode(json);
+        JsonNode pluginType = node["$type"]!.DeepClone();
+        if (failed)
+            node.WriteDiscriminator(typeof(UnreadableDisplayNode));
+        else
+            node["$type"] = MissingType;
+        node["PluginPayload"] = new JsonObject { ["Connection"] = ids[0] };
+        Guid orphan = Guid.NewGuid();
+        ListReferences(node).Insert(1, orphan);
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        GraphModel restored = ElementGraph(scene);
+        var fallback = (FallbackGraphNode)restored.Nodes[0];
+        using var history = new HistoryHarness(scene);
+        var service = new NodeGraphMutationService(history.History);
+        if (!failed)
+        {
+            service.MoveNodes([(fallback, 45, 65)]);
+            service.RenameNode(fallback, "Renamed");
+        }
+        Guid[] surviving = [ids[2], orphan, ids[1]];
+        service.DisconnectConnection(restored, restored.AllConnections.Single(c => c.Id.Value == ids[0]));
+        CoreSerializer.StoreToUri(scene, sceneUri);
+        JsonObject saved = ReadElement(elementPath);
+        JsonObject savedNode = FirstNode(saved);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ListReferences(savedNode).Select(item => item!.GetValue<Guid>()), Is.EqualTo(surviving));
+            Assert.That(JsonNode.DeepEquals(savedNode["$type"], node["$type"]), Is.True);
+            Assert.That(JsonNode.DeepEquals(savedNode["PluginPayload"], node["PluginPayload"]), Is.True);
+            Assert.That(JsonNode.DeepEquals(fallback.Json, node), Is.True, "Editing the graph preserves the original fallback JSON.");
+            Assert.That(savedNode["Position"]!.GetValue<string>(), Is.EqualTo(failed ? "0,0" : "45,65"));
+        });
+        GraphModel reopened = ElementGraph(CoreSerializer.RestoreFromUri<Scene>(sceneUri));
+        Assert.That(reopened.AllConnections.Select(c => c.Id.Value), Is.EqualTo(new[] { ids[1], ids[2] }));
+        Assert.That(reopened.Nodes[0].Name.Value, Is.EqualTo(failed ? string.Empty : "Renamed"));
+
+        Assert.That(history.History.Undo(), Is.True);
+        CoreSerializer.StoreToUri(scene, sceneUri);
+        Assert.That(JsonNode.DeepEquals(ListReferences(FirstNode(ReadElement(elementPath))), ListReferences(node)), Is.True);
+        Assert.That(history.History.Redo(), Is.True);
+        if (!failed)
+        {
+            service.RemoveNode(restored, fallback);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+            GraphModel afterDeletion = ElementGraph(CoreSerializer.RestoreFromUri<Scene>(sceneUri));
+            Assert.That(afterDeletion.Nodes.OfType<FallbackGraphNode>(), Is.Empty);
+            Assert.That(afterDeletion.AllConnections, Is.Empty);
+            Assert.That(history.History.Undo(), Is.True);
+        }
+        CoreSerializer.StoreToUri(scene, sceneUri);
+
+        saved = ReadElement(elementPath);
+        FirstNode(saved)["$type"] = pluginType;
+        File.WriteAllText(elementPath, saved.ToJsonString());
+        GraphModel recovered = ElementGraph(CoreSerializer.RestoreFromUri<Scene>(sceneUri));
+        var recoveredNode = (ExpressionNode)recovered.Nodes[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(recoveredNode.InputPort.Connections.Select(reference => reference.Id), Is.EqualTo(surviving));
+            Assert.That(recovered.AllConnections.Select(c => c.Id.Value), Is.EqualTo(new[] { ids[1], ids[2] }));
+            Assert.That(recovered.AllConnections.All(c => c.Input.Value.Value == recoveredNode.InputPort), Is.True);
+        });
+    }
+
+    [Test]
+    public void SceneRecoveryKeepsProtectedElementBytesWhenFallbackConnectionCutIsRefused()
+    {
+        var graph = new GraphModel();
+        var target = new OutputNode();
+        graph.Nodes.Add(target);
+        graph.Connect(target.InputPort, NodeGraphTestHelpers.Source(graph, 42));
+        using var fixture = NodeGraphTestHelpers.AttachToScene(graph, "beutl_protected_fallback");
+        Uri sceneUri = fixture.Scene.Uri!;
+        string elementPath = fixture.Scene.Children.Single().Uri!.LocalPath;
+        CoreSerializer.StoreToUri(fixture.Scene, sceneUri);
+        JsonObject json = ReadElement(elementPath);
+        FirstNode(json).WriteDiscriminator(typeof(UnreadableDisplayNode));
+        json[nameof(Element.Objects)]!.AsArray().Add(RecoveryBlockers.CreateShapeWithUnreadableEasing());
+        File.WriteAllText(elementPath, json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        GraphModel restored = ElementGraph(scene);
+        using var history = new HistoryHarness(scene);
+        var service = new NodeGraphMutationService(history.History);
+        Assert.That(ElementEditability.IsEditable(scene.Children.Single()), Is.False);
+        service.DisconnectConnection(restored, restored.AllConnections.Single());
+        CoreSerializer.StoreToUri(scene, sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.AllConnections, Has.Count.EqualTo(1));
+            Assert.That(history.History.UndoCount, Is.Zero);
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void CuttingAnUnavailableNestedInputLeavesTheRestoredPortFree()
+    {
+        var graph = new GraphModel();
+        var node = new FactoryNode<TransformGroup>();
+        var transform = new TranslateTransform();
+        node.Object.Value.Children.Add(transform);
+        graph.Nodes.Add(node);
+        INestedInputPort port = NodeGraphTestHelpers.Find(node, transform.X);
+        graph.Connect(port, NodeGraphTestHelpers.Source(graph, 42f));
+        JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
+        JsonObject payload = json[nameof(GraphModel.Nodes)]![0]!.AsObject();
+        JsonNode type = payload["$type"]!.DeepClone();
+        payload["$type"] = MissingType;
+        var unavailable = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        unavailable.Disconnect(unavailable.AllConnections.Single());
+
+        JsonObject saved = CoreSerializer.SerializeToJsonObject(unavailable);
+        saved[nameof(GraphModel.Nodes)]![0]!["$type"] = type;
+        var recovered = (GraphModel)CoreSerializer.DeserializeFromJsonObject(saved, typeof(GraphModel));
+        var recoveredPort = (INestedInputPort)recovered.FindNodePort(port.Id.Value)!;
+        Assert.That(recoveredPort.Connection.Value.IsNull, Is.True);
+        Assert.That(recovered.AllConnections, Is.Empty);
+    }
+
+    private static JsonObject ReadElement(string path) => JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+
+    private static JsonObject FirstNode(JsonObject element)
+        => element[nameof(Element.Objects)]![0]![nameof(NodeGraphDrawable.Model)]![nameof(GraphModel.Nodes)]![0]!.AsObject();
+
+    private static JsonArray ListReferences(JsonObject node)
+        => node[nameof(GraphNode.Items)]![0]![nameof(IListPort.Connections)]!.AsArray();
+
+    private static GraphModel ElementGraph(Scene scene)
+        => scene.Children.Single().Objects.OfType<NodeGraphDrawable>().Single().Model.Value!;
 }
 
 public partial class UnreadableDisplayNode : GraphNode

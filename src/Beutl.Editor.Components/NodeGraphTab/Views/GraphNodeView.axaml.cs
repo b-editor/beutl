@@ -156,7 +156,16 @@ public partial class GraphNodeView : UserControl
     {
         if (DataContext is GraphNodeViewModel viewModel)
         {
-            if (viewModel.IsExpanded.Value)
+            if (viewModel.GraphNode is FallbackGraphNode fallback)
+            {
+                (Point input, Point output) = GetHeaderPortPositions(viewModel);
+                foreach (ConnectionViewModel connection in viewModel.NodeGraphViewModel.AllConnections)
+                {
+                    if (connection.FallbackInput == fallback) connection.InputPortPosition.Value = input;
+                    if (connection.FallbackOutput == fallback) connection.OutputPortPosition.Value = output;
+                }
+            }
+            else if (viewModel.IsExpanded.Value)
             {
                 UpdateExpandedPortPositions(viewModel);
             }
@@ -211,16 +220,20 @@ public partial class GraphNodeView : UserControl
 
     private void UpdateCollapsedPortPositions(GraphNodeViewModel viewModel)
     {
-        Point vcenter = viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
-        Point vcenterRight = vcenter + default(Point).WithX(Bounds.Width);
-
+        (Point input, Point output) = GetHeaderPortPositions(viewModel);
         foreach (NodeMemberViewModel item in viewModel.EnumerateMembers())
         {
-            SetCollapsedEndpoints(item, vcenter, vcenterRight);
+            SetCollapsedEndpoints(item, input, output);
         }
 
-        SetCollapsedEndpoints(_undecidedLeftNodePortContext, vcenter, vcenterRight);
-        SetCollapsedEndpoints(_undecidedRightNodePortContext, vcenter, vcenterRight);
+        SetCollapsedEndpoints(_undecidedLeftNodePortContext, input, output);
+        SetCollapsedEndpoints(_undecidedRightNodePortContext, input, output);
+    }
+
+    private (Point Input, Point Output) GetHeaderPortPositions(GraphNodeViewModel viewModel)
+    {
+        Point left = viewModel.Position.Value + new Vector(0, handle.Bounds.Height / 2);
+        return (left, left + new Vector(Bounds.Width, 0));
     }
 
     private static void SetCollapsedEndpoints(NodeMemberViewModel? member, Point input, Point output)
