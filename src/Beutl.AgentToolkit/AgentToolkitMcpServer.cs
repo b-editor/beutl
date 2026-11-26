@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Configuration;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Media.Decoding;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,6 +44,9 @@ public static class AgentToolkitMcpServer
             .AddSingleton(configuration)
             .AddSingleton(fonts)
             .AddSingleton(decoders)
+            .AddSingleton(_ => new ObjectTemplateService(
+                new SceneRenderServices(fonts, decoders, configuration.EditorConfig, configuration.ProxyStoreConfig),
+                Path.Combine(profileDirectory, "templates")))
             .AddSingleton(_ => TypeRegistration.CreateLibraryService())
             .AddSingleton<SchemaGenerator>()
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
@@ -111,9 +115,12 @@ public static class AgentToolkitMcpServer
         ArgumentNullException.ThrowIfNull(builder);
         return builder
             .WithTools<SessionTools>()
+            .WithTools<SceneTools>()
+            .WithTools<VersionControlTools>()
             .WithTools<QueryTools>()
             .WithTools<EditTools>()
             .WithTools<TimelineEditTools>()
+            .WithTools<ElementTemplateTools>()
             .WithTools<NodeGraphTools>()
             .WithTools<HistoryTools>()
             .WithTools<RenderTools>();

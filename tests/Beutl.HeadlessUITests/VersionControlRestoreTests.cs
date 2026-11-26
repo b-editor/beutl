@@ -8088,6 +8088,9 @@ public class VersionControlRestoreTests
             }
         }
 
+        public Task<CommitResult> CommitNonInteractiveAsync(string message, CancellationToken cancellationToken)
+            => CommitAllAsync(message, SnapshotKind.Manual, cancellationToken);
+
         public async Task<CommitResult> CommitAllAsync(
             string message,
             SnapshotKind kind,

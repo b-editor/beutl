@@ -12,9 +12,11 @@ Extensions can add live tools through `McpToolExtension`. The stdio server lists
 | Open, create, and save projects | `open_project`, `create_project`, `save_project`, `read_operation_status` | File-backed and live sessions. |
 | Add a scene | `add_scene` | Adds a scene to the targeted project and returns its ID. |
 | Read or edit scene settings | `read_document_summary`, `read_document`, `apply_edit` | Includes serialized scene settings such as frame size, start, and duration. |
-| Remove a scene from its project | — | No tool. |
+| Remove a scene from its project | `remove_scene` | Takes the scene ID and keeps its file. Refuses the last scene or a scene with unsaved edits. Live removal persists immediately. With a file session, follow with `save_project`. |
 | Undo, redo, and view history | `undo`, `redo`, `read_history` | Live calls use the editor's history. |
-| Version control | — | No tool for the project's version control workflow. |
+| Version control | `read_version_control_status`, `read_version_control_history`, `commit_project` | Reads local Git state and paginated project history. A commit saves pending edits and records one local snapshot for a project with Beutl tracking and a Git identity. |
+
+Use the Version Control tab for restore and branch checkout because they require confirmation. The tab also handles Git setup, signed commits, and remote commands that may need credentials.
 
 ## Timeline
 
@@ -31,7 +33,7 @@ Extensions can add live tools through `McpToolExtension`. The stdio server lists
 | Find the next or previous gap or close all gaps | `read_document_summary`, `close_gap` | Partial. Infer gaps from element ranges and close them individually. |
 | Roll a cut or slide a clip | — | No operation tool for the editor's coupled trim and media-offset adjustments. |
 | Duplicate timeline elements, copy, cut, or paste | `apply_edit`, `duplicate_object` | Partial. A patch can assemble new elements, and `duplicate_object` copies an engine object within an element. The timeline duplication and clipboard workflows have no tool. |
-| Save or reuse an element template | — | No tool for the element template library or Save as Template. |
+| Save or reuse an element template | `list_element_templates`, `save_element_template`, `add_element_from_template` | Lists templates in the Beutl profile. Save by name with element IDs, or omit the IDs to use the live selection and its groups. Add by template ID, time in seconds, and zero-based layer. A set keeps relative timing, layers, and groups. Insertion has one undo step. |
 | Edit timeline markers | `apply_edit` | Edit the scene's marker list. |
 | Analyze and split clips on silence | — | No tool for silence detection or the editor's split and delete modes. |
 

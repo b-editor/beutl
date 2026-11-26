@@ -1,4 +1,6 @@
 ﻿using Beutl.Editor;
+using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Sessions;
@@ -30,4 +32,12 @@ public interface ILiveSessionBinding
         Func<HistoryManager, TResult> operation,
         CancellationToken cancellationToken = default,
         TimeSpan? sessionWait = null);
+}
+
+internal interface ILiveElementTemplateBinding
+{
+    IReadOnlyList<Element> GetSelectedElements();
+
+    ValueTask<ElementAddResult> AddTemplateAsync(
+        ElementDescription description, Func<Scene, Action?> captureValidation, CancellationToken cancellationToken);
 }

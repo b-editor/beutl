@@ -16,6 +16,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
     // capture) require an IHierarchicalRoot, which headless sessions otherwise lack.
     private readonly BeutlApplication _hierarchyRoot = new();
     private readonly object _dispatchLock = new();
+    private readonly HashSet<Scene> _dirtyScenes = new(ReferenceEqualityComparer.Instance);
     private DateTime _projectLastWriteUtc;
     private bool _disposed;
 
@@ -112,6 +113,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
 
             _projectLastWriteUtc = File.GetLastWriteTimeUtc(projectPath);
             IsDirty = false;
+            _dirtyScenes.Clear();
         }
     }
 
@@ -257,7 +259,13 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
     public void MarkDirty()
     {
         IsDirty = true;
+        _dirtyScenes.Add(Scene);
     }
+
+    internal void MarkProjectDirty() => IsDirty = true;
+
+    internal bool HasUnsavedChanges(Scene scene)
+        => _dirtyScenes.Contains(scene) || (ReferenceEquals(Scene, scene) && History.HasPendingOperations);
 
     public void Invoke(Action action)
     {

@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
@@ -59,6 +60,14 @@ internal static class ToolErrorMapper
                 "Reload the project or save to a different path."),
             SessionUnavailableException ex => ex.ToError(),
             UserEditingException ex => ex.ToError(),
+            GitIdentityRequiredException ex => new ToolError(ErrorCode.ValidationRejected, ex.Message, "project",
+                "Configure the Git identity from the Version Control tab and retry."),
+            GitInteractiveSigningException ex => new ToolError(ErrorCode.ValidationRejected, ex.Message, "project"),
+            VersionControlConflictedException ex => new ToolError(ErrorCode.ValidationRejected, ex.Message, "project"),
+            DetachedHeadNotSupportedException ex => new ToolError(ErrorCode.ValidationRejected, ex.Message, "project"),
+            GitOperationException { IsRepositoryLockFailure: true } => new ToolError(
+                ErrorCode.WorkspaceBusy, "Git could not acquire a repository lock.", "project",
+                "Wait for the active Git operation, or use the Version Control tab for lock recovery."),
             OutputOperationBusyException ex => new ToolError(
                 ex.Code,
                 ex.Message,

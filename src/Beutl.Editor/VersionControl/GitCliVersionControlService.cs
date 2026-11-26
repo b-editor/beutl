@@ -370,6 +370,15 @@ internal sealed partial class GitCliVersionControlService :
             cancellationToken);
     }
 
+    public Task<CommitResult> CommitNonInteractiveAsync(string message, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        return RunSerializedAsync(
+            () => CommitAllCoreAsync(message, SnapshotKind.Manual, cancellationToken, allowSigning: false),
+            cancellationToken);
+    }
+
     public Task<IReadOnlyList<CommitInfo>> GetHistoryAsync(
         int skip,
         int take,

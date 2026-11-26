@@ -40,7 +40,8 @@ internal sealed partial class GitCliVersionControlService
         string message,
         SnapshotKind kind,
         CancellationToken cancellationToken,
-        bool presentMissingIdentityNotice = true)
+        bool presentMissingIdentityNotice = true,
+        bool allowSigning = true)
     {
         RepositoryInfo repository = GetRepository();
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -62,6 +63,13 @@ internal sealed partial class GitCliVersionControlService
         if (status.IsClean)
         {
             return new CommitResult.NoChanges();
+        }
+
+        if (!allowSigning
+            && await TryGetConfigValueAsync(repository, runner, "commit.gpgSign", cancellationToken, asBoolean: true)
+                .ConfigureAwait(false) == "true")
+        {
+            throw new GitInteractiveSigningException();
         }
 
         GitIdentity? identity = await GetIdentityCoreAsync(repository, runner, cancellationToken)
@@ -92,7 +100,8 @@ internal sealed partial class GitCliVersionControlService
                 runner,
                 message,
                 kind,
-                cancellationToken)
+                cancellationToken,
+                allowSigning)
             .ConfigureAwait(false);
         if (revision is null)
         {
@@ -111,7 +120,8 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         string message,
         SnapshotKind kind,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool allowSigning = true)
     {
         await EnsureNoExternalRepositoryOperationAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
@@ -161,7 +171,7 @@ internal sealed partial class GitCliVersionControlService
             "-m",
             $"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}",
         };
-        if (kind != SnapshotKind.Manual)
+        if (kind != SnapshotKind.Manual || !allowSigning)
         {
             // Only a commit the user asks for follows commit.gpgSign; an automatic snapshot must not
             // wait on a signer.

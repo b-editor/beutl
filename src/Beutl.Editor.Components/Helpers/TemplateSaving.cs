@@ -13,7 +13,7 @@ internal static class TemplateSaving
     // What the timeline saves: one element as it is; several, a selection or a group, as a set that keeps their
     // timing, layers and groups.
     internal static ICoreSerializable CreateElementTemplate(Scene scene, IReadOnlyList<Element> elements)
-        => elements.Count == 1 ? elements[0] : ElementSetFactory.Create(scene, elements);
+        => ElementTemplateResolver.CreateTemplateContent(scene, elements);
 
     // fonts are the editor's, which the preview renders the instance with.
     internal static SaveAsTemplateFlyout ShowSaveFlyout(INotificationService notifications,

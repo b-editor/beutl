@@ -98,8 +98,7 @@ public sealed partial class ObjectTemplateService : IDisposable
             {
                 lock (_lock)
                 {
-                    item.Name.Value = GetUniqueNameLocked(name);
-                    if (!SaveItemToFile(item))
+                    if (!SaveItemToFile(item, name))
                     {
                         return null;
                     }
@@ -259,18 +258,36 @@ public sealed partial class ObjectTemplateService : IDisposable
         }
     }
 
-    private bool SaveItemToFile(ObjectTemplateItem item)
+    private bool SaveItemToFile(ObjectTemplateItem item, string name)
     {
+        string temporaryPath = Path.Combine(_directoryPath, $"{Guid.NewGuid():N}.tmp");
         try
         {
             Directory.CreateDirectory(_directoryPath);
-            string filePath = Path.Combine(_directoryPath, item.Name.Value + ".json");
             JsonNode json = ObjectTemplateItem.ToJson(item);
 
-            using (FileStream stream = File.Create(filePath))
+            using (var stream = new FileStream(temporaryPath, FileMode.CreateNew))
             using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
             {
                 json.WriteTo(writer);
+            }
+
+            // The stdio server and app share the profile. Another process may claim this name
+            // after our in-process check, so publish the complete file without overwriting it.
+            string filePath;
+            while (true)
+            {
+                item.Name.Value = GetUniqueNameLocked(name);
+                filePath = Path.Combine(_directoryPath, item.Name.Value + ".json");
+                try
+                {
+                    File.Move(temporaryPath, filePath, overwrite: false);
+                    break;
+                }
+                catch (IOException) when (File.Exists(filePath))
+                {
+                    // Try the next available name.
+                }
             }
 
             item.FilePath = filePath;
@@ -283,6 +300,17 @@ public sealed partial class ObjectTemplateService : IDisposable
         {
             _logger.LogError(ex, "Failed to save ObjectTemplateItem: {Name}", item.Name.Value);
             return false;
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(temporaryPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _logger.LogWarning(ex, "Failed to remove temporary template file {FilePath}.", temporaryPath);
+            }
         }
     }
 
@@ -440,17 +468,14 @@ public sealed partial class ObjectTemplateService : IDisposable
         {
             if (!Directory.Exists(_directoryPath)) return;
 
-            string[] diskFiles = Directory
-                .EnumerateFiles(_directoryPath, "*.json", SearchOption.AllDirectories)
-                .ToArray();
-            CanonicalPathSet diskPaths = CanonicalPathSet.FromEnumeratedFiles(diskFiles);
-            IEnumerable<string> preferredDiskFiles = diskPaths.GetPreferredPaths(diskFiles);
-
             lock (_lock)
             {
+                // A disk snapshot taken before a local save would remove the newly cached template.
+                string[] diskFiles = Directory.GetFiles(_directoryPath, "*.json", SearchOption.AllDirectories);
+                CanonicalPathSet diskPaths = CanonicalPathSet.FromEnumeratedFiles(diskFiles);
                 RemoveItemsWithoutFileLocked(diskPaths);
                 CanonicalPathSet loadedPaths = ReloadChangedItemsLocked(diskPaths);
-                AddNewFilesLocked(preferredDiskFiles, diskPaths, loadedPaths);
+                AddNewFilesLocked(diskPaths.GetPreferredPaths(diskFiles), diskPaths, loadedPaths);
             }
         }
         catch (Exception ex)

@@ -85,6 +85,7 @@ internal interface IProjectVersionControlBackend :
         string message,
         SnapshotKind kind,
         CancellationToken cancellationToken);
+    Task<CommitResult> CommitNonInteractiveAsync(string message, CancellationToken cancellationToken);
 
     Task SetRemoteAsync(string url, CancellationToken cancellationToken);
 
