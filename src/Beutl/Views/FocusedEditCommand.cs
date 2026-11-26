@@ -7,14 +7,15 @@ using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
 using ObjCRuntime = Beutl.Controls.ObjCRuntime;
 
 namespace Beutl.Views;
 
-// An Edit entry that lets the focused text input handle its standard gesture. AppKit can also give a key equivalent
-// to the native menu before the focused control sees the key, so the native entry hands that key on to other controls too.
+// Routes Edit entries to the focused input or the editor. AppKit can give a key equivalent to the native menu
+// before the focused control sees the key, so native entries also forward those gestures to other controls.
 internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fallback, Control owner, KeyGesture? shownGesture = null) : ICommand
 {
     private EventHandler? _focusChanged;
@@ -80,7 +81,7 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
                     && TopLevel.GetTopLevel(target) == window)
                 {
                     menuFocus.RestoreSelection();
-                    SendKey(target, GetKeyGesture(action));
+                    ExecuteTextAction(target);
                 }
             }
             else if (!isDialogOpen && fallback.CanExecute(parameter))
@@ -115,6 +116,53 @@ internal sealed class FocusedEditCommand(StandardEditAction action, ICommand fal
 
     internal static bool IsTextInput(object? element)
         => ContextCommandInput.IsFromTextInput(new KeyEventArgs { Source = element });
+
+    private void ExecuteTextAction(Interactive target)
+    {
+        if (target.FindAncestorOfType<TextBox>(includeSelf: true) is { } box)
+        {
+            switch (action)
+            {
+                case StandardEditAction.Cut:
+                    if (box.CanCut) box.Cut();
+                    return;
+                case StandardEditAction.Copy:
+                    if (box.CanCopy) box.Copy();
+                    return;
+                case StandardEditAction.Paste:
+                    if (box.CanPaste) box.Paste();
+                    return;
+                case StandardEditAction.SelectAll:
+                    box.SelectAll();
+                    return;
+            }
+        }
+        else if (target.FindAncestorOfType<ShellTerminalControl>(includeSelf: true) is { } terminal)
+        {
+            // The terminal can deliver these keyboard chords to the shell as input.
+            Func<Task>? clipboardAction = action switch
+            {
+                StandardEditAction.Cut => terminal.CutSelectionAsync,
+                StandardEditAction.Copy => terminal.CopySelectionAsync,
+                StandardEditAction.Paste => terminal.PasteAsync,
+                _ => null
+            };
+            if (clipboardAction is not null)
+            {
+                _ = ShellTerminalControl.RunClipboardActionAsync(clipboardAction);
+                return;
+            }
+
+            if (action == StandardEditAction.SelectAll)
+            {
+                terminal.SelectAll();
+                return;
+            }
+        }
+
+        // TextBox handles forward Delete through its key handler, including deletion at the caret.
+        SendKey(target, GetKeyGesture(action));
+    }
 
     private static bool SendKey(Interactive target, KeyGesture gesture)
     {

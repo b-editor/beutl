@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Text;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -8,6 +9,7 @@ using Avalonia.Layout;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
@@ -18,6 +20,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 using Microsoft.Extensions.DependencyInjection;
+using RoyalTerminal.Terminal;
 
 namespace Beutl.HeadlessUITests;
 
@@ -143,16 +146,117 @@ public sealed class InWindowEditMenuTests
         Assert.That(await host.Clipboard.TryGetTextAsync(), Is.EqualTo(host.Box.Text));
     }
 
+    [AvaloniaTest]
+    public async Task Text_clipboard_commands_respect_read_only_and_password_inputs()
+    {
+        await TestReset.ResetShellAsync();
+        using var host = new EditMenuWindow();
+        const string clipboardText = "clipboard text";
+        string? originalText = host.Box.Text;
+        await host.Clipboard.SetTextAsync(clipboardText);
+
+        host.Box.IsReadOnly = true;
+        RunEditWithSelection(Strings.Cut);
+        RunEditWithSelection(Strings.Paste);
+        Assert.That(host.Box.Text, Is.EqualTo(originalText));
+        Assert.That(await host.Clipboard.TryGetTextAsync(), Is.EqualTo(clipboardText));
+
+        host.Box.IsReadOnly = false;
+        host.Box.PasswordChar = '*';
+        RunEditWithSelection(Strings.Copy);
+        RunEditWithSelection(Strings.Cut);
+        Assert.That(host.Box.Text, Is.EqualTo(originalText));
+        Assert.That(await host.Clipboard.TryGetTextAsync(), Is.EqualTo(clipboardText));
+
+        void RunEditWithSelection(string header)
+        {
+            Assert.That(host.Box.Focus(), Is.True);
+            host.Box.SelectAll();
+            host.RunEdit(header, keyboard: false);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Edit_menu_uses_the_focused_terminals_clipboard_actions(bool keyboard)
+    {
+        await TestReset.ResetShellAsync();
+        using var terminalView = new TerminalTabView();
+        using var host = new EditMenuWindow(terminalView);
+        var terminal = terminalView.FindControl<ShellTerminalControl>("Terminal")!;
+        var endpoint = new RecordingTerminalEndpoint();
+        terminal.VtProcessorPreference = VtProcessorPreference.Managed;
+        terminal.AttachEndpoint(endpoint);
+        try
+        {
+            const string clipboardText = "clipboard text";
+            const string terminalText = "terminal output";
+            const string pastedInput = "\x1b[200~" + clipboardText + "\x1b[201~";
+            terminal.WriteOutput(Encoding.UTF8.GetBytes(terminalText + "\x1b[?2004h"));
+            await host.Clipboard.SetTextAsync(clipboardText);
+
+            RunTerminalEdit(Strings.Paste);
+            await HeadlessTestHelpers.WaitUntilAsync(() => endpoint.Input.Count > 0);
+            Assert.That(endpoint.Input, Is.EqualTo(new[] { pastedInput }));
+
+            Assert.That(terminal.HasSelection, Is.False);
+            RunTerminalEdit(Strings.Copy);
+            RunTerminalEdit(Strings.Cut);
+            Assert.That(await host.Clipboard.TryGetTextAsync(), Is.EqualTo(clipboardText));
+            Assert.That(endpoint.Input, Is.EqualTo(new[] { pastedInput }));
+
+            RunTerminalEdit(Strings.SelectAll);
+            Assert.That(terminal.HasSelection, Is.True);
+            RunTerminalEdit(Strings.Copy);
+            Assert.That((await host.Clipboard.TryGetTextAsync())?.Trim(), Is.EqualTo(terminalText));
+            Assert.That(terminal.HasSelection, Is.True);
+
+            await host.Clipboard.SetTextAsync(clipboardText);
+            RunTerminalEdit(Strings.Cut);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !terminal.HasSelection);
+            Assert.That((await host.Clipboard.TryGetTextAsync())?.Trim(), Is.EqualTo(terminalText));
+            Assert.That(endpoint.Input, Is.EqualTo(new[] { pastedInput }));
+
+            Assert.That(terminal.IsFocused, Is.True);
+            host.Window.KeyPressQwerty(PhysicalKey.V, RawInputModifiers.Control);
+            host.Window.KeyReleaseQwerty(PhysicalKey.V, RawInputModifiers.None);
+            Assert.That(endpoint.Input, Is.EqualTo(new[] { pastedInput, "\u0016" }));
+        }
+        finally
+        {
+            terminal.DetachEndpoint();
+        }
+
+        void RunTerminalEdit(string header)
+        {
+            Assert.That(terminal.Focus(), Is.True);
+            host.RunEdit(header, keyboard);
+        }
+    }
+
+    private sealed class RecordingTerminalEndpoint : ITerminalEndpoint
+    {
+        public List<string> Input { get; } = [];
+
+        public void SendText(ReadOnlySpan<byte> utf8) => Input.Add(Encoding.UTF8.GetString(utf8));
+
+        public void SetFocus(bool focused) { }
+
+        public void SetSize(int widthPx, int heightPx) { }
+    }
+
     private sealed class EditMenuWindow : IDisposable
     {
         private readonly MainView _view = new() { DataContext = TestShell.MainViewModel };
         private readonly IClipboard? _previousClipboard = ClipboardHelper.OverrideClipboard;
         private readonly MenuItem _edit;
 
-        public EditMenuWindow()
+        public EditMenuWindow(Control? input = null)
         {
-            Grid.SetRow(Box, 2);
-            ((Grid)_view.Content!).Children.Add(Box);
+            input ??= Box;
+            Grid.SetRow(input, 2);
+            ((Grid)_view.Content!).Children.Add(input);
             Window = new Window { Content = _view, Width = 1000, Height = 680 };
             Window.Show();
             ClipboardHelper.OverrideClipboard = Clipboard;
