@@ -1661,6 +1661,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>メニュー</value>
   </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>{0}を開く</value>
+  </data>
   <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
     <value>値を入力…</value>
   </data>

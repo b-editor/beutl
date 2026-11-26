@@ -1586,6 +1586,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>菜单</value>
   </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>打开{0}</value>
+  </data>
   <data name="OnionSkin" xml:space="preserve">
     <value>洋葱皮</value>
   </data>
