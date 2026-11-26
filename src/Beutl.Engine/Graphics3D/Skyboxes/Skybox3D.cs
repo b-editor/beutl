@@ -41,6 +41,9 @@ public abstract partial class Skybox3D : EngineObject
     {
         private SkyboxPipeline? _pipeline;
 
+        /// <summary>Gets whether this skybox can draw visible background content.</summary>
+        protected internal virtual bool HasContent => true;
+
         /// <summary>Enumerates the texture sources needed before the skybox is drawn.</summary>
         protected internal virtual IEnumerable<TextureSource.Resource> EnumerateTextureSources() => [];
 

@@ -139,6 +139,56 @@ public sealed class SkyboxUnitTests
     }
 
     [Test]
+    public void HitTest_IgnoresSkyboxesWithoutDrawableContent()
+    {
+        Assert.That(HitTestCenter(new EquirectangularSkybox()), Is.False);
+        Assert.That(HitTestCenter(new EquirectangularSkybox { Texture = { Value = new ImageTextureSource() } }), Is.False);
+        Assert.That(HitTestCenter(new EquirectangularSkybox { Texture = { Value = new DrawableTextureSource() } }), Is.False);
+
+        var disabledTexture = MakeDrawableTexture(64);
+        disabledTexture.IsEnabled.Value = false;
+        Assert.That(HitTestCenter(new EquirectangularSkybox { Texture = { Value = disabledTexture } }), Is.False);
+
+        var disabledDrawable = MakeDrawableTexture(64);
+        disabledDrawable.Drawable.Value!.IsEnabled.Value = false;
+        Assert.That(HitTestCenter(new EquirectangularSkybox { Texture = { Value = disabledDrawable } }), Is.False);
+
+        Assert.That(HitTestCenter(new EquirectangularSkybox { Texture = { Value = MakeDrawableTexture(64) } }), Is.True);
+
+        Assert.That(HitTestCenter(new CubemapSkybox()), Is.False);
+        Assert.That(HitTestCenter(new CubemapSkybox { PositiveX = { Value = new ImageTextureSource() } }), Is.False);
+        Assert.That(HitTestCenter(new CubemapSkybox { PositiveX = { Value = MakeDrawableTexture(64) } }), Is.True);
+
+        var transparentProcedural = new ProceduralSkybox
+        {
+            SkyColor = { Value = Colors.Transparent },
+            HorizonColor = { Value = Colors.Transparent },
+            GroundColor = { Value = Colors.Transparent },
+        };
+        Assert.That(HitTestCenter(transparentProcedural), Is.False);
+
+        static bool HitTestCenter(Skybox3D skybox)
+        {
+            var scene = new Scene3D
+            {
+                RenderWidth = { Value = 32 },
+                RenderHeight = { Value = 32 },
+                Skybox = { Value = skybox },
+            };
+            using Scene3D.Resource resource = scene.ToResource(CompositionContext.Default);
+            using var node = new Scene3DRenderNode(resource);
+            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = new Rect(0, 0, 32, 32),
+                CacheOptions = RenderCacheOptions.Disabled,
+                Supports3DRendering = true,
+            });
+            return renderer.HitTest(new Point(16, 16));
+        }
+    }
+
+    [Test]
     public void MediaDiscovery_FindsImagesAndDrawablesInsideSkyboxFaces()
     {
         string projectDir = Path.Combine(Path.GetTempPath(), "beutl-skybox-project");

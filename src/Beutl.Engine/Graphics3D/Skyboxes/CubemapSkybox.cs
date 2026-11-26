@@ -46,6 +46,9 @@ public sealed partial class CubemapSkybox : Skybox3D
         private ITexture2D? _transparentFace;
         private FaceInput[] _uploadedFaces = new FaceInput[FaceCount];
 
+        protected internal override bool HasContent
+            => EnumerateFaces().Any(static face => face is { IsEnabled: true } source && source.HasContent);
+
         protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
             => EnumerateFaces().OfType<TextureSource.Resource>();
 

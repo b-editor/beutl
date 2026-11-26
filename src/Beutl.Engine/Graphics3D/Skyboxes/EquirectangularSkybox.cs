@@ -22,6 +22,8 @@ public sealed partial class EquirectangularSkybox : Skybox3D
 
     public partial class Resource
     {
+        protected internal override bool HasContent => Texture is { IsEnabled: true } source && source.HasContent;
+
         protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
             => Texture is { } texture ? [texture] : [];
 

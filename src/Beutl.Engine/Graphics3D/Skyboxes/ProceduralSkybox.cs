@@ -48,6 +48,8 @@ public sealed partial class ProceduralSkybox : Skybox3D
 
     public partial class Resource
     {
+        protected internal override bool HasContent => SkyColor.A > 0 || HorizonColor.A > 0 || GroundColor.A > 0;
+
         protected internal override (IPipeline3D Pipeline, IDescriptorSet Descriptors)? PrepareDraw(
             IGraphicsContext context, IShaderCompiler shaderCompiler, IRenderPass3D renderPass,
             Matrix4x4 clipToSky, float surfaceDensity)

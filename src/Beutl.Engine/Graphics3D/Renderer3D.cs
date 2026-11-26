@@ -47,6 +47,7 @@ internal sealed class Renderer3D : IRenderer3D
     public int SampleCount { get; private set; } = 1;
     internal int RequestedSampleCount { get; private set; }
     internal Exception? LastSampleAllocationFailure { get; private set; }
+    internal bool HasSkyboxTarget => _viewport?.HasSkyboxTarget == true;
 
     /// <summary>
     /// Device px per logical unit. Hit-test entry points multiply logical coordinates by this.
@@ -122,6 +123,12 @@ internal sealed class Renderer3D : IRenderer3D
             throw new InvalidOperationException("The renderer must be initialized before it is resized.");
 
         ReplaceResources(width, height, sampleCount, initializeShadows: false);
+    }
+
+    internal void EnsureSkyboxTarget()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _viewport?.EnsureSkyboxTarget();
     }
 
     private void ReplaceResources(int width, int height, int requested, bool initializeShadows)
@@ -593,13 +600,31 @@ internal sealed class Renderer3D : IRenderer3D
             Output = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         }
 
+        public bool HasSkyboxTarget => _skybox is { Width: > 0 };
+
+        public void EnsureSkyboxTarget()
+        {
+            if (_skybox is { Width: > 0 })
+                return;
+
+            var pass = _skybox ?? new SkyboxPass(context, compiler);
+            try
+            {
+                pass.Initialize(Output.Width, Output.Height);
+                _skybox = pass;
+            }
+            catch
+            {
+                if (!ReferenceEquals(pass, _skybox))
+                    pass.Dispose();
+                throw;
+            }
+        }
+
         public ITexture2D? RenderSkybox(Camera3D.Resource camera, Skybox3D.Resource skybox, float surfaceDensity)
         {
-            _skybox ??= new SkyboxPass(context, compiler);
-            if (_skybox.Width == 0)
-                _skybox.Initialize(Output.Width, Output.Height);
-
-            return _skybox.Execute(camera, skybox, surfaceDensity);
+            EnsureSkyboxTarget();
+            return _skybox!.Execute(camera, skybox, surfaceDensity);
         }
 
         public void Dispose()

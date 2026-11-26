@@ -116,6 +116,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             : null;
         GizmoMode gizmoMode = gizmoTarget is null ? GizmoMode.None : scene.GizmoMode;
         Skybox3D.Resource? skybox = scene.Skybox is { IsEnabled: true, Opacity: > 0 } activeSkybox
+            && activeSkybox.HasContent
             ? activeSkybox
             : null;
         SceneTextureBinding[] textureBindings = RecordDrawableTextures(
@@ -337,9 +338,11 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         };
         Renderer3D renderer = snapshot.Scene.Renderer ??= new Renderer3D(graphicsContext);
 
-        if (renderer.Width != deviceWidth || renderer.Height != deviceHeight || renderer.RequestedSampleCount != requestedSamples)
+        bool needsResize = renderer.Width != deviceWidth || renderer.Height != deviceHeight || renderer.RequestedSampleCount != requestedSamples;
+        bool needsSkyboxTarget = snapshot.Skybox is not null && (needsResize || !renderer.HasSkyboxTarget);
+        if (needsResize || needsSkyboxTarget)
         {
-            if (deviceWidth > 0 && deviceHeight > 0
+            if (needsResize && deviceWidth > 0 && deviceHeight > 0
                 && Renderer3D.FindExceededExtentLimit(Device3DExtentBudget.FromContext(graphicsContext), deviceWidth, deviceHeight)
                     is { } exceeded)
             {
@@ -349,10 +352,16 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
             try
             {
-                if (renderer.Width == 0 || renderer.Height == 0)
-                    renderer.Initialize(deviceWidth, deviceHeight, requestedSamples);
-                else
-                    renderer.Resize(deviceWidth, deviceHeight, requestedSamples);
+                if (needsResize)
+                {
+                    if (renderer.Width == 0 || renderer.Height == 0)
+                        renderer.Initialize(deviceWidth, deviceHeight, requestedSamples);
+                    else
+                        renderer.Resize(deviceWidth, deviceHeight, requestedSamples);
+                }
+
+                if (needsSkyboxTarget)
+                    renderer.EnsureSkyboxTarget();
             }
             catch (Exception ex)
             {
@@ -382,7 +391,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 return;
             }
 
-            if (renderer.LastSampleAllocationFailure is { } failure)
+            if (needsResize && renderer.LastSampleAllocationFailure is { } failure)
             {
                 s_logger.LogWarning(failure,
                     "3D multisample allocation failed ({Width}x{Height} px, requested {Requested}x). Rendering at {Samples}x.",
