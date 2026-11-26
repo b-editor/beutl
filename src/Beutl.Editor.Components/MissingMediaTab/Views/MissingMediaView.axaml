@@ -5,6 +5,7 @@
              xmlns:converters="using:Beutl.Editor.Components.Converters"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.Editor.Components.MissingMediaTab.ViewModels"
              x:DataType="vm:MissingMediaViewModel"
              x:CompileBindings="True">
@@ -91,10 +92,11 @@
                                                 AutomationProperties.Name="{x:Static lang:MissingMediaStrings.MediaActions}"
                                                 ToolTip.Tip="{x:Static lang:MissingMediaStrings.MediaActions}">
                                             <Button.Flyout>
-                                                <MenuFlyout>
-                                                    <MenuItem Name="KeepOfflineMenuItem" Header="{x:Static lang:MissingMediaStrings.KeepOffline}"
-                                                              ToggleType="CheckBox" IsChecked="{Binding IsOffline.Value, Mode=TwoWay}" />
-                                                </MenuFlyout>
+                                                <ui:FAMenuFlyout>
+                                                    <ui:FAToggleMenuFlyoutItem Name="KeepOfflineMenuItem"
+                                                                               IsChecked="{Binding IsOffline.Value, Mode=TwoWay}"
+                                                                               Text="{x:Static lang:MissingMediaStrings.KeepOffline}" />
+                                                </ui:FAMenuFlyout>
                                             </Button.Flyout>
                                             <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
                                         </Button>

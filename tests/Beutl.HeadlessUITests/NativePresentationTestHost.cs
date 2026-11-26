@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Language;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
 using static Beutl.HeadlessUITests.MacNative;
 
 namespace Beutl.HeadlessUITests;
@@ -40,9 +41,9 @@ internal static partial class NativeTimelineTestHost
                 // Exercise the monitor selection entry, including opening and dismissing its popup.
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
-                var popup = owner.OpenedPopups.Single(p => p.Child is MenuFlyoutPresenter);
-                var menu = (MenuFlyoutPresenter)popup.Child!;
-                menu.Items.OfType<MenuItem>().ElementAt(index + 1).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                var popup = owner.OpenedPopups.Single(p => p.Child is FAMenuFlyoutPresenter);
+                var menu = (FAMenuFlyoutPresenter)popup.Child!;
+                menu.Items.OfType<FAMenuFlyoutItem>().ElementAt(index + 1).RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
                 popup.IsOpen = false;
                 PresentationWindow output = view.Presentation!;
                 bool IsNativeFullScreen()

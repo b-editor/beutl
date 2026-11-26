@@ -24,6 +24,8 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTexture2D>(destination, nameof(destination));
 
+        vulkanSource.ThrowIfMultisampled(nameof(CopyTexture));
+        vulkanDest.ThrowIfMultisampled(nameof(CopyTexture));
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
 
         // Track both layouts through the deferred recording batch.
@@ -83,6 +85,7 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureCube>(destination, nameof(destination));
 
+        vulkanSource.ThrowIfMultisampled(nameof(CopyTextureToCubeFace));
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
         vulkanDest.TransitionFaceToTransferDestination(faceIndex);
 
@@ -107,6 +110,7 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureArray>(destination, nameof(destination));
 
+        vulkanSource.ThrowIfMultisampled(nameof(CopyTextureToArrayLayer));
         var aspectMask = GetCopyAspectMask(source.Format);
 
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
@@ -134,6 +138,7 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureCubeArray>(destination, nameof(destination));
 
+        vulkanSource.ThrowIfMultisampled(nameof(CopyTextureToCubeArrayFace));
         var aspectMask = GetCopyAspectMask(source.Format);
 
         uint layerIndex = (uint)(arrayIndex * 6 + faceIndex);

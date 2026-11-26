@@ -67,6 +67,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
         AllItems = new(CreateAllItems());
         UpdateGalleries(libItems);
+        UpdateEasings();
     }
 
     // The thumbnails take the preview's frame again once it has drawn a new one and stopped playing for a moment;
@@ -102,41 +103,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     // The thumbnails of the galleries, on the frame the preview shows.
     internal LibraryThumbnailSet Thumbnails { get; }
 
-    public ReactiveCollection<Easing> Easings { get; } =
-    [
-        new BackEaseIn(),
-        new BackEaseInOut(),
-        new BackEaseOut(),
-        new BounceEaseIn(),
-        new BounceEaseInOut(),
-        new BounceEaseOut(),
-        new CircularEaseIn(),
-        new CircularEaseInOut(),
-        new CircularEaseOut(),
-        new CubicEaseIn(),
-        new CubicEaseInOut(),
-        new CubicEaseOut(),
-        new ElasticEaseIn(),
-        new ElasticEaseInOut(),
-        new ElasticEaseOut(),
-        new ExponentialEaseIn(),
-        new ExponentialEaseInOut(),
-        new ExponentialEaseOut(),
-        new QuadraticEaseIn(),
-        new QuadraticEaseInOut(),
-        new QuadraticEaseOut(),
-        new QuarticEaseIn(),
-        new QuarticEaseInOut(),
-        new QuarticEaseOut(),
-        new QuinticEaseIn(),
-        new QuinticEaseInOut(),
-        new QuinticEaseOut(),
-        new SineEaseIn(),
-        new SineEaseInOut(),
-        new SineEaseOut(),
-        new LinearEasing(),
-        new HoldEasing(),
-    ];
+    public ReactiveCollection<Easing> Easings { get; } = [];
 
     public CoreList<LibraryItemViewModel> LibraryItems { get; }
 
@@ -210,8 +177,39 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             item => (item as GraphNodeRegistry.GroupableRegistryItem)?.Items);
         AllItems.Replace(CreateAllItems(AllItems.Count));
         UpdateGalleries(registeredItems);
+        UpdateEasings();
         if (_query is { } query)
             _ = SearchCore(query, CancellationToken.None, recordUsage: false);
+    }
+
+    private void UpdateEasings()
+    {
+        // Reuse previews for types that are still offered, including when unrelated library items change.
+        int index = 0;
+        foreach (Type type in EasingItems.GetLibraryTypes(_libraryService))
+        {
+            int existingIndex = index;
+            while (existingIndex < Easings.Count && Easings[existingIndex].GetType() != type)
+                existingIndex++;
+
+            if (existingIndex == Easings.Count)
+            {
+                var item = EasingItems.TryCreateItem(type, _libraryService.FindItem(type));
+                if (item == null)
+                    continue;
+
+                Easings.Insert(index, item.Preview);
+            }
+            else if (existingIndex != index)
+            {
+                Easings.Move(existingIndex, index);
+            }
+
+            index++;
+        }
+
+        while (Easings.Count > index)
+            Easings.RemoveAt(Easings.Count - 1);
     }
 
     private void UpdateGalleries(IReadOnlyList<LibraryItem> registeredItems)

@@ -1,7 +1,6 @@
 ﻿using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab;
@@ -19,6 +18,7 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 using SkiaSharp;
 
@@ -464,11 +464,10 @@ public sealed class ProjectAssetTests
             var button = browser.FindControl<Button>("StorageLocationsButton")!;
             Assert.That(button.IsEffectivelyVisible, Is.True);
             HeadlessTestHelpers.Click(button, move: true);
-            var menu = (MenuFlyout)button.Flyout!;
+            var menu = (FAMenuFlyout)button.Flyout!;
             Assert.That(menu.IsOpen, Is.True);
-            menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, ProjectAssetsStrings.MenuLabel))
-                .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-            menu.Hide();
+            HeadlessTestHelpers.Click(menu.Items.OfType<FAMenuFlyoutItem>()
+                .Single(item => item.Text == ProjectAssetsStrings.MenuLabel), move: true);
             (_, view, vm) = await WaitForAssetsViewAsync(window, files);
             Assert.That(vm.Rows.Value.Select(row => row.Item.Issue), Is.EquivalentTo(new ProjectAssetIssue?[] { null, null, ProjectAssetIssue.Missing }));
 
