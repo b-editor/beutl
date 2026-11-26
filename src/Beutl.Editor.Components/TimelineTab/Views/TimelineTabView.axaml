@@ -70,16 +70,16 @@
                     <ui:FAMenuFlyout>
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.DeleteAllFrameCache"
                                              Command="{Binding DeleteAllFrameCache}"
-                                             Text="{x:Static lang:Strings.DeleteAll}" />
+                                             Text="{x:Static lang:Strings.DeleteAllCachedFrames}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.DeleteFrameCache"
                                              Command="{Binding DeleteFrameCache}"
-                                             Text="{x:Static lang:Strings.Delete}" />
+                                             Text="{x:Static lang:Strings.DeleteCachedFrameRange}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.LockFrameCache"
                                              Command="{Binding LockFrameCache}"
-                                             Text="{x:Static lang:Strings.Lock}" />
+                                             Text="{x:Static lang:Strings.LockCachedFrameRange}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.UnlockFrameCache"
                                              Command="{Binding UnlockFrameCache}"
-                                             Text="{x:Static lang:Strings.Unlock}" />
+                                             Text="{x:Static lang:Strings.UnlockCachedFrameRange}" />
                     </ui:FAMenuFlyout>
                 </ecv:TimelineScale.ContextFlyout>
             </ecv:TimelineScale>

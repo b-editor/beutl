@@ -49,8 +49,10 @@ public sealed class MainMenuBuilderTests
             (int menuCount, int nativeCount) = (menu.Count, nativeMenu.Count);
             Assert.Multiple(() =>
             {
-                Assert.That(Describe(menu), Does.Contain((Strings.Settings, (ICommand)menuBar.ShowSettings)));
-                Assert.That(Describe(nativeMenu), Does.Not.Contain((Strings.Settings, (ICommand)menuBar.ShowSettings)));
+                Assert.That(Describe(menu), Does.Contain((Strings.OpenSettingsMenu, (ICommand)menuBar.ShowSettings)));
+                Assert.That(Describe(nativeMenu), Does.Not.Contain((Strings.OpenSettingsMenu, (ICommand)menuBar.ShowSettings)));
+                Assert.That(Describe(menu), Does.Contain((Strings.CreateProjectMenu, (ICommand)menuBar.CreateNewProject)));
+                Assert.That(Describe(menu), Does.Contain((Strings.CreateSceneMenu, (ICommand)menuBar.NewScene)));
                 Assert.That(Describe(nativeMenu), Does.Contain(("recent.scene", (ICommand)menuBar.OpenRecentFile)));
                 foreach (ICommand command in new ICommand[] { menuBar.SwitchEditor, menuBar.OpenToolTab, menuBar.OpenToolWindow })
                     Assert.That(Describe(nativeMenu).Select(entry => entry.Command), Does.Contain(command), "Extension entries");
@@ -181,7 +183,21 @@ public sealed class MainMenuBuilderTests
             file.Open();
             HeadlessTestHelpers.Render(3);
             Assert.That((import.IsEffectivelyEnabled, nativeImport.IsEnabled), Is.EqualTo((true, true)));
-            HeadlessCapture.SaveIfRequested(window, nameof(MainMenuBuilderTests), "file-menu-import-media");
+            if (HeadlessCapture.IsRequested)
+            {
+                CaptureMenu(file, "file");
+                CaptureMenu(file.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.CreateNew)), "file-create-new");
+                file.Close();
+
+                foreach ((string header, string name) in new[] { (Strings.Edit, "edit"), (Strings.View, "view"), (Strings.Scene, "scene") })
+                {
+                    MenuItem item = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, header));
+                    CaptureMenu(item, name);
+                    item.Close();
+                }
+
+                file.Open();
+            }
 
             await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!, saveChanges: false);
             HeadlessTestHelpers.Settle();
@@ -194,6 +210,14 @@ public sealed class MainMenuBuilderTests
             view.DataContext = null;
             window.Close();
             await TestReset.ResetShellAsync();
+        }
+
+        static void CaptureMenu(MenuItem item, string name)
+        {
+            item.Open();
+            HeadlessTestHelpers.Render(5);
+            HeadlessCapture.SaveIfRequested(item.Items.OfType<MenuItem>().First(child => child.IsVisible),
+                nameof(MainMenuBuilderTests), name);
         }
     }
 
@@ -516,10 +540,10 @@ public sealed class MainMenuBuilderTests
                 Assert.That(fullScreen.Command, Is.SameAs(menuBar.ToggleFullScreen));
 
                 MenuItem newScene = tops.Single(item => Equals(item.Header, Strings.Scene)).Items.OfType<MenuItem>()
-                    .Single(item => Equals(item.Header, Strings.CreateNew));
+                    .Single(item => Equals(item.Header, Strings.CreateNewSceneMenu));
                 Assert.That(tops.Single(item => Equals(item.Header, Strings.Scene)).Items.OfType<MenuItem>()
                     .Select(item => item.Header), Does.Contain(Strings.Element));
-                NativeMenuItem nativeNewScene = NativeEntry(native, Strings.Scene, Strings.CreateNew);
+                NativeMenuItem nativeNewScene = NativeEntry(native, Strings.Scene, Strings.CreateNewSceneMenu);
                 KeyGesture gesture = GetCommandGestureExtension.GetKeyGesture(typeof(MainViewExtension), "main.createNewFile")!;
                 Assert.That(gesture, Is.Not.Null);
                 Assert.That(newScene.Command, Is.SameAs(menuBar.NewScene));

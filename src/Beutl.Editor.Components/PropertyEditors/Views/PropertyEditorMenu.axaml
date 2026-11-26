@@ -70,7 +70,7 @@
                 <ui:FAMenuFlyoutItem x:Name="removeAnimationItem"
                                    IsEnabled="{Binding CanRemoveAnimation.Value}"
                                    Click="RemoveAnimation_Click"
-                                   Text="{x:Static lang:Strings.RemoveAnimation}" />
+                                   Text="{x:Static lang:CommandNames.DeleteAnimation}" />
                 <ui:FAToggleMenuFlyoutItem x:Name="toggleLivePreview"
                                          IsChecked="{ReflectionBinding IsLivePreviewEnabled.Value,
                                                                        Mode=TwoWay}"

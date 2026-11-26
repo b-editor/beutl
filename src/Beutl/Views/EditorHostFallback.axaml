@@ -445,7 +445,7 @@
                                                          Text="{x:Static lang:Strings.Remove}" />
                                     <ui:FAMenuFlyoutSeparator IsVisible="{CompiledBinding !IsRemoteOnly}" />
                                     <ui:FAMenuFlyoutItem Click="DeleteRecentProjectFromDisk_Click"
-                                                         IsVisible="{CompiledBinding !IsRemoteOnly}" Text="{x:Static lang:Strings.DeleteFromDisk}" />
+                                                         IsVisible="{CompiledBinding !IsRemoteOnly}" Text="{x:Static lang:Strings.DeleteFromDiskMenu}" />
                                 </ui:FAMenuFlyout>
                             </Setter>
                         </Style>

@@ -770,7 +770,7 @@ public class ComponentAnimationTests
                     HeadlessTestHelpers.Render(3);
                     Assert.That(combined.IsEffectivelyVisible, Is.False);
                     Assert.That(control.GetVisualDescendants().OfType<NumberEditor<float>>().Count(e => e.IsEffectivelyVisible), Is.EqualTo(3));
-                    Assert.That(Beutl.Language.Strings.SeparateComponents, Is.EqualTo(language == "ja" ? "成分を分離" : "Separate components"));
+                    Assert.That(Beutl.Language.Strings.SeparateComponents, Is.EqualTo(language == "ja" ? "成分を分離" : "Separate Components"));
                     if (Environment.GetEnvironmentVariable("BEUTL_COMPONENT_CAPTURE") is { } directory)
                     {
                         using var frame = window.CaptureRenderedFrame();
@@ -786,7 +786,7 @@ public class ComponentAnimationTests
                     AssertComponentMenu(parentFlyout, separated: true);
                     var unseparate = parentFlyout.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "unseparateComponentsItem");
                     Assert.That(unseparate.IsVisible, Is.True);
-                    Assert.That(unseparate.Text, Is.EqualTo(language == "ja" ? "成分の分離を解除" : "Unseparate components"));
+                    Assert.That(unseparate.Text, Is.EqualTo(language == "ja" ? "成分の分離を解除" : "Unseparate Components"));
                     if (Environment.GetEnvironmentVariable("BEUTL_COMPONENT_CAPTURE") is { } menuDirectory)
                     {
                         using var frame = TopLevel.GetTopLevel(unseparate)!.CaptureRenderedFrame();

@@ -1,0 +1,9 @@
+# UI text conventions
+
+Use these conventions for built-in menu labels in Beutl, including the native menu bar, context menus, and menu flyouts.
+
+- Use English Title Case. Capitalize the first and last words and the main words. Keep internal articles, short prepositions, and coordinating conjunctions lowercase, as in **Save as Template** and **Open in File Manager**. Keep product names, acronyms, and user-provided names in their original form. Use sentence case for explanatory text and status messages inside a menu.
+- End a command with one ellipsis character (`…`) when it opens a dialog, asks for confirmation, or needs further input to complete the action. Examples include **Import Media…** and **Rename…**. Use plain labels for immediate actions, submenu headings, and commands that simply navigate to another tab or panel. Use the parent menu for context. Inside **File › Create New**, use **Project…** and **Scene…**.
+- Use **Delete** when the action destroys data, such as a file, an animation, or cached frames. Use **Remove** when it takes an item out of a list or group and leaves the underlying data available, as in **Remove from Project…**.
+- Name the action and, where the context calls for it, the thing it acts on. Use **Change Transform Type** for a submenu, **Replace Effect…** for a picker, and **Clear Value** for an action that unsets a property. Use **None** for a choice that leaves a type or value unset.
+- Use English as the reference for wording. Translate meaning and ellipsis changes into Japanese, Spanish, Korean, and Simplified Chinese. Apply capitalization changes to English only. Reuse a resource key for the same label in the same context, add a dedicated key next to the related resources when the wording differs by context, and remove keys once all their uses are gone.

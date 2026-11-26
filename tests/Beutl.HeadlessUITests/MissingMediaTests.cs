@@ -1335,7 +1335,7 @@ public partial class MissingMediaTests
         var manager = new System.Resources.ResourceManager("Beutl.Language.MissingMediaStrings", typeof(Beutl.Language.MissingMediaStrings).Assembly);
         var resources = manager.GetResourceSet(System.Globalization.CultureInfo.GetCultureInfo(culture), true, false);
         Assert.That(resources, Is.Not.Null);
-        Assert.That(resources!.GetString("Title"), Is.Not.EqualTo("Relink missing media"));
+        Assert.That(resources!.GetString("Title"), Is.Not.EqualTo(manager.GetString("Title", System.Globalization.CultureInfo.InvariantCulture)));
         Assert.That(resources.GetString("Unrecognized"), Is.Not.Null);
     }
 

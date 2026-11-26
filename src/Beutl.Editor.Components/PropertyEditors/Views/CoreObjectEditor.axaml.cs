@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
@@ -12,6 +13,9 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public partial class CoreObjectEditor : UserControl
 {
+    public static readonly FuncValueConverter<bool, string> ReplaceObjectLabelConverter =
+        new(isSealed => isSealed ? Strings.ReplaceObject : Strings.ReplaceObjectMenu);
+
     public CoreObjectEditor()
     {
         InitializeComponent();

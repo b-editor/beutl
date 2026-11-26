@@ -25,8 +25,8 @@
                 <ui:FAMenuFlyout>
                     <ui:FAMenuFlyoutItem Click="NewClick"
                                        IconSource="New"
-                                       Text="{x:Static lang:Strings.Change}" />
-                    <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                                       Text="{Binding PropertyAdapter.PropertyType.IsSealed, Converter={x:Static local:CoreObjectEditor.ReplaceObjectLabelConverter}, FallbackValue={x:Static lang:Strings.ReplaceObjectMenu}}" />
+                    <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.ClearValue}" />
                     <ui:FAMenuFlyoutItem Click="Navigate_Click" Text="{x:Static lang:Strings.OpenInTab}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
@@ -58,8 +58,8 @@
                         <ui:FAMenuFlyout>
                             <ui:FAMenuFlyoutItem Click="NewClick"
                                                IconSource="New"
-                                               Text="{x:Static lang:Strings.Change}" />
-                            <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                                               Text="{Binding PropertyAdapter.PropertyType.IsSealed, Converter={x:Static local:CoreObjectEditor.ReplaceObjectLabelConverter}, FallbackValue={x:Static lang:Strings.ReplaceObjectMenu}}" />
+                            <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.ClearValue}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:FluentIcon Icon="MoreVertical" />

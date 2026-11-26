@@ -71,8 +71,17 @@
   <data name="CreateNewProject" xml:space="preserve">
     <value>새 프로젝트 만들기</value>
   </data>
+  <data name="CreateProjectMenu" xml:space="preserve">
+    <value>프로젝트…</value>
+  </data>
   <data name="CreateNewScene" xml:space="preserve">
     <value>새 장면 만들기</value>
+  </data>
+  <data name="CreateSceneMenu" xml:space="preserve">
+    <value>장면…</value>
+  </data>
+  <data name="CreateNewSceneMenu" xml:space="preserve">
+    <value>새로 만들기…</value>
   </data>
   <data name="Project" xml:space="preserve">
     <value>프로젝트</value>
@@ -157,6 +166,9 @@
   </data>
   <data name="Settings" xml:space="preserve">
     <value>설정</value>
+  </data>
+  <data name="OpenSettingsMenu" xml:space="preserve">
+    <value>설정…</value>
   </data>
   <data name="Properties" xml:space="preserve">
     <value>속성</value>
@@ -299,8 +311,14 @@
   <data name="Delete" xml:space="preserve">
     <value>삭제</value>
   </data>
+  <data name="DeleteWithConfirmation" xml:space="preserve">
+    <value>삭제…</value>
+  </data>
   <data name="Remove" xml:space="preserve">
     <value>제거</value>
+  </data>
+  <data name="RemoveFromProjectMenu" xml:space="preserve">
+    <value>프로젝트에서 제거…</value>
   </data>
   <data name="Back" xml:space="preserve">
     <value>뒤로</value>
@@ -370,6 +388,9 @@
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>새 폴더</value>
+  </data>
+  <data name="CloudStorageNewFolderMenu" xml:space="preserve">
+    <value>새 폴더…</value>
   </data>
   <data name="Left" xml:space="preserve">
     <value>왼쪽</value>
@@ -445,6 +466,9 @@
   </data>
   <data name="Rename" xml:space="preserve">
     <value>이름 바꾸기</value>
+  </data>
+  <data name="RenameMenu" xml:space="preserve">
+    <value>이름 바꾸기…</value>
   </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>편집 완료</value>
@@ -615,7 +639,7 @@
     <value>레이어 수</value>
   </data>
   <data name="ChangeColor" xml:space="preserve">
-    <value>색상 변경</value>
+    <value>색상 변경…</value>
   </data>
   <data name="EditAnimationInInlineView" xml:space="preserve">
     <value>인라인 보기에서 애니메이션 편집</value>
@@ -659,26 +683,44 @@
   <data name="AddNode" xml:space="preserve">
     <value>노드 추가</value>
   </data>
-  <data name="Change" xml:space="preserve">
-    <value>변경</value>
+  <data name="ChangeTransformType" xml:space="preserve">
+    <value>변환 유형 변경</value>
+  </data>
+  <data name="ReplaceEffectMenu" xml:space="preserve">
+    <value>효과 교체…</value>
+  </data>
+  <data name="ReplaceObject" xml:space="preserve">
+    <value>개체 교체</value>
+  </data>
+  <data name="ReplaceObjectMenu" xml:space="preserve">
+    <value>개체 교체…</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
     <value>연결 끊기</value>
   </data>
-  <data name="Initialize" xml:space="preserve">
-    <value>초기화</value>
+  <data name="CreateEmptyPath" xml:space="preserve">
+    <value>빈 경로 만들기</value>
+  </data>
+  <data name="ResetList" xml:space="preserve">
+    <value>목록 초기화</value>
+  </data>
+  <data name="ResetStroke" xml:space="preserve">
+    <value>획 초기화</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
+    <value>확대/축소 재설정</value>
+  </data>
+  <data name="ResetZoomMenu" xml:space="preserve">
     <value>확대/축소 재설정</value>
   </data>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>애니메이션 제거</value>
   </data>
   <data name="EditExpression" xml:space="preserve">
-    <value>식 편집</value>
+    <value>식 편집…</value>
   </data>
   <data name="RemoveExpression" xml:space="preserve">
-    <value>식 제거</value>
+    <value>식 삭제</value>
   </data>
   <data name="Expression_ReturnsBothValues" xml:space="preserve">
     <value>모든 값을 함께 반환하는 표현식 하나를 입력합니다. 예: {0}</value>
@@ -714,10 +756,10 @@
     <value>자세한 정보 표시</value>
   </data>
   <data name="SaveSelectedElementAsImage" xml:space="preserve">
-    <value>선택한 요소를 이미지로 저장</value>
+    <value>선택한 요소를 이미지로 저장…</value>
   </data>
   <data name="SaveFrameAsImage" xml:space="preserve">
-    <value>프레임을 이미지로 저장</value>
+    <value>프레임을 이미지로 저장…</value>
   </data>
   <data name="SaveImageScale" xml:space="preserve">
     <value>배율</value>
@@ -727,6 +769,9 @@
   </data>
   <data name="Move" xml:space="preserve">
     <value>이동</value>
+  </data>
+  <data name="CloudStorageMoveMenu" xml:space="preserve">
+    <value>이동…</value>
   </data>
   <data name="Hand" xml:space="preserve">
     <value>손</value>
@@ -786,7 +831,7 @@
     <value>시작 작업 실행 중</value>
   </data>
   <data name="SaveAsImage" xml:space="preserve">
-    <value>이미지로 저장</value>
+    <value>이미지로 저장…</value>
   </data>
   <data name="CopyAsImage" xml:space="preserve">
     <value>이미지로 복사</value>
@@ -803,14 +848,8 @@
   <data name="Unlocked" xml:space="preserve">
     <value>잠금 해제됨</value>
   </data>
-  <data name="DeleteAll" xml:space="preserve">
-    <value>모두 삭제</value>
-  </data>
   <data name="Lock" xml:space="preserve">
     <value>잠금</value>
-  </data>
-  <data name="Unlock" xml:space="preserve">
-    <value>잠금 해제</value>
   </data>
   <data name="Solo" xml:space="preserve">
     <value>솔로</value>
@@ -820,6 +859,18 @@
   </data>
   <data name="FrameCache" xml:space="preserve">
     <value>프레임 캐시</value>
+  </data>
+  <data name="DeleteAllCachedFrames" xml:space="preserve">
+    <value>캐시된 프레임 모두 삭제</value>
+  </data>
+  <data name="DeleteCachedFrameRange" xml:space="preserve">
+    <value>캐시된 프레임 범위 삭제</value>
+  </data>
+  <data name="LockCachedFrameRange" xml:space="preserve">
+    <value>캐시된 프레임 범위 잠금</value>
+  </data>
+  <data name="UnlockCachedFrameRange" xml:space="preserve">
+    <value>캐시된 프레임 범위 잠금 해제</value>
   </data>
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>캐시를 조작하려면 마우스 오른쪽 버튼 클릭</value>
@@ -869,6 +920,9 @@
   <data name="ColorPalette_NewPalette" xml:space="preserve">
     <value>새 팔레트</value>
   </data>
+  <data name="ColorPalette_NewPaletteMenu" xml:space="preserve">
+    <value>새 팔레트…</value>
+  </data>
   <data name="ColorPalette_NewPaletteName" xml:space="preserve">
     <value>팔레트 {0}</value>
   </data>
@@ -900,7 +954,7 @@
     <value>팔레트에 추가</value>
   </data>
   <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
-    <value>새 팔레트에 추가</value>
+    <value>새 팔레트에 추가…</value>
   </data>
   <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
     <value>현재 색으로 바꾸기</value>
@@ -928,6 +982,9 @@
   </data>
   <data name="ImportSvgPath" xml:space="preserve">
     <value>SVG 경로 가져오기</value>
+  </data>
+  <data name="ImportSvgPathMenu" xml:space="preserve">
+    <value>SVG 경로 가져오기…</value>
   </data>
   <data name="ImportSvgPath_Description" xml:space="preserve">
     <value>현재 모양이 덮어쓰여집니다.</value>
@@ -959,8 +1016,14 @@
   <data name="OpenProject" xml:space="preserve">
     <value>프로젝트 열기</value>
   </data>
+  <data name="OpenProjectMenu" xml:space="preserve">
+    <value>프로젝트…</value>
+  </data>
   <data name="OpenFile" xml:space="preserve">
     <value>파일 열기</value>
+  </data>
+  <data name="OpenFileMenu" xml:space="preserve">
+    <value>파일…</value>
   </data>
   <data name="Save_Description" xml:space="preserve">
     <value>현재 파일 저장</value>
@@ -1291,6 +1354,12 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="Null" xml:space="preserve">
     <value>Null</value>
   </data>
+  <data name="ClearValue" xml:space="preserve">
+    <value>값 지우기</value>
+  </data>
+  <data name="ClearReference" xml:space="preserve">
+    <value>참조 해제</value>
+  </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>탭에서 열기</value>
   </data>
@@ -1355,10 +1424,10 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
     <value>지우기</value>
   </data>
   <data name="ExportProject" xml:space="preserve">
-    <value>프로젝트 내보내기...</value>
+    <value>프로젝트 내보내기…</value>
   </data>
   <data name="ImportProject" xml:space="preserve">
-    <value>프로젝트 가져오기...</value>
+    <value>프로젝트 가져오기…</value>
   </data>
   <data name="ImportMedia" xml:space="preserve">
     <value>미디어 가져오기…</value>
@@ -1394,8 +1463,11 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="Tutorials" xml:space="preserve">
     <value>튜토리얼</value>
   </data>
+  <data name="TutorialsMenu" xml:space="preserve">
+    <value>튜토리얼…</value>
+  </data>
   <data name="BpmGrid" xml:space="preserve">
-    <value>BPM 그리드</value>
+    <value>BPM 그리드…</value>
   </data>
   <data name="ShowBpmGrid" xml:space="preserve">
     <value>BPM 그리드 표시</value>
@@ -1438,6 +1510,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   </data>
   <data name="SaveAsTemplate" xml:space="preserve">
     <value>템플릿으로 저장</value>
+  </data>
+  <data name="SaveAsTemplateMenu" xml:space="preserve">
+    <value>템플릿으로 저장…</value>
   </data>
   <data name="ApplyTemplate" xml:space="preserve">
     <value>템플릿 적용</value>
@@ -1623,7 +1698,7 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
     <value>선택 항목 삭제</value>
   </data>
   <data name="ProxyDeleteProjectProxies" xml:space="preserve">
-    <value>프로젝트 프록시 삭제</value>
+    <value>프로젝트 프록시 삭제…</value>
   </data>
   <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
     <value>프록시는 컴퓨터 전체 공유 캐시에 저장됩니다. 이 프로젝트에서 사용하는 {0}개 프록시 파일을 삭제하면 동일한 소스 파일을 참조하는 다른 모든 프로젝트에서도 제거되며 다시 생성해야 합니다. 계속하시겠습니까?</value>
@@ -1817,6 +1892,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>디스크에서 완전히 삭제</value>
   </data>
+  <data name="DeleteFromDiskMenu" xml:space="preserve">
+    <value>디스크에서 완전히 삭제…</value>
+  </data>
   <data name="PropertyHover_Type" xml:space="preserve">
     <value>형식: {0}</value>
   </data>
@@ -1970,6 +2048,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="GraphVelocity" xml:space="preserve">
     <value>키프레임 속도</value>
   </data>
+  <data name="GraphVelocityMenu" xml:space="preserve">
+    <value>키프레임 속도…</value>
+  </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>들어오는 속도</value>
   </data>
@@ -1999,6 +2080,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>값 배율 조정</value>
+  </data>
+  <data name="GraphScaleValuesMenu" xml:space="preserve">
+    <value>값 배율 조정…</value>
   </data>
   <data name="GraphScaleFactor" xml:space="preserve">
     <value>배율</value>
@@ -2064,7 +2148,7 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
     <value>기본 브라우저에서 열기</value>
   </data>
   <data name="Print" xml:space="preserve">
-    <value>인쇄</value>
+    <value>인쇄…</value>
   </data>
   <data name="WebBrowserActionFailed" xml:space="preserve">
     <value>브라우저 작업을 완료하지 못했습니다.</value>
@@ -2729,6 +2813,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="VersionControl_Restore" xml:space="preserve">
     <value>복원</value>
   </data>
+  <data name="VersionControl_RestoreMenu" xml:space="preserve">
+    <value>복원…</value>
+  </data>
   <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
     <value>새 브랜치로 복원…</value>
   </data>
@@ -3096,6 +3183,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="WebDownloadMedia" xml:space="preserve">
     <value>파일 다운로드</value>
   </data>
+  <data name="WebDownloadMediaMenu" xml:space="preserve">
+    <value>파일 다운로드…</value>
+  </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>프로젝트 디렉터리</value>
   </data>
@@ -3145,7 +3235,7 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
     <value>'{0}'을(를) 북마크에 추가했습니다.</value>
   </data>
   <data name="BrowserSettings" xml:space="preserve">
-    <value>검색 및 개인 정보</value>
+    <value>검색 및 개인 정보…</value>
   </data>
   <data name="BrowserRetry" xml:space="preserve">
     <value>다시 다운로드</value>
@@ -3188,6 +3278,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   </data>
   <data name="BrowserFind" xml:space="preserve">
     <value>페이지에서 찾기</value>
+  </data>
+  <data name="BrowserFindMenu" xml:space="preserve">
+    <value>페이지에서 찾기…</value>
   </data>
   <data name="BrowserFindNext" xml:space="preserve">
     <value>다음 일치 항목</value>
@@ -3342,6 +3435,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   </data>
   <data name="CloudStorageDownload" xml:space="preserve">
     <value>다운로드</value>
+  </data>
+  <data name="CloudStorageDownloadMenu" xml:space="preserve">
+    <value>다운로드…</value>
   </data>
   <data name="CloudStorageCopyLink" xml:space="preserve">
     <value>링크 복사</value>
@@ -3850,6 +3946,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>무음 기준 자동 분할</value>
   </data>
+  <data name="AutoSplitBySilenceMenu" xml:space="preserve">
+    <value>무음 기준 자동 분할…</value>
+  </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>임계값 (dB)</value>
   </data>
@@ -4071,6 +4170,9 @@ GetProperty&lt;T&gt;("path", time) 또는 GetProperty&lt;T&gt;(guid, "propertyNa
   </data>
   <data name="HostedGit_Clone" xml:space="preserve">
     <value>복제</value>
+  </data>
+  <data name="HostedGit_CloneMenu" xml:space="preserve">
+    <value>복제…</value>
   </data>
   <data name="HostedGit_ClonedProject" xml:space="preserve">
     <value>로컬 복사본</value>

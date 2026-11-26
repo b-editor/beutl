@@ -131,7 +131,7 @@ public class ElementPropertyHeaderTests
             Click(title, MouseButton.Right);
             Assert.That(menu.IsOpen, Is.True);
             Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Select(item => item.Text),
-                Does.Contain(Strings.Remove).And.Contain(Strings.SaveAsTemplate));
+                Does.Contain(Strings.Remove).And.Contain(Strings.SaveAsTemplateMenu));
             menu.Hide();
             HeadlessTestHelpers.Settle();
 

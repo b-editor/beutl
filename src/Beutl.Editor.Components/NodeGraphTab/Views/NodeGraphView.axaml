@@ -42,7 +42,7 @@
                                                 Text="{x:Static lang:NodeGraphStrings.Template_Templates}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.ResetZoom"
                                              Click="ResetZoomClick"
-                                             Text="{x:Static lang:Strings.ResetZoom}" />
+                                             Text="{x:Static lang:Strings.ResetZoomMenu}" />
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.RunGenerative"
                                              Click="RunGenerativeClick"
