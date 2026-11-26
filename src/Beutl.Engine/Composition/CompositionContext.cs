@@ -51,6 +51,10 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
 
     public bool DisableResourceShare { get; set; }
 
+    internal bool IsThumbnail { get; init; }
+
+    internal int VideoThumbnailHeight { get; init; }
+
     /// <summary>The output conditions this evaluation inherits; assign it to pass every condition on at once.</summary>
     public CompositionConditions Conditions { get; set; } = CompositionConditions.Default;
 

@@ -1,4 +1,6 @@
-﻿using System.Reactive;
+﻿using System.Diagnostics;
+using System.Reactive;
+using System.Runtime.CompilerServices;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Controls;
@@ -8,10 +10,12 @@ using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
+using Beutl.Media.Source;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 using ExtensionGuard = Beutl.Api.Services.ExtensionGuard;
+using WriteableBitmap = Avalonia.Media.Imaging.WriteableBitmap;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
@@ -34,6 +38,7 @@ public sealed partial class ElementViewModel
     private double _previewInitialOffsetX;
     private DispatcherTimer? _previewTimer;
     private (int Start, int End) _previewRange;
+    private (CancellationToken Token, HashSet<int> Indices)? _loadingMediaSlots;
 
     internal readonly record struct MediaPreviewMapping(
         MediaTime SourceOffsetDelta, MediaTime StartDelta = default, MediaTime DurationDelta = default);
@@ -492,7 +497,7 @@ public sealed partial class ElementViewModel
         }
 
         _currentThumbnailsProvider = provider;
-        _lastThumbnailsCacheKey = provider?.GetThumbnailsCacheKey();
+        _lastThumbnailsCacheKey = provider is Beutl.Graphics.SourceVideo ? null : provider?.GetThumbnailsCacheKey();
 
         if (provider != null)
         {
@@ -502,7 +507,7 @@ public sealed partial class ElementViewModel
                 if (oldKey != null)
                     InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, oldKey);
 
-                _lastThumbnailsCacheKey = _currentThumbnailsProvider?.GetThumbnailsCacheKey();
+                _lastThumbnailsCacheKey = provider is Beutl.Graphics.SourceVideo ? null : provider.GetThumbnailsCacheKey();
 
                 if (_isEditPreviewActive)
                     _thumbnailRefreshPending = true;
@@ -546,29 +551,12 @@ public sealed partial class ElementViewModel
             : null;
     }
 
-    // The committed and the preview strips share it, and a cached frame is reused only at this height.
+    // Slot geometry uses the row height, while the decoder uses a bucketed render height.
     private int ThumbnailHeight => Math.Max(1, (int)Math.Round(Timeline.LayerRowHeight.Value));
 
     private bool PreferProxyForThumbnails => Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
 
     private ProxyPreset PreferredProxyPresetForThumbnails => ToProxyPreset(Timeline.EditorContext.GetRequiredService<GlobalConfiguration>().ProxyStoreConfig.DefaultPreset.Value);
-
-    private IAsyncEnumerable<(int Index, int Count, Beutl.Media.Bitmap Thumbnail)> GetVideoThumbnailStrip(
-        IThumbnailsProvider provider, int width, int height, CancellationToken ct, int start, int end)
-    {
-        return provider is Beutl.Graphics.SourceVideo video
-            ? video.GetThumbnailStripAsync(
-                Timeline.EditorContext.GetRequiredService<FontManager>(),
-                width,
-                height,
-                _thumbnailCacheService,
-                ct,
-                start,
-                end,
-                PreferProxyForThumbnails,
-                PreferredProxyPresetForThumbnails, ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext))
-            : provider.GetThumbnailStripAsync(Timeline.EditorContext.GetRequiredService<FontManager>(), width, height, _thumbnailCacheService, ct, start, end, ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext));
-    }
 
     private static ProxyPreset ToProxyPreset(int value)
     {
@@ -579,20 +567,13 @@ public sealed partial class ElementViewModel
 
     private void OnProxyStoreChangedForThumbnails(ProxyStoreChangedEventArgs e)
     {
-        // The filmstrip's cache key does not include whether a proxy exists, so a relevant store change drops
-        // the cache and re-renders. A Reset skips the relevance check, as it does for the badge.
+        // The reader's resolved proxy identity and version select the new cache entries.
         if (_isDisposed || !PreferProxyForThumbnails || !AffectsProxyBadge(e.Kind))
         {
             return;
         }
 
-        OnUIThreadIfRelevant(GetChangedSourceKey(e), () =>
-        {
-            if (_lastThumbnailsCacheKey != null)
-                InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
-
-            UpdateThumbnailsAsync();
-        });
+        OnUIThreadIfRelevant(GetChangedSourceKey(e), UpdateThumbnailsAsync);
     }
 
     public void OnVisibleRangeChanged(int start, int end)
@@ -611,8 +592,13 @@ public sealed partial class ElementViewModel
 
     public void OnWaveformVisibleRangeChanged(int start, int end)
     {
-        if (_currentThumbnailsProvider is Beutl.Audio.SourceSound)
+        if (_currentThumbnailsProvider is not Beutl.Audio.SourceSound)
+            return;
+
+        if (_isEditPreviewActive)
             QueueMediaPreview(start, end);
+        else
+            _visibleRangeSubject.OnNext((start, end));
     }
 
     private async Task UpdatePreviewMediaAsync(int start, int end)
@@ -650,36 +636,26 @@ public sealed partial class ElementViewModel
             if (provider is Beutl.Graphics.SourceVideo video)
             {
                 int height = ThumbnailHeight;
-                await foreach (var (index, _, thumbnail) in video.GetPreviewThumbnailStripAsync(
-                                   Timeline.EditorContext.GetRequiredService<FontManager>(),
-                                   count, height, indices, _thumbnailCacheService, ct, PreferProxyForThumbnails,
-                                   PreferredProxyPresetForThumbnails, decoders, parameters.SourceOffsetDelta, layout,
-                                   parameters.StartDelta, parameters.DurationDelta))
+                var stream = video.GetPreviewThumbnailLeasesAsync(
+                    Timeline.EditorContext.GetRequiredService<FontManager>(),
+                    count, height, indices, _thumbnailCacheService, ct, PreferProxyForThumbnails,
+                    PreferredProxyPresetForThumbnails, decoders, parameters.SourceOffsetDelta, layout,
+                    parameters.StartDelta, parameters.DurationDelta);
+                await PublishBatchesAsync(stream, 4, ct, batch =>
                 {
-                    using (thumbnail)
-                    {
-                        if (ct.IsCancellationRequested) break;
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            if (PrepareToPublish())
-                                ThumbnailReady?.Invoke(index, thumbnail is { IsDisposed: false } ? thumbnail.ToAvaWriteableBitmap(null) : null);
-                        });
-                    }
-                }
+                    if (PrepareToPublish())
+                        PublishVideoBatch(batch);
+                }, static item => item.Thumbnail?.Dispose());
             }
             else if (provider is Beutl.Audio.SourceSound sound)
             {
-                await foreach (var chunk in sound.GetPreviewWaveformChunksAsync(
-                                   count, MaxWaveformSamplesPerChunk, indices, ct, decoders, parameters.SourceOffsetDelta, layout,
-                                   parameters.StartDelta, parameters.DurationDelta))
+                var stream = sound.GetPreviewWaveformChunksAsync(count, MaxWaveformSamplesPerChunk, indices,
+                    ct, decoders, parameters.SourceOffsetDelta, layout, parameters.StartDelta, parameters.DurationDelta);
+                await PublishBatchesAsync(stream, 32, ct, batch =>
                 {
-                    if (ct.IsCancellationRequested) break;
-                    await Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        if (PrepareToPublish())
-                            WaveformChunkReady?.Invoke(chunk);
-                    });
-                }
+                    if (PrepareToPublish())
+                        PublishWaveformBatch(batch);
+                });
             }
         }
         catch (OperationCanceledException)
@@ -721,39 +697,52 @@ public sealed partial class ElementViewModel
 
     private async Task UpdateVisibleThumbnailsAsync(int start, int end)
     {
-        if (!CanGenerateThumbnails || _isEditPreviewActive || _holdPreviewUntilThumbnailsRefresh || end < start) return;
-
+        if (!CanGenerateThumbnails || _isEditPreviewActive || _holdPreviewUntilThumbnailsRefresh || end < start)
+            return;
         var provider = _currentThumbnailsProvider;
-        if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
+        if (provider == null)
             return;
 
         int layoutVersion = Volatile.Read(ref _thumbnailLayoutVersion);
         if (Volatile.Read(ref _thumbnailCountVersion) != layoutVersion)
         {
             if (_thumbnailsCts == null && Volatile.Read(ref _failedThumbnailLayoutVersion) == layoutVersion)
-            {
                 UpdateThumbnailsAsync();
-            }
-
             return;
         }
 
-        var missing = GetMissingThumbnailIndices?.Invoke(start, end);
-        if (missing == null || missing.Count == 0)
+        var (count, getMissing) = provider.ThumbnailsKind switch
+        {
+            Engine.ThumbnailsKind.Video => (VideoThumbnailCount.Value, GetMissingThumbnailIndices),
+            Engine.ThumbnailsKind.Audio when provider is Beutl.Audio.SourceSound => (WaveformChunkCount.Value, GetMissingWaveformIndices),
+            _ => (0, null)
+        };
+        start = Math.Max(start, 0);
+        end = Math.Min(end, count - 1);
+        if (end < start)
+            return;
+
+        var missing = getMissing?.Invoke(start, end);
+        if (missing is not { Count: > 0 })
+            return;
+
+        if (_loadingMediaSlots is { } pending
+            && (pending.Token == _thumbnailsCts?.Token || pending.Token == _scrollThumbnailsCts?.Token)
+            && missing.All(pending.Indices.Contains))
             return;
 
         CancelThumbnailsLoading();
         CancelScrollThumbnailsLoading();
         _scrollThumbnailsCts = new CancellationTokenSource();
         var ct = _scrollThumbnailsCts.Token;
+        _loadingMediaSlots = (ct, missing.ToHashSet());
 
         try
         {
-            double width = GetEffectiveThumbnailWidth();
-            if (width <= 0)
-                return;
-
-            await StreamVideoThumbnailsAsync(provider, (int)width, start, end, layoutVersion, ct);
+            if (provider.ThumbnailsKind == Engine.ThumbnailsKind.Video)
+                await StreamVideoThumbnailsAsync(provider, (int)GetEffectiveThumbnailWidth(), layoutVersion, ct, missing);
+            else
+                await StreamWaveformAsync(provider, count, layoutVersion, ct, missing);
         }
         catch (OperationCanceledException)
         {
@@ -764,38 +753,23 @@ public sealed partial class ElementViewModel
         }
         finally
         {
+            ForgetLoadingSlots(ct);
             ReleaseIfCurrent(ref _scrollThumbnailsCts, ct);
         }
     }
 
     private async Task UpdateVideoThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
     {
-        double width = GetEffectiveThumbnailWidth();
-        if (width <= 0)
-        {
-            ResetMediaPreviewVisuals();
-            return;
-        }
-
         int layoutVersion = Volatile.Read(ref _thumbnailLayoutVersion);
         Volatile.Write(ref _failedThumbnailLayoutVersion, -1);
-
         CancelScrollThumbnailsLoading();
         try
         {
-            bool staleRange = Volatile.Read(ref _thumbnailCountVersion) != layoutVersion;
-            if (staleRange)
-            {
-                _lastVisibleStart = _lastVisibleEnd = -1;
-            }
-
-            int startIndex = !staleRange && _lastVisibleStart >= 0 ? _lastVisibleStart : 0;
-            int endIndex = !staleRange && _lastVisibleEnd >= 0 ? _lastVisibleEnd : -1;
-
-            await StreamVideoThumbnailsAsync(provider, (int)width, startIndex, endIndex, layoutVersion, ct, replace: true);
+            await StreamVideoThumbnailsAsync(provider, (int)GetEffectiveThumbnailWidth(), layoutVersion, ct);
         }
         finally
         {
+            ForgetLoadingSlots(ct);
             if (!ct.IsCancellationRequested
                 && Volatile.Read(ref _thumbnailCountVersion) != layoutVersion
                 && Volatile.Read(ref _thumbnailLayoutVersion) == layoutVersion)
@@ -805,96 +779,245 @@ public sealed partial class ElementViewModel
         }
     }
 
-    // Each thumbnail is disposed on the UI thread after the hand-off, or here once the request is cancelled.
-    private async Task StreamVideoThumbnailsAsync(IThumbnailsProvider provider, int width, int start, int end,
-        int layoutVersion, CancellationToken ct, bool replace = false)
+    private async Task StreamVideoThumbnailsAsync(IThumbnailsProvider provider, int width, int layoutVersion,
+        CancellationToken ct, IReadOnlyList<int>? missing = null)
     {
         ct.ThrowIfCancellationRequested();
-        int maxThumbnailHeight = ThumbnailHeight;
-        await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(provider, width, maxThumbnailHeight, ct, start, end))
+        var fonts = Timeline.EditorContext.GetRequiredService<FontManager>();
+        var decoders = ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext);
+        int height = ThumbnailHeight;
+        bool replace = missing == null;
+        int newCount = 0;
+        var stream = provider is Beutl.Graphics.SourceVideo video
+            ? video.GetVisibleThumbnailLeasesAsync(fonts, width, height, _thumbnailCacheService, ct,
+                PreferProxyForThumbnails, PreferredProxyPresetForThumbnails, decoders, SelectIndicesAsync)
+            : GetLegacyVideoThumbnailsAsync(provider, fonts, decoders, width, height, missing, ct);
+
+        await PublishBatchesAsync(stream, 4, ct, batch =>
         {
-            if (ct.IsCancellationRequested || _isEditPreviewActive || layoutVersion != Volatile.Read(ref _thumbnailLayoutVersion))
-            {
-                thumbnail.Dispose();
-                break;
-            }
+            if (!CanPublish(layoutVersion, ct))
+                return;
 
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                using (thumbnail)
-                {
-                    if (!ct.IsCancellationRequested && !_isEditPreviewActive && layoutVersion == Volatile.Read(ref _thumbnailLayoutVersion))
-                    {
-                        if (replace)
-                        {
-                            replace = false;
-                            ResetMediaPreviewVisuals();
-                            ThumbnailsClear?.Invoke();
-                        }
+            ApplyLayout(batch[0].Count);
+            PublishVideoBatch(batch);
+        }, static item => item.Thumbnail?.Dispose());
 
-                        Volatile.Write(ref _thumbnailCountVersion, layoutVersion);
-                        VideoThumbnailCount.Value = count;
-                        ThumbnailReady?.Invoke(index, !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null);
-                    }
-                }
-            });
+        if (CanPublish(layoutVersion, ct))
+            ApplyLayout(newCount);
+
+        void ApplyLayout(int count)
+        {
+            if (!replace)
+                return;
+            replace = false;
+            ResetMediaPreviewVisuals();
+            ThumbnailsClear?.Invoke();
+            Volatile.Write(ref _thumbnailCountVersion, layoutVersion);
+            VideoThumbnailCount.Value = count;
         }
 
-        if (replace)
+        async ValueTask<IReadOnlyList<int>> SelectIndicesAsync(int count)
         {
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            if (missing != null)
+                return missing;
+
+            return await Dispatcher.UIThread.InvokeAsync<IReadOnlyList<int>>(() =>
             {
-                if (!ct.IsCancellationRequested && !_isEditPreviewActive && layoutVersion == Volatile.Read(ref _thumbnailLayoutVersion))
-                {
-                    ResetMediaPreviewVisuals();
-                    ThumbnailsClear?.Invoke();
-                }
+                if (!CanPublish(layoutVersion, ct))
+                    return [];
+
+                newCount = count;
+                var (start, end) = GetVisibleThumbnailRangeForLayout?.Invoke(count, width) ?? (0, -1);
+                var indices = CreateRangeIndices(start, end);
+                _loadingMediaSlots = (ct, indices.ToHashSet());
+                return indices;
             });
+        }
+    }
+
+    private async IAsyncEnumerable<(int Index, int Count, Ref<Bitmap>? Thumbnail)> GetLegacyVideoThumbnailsAsync(
+        IThumbnailsProvider provider, FontManager fonts, DecoderRegistry? decoders, int width, int height,
+        IReadOnlyList<int>? indices, [EnumeratorCancellation] CancellationToken ct)
+    {
+        foreach (var (start, end) in GetRanges())
+        {
+            await foreach (var (index, count, thumbnail) in provider.GetThumbnailStripAsync(
+                               fonts, width, height, _thumbnailCacheService, ct, start, end, decoders))
+                yield return (index, count, Ref<Bitmap>.Create(thumbnail));
+        }
+
+        IEnumerable<(int Start, int End)> GetRanges()
+        {
+            if (indices == null)
+            {
+                bool currentLayout = _thumbnailCountVersion == _thumbnailLayoutVersion;
+                yield return currentLayout && _lastVisibleStart >= 0 && _lastVisibleEnd >= _lastVisibleStart
+                    ? (_lastVisibleStart, _lastVisibleEnd) : (0, -1);
+                yield break;
+            }
+
+            int start = indices[0];
+            int end = start;
+            for (int i = 1; i < indices.Count; i++)
+            {
+                if (indices[i] != end + 1)
+                {
+                    yield return (start, end);
+                    start = indices[i];
+                }
+                end = indices[i];
+            }
+            yield return (start, end);
         }
     }
 
     private async Task UpdateAudioThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
     {
         double width = GetEffectiveThumbnailWidth();
-        if (width <= 0)
+        int count = Math.Max(1, (int)width);
+        int layoutVersion = Volatile.Read(ref _thumbnailLayoutVersion);
+        CancelScrollThumbnailsLoading();
+
+        IReadOnlyList<int>? indices = null;
+        if (provider is Beutl.Audio.SourceSound)
         {
-            ResetMediaPreviewVisuals();
-            return;
+            var (start, end) = GetVisibleWaveformRangeForLayout?.Invoke(count, width) ?? (0, -1);
+            indices = CreateRangeIndices(start, end);
+            _loadingMediaSlots = (ct, indices.ToHashSet());
         }
 
-        int chunkCount = Math.Max(1, (int)width);
-        bool replace = true;
         try
         {
-            ct.ThrowIfCancellationRequested();
-            await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxWaveformSamplesPerChunk, _thumbnailCacheService, ct, ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext)))
-            {
-                if (ct.IsCancellationRequested || _isEditPreviewActive)
-                    break;
-
-                await Dispatcher.UIThread.InvokeAsync(() => Publish(chunk));
-            }
+            await StreamWaveformAsync(provider, count, layoutVersion, ct, indices, replace: true);
         }
         finally
         {
-            if (replace && !ct.IsCancellationRequested)
-                await Dispatcher.UIThread.InvokeAsync(() => Publish(null));
+            ForgetLoadingSlots(ct);
+        }
+    }
+
+    private async Task StreamWaveformAsync(IThumbnailsProvider provider, int count,
+        int layoutVersion, CancellationToken ct, IReadOnlyList<int>? missing, bool replace = false)
+    {
+        var decoders = ExtensionGuard.FindService<DecoderRegistry>(Timeline.EditorContext);
+        var stream = provider is Beutl.Audio.SourceSound sound
+            ? sound.GetWaveformChunksAsync(count, MaxWaveformSamplesPerChunk, _thumbnailCacheService, missing, ct, decoders)
+            : provider.GetWaveformChunksAsync(count, MaxWaveformSamplesPerChunk, _thumbnailCacheService, ct, decoders);
+        try
+        {
+            await PublishBatchesAsync(stream, 32, ct, batch =>
+            {
+                if (!CanPublish(layoutVersion, ct))
+                    return;
+                ApplyLayout();
+                PublishWaveformBatch(batch);
+            });
+        }
+        finally
+        {
+            if (CanPublish(layoutVersion, ct))
+                ApplyLayout();
         }
 
-        void Publish(WaveformChunk? chunk)
+        void ApplyLayout()
         {
-            if (ct.IsCancellationRequested || _isEditPreviewActive) return;
+            if (!replace)
+                return;
+            replace = false;
+            ResetMediaPreviewVisuals();
+            WaveformClear?.Invoke();
+            Volatile.Write(ref _thumbnailCountVersion, layoutVersion);
+            WaveformChunkCount.Value = count;
+        }
+    }
 
-            if (replace)
+    private bool CanPublish(int layoutVersion, CancellationToken ct)
+        => !ct.IsCancellationRequested && !_isEditPreviewActive && layoutVersion == Volatile.Read(ref _thumbnailLayoutVersion);
+
+    private void ForgetLoadingSlots(CancellationToken ct)
+    {
+        if (_loadingMediaSlots?.Token == ct)
+            _loadingMediaSlots = null;
+    }
+
+    private void PublishVideoBatch(IReadOnlyList<(int Index, int Count, Ref<Bitmap>? Thumbnail)> batch)
+    {
+        if (ThumbnailBatchReady == null && ThumbnailReady == null)
+            return;
+
+        var images = new (int Index, WriteableBitmap? Thumbnail)[batch.Count];
+        try
+        {
+            for (int i = 0; i < batch.Count; i++)
+                images[i] = (batch[i].Index, batch[i].Thumbnail?.Value.ToAvaWriteableBitmap());
+        }
+        catch
+        {
+            foreach (var (_, thumbnail) in images)
+                thumbnail?.Dispose();
+            throw;
+        }
+
+        ThumbnailBatchReady?.Invoke(images);
+        if (ThumbnailReady is { } ready)
+        {
+            foreach (var (index, thumbnail) in images)
+                ready(index, thumbnail);
+        }
+    }
+
+    private void PublishWaveformBatch(IReadOnlyList<WaveformChunk> batch)
+    {
+        WaveformBatchReady?.Invoke(batch);
+        if (WaveformChunkReady is { } ready)
+        {
+            foreach (var chunk in batch)
+                ready(chunk);
+        }
+    }
+
+    private static async Task PublishBatchesAsync<T>(IAsyncEnumerable<T> source, int size, CancellationToken ct,
+        Action<IReadOnlyList<T>> publish, Action<T>? release = null)
+    {
+        var batch = new List<T>(size);
+        long lastPublished = Stopwatch.GetTimestamp();
+        try
+        {
+            await foreach (var item in source.ConfigureAwait(false))
             {
-                replace = false;
-                ResetMediaPreviewVisuals();
-                WaveformClear?.Invoke();
-                WaveformChunkCount.Value = chunkCount;
+                batch.Add(item);
+                ct.ThrowIfCancellationRequested();
+                if (batch.Count == size || Stopwatch.GetElapsedTime(lastPublished).TotalMilliseconds >= 40)
+                    await PublishAsync().ConfigureAwait(false);
             }
 
-            if (chunk is { } value)
-                WaveformChunkReady?.Invoke(value);
+            if (batch.Count > 0)
+                await PublishAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            ReleaseBatch();
+        }
+
+        async Task PublishAsync()
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!ct.IsCancellationRequested)
+                    publish(batch);
+            });
+            ReleaseBatch();
+            lastPublished = Stopwatch.GetTimestamp();
+        }
+
+        void ReleaseBatch()
+        {
+            if (release != null)
+            {
+                foreach (var item in batch)
+                    release(item);
+            }
+            batch.Clear();
         }
     }
 }
