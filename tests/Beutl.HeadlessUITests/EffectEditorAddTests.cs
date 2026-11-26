@@ -85,8 +85,8 @@ public sealed class EffectEditorAddTests
         var menu = (FAMenuFlyout)toggle.ContextFlyout!;
         menu.ShowAt(toggle);
         HeadlessTestHelpers.Render();
-        bool change = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Change).IsVisible;
-        bool clear = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Null).IsVisible;
+        bool change = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.ReplaceEffectMenu).IsVisible;
+        bool clear = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.ClearValue).IsVisible;
         menu.Hide();
         HeadlessTestHelpers.Render();
         Assert.That(clear, Is.EqualTo(change));

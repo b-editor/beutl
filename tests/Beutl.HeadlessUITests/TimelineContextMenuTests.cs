@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Windows.Input;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -31,12 +32,12 @@ public sealed class TimelineContextMenuTests
         Assert.That(menu.Items.Cast<object>().Select(ItemText), Is.EqualTo(new string?[]
         {
             Strings.EnableElement, Strings.Lock, Strings.EditingMode, null,
-            Strings.Split, Strings.SplitByCurrentFrame, Strings.AutoSplitBySilence, null,
-            Strings.Cut, Strings.Copy, Strings.Duplicate, Strings.Delete, Strings.Rename, Strings.ChangeToOriginalLength, null,
+            Strings.Split, Strings.SplitByCurrentFrame, Strings.AutoSplitBySilenceMenu, null,
+            Strings.Cut, Strings.Copy, Strings.Duplicate, Strings.Delete, Strings.RenameMenu, Strings.ChangeToOriginalLength, null,
             Strings.BulkSelection, Strings.GroupSelectedElements, Strings.UngroupSelectedElements, null,
             Strings.ChangeColor, Strings.DisableThumbnails, null,
             Strings.TrackMatte, GraphicsStrings.ClipTransition, null,
-            Strings.SaveAsTemplate, null,
+            Strings.SaveAsTemplateMenu, null,
             Strings.Animation,
         }));
         FAMenuFlyoutItem duplicate = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == Strings.Duplicate);
@@ -228,5 +229,20 @@ public sealed class TimelineContextMenuTests
         if (capture is not null)
             HeadlessCapture.SaveIfRequested(flyout.Popup.Child!, nameof(TimelineContextMenuTests), capture);
         return flyout;
+    }
+
+    [AvaloniaTest]
+    public async Task Ruler_menu_shows_frame_cache_actions()
+    {
+        using TimelineTestHost host = await CreateHostAsync();
+        FAMenuFlyout menu = OpenMenu(host.Ruler, "ruler");
+
+        Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Select(item => (item.Text, item.Command)), Is.EqualTo(new (string, ICommand)[]
+        {
+            (Strings.DeleteAllCachedFrames, host.Model.DeleteAllFrameCache),
+            (Strings.DeleteCachedFrameRange, host.Model.DeleteFrameCache),
+            (Strings.LockCachedFrameRange, host.Model.LockFrameCache),
+            (Strings.UnlockCachedFrameRange, host.Model.UnlockFrameCache),
+        }));
     }
 }

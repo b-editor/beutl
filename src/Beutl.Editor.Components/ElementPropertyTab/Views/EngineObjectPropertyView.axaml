@@ -40,7 +40,7 @@
                         </ui:FAMenuFlyoutItem>
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="ElementProperty.SaveAsTemplate"
                                              Click="SaveAsTemplate_Click"
-                                             Text="{x:Static lang:Strings.SaveAsTemplate}">
+                                             Text="{x:Static lang:Strings.SaveAsTemplateMenu}">
                             <ui:FAMenuFlyoutItem.IconSource>
                                 <icons:FluentIconSource Icon="DocumentCopy" />
                             </ui:FAMenuFlyoutItem.IconSource>

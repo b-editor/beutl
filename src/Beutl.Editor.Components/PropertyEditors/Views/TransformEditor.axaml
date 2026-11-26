@@ -25,8 +25,8 @@
                 <ui:FAMenuFlyout Placement="Pointer">
                     <ui:FAMenuFlyoutSubItem x:Name="ChangeTypeMenu"
                                           IconSource="New"
-                                          Text="{x:Static lang:Strings.Change}" />
-                    <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                                          Text="{x:Static lang:Strings.ChangeTransformType}" />
+                    <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.ClearValue}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
@@ -50,8 +50,8 @@
                         <ui:FAMenuFlyout>
                             <ui:FAMenuFlyoutSubItem x:Name="PresenterChangeTypeMenu"
                                                   IconSource="New"
-                                                  Text="{x:Static lang:Strings.Change}" />
-                            <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                                                  Text="{x:Static lang:Strings.ChangeTransformType}" />
+                            <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.ClearValue}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:FluentIcon Icon="MoreVertical" />

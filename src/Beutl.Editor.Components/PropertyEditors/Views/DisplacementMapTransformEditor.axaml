@@ -49,7 +49,7 @@
                     <ui:FARadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                             Tag="Null"
-                                            Text="{x:Static lang:Strings.Null}" />
+                                            Text="{x:Static lang:StatusStrings.None}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>

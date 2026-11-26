@@ -294,7 +294,7 @@ public partial class NodePortView : UserControl
 
             list.Add(new FAMenuFlyoutItem()
             {
-                Text = Strings.Rename,
+                Text = Strings.RenameMenu,
                 Command = new ReactiveCommand().WithSubscribe(RenameClick),
                 IconSource = new FluentIconSource
                 {

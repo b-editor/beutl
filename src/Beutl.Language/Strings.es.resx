@@ -71,8 +71,17 @@
   <data name="CreateNewProject" xml:space="preserve">
     <value>Crear nuevo proyecto</value>
   </data>
+  <data name="CreateProjectMenu" xml:space="preserve">
+    <value>Proyecto…</value>
+  </data>
   <data name="CreateNewScene" xml:space="preserve">
     <value>Crear nueva escena</value>
+  </data>
+  <data name="CreateSceneMenu" xml:space="preserve">
+    <value>Escena…</value>
+  </data>
+  <data name="CreateNewSceneMenu" xml:space="preserve">
+    <value>Crear escena…</value>
   </data>
   <data name="Project" xml:space="preserve">
     <value>Proyecto</value>
@@ -157,6 +166,9 @@
   </data>
   <data name="Settings" xml:space="preserve">
     <value>Configuración</value>
+  </data>
+  <data name="OpenSettingsMenu" xml:space="preserve">
+    <value>Configuración…</value>
   </data>
   <data name="Properties" xml:space="preserve">
     <value>Propiedades</value>
@@ -299,8 +311,14 @@
   <data name="Delete" xml:space="preserve">
     <value>Eliminar</value>
   </data>
+  <data name="DeleteWithConfirmation" xml:space="preserve">
+    <value>Eliminar…</value>
+  </data>
   <data name="Remove" xml:space="preserve">
     <value>Quitar</value>
+  </data>
+  <data name="RemoveFromProjectMenu" xml:space="preserve">
+    <value>Quitar del proyecto…</value>
   </data>
   <data name="Back" xml:space="preserve">
     <value>Atrás</value>
@@ -373,6 +391,9 @@
   </data>
   <data name="NewFolder" xml:space="preserve">
     <value>Nueva carpeta</value>
+  </data>
+  <data name="CloudStorageNewFolderMenu" xml:space="preserve">
+    <value>Nueva carpeta…</value>
   </data>
   <data name="Left" xml:space="preserve">
     <value>Izquierda</value>
@@ -448,6 +469,9 @@
   </data>
   <data name="Rename" xml:space="preserve">
     <value>Renombrar</value>
+  </data>
+  <data name="RenameMenu" xml:space="preserve">
+    <value>Renombrar…</value>
   </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>Terminar edición</value>
@@ -618,7 +642,7 @@
     <value>Número de capas</value>
   </data>
   <data name="ChangeColor" xml:space="preserve">
-    <value>Cambiar color</value>
+    <value>Cambiar color…</value>
   </data>
   <data name="EditAnimationInInlineView" xml:space="preserve">
     <value>Editar animación en vista en línea</value>
@@ -662,26 +686,44 @@
   <data name="AddNode" xml:space="preserve">
     <value>Agregar nodo</value>
   </data>
-  <data name="Change" xml:space="preserve">
-    <value>Cambiar</value>
+  <data name="ChangeTransformType" xml:space="preserve">
+    <value>Cambiar tipo de transformación</value>
+  </data>
+  <data name="ReplaceEffectMenu" xml:space="preserve">
+    <value>Reemplazar efecto…</value>
+  </data>
+  <data name="ReplaceObject" xml:space="preserve">
+    <value>Reemplazar objeto</value>
+  </data>
+  <data name="ReplaceObjectMenu" xml:space="preserve">
+    <value>Reemplazar objeto…</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
     <value>Desconectar</value>
   </data>
-  <data name="Initialize" xml:space="preserve">
-    <value>Inicializar</value>
+  <data name="CreateEmptyPath" xml:space="preserve">
+    <value>Crear trazado vacío</value>
+  </data>
+  <data name="ResetList" xml:space="preserve">
+    <value>Restablecer lista</value>
+  </data>
+  <data name="ResetStroke" xml:space="preserve">
+    <value>Restablecer trazo</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
+    <value>Restablecer zoom</value>
+  </data>
+  <data name="ResetZoomMenu" xml:space="preserve">
     <value>Restablecer zoom</value>
   </data>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>Quitar animación</value>
   </data>
   <data name="EditExpression" xml:space="preserve">
-    <value>Editar expresión</value>
+    <value>Editar expresión…</value>
   </data>
   <data name="RemoveExpression" xml:space="preserve">
-    <value>Quitar expresión</value>
+    <value>Eliminar expresión</value>
   </data>
   <data name="Expression_ReturnsBothValues" xml:space="preserve">
     <value>Introduce una expresión que devuelva los valores juntos, por ejemplo {0}.</value>
@@ -717,10 +759,10 @@
     <value>Mostrar detalles</value>
   </data>
   <data name="SaveSelectedElementAsImage" xml:space="preserve">
-    <value>Guardar un elemento seleccionado como imagen</value>
+    <value>Guardar un elemento seleccionado como imagen…</value>
   </data>
   <data name="SaveFrameAsImage" xml:space="preserve">
-    <value>Guardar un fotograma como imagen</value>
+    <value>Guardar un fotograma como imagen…</value>
   </data>
   <data name="SaveImageScale" xml:space="preserve">
     <value>Escala</value>
@@ -730,6 +772,9 @@
   </data>
   <data name="Move" xml:space="preserve">
     <value>Mover</value>
+  </data>
+  <data name="CloudStorageMoveMenu" xml:space="preserve">
+    <value>Mover…</value>
   </data>
   <data name="Hand" xml:space="preserve">
     <value>Mano</value>
@@ -789,7 +834,7 @@
     <value>Ejecutando tareas de inicio</value>
   </data>
   <data name="SaveAsImage" xml:space="preserve">
-    <value>Guardar como imagen</value>
+    <value>Guardar como imagen…</value>
   </data>
   <data name="CopyAsImage" xml:space="preserve">
     <value>Copiar como imagen</value>
@@ -806,14 +851,8 @@
   <data name="Unlocked" xml:space="preserve">
     <value>Desbloqueado</value>
   </data>
-  <data name="DeleteAll" xml:space="preserve">
-    <value>Eliminar todo</value>
-  </data>
   <data name="Lock" xml:space="preserve">
     <value>Bloquear</value>
-  </data>
-  <data name="Unlock" xml:space="preserve">
-    <value>Desbloquear</value>
   </data>
   <data name="Solo" xml:space="preserve">
     <value>Solo</value>
@@ -823,6 +862,18 @@
   </data>
   <data name="FrameCache" xml:space="preserve">
     <value>Caché de fotogramas</value>
+  </data>
+  <data name="DeleteAllCachedFrames" xml:space="preserve">
+    <value>Eliminar todos los fotogramas en caché</value>
+  </data>
+  <data name="DeleteCachedFrameRange" xml:space="preserve">
+    <value>Eliminar intervalo de fotogramas en caché</value>
+  </data>
+  <data name="LockCachedFrameRange" xml:space="preserve">
+    <value>Bloquear intervalo de fotogramas en caché</value>
+  </data>
+  <data name="UnlockCachedFrameRange" xml:space="preserve">
+    <value>Desbloquear intervalo de fotogramas en caché</value>
   </data>
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>Clic derecho para operar la caché</value>
@@ -872,6 +923,9 @@
   <data name="ColorPalette_NewPalette" xml:space="preserve">
     <value>Nueva paleta</value>
   </data>
+  <data name="ColorPalette_NewPaletteMenu" xml:space="preserve">
+    <value>Nueva paleta…</value>
+  </data>
   <data name="ColorPalette_NewPaletteName" xml:space="preserve">
     <value>Paleta {0}</value>
   </data>
@@ -903,7 +957,7 @@
     <value>Añadir a la paleta</value>
   </data>
   <data name="ColorPalette_AddToNewPalette" xml:space="preserve">
-    <value>Añadir a una paleta nueva</value>
+    <value>Añadir a una paleta nueva…</value>
   </data>
   <data name="ColorPalette_ReplaceWithCurrentColor" xml:space="preserve">
     <value>Reemplazar por el color actual</value>
@@ -931,6 +985,9 @@
   </data>
   <data name="ImportSvgPath" xml:space="preserve">
     <value>Importar ruta SVG</value>
+  </data>
+  <data name="ImportSvgPathMenu" xml:space="preserve">
+    <value>Importar ruta SVG…</value>
   </data>
   <data name="ImportSvgPath_Description" xml:space="preserve">
     <value>La forma actual se sobrescribirá.</value>
@@ -962,8 +1019,14 @@
   <data name="OpenProject" xml:space="preserve">
     <value>Abrir proyecto</value>
   </data>
+  <data name="OpenProjectMenu" xml:space="preserve">
+    <value>Proyecto…</value>
+  </data>
   <data name="OpenFile" xml:space="preserve">
     <value>Abrir archivo</value>
+  </data>
+  <data name="OpenFileMenu" xml:space="preserve">
+    <value>Archivo…</value>
   </data>
   <data name="Save_Description" xml:space="preserve">
     <value>Guardar el archivo actual</value>
@@ -1294,6 +1357,12 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Null" xml:space="preserve">
     <value>Nulo</value>
   </data>
+  <data name="ClearValue" xml:space="preserve">
+    <value>Borrar valor</value>
+  </data>
+  <data name="ClearReference" xml:space="preserve">
+    <value>Quitar referencia</value>
+  </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>Abrir en pestaña</value>
   </data>
@@ -1358,10 +1427,10 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Borrar</value>
   </data>
   <data name="ExportProject" xml:space="preserve">
-    <value>Exportar proyecto...</value>
+    <value>Exportar proyecto…</value>
   </data>
   <data name="ImportProject" xml:space="preserve">
-    <value>Importar proyecto...</value>
+    <value>Importar proyecto…</value>
   </data>
   <data name="ImportMedia" xml:space="preserve">
     <value>Importar medios…</value>
@@ -1397,8 +1466,11 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Tutorials" xml:space="preserve">
     <value>Tutoriales</value>
   </data>
+  <data name="TutorialsMenu" xml:space="preserve">
+    <value>Tutoriales…</value>
+  </data>
   <data name="BpmGrid" xml:space="preserve">
-    <value>Cuadrícula BPM</value>
+    <value>Cuadrícula BPM…</value>
   </data>
   <data name="ShowBpmGrid" xml:space="preserve">
     <value>Mostrar cuadrícula BPM</value>
@@ -1441,6 +1513,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="SaveAsTemplate" xml:space="preserve">
     <value>Guardar como plantilla</value>
+  </data>
+  <data name="SaveAsTemplateMenu" xml:space="preserve">
+    <value>Guardar como plantilla…</value>
   </data>
   <data name="ApplyTemplate" xml:space="preserve">
     <value>Aplicar plantilla</value>
@@ -1626,7 +1701,7 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Eliminar seleccionados</value>
   </data>
   <data name="ProxyDeleteProjectProxies" xml:space="preserve">
-    <value>Eliminar proxies del proyecto</value>
+    <value>Eliminar proxies del proyecto…</value>
   </data>
   <data name="ProxyDeleteProjectProxiesConfirmationFormat" xml:space="preserve">
     <value>Los proxies se almacenan en una caché compartida de toda la máquina. Eliminar los {0} archivos proxy usados por este proyecto también los elimina para todos los demás proyectos que hacen referencia a los mismos archivos de origen, y deberán regenerarse. ¿Continuar?</value>
@@ -1820,6 +1895,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="DeleteFromDisk" xml:space="preserve">
     <value>Eliminar del disco</value>
   </data>
+  <data name="DeleteFromDiskMenu" xml:space="preserve">
+    <value>Eliminar del disco…</value>
+  </data>
   <data name="PropertyHover_Type" xml:space="preserve">
     <value>Tipo: {0}</value>
   </data>
@@ -1973,6 +2051,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="GraphVelocity" xml:space="preserve">
     <value>Velocidad de fotograma clave</value>
   </data>
+  <data name="GraphVelocityMenu" xml:space="preserve">
+    <value>Velocidad de fotograma clave…</value>
+  </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>Entrada</value>
   </data>
@@ -2002,6 +2083,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>Escalar valores</value>
+  </data>
+  <data name="GraphScaleValuesMenu" xml:space="preserve">
+    <value>Escalar valores…</value>
   </data>
   <data name="GraphScaleFactor" xml:space="preserve">
     <value>Factor</value>
@@ -2067,7 +2151,7 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Abrir en el navegador predeterminado</value>
   </data>
   <data name="Print" xml:space="preserve">
-    <value>Imprimir</value>
+    <value>Imprimir…</value>
   </data>
   <data name="WebBrowserActionFailed" xml:space="preserve">
     <value>No se pudo completar la acción del navegador.</value>
@@ -2732,6 +2816,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_Restore" xml:space="preserve">
     <value>Restaurar</value>
   </data>
+  <data name="VersionControl_RestoreMenu" xml:space="preserve">
+    <value>Restaurar…</value>
+  </data>
   <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
     <value>Restaurar en una nueva rama…</value>
   </data>
@@ -3099,6 +3186,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="WebDownloadMedia" xml:space="preserve">
     <value>Descargar archivo</value>
   </data>
+  <data name="WebDownloadMediaMenu" xml:space="preserve">
+    <value>Descargar archivo…</value>
+  </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>Directorio del proyecto</value>
   </data>
@@ -3148,7 +3238,7 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
     <value>Se añadió «{0}» a los marcadores.</value>
   </data>
   <data name="BrowserSettings" xml:space="preserve">
-    <value>Búsqueda y privacidad</value>
+    <value>Búsqueda y privacidad…</value>
   </data>
   <data name="BrowserRetry" xml:space="preserve">
     <value>Descargar de nuevo</value>
@@ -3191,6 +3281,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   </data>
   <data name="BrowserFind" xml:space="preserve">
     <value>Buscar en la página</value>
+  </data>
+  <data name="BrowserFindMenu" xml:space="preserve">
+    <value>Buscar en la página…</value>
   </data>
   <data name="BrowserFindNext" xml:space="preserve">
     <value>Siguiente coincidencia</value>
@@ -3345,6 +3438,9 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="CloudStorageDownload" xml:space="preserve">
     <value>Descargar</value>
+  </data>
+  <data name="CloudStorageDownloadMenu" xml:space="preserve">
+    <value>Descargar…</value>
   </data>
   <data name="CloudStorageCopyLink" xml:space="preserve">
     <value>Copiar enlace</value>
@@ -3853,6 +3949,9 @@ cuando el registro del historial está activado.</value>
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>Dividir automáticamente por silencio</value>
   </data>
+  <data name="AutoSplitBySilenceMenu" xml:space="preserve">
+    <value>Dividir automáticamente por silencio…</value>
+  </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>Umbral (dB)</value>
   </data>
@@ -4074,6 +4173,9 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="HostedGit_Clone" xml:space="preserve">
     <value>Clonar</value>
+  </data>
+  <data name="HostedGit_CloneMenu" xml:space="preserve">
+    <value>Clonar…</value>
   </data>
   <data name="HostedGit_ClonedProject" xml:space="preserve">
     <value>Copia local</value>

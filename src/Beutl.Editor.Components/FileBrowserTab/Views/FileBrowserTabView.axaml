@@ -47,14 +47,14 @@
                     <ui:FAMenuFlyoutSeparator />
                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="FileBrowser.Rename"
                                          Click="OnRenameClick"
-                                         Text="{x:Static lang:Strings.Rename}">
+                                         Text="{x:Static lang:Strings.RenameMenu}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="FileBrowser.Delete"
                                          Click="OnDeleteClick"
-                                         Text="{x:Static lang:Strings.Delete}">
+                                         Text="{x:Static lang:Strings.DeleteWithConfirmation}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Delete" />
                         </ui:FAMenuFlyoutItem.IconSource>

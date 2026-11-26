@@ -551,7 +551,7 @@ public class GraphEditorTreeTests
         var menu = (FAMenuFlyout)button.ContextFlyout!;
         Assert.That(menu.IsOpen, Is.True);
         var remove = menu.Items.OfType<FAMenuFlyoutItem>().Single();
-        Assert.That(remove.Text, Is.EqualTo(Strings.RemoveAnimation));
+        Assert.That(remove.Text, Is.EqualTo(CommandNames.DeleteAnimation));
         Assert.That(remove.IsEnabled, Is.True);
         Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.SameAs(animation));
         remove.Focus();

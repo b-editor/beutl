@@ -5,7 +5,7 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="Title" xml:space="preserve"><value>Project assets</value></data>
-  <data name="MenuLabel" xml:space="preserve"><value>Organize project assets</value></data>
+  <data name="MenuLabel" xml:space="preserve"><value>Organize Project Assets</value></data>
   <data name="OpenScene" xml:space="preserve"><value>Open a scene to use the Files tab.</value></data>
   <data name="Collect" xml:space="preserve"><value>Collect assets</value></data>
   <data name="Unused" xml:space="preserve"><value>Unused assets</value></data>

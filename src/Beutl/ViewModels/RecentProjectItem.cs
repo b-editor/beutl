@@ -58,7 +58,7 @@ public sealed class RecentProjectItem : IDisposable
 
     internal Icon RepositoryIcon => IsRemoteOnly ? Icon.Cloud : Icon.HardDrive;
 
-    internal string OpenLabel => IsRemoteOnly ? Strings.HostedGit_Clone : Strings.Open;
+    internal string OpenLabel => IsRemoteOnly ? Strings.HostedGit_CloneMenu : Strings.Open;
 
     internal ReactivePropertySlim<string?> RepositoryLabel { get; } = new();
 

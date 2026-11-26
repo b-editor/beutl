@@ -226,7 +226,7 @@ public sealed class ColorPaletteViewTests
 
         ClickWhenReachable(host.Window, actions);
         HeadlessCapture.SaveIfRequested(view, nameof(ColorPaletteViewTests), "palette-menu");
-        ClickWhenReachable(host.Window, MenuItem(host.Window, Strings.Rename));
+        ClickWhenReachable(host.Window, MenuItem(host.Window, Strings.RenameMenu));
         Rename(host.Window, expected: "Mine", typed: "Brand colors");
 
         Assert.That(service.UserPalettes.Select(p => p.Name), Is.EqualTo(new[] { "Brand colors" }));
@@ -246,7 +246,7 @@ public sealed class ColorPaletteViewTests
         TimelineTestHost.WaitForHitTest(host.Window, blue, HeadlessTestHelpers.Center(blue, host.Window));
         HeadlessTestHelpers.Click(blue, button: MouseButton.Right, ticks: 3);
         HeadlessCapture.SaveIfRequested(view, nameof(ColorPaletteViewTests), "color-menu");
-        ClickWhenReachable(host.Window, MenuItem(host.Window, Strings.Rename));
+        ClickWhenReachable(host.Window, MenuItem(host.Window, Strings.RenameMenu));
         Rename(host.Window, expected: "Blue", typed: "Link");
 
         Assert.That(service.UserPalettes[0].Colors, Is.EqualTo(new[] { new PaletteColor(0xFF0000FF, "Link") }));

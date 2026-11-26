@@ -58,7 +58,7 @@ If the URL is suspicious, we recommend that you do not open it.</value>
     <value>Published Packages</value>
   </data>
   <data name="RemoveFromLibrary" xml:space="preserve">
-    <value>Remove from library</value>
+    <value>Remove from Library</value>
   </data>
   <data name="CheckUpdate" xml:space="preserve">
     <value>Check update</value>

@@ -54,7 +54,7 @@ public sealed partial class BrushEditor : UserControl
             ("PerlinNoise", "IsPerlinNoise.Value", GraphicsStrings.PerlinNoiseBrush),
             ("Drawable", "IsDrawable.Value", GraphicsStrings.Drawable),
             ("Presenter", "IsPresenter.Value", GraphicsStrings.Presenter),
-            ("Null", "!Value.Value", Strings.Null)
+            ("Null", "!Value.Value", StatusStrings.None)
         };
         foreach ((string tag, string isChecked, string text) in items)
         {

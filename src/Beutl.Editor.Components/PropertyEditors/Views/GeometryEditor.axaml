@@ -24,11 +24,11 @@
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:FAMenuFlyoutItem Click="SetNullClick"
-                                       Text="{x:Static lang:Strings.Null}" />
+                                       Text="{x:Static lang:Strings.ClearValue}" />
                     <ui:FAMenuFlyoutItem Click="InitializeClick"
-                                       Text="{x:Static lang:Strings.Initialize}" />
+                                       Text="{x:Static lang:Strings.CreateEmptyPath}" />
                     <ui:FAMenuFlyoutItem Click="ImportFromSvgPathClick"
-                                       Text="{x:Static lang:Strings.ImportSvgPath}" />
+                                       Text="{x:Static lang:Strings.ImportSvgPathMenu}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
