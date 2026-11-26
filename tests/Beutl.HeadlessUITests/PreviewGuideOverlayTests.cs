@@ -9,6 +9,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Controls;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 using Beutl.Editor.Components.PreviewSettingsTab.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
@@ -357,37 +358,41 @@ public class PreviewGuideOverlayTests
     }
 
     [AvaloniaTest]
-    public void The_editor_settings_page_edits_the_guides()
+    public void The_preview_settings_page_edits_the_guides()
     {
-        Config.IsPreviewGuideEnabled.Value = false;
-        using var vm = new EditorSettingsPageViewModel(TestShell.Configuration);
-        var page = new EditorSettingsPage { DataContext = vm };
-        var window = new Window { Content = page, Width = 1000, Height = 2400 };
-        window.Show();
-        try
-        {
-            HeadlessTestHelpers.Render();
+        var config = new EditorConfig();
+        config.PreviewGuideKinds.Value = PreviewGuideKinds.CustomGrid | PreviewGuideKinds.AspectRatio;
+        using var vm = new PreviewSettingsPageViewModel(config);
+        var page = new PreviewSettingsPage { DataContext = vm };
+        using var host = new ControlHost(page, 1000, 800);
 
-            vm.PreviewGuides.IsEnabled.Value = true;
-            Assert.That(Config.IsPreviewGuideEnabled.Value, Is.True);
-            page.GetVisualDescendants().OfType<OptionsDisplayItem>()
-                .Single(item => Equals(item.Header, SettingsStrings.PreviewGuideKinds)).IsExpanded = true;
-            HeadlessTestHelpers.Render();
-            // The guides are the page's last section.
-            page.GetVisualDescendants().OfType<ScrollViewer>().First().ScrollToEnd();
-            HeadlessTestHelpers.Render();
-            HeadlessCapture.SaveIfRequested(window, nameof(PreviewGuideOverlayTests), "editor-settings-page");
+        ((ToggleSwitch)Row(SettingsStrings.ShowPreviewGuides).ActionButton!).IsChecked = true;
+        Assert.That(config.IsPreviewGuideEnabled.Value, Is.True);
+        Row(SettingsStrings.PreviewGuideKinds).IsExpanded = true;
+        HeadlessTestHelpers.Render();
 
-            CheckBox thirds = page.GetVisualDescendants().OfType<CheckBox>()
-                .SingleOrDefault(box => Equals(box.Content, Strings.PreviewGuide_RuleOfThirds))
-                ?? throw new AssertionException("The guide check boxes are not in the page.");
-            thirds.IsChecked = true;
-            Assert.That(Config.PreviewGuideKinds.Value.HasFlag(PreviewGuideKinds.RuleOfThirds), Is.True);
-        }
-        finally
+        CheckBox thirds = page.GetVisualDescendants().OfType<CheckBox>()
+            .Single(box => Equals(box.Content, Strings.PreviewGuide_RuleOfThirds));
+        thirds.IsChecked = true;
+        ((SimpleColorPickerButton)Row(Strings.PreviewGuide_Color).ActionButton!).Color = Avalonia.Media.Colors.Cyan;
+        ((StackPanel)Row(Strings.PreviewGuide_Opacity).ActionButton!).Children.OfType<Slider>().Single().Value = 0.5;
+        ((NumericUpDown)Row(Strings.PreviewGuide_GridColumns).ActionButton!).Value = 8;
+        ((NumericUpDown)Row(Strings.PreviewGuide_GridRows).ActionButton!).Value = 6;
+        var ratios = (StackPanel)Row(Strings.PreviewGuide_AspectRatios).ActionButton!;
+        ratios.Children.OfType<TextBox>().Single().Text = "1:1, 9:16";
+
+        Assert.Multiple(() =>
         {
-            window.Close();
-        }
+            Assert.That(config.PreviewGuideKinds.Value.HasFlag(PreviewGuideKinds.RuleOfThirds), Is.True);
+            Assert.That(config.PreviewGuideColor.Value, Is.EqualTo("#FF00FFFF"));
+            Assert.That(config.PreviewGuideOpacity.Value, Is.EqualTo(0.5f));
+            Assert.That(config.PreviewGuideGridColumns.Value, Is.EqualTo(8));
+            Assert.That(config.PreviewGuideGridRows.Value, Is.EqualTo(6));
+            Assert.That(config.PreviewGuideAspectRatios.Value, Is.EqualTo("1:1, 9:16"));
+        });
+
+        OptionsDisplayItem Row(string header)
+            => page.GetVisualDescendants().OfType<OptionsDisplayItem>().Single(item => Equals(item.Header, header));
     }
 
     private static void PressAltG(Window window)

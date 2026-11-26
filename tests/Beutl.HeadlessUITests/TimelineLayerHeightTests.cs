@@ -379,10 +379,8 @@ public sealed class TimelineLayerHeightTests
     public async Task The_settings_picker_round_trips_the_preset_and_ignores_invalid_indices()
     {
         await TestReset.ResetShellAsync();
-        TestGpu.RequireAnyDevice();
         EditorConfig config = TestShell.Configuration.EditorConfig;
         TimelineLayerSize previous = config.TimelineLayerSize.Value;
-        string? previousGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
         try
         {
             config.TimelineLayerSize.Value = TimelineLayerSize.Small;
@@ -433,7 +431,6 @@ public sealed class TimelineLayerHeightTests
         finally
         {
             config.TimelineLayerSize.Value = previous;
-            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = previousGpu;
         }
     }
 

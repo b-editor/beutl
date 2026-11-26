@@ -17,7 +17,7 @@ namespace Beutl.HeadlessUITests;
 
 [TestFixture]
 [NonParallelizable] // uses the shared test app configuration
-public sealed class EditorSettingsPageDisplayPeakTests
+public sealed class PreviewSettingsPageDisplayPeakTests
 {
     // The HDR preview takes the setting from the player, which reads the editor settings, and follows a change.
     [AvaloniaTest]
@@ -51,14 +51,11 @@ public sealed class EditorSettingsPageDisplayPeakTests
     [AvaloniaTest]
     public void Peak_override_round_trips_and_the_description_names_the_reported_display()
     {
-        TestGpu.RequireAnyDevice();
-
         EditorConfig config = TestShell.Configuration.EditorConfig;
         float prior = config.DisplayPeakLuminance.Value;
-        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
         try
         {
-            using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration);
+            using var viewModel = new PreviewSettingsPageViewModel(config);
 
             viewModel.DisplayPeakLuminance.Value = 600;
             Assert.That(config.DisplayPeakLuminance.Value, Is.EqualTo(600f));
@@ -83,7 +80,6 @@ public sealed class EditorSettingsPageDisplayPeakTests
         finally
         {
             config.DisplayPeakLuminance.Value = prior;
-            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 
@@ -94,14 +90,11 @@ public sealed class EditorSettingsPageDisplayPeakTests
     [TestCase(false)]
     public void Peak_override_row_shows_only_where_it_applies(bool supported)
     {
-        TestGpu.RequireAnyDevice();
-
         EditorConfig config = TestShell.Configuration.EditorConfig;
         float prior = config.DisplayPeakLuminance.Value;
-        string? priorGpu = TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value;
         config.DisplayPeakLuminance.Value = 1000f;
-        using var viewModel = new EditorSettingsPageViewModel(TestShell.Configuration) { IsDisplayPeakLuminanceSupported = supported };
-        var page = new EditorSettingsPage { DataContext = viewModel };
+        using var viewModel = new PreviewSettingsPageViewModel(config) { IsDisplayPeakLuminanceSupported = supported };
+        var page = new PreviewSettingsPage { DataContext = viewModel };
         var window = new Window { Content = page, Width = 900, Height = 700, RequestedThemeVariant = ThemeVariant.Dark };
         try
         {
@@ -122,13 +115,12 @@ public sealed class EditorSettingsPageDisplayPeakTests
             var input = (NumericUpDown)row.ActionButton!;
             Assert.That(input.Value, Is.EqualTo(1000m));
             Assert.That(row.Description, Is.EqualTo(viewModel.DisplayPeakLuminanceDescription.Value));
-            HeadlessCapture.SaveIfRequested(window, nameof(EditorSettingsPageDisplayPeakTests), "display-peak");
+            HeadlessCapture.SaveIfRequested(window, nameof(PreviewSettingsPageDisplayPeakTests), "display-peak");
         }
         finally
         {
             window.Close();
             config.DisplayPeakLuminance.Value = prior;
-            TestShell.Configuration.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System.Reflection;
 using Avalonia.Controls;
 using Beutl.Configuration;
-using Beutl.Controls.Navigation;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Services;
@@ -10,16 +9,12 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class InformationPageViewModel : PageContext, IDisposable
+public sealed class InformationPageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
-    private TelemetrySettingsPageViewModel? _telemetry;
 
-    private readonly TelemetryConfig _telemetryConfig;
-
-    public InformationPageViewModel(UpdateConfig updateConfig, TelemetryConfig telemetryConfig)
+    public InformationPageViewModel(UpdateConfig updateConfig)
     {
-        _telemetryConfig = telemetryConfig;
         AutoDownloadUpdates = updateConfig.AutoDownload.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -51,15 +46,6 @@ public sealed class InformationPageViewModel : PageContext, IDisposable
             }
         }, DispatchPriority.Low);
 
-        NavigateToTelemetry = new AsyncReactiveCommand()
-            .WithSubscribe(async () =>
-            {
-                INavigationProvider nav = await GetNavigation();
-                await nav.NavigateAsync(
-                    x => x is not null,
-                    () => Telemetry);
-            });
-
         BuildMetadata = typeof(InformationPageViewModel).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion ?? "Unknown";
@@ -84,10 +70,6 @@ public sealed class InformationPageViewModel : PageContext, IDisposable
     public ReactivePropertySlim<string?> VulkanVersion { get; } = new();
 
     public ReactivePropertySlim<string?> AvailableMemory { get; } = new();
-
-    public TelemetrySettingsPageViewModel Telemetry => _telemetry ??= new(_telemetryConfig);
-
-    public AsyncReactiveCommand NavigateToTelemetry { get; }
 
     public ReactiveProperty<bool> AutoDownloadUpdates { get; }
 
