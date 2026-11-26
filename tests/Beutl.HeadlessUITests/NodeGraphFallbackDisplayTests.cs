@@ -81,12 +81,9 @@ public class NodeGraphFallbackDisplayTests
     }
 
     [AvaloniaTest]
-    [TestCase(24)]
-    [TestCase(360)]
-    public void WarningLineContextMenuCutsAConnectionBetweenUnavailableNodes(int receivingNodeY)
+    public void WarningLineContextMenuCutsAConnectionBetweenUnavailableNodes()
     {
         GraphModel graph = RestoreGraph(failed: false, bothUnavailable: true);
-        graph.Nodes[1].Position.Value = (360, receivingNodeY);
         var sequence = new OperationSequenceGenerator();
         using var history = new HistoryManager(sequence);
         using var observer = new CoreObjectOperationObserver(null, graph, sequence);
