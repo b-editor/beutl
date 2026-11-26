@@ -206,7 +206,7 @@ public class ProjectDiskDeletionTests
                 Assert.That(
                     notifications.All.Where(notification => notification.Type == NotificationType.Error)
                         .Select(notification => notification.Title),
-                    Does.Contain(Strings.DeleteFromDiskMenu));
+                    Does.Contain(Strings.DeleteFromDisk));
                 Assert.That(viewConfig.RecentProjects, Does.Not.Contain(projectFile));
             });
         }
