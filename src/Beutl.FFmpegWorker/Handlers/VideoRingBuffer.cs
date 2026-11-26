@@ -29,6 +29,7 @@ internal sealed class VideoRingBuffer : IDisposable
     private int _lastServedSlot = -1;
     private int _lastRequestedFrame = -1;
     private int _prefetchStep;
+    private bool _allowKeyframe;
 
     // 色空間キャッシュ
     private BitmapColorSpace? _lastColorSpace;
@@ -66,11 +67,17 @@ internal sealed class VideoRingBuffer : IDisposable
     }
 
     // フレームを読み取る。ReaderLockを内部で取得・解放する。
-    public RingBufferReadResult ReadFrame(int frame)
+    public RingBufferReadResult ReadFrame(int frame, bool allowKeyframe = false)
     {
         _readerLock.Wait();
         try
         {
+            if (_allowKeyframe != allowKeyframe)
+            {
+                InvalidateAllSlots();
+                _allowKeyframe = allowKeyframe;
+            }
+
             _prefetchStep = FFmpegSeekDecision.GetPrefetchStep(_lastRequestedFrame, frame, _prefetchStep);
             _lastRequestedFrame = frame;
             int hitSlot = FindSlot(frame);
@@ -234,7 +241,7 @@ internal sealed class VideoRingBuffer : IDisposable
         {
             var destination = new Span<byte>(ptr + offset, (int)_slotSize);
 
-            if (_reader.ReadVideo(frame, destination, out var frameInfo))
+            if (_reader.ReadVideo(frame, destination, out var frameInfo, _allowKeyframe))
                 return frameInfo;
 
             // バッファが小さい場合リサイズして再試行
@@ -256,7 +263,7 @@ internal sealed class VideoRingBuffer : IDisposable
                 ptr = VideoBuffer.AcquirePointer();
                 destination = new Span<byte>(ptr + offset, (int)_slotSize);
 
-                if (_reader.ReadVideo(frame, destination, out frameInfo))
+                if (_reader.ReadVideo(frame, destination, out frameInfo, _allowKeyframe))
                     return frameInfo;
             }
 
@@ -291,7 +298,7 @@ internal sealed class VideoRingBuffer : IDisposable
     // ReaderLock保持下で呼ぶこと。
     private void StartPrefetch()
     {
-        if (_prefetchStep == 0)
+        if (_slotCount == 1 || _prefetchStep == 0)
             return;
 
         _prefetchCts = new CancellationTokenSource();

@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor.Services;
 using Beutl.Graphics.Effects;
 using Beutl.Language;
+using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
@@ -64,6 +65,10 @@ public class GraphNodeRegistryTests
                 Is.EqualTo(NodeGraphStrings.RandomInt32));
             Assert.That(GraphNodeRegistry.FindItem(typeof(TranslateMatrixNode))?.DisplayName,
                 Is.EqualTo(NodeGraphStrings.TranslationMatrix));
+            Assert.That(GraphNodeRegistry.FindItem(typeof(GeometryShapeNode))?.DisplayName,
+                Is.EqualTo(GraphicsStrings.GeometryShapeNode));
+            Assert.That(GraphNodeRegistry.FindItem(typeof(FactoryNode<DrawableBrush>))?.DisplayName,
+                Is.EqualTo(GraphicsStrings.DrawableBrushNode));
         });
     }
 

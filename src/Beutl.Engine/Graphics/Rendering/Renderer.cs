@@ -770,6 +770,9 @@ public class Renderer : IRenderer
     /// </remarks>
     /// <exception cref="InvalidOperationException">The caller does not have render-thread access.</exception>
     internal (Rect Bounds, Matrix Transform)? GetLocalBoundary(Drawable drawable)
+        => GetLocalBoundary(drawable, allowDirectContent: false);
+
+    internal (Rect Bounds, Matrix Transform)? GetLocalBoundary(Drawable drawable, bool allowDirectContent)
     {
         _dispatcher.VerifyAccess();
         (DrawableRenderNode Node, RenderNode[] Path)? found = FindTransitionedNode(drawable);
@@ -782,12 +785,26 @@ public class Renderer : IRenderer
 
         found ??= FindNestedNode(drawable);
 
+        if (found is not { } drawn) return null;
+
+        IReadOnlyList<RenderNode> contents;
+        Matrix localMatrix;
         // Drawable.Resource.RenderCore pushes the blend mode, then the transform its content is drawn under.
-        if (found is not { } drawn
-            || drawn.Node.Children is not [BlendModeRenderNode
+        if (drawn.Node.Children is [BlendModeRenderNode
             {
                 Children: [TransformRenderNode { TransformOperator: TransformOperator.Prepend } transform],
             }])
+        {
+            contents = transform.Children;
+            localMatrix = transform.Transform;
+        }
+        else if (allowDirectContent)
+        {
+            // A graph drawable records its output directly in its parent's coordinates.
+            contents = drawn.Node.Children;
+            localMatrix = Matrix.Identity;
+        }
+        else
         {
             return null;
         }
@@ -820,7 +837,7 @@ public class Renderer : IRenderer
 
         // A perspective transform maps the corners onto the quad drawn between them only while all of them stay in
         // front of its camera plane. A corner past it is reflected through the origin, where GetBoundary clips.
-        Matrix matrix = transform.Transform * outerMatrix;
+        Matrix matrix = localMatrix * outerMatrix;
         if (matrix.ContainsPerspective())
         {
             foreach (Point corner in (ReadOnlySpan<Point>)[bounds.TopLeft, bounds.TopRight, bounds.BottomRight, bounds.BottomLeft])
@@ -834,7 +851,7 @@ public class Renderer : IRenderer
         Rect MeasureContent(Rect? targetDomain)
         {
             Rect measured = default;
-            foreach (RenderNode content in transform.Children)
+            foreach (RenderNode content in contents)
             {
                 using RenderNodeRenderer renderer = CreateEntryRenderer(content, targetDomain: targetDomain);
                 measured = measured.Union(renderer.Measure().QueryBounds);

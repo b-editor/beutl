@@ -150,6 +150,9 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
     }
 
     public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+        => ReadVideoThumbnail(frame, allowKeyframe: false, out image);
+
+    public override bool ReadVideoThumbnail(int frame, bool allowKeyframe, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         try
         {
@@ -167,7 +170,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
                         try
                         {
-                            return ReadVideoCore(frame, out image);
+                            return ReadVideoCore(frame, allowKeyframe, out image);
                         }
                         catch (WorkerLostException lost)
                         {
@@ -187,9 +190,9 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         }
     }
 
-    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    private unsafe bool ReadVideoCore(int frame, bool allowKeyframe, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
-        var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame };
+        var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame, AllowKeyframe = allowKeyframe };
         var response = Request<ReadVideoRequest, ReadVideoResponse>(
             MessageType.ReadVideo, MessageType.ReadVideoResult, request);
 

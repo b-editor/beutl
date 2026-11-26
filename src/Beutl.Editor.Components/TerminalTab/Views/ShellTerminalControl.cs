@@ -28,7 +28,7 @@ internal sealed class ShellTerminalControl : TerminalControl
             && e.KeyModifiers is KeyModifiers.Control or (KeyModifiers.Control | KeyModifiers.Shift))
         {
             e.Handled = true;
-            _ = CopySelectionOrPasteAsync();
+            _ = RunClipboardActionAsync(CutSelectionAsync);
             return;
         }
 
@@ -44,26 +44,18 @@ internal sealed class ShellTerminalControl : TerminalControl
         {
             Focus();
             e.Handled = true;
-            _ = CopySelectionOrPasteAsync();
+            _ = RunClipboardActionAsync(HasSelection ? CutSelectionAsync : PasteAsync);
             return;
         }
 
         base.OnPointerPressed(e);
     }
 
-    private async Task CopySelectionOrPasteAsync()
+    internal static async Task RunClipboardActionAsync(Func<Task> action)
     {
         try
         {
-            if (HasSelection)
-            {
-                await CopySelectionAsync();
-                ClearSelection();
-            }
-            else
-            {
-                await PasteAsync();
-            }
+            await action();
         }
         catch (Exception ex)
         {

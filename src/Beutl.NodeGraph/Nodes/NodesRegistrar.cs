@@ -30,7 +30,7 @@ public static class NodesRegistrar
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.Geometry, Colors.ForestGreen)
             .WithId("Beutl.Nodes.Shapes")
-            .Add<GeometryShapeNode>(GraphicsStrings.GeometryShape)
+            .Add<GeometryShapeNode>(GraphicsStrings.GeometryShapeNode)
             .Add<RectGeometryNode>(GraphicsStrings.RectShape)
             .Add<EllipseGeometryNode>(GraphicsStrings.EllipseShape)
             .Add<RoundedRectGeometryNode>(GraphicsStrings.RoundedRectShape)
@@ -126,7 +126,7 @@ public static class NodesRegistrar
             .Add<FactoryNode<ConicGradientBrush>>(GraphicsStrings.ConicGradientBrush)
             .Add<FactoryNode<RadialGradientBrush>>(GraphicsStrings.RadialGradientBrush)
             .Add<FactoryNode<PerlinNoiseBrush>>(GraphicsStrings.PerlinNoiseBrush)
-            .Add<FactoryNode<DrawableBrush>>(GraphicsStrings.Drawable)
+            .Add<FactoryNode<DrawableBrush>>(GraphicsStrings.DrawableBrushNode)
             .Register();
 
         GraphNodeRegistry.RegisterNodes(NodeGraphStrings.ToolsAndValues)

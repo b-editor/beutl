@@ -126,8 +126,8 @@ public sealed class SoundSource : MediaSource
                     string path = soundSource.Uri.LocalPath;
                     // Encoding keeps its own reader; other resources share the file's readers. A media without an
                     // audio stream never serves others, which would give them a silent source.
-                    _reader = context.DisableResourceShare
-                        ? MediaReader.Open(path, new(MediaMode.Audio), decoders)
+                    _reader = context.DisableResourceShare || context.IsThumbnail
+                        ? MediaReader.Open(path, new(MediaMode.Audio) { IsBackground = context.IsThumbnail }, decoders)
                         : SharedMediaReaders.Shared.Open(
                             SharedMediaReaders.Key.ForFile(decoders, path, MediaMode.Audio),
                             () => MediaReader.Open(path, new(MediaMode.Audio), decoders),

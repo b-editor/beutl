@@ -19,10 +19,21 @@ public sealed record TimelineEditResponse(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyList<string>? CreatedElementIds = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    IReadOnlyList<string>? SkippedLockedElementIds = null);
+    IReadOnlyList<string>? SkippedLockedElementIds = null)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<TimelineSilenceRange>? RemovedRanges { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ClosedGapCount { get; init; }
+}
+
+public sealed record TimelineGap(int Layer, double StartSeconds, double EndSeconds);
+
+public sealed record FindGapsResponse(IReadOnlyList<TimelineGap> Gaps);
 
 [McpServerToolType]
-public sealed class TimelineEditTools(
+public sealed partial class TimelineEditTools(
     AgentSessionManager sessions, GlobalConfiguration configuration, DecoderRegistry decoders) : ToolBase
 {
     [McpServerTool(Name = "split_elements")]
@@ -115,6 +126,34 @@ public sealed class TimelineEditTools(
             return new TimelineEditResponse(changed);
         }, cancellationToken);
 
+    [McpServerTool(Name = "find_gaps", ReadOnly = true)]
+    [Description("Lists gaps between clips per layer, in timeline seconds. Includes gaps blocked by locks. Leading and trailing space is excluded.")]
+    public ToolResult<FindGapsResponse> FindGaps(
+        [Description("Optional timeline layer indices (ZIndex). Omit to inspect all layers.")]
+        int[]? layers = null)
+        => Execute(() =>
+        {
+            IEditingSession session = sessions.RequireSession();
+            HashSet<int>? selectedLayers = layers?.ToHashSet();
+            return session.ReadOnSession(() => new FindGapsResponse(
+                RequireSceneRoot(session).EnumerateGaps()
+                    .Where(gap => selectedLayers == null || selectedLayers.Contains(gap.ZIndex))
+                    .Select(gap => new TimelineGap(gap.ZIndex, gap.Range.Start.ToSeconds(), gap.Range.End.ToSeconds()))
+                    .ToArray()));
+        });
+
+    [McpServerTool(Name = "close_all_gaps")]
+    [Description("Closes gaps between clips on the selected layers, shifting unlocked followers left. Locked layers are skipped and locked clips act as barriers. Returns the number of gaps closed.")]
+    public ValueTask<ToolResult<TimelineEditResponse>> CloseAllGaps(
+        [Description("Optional timeline layer indices (ZIndex). Omit to edit all layers.")]
+        int[]? layers = null,
+        CancellationToken cancellationToken = default)
+        => EditTimeline(CommandNames.CloseAllGaps, (scene, history) =>
+        {
+            int closed = new ElementGapService(history, configuration.EditorConfig).CloseAllGaps(scene, layers?.ToHashSet());
+            return new TimelineEditResponse(closed > 0) { ClosedGapCount = closed };
+        }, cancellationToken);
+
     private ValueTask<ToolResult<TimelineEditResponse>> EditElements(
         string[] elementIds,
         string commandName,
@@ -152,46 +191,49 @@ public sealed class TimelineEditTools(
 
     private ValueTask<ToolResult<TimelineEditResponse>> EditTimeline(
         string commandName, Func<Scene, HistoryManager, TimelineEditResponse> edit, CancellationToken cancellationToken)
-        => ExecuteAsync(async () =>
+        => ExecuteAsync(() => ApplyTimelineAsync(sessions.RequireSession(), commandName, edit, cancellationToken));
+
+    private static async ValueTask<TimelineEditResponse> ApplyTimelineAsync(
+        IEditingSession session, string commandName, Func<Scene, HistoryManager, TimelineEditResponse> edit,
+        CancellationToken cancellationToken)
+    {
+        if (session is LiveEditingSession live)
         {
-            IEditingSession session = sessions.RequireSession();
-            if (session is LiveEditingSession live)
-            {
-                return await live.ExecuteHistoryMutationAsync(
-                    static _ => true,
-                    history =>
-                    {
-                        // The user can start another gesture while playback drains.
-                        if (history.IsEditing) throw new UserEditingException();
-                        return ApplyEdit(history);
-                    },
-                    cancellationToken, waitForEditSession: true).ConfigureAwait(false);
-            }
-
-            return session.EditOnSession(() => ApplyEdit(session.History), cancellationToken);
-
-            TimelineEditResponse ApplyEdit(HistoryManager history)
-            {
-                Scene scene = RequireSceneRoot(session);
-                TimelineEditResponse result = new(false);
-                history.ExecuteInTransaction(() =>
+            return await live.ExecuteHistoryMutationAsync(
+                static _ => true,
+                history =>
                 {
-                    var checkTransitions = scene.HasTransitions
-                        ? Reconciler.CaptureLockedTransitionCheck(scene, [.. scene.Children.Where(scene.IsElementLockedByUser)])
-                        : null;
-                    // The session records the mutation. An unsubscribed history lets services issue their
-                    // own commits while the session can still roll back a rejected edit.
-                    using var serviceHistory = new HistoryManager(new OperationSequenceGenerator());
-                    result = edit(scene, serviceHistory);
-                    if (result.Changed && checkTransitions?.Invoke(scene) is { } error)
-                    {
-                        throw new ReconcileException(error);
-                    }
-                }, commandName, cancellationToken: cancellationToken);
-                if (result.Changed) session.MarkDirtyIfFileSession();
-                return result;
-            }
-        });
+                    // The user can start another gesture while playback drains.
+                    if (history.IsEditing) throw new UserEditingException();
+                    return ApplyEdit(history);
+                },
+                cancellationToken, waitForEditSession: true).ConfigureAwait(false);
+        }
+
+        return session.EditOnSession(() => ApplyEdit(session.History), cancellationToken);
+
+        TimelineEditResponse ApplyEdit(HistoryManager history)
+        {
+            Scene scene = RequireSceneRoot(session);
+            TimelineEditResponse result = new(false);
+            history.ExecuteInTransaction(() =>
+            {
+                var checkTransitions = scene.HasTransitions
+                    ? Reconciler.CaptureLockedTransitionCheck(scene, [.. scene.Children.Where(scene.IsElementLockedByUser)])
+                    : null;
+                // The session records the mutation. An unsubscribed history lets services issue their
+                // own commits while the session can still roll back a rejected edit.
+                using var serviceHistory = new HistoryManager(new OperationSequenceGenerator());
+                result = edit(scene, serviceHistory);
+                if (result.Changed && checkTransitions?.Invoke(scene) is { } error)
+                {
+                    throw new ReconcileException(error);
+                }
+            }, commandName, cancellationToken: cancellationToken);
+            if (result.Changed) session.MarkDirtyIfFileSession();
+            return result;
+        }
+    }
 
     private static Guid ReadElementId(string value)
         => Guid.TryParse(value, out Guid id) && id != Guid.Empty

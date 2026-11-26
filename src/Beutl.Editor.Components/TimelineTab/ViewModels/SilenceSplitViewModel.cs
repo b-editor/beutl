@@ -1,5 +1,4 @@
-﻿using Beutl.Audio;
-using Beutl.Configuration;
+﻿using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;
@@ -69,16 +68,7 @@ public sealed class SilenceSplitViewModel : IDisposable
     internal CancellationToken LifetimeToken => _lifetime.Token;
 
     public static bool CanAnalyze(Scene scene, Element element)
-        => scene.Children.Contains(element) && !scene.IsElementLocked(element) && element.Length.Value > MediaTime.Zero
-           && element.Objects.Any(HasAudioSource);
-
-    private static bool HasAudioSource(EngineObject obj) => obj switch
-    {
-        SourceSound sound => sound.Source.Value != null || sound.Source.HasExpression,
-        SceneSound sound => sound.ReferencedScene.Value != null || sound.ReferencedScene.HasExpression,
-        SoundGroup group => group.Children.Any(HasAudioSource),
-        _ => false
-    };
+        => scene.Children.Contains(element) && !scene.IsElementLocked(element) && SilenceWaveform.HasAnalyzableAudio(element);
 
     public async Task AnalyzeAsync()
     {
@@ -89,7 +79,7 @@ public sealed class SilenceSplitViewModel : IDisposable
         {
             TaskScheduler owner = SynchronizationContext.Current is null
                 ? TaskScheduler.Current : TaskScheduler.FromCurrentSynchronizationContext();
-            int count = Math.Max(1, checked((int)Math.Ceiling(ClipRange.Duration.ToSeconds() / 0.02)));
+            int count = SilenceWaveform.GetChunkCount(ClipRange.Duration);
             // Unknown chunks retain NaN; an absent source/read failure must never delete a clip.
             var chunks = Enumerable.Range(0, count).Select(i => new WaveformChunk(i, float.NaN, float.NaN)).ToArray();
             await ReadChunksAsync();

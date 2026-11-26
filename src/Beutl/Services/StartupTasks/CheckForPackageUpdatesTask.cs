@@ -4,10 +4,10 @@ using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.Views;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
 
@@ -180,14 +180,8 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                 if (!extension.TryCreateContext(out IToolWindowContext? context))
                     return;
 
-                if (!extension.TryCreateContent(out Window? window))
-                {
-                    context.Dispose();
+                if (ToolWindowLauncher.CreateWindow(extension, context, topLevel, notifications) is not { } window)
                     return;
-                }
-
-                window.DataContext = context;
-                HostServices.CopyFrom(window, topLevel);
                 if (window is Pages.ExtensionsPage page)
                 {
                     page.OpenLibraryWithUpdates();

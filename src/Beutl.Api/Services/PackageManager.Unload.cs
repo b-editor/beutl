@@ -158,22 +158,19 @@ public sealed partial class PackageManager
     {
         foreach (Extension ext in extensions)
         {
-            if (ext is ViewExtension viewExtension)
+            try
             {
-                try
-                {
-                    // Commands are a discoverability surface too. Retire them before waiting so
-                    // no new package-owned callback can start while the package is draining.
-                    commandManager.Unregister(viewExtension);
-                }
-                catch (Exception ex)
-                {
-                    (retirementFailures ??= []).Add(ex);
-                    _logger.LogError(
-                        ex,
-                        "Failed to unregister commands for extension {ExtensionName}.",
-                        ext.GetType().Name);
-                }
+                // Commands are a discoverability surface too. Retire them before waiting so
+                // no new package-owned callback can start while the package is draining.
+                commandManager.UnregisterExtension(ext);
+            }
+            catch (Exception ex)
+            {
+                (retirementFailures ??= []).Add(ex);
+                _logger.LogError(
+                    ex,
+                    "Failed to unregister commands for extension {ExtensionName}.",
+                    ext.GetType().Name);
             }
 
             try
