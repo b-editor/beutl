@@ -34,15 +34,16 @@ internal sealed class EffectEditingPlacement(FilterEffect stage, EngineObject gr
     public static TransformCapture? FindCapture(FilterEffect.Resource effect)
         => s_current is { _hasPlacement: true } placement ? placement._captures.GetValueOrDefault(effect) : null;
 
-    public static void ObserveFilter(FilterEffect.Resource effect, int operationCount, RenderNodeContext context)
+    public static void ObserveFilter(FilterEffect.Resource effect, IReadOnlyList<IFEItem> items, RenderNodeContext context)
     {
         if (s_current is not { _hasPlacement: true } placement) return;
 
-        if (operationCount == 0)
+        var capture = placement._captures.GetValueOrDefault(effect);
+        if (capture is not null && items.All(static item => item.KeepsPlacement))
         {
-            placement._captures.GetValueOrDefault(effect)?.Record(Matrix.Identity);
+            capture.Record(Matrix.Identity);
         }
-        else if (ReferenceEquals(effect, placement._stageResource) || placement._captures.ContainsKey(effect))
+        else if (items.Count > 0 && (capture is not null || ReferenceEquals(effect, placement._stageResource)))
         {
             // The selected effect's bounds and downstream matrices can both be resolved during execution.
             context.DisableRenderCache();

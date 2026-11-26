@@ -177,7 +177,8 @@
                     <icons:FluentIcon Icon="MyLocation" />
                 </Button>
 
-                <Button Grid.Column="4"
+                <Button x:Name="openGroupButton"
+                        Grid.Column="4"
                         usage:UsageTracking.Feature="NodeGraph.OpenNode"
                         Click="OpenNodeClick"
                         IsVisible="{Binding IsGroup}"

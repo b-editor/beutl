@@ -323,10 +323,11 @@ public sealed class NodeGraphFilterEffectTests
         AvaPoint ToWindow(Point local) => player.image.TranslatePoint(ToPreview(local), window)!.Value;
     }
 
-    public enum Downstream { Translate, ScaleThenTranslate, Warp }
+    public enum Downstream { Translate, TranslateThenOpacity, ScaleThenTranslate, Warp }
 
     [AvaloniaTest]
     [TestCase(true, Downstream.Translate, false)]
+    [TestCase(true, Downstream.TranslateThenOpacity, false)]
     [TestCase(false, Downstream.Translate, false)]
     [TestCase(true, Downstream.ScaleThenTranslate, false)]
     [TestCase(false, Downstream.ScaleThenTranslate, true)]
@@ -414,6 +415,14 @@ public sealed class NodeGraphFilterEffectTests
                 picture = (IOutputPort)translate.Items[0];
                 break;
         }
+        if (downstream == Downstream.TranslateThenOpacity)
+        {
+            var opacity = new FilterEffectNode<OpacityEffect>();
+            opacity.Object.Value.Opacity.Value = 50;
+            graph.Nodes.Add(opacity);
+            graph.Connect((IInputPort)opacity.Items[1], picture);
+            picture = (IOutputPort)opacity.Items[0];
+        }
         graph.Nodes.Add(output);
         Connection outputConnection = graph.Connect(output.InputPort, picture);
         for (int i = 0; i < graph.Nodes.Count; i++)
@@ -452,6 +461,17 @@ public sealed class NodeGraphFilterEffectTests
             await RenderPreview(editor);
             TransformHandlesOverlay overlay = player.transformHandlesOverlay;
             Assert.That(overlay.Drawable, Is.SameAs(drawable));
+            if (downstream == Downstream.TranslateThenOpacity)
+            {
+                using var image = ((BitmapView)player.image).Source?.TryClone();
+                Assert.That(image, Is.Not.Null);
+                Point frame = center + drawableOrigin + translation;
+                byte alpha = image!.Value.SKBitmap.GetPixel(
+                    (int)(frame.X * image.Value.Width / frameSize.Width),
+                    (int)(frame.Y * image.Value.Height / frameSize.Height)).Alpha;
+                Assert.That(alpha, Is.InRange(125, 130), "The downstream opacity should still render while editing.");
+                HeadlessCapture.SaveIfRequested(window, nameof(NodeGraphFilterEffectTests), "mesh-warp-downstream-opacity");
+            }
             EditingHandle handle = effect.GetEditingHandles(MediaTime.Zero).First();
             if (downstream == Downstream.Warp)
             {
