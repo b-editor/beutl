@@ -39,8 +39,9 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         VulkanContext context,
         IReadOnlyList<Format> colorFormats,
         Format? depthFormat,
-        AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
-        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
+        AttachmentLoadOp colorLoadOp,
+        AttachmentLoadOp depthLoadOp,
+        int sampleCount)
     {
         if (colorFormats.Count == 0 && !depthFormat.HasValue)
         {
@@ -51,13 +52,15 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _colorFormats = [.. colorFormats];
         _depthFormat = depthFormat;
         _colorAttachmentCount = colorFormats.Count;
+        SampleCount = sampleCount;
 
         _renderPass = CreateRenderPass(
             context,
             _colorFormats,
             depthFormat,
             ToVulkanLoadOp(colorLoadOp),
-            ToVulkanLoadOp(depthLoadOp));
+            ToVulkanLoadOp(depthLoadOp),
+            (SampleCountFlags)SampleCount);
     }
 
     /// <summary>
@@ -78,7 +81,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             _colorFormats,
             _depthFormat,
             Silk.NET.Vulkan.AttachmentLoadOp.Load,
-            Silk.NET.Vulkan.AttachmentLoadOp.Load);
+            Silk.NET.Vulkan.AttachmentLoadOp.Load,
+            (SampleCountFlags)SampleCount);
         return _resumeRenderPass;
     }
 
@@ -87,7 +91,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         IReadOnlyList<Format> colorFormats,
         Format? depthFormat,
         Silk.NET.Vulkan.AttachmentLoadOp colorLoadOp,
-        Silk.NET.Vulkan.AttachmentLoadOp depthLoadOp)
+        Silk.NET.Vulkan.AttachmentLoadOp depthLoadOp,
+        SampleCountFlags samples)
     {
         var vk = context.Vk;
         var device = context.Device;
@@ -100,7 +105,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             attachments[i] = new AttachmentDescription
             {
                 Format = colorFormats[i],
-                Samples = SampleCountFlags.Count1Bit,
+                Samples = samples,
                 LoadOp = colorLoadOp,
                 StoreOp = AttachmentStoreOp.Store,
                 StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
@@ -122,7 +127,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             attachments[colorFormats.Count] = new AttachmentDescription
             {
                 Format = actualDepthFormat,
-                Samples = SampleCountFlags.Count1Bit,
+                Samples = samples,
                 LoadOp = depthLoadOp,
                 StoreOp = AttachmentStoreOp.Store,
                 StencilLoadOp = depthLoadOp,
@@ -191,6 +196,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     }
 
     public RenderPass Handle => _renderPass;
+
+    public int SampleCount { get; }
 
     public int ColorAttachmentCount => _colorAttachmentCount;
 

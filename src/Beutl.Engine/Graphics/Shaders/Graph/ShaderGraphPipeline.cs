@@ -93,9 +93,9 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 options.StencilBack = pass.DepthStencil.Back;
                 options.CullMode = pass.CullMode;
                 options.FrontFace = pass.FrontFace;
-                _graphics = new VulkanPipeline3D(context, _renderPass.Handle, stages,
+                _graphics = new VulkanPipeline3D(context, _renderPass, stages,
                     VulkanFlagConverter.ToVulkan(pass.Draw.GetVertexInput()), bindings.Select(VulkanFlagConverter.ToVulkan).ToArray(),
-                    pass.Program.SpecializationConstants, pass.Attachments.Length, pass.DepthAttachment is not null, VulkanPipelineFixedFunctionState.From(options),
+                    pass.Program.SpecializationConstants, VulkanPipelineFixedFunctionState.From(options),
                     (uint)pass.PatchControlPoints);
             }
             foreach (ShaderPassBinding binding in pass.Bindings)
