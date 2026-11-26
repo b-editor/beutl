@@ -304,6 +304,42 @@ public sealed class ProjectAssetTests
     }
 
     [AvaloniaTest]
+    public async Task Collection_rolls_back_when_the_published_parent_changes_during_save()
+    {
+        (Project project, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("Collection destination changed");
+        var paths = new ProjectAssetPaths(project);
+        string original = MakeImage(Path.Combine(Path.GetDirectoryName(paths.Root)!, "external.png"), SKColors.Coral);
+        ImageSource source = AddImage(scene, original);
+        await TestShell.WaitForProjectWritesAsync();
+        Assert.That(await editor.SaveAsync(), Is.True);
+        string elementFile = scene.Children.Single().Uri!.LocalPath;
+        byte[] saved = File.ReadAllBytes(elementFile);
+        string projectFile = project.Uri!.LocalPath;
+        ProjectAssetPreview preview = await Assets.PreviewAsync(project, CancellationToken.None);
+        string destination = preview.External.Single().Destination;
+        string previousParent = Path.Combine(paths.Root, "previous-resources");
+
+        using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+               {
+                   if (step != StorageWriteStep.Replace || path != projectFile) return;
+                   Directory.Move(paths.Resources, previousParent);
+                   MakeImage(destination, SKColors.SeaGreen);
+               }))
+        {
+            await Assert.ThrowsAsync<ProjectAssetPlanChangedException>(() => Assets.ApplyAsync(project, preview,
+                ProjectAssetAction.Collect, preview.External, CancellationToken.None));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source.Uri.LocalPath, Is.EqualTo(original));
+            Assert.That(File.ReadAllBytes(elementFile), Is.EqualTo(saved));
+            Assert.That(Directory.EnumerateFileSystemEntries(previousParent), Is.Empty);
+            Assert.That(ReadColor(destination), Is.EqualTo(SKColors.SeaGreen));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Cleanup_rechecks_usage_and_can_restore_the_original_path_after_reopening()
     {
         (Project project, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("Asset cleanup");
