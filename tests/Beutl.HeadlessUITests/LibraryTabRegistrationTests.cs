@@ -10,7 +10,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transitions;
-
+using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Services;
