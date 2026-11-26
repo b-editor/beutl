@@ -549,7 +549,7 @@
     <value>Decorador</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>Controlador de tiempo (video)</value>
+    <value>Controlador de tiempo</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>Ajustar rango de tiempo</value>
@@ -654,6 +654,9 @@
     <value>Gamma</value>
   </data>
   <data name="GeometryShape" xml:space="preserve">
+    <value>Geometría</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
     <value>Geometría</value>
   </data>
   <data name="GeometryShape_Data" xml:space="preserve">
@@ -1454,6 +1457,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>Escena 3D</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D (Experimental)</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>Color ambiental</value>
   </data>
@@ -1680,6 +1686,9 @@
     <value>Fuerza</value>
   </data>
   <data name="Stroke" xml:space="preserve">
+    <value>Trazo</value>
+  </data>
+  <data name="Pen" xml:space="preserve">
     <value>Trazo</value>
   </data>
   <data name="StrokeEffect" xml:space="preserve">

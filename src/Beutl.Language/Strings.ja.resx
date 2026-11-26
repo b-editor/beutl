@@ -1445,9 +1445,6 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="SelectDestinationFolder" xml:space="preserve">
     <value>展開先フォルダを選択</value>
   </data>
-  <data name="Experimental" xml:space="preserve">
-    <value>実験的</value>
-  </data>
   <data name="Home" xml:space="preserve">
     <value>ホーム</value>
   </data>

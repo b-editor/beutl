@@ -1370,9 +1370,6 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
     <value>选择目标文件夹</value>
   </data>
   
-  <data name="Experimental" xml:space="preserve">
-    <value>实验性</value>
-  </data>
   <data name="Home" xml:space="preserve">
     <value>主页</value>
   </data>

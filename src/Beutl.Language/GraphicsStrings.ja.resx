@@ -545,7 +545,7 @@
     <value>デコレーター</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>タイムコントローラー（動画）</value>
+    <value>タイムコントローラー</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>時間範囲を調整</value>
@@ -652,6 +652,9 @@
   <data name="GeometryShape" xml:space="preserve">
     <value>ジオメトリー</value>
   </data>
+  <data name="Geometry" xml:space="preserve">
+    <value>ジオメトリー</value>
+  </data>
   <data name="GeometryShape_Data" xml:space="preserve">
     <value>データ</value>
   </data>
@@ -692,7 +695,7 @@
     <value>乗算</value>
   </data>
   <data name="LumaColor" xml:space="preserve">
-    <value>LumaColor</value>
+    <value>ルマカラー</value>
   </data>
   <data name="LutEffect" xml:space="preserve">
     <value>LUT (Cubeファイル)</value>
@@ -1450,6 +1453,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>3Dシーン</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D（実験的）</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>環境色</value>
   </data>
@@ -1677,6 +1683,9 @@
   </data>
   <data name="Stroke" xml:space="preserve">
     <value>ストローク</value>
+  </data>
+  <data name="Pen" xml:space="preserve">
+    <value>ペン</value>
   </data>
   <data name="StrokeEffect" xml:space="preserve">
     <value>アウトライン</value>

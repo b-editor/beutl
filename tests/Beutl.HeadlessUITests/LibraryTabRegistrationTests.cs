@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.Reflection;
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
@@ -8,6 +10,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transitions;
+using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -108,6 +111,88 @@ public sealed class LibraryTabRegistrationTests
         Assert.That(items, Is.Not.Empty);
         Assert.That(items.Where(item => string.IsNullOrWhiteSpace(item.Description)).Select(item => item.FullDisplayName),
             Is.Empty, "Built-in items missing a description");
+    }
+
+    [AvaloniaTest, SetUICulture("en-US")]
+    public void The_English_library_and_type_metadata_share_title_case_names()
+    {
+        LibraryRegistrar.RegisterAll(_library);
+        using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
+        (Type Type, string Name)[] names =
+        [
+            (typeof(ChromaKey), "Chroma Key"),
+            (typeof(ColorKey), "Color Key"),
+            (typeof(LumaKey), "Luma Key"),
+            (typeof(LightRays), "Light Rays"),
+            (typeof(MeshWarp), "Mesh Warp"),
+            (typeof(MotionBlur), "Motion Blur"),
+            (typeof(RangeAnimatorEffect), "Range Animator"),
+            (typeof(RoundedRectShape), "Rounded Rectangle"),
+            (typeof(PartsSplitEffect), "Split by Parts"),
+            (typeof(SplitEffect), "Split Equally"),
+            (typeof(WaveRefraction), "Wave Refraction"),
+            (typeof(DrawableTimeController), "Time Controller"),
+        ];
+
+        Assert.Multiple(() =>
+        {
+            foreach ((Type type, string name) in names)
+            {
+                AssertLibraryAndTypeName(viewModel, type, name);
+            }
+
+            IEnumerable<string> libraryNames = viewModel.AllItems
+                .Where(item => item.Data is SingleTypeLibraryItem or MultipleTypeLibraryItem)
+                .Select(item => item.DisplayName);
+            Assert.That(libraryNames, Is.SupersetOf(new[]
+            {
+                "Node Graph (Video)", "Node Graph (Effect)",
+                "Scene Reference (Video)", "Scene Reference (Audio)",
+            }));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase("en-US", "3D (Experimental)", "Luma Color", "Sound", "Geometry", "Pen")]
+    [TestCase("ja-JP", "3D（実験的）", "ルマカラー", "サウンド", "ジオメトリー", "ペン")]
+    public void The_library_localizes_the_3D_group_luma_color_and_item_types(
+        string cultureName, string groupName, string lumaColor, string sound, string geometry, string pen)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
+            LibraryRegistrar.RegisterAll(_library);
+            _library.RegisterGroup(GraphicsStrings.LibraryGroup3D, group => group.Add<LateItem>(LateFormat, LateName));
+            using var viewModel = new LibraryTabViewModel(TestShell.FontManager, _library, TestShell.Configuration.EditorConfig);
+            LibraryItemViewModel group = viewModel.LibraryItems.Single(item => item.DisplayName == groupName);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(group.Children.Select(item => item.DisplayName), Has.Member(GraphicsStrings.Scene3D));
+                Assert.That(group.Children.Select(item => item.DisplayName), Has.Member(LateName));
+                AssertLibraryAndTypeName(viewModel, typeof(LumaColor), lumaColor);
+                Assert.That(TypeLabel(KnownLibraryItemFormats.Sound), Is.EqualTo(sound));
+                Assert.That(TypeLabel(KnownLibraryItemFormats.Geometry), Is.EqualTo(geometry));
+                Assert.That(TypeLabel(KnownLibraryItemFormats.Pen), Is.EqualTo(pen));
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+
+        static string? TypeLabel(string format) => LibraryItemViewModel
+            .CreateFromLibraryItem(new SingleTypeLibraryItem(format, typeof(LateItem), LateName)).Type;
+    }
+
+    private static void AssertLibraryAndTypeName(LibraryTabViewModel viewModel, Type type, string name)
+    {
+        LibraryItemViewModel item = viewModel.AllItems.Single(item =>
+            item.TryDragDrop().Any(binding => binding.Item2 == type));
+        Assert.That(item.DisplayName, Is.EqualTo(name), $"Library name for {type.Name}");
+        Assert.That(type.GetCustomAttribute<DisplayAttribute>()?.GetName(), Is.EqualTo(name),
+            $"Type display name for {type.Name}");
     }
 
     [AvaloniaTest]

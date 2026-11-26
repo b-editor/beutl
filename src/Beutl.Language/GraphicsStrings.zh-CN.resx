@@ -549,7 +549,7 @@
     <value>装饰器</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>时间控制器（视频）</value>
+    <value>时间控制器</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>调整时间范围</value>
@@ -654,6 +654,9 @@
     <value>伽马</value>
   </data>
   <data name="GeometryShape" xml:space="preserve">
+    <value>几何图形</value>
+  </data>
+  <data name="Geometry" xml:space="preserve">
     <value>几何图形</value>
   </data>
   <data name="GeometryShape_Data" xml:space="preserve">
@@ -1454,6 +1457,9 @@
   <data name="Scene3D" xml:space="preserve">
     <value>3D 场景</value>
   </data>
+  <data name="LibraryGroup3D" xml:space="preserve">
+    <value>3D (实验性)</value>
+  </data>
   <data name="Scene3D_AmbientColor" xml:space="preserve">
     <value>环境色</value>
   </data>
@@ -1681,6 +1687,9 @@
   </data>
   <data name="Stroke" xml:space="preserve">
     <value>描边</value>
+  </data>
+  <data name="Pen" xml:space="preserve">
+    <value>画笔</value>
   </data>
   <data name="StrokeEffect" xml:space="preserve">
     <value>轮廓线</value>

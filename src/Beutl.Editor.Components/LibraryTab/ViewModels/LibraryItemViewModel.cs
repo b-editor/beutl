@@ -167,10 +167,10 @@ public class LibraryItemViewModel
         {
             return str switch
             {
-                // Todo: localize
                 KnownLibraryItemFormats.Transform => GraphicsStrings.Transform,
-                KnownLibraryItemFormats.Sound => "Sound",
-                KnownLibraryItemFormats.Geometry => "Geometry",
+                KnownLibraryItemFormats.Sound => AudioStrings.Sound,
+                KnownLibraryItemFormats.Geometry => GraphicsStrings.Geometry,
+                KnownLibraryItemFormats.Pen => GraphicsStrings.Pen,
                 KnownLibraryItemFormats.Drawable => GraphicsStrings.Drawable,
                 KnownLibraryItemFormats.Brush => GraphicsStrings.Brush,
                 KnownLibraryItemFormats.Easing => Strings.Easing,
