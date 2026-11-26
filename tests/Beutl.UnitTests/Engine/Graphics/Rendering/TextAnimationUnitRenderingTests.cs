@@ -3,7 +3,9 @@ using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
@@ -279,6 +281,112 @@ public sealed class TextAnimationUnitRenderingTests
         }
     }
 
+    [TestCase(TextAnimationUnit.Characters, 0.6f, 0.5f)]
+    [TestCase(TextAnimationUnit.Words, 0.7f, 0.7f)]
+    [TestCase(TextAnimationUnit.Lines, 0.7f, 0.7f)]
+    public void GroupDelayKeepsRanksWhenAWholeTextBlockLeavesAndReentersItsPath(
+        TextAnimationUnit unit, float alphaC, float alphaD)
+    {
+        var probe = new Probe(readAlpha: true);
+        DelayAnimationEffect delay = FadeDelay(100, DelayAnimationMode.PerStep);
+        delay.Unit.Value = unit;
+        TextOnPathEffect path = AlongLine(120);
+        DrawableGroup group = CreatePathGroup(path, Chain(delay, probe.Effect));
+
+        foreach (float offset in new[] { 0f, 121f, 0f })
+        {
+            path.PathOffset.Value = offset;
+            Render(group, 0.8);
+
+            Assert.That(probe.Parts, Has.Length.EqualTo(offset == 0 ? 4 : 2));
+            Assert.That(probe.Parts[^2..].Select(part => part.PeakAlpha),
+                Is.EqualTo(new[] { alphaC, alphaD }).Within(0.004), $"Offset {offset} px");
+        }
+    }
+
+    [TestCase(TextAnimationUnit.Characters, true)]
+    [TestCase(TextAnimationUnit.Characters, false)]
+    [TestCase(TextAnimationUnit.Words, true)]
+    [TestCase(TextAnimationUnit.Lines, true)]
+    public void GroupRangeKeepsItsSelectionWhenAWholeTextBlockLeavesAndReentersItsPath(TextAnimationUnit unit, bool pathFirst)
+    {
+        var before = new Probe();
+        var after = new Probe();
+        var range = new RangeAnimatorEffect
+        {
+            Unit = { Value = unit },
+            RangeStart = { Value = pathFirst ? 0 : 50 },
+            RangeEnd = { Value = pathFirst ? 50 : 100 },
+            Smoothness = { Value = 0 },
+            Position = { Value = new Point(0, 24) },
+        };
+        TextOnPathEffect path = AlongLine(120);
+        DrawableGroup group = CreatePathGroup(path, Chain(before.Effect, range, after.Effect), pathFirst);
+        float[] visible = pathFirst ? [24f, 24f, 0f, 0f] : [0f, 0f, 24f, 24f];
+
+        foreach (float offset in new[] { 0f, 121f, 0f })
+        {
+            path.PathOffset.Value = offset;
+            Render(group);
+
+            float[] expected = offset == 0 ? visible : [0f, 0f];
+            Assert.That(YOffsets(before, after), Is.EqualTo(expected).Within(0.001), $"Offset {offset} px");
+        }
+    }
+
+    [Test]
+    public void CachedGlyphsKeepTheirRanksWhenTheirTextBlockIsClipped()
+    {
+        TextOnPathEffect path = AlongLine(120);
+        path.PathOffset.Value = 121;
+        var probe = new Probe(readAlpha: true);
+        CompositionContext time = AtTime(0.8);
+        using var onPath = CreateText("AB").ToResource(time);
+        using var sibling = CreateText("CD").ToResource(time);
+        using var pathResource = path.ToResource(time);
+        using var parentEffect = Chain(FadeDelay(100, DelayAnimationMode.PerStep), probe.Effect).ToResource(time);
+        using var root = new FilterEffectRenderNode(parentEffect);
+        var transform = new TransformRenderNode(Matrix.Identity, TransformOperator.Prepend);
+        root.AddChild(transform);
+        var pathNode = new FilterEffectRenderNode(pathResource);
+        transform.AddChild(pathNode);
+        root.AddChild(Record(sibling));
+
+        // Record real glyphs on the same device grid so they are eligible for retention.
+        TextPartLayout layout = onPath.GetTextPartLayout();
+        TextPartLayout.Run run = layout.Runs.Single();
+        using (var graphics = new GraphicsContext2D(pathNode, s_domain.Size))
+        {
+            ReadOnlySpan<Geometry.Resource> geometry = run.Text.ToGeometries();
+            for (int i = 0; i < geometry.Length; i++)
+                graphics.DrawGeometry(geometry[i], Brushes.Resource.White, null, layout.CreateTag(long.MaxValue, run.Glyphs[i]));
+        }
+
+        var request = s_request with
+        {
+            Intent = RenderIntent.Preview,
+            Purpose = RenderRequestPurpose.Frame,
+            CacheOptions = RenderCacheOptions.Enabled,
+        };
+        using var renderer = new RenderNodeRenderer(root, request, new CpuRenderTargetFactory());
+        GeometryRenderNode[] glyphs = pathNode.Children.Cast<GeometryRenderNode>().ToArray();
+
+        using var cold = renderer.Rasterize();
+        Assert.That(probe.Parts.Select(part => part.PeakAlpha), Is.EqualTo(new[] { 0.6f, 0.5f }).Within(0.004));
+
+        Assert.That(glyphs, Has.Length.EqualTo(2));
+        foreach (GeometryRenderNode glyph in glyphs)
+            glyph.Cache.RecordStableRequests();
+        using var captured = renderer.Rasterize();
+        Assert.That(glyphs.Select(glyph => glyph.Cache.IsCached), Is.All.True);
+        int captureAcquisitions = renderer.LastExecutionStatistics.IntermediateTargetAcquisitions;
+        using var warm = renderer.Rasterize();
+
+        Assert.That(renderer.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.LessThan(captureAcquisitions));
+        Assert.That(probe.Parts.Select(part => part.PeakAlpha), Is.EqualTo(new[] { 0.6f, 0.5f }).Within(0.004));
+        Assert.That(warm.Bitmap!.GetPixelSpan().ToArray(), Is.EqualTo(cold.Bitmap!.GetPixelSpan().ToArray()));
+    }
+
     [Test]
     public void AClosedPathShowsOnlyTheFirstLap()
     {
@@ -404,7 +512,18 @@ public sealed class TextAnimationUnitRenderingTests
         return new DelayAnimationEffect { Delay = { Value = milliseconds }, DelayMode = { Value = mode }, Effect = { Value = fade } };
     }
 
-    private static TextBlock CreateText(string content, FilterEffect effect) => new()
+    private static DrawableGroup CreatePathGroup(TextOnPathEffect path, FilterEffect effect, bool pathFirst = true)
+    {
+        var group = new DrawableGroup { FilterEffect = { Value = effect } };
+        TextBlock onPath = CreateText("AB", path);
+        onPath.Transform.Value = new TranslateTransform(7, 9);
+        TextBlock sibling = CreateText("CD");
+        group.Children.Add(pathFirst ? onPath : sibling);
+        group.Children.Add(pathFirst ? sibling : onPath);
+        return group;
+    }
+
+    private static TextBlock CreateText(string content, FilterEffect? effect = null) => new()
     {
         Text = { Value = content },
         FontFamily = { Value = TypefaceProvider.Typeface().FontFamily },
@@ -425,9 +544,9 @@ public sealed class TextAnimationUnitRenderingTests
 
     private static CompositionContext AtTime(double seconds) => new(MediaTime.FromSeconds(seconds)) { Fonts = TestFonts.Manager };
 
-    private static void Render(TextBlock block, double seconds = 0)
+    private static void Render(Drawable drawable, double seconds = 0)
     {
-        using var resource = block.ToResource(AtTime(seconds));
+        using var resource = drawable.ToResource(AtTime(seconds));
         using var root = Record(resource);
         using var renderer = CreateRenderer(root);
         using var image = renderer.Rasterize();
