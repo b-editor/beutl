@@ -10,6 +10,7 @@ public sealed class OpenFileRequest
     public int ThreadCount { get; set; } = -1;
     public int Acceleration { get; set; }
     public VideoDeinterlaceOptions Deinterlace { get; set; }
+    public int VideoThumbnailHeight { get; set; }
 }
 
 public sealed class OpenFileResponse
@@ -53,6 +54,7 @@ public sealed class ReadVideoRequest
 {
     public int ReaderId { get; set; }
     public int Frame { get; set; }
+    public bool AllowKeyframe { get; set; }
 }
 
 public sealed class ReadVideoResponse

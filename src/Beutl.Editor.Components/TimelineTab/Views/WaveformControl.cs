@@ -15,6 +15,8 @@ public sealed partial class WaveformControl : Control
     private IReadOnlyList<(double Start, double End)> _highlights = [];
     private int _lastNotifiedStart = -1;
     private int _lastNotifiedEnd = -1;
+    private (int Start, int End, double SlotWidth, double Offset, double Center) _geometryLayout;
+    private StreamGeometry? _geometry;
 
     public event Action<int, int>? VisibleRangeChanged;
 
@@ -28,8 +30,9 @@ public sealed partial class WaveformControl : Control
     {
         ChunkCount = chunks.Count;
         _chunks.Clear();
-        foreach (var chunk in chunks) _chunks.Set(chunk.Index, chunk);
-        InvalidateVisual();
+        foreach (var chunk in chunks)
+            _chunks.Set(chunk.Index, chunk);
+        InvalidateChunks();
     }
 
     public static readonly StyledProperty<IBrush?> WaveformBrushProperty =
@@ -69,7 +72,14 @@ public sealed partial class WaveformControl : Control
     {
         _chunks.Set(chunk.Index, chunk, IsPreviewActive);
 
-        InvalidateVisual();
+        InvalidateChunks();
+    }
+
+    internal void SetChunkBatch(IReadOnlyList<WaveformChunk> chunks)
+    {
+        foreach (var chunk in chunks)
+            _chunks.Set(chunk.Index, chunk, IsPreviewActive);
+        InvalidateChunks();
     }
 
     public void ClearChunks()
@@ -78,7 +88,7 @@ public sealed partial class WaveformControl : Control
         _lastNotifiedStart = -1;
         _lastNotifiedEnd = -1;
 
-        InvalidateVisual();
+        InvalidateChunks();
     }
 
     internal void ClearPreview()
@@ -86,10 +96,16 @@ public sealed partial class WaveformControl : Control
         _chunks.ClearPreview();
         _lastNotifiedStart = -1;
         _lastNotifiedEnd = -1;
-        InvalidateVisual();
+        InvalidateChunks();
     }
 
     internal void CommitPreview() => _chunks.CommitPreview();
+
+    private void InvalidateChunks()
+    {
+        _geometry = null;
+        InvalidateVisual();
+    }
 
     internal (int Start, int End) GetVisibleRange()
         => TimelineSlotRange.Compute(
@@ -101,15 +117,15 @@ public sealed partial class WaveformControl : Control
             ContentOffsetX,
             allowOutOfRange: IsPreviewActive);
 
+    internal (int Start, int End) GetVisibleRange(int count, double width)
+        => TimelineSlotRange.Compute(this, _scrollViewer, count, buffer: 16, layoutWidth: width);
+
     public List<int> GetMissingIndices(int start, int end) => _chunks.GetMissingIndices(start, end);
 
     internal bool TryGetChunk(int index, out WaveformChunk chunk) => _chunks.TryGetValue(index, out chunk);
 
     private void NotifyVisibleRangeIfChanged()
     {
-        if (!IsPreviewActive)
-            return;
-
         var (start, end) = GetVisibleRange();
         if (start != _lastNotifiedStart || end != _lastNotifiedEnd)
         {
@@ -126,6 +142,7 @@ public sealed partial class WaveformControl : Control
         if (change.Property == ChunkCountProperty)
         {
             ClearChunks();
+            NotifyVisibleRangeIfChanged();
         }
         else if (change.Property == IsPreviewActiveProperty)
         {
@@ -208,23 +225,32 @@ public sealed partial class WaveformControl : Control
         double contentOffsetX,
         double centerY)
     {
-        for (int i = startIndex; i <= endIndex; i++)
+        var layout = (startIndex, endIndex, slotWidth, contentOffsetX, centerY);
+        if (_geometry == null || _geometryLayout != layout)
         {
-            if (!TryGetChunk(i, out var chunk))
-                continue;
+            _geometryLayout = layout;
+            _geometry = new StreamGeometry();
+            using var figures = _geometry.Open();
+            figures.SetFillRule(FillRule.NonZero);
+            double barWidth = Math.Max(1, slotWidth - 0.5);
+            for (int i = startIndex; i <= endIndex; i++)
+            {
+                if (!TryGetChunk(i, out var chunk) || float.IsNaN(chunk.MinValue) || float.IsNaN(chunk.MaxValue))
+                    continue;
 
-            double slotX = contentOffsetX + i * slotWidth;
+                double left = contentOffsetX + i * slotWidth;
+                double right = left + barWidth;
+                double top = centerY - Math.Clamp(chunk.MaxValue, -1f, 1f) * centerY;
+                double bottom = Math.Max(top + 1, centerY - Math.Clamp(chunk.MinValue, -1f, 1f) * centerY);
 
-            float minVal = Math.Clamp(chunk.MinValue, -1f, 1f);
-            float maxVal = Math.Clamp(chunk.MaxValue, -1f, 1f);
-
-            double topY = centerY - (maxVal * centerY);
-            double bottomY = centerY - (minVal * centerY);
-            double barHeight = Math.Max(1, bottomY - topY);
-
-            var rect = new Rect(slotX, topY, Math.Max(1, slotWidth - 0.5), barHeight);
-            context.FillRectangle(brush, rect);
+                figures.BeginFigure(new Point(left, top), isFilled: true);
+                figures.LineTo(new Point(right, top));
+                figures.LineTo(new Point(right, bottom));
+                figures.LineTo(new Point(left, bottom));
+                figures.EndFigure(isClosed: true);
+            }
         }
+        context.DrawGeometry(brush, null, _geometry);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

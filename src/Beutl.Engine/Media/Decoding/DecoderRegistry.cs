@@ -9,12 +9,16 @@ namespace Beutl.Media.Decoding;
 public sealed class DecoderRegistry
 {
     private static readonly ILogger s_logger = Log.CreateLogger("DecoderRegistry");
+    private static long s_nextId;
     private readonly List<IDecoderInfo> _registered = [];
     private readonly List<IDecoderInfo> _ordered = [];
     private readonly object _lock = new();
     private readonly ExtensionConfig _configuration;
+    private long _version;
 
     internal Lock RegistrationLock { get; } = new();
+    internal long CacheId { get; } = Interlocked.Increment(ref s_nextId);
+    internal long Version => Volatile.Read(ref _version);
 
     private IProxyResolver? _proxyResolver;
 
@@ -50,6 +54,7 @@ public sealed class DecoderRegistry
         lock (_lock)
         {
             _ordered.Clear();
+            _version++;
         }
         DecodersChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -251,6 +256,7 @@ public sealed class DecoderRegistry
         {
             _ordered.Clear();
             _registered.Add(decoder);
+            _version++;
         }
 
         DecodersChanged?.Invoke(this, EventArgs.Empty);
@@ -265,6 +271,7 @@ public sealed class DecoderRegistry
             if (removed)
             {
                 _ordered.Clear();
+                _version++;
             }
         }
 
