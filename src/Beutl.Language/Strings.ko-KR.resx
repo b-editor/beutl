@@ -1196,6 +1196,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>클립을 복제하기 전에 프로젝트를 저장하세요.</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>모든 복제본을 배치할 수 있는 0 이상의 대상 레이어를 선택하세요.</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>복제된 요소를 디스크에 쓸 수 없습니다.</value>
   </data>

@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Immutable;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -47,6 +48,7 @@ public sealed class AgentHostSceneRoutingTests
             [
                 "apply_edit", "read_document", "undo", "render_still", "add_scene", "save_project",
                 "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap",
+                "duplicate_elements", "roll_elements", "slide_elements",
                 "split_on_silence", "find_gaps", "close_all_gaps", "save_object_template", "apply_object_template"
             ];
             foreach (string name in sceneTools)
@@ -196,6 +198,70 @@ public sealed class AgentHostSceneRoutingTests
         Assert.That(undone["applied"]!.AsArray(), Has.Count.EqualTo(1));
         Assert.That(target.Fill.Value, Is.SameAs(originalBrush));
         Assert.That(SelectedScene(), Is.SameAs(first));
+    }
+
+    [AvaloniaTest]
+    public async Task Grouped_timeline_edits_use_the_background_scenes_undo_history()
+    {
+        (Scene first, Scene second, _) = await CreateScenesAsync();
+        if (TestShell.Editor.TryGetTabItem(second, out var secondTab))
+            await TestShell.Editor.CloseTabItem(secondTab, saveChanges: false);
+
+        Element[] clips =
+        [
+            AddClip(0, 1, 0), AddClip(1, 2, 0), AddClip(3, 2, 0),
+            AddClip(0, 1, 1), AddClip(1, 2, 1), AddClip(3, 2, 1)
+        ];
+        var group = ImmutableHashSet.Create(clips[1].Id.Value, clips[4].Id.Value);
+        second.Groups.Add(group);
+        string anchor = clips[1].Id.Value.ToString();
+        TimeRange[] before = clips.Select(element => element.Range).ToArray();
+        await using var host = CreateHost();
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+
+        (string Tool, (string Key, object Value)[] Arguments, int AffectedCount)[] edits =
+        [
+            ("duplicate_elements", [("elementIds", new[] { anchor }), ("timeSeconds", 0), ("layer", 2)], 2),
+            ("ripple_trim", [("elementId", anchor), ("edge", "end"), ("timeSeconds", 2.5), ("includeLinked", true)], 4),
+            ("roll_elements", [("elementId", anchor), ("edge", "end"), ("deltaSeconds", 0.5)], 4),
+            ("slide_elements", [("elementIds", new[] { anchor }), ("deltaSeconds", 0.5)], 6)
+        ];
+        foreach (var (tool, arguments, affectedCount) in edits)
+        {
+            var request = Target(second.Id.Value);
+            foreach (var (key, value) in arguments) request[key] = value;
+
+            JsonObject edit = Success(await client.CallToolAsync(tool, request));
+            Assert.That(edit["changed"]!.GetValue<bool>(), Is.True, tool);
+            string resultKey = tool == "duplicate_elements" ? "createdElementIds" : "changedElementIds";
+            Assert.That(edit[resultKey]!.AsArray(), Has.Count.EqualTo(affectedCount), tool);
+            if (tool == "duplicate_elements")
+                Assert.That(second.Groups, Has.Count.EqualTo(2));
+            else
+                Assert.That(clips[4].Range, Is.Not.EqualTo(before[4]), tool);
+
+            JsonObject undo = Success(await client.CallToolAsync("undo", Target(second.Id.Value)));
+            Assert.That(undo["applied"]!.AsArray(), Has.Count.EqualTo(1), tool);
+            Assert.That(undo["undoCount"]!.GetValue<int>(), Is.Zero, tool);
+            Assert.That(second.Children, Is.EquivalentTo(clips), tool);
+            Assert.That(clips.Select(element => element.Range), Is.EqualTo(before), tool);
+            Assert.That(second.Groups.Single(), Is.EqualTo(group));
+            Assert.That(SelectedScene(), Is.SameAs(first));
+        }
+
+        Element AddClip(double start, double length, int layer)
+        {
+            var element = new Element
+            {
+                Start = { Value = MediaTime.FromSeconds(start) },
+                Length = { Value = MediaTime.FromSeconds(length) },
+                ZIndex = { Value = layer }
+            };
+            element.Uri = new Uri(second.Uri!, $"{element.Id.Value:N}.belm");
+            second.Children.Add(element);
+            return element;
+        }
     }
 
     [AvaloniaTest]

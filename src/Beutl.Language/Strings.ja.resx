@@ -1227,6 +1227,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>要素を複製する前にプロジェクトを保存してください。</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>すべての複製を配置できる、0 以上のレイヤー番号を指定してください。</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>複製した要素のディスクへの書き込みに失敗しました。</value>
   </data>

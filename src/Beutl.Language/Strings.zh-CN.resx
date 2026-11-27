@@ -1196,6 +1196,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>复制剪辑之前请先保存项目。</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>请选择编号不小于 0 且能容纳所有副本的目标图层。</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>无法将复制的元素写入磁盘。</value>
   </data>

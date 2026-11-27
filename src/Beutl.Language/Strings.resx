@@ -1232,6 +1232,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>Save the project before duplicating elements.</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>Choose a non-negative destination layer with room for all the copies.</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>Could not write the duplicated element to disk.</value>
   </data>
