@@ -411,6 +411,7 @@ public sealed class AgentHostExtensionInstallTests
         Assert.That(new InstalledPackageRepository().ExistsPackage(package), Is.False);
         Assert.That(Directory.Exists(Helper.PackagePathResolver.GetInstallPath(package)), Is.False);
         Assert.That(store.Downloads, Is.EqualTo(1));
+        Assert.That(store.InsecureRequests, Is.Zero);
     }
 
     private static JsonObject FindExtension(JsonObject response, string packageId)
@@ -474,6 +475,7 @@ public sealed class AgentHostExtensionInstallTests
         public bool PurchaseRequired { get; init; }
         public bool RedirectToInsecureUrl { get; init; }
         public int Downloads { get; private set; }
+        public int InsecureRequests { get; private set; }
         public string? SearchType { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -486,10 +488,24 @@ public sealed class AgentHostExtensionInstallTests
             {
                 Downloads++;
                 if (BeforeDownload is not null) await BeforeDownload(cancellationToken);
-                var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(archive) };
                 if (RedirectToInsecureUrl)
-                    response.RequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://packages.example.test/test.nupkg");
-                return response;
+                {
+                    var redirect = new HttpResponseMessage(HttpStatusCode.Redirect);
+                    redirect.Headers.Location = new Uri("http://packages.example.test/insecure.nupkg");
+                    return redirect;
+                }
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(archive) };
+            }
+            if (uri.Scheme != Uri.UriSchemeHttps)
+            {
+                InsecureRequests++;
+                var redirect = new HttpResponseMessage(HttpStatusCode.Redirect);
+                redirect.Headers.Location = new Uri("https://packages.example.test/final.nupkg");
+                return redirect;
+            }
+            if (uri.AbsoluteUri == "https://packages.example.test/final.nupkg")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(archive) };
             }
             else if (path == "/api/v3/discover/search")
             {

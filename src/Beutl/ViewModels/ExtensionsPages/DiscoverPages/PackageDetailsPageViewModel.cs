@@ -308,6 +308,10 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             StatusText.Value = ExtensionsStrings.Uninstalling;
 
             using var lease = await _app.Lock.LockAsync(_lifetimeCts.Token);
+            // A project can open while this waits for the lock, and unloading must not race it.
+            if (!await _handler.EnsureProjectClosed())
+                return;
+
             if (await _handler.UnloadAndUninstallAsync(Package.Name))
             {
                 PackageNotifications.Uninstalled(_handler.Notifications, Package.Name);

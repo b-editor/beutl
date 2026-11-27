@@ -127,6 +127,10 @@ public sealed class LocalUserPackageViewModel : IUserPackageViewModel
             StatusText.Value = ExtensionsStrings.Uninstalling;
 
             using var lease = await _app.Lock.LockAsync();
+            // A project can open while this waits for the lock, and unloading must not race it.
+            if (!await _handler.EnsureProjectClosed())
+                return;
+
             if (!await _handler.UnloadPackages(Package.Name))
             {
                 throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");

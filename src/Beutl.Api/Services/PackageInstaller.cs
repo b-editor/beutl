@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
@@ -564,6 +565,8 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
+    private const int MaxPackageDownloadRedirects = 10;
+
     private async Task Download(
         string url,
         Stream destination,
@@ -573,31 +576,49 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     {
         var apiOrigin = new Uri(BeutlApiApplication.BaseUrl);
         Uri downloadUri = new(apiOrigin, url);
-        using var request = new HttpRequestMessage(HttpMethod.Get, downloadUri);
-        if (authorizeApiOrigin)
-            await AuthorizeIfApiOriginAsync(request, apiOrigin, downloadUri, cancellationToken).ConfigureAwait(false);
-
-        using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
+        for (int redirects = 0; ; redirects++)
         {
-            // A redirect must not downgrade an HTTPS package download to plain HTTP.
-            if (downloadUri.Scheme == Uri.UriSchemeHttps
-                && response.RequestMessage?.RequestUri is { } finalUri
-                && finalUri.Scheme != Uri.UriSchemeHttps)
+            using var request = new HttpRequestMessage(HttpMethod.Get, downloadUri);
+            if (authorizeApiOrigin)
+                await AuthorizeIfApiOriginAsync(request, apiOrigin, downloadUri, cancellationToken).ConfigureAwait(false);
+
+            using HttpResponseMessage response = await _httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            if (IsRedirect(response.StatusCode))
             {
-                throw new HttpRequestException(
-                    $"The package download was redirected from HTTPS to '{finalUri.Scheme}'.");
+                // The package-installer client does not follow redirects, so every hop can be checked.
+                if (redirects >= MaxPackageDownloadRedirects)
+                    throw new HttpRequestException("The package download exceeded the redirect limit.");
+                if (response.Headers.Location is not { } location)
+                    throw new HttpRequestException("The package download returned a redirect without a location.");
+
+                Uri nextUri = location.IsAbsoluteUri ? location : new Uri(downloadUri, location);
+                if (downloadUri.Scheme == Uri.UriSchemeHttps && nextUri.Scheme != Uri.UriSchemeHttps)
+                {
+                    throw new HttpRequestException(
+                        $"The package download was redirected from HTTPS to '{nextUri.Scheme}'.");
+                }
+
+                downloadUri = nextUri;
+                continue;
             }
 
             response.EnsureSuccessStatusCode();
             long? contentLength = response.Content.Headers.ContentLength;
 
-            using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
-            {
-                await CopyWithProgressAsync(download, destination, contentLength, progress, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            using Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            await CopyWithProgressAsync(download, destination, contentLength, progress, cancellationToken)
+                .ConfigureAwait(false);
+            return;
         }
     }
+
+    private static bool IsRedirect(HttpStatusCode statusCode)
+        => statusCode is HttpStatusCode.MovedPermanently
+            or HttpStatusCode.Redirect
+            or HttpStatusCode.RedirectMethod
+            or HttpStatusCode.TemporaryRedirect
+            or HttpStatusCode.PermanentRedirect;
 
     // Credentials only go to the API origin; a download hosted elsewhere is fetched anonymously.
     private async Task AuthorizeIfApiOriginAsync(
