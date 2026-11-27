@@ -58,10 +58,10 @@ public sealed partial class DuckingEffect : AudioEffect
             Attack = Attack,
             Release = Release,
         };
-        if (context.TryDeferDucking(node))
-            return inputNode;
+        if (context.AddSoundDucking(node, inputNode) is { } output)
+            return output;
 
-        // Direct graph builders have no sound effect chain to defer to.
+        // Direct callers still get an inline node on the composition's sample grid.
         if (context.ChainSampleRate != context.SampleRate)
         {
             var resample = context.CreateResampleNode(context.ChainSampleRate);

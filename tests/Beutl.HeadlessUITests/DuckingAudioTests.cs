@@ -152,6 +152,42 @@ public sealed class DuckingAudioTests
     }
 
     [AvaloniaTest]
+    [TestCase(SampleRate, null)]
+    [TestCase(44100, null)]
+    [TestCase(SampleRate, 200f)]
+    [TestCase(SampleRate, 100f)]
+    public void Ducking_keeps_its_order_before_a_following_limiter(int musicRate, float? stretchSpeed)
+    {
+        using var fixture = new WaveScene(first: _ => 0.40f, second: _ => 0f, musicRate: musicRate);
+        // An immediate attack isolates effect ordering from the limiter's release envelope.
+        fixture.Ducking.Attack.Value = 0f;
+        var effects = new AudioEffectGroup();
+        fixture.Music.Effect.Value = effects;
+        var nested = new AudioEffectGroup();
+        effects.Children.Add(nested);
+        nested.Children.Add(fixture.Ducking);
+        if (stretchSpeed == 200f)
+            nested.Children.Add(new TimeStretchEffect { Speed = { Value = stretchSpeed.Value } });
+
+        const float limiterThresholdDb = -12f;
+        effects.Children.Add(new LimiterEffect { Threshold = { Value = limiterThresholdDb } });
+        if (stretchSpeed == 100f)
+            effects.Children.Add(new TimeStretchEffect { Speed = { Value = stretchSpeed.Value } });
+        var (duckingFirst, _) = RenderPreview(fixture.Scene);
+
+        effects.Children.Value.Move(1, 0);
+        var (limiterFirst, _) = RenderPreview(fixture.Scene);
+
+        // Full ducking is below the ceiling. In the reverse order the limiter reduces the dry music first.
+        float ceiling = MathF.Pow(10, limiterThresholdDb / 20);
+        Assert.Multiple(() =>
+        {
+            Assert.That(duckingFirst[Frames(300)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(limiterFirst[Frames(300)], Is.EqualTo(ceiling * (s_duckedLevel / MusicLevel)).Within(1e-6f));
+        });
+    }
+
+    [AvaloniaTest]
     public void A_scene_without_ducking_preserves_the_wav_samples_and_mix_bits()
     {
         using var fixture = new WaveScene();

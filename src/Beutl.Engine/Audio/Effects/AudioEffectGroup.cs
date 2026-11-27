@@ -18,7 +18,7 @@ public sealed partial class AudioEffectGroup : AudioEffect
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {
         return Children.Where(item => item.IsEnabled.Value)
-            .Aggregate(inputNode, (current, item) => item.CreateNode(context, current));
+            .Aggregate(inputNode, (current, item) => context.CreateEffectNode(item, current));
     }
 
     // Report the same enabled serial cascade that CreateNode builds.

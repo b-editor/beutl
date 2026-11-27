@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
-using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
@@ -130,11 +129,10 @@ public abstract partial class Sound : EngineObject
         context.Connect(pannerNode, gainNode);
 
         AudioNode currentNode = gainNode;
-        List<DuckingNode>? duckingNodes = null;
 
         if (Effect.Value is { IsEnabled.Value: true } effect)
         {
-            currentNode = context.CreateSoundEffectChain(effect, currentNode, out duckingNodes);
+            currentNode = context.CreateSoundEffectChain(effect, currentNode);
         }
 
         if (sourceSampleRate.HasValue)
@@ -144,18 +142,6 @@ public abstract partial class Sound : EngineObject
             context.Connect(currentNode, resampleNode);
             currentNode = resampleNode;
             context.ChainSampleRate = context.SampleRate;
-        }
-
-        // Sidechain peaks cover the output window. Time mapping and resampling can read ahead or
-        // request different times, so those nodes must process the sound before ducking.
-        if (duckingNodes is not null)
-        {
-            foreach (DuckingNode ducking in duckingNodes)
-            {
-                context.AddNode(ducking);
-                context.Connect(currentNode, ducking);
-                currentNode = ducking;
-            }
         }
 
         if (includeClipNode)

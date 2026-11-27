@@ -30,6 +30,8 @@ public sealed partial class TimeStretchNode : AudioNode, IAudioTimeMappingNode
     public override int GetDrainLatencySamples(int sampleRate)
         => _mapping.GetDrainLatencySamples(sampleRate, GetMaxInputLatency(sampleRate, drain: true));
 
+    bool IAudioTimeMappingNode.RemapsTime => _mapping.RemapsTime;
+
     bool IAudioTimeMappingNode.TryGetDrainSpeedFactor(int sampleRate, out double speed)
         => _mapping.TryGetDrainSpeedFactor(sampleRate, out speed);
 

@@ -14,7 +14,7 @@ public sealed class AudioContext : IDisposable
     private readonly HashSet<AudioNode> _outputNodes = new(ReferenceEqualityComparer.Instance);
     private List<AudioNode>? _previousNodes;
     private AudioNode? _currentNode;
-    private List<DuckingNode>? _deferredDucking;
+    private List<DuckingPlacement>? _duckingPlacements;
     private bool _buildingSoundEffects;
     private bool _disposed;
 
@@ -37,33 +37,131 @@ public sealed class AudioContext : IDisposable
         }
     }
 
-    internal AudioNode CreateSoundEffectChain(AudioEffect effect, AudioNode input, out List<DuckingNode>? duckingNodes)
+    internal AudioNode CreateSoundEffectChain(AudioEffect effect, AudioNode input)
     {
         bool wasBuildingSoundEffects = _buildingSoundEffects;
-        var previousDucking = _deferredDucking;
+        var previousDucking = _duckingPlacements;
         _buildingSoundEffects = true;
-        _deferredDucking = null;
+        _duckingPlacements = null;
 
-        AudioNode output;
         try
         {
-            output = effect.CreateNode(this, input);
+            AudioNode output = CreateEffectNode(effect, input);
+            // The default converter also reads ahead. Insert it before the first Ducking stage so
+            // the selected order of effects can stay intact even when the source uses another rate.
+            if (_duckingPlacements is { Count: > 0 } placements && ChainSampleRate != SampleRate)
+            {
+                DuckingNode firstDucking = placements[0].Nodes[0];
+                var resample = CreateResampleNode(ChainSampleRate);
+                Connect(firstDucking.Inputs[0], resample);
+                firstDucking.ClearInputs();
+                Connect(resample, firstDucking);
+                ChainSampleRate = SampleRate;
+            }
+            return output;
         }
         finally
         {
-            duckingNodes = _deferredDucking;
-            _deferredDucking = previousDucking;
+            _duckingPlacements = previousDucking;
             _buildingSoundEffects = wasBuildingSoundEffects;
         }
+    }
+
+    internal AudioNode? AddSoundDucking(DuckingNode node, AudioNode input)
+    {
+        if (!_buildingSoundEffects) return null;
+
+        Connect(input, node);
+        var output = CreateDuckingOutput(node, node.Threshold);
+        (_duckingPlacements ??= []).Add(new DuckingPlacement(output, [node]));
         return output;
     }
 
-    internal bool TryDeferDucking(DuckingNode node)
+    internal AudioNode CreateEffectNode(AudioEffect effect, AudioNode input)
     {
-        if (!_buildingSoundEffects) return false;
+        AudioNode output = effect.CreateNode(this, input);
+        // Each child of a group is processed here. A time mapping in one child must leave any
+        // ordinary effects after that child downstream of the relocated ducking.
+        if (_duckingPlacements is not { } placements || effect is AudioEffectGroup
+            || output is DuckingOutputNode || ReferenceEquals(input, output)
+            || !ReadsOutsideWindow(output, input, ChainSampleRate))
+        {
+            return output;
+        }
 
-        (_deferredDucking ??= []).Add(node);
-        return true;
+        var relocated = new List<DuckingNode>();
+        foreach (DuckingPlacement placement in placements)
+        {
+            // Keep the old output as a pass-through so downstream connections and their input
+            // positions stay intact while the envelope moves to the new output timeline.
+            placement.Output.ClearInputs();
+            Connect(placement.Nodes[0].Inputs[0], placement.Output);
+            foreach (DuckingNode node in placement.Nodes)
+            {
+                node.ClearInputs();
+                Connect(output, node);
+                output = node;
+                relocated.Add(node);
+            }
+        }
+
+        var relocatedOutput = CreateDuckingOutput(output, effect);
+        placements.Clear();
+        placements.Add(new DuckingPlacement(relocatedOutput, relocated));
+        return relocatedOutput;
+    }
+
+    private DuckingOutputNode CreateDuckingOutput(AudioNode input, object owner)
+    {
+        var node = CreateNode(owner, static key => new DuckingOutputNode(key), static (_, _) => { },
+            static (key, existing) => ReferenceEquals(key, existing.Owner));
+        Connect(input, node);
+        return node;
+    }
+
+    private static bool ReadsOutsideWindow(AudioNode output, AudioNode input, int sampleRate)
+    {
+        if (output.Inputs.Count == 1 && ReferenceEquals(output.Inputs[0], input))
+            return ChangesWindow(output, sampleRate);
+
+        var pending = new Stack<(AudioNode Node, int Rate, bool Changed)>();
+        var visited = new HashSet<(AudioNode Node, int Rate, bool Changed)>();
+        pending.Push((output, sampleRate, false));
+        while (pending.TryPop(out var read))
+        {
+            if (!visited.Add(read)) continue;
+            if (ReferenceEquals(read.Node, input))
+            {
+                if (read.Changed) return true;
+                continue;
+            }
+
+            bool changed = read.Changed || ChangesWindow(read.Node, read.Rate);
+            int inputRate = read.Node is IAudioSampleRateConversionNode converter ? converter.SourceSampleRate : read.Rate;
+            foreach (AudioNode upstream in read.Node.Inputs)
+                pending.Push((upstream, inputRate, changed));
+        }
+        return false;
+    }
+
+    private static bool ChangesWindow(AudioNode node, int sampleRate) => node switch
+    {
+        IAudioTimeMappingNode mapping => mapping.RemapsTime,
+        IAudioSampleRateConversionNode converter => converter.SourceSampleRate != sampleRate,
+        ShiftNode shift => shift.ShiftsTime,
+        ClipNode clip => clip.Start != MediaTime.Zero,
+        NoiseReductionNode => true,
+        _ => false,
+    };
+
+    private sealed record DuckingPlacement(DuckingOutputNode Output, List<DuckingNode> Nodes);
+
+    private sealed class DuckingOutputNode(object owner) : AudioNode
+    {
+        public object Owner { get; } = owner;
+
+        public override AudioBuffer Process(AudioProcessContext context)
+            => RecordProcessedOutput(Inputs[0].Process(context));
     }
 
     public AudioContext(int sampleRate, int channelCount)
