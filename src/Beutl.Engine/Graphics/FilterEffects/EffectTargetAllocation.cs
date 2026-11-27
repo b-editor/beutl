@@ -48,7 +48,7 @@ internal static class EffectTargetAllocation
             }
         }
 
-        using RenderTarget? renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
+        using RenderTarget? renderTarget = RenderTarget.CreateUnpooled(deviceBounds.Size, leaseSession);
         return renderTarget is null
             ? null
             : new EffectTarget(

@@ -118,6 +118,9 @@
   <data name="FrameDrawingException" xml:space="preserve">
     <value>프레임을 그리는 동안 예외가 발생했습니다.</value>
   </data>
+  <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
+    <value>{0} × {1} 픽셀 렌더링 대상을 추가하면 이 렌더링 요청의 메모리 한도인 {2:N0}바이트를 초과합니다. 활성 렌더링 대상이 이미 {3:N0}바이트를 사용 중입니다.</value>
+  </data>
   <data name="Scene3DBackendUnavailable" xml:space="preserve">
     <value>Vulkan을 사용할 수 없어 3D를 렌더링할 수 없습니다.</value>
   </data>

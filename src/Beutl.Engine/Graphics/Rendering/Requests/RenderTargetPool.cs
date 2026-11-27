@@ -55,6 +55,7 @@ internal sealed partial class RenderTargetPool : IDisposable
     private long _evictions;
     private int _leasedTargets;
     private int _peakLiveTargets;
+    private long _peakLiveBytes;
     private bool _disposed;
 
     public RenderTargetPool(
@@ -64,6 +65,8 @@ internal sealed partial class RenderTargetPool : IDisposable
         options ??= new RenderTargetPoolOptions();
         if (options.MaximumRetainedBytes < 0)
             throw new ArgumentOutOfRangeException(nameof(options), "The retained-byte limit cannot be negative.");
+        if (options.MaximumLiveBytes < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), "The live-byte limit cannot be negative.");
         if (options.MaximumIdleRequests < 0)
             throw new ArgumentOutOfRangeException(nameof(options), "The idle-request limit cannot be negative.");
         BufferDimensionBudget.ThrowIfUninitialized(options.Budget, nameof(options));
@@ -85,9 +88,12 @@ internal sealed partial class RenderTargetPool : IDisposable
         _leasedTargets,
         _ownedBytes,
         _retainedBytes,
-        _peakLiveTargets);
+        _peakLiveTargets,
+        _peakLiveBytes);
 
     public bool HasTargetFactory => _factory is not null;
+
+    internal void ObserveLiveBytes(long liveBytes) => _peakLiveBytes = Math.Max(_peakLiveBytes, liveBytes);
 
     internal RenderCacheDeviceContextIdentity ResolveProgramCacheContext(RenderTargetLeaseSession request)
     {
@@ -240,11 +246,9 @@ internal sealed partial class RenderTargetPool : IDisposable
         RenderTargetLeaseSession request,
         PixelSize deviceSize)
     {
-        if (TryAcquire(request, deviceSize, out RenderTargetLease? lease))
+        if (TryAcquire(request, deviceSize, out RenderTargetLease? lease, out RenderTargetAllocationException? failure))
             return lease;
-        throw ExceedsBufferBudget(request, deviceSize, out int maxDimension)
-            ? CreateAllocationFailure(deviceSize, maxDimension)
-            : CreateAllocationFailure(deviceSize);
+        throw failure;
     }
 
     internal static RenderTargetAllocationException CreateAllocationFailure(
@@ -312,8 +316,8 @@ internal sealed partial class RenderTargetPool : IDisposable
         => request.ExpectedContextHandle == 0
            || ReferenceEquals(request.ContextIdentity, s_cpuContextIdentity);
 
-    /// <summary>Leases an exact-size target, reporting <see langword="false"/> only when the allocator declines.</summary>
-    /// <remarks>Every other failure — a stale slot, a contract-violating factory return — still throws.</remarks>
+    /// <summary>Leases an exact-size target, or reports why the budget or allocator refused it.</summary>
+    /// <remarks>A stale slot or a contract-violating factory return still throws.</remarks>
     /// <param name="clearContents">
     /// Whether the lease must arrive transparent. A caller that writes every pixel before reading any passes
     /// <see langword="false"/> to skip the clear; the slot's contents stay unknown either way.
@@ -322,6 +326,7 @@ internal sealed partial class RenderTargetPool : IDisposable
         RenderTargetLeaseSession request,
         PixelSize deviceSize,
         [NotNullWhen(true)] out RenderTargetLease? lease,
+        [NotNullWhen(false)] out RenderTargetAllocationException? failure,
         bool clearContents = true)
     {
         VerifyActive(request);
@@ -337,34 +342,47 @@ internal sealed partial class RenderTargetPool : IDisposable
         // device, which leaves a request past a smaller device's limit reaching here. Handing that to the
         // backend asks for an attachment it cannot make - undefined behaviour rather than a failed
         // allocation - so it declines instead, and the caller's own degradation contract takes over.
-        if (ExceedsBufferBudget(request, deviceSize, out _))
+        lease = null;
+        if (ExceedsBufferBudget(request, deviceSize, out int maxDimension))
         {
-            lease = null;
+            failure = CreateAllocationFailure(deviceSize, maxDimension);
             return false;
         }
 
-        if (TryTakeAvailable(deviceSize, out TargetSlot? slot))
+        // An idle target joins the live set when it is leased, just as a freshly allocated target does.
+        if (!request.TryReserveLiveBytes(deviceSize, out long byteSize, out failure))
+            return false;
+
+        try
         {
-            lease = LeaseReusedSlot(slot!, request, clearContents);
+            if (TryTakeAvailable(deviceSize, out TargetSlot? slot))
+            {
+                lease = LeaseReusedSlot(slot!, request, clearContents);
+                return true;
+            }
+
+            _misses++;
+            RenderTarget? target = CreateTarget(deviceSize, request);
+            if (target is null && _retainedBytes > 0)
+            {
+                EvictAllAvailable(request, failures: null);
+                target = CreateTarget(deviceSize, request);
+            }
+
+            if (target is null)
+            {
+                failure = CreateAllocationFailure(deviceSize);
+                return false;
+            }
+
+            lease = AdoptCreatedTarget(target, deviceSize, request, byteSize, clearContents);
             return true;
         }
-
-        _misses++;
-        RenderTarget? target = CreateTarget(deviceSize, request);
-        if (target is null && _retainedBytes > 0)
+        finally
         {
-            EvictAllAvailable(request, failures: null);
-            target = CreateTarget(deviceSize, request);
+            if (lease is null)
+                request.ReleaseLiveBytes(byteSize);
         }
-
-        if (target is null)
-        {
-            lease = null;
-            return false;
-        }
-
-        lease = AdoptCreatedTarget(target, deviceSize, request, clearContents);
-        return true;
     }
 
     private RenderTargetLease LeaseReusedSlot(
@@ -392,6 +410,7 @@ internal sealed partial class RenderTargetPool : IDisposable
         RenderTarget target,
         PixelSize deviceSize,
         RenderTargetLeaseSession request,
+        long byteSize,
         bool clearContents)
     {
         bool accepted = false;
@@ -402,7 +421,6 @@ internal sealed partial class RenderTargetPool : IDisposable
             SKSurface surface = ValidateFactoryTarget(target, deviceSize, request);
             if (clearContents && !target.HasTransparentContents)
                 target.ClearToTransparent();
-            long byteSize = GetByteSize(deviceSize);
             long nextOwnedBytes = checked(_ownedBytes + byteSize);
             var slot = new TargetSlot(target, surface, deviceSize, byteSize);
             _ownedSlots.Add(slot);
@@ -460,10 +478,8 @@ internal sealed partial class RenderTargetPool : IDisposable
     private void ReleaseCore(RenderTargetLease lease)
     {
         TargetSlot slot = lease.Slot;
-        lease.State = RenderTargetLeaseState.Released;
-        slot.ActiveLease = null;
+        DischargeLease(lease, RenderTargetLeaseState.Released);
         slot.LastUsedEpoch = _requestEpoch;
-        _leasedTargets--;
 
         if (_disposed || !IsCurrentContext(lease.Session) || slot.Target.IsDisposed)
         {
@@ -484,9 +500,7 @@ internal sealed partial class RenderTargetPool : IDisposable
         VerifyLease(lease);
 
         TargetSlot slot = lease.Slot;
-        slot.ActiveLease = null;
-        lease.State = RenderTargetLeaseState.CacheTransferred;
-        _leasedTargets--;
+        DischargeLease(lease, RenderTargetLeaseState.CacheTransferred);
         RemoveOwnedSlot(slot);
         return slot.Target;
     }
@@ -542,7 +556,8 @@ internal sealed partial class RenderTargetPool : IDisposable
             contextIdentity,
             _contextGeneration,
             expectedContextHandle,
-            externalTarget);
+            externalTarget,
+            _options.MaximumLiveBytes);
         _activeSession = session;
         TrimIdle(session);
         return session;
@@ -586,9 +601,6 @@ internal sealed partial class RenderTargetPool : IDisposable
             request.RecordCleanupFailure(cleanup);
         }
     }
-
-    private static long GetByteSize(PixelSize size)
-        => checked((long)size.Width * size.Height * 8);
 
     private RenderTarget? CreateTarget(PixelSize deviceSize, RenderTargetLeaseSession request)
         => _factory is null

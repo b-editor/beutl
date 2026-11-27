@@ -156,15 +156,19 @@ public sealed class BrushIntermediateAllocationIntentTests
     }
 
     [Test]
-    public void ADeliveryRequestFailsWhenAnOpaqueCallbackCannotAllocateItsBrushIntermediate()
+    public void ADeliveryRequestReportsTheBudgetWhenAnOpaqueCallbackRequestsAnOversizedBrushIntermediate()
     {
         using var node = new UnallocatableBrushOpaqueNode(s_bounds);
         using RenderNodeRenderer renderer = CreateRenderer(node, RenderIntent.Delivery);
 
-        Assert.That(
-            () => renderer.Rasterize(),
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.StartWith("Tile-brush intermediate allocation failed"));
+        RenderTargetAllocationException? failure = Assert.Throws<RenderTargetAllocationException>(
+            () => renderer.Rasterize());
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure!.IsBudgetRefusal, Is.True);
+            Assert.That(failure.MaxDimension, Is.Null);
+            Assert.That(failure.DeviceSize, Is.EqualTo(new PixelSize((int)UnallocatableScale, (int)UnallocatableScale)));
+        });
     }
 
     [Test]
