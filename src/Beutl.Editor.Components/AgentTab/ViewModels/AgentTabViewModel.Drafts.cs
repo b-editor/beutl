@@ -163,13 +163,15 @@ internal sealed partial class AgentTabViewModel
             {
                 ct.ThrowIfCancellationRequested();
                 var attachment = await Task.Run(() => AgentAttachment.CreateFile(file, RemoveAttachment), ct);
-                bool stillPending = RemovePendingSyncedAttachment(file.Path);
-                if (ct.IsCancellationRequested || _disposed || draftKey != CurrentDraftKey || !stillPending
-                    || _attachments.Any(item => s_pathComparer.Equals(item.Path, attachment.Path)))
+                if (ct.IsCancellationRequested || _draftSyncCancellation != cancellation || _disposed || draftKey != CurrentDraftKey)
                 {
                     attachment.Dispose();
-                    if (ct.IsCancellationRequested || _disposed || draftKey != CurrentDraftKey)
-                        return;
+                    return;
+                }
+                bool stillPending = RemovePendingSyncedAttachment(file.Path);
+                if (!stillPending || _attachments.Any(item => s_pathComparer.Equals(item.Path, attachment.Path)))
+                {
+                    attachment.Dispose();
                     continue;
                 }
                 _restoringDraft = true;

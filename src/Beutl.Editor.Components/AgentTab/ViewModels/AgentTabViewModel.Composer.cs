@@ -189,12 +189,27 @@ internal sealed partial class AgentTabViewModel
 
         string text = Prompt?.Trim() is { Length: > 0 } prompt ? prompt : AgentStrings.PastedText;
         var snapshots = _attachments.Select(attachment => attachment.Snapshot()).ToList();
-        foreach (var pending in _pendingSyncedAttachments)
+        if (_pendingSyncedAttachments.Count > 0)
         {
-            if (snapshots.Any(item => s_pathComparer.Equals(item.Path, pending.Path)))
-                continue;
-            using var loaded = AgentAttachment.CreateFile(pending, static _ => { });
-            snapshots.Add(loaded.Snapshot());
+            var pendingFiles = _pendingSyncedAttachments
+                .Where(pending => !snapshots.Any(item => s_pathComparer.Equals(item.Path, pending.Path)))
+                .ToArray();
+            if (pendingFiles.Length > 0)
+            {
+                var loaded = await Task.Run(() =>
+                {
+                    var built = new List<AgentUserAttachment>(pendingFiles.Length);
+                    foreach (var pending in pendingFiles)
+                    {
+                        using var attachment = AgentAttachment.CreateFile(pending, static _ => { });
+                        built.Add(attachment.Snapshot());
+                    }
+                    return built;
+                }, _lifetime.Token);
+                if (_disposed)
+                    return;
+                snapshots.AddRange(loaded);
+            }
         }
         var message = new AgentQueuedMessage(_editor, selected.Descriptor, text, IncludeSceneContext,
             snapshots, GetInvokedProviderSkills(text), GetAcceptedMentions(text));
