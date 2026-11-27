@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -8,6 +9,7 @@ using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -15,6 +17,78 @@ namespace Beutl.UnitTests.ProjectSystem;
 [TestFixture]
 public sealed class SceneCompositorDisabledObjectsTests
 {
+    [Test]
+    public void A_single_frame_bypass_keeps_nested_siblings_and_leaves_the_project_and_delivery_unchanged()
+    {
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var target = new HueRotate { Angle = { Value = 180 } };
+            var shift = new TransformEffect { Transform = { Value = new TranslateTransform(12, 0) } };
+            var nested = new FilterEffectGroup { Children = { target, shift } };
+            var affected = new RectShape
+            {
+                Width = { Value = 16 },
+                Height = { Value = 16 },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                Fill = { Value = new SolidColorBrush(Colors.Red) },
+                FilterEffect = { Value = new FilterEffectGroup { Children = { nested } } },
+            };
+            var unaffected = new RectShape
+            {
+                Width = { Value = 12 },
+                Height = { Value = 16 },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                Transform = { Value = new TranslateTransform(32, 0) },
+                Fill = { Value = new SolidColorBrush(Colors.Red) },
+                FilterEffect = { Value = new FilterEffectPresenter
+                {
+                    Target = { Expression = Expression.CreateReference<FilterEffect>(target.Id.Value) },
+                } },
+            };
+            var first = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Objects = { affected } };
+            var second = new Element { Length = { Value = MediaTime.FromSeconds(1) }, ZIndex = { Value = 1 }, Objects = { unaffected } };
+            var scene = new Scene(48, 16, string.Empty) { Children = { first, second } };
+            _ = new Project { Items = { scene } };
+            string saved = CoreSerializer.SerializeToJsonObject(first).ToJsonString();
+            int postedEdits = 0;
+            scene.Edited += (_, _) => postedEdits++;
+
+            using var preview = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Preview);
+            using var delivery = new SceneRenderer(scene, TestFonts.RenderServices, RenderIntent.Delivery,
+                disableResourceShare: true, forceOriginalSource: true);
+            static Bgra8888[] RenderPixels(SceneRenderer renderer, CompositionFrame frame)
+            {
+                renderer.Render(frame);
+                using Bitmap snapshot = renderer.Snapshot();
+                using Bitmap pixels = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+                return pixels.GetPixelSpan<Bgra8888>().ToArray();
+            }
+
+            Bgra8888[] baseline = RenderPixels(delivery, delivery.Compositor.EvaluateGraphics(MediaTime.Zero));
+            Bgra8888[] before = RenderPixels(preview, preview.Compositor.EvaluateGraphicsWithBypassedFilterEffect(MediaTime.Zero, target));
+            Bgra8888[] exportAfterBypass = RenderPixels(delivery, delivery.Compositor.EvaluateGraphics(MediaTime.Zero));
+            Bgra8888[] after = RenderPixels(preview, preview.Compositor.EvaluateGraphics(MediaTime.Zero));
+            Bgra8888[] beforeRow = before[(48 * 8)..(48 * 9)];
+            Bgra8888[] afterRow = after[(48 * 8)..(48 * 9)];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(target.IsEnabled.Value, Is.True);
+                Assert.That(postedEdits, Is.Zero);
+                Assert.That(CoreSerializer.SerializeToJsonObject(first).ToJsonString(), Is.EqualTo(saved));
+                Assert.That(exportAfterBypass, Is.EqualTo(baseline));
+                Assert.That(after, Is.EqualTo(baseline));
+                Assert.That(beforeRow[18].R, Is.GreaterThan(250), "Without hue rotation the target remains red.");
+                Assert.That(afterRow[18].R, Is.LessThan(64), "The normal side still applies the target.");
+                Assert.That(beforeRow[5].A, Is.Zero, "The transform sibling still shifts the shape.");
+                Assert.That(beforeRow[32..44], Is.EqualTo(afterRow[32..44]), "The other element keeps its reference to the effect.");
+                Assert.That(afterRow[38], Is.EqualTo(afterRow[18]), "The reference applies the same rotation on both sides.");
+            });
+        });
+    }
+
     // The curves tab reads the colors a Curves effect receives from a frame rendered without it. Only that frame's
     // compositor leaves the effect out: the preview's evaluates it as before, and the effect itself stays on.
     [Test]

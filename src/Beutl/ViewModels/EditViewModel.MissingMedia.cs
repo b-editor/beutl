@@ -119,7 +119,8 @@ public sealed partial class EditViewModel : IMediaRepairHost
     Task<IReadOnlyList<MissingMedia>> IMediaRepairHost.FindMissingMediaAsync(CancellationToken token)
         => _missingMediaDetector.FindMissingAsync(Scene, _mediaReferences, token);
 
-    IReadOnlyList<IFileSource> IMediaRepairHost.GetMediaSources() => GetMediaSources();
+    IReadOnlyList<MediaReference> IMediaRepairHost.GetMediaReferencesForRepair()
+        => _mediaReferences.GetReferences(includeSharedReferences: true);
 
     private IFileSource[] GetMediaSources()
         => [.. _mediaReferences.GetReferences().Select(reference => reference.Value).OfType<IFileSource>()];

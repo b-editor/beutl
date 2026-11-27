@@ -114,8 +114,7 @@ public class NodeGraphNavigationLayoutTests
 
             zoom.SetMatrix(Matrix.Identity, true);
             HeadlessTestHelpers.Render();
-            Button open = node.GetVisualDescendants().OfType<Button>()
-                .Single(x => x.Name != "expandToggle");
+            Button open = node.FindControl<Button>("openGroupButton")!;
             HeadlessTestHelpers.Click(open, move: true, ticks: 3);
             Assert.That(model.NodeGraph.Value!.NodeGraph, Is.SameAs(group.Group.Value));
             Assert.That(model.Items, Has.Count.EqualTo(2));

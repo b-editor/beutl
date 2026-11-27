@@ -46,6 +46,13 @@ public sealed partial class ThumbnailStripControl : Control
         InvalidateVisual();
     }
 
+    internal void SetThumbnails(IReadOnlyList<(int Index, WriteableBitmap? Thumbnail)> thumbnails)
+    {
+        foreach (var (index, thumbnail) in thumbnails)
+            _thumbnails.Set(index, thumbnail, IsPreviewActive);
+        InvalidateVisual();
+    }
+
     public void ClearThumbnails()
     {
         _thumbnails.Clear();
@@ -84,6 +91,9 @@ public sealed partial class ThumbnailStripControl : Control
     }
 
     internal (int Start, int End) GetVisibleRange() => ComputeVisibleRange();
+
+    internal (int Start, int End) GetVisibleRange(int count, double width)
+        => TimelineSlotRange.Compute(this, _scrollViewer, count, buffer: 2, layoutWidth: width);
 
     private (int Start, int End) ComputeVisibleRange(bool? allowOutOfRange = null)
         => TimelineSlotRange.Compute(

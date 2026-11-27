@@ -25,8 +25,18 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
     public override bool IsVideoEnabled
         => Path.GetExtension(OutputFile).ToLowerInvariant() is not (".wav" or ".mp3");
 
-    public override async ValueTask Encode(
+    public override ValueTask Encode(
         IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sampleProvider);
+        return EncodeCore(frameProvider, sampleProvider, cancellationToken);
+    }
+
+    internal ValueTask EncodeVideoOnly(IFrameProvider frameProvider, CancellationToken cancellationToken)
+        => EncodeCore(frameProvider, sampleProvider: null, cancellationToken);
+
+    private async ValueTask EncodeCore(
+        IFrameProvider frameProvider, ISampleProvider? sampleProvider, CancellationToken cancellationToken)
     {
         using var worker = FFmpegWorkerProcess.CreateForEncoding();
         IpcConnection connection;
@@ -100,6 +110,9 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
 
                     case MessageType.RequestSample:
                         {
+                            if (sampleProvider is null)
+                                throw new InvalidOperationException("The worker requested audio for a video-only encode.");
+
                             var sampleReq = msg.GetPayload<RequestSampleMessage>()
                                 ?? throw new InvalidOperationException("Missing payload for RequestSample");
                             if (sampleReq.BufferIndex is not (0 or 1))
@@ -176,18 +189,21 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         };
     }
 
-    internal EncodeStartRequest CreateStartRequest(IFrameProvider frameProvider, ISampleProvider sampleProvider)
+    internal EncodeStartRequest CreateStartRequest(IFrameProvider frameProvider, ISampleProvider? sampleProvider)
     {
+        var layout = sampleProvider?.ChannelLayout ?? AudioChannelLayout.Stereo;
         return new EncodeStartRequest
         {
             OutputFile = OutputFile,
             FrameCount = frameProvider.FrameCount,
             FrameRateNum = frameProvider.FrameRate.Numerator,
             FrameRateDen = frameProvider.FrameRate.Denominator,
-            SampleCount = sampleProvider.SampleCount,
-            ProviderSampleRate = sampleProvider.SampleRate,
-            ProviderChannelCount = sampleProvider.ChannelLayout.ChannelCount,
-            ProviderSpeakerMask = (uint)sampleProvider.ChannelLayout.Speakers,
+            VideoOnly = sampleProvider is null,
+            SampleCount = sampleProvider?.SampleCount ?? 0,
+            // Older workers still initialize the audio codec with an empty provider.
+            ProviderSampleRate = sampleProvider?.SampleRate ?? 44100,
+            ProviderChannelCount = layout.ChannelCount,
+            ProviderSpeakerMask = (uint)layout.Speakers,
             SourceWidth = VideoSettings.SourceSize.Value.Width,
             SourceHeight = VideoSettings.SourceSize.Value.Height,
             DestWidth = VideoSettings.DestinationSize.Value.Width,

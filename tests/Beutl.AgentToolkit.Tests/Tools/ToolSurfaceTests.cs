@@ -15,10 +15,16 @@ public sealed class ToolSurfaceTests
     [
         typeof(QueryTools),
         typeof(SessionTools),
+        typeof(SceneTools),
+        typeof(VersionControlTools),
         typeof(EditTools),
         typeof(TimelineEditTools),
+        typeof(ElementTemplateTools),
         typeof(NodeGraphTools),
         typeof(HistoryTools),
+        typeof(MissingMediaTools),
+        typeof(ProjectAssetTools),
+        typeof(SubtitleTools),
         typeof(RenderTools)
     ];
 
@@ -49,6 +55,10 @@ public sealed class ToolSurfaceTests
             "open_project",
             "create_project",
             "add_scene",
+            "remove_scene",
+            "read_version_control_status",
+            "read_version_control_history",
+            "commit_project",
             "save_project",
             "read_operation_status",
             "undo",
@@ -59,15 +69,34 @@ public sealed class ToolSurfaceTests
             "read_document",
             "apply_edit",
             "duplicate_object",
+            "duplicate_elements",
             "split_elements",
             "slip_elements",
             "ripple_delete",
             "ripple_trim",
+            "roll_elements",
+            "slide_elements",
             "close_gap",
+            "find_gaps",
+            "close_all_gaps",
+            "split_on_silence",
+            "list_element_templates",
+            "save_element_template",
+            "add_element_from_template",
+            "list_templates",
+            "save_object_template",
+            "apply_object_template",
             "get_node_graph_guide",
             "list_node_types",
             "read_node_graph",
             "edit_node_graph",
+            "scan_missing_media",
+            "relink_missing_media",
+            "inspect_project_assets",
+            "organize_project_assets",
+            "import_subtitles",
+            "list_subtitles",
+            "export_subtitles",
             "plan_composition",
             "apply_composition",
             "render_still",
@@ -96,7 +125,12 @@ public sealed class ToolSurfaceTests
         Assert.Multiple(() =>
         {
             // Through a lambda, an async helper and a snapshot helper.
-            Assert.That(sessionTools, Is.SupersetOf(new[] { "apply_edit", "undo", "render_still" }));
+            Assert.That(sessionTools, Is.SupersetOf(new[]
+            {
+                "apply_edit", "undo", "render_still", "duplicate_elements", "ripple_trim", "roll_elements", "slide_elements",
+                "find_gaps", "close_all_gaps", "split_on_silence", "scan_missing_media", "relink_missing_media",
+                "save_object_template", "apply_object_template", "import_subtitles", "list_subtitles", "export_subtitles"
+            }));
             Assert.That(sessionTools.Where(name => !AgentHostSceneRouting.AcceptsScene(name)), Is.Empty);
         });
     }

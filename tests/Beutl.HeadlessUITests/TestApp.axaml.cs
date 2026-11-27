@@ -81,14 +81,11 @@ public sealed class TestApp : Application
         {
             _mainViewModel = new MainViewModel(Services, "headless-test-session");
 
-            // ContextCommandManager.Attach is a no-op unless each ViewExtension was registered first;
+            // ContextCommandManager.Attach is a no-op until the extension's commands are registered;
             // AddExtensions alone wires up resolution but not keyboard/command gestures.
             foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)
             {
-                if (item is ViewExtension viewExtension)
-                {
-                    _mainViewModel.ContextCommandManager?.Register(viewExtension);
-                }
+                _mainViewModel.ContextCommandManager.RegisterExtension(item);
             }
 
             // Register the loaded built-in extensions in this MainViewModel's provider; the shell resolves

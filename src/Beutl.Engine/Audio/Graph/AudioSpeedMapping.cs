@@ -36,6 +36,8 @@ internal sealed class AudioSpeedMapping : IDisposable
     // Keyframes vary the speed within a window only while no expression sits on top of them.
     public bool IsAnimated => Animation is not null;
 
+    public bool ChangesOverTime => HasExpression || IsAnimated;
+
     private bool HasExpression => Speed is IExpressionProperty { HasExpression: true };
 
     private KeyFrameAnimation<float>? KeyFrames => HasExpression ? null : Speed?.GetKeyFrameAnimation();

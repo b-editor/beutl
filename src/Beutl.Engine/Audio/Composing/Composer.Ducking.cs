@@ -20,7 +20,7 @@ public partial class Composer
 
     private void ProcessDucking(
         AudioProcessContext context, Func<int, Guid> layerId, IReadOnlyList<AudioNodeEntry> liveEntries,
-        IEnumerable<AudioNodeEntry> tails, List<AudioBuffer> buffers)
+        IEnumerable<AudioNodeEntry> tails, List<MixInput> buffers, bool isPlayback)
     {
         AudioNodeEntry[] entries = [.. liveEntries, .. tails];
         var layers = new Dictionary<Guid, DuckingLayer>();
@@ -56,7 +56,7 @@ public partial class Composer
         }
 
         int sampleCount = context.GetSampleCount();
-        var outputs = new List<AudioBuffer>?[entries.Length];
+        var outputs = new List<MixInput>?[entries.Length];
         try
         {
             while (ready.TryDequeue(out DuckingLayer? layer))
@@ -64,17 +64,17 @@ public partial class Composer
                 var sidechain = layer.SourcePeaks.Count == 0
                     ? null
                     : new DuckingNode.SidechainBlock(context.TimeRange.Start, context.SampleRate, layer.SourcePeaks);
-                var layerBuffers = layer.Dependents.Count > 0 ? new List<AudioBuffer>() : null;
+                var layerBuffers = layer.Dependents.Count > 0 ? new List<MixInput>() : null;
                 foreach (int index in layer.EntryIndices)
                 {
                     AudioNodeEntry entry = entries[index];
-                    var entryBuffers = outputs[index] = new List<AudioBuffer>();
+                    var entryBuffers = outputs[index] = new List<MixInput>();
                     foreach (DuckingNode node in entry.DuckingNodes)
                         node.Sidechain = sidechain;
                     try
                     {
                         if (index < liveEntries.Count)
-                            ProcessEntry(entry, context, entryBuffers);
+                            ProcessEntry(entry, context, isPlayback, entryBuffers);
                         else
                             DrainEntryTails(entry, entry.OutputNodes!, context, sampleCount, entryBuffers);
                     }
@@ -99,7 +99,7 @@ public partial class Composer
             }
 
             // Render in dependency order, then add the outputs in the original mix order.
-            foreach (List<AudioBuffer>? output in outputs)
+            foreach (List<MixInput>? output in outputs)
             {
                 if (output is null) continue;
                 buffers.AddRange(output);
@@ -111,20 +111,24 @@ public partial class Composer
             foreach (DuckingLayer layer in layers.Values)
                 layer.Peaks?.Dispose();
 
-            foreach (List<AudioBuffer>? output in outputs)
+            foreach (List<MixInput>? output in outputs)
             {
                 if (output is null) continue;
-                foreach (AudioBuffer buffer in output)
-                    buffer.Dispose();
+                foreach (MixInput input in output)
+                    input.Buffer?.Dispose();
             }
         }
     }
 
-    private AudioBuffer? GetLayerPeaks(List<AudioBuffer> buffers)
+    private AudioBuffer? GetLayerPeaks(List<MixInput> inputs)
     {
+        // Detect on the layer's own output. The scene alignment delay is applied when the outputs are mixed,
+        // so the delay lines must not advance here.
+        List<MixInput> buffers = inputs.FindAll(input => input.Buffer is not null)
+            .ConvertAll(input => new MixInput(input.Buffer, null, input.TrailingSilence));
         if (buffers.Count == 0) return null;
-        using var mixed = buffers.Count > 1 ? MixBuffers(buffers) : null;
-        AudioBuffer layer = mixed ?? buffers[0];
+        using var mixed = buffers.Count > 1 ? MixBuffers(buffers, buffers[0].Buffer!.SampleCount) : null;
+        AudioBuffer layer = mixed ?? buffers[0].Buffer!;
         var buffer = new AudioBuffer(layer.SampleRate, 1, layer.SampleCount);
         try
         {

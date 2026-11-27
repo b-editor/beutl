@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using Beutl.Graphics.Backend;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
@@ -13,6 +15,8 @@ internal sealed class RenderTargetLeaseSession : IDisposable
 
     private readonly RenderTargetPool _pool;
     private readonly RenderCacheDeviceContextIdentity _cacheDeviceContextIdentity;
+    private readonly long _maximumLiveBytes;
+    private long _liveBytes;
     private List<RenderTargetLease>? _leases;
     private List<Exception>? _cleanupFailures;
 
@@ -22,9 +26,11 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         object contextIdentity,
         long contextGeneration,
         nint? expectedContextHandle,
-        RenderTarget? externalTarget)
+        RenderTarget? externalTarget,
+        long maximumLiveBytes)
     {
         _pool = pool;
+        _maximumLiveBytes = maximumLiveBytes;
         Intent = intent;
         ContextIdentity = contextIdentity;
         ContextGeneration = contextGeneration;
@@ -63,6 +69,8 @@ internal sealed class RenderTargetLeaseSession : IDisposable
 
     internal RenderCacheDeviceContextIdentity ProgramCacheDeviceContextIdentity => _pool.ResolveProgramCacheContext(this);
 
+    internal long LiveBytes => Volatile.Read(ref _liveBytes);
+
     internal void MarkContentDropped() => ContentDropObserved = true;
 
     internal RenderTargetCleanupFailureCheckpoint CaptureCleanupFailureCheckpoint()
@@ -99,26 +107,70 @@ internal sealed class RenderTargetLeaseSession : IDisposable
     /// Whether the target must arrive transparent. Pass <see langword="false"/> only when every pixel is
     /// defined before any is read.
     /// </param>
-    public RenderTargetLease? TryAcquire(PixelSize deviceSize, bool clearContents = true)
+    /// <param name="allowPreviewDrop">
+    /// Whether a transient allocator refusal may drop the contribution. A budget refusal always degrades Preview.
+    /// </param>
+    public RenderTargetLease? TryAcquire(PixelSize deviceSize, bool clearContents = true, bool allowPreviewDrop = true)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        if (_pool.TryAcquire(this, deviceSize, out RenderTargetLease? lease, clearContents))
+        if (_pool.TryAcquire(this, deviceSize, out RenderTargetLease? lease, out RenderTargetAllocationException? failure, clearContents))
             return lease;
 
-        s_logger.LogWarning(
-            "Intermediate render-target allocation failed ({Width}x{Height} px); preview drops this target, delivery render fails fast.",
-            deviceSize.Width,
-            deviceSize.Height);
-        if (Intent == RenderIntent.Delivery)
-            throw CreateAllocationFailure(deviceSize);
+        ReportAllocationFailure(failure, allowPreviewDrop);
         return null;
     }
 
-    public bool ExceedsBufferBudget(PixelSize deviceSize)
+    /// <summary>Allocates a fresh target counted until the last reference to its backing surface is released.</summary>
+    internal RenderTarget? TryCreateUnpooled(PixelSize deviceSize)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        return _pool.ExceedsBufferBudget(this, deviceSize, out _);
+        if (deviceSize.Width <= 0 || deviceSize.Height <= 0)
+            return null;
+
+        if (!TryReserveLiveBytes(deviceSize, out long byteSize, out RenderTargetAllocationException? failure))
+        {
+            ReportAllocationFailure(failure, allowPreviewDrop: true);
+            return null;
+        }
+
+        RenderTarget? target = null;
+        try
+        {
+            target = RenderTarget.Create(deviceSize.Width, deviceSize.Height);
+            target?.TrackLiveBytes(this, byteSize);
+            return target;
+        }
+        finally
+        {
+            if (target is null)
+                ReleaseLiveBytes(byteSize);
+        }
     }
+
+    internal bool TryReserveLiveBytes(
+        PixelSize deviceSize,
+        out long byteSize,
+        [NotNullWhen(false)] out RenderTargetAllocationException? failure)
+    {
+        const int BytesPerPixel = 8; // RGBA16F
+        long pixelCount = (long)deviceSize.Width * deviceSize.Height;
+        long liveBytes = LiveBytes;
+        // Compare before multiplying to also handle sizes whose byte count would overflow.
+        if (pixelCount > (_maximumLiveBytes - liveBytes) / BytesPerPixel)
+        {
+            byteSize = 0;
+            failure = new RenderTargetAllocationException(deviceSize, liveBytes, _maximumLiveBytes);
+            return false;
+        }
+
+        byteSize = pixelCount * BytesPerPixel;
+        // Allocations within a request are synchronous. The last shallow reference can release on another thread.
+        _pool.ObserveLiveBytes(Interlocked.Add(ref _liveBytes, byteSize));
+        failure = null;
+        return true;
+    }
+
+    internal void ReleaseLiveBytes(long byteSize) => Interlocked.Add(ref _liveBytes, -byteSize);
 
     public void Dispose()
     {
@@ -181,10 +233,9 @@ internal sealed class RenderTargetLeaseSession : IDisposable
             return;
         }
 
-        long approximateBytes = checked((long)lease.Target.Width * lease.Target.Height * 8);
         _pool.DeferRelease(lease);
         var deferredRelease = new DeferredRenderTargetLeaseRelease(lease);
-        if (!GpuResourceReclaimQueue.TryDefer(deferredRelease, approximateBytes))
+        if (!GpuResourceReclaimQueue.TryDefer(deferredRelease, lease.Slot.ByteSize))
         {
             try
             {
@@ -214,10 +265,16 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         return target;
     }
 
-    private InvalidOperationException CreateAllocationFailure(PixelSize deviceSize)
-        => _pool.ExceedsBufferBudget(this, deviceSize, out int maxDimension)
-            ? RenderTargetPool.CreateAllocationFailure(deviceSize, maxDimension)
-            : RenderTargetPool.CreateAllocationFailure(deviceSize);
+    private void ReportAllocationFailure(RenderTargetAllocationException failure, bool allowPreviewDrop)
+    {
+        if (Intent == RenderIntent.Delivery || (!allowPreviewDrop && !failure.IsBudgetRefusal))
+            throw failure;
+
+        if (failure.IsBudgetRefusal)
+            MarkContentDropped();
+
+        s_logger.LogWarning("Intermediate render-target allocation failed in preview: {Reason}", failure.Message);
+    }
 
     private void VerifyLeaseOwner(RenderTargetLease lease)
     {

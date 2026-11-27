@@ -34,8 +34,7 @@ public partial class PlayerViewModel
 
     async Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(MediaTime start, MediaTime duration, CancellationToken ct)
     {
-        // Admit idle composition on the UI thread, like history mutations. A background visualizer
-        // continuation must not enqueue fresh scene work between Pause and the synchronous mutation.
+        // Admit auxiliary composition alongside history mutations on the UI thread.
         return await await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
             lock (_renderRequestLock)
@@ -50,16 +49,26 @@ public partial class PlayerViewModel
                 return ComposeThread.Dispatcher.InvokeAsync(() =>
                 {
                     ct.ThrowIfCancellationRequested();
-                    // The UI thread can dispose this composer (rebuild-by-replacement on frame-size changes)
-                    // after the calling-thread check above, so re-check on the compose thread and report
-                    // "no audio" instead of racing a disposed compositor.
                     if (_isDisposing || _isPausing || composer.IsDisposed)
                         return (AudioFrameSnapshot?)null;
+
+                    SceneCompositor compositor = composer.Compositor;
+                    Scene scene = compositor.Scene;
+                    // Choose the graph on the compose thread because playback may have started
+                    // while this request was queued. Its input cursor and decoders stay independent.
+                    using SceneComposer? auxiliary = IsPlaybackActive
+                        ? new SceneComposer(scene, compositor.Services, disableResourceShare: true,
+                            forceOriginalSource: compositor.ForceOriginalSource)
+                        {
+                            SampleRate = composer.SampleRate,
+                            ChannelLayout = composer.ChannelLayout,
+                        }
+                        : null;
 
                     AudioBuffer? audio;
                     try
                     {
-                        audio = composer.Compose(new TimeRange(start, duration));
+                        audio = (auxiliary ?? composer).ComposePlayback(new TimeRange(start, duration), scene.Start.Value + scene.Duration.Value);
                     }
                     catch (ObjectDisposedException)
                     {
@@ -194,7 +203,7 @@ public partial class PlayerViewModel
 
             MediaTime sceneEnd = scene.Start.Value + scene.Duration.Value;
             SceneComposer composer = EditViewModel.Composer.Value;
-            AudioBuffer? audio = composer.Compose(new TimeRange(time, s_second));
+            AudioBuffer? audio = composer.ComposePlayback(new TimeRange(time, s_second), sceneEnd, generation);
             if (audio is not null)
                 SilenceTailBeyondSceneEnd(audio, time, sceneEnd);
 

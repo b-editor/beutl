@@ -15,7 +15,11 @@ internal static class CaptionFileImport
     // A file's cues keep the length it gives them, however short.
     private static readonly MediaTime s_shortestCue = MediaTime.FromSeconds(0.001);
 
-    public static bool IsCaptionFile(string file) => s_catalog.Value.Codecs.TryGetByFileName(file, out _);
+    internal static ICaptionCodecProvider Codecs => s_catalog.Value.Codecs;
+
+    internal static CaptionDocumentSerializer Serializer => s_catalog.Value.Serializer;
+
+    public static bool IsCaptionFile(string file) => Codecs.TryGetByFileName(file, out _);
 
     // The default look and the text templates saved so far, which change while Beutl runs.
     public static IReadOnlyList<CaptionTemplate> GetTemplates(ObjectTemplateService templates)
@@ -39,10 +43,9 @@ internal static class CaptionFileImport
         var skippedSome = new List<string>();
         foreach (string file in files)
         {
-            if (!s_catalog.Value.Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) continue;
+            if (!Codecs.TryGetByFileName(file, out CaptionCodecInfo? codec)) continue;
 
-            byte[]? bytes = await TryReadAsync(file, cancellationToken);
-            CaptionImportResult? import = bytes is null ? null : s_catalog.Value.Serializer.ImportFile(bytes, codec.Format);
+            CaptionImportResult? import = await ReadAsync(file, codec.Format, cancellationToken);
             if (import?.Document is not { Count: > 0 } document)
             {
                 notifications?.ShowError(
@@ -51,34 +54,40 @@ internal static class CaptionFileImport
                 continue;
             }
 
-            List<ElementDescription> clips = CaptionSceneImporter.CreateDescriptions(
-                scene,
-                layer,
-                document,
-                template,
-                cancellationToken,
-                elementName: Path.GetFileNameWithoutExtension(file),
-                minimumLength: s_shortestCue);
+            List<ElementDescription> clips = CreateDescriptions(scene, file, document, template, layer, cancellationToken);
             descriptions.AddRange(clips);
             layer = clips.SelectMany(CaptionSceneImporter.GetExtents).Max(extent => extent.Layer) + 1;
-            // Everything but markup means a cue was left out.
-            if (import.Diagnostics.Any(item => item.Kind != CaptionDiagnosticKinds.UnsupportedMarkup))
+            if (HasSkippedCues(import))
                 skippedSome.Add(file);
         }
 
         return skippedSome;
     }
 
+    internal static List<ElementDescription> CreateDescriptions(
+        Scene scene, string file, CaptionDocument document, CaptionTemplate template, int layer, CancellationToken cancellationToken)
+        => CaptionSceneImporter.CreateDescriptions(
+            scene, layer, document, template, cancellationToken,
+            elementName: Path.GetFileNameWithoutExtension(file), minimumLength: s_shortestCue);
+
+    // Everything but markup means a cue was left out.
+    internal static bool HasSkippedCues(CaptionImportResult result)
+        => result.Diagnostics.Any(item => item.Kind != CaptionDiagnosticKinds.UnsupportedMarkup);
+
     // A file can be locked, or gone by now.
-    private static async Task<byte[]?> TryReadAsync(string file, CancellationToken cancellationToken)
+    internal static async Task<CaptionImportResult?> ReadAsync(
+        string file, CaptionFormatId format, CancellationToken cancellationToken)
     {
+        byte[] bytes;
         try
         {
-            return await File.ReadAllBytesAsync(file, cancellationToken);
+            bytes = await File.ReadAllBytesAsync(file, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             return null;
         }
+
+        return Serializer.ImportFile(bytes, format);
     }
 }

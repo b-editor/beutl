@@ -5,6 +5,9 @@ using Avalonia.Media.Immutable;
 using Beutl.Controls;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
+using BtlMatrix = Beutl.Graphics.Matrix;
+using BtlPoint = Beutl.Graphics.Point;
+using BtlRect = Beutl.Graphics.Rect;
 
 namespace Beutl.Views;
 
@@ -20,6 +23,8 @@ internal sealed partial class TransformHandlesOverlay
     private IReadOnlyList<EditingHandle> _editingHandles = [];
     private IReadOnlyList<EditingGuideLine> _editingGuides = [];
     private int[] _pinNumbers = [];
+    public BtlMatrix EditingHandleMatrix { get; private set; } = BtlMatrix.Identity;
+    public BtlRect EditingHandleBounds { get; private set; }
     private string? _selectedPuppetPinId;
     private double _editingHandleZoom = 1;
 
@@ -29,11 +34,21 @@ internal sealed partial class TransformHandlesOverlay
         && (_editingHandles.Count == 0 || ReferenceEquals(_editingHandleProvider, _drawable));
 
     public void UpdateEditingHandles(IEditingHandleProvider? provider, MediaTime time)
+        => UpdateEditingHandles(provider, time, BtlMatrix.Identity);
+
+    public void UpdateEditingHandles(IEditingHandleProvider? provider, MediaTime time, BtlMatrix? downstreamTransform)
     {
-        EditingHandle[] handles = provider?.GetEditingHandles(time, _localBounds).ToArray() ?? [];
-        EditingGuideLine[] guides = provider?.GetEditingGuides(time, _localBounds).ToArray() ?? [];
+        BtlMatrix matrix = downstreamTransform.GetValueOrDefault(BtlMatrix.Identity) * _userMatrix;
+        if (downstreamTransform is null || !matrix.HasInverse) provider = null;
+
+        // The drawable's bounds already include the downstream transforms. Only use them as a fallback
+        // when the handles and the drawable share a coordinate space.
+        EditingHandleBounds = downstreamTransform == BtlMatrix.Identity ? _localBounds : default;
+        EditingHandle[] handles = provider?.GetEditingHandles(time, EditingHandleBounds).ToArray() ?? [];
+        EditingGuideLine[] guides = provider?.GetEditingGuides(time, EditingHandleBounds).ToArray() ?? [];
         if (ReferenceEquals(_editingHandleProvider, provider) && _editingHandles.SequenceEqual(handles)
-            && _editingGuides.SequenceEqual(guides)) return;
+            && _editingGuides.SequenceEqual(guides) && EditingHandleMatrix == matrix) return;
+        EditingHandleMatrix = matrix;
         _editingHandleProvider = provider;
         _editingHandles = handles;
         _editingGuides = guides;
@@ -74,6 +89,8 @@ internal sealed partial class TransformHandlesOverlay
         _editingHandles = [];
         _editingGuides = [];
         _pinNumbers = [];
+        EditingHandleMatrix = BtlMatrix.Identity;
+        EditingHandleBounds = default;
     }
 
     public (IEditingHandleProvider Provider, EditingHandle Handle)? HitTestEditingHandle(Point point)
@@ -86,7 +103,7 @@ internal sealed partial class TransformHandlesOverlay
         for (int i = 0; i < _editingHandles.Count; i++)
         {
             EditingHandle handle = _editingHandles[i];
-            double candidate = Point.Distance(point, LocalToImage(handle.Position.X, handle.Position.Y));
+            double candidate = Point.Distance(point, EditingPointToImage(handle.Position));
             if (puppet && handle.Id == _selectedPuppetPinId
                 && candidate <= PinRadius(PinLabel(i, true, unit), true, unit) + 1.75 * unit)
                 return (_editingHandleProvider, handle);
@@ -109,12 +126,11 @@ internal sealed partial class TransformHandlesOverlay
         }
 
         foreach (EditingGuideLine guide in _editingGuides)
-            context.DrawLine(s_editingGuideStroke, LocalToImage(guide.Start.X, guide.Start.Y),
-                LocalToImage(guide.End.X, guide.End.Y));
+            context.DrawLine(s_editingGuideStroke, EditingPointToImage(guide.Start), EditingPointToImage(guide.End));
 
         foreach (EditingHandle handle in _editingHandles)
         {
-            Point position = LocalToImage(handle.Position.X, handle.Position.Y);
+            Point position = EditingPointToImage(handle.Position);
             var fill = handle.Color is { } color ? new ImmutableSolidColorBrush(color.ToAvaColor()) : s_accentFill;
             context.DrawEllipse(fill, s_editingHandleStroke, position, 4.5, 4.5);
         }
@@ -138,7 +154,7 @@ internal sealed partial class TransformHandlesOverlay
         void DrawPin(int index, bool active)
         {
             EditingHandle handle = _editingHandles[index];
-            Point position = LocalToImage(handle.Position.X, handle.Position.Y);
+            Point position = EditingPointToImage(handle.Position);
             FormattedText text = PinLabel(index, active, unit);
             double radius = PinRadius(text, active, unit);
             if (active)
@@ -148,6 +164,9 @@ internal sealed partial class TransformHandlesOverlay
             context.DrawText(text, new Point(position.X - text.Width / 2, position.Y - text.Height / 2));
         }
     }
+
+    private Point EditingPointToImage(BtlPoint point)
+        => _viewport!.ToPreview(EditingHandleMatrix.Transform(point).ToAvaPoint());
 
     private FormattedText PinLabel(int index, bool active, double unit)
         => new(_pinNumbers[index].ToString(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture,

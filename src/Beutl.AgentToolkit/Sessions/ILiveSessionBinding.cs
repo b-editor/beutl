@@ -1,4 +1,6 @@
 ﻿using Beutl.Editor;
+using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Sessions;
@@ -30,4 +32,23 @@ public interface ILiveSessionBinding
         Func<HistoryManager, TResult> operation,
         CancellationToken cancellationToken = default,
         TimeSpan? sessionWait = null);
+}
+
+internal interface ILiveElementBinding
+{
+    IReadOnlyList<Element> GetSelectedElements();
+
+    ValueTask<ElementAddResult> AddElementsAsync(
+        Scene scene, IReadOnlyList<ElementDescription> descriptions,
+        Func<Scene, Action?> captureValidation, CancellationToken cancellationToken);
+}
+
+internal interface ILiveMediaRepairBinding
+{
+    MissingMediaService MissingMediaDetector { get; }
+
+    IReadOnlyList<MediaReference> MediaReferencesForRepair { get; }
+
+    ValueTask<(MediaRepairSelection[] Applied, IReadOnlyList<MissingMedia> Remaining)> ApplyMediaRepairsAsync(
+        Scene scene, IReadOnlyList<MediaRepairSelection> selections, TimeSpan editWait, CancellationToken cancellationToken);
 }

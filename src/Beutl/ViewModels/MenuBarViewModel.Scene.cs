@@ -56,6 +56,8 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand ImportMedia { get; private set; }
 
+    internal AsyncReactiveCommand ExportSubtitles { get; }
+
     public ReactiveCommandSlim<EditorTabItem?> RemoveFromProject { get; private set; }
 
     public AsyncReactiveCommand DeleteLayer { get; private set; }

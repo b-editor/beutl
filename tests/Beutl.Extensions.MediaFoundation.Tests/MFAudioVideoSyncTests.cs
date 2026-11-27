@@ -6,6 +6,8 @@ using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 
+using Microsoft.Extensions.Logging;
+
 namespace Beutl.Extensions.MediaFoundation.Tests;
 
 [TestFixture]
@@ -40,6 +42,43 @@ public class MFAudioVideoSyncTests
             }
 
             AssertTone(audio, seconds, 440 * (1 + (int)content));
+        }
+    }
+
+    [TestCase("marker-bframes.mp4", 10)]
+    [TestCase("marker-bframes-no-edit.mp4", 12)]
+    [TestCase("late-video.mp4", 15)]
+    public void ReadVideo_AtSeekThresholdAndAfterCacheEviction_ReturnsMarkerFrames(string fixture, int firstBlueFrame)
+    {
+        const int threshold = 2;
+        const int cacheSize = 2;
+        var extension = new MFDecodingExtension();
+        extension.Settings.ThresholdFrameCount.Value = threshold;
+        extension.Settings.MaxVideoBufferSize.Value = cacheSize;
+        var logger = new SeekLogger();
+        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture);
+        using var video = MFThread.Dispatcher.Invoke(() => new MFReader(
+            path, new MediaOptions(MediaMode.Video), extension,
+            (file, settings) => new MFDecoder(file, settings, logger),
+            (_, _) => throw new InvalidOperationException("Unexpected audio reader creation.")));
+
+        int frameToEvict = firstBlueFrame - cacheSize;
+        int frameBeforeSeek = frameToEvict - threshold - 1;
+        AssertCenterColor(video, frameBeforeSeek - threshold, red: true);
+        AssertRead(frameBeforeSeek, red: true, seek: false); // Exactly at the threshold.
+        AssertRead(frameToEvict, red: true, seek: true); // One frame beyond the threshold.
+
+        // Sequential decoding through the color change leaves the last red frame and first
+        // blue frame in the two-slot cache, evicting the earlier seek target.
+        AssertRead(firstBlueFrame, red: false, seek: false);
+        AssertRead(firstBlueFrame - 1, red: true, seek: false);
+        AssertRead(frameToEvict, red: true, seek: true);
+
+        void AssertRead(int frame, bool red, bool seek)
+        {
+            int seekCount = logger.SeekCount;
+            AssertCenterColor(video, frame, red);
+            Assert.That(logger.SeekCount - seekCount, Is.EqualTo(seek ? 1 : 0), $"seek count for frame {frame}");
         }
     }
 
@@ -142,7 +181,7 @@ public class MFAudioVideoSyncTests
 
     private static void AssertCenterColor(MediaReader video, int frame, bool red)
     {
-        Assert.That(video.ReadVideo(frame, out var image), Is.True);
+        Assert.That(video.ReadVideo(frame, out var image), Is.True, $"frame {frame}");
         using (image)
         {
             Bitmap bitmap = image!.Value;
@@ -175,5 +214,21 @@ public class MFAudioVideoSyncTests
                 crossings++;
         }
         return crossings * pcm.SampleRate / (double)pcm.SampleCount;
+    }
+
+    private sealed class SeekLogger : ILogger
+    {
+        public int SeekCount { get; private set; }
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel == LogLevel.Debug;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (IsEnabled(logLevel) && formatter(state, exception).StartsWith("ReadFrame Seek ", StringComparison.Ordinal))
+                SeekCount++;
+        }
     }
 }

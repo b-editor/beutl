@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Input;
 using Beutl.Controls;
 using Beutl.ViewModels;
 
@@ -9,6 +10,13 @@ public sealed partial class EditView : UserControl
     public EditView()
     {
         InitializeComponent();
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (DataContext is EditViewModel editor)
+            editor.Player.HandleEffectComparisonEscape(e);
     }
 
     protected override void OnDataContextChanged(EventArgs e)

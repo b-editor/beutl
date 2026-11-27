@@ -1,4 +1,5 @@
-﻿using Beutl.Extensibility;
+﻿using System.Collections.Immutable;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -73,6 +74,58 @@ internal static class CaptionSceneImporter
         }
 
         return descriptions;
+    }
+
+    // A file session has no UI element adder. Use the editor's materializers and placement
+    // inside the caller's history transaction.
+    internal static List<Element> AddToFileScene(
+        Scene scene, IReadOnlyList<ElementDescription> descriptions, bool autoAdjustDuration, CancellationToken cancellationToken)
+    {
+        int firstFreeLayer = scene.GetFirstFreeLayer();
+        var added = new List<Element>();
+        var groups = new List<ImmutableHashSet<Guid>>();
+        foreach (ElementDescription description in descriptions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Element[] elements;
+            bool keepsArrangement = description.Source is ElementSource.ElementSetTemplate;
+            switch (description.Source)
+            {
+                case ElementSource.EngineObject source:
+                    var value = source.Factory();
+                    elements = [ElementDescriptionMaterializer.CreateElementFor(description, value, description.ResolveName(value.GetType()))];
+                    break;
+                case ElementSource.ElementTemplate source:
+                    Element element = source.Factory();
+                    ElementDescriptionMaterializer.ApplyTemplatePlacement(element, description);
+                    elements = [element];
+                    break;
+                case ElementSource.ElementSetTemplate source:
+                    ElementSet set = source.Factory();
+                    elements = [.. set.Elements];
+                    GroupPlacement placement = ElementPlacementHelper.PlaceAt(elements, description.Start, description.Layer);
+                    ElementPlacementHelper.MoveTogether(elements, placement.StartDelta, placement.LayerDelta);
+                    groups.AddRange(set.Groups);
+                    break;
+                default:
+                    throw new NotSupportedException("Unsupported subtitle element source.");
+            }
+
+            ElementPlacementHelper.StackAboveScene(scene, firstFreeLayer, elements, keepsArrangement);
+            if (keepsArrangement)
+                ElementPlacementHelper.PlaceTogether(scene, elements);
+
+            foreach (Element element in elements)
+            {
+                if (scene.Uri is { } uri)
+                    element.Uri = ElementFileNaming.GetUri(uri, element.Id.Value);
+                scene.AddChild(element, keepsArrangement ? ElementOverlapHandling.Allow : ElementOverlapHandling.Auto, autoAdjustDuration);
+                added.Add(element);
+            }
+        }
+
+        scene.Groups.AddRange(groups);
+        return added;
     }
 
     // Where a request lands: one layer, or for several elements kept together, the layers they span from its layer up.

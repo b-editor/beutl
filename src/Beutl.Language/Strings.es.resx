@@ -1196,6 +1196,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>Guarda el proyecto antes de duplicar clips.</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>Elige una capa de destino con índice cero o superior donde quepan todas las copias.</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>No se pudo escribir el elemento duplicado en el disco.</value>
   </data>
@@ -1429,6 +1432,36 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ExportProject" xml:space="preserve">
     <value>Exportar proyecto…</value>
   </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>Exportar subtítulos…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>Exportar subtítulos</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>Clips que se exportarán</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>Elementos seleccionados</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>Capas de la línea de tiempo</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>No hay capas con clips.</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>Formato de archivo</value>
+  </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>Selecciona clips o capas para exportar.</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>No se encontraron clips de texto.</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>Clips sin texto omitidos ({0}).</value>
+  </data>
   <data name="ImportProject" xml:space="preserve">
     <value>Importar proyecto…</value>
   </data>
@@ -1535,6 +1568,36 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="EnterTemplateName" xml:space="preserve">
     <value>Introduce el nombre de la plantilla</value>
   </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>Indica un nombre de archivo válido para la plantilla.</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>Indica un ID válido.</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>Beutl no pudo guardar el objeto como plantilla.</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>No se encontró la plantilla «{0}».</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>No se pudo crear un objeto a partir de la plantilla «{0}».</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>Varios objetos del documento de escena tienen el ID «{0}».</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>El documento de escena no contiene ningún objeto con el ID «{0}».</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>El tipo de plantilla «{0}» no es compatible con la propiedad «{1}», que requiere «{2}».</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>Indica un índice entre 0 y {0} para «{1}».</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>Para aplicar una plantilla en «{0}», indica una propiedad de objeto que quieras reemplazar o una lista de objetos y su índice de inserción.</value>
+  </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
   </data>
@@ -1585,6 +1648,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>Menú</value>
+  </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>Abre {0}</value>
   </data>
   <data name="OnionSkin" xml:space="preserve">
     <value>Piel de cebolla</value>
@@ -1870,6 +1936,12 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Archivo de subtítulos</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>Selecciona un archivo SRT, ASS o WebVTT.</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>La plantilla debe contener un objeto de texto.</value>
   </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>No se pudo leer ningún subtítulo de {0}.</value>
@@ -3889,6 +3961,24 @@ cuando el registro del historial está activado.</value>
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>Muestra las partes transparentes de la vista previa sobre una cuadrícula en lugar de negro.</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>Comparar efecto de filtro</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>Compara el fotograma actual con y sin un efecto de filtro.</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>Elige un efecto de filtro para comparar en el editor de propiedades.</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>Antes: {0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>Después</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>Divisor de comparación de efectos</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>Zoom de la vista previa</value>
   </data>
@@ -4164,6 +4254,15 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
     <value>Clonar repositorio…</value>
+  </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>Eliminar repositorio remoto</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>Eliminar repositorio remoto…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>Eliminando el repositorio…</value>
   </data>
   <data name="HostedGit_BeutlRepositories" xml:space="preserve">
     <value>Repositorios de Beutl</value>

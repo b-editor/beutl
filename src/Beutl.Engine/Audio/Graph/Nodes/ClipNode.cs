@@ -12,6 +12,9 @@ public class ClipNode : AudioNode
 
     internal int InlinePaddingSamples { get; private set; }
 
+    // Stateful inputs can reduce their drain report as soon as Flush consumes part of the tail.
+    internal int? InlineDrainLatencySamples { get; private set; }
+
     public MediaTime Start { get; set; } = MediaTime.Zero;
 
     public MediaTime Duration { get; set; } = MediaTime.Zero;
@@ -34,6 +37,7 @@ public class ClipNode : AudioNode
     {
         InlineDrainAttempted = false;
         InlinePaddingSamples = 0;
+        InlineDrainLatencySamples = null;
 
         var range = new TimeRange(Start, Duration);
         TimeRange newRange;
@@ -122,6 +126,7 @@ public class ClipNode : AudioNode
             return;
 
         int latency = Inputs[0].GetDrainLatencySamples(context.SampleRate);
+        InlineDrainLatencySamples = latency;
         int drainCount = Math.Min(latency, capacity);
         if (drainCount <= 0)
             return;

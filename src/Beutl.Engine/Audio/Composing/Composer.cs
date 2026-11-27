@@ -17,19 +17,30 @@ public partial class Composer : IComposer
     private readonly List<AudioNodeEntry> _previousEntry = new();
     private TimeRange? _previousRange;
     private CompositionEligibility? _lastEligibility;
+    private int _alignmentLatency;
     private Func<int, Guid>? _audioLayerId;
+
+    private readonly record struct MixInput(AudioBuffer? Buffer, AudioDelayLine? Delay, int TrailingSilence);
 
     private sealed class AudioNodeEntry : IDisposable
     {
         public List<AudioNode> Nodes { get; set; } = new();
-        public AudioNode[]? OutputNodes { get; set; }
         public DuckingNode[] DuckingNodes { get; set; } = [];
+        public AudioNode[]? OutputNodes { get; set; }
         public bool IsDirty { get; set; } = true;
         public int Version { get; set; }
         public EventHandler? EditedHandler { get; set; }
         public TimeRange SoundRange { get; set; }
+        public int?[]? FixedLatencies { get; set; }
+        public Dictionary<AudioNode, AudioDelayLine>? Delays { get; set; }
         internal Dictionary<AudioNode, TailBudget> TailBudgets { get; } = new(ReferenceEqualityComparer.Instance);
         public required Sound Sound { get; init; }
+
+        public void ClearTail()
+        {
+            TailBudgets.Clear();
+            Delays = null;
+        }
 
         public void Dispose()
         {
@@ -39,7 +50,7 @@ public partial class Composer : IComposer
             }
 
             Nodes.Clear();
-            TailBudgets.Clear();
+            ClearTail();
         }
     }
 
@@ -75,15 +86,24 @@ public partial class Composer : IComposer
     }
 
     public AudioBuffer? Compose(TimeRange timeRange, CompositionFrame frame)
+        => Compose(timeRange, frame, playbackLatency: null);
+
+    internal AudioBuffer? Compose(TimeRange timeRange, CompositionFrame frame, int? playbackLatency)
     {
         if (!IsAudioRendering)
         {
+            AudioBuffer? result = null;
             try
             {
                 IsAudioRendering = true;
                 CompositionEligibility eligibility = frame.Eligibility
                     ?? throw new InvalidOperationException(
                         "Audio composition requires an eligibility snapshot.");
+
+                bool contiguous = _previousRange is { } previous
+                    && IsContiguous(previous.End, timeRange.Start);
+                if (!contiguous)
+                    DiscardRetainedState(_previousEntry);
                 _lastEligibility = eligibility;
                 _audioLayerId = frame.AudioLayerId;
 
@@ -94,13 +114,17 @@ public partial class Composer : IComposer
                         ComposeSound(sound, timeRange);
                 }
 
-                var result = BuildFinalOutput(timeRange, eligibility);
-
-                bool contiguous = _previousRange is { } previous
-                    && IsContiguous(previous.End, timeRange.Start);
+                _alignmentLatency = playbackLatency ?? GetAlignmentTarget();
+                result = BuildFinalOutput(timeRange, playbackLatency.HasValue);
                 PromoteEntries(timeRange, contiguous);
 
                 return result;
+            }
+            catch
+            {
+                result?.Dispose();
+                DiscardRetainedState(GetRetainedEntries());
+                throw;
             }
             finally
             {
@@ -152,7 +176,8 @@ public partial class Composer : IComposer
 
             foreach (AudioNode outputNode in outputNodes)
             {
-                total = Math.Max(total, GetDrainOutputLatency(entry, outputNode, sampleRate));
+                int latency = GetDrainOutputLatency(entry, outputNode, sampleRate);
+                total = Math.Max(total, IncludeOutputDelay(entry, outputNode, latency, sampleRate));
             }
         }
 
@@ -171,7 +196,7 @@ public partial class Composer : IComposer
         try
         {
             IsAudioRendering = true;
-            var buffers = new List<AudioBuffer>();
+            var buffers = new List<MixInput>();
             AudioBuffer? mixedBuffer = null;
             try
             {
@@ -189,15 +214,18 @@ public partial class Composer : IComposer
                     return new AudioBuffer(SampleRate, ChannelLayout.ChannelCount, sampleCount);
                 }
 
-                var tails = GetFlushableEntries(entries);
+                List<AudioNodeEntry> tails = GetFlushableEntries(entries);
                 if (_audioLayerId is { } layerId && entries.Exists(HasDucking))
-                    ProcessDucking(context, layerId, [], tails, buffers);
+                {
+                    ProcessDucking(context, layerId, [], tails, buffers, isPlayback: false);
+                }
                 else
+                {
                     foreach (var entry in tails)
                         DrainEntryTails(entry, entry.OutputNodes!, context, sampleCount, buffers);
+                }
 
-                mixedBuffer = MixBuffers(buffers)
-                    ?? new AudioBuffer(SampleRate, ChannelLayout.ChannelCount, AudioProcessContext.GetSampleCount(range, SampleRate));
+                mixedBuffer = MixBuffers(buffers, sampleCount);
                 ApplyMasterEffects(mixedBuffer);
 
                 _currentEntry.Clear();
@@ -208,6 +236,8 @@ public partial class Composer : IComposer
                         && GetEntryLatency(entry, outputNodes, SampleRate) > 0
                         && CanFlushEntry(entry))
                         _previousEntry.Add(entry);
+                    else
+                        entry.ClearTail();
                 }
 
                 _previousRange = _previousEntry.Count > 0 ? range : null;
@@ -216,13 +246,14 @@ public partial class Composer : IComposer
             catch
             {
                 mixedBuffer?.Dispose();
+                DiscardRetainedState(GetRetainedEntries());
                 throw;
             }
             finally
             {
-                foreach (var buffer in buffers)
+                foreach (var input in buffers)
                 {
-                    buffer.Dispose();
+                    input.Buffer?.Dispose();
                 }
             }
         }
@@ -232,46 +263,31 @@ public partial class Composer : IComposer
         }
     }
 
-    private IEnumerable<AudioNodeEntry> GetFlushableEntries(List<AudioNodeEntry> entries)
+    private AudioBuffer BuildFinalOutput(TimeRange range, bool isPlayback)
     {
-        foreach (var entry in entries)
-        {
-            if (!CanFlushEntry(entry))
-                entry.TailBudgets.Clear();
-            else if (entry.OutputNodes is { } outputNodes && GetEntryLatency(entry, outputNodes, SampleRate) > 0)
-                yield return entry;
-        }
-    }
-
-    private AudioBuffer? BuildFinalOutput(TimeRange range, CompositionEligibility eligibility)
-    {
-        var buffers = new List<AudioBuffer>();
+        var buffers = new List<MixInput>();
+        var processContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+        int sampleCount = processContext.GetSampleCount();
         AudioBuffer? mixedBuffer = null;
         try
         {
-            var context = new AudioProcessContext(range, SampleRate, _animationSampler, range);
-            var tails = GetEndedSoundTails(range, eligibility);
-            if (_audioLayerId is { } layerId && (_currentEntry.Exists(HasDucking) || _previousEntry.Exists(HasDucking)))
+            List<AudioNodeEntry> tails = GetEndedSoundTails();
+            if (_audioLayerId is { } layerId && (_currentEntry.Exists(HasDucking) || tails.Exists(HasDucking)))
             {
-                ProcessDucking(context, layerId, _currentEntry, tails, buffers);
+                ProcessDucking(processContext, layerId, _currentEntry, tails, buffers, isPlayback);
             }
             else
             {
-                foreach (var entry in _currentEntry)
-                    ProcessEntry(entry, context, buffers);
+                foreach (var item in _currentEntry)
+                    ProcessEntry(item, processContext, isPlayback, buffers);
 
                 foreach (var entry in tails)
-                    DrainEntryTails(entry, entry.OutputNodes!, context, context.GetSampleCount(), buffers);
+                    DrainEntryTails(entry, entry.OutputNodes!, processContext, sampleCount, buffers);
             }
 
-            mixedBuffer = MixBuffers(buffers);
-
-            if (mixedBuffer == null)
-            {
-                return new AudioBuffer(SampleRate, ChannelLayout.ChannelCount, AudioProcessContext.GetSampleCount(range, SampleRate));
-            }
-
-            ApplyMasterEffects(mixedBuffer);
+            mixedBuffer = MixBuffers(buffers, sampleCount);
+            if (buffers.Count > 0)
+                ApplyMasterEffects(mixedBuffer);
             return mixedBuffer;
         }
         catch
@@ -283,51 +299,57 @@ public partial class Composer : IComposer
         finally
         {
             // Dispose every consumed per-node buffer, even on a throw partway through.
-            foreach (var buffer in buffers)
+            foreach (var input in buffers)
             {
-                buffer.Dispose();
+                input.Buffer?.Dispose();
             }
         }
     }
 
-    private void ProcessEntry(AudioNodeEntry entry, AudioProcessContext context, List<AudioBuffer> buffers)
+    private void ProcessEntry(AudioNodeEntry entry, AudioProcessContext context, bool isPlayback, List<MixInput> buffers)
     {
         if (entry.OutputNodes is not { } outputNodes) return;
-        foreach (var outputNode in outputNodes)
-            buffers.Add(outputNode.Process(context));
+        var latencies = _alignmentLatency > 0 ? GetFixedLatencies(entry) : null;
+        for (int i = 0; i < outputNodes.Length; i++)
+        {
+            AudioNode outputNode = outputNodes[i];
+            AudioDelayLine? delay = GetOutputDelay(entry, outputNode, latencies?[i], isPlayback);
+            AudioBuffer buffer = outputNode.Process(context);
+            int trailingSilence = outputNode is ClipNode { InlineDrainLatencySamples: int latency } clip
+                ? Math.Max(0, clip.InlinePaddingSamples - latency)
+                : 0;
+            buffers.Add(new MixInput(buffer, delay, trailingSilence));
+        }
 
         RecordInlineDrainBudget(entry, outputNodes);
     }
 
+    private List<AudioNodeEntry> GetFlushableEntries(List<AudioNodeEntry> entries)
+    {
+        var result = new List<AudioNodeEntry>();
+        foreach (var entry in entries)
+        {
+            if (!CanFlushEntry(entry))
+                entry.ClearTail();
+            else if (entry.OutputNodes is not null)
+                result.Add(entry);
+        }
+        return result;
+    }
+
     // Residual latency tails are heard at the front of the next contiguous window.
-    private IEnumerable<AudioNodeEntry> GetEndedSoundTails(TimeRange range, CompositionEligibility eligibility)
+    private List<AudioNodeEntry> GetEndedSoundTails()
     {
         // Flush only across contiguous windows; seeks and restarts invalidate cached tail timing.
-        if (_previousRange is not { } previous || !IsContiguous(previous.End, range.Start))
-            yield break;
+        if (_previousRange is not { } previous)
+            return [];
 
-        foreach (var entry in _previousEntry)
-        {
-            if (_currentEntry.Contains(entry))
-                continue;
-            if (entry.IsDirty)
-                continue;
-            if (entry.OutputNodes is not { } outputNodes)
-                continue;
-            // Entries ending at or before the previous boundary may still hold a partially drained tail.
-            if (entry.SoundRange.End - previous.End > AudioProcessContext.TimestampQuantizationTolerance)
-                continue;
-            if (entry.Sound.TimeRange.Value != entry.SoundRange)
-                continue;
-            if (!eligibility.Contains(entry.Sound))
-                continue;
-
-            if (GetEntryLatency(entry, outputNodes, SampleRate) <= 0)
-                continue;
-
-            yield return entry;
-        }
+        return _previousEntry.FindAll(entry => entry.OutputNodes is not null && CanDrainEndedEntry(entry, previous.End));
     }
+
+    private bool CanDrainEndedEntry(AudioNodeEntry entry, MediaTime previousEnd)
+        => !_currentEntry.Contains(entry) && CanFlushEntry(entry)
+            && entry.SoundRange.End - previousEnd <= AudioProcessContext.TimestampQuantizationTolerance;
 
     private void PromoteEntries(TimeRange timeRange, bool contiguous)
     {
@@ -341,20 +363,18 @@ public partial class Composer : IComposer
 
         foreach (var entry in previous)
         {
+            if (_currentEntry.Contains(entry))
+                continue;
+
             if (contiguous
-                && !_currentEntry.Contains(entry)
+                && CanFlushEntry(entry)
                 && entry.OutputNodes is { } outputNodes
                 && GetEntryLatency(entry, outputNodes, SampleRate) > 0)
             {
-                if (CanFlushEntry(entry))
-                {
-                    _previousEntry.Add(entry);
-                }
-                else
-                {
-                    entry.TailBudgets.Clear();
-                }
+                _previousEntry.Add(entry);
             }
+            else
+                entry.ClearTail();
         }
 
         _previousRange = timeRange;
@@ -375,7 +395,7 @@ public partial class Composer : IComposer
         return entries;
     }
 
-    private static bool IsContiguous(MediaTime previousEnd, MediaTime nextStart)
+    internal static bool IsContiguous(MediaTime previousEnd, MediaTime nextStart)
     {
         MediaTime difference = nextStart - previousEnd;
         return difference >= -AudioProcessContext.TimestampQuantizationTolerance
@@ -394,7 +414,7 @@ public partial class Composer : IComposer
     {
         foreach (var entry in entries)
         {
-            entry.TailBudgets.Clear();
+            entry.ClearTail();
         }
 
         ResetWindowState();
@@ -406,36 +426,50 @@ public partial class Composer : IComposer
         _previousEntry.Clear();
         _previousRange = null;
         _lastEligibility = null;
+        _alignmentLatency = 0;
         _audioLayerId = null;
     }
 
-    private AudioBuffer? MixBuffers(List<AudioBuffer> buffers)
+    private AudioBuffer MixBuffers(List<MixInput> buffers, int windowSamples)
     {
-        if (buffers.Count == 0)
-            return null;
-
-        if (buffers.Any(buffer => buffer.ChannelCount != ChannelLayout.ChannelCount))
-            throw new InvalidOperationException("Audio buffer channel count does not match the composer layout.");
-
-        var firstBuffer = buffers[0];
-        var mixedBuffer = new AudioBuffer(firstBuffer.SampleRate, ChannelLayout.ChannelCount, firstBuffer.SampleCount);
+        AudioBuffer? firstBuffer = null;
+        foreach (var input in buffers)
+        {
+            if (input.Buffer is not { } buffer)
+                continue;
+            if (buffer.ChannelCount != ChannelLayout.ChannelCount)
+                throw new InvalidOperationException("Audio buffer channel count does not match the composer layout.");
+            firstBuffer ??= buffer;
+        }
+        var mixedBuffer = new AudioBuffer(firstBuffer?.SampleRate ?? SampleRate, ChannelLayout.ChannelCount,
+            firstBuffer?.SampleCount ?? windowSamples);
 
         // Dispose the mix buffer rather than leak it if a (possibly disposed) source read throws.
         try
         {
-            for (int ch = 0; ch < mixedBuffer.ChannelCount; ch++)
+            foreach (var (buffer, delay, trailingSilence) in buffers)
             {
-                var mixedChannel = mixedBuffer.GetChannelData(ch);
-
-                foreach (var buffer in buffers)
+                int sampleCount = Math.Min(mixedBuffer.SampleCount, buffer?.SampleCount ?? 0);
+                for (int ch = 0; ch < mixedBuffer.ChannelCount; ch++)
                 {
-                    var sourceChannel = buffer.GetChannelData(ch);
-                    var sampleCount = Math.Min(mixedBuffer.SampleCount, buffer.SampleCount);
+                    Span<float> mixedChannel = mixedBuffer.GetChannelData(ch);
+                    ReadOnlySpan<float> sourceChannel = buffer != null ? buffer.GetChannelData(ch)[..sampleCount] : default;
+                    if (delay != null)
+                    {
+                        delay.MixChannel(ch, sourceChannel, mixedChannel, 1f);
+                        continue;
+                    }
 
                     for (int i = 0; i < sampleCount; i++)
                     {
                         mixedChannel[i] += sourceChannel[i];
                     }
+                }
+
+                if (delay != null)
+                {
+                    int liveSamples = Math.Min(sampleCount, (buffer?.SampleCount ?? 0) - trailingSilence);
+                    delay.Advance(mixedBuffer.SampleCount, mixedBuffer.SampleCount - liveSamples);
                 }
             }
 
@@ -476,6 +510,8 @@ public partial class Composer : IComposer
     {
         foreach (var kvp in _audioCache)
         {
+            if (kvp.Value.EditedHandler is { } handler)
+                kvp.Key.Edited -= handler;
             kvp.Value.Dispose();
         }
 
@@ -489,6 +525,14 @@ public partial class Composer : IComposer
     /// Composes a sound with caching support and differential updates.
     /// </summary>
     protected void ComposeSound(Sound.Resource resource, TimeRange timeRange)
+    {
+        var entry = GetOrUpdateEntry(resource);
+        entry.SoundRange = entry.Sound.TimeRange.Value;
+        entry.TailBudgets.Clear();
+        _currentEntry.Add(entry);
+    }
+
+    private AudioNodeEntry GetOrUpdateEntry(Sound.Resource resource)
     {
         Sound sound = resource.RequireOriginal();
         if (!_audioCache.TryGetValue(sound, out var entry))
@@ -509,20 +553,37 @@ public partial class Composer : IComposer
 
             context.BeginUpdate(entry.Nodes);
             sound.Compose(context, resource);
-            entry.OutputNodes = context.GetOutputNodes().ToArray();
+            AudioNode[] outputNodes = context.GetOutputNodes().ToArray();
+            entry.OutputNodes = outputNodes;
             context.EndUpdate();
 
             entry.Nodes.Clear();
             entry.Nodes.AddRange(context.Nodes);
             entry.DuckingNodes = [.. entry.Nodes.OfType<DuckingNode>()];
 
+            entry.FixedLatencies = null;
+            if (entry.IsDirty)
+            {
+                entry.ClearTail();
+            }
+            else
+            {
+                entry.TailBudgets.Clear();
+                // Reused outputs still own their queued audio when the flow inputs change.
+                if (entry.Delays is { } delays)
+                {
+                    foreach (AudioNode output in delays.Keys.ToArray())
+                    {
+                        if (!outputNodes.Contains(output, ReferenceEqualityComparer.Instance))
+                            delays.Remove(output);
+                    }
+                }
+            }
             entry.Version = resource.Version;
             entry.IsDirty = false;
         }
 
-        entry.SoundRange = sound.TimeRange.Value;
-        entry.TailBudgets.Clear();
-        _currentEntry.Add(entry);
+        return entry;
     }
 
     private void OnSoundEdited(Sound sound, EventArgs e)
@@ -556,17 +617,7 @@ public partial class Composer : IComposer
     {
         if (disposing)
         {
-            foreach (var kvp in _audioCache)
-            {
-                if (kvp.Value.EditedHandler != null)
-                {
-                    kvp.Key.Edited -= kvp.Value.EditedHandler;
-                }
-
-                kvp.Value.Dispose();
-            }
-
-            _audioCache.Clear();
+            InvalidateCache();
         }
     }
 }

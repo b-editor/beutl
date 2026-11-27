@@ -4,7 +4,7 @@ using FluentIcons.Common;
 
 namespace Beutl.ViewModels;
 
-// An action that the Edit menu of a macOS app sends to whatever has the keyboard focus.
+// An action that the Edit menu can send to the focused control.
 public enum StandardEditAction
 {
     Undo,
@@ -32,7 +32,7 @@ public sealed class MainMenuItem(string? header)
     // The id of the command whose key gesture the item shows.
     public string? GestureCommand { get; init; }
 
-    // Context shortcuts are displayed in-window only. The native menu would claim them before the focused control.
+    // Context shortcuts are displayed in-window only. Native Edit actions use their standard gestures.
     internal Type? InWindowGestureExtensionType { get; init; }
 
     internal bool BlockNativeCommandWhileDialogOpen { get; init; }
@@ -54,7 +54,8 @@ public sealed class MainMenuItem(string? header)
     // What macOS users expect of a menu bar. On the other platforms, the title bar or the panels have it.
     public bool IsInNativeMenuOnly { get; init; }
 
-    // In the native menu, the focused control gets this action first, and Command does what no control took.
+    // In the native menu the focused control gets this action first. In-window, the clipboard and selection
+    // actions go to the focused text input. Command provides the editor fallback.
     public StandardEditAction? EditAction { get; init; }
 
     internal (Func<bool> IsEnabled, IObservable<Unit> Changed)? EditActionAvailability { get; init; }

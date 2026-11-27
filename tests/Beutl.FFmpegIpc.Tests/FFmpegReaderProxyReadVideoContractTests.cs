@@ -60,4 +60,33 @@ public class FFmpegReaderProxyReadVideoContractTests
             Throws.TypeOf<FFmpegWorkerException>(),
             "ReadVideo on an audio-only reader must surface the worker's CreateError as a thrown FFmpegWorkerException, not a silent false");
     }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ThumbnailReadReturnsReducedPixelsButKeepsTheSourceDimensions(bool deinterlace)
+    {
+        DecodingWorkerTestHelpers.RequireDecodingWorker();
+        string path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "deinterlace-tff.mp4");
+        var decoder = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
+        using MediaReader? reader = decoder.Open(path, new MediaOptions(MediaMode.Video)
+        {
+            VideoThumbnailHeight = 24,
+            Deinterlace = deinterlace
+                ? new(DeinterlaceMode.On, DeinterlaceFieldOrder.Auto, DeinterlaceMethod.Bwdif, DeinterlaceFrameRateMode.Field)
+                : default,
+        });
+        Assert.That(reader, Is.Not.Null);
+        Assert.That(reader!.VideoInfo.FrameSize.Height, Is.GreaterThan(24));
+        Assert.That(reader.VideoInfo.DeinterlaceStatus, Is.EqualTo(
+            deinterlace ? DeinterlaceApplicationStatus.Applied : DeinterlaceApplicationStatus.Off));
+        for (int frame = 0; frame < 5; frame++)
+        {
+            Assert.That(reader.ReadVideoThumbnail(frame, allowKeyframe: deinterlace, out var image), Is.True);
+            using (image)
+            {
+                Assert.That(image!.Value.Height, Is.EqualTo(24));
+                Assert.That(image.Value.Width, Is.EqualTo((int)Math.Round(24d * reader.VideoInfo.FrameSize.Width / reader.VideoInfo.FrameSize.Height)));
+            }
+        }
+    }
 }

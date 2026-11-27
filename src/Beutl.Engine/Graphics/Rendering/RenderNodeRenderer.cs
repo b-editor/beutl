@@ -53,14 +53,15 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderNode root,
         RenderNodeRenderRequest defaultRequest,
         IRenderTargetFactory? targetFactory,
-        RenderProgramCaches? programCaches)
+        RenderProgramCaches? programCaches,
+        RenderTargetPoolOptions? targetPoolOptions = null)
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(defaultRequest);
 
         Root = root;
         DefaultRequest = CopyAndSanitizeRequest(defaultRequest);
-        _targetPool = new RenderTargetPool(targetFactory);
+        _targetPool = new RenderTargetPool(targetFactory, targetPoolOptions);
         _structuralPlanCache = new StructuralPlanCache();
         _programCaches = programCaches ?? RenderProgramCaches.CreateWithSharedPrograms();
     }
@@ -122,9 +123,15 @@ public sealed class RenderNodeRenderer : IDisposable
         ImmediateCanvas destination,
         RenderNodeRenderRequest? requestOptions,
         CancellationToken cancellationToken)
-        => RenderWithWarning(destination, requestOptions, cancellationToken);
+        => RenderWithDiagnostics(destination, requestOptions, cancellationToken);
 
     internal string? RenderWithWarning(
+        ImmediateCanvas destination,
+        RenderNodeRenderRequest? requestOptions,
+        CancellationToken cancellationToken)
+        => RenderWithDiagnostics(destination, requestOptions, cancellationToken).Warning;
+
+    internal PreviewRenderDiagnostics RenderWithDiagnostics(
         ImmediateCanvas destination,
         RenderNodeRenderRequest? requestOptions,
         CancellationToken cancellationToken)
@@ -219,7 +226,7 @@ public sealed class RenderNodeRenderer : IDisposable
         targets.ThrowIfCleanupFailed();
         cacheLifecycle?.CompleteSuccessfully(
             effectiveRequest.Purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup);
-        return owner?.PreviewWarning;
+        return owner?.PreviewDiagnostics ?? default;
     }
 
     private static void ExecuteWithExpandedTarget(

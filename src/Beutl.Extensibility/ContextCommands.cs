@@ -100,6 +100,9 @@ public class ContextCommandDefinition(
 
     internal virtual Type? KeyboardContextType => null;
 
+    // The palette may open a tool tab for this command when its initial state provides a target.
+    internal bool CanOpenToolTab { get; init; }
+
     // Some modes on the same control are mutually exclusive and can share an exit chord.
     internal string? ExclusiveKeyboardGroup { get; init; }
 

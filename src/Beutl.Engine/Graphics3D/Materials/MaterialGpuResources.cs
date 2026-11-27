@@ -39,11 +39,10 @@ internal static class MaterialGpuResources
         IDescriptorSet? descriptors = null;
         try
         {
-            descriptors = context.CreateDescriptorSet(pipeline,
-            [
-                new(DescriptorType.UniformBuffer, 1),
-                new(DescriptorType.CombinedImageSampler, textureCount),
-            ]);
+            var uniform = new DescriptorPoolSize(DescriptorType.UniformBuffer, 1);
+            descriptors = context.CreateDescriptorSet(pipeline, textureCount == 0
+                ? [uniform]
+                : [uniform, new(DescriptorType.CombinedImageSampler, textureCount)]);
             descriptors.UpdateBuffer(0, buffer);
             return new MaterialDrawBindings(buffer, descriptors);
         }
@@ -76,7 +75,15 @@ internal static class MaterialGpuResources
     public static ITexture2D Create1x1Texture(IGraphicsContext graphicsContext, ReadOnlySpan<byte> bgra)
     {
         var texture = graphicsContext.CreateTexture2D(1, 1, TextureFormat.BGRA8Unorm);
-        texture.Upload(bgra);
-        return texture;
+        try
+        {
+            texture.Upload(bgra);
+            return texture;
+        }
+        catch
+        {
+            texture.Dispose();
+            throw;
+        }
     }
 }

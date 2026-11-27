@@ -7,6 +7,10 @@ namespace Beutl.Editor.Services;
 
 public static class ElementTemplateResolver
 {
+    // A single clip keeps its original content. A set keeps the relative timing, layers and groups.
+    internal static ICoreSerializable CreateTemplateContent(Scene scene, IReadOnlyList<Element> elements)
+        => elements.Count == 1 ? elements[0] : ElementSetFactory.Create(scene, elements);
+
     /// <summary>
     /// The templates a timeline adds as complete elements: one element's, and those saved from several.
     /// </summary>

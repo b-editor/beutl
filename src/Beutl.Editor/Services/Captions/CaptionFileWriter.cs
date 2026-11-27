@@ -1,20 +1,10 @@
-﻿using Avalonia.Platform.Storage;
+﻿namespace Beutl.Editor.Services.Captions;
 
-namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
-
-internal static class CaptionExportStorage
+internal static class CaptionFileWriter
 {
-    public static async Task WriteAsync(
-        IStorageFile file,
-        byte[] bytes,
-        CancellationToken cancellationToken)
+    internal static async Task WriteAsync(
+        string destinationPath, byte[] bytes, bool overwrite, CancellationToken cancellationToken)
     {
-        // Every desktop save picker hands out files with a local path.
-        Uri path = file.Path;
-        if (!path.IsFile || string.IsNullOrWhiteSpace(path.LocalPath))
-            throw new NotSupportedException("Captions can only be exported to a local file.");
-
-        string destinationPath = path.LocalPath;
         string temporaryPath = destinationPath + $".{Guid.NewGuid():N}.tmp";
         try
         {
@@ -36,14 +26,15 @@ internal static class CaptionExportStorage
 
             await using (var stream = new FileStream(temporaryPath, options))
             {
-                await stream.WriteAsync(bytes, cancellationToken);
-                await stream.FlushAsync(cancellationToken);
+                await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 stream.Flush(flushToDisk: true);
             }
 
             if (!OperatingSystem.IsWindows())
                 File.SetUnixFileMode(temporaryPath, destinationMode);
-            File.Move(temporaryPath, destinationPath, overwrite: true);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporaryPath, destinationPath, overwrite);
         }
         finally
         {

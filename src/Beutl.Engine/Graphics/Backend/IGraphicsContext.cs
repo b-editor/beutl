@@ -221,6 +221,20 @@ public interface IGraphicsContext : IDisposable
     void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex);
 
     /// <summary>
+    /// Transfers a single-sample color texture into one cube face, scaling and converting formats when needed.
+    /// </summary>
+    /// <param name="source">The source texture.</param>
+    /// <param name="destination">The destination cube map.</param>
+    /// <param name="faceIndex">The face index (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).</param>
+    void BlitTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
+    {
+        if (source.Width != destination.Size || source.Height != destination.Size || source.Format != destination.Format)
+            throw new NotSupportedException("This backend cannot scale or convert a cube face transfer.");
+
+        CopyTextureToCubeFace(source, destination, faceIndex);
+    }
+
+    /// <summary>
     /// Copies a 2D texture to a specific layer of a texture array.
     /// </summary>
     /// <param name="source">The source 2D texture.</param>

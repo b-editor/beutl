@@ -44,6 +44,12 @@
   <data name="ConfirmExcludeItem" xml:space="preserve">
     <value>Do you want to exclude this item from the project?</value>
   </data>
+  <data name="CannotRemoveLastScene" xml:space="preserve">
+    <value>The last scene in a project cannot be removed.</value>
+  </data>
+  <data name="SaveSceneBeforeRemoving" xml:space="preserve">
+    <value>Save this scene's changes before removing it.</value>
+  </data>
   <data name="FailedToOpenFileWithExtension" xml:space="preserve">
     <value>Could not open the following file with '{0}'.
 '{1}'</value>
@@ -111,6 +117,12 @@ because the new name conflicts with an existing folder.</value>
   </data>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>An exception occurred while drawing the frame.</value>
+  </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>This frame is rendered at a lower working density in the preview than in export. It may look different when exported.</value>
+  </data>
+  <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
+    <value>Adding a {0} × {1} pixel render target would exceed this render request's memory limit of {2:N0} bytes. Active targets already use {3:N0} bytes.</value>
   </data>
   <data name="Scene3DBackendUnavailable" xml:space="preserve">
     <value>3D could not be rendered because Vulkan is unavailable.</value>
@@ -522,6 +534,9 @@ Do you want to restart the application?</value>
   </data>
   <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
     <value>Permanently delete this project's folder and everything in it? This cannot be undone.</value>
+  </data>
+  <data name="ConfirmDeleteHostedRepository" xml:space="preserve">
+    <value>This permanently deletes the repository and its history from Beutl.&#10;You can still open local copies.</value>
   </data>
   <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
     <value>This project is not in a folder of its own, so only the project file will be deleted; its scenes and other files stay on disk. Permanently delete the project file? This cannot be undone.</value>

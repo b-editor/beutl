@@ -312,6 +312,14 @@ internal sealed class GitIdentityRequiredException : InvalidOperationException
     }
 }
 
+internal sealed class GitInteractiveSigningException : InvalidOperationException
+{
+    public GitInteractiveSigningException()
+        : base("The repository requires Git commit signing. Create the signed commit in the Beutl editor.")
+    {
+    }
+}
+
 internal sealed class EnclosingRepositoryConsentRequiredException : InvalidOperationException
 {
     public EnclosingRepositoryConsentRequiredException(RepositoryInfo repository)
