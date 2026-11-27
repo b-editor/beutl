@@ -61,12 +61,12 @@ public partial class PlayerViewModel
 
         _editorClock.Seek(MediaTime.FromFrames(failure.Frame, rate));
         EditViewModel.FrameCacheManager.Value.CurrentFrame = failure.Frame;
-        UpdatePreviewRenderStatus(MessageStrings.FrameDrawingException, warning: null, isCurrent);
+        UpdatePreviewRenderStatus(MessageStrings.FrameDrawingException, default, isCurrent);
         IsPlaying.Value = false;
         return true;
     }
 
-    private void UpdatePreviewRenderStatus(string? error, string? warning, Func<bool> isCurrent)
+    private void UpdatePreviewRenderStatus(string? error, PreviewRenderDiagnostics diagnostics, Func<bool> isCurrent)
     {
         if (!isCurrent())
             return;
@@ -85,7 +85,8 @@ public partial class PlayerViewModel
             {
                 _previewRenderStatusAppliedVersion = version;
                 _previewRenderError.Value = error;
-                _previewRenderWarning.Value = warning;
+                _previewRenderWarning.Value = diagnostics.Warning;
+                _isPreviewWorkingScaleClamped.Value = diagnostics.IsWorkingScaleClamped;
             }
         }
 
@@ -272,7 +273,7 @@ public partial class PlayerViewModel
             using EffectComparisonFrame? comparisonFrame = renderScene is null ? null : RenderComparisonBefore(renderScene, time);
             using Ref<Bitmap> bitmapRef = GetPreviewFrame(drawingRenderer, cacheManager, time, frame, disabledEffects, stage as FilterEffect,
                 useCache: !useOnionSkin && disabledEffects is null && comparison is null,
-                out GraphEditingFrame? graphEditingFrame, out string? warning);
+                out GraphEditingFrame? graphEditingFrame, out PreviewRenderDiagnostics diagnostics);
             Bitmap bitmap = bitmapRef.Value;
             using Ref<Bitmap>? cleanFrame = CopyCleanFrame(drawingRenderer, bitmap);
             if (useOnionSkin)
@@ -299,7 +300,7 @@ public partial class PlayerViewModel
             if (!token.IsCancellationRequested)
             {
                 AfterRendered.OnNext(Unit.Default);
-                UpdatePreviewRenderStatus(error: null, warning, () => !token.IsCancellationRequested);
+                UpdatePreviewRenderStatus(error: null, diagnostics, () => !token.IsCancellationRequested);
             }
         }
         catch (ObjectDisposedException) when (token.IsCancellationRequested)
@@ -312,7 +313,7 @@ public partial class PlayerViewModel
             _logger.LogError(ex,
                 "An exception occurred while drawing the frame. onionSkin={UseOnionSkin}, sampleCount={Count}, frame={Frame}.",
                 useOnionSkin, onionSampleCount, frame);
-            UpdatePreviewRenderStatus(MessageStrings.FrameDrawingException, warning: null,
+            UpdatePreviewRenderStatus(MessageStrings.FrameDrawingException, default,
                 () => !token.IsCancellationRequested);
         }
         finally
@@ -349,16 +350,15 @@ public partial class PlayerViewModel
     private static Ref<Bitmap> GetPreviewFrame(
         SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame,
         IReadOnlySet<EngineObject>? disabledEffects, FilterEffect? stage, bool useCache,
-        out GraphEditingFrame? graphEditingFrame, out string? warning)
+        out GraphEditingFrame? graphEditingFrame, out PreviewRenderDiagnostics diagnostics)
     {
-        warning = null;
         graphEditingFrame = null;
         using var placement = stage is not null && FindEditingGraph(stage) is { } graph
             ? EffectEditingPlacement.Begin(stage, graph)
             : null;
         useCache &= placement is null;
         CompositionFrame compositionFrame = EvaluatePreviewFrame(renderer, time, disabledEffects);
-        if (useCache && cacheManager.TryGet(frame, out var cache, out warning))
+        if (useCache && cacheManager.TryGetWithDiagnostics(frame, out var cache, out diagnostics))
         {
             using (cache)
             {
@@ -368,14 +368,14 @@ public partial class PlayerViewModel
             }
         }
 
-        warning = renderer.RenderWithWarning(compositionFrame);
+        diagnostics = renderer.RenderWithDiagnostics(compositionFrame);
         if (placement is not null)
             graphEditingFrame = new GraphEditingFrame(stage!, time, placement.GetTransform());
         using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
         // Onion skin, comparison and an editing stage bypass the normal frame cache.
         if (useCache && cacheManager.IsEnabled)
         {
-            cacheManager.Add(frame, bitmap, warning);
+            cacheManager.Add(frame, bitmap, diagnostics);
             cacheManager.UpdateBlocks();
         }
         return bitmap.Clone();

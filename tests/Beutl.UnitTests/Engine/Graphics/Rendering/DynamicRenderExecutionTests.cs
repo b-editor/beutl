@@ -5,6 +5,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
+using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -303,6 +304,32 @@ public sealed class DynamicRenderExecutionTests
         Assert.That(bitmap.GetPixel(15, 12).Alpha, Is.Zero);
         Assert.That(bitmap.GetPixel(1, 1).Green, Is.GreaterThan(240));
         Assert.That(() => captured!.Capture(), Throws.TypeOf<ObjectDisposedException>());
+    }
+
+    [TestCase(0.25f, true)]
+    [TestCase(0.5f, false)]
+    public void PreviewFrame_ReportsWorkingScaleClampForTargetEffect(float imageScale, bool expectClamp)
+    {
+        float effectDensity = 0;
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.TargetEffect(0, (_, execution, _) => effectDensity = execution.WorkingScale),
+            declaresTargetAccess: true);
+        var source = new ImageSource();
+        source.ReadFrom(TestMediaHelper.CreateTestImageUri(64, 48));
+        using var image = source.ToResource(CompositionContext.Default);
+        using var pipeline = ScaleRecordingTestHelper.Pipeline(
+            new ImageSourceRenderNode(image, Brushes.Resource.White, null),
+            new TransformRenderNode(Matrix.CreateScale(imageScale, imageScale), TransformOperator.Prepend),
+            new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default)));
+        using var renderer = Renderer(pipeline, intent: RenderIntent.Preview);
+        RenderNodeRenderRequest request = renderer.DefaultRequest with { MaxWorkingScale = 2 };
+        using var target = new CpuRenderTarget(32, 24);
+        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 2);
+
+        PreviewRenderDiagnostics diagnostics = renderer.RenderWithDiagnostics(canvas, request, default);
+
+        Assert.That(effectDensity, Is.EqualTo(2));
+        Assert.That(diagnostics.IsWorkingScaleClamped, Is.EqualTo(expectClamp));
     }
 
     [Test]

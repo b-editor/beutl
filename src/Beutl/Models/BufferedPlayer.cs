@@ -14,7 +14,7 @@ namespace Beutl.Models;
 internal sealed class BufferedPlayer : IDisposable
 {
     public record struct Frame(
-        Ref<Bitmap> Bitmap, int Time, Ref<Bitmap>? CleanBitmap = null, string? PreviewWarning = null,
+        Ref<Bitmap> Bitmap, int Time, Ref<Bitmap>? CleanBitmap = null, PreviewRenderDiagnostics Diagnostics = default,
         PlayerViewModel.EffectComparisonFrame? Comparison = null) : IDisposable
     {
         public void Dispose()
@@ -388,7 +388,7 @@ internal sealed class BufferedPlayer : IDisposable
             return TryEnqueueComparisonFrame(renderer, frame, time, comparison);
 
         // cacheは参照を既に追加されている
-        if (cacheManager.TryGet(frame, out Ref<Bitmap>? cache, out string? warning))
+        if (cacheManager.TryGetWithDiagnostics(frame, out Ref<Bitmap>? cache, out PreviewRenderDiagnostics diagnostics))
         {
             using (cache)
             {
@@ -396,12 +396,12 @@ internal sealed class BufferedPlayer : IDisposable
                     return EnqueueResult.Canceled;
 
                 using var clean = _editViewModel.Player.CreatePlaybackCleanFrame(renderer, cache, time);
-                return TryQueue(new(cache.Clone(), frame, clean?.Clone(), warning));
+                return TryQueue(new(cache.Clone(), frame, clean?.Clone(), diagnostics));
             }
         }
 
         var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
-        warning = renderer.RenderWithWarning(compositionFrame);
+        diagnostics = renderer.RenderWithDiagnostics(compositionFrame);
         if (IsCanceled)
             return EnqueueResult.Canceled;
 
@@ -411,12 +411,12 @@ internal sealed class BufferedPlayer : IDisposable
                 return EnqueueResult.Canceled;
 
             using var clean = _editViewModel.Player.CreatePlaybackCleanFrame(renderer, bitmap);
-            EnqueueResult result = TryQueue(new(bitmap.Clone(), frame, clean?.Clone(), warning));
+            EnqueueResult result = TryQueue(new(bitmap.Clone(), frame, clean?.Clone(), diagnostics));
             // Outside the lock, which the consumer waits for. An edit since the frame was queued may have deleted
             // its cache before this Add, so the frame is taken back out.
             if (result == EnqueueResult.Queued && !EditedSince(editVersion))
             {
-                cacheManager.Add(frame, bitmap, warning);
+                cacheManager.Add(frame, bitmap, diagnostics);
                 if (EditedSince(editVersion))
                     cacheManager.DeleteAndUpdateBlocks([(frame, frame + 1)]);
             }
@@ -436,13 +436,14 @@ internal sealed class BufferedPlayer : IDisposable
         if (IsCanceled)
             return EnqueueResult.Canceled;
 
-        string? warning = renderer.RenderWithWarning(renderer.Compositor.EvaluateGraphics(time));
+        // The comparison preview reports diagnostics for the after image.
+        PreviewRenderDiagnostics diagnostics = renderer.RenderWithDiagnostics(renderer.Compositor.EvaluateGraphics(time));
         if (IsCanceled)
             return EnqueueResult.Canceled;
 
         using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
         using var clean = player.CreatePlaybackCleanFrame(renderer, bitmap);
-        return TryQueue(new(bitmap.Clone(), frame, clean?.Clone(), warning, new(comparison.Target, comparison.Before.Clone())));
+        return TryQueue(new(bitmap.Clone(), frame, clean?.Clone(), diagnostics, new(comparison.Target, comparison.Before.Clone())));
     }
 
     // Takes the bitmap. A frame after the first one an edit dropped would come out of order, so it is drawn again.

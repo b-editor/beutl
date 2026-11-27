@@ -266,6 +266,15 @@
         <Player.Content>
             <!--  An HDR preview's native view covers this whole grid, under the transformed frame panel. See SwapImageControl.  -->
             <Grid Name="previewViewport">
+                <Grid.Styles>
+                    <Style Selector="Border#previewWorkingScaleIndicator">
+                        <Setter Property="VerticalAlignment" Value="Top" />
+                    </Style>
+                    <!-- Keep the comparison labels clear when the frame fills the viewport. -->
+                    <Style Selector="Border#previewWorkingScaleIndicator.comparingEffect">
+                        <Setter Property="VerticalAlignment" Value="Bottom" />
+                    </Style>
+                </Grid.Styles>
                 <!--  Under the frame panel and outside its transform, so its squares keep their size at any zoom.  -->
                 <local:PreviewCheckerboardBackground Name="checkerboardBackground" IsVisible="False" />
 
@@ -389,6 +398,30 @@
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                Text="{Binding PreviewRenderWarning.Value}"
                                TextWrapping="Wrap" />
+                </Border>
+
+                <Border Name="previewWorkingScaleIndicator"
+                        Width="28"
+                        Height="28"
+                        Margin="12"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.Name="{x:Static lang:MessageStrings.PreviewWorkingScaleClamped}"
+                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        Classes.comparingEffect="{Binding #effectComparisonOverlay.IsVisible}"
+                        CornerRadius="{DynamicResource ControlCornerRadius}"
+                        IsVisible="{Binding IsPreviewWorkingScaleClamped.Value, FallbackValue=False}">
+                    <ToolTip.Tip>
+                        <TextBlock MaxWidth="260"
+                                   Text="{x:Static lang:MessageStrings.PreviewWorkingScaleClamped}"
+                                   TextWrapping="Wrap" />
+                    </ToolTip.Tip>
+                    <icons:FluentIcon HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      FontSize="16"
+                                      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                      Icon="Info" />
                 </Border>
 
                 <!-- Keep the error outside framePanel so preview pan/zoom does not transform it. -->

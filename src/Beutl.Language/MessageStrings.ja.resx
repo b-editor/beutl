@@ -113,6 +113,9 @@
   <data name="FrameDrawingException" xml:space="preserve">
     <value>フレームの描画中に例外が発生しました。</value>
   </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>このフレームは、書き出し時よりも低い処理解像度でプレビューされています。書き出した結果は見え方が異なる場合があります。</value>
+  </data>
   <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
     <value>{0} × {1} ピクセルの描画ターゲットを追加すると、このレンダーリクエストのメモリ上限（{2:N0} バイト）を超えます。使用中の描画ターゲットはすでに {3:N0} バイトを使用しています。</value>
   </data>

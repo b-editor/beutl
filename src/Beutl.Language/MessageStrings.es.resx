@@ -118,6 +118,9 @@ porque el nuevo nombre entra en conflicto con una carpeta existente.</value>
   <data name="FrameDrawingException" xml:space="preserve">
     <value>Se produjo una excepción al dibujar el fotograma.</value>
   </data>
+  <data name="PreviewWorkingScaleClamped" xml:space="preserve">
+    <value>La vista previa de este fotograma se renderiza con una densidad de trabajo menor que la exportación. El resultado exportado puede verse distinto.</value>
+  </data>
   <data name="RenderTargetLiveByteBudgetExceeded" xml:space="preserve">
     <value>Añadir un destino de renderizado de {0} × {1} píxeles superaría el límite de memoria de {2:N0} bytes de esta solicitud. Los destinos activos ya usan {3:N0} bytes.</value>
   </data>

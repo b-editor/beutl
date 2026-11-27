@@ -31,25 +31,28 @@ internal sealed record ShaderGraphRenderFragmentPayload(
 
     /// <summary>Lowers <paramref name="density"/> until the graph's allocations for <paramref name="input"/> fit.</summary>
     /// <param name="required">The part of the output a request needs, or an empty rectangle while that is not known.</param>
-    public float ClampDensity(RenderFragmentReference input, float density, Rect required)
-        => ClampDensity(Description, input, density, required);
+    public float ClampDensity(RenderFragmentReference input, float density, Rect required, EffectiveScale? sourceSupply = null)
+        => ClampDensity(Description, input.Bounds, sourceSupply ?? input.EffectiveScale, density, required);
 
-    private static float ClampDensity(ShaderGraphDescription description, RenderFragmentReference input, float density, Rect required)
-        => description.ClampWorkingScale(input.Bounds, density, default,
-            sourceSize: PixelRect.FromRect(input.Bounds, InputDensity(input, density)).Size, required: required);
+    private static float ClampDensity(ShaderGraphDescription description, Rect inputBounds, EffectiveScale sourceSupply,
+        float density, Rect required)
+        => description.ClampWorkingScale(inputBounds, density, default,
+            sourceSize: PixelRect.FromRect(inputBounds, sourceSupply.IsUnbounded ? density : sourceSupply.Value).Size,
+            required: required);
 
     /// <summary>The density a graph is planned at, before a request says which part of its output it needs.</summary>
     /// <remarks>The output's complete bounds set no limit: it goes into a target of what the request needs, and
     /// <see cref="ClampDensity(RenderFragmentReference, float, Rect)"/> holds the graph's allocations to their budgets.</remarks>
     public static EffectiveScale ResolvePlannedScale(ShaderGraphDescription description, FilterEffectWorkingScalePolicy? policy,
-        IReadOnlyList<RenderFragmentReference> inputs, float outputScale, float maxWorkingScale)
+        IReadOnlyList<RenderFragmentReference> inputs, float outputScale, float maxWorkingScale,
+        Func<RenderFragmentReference, EffectiveScale>? resolveSupply = null)
     {
-        EffectiveScale[] supplies = inputs.SelectToArray(static input => input.EffectiveScale);
+        EffectiveScale[] supplies = inputs.SelectToArray(resolveSupply ?? (static input => input.EffectiveScale));
         float density = policy is { } declared
             ? declared.Resolve(supplies, inputs.SelectToArray(input => description.AcceptsPartialSource ? default : input.Bounds),
                 [default(Rect)], outputScale, maxWorkingScale).Value
             : RenderScaleUtilities.ResolveWorkingScale(supplies, outputScale, maxWorkingScale);
-        return EffectiveScale.At(ClampDensity(description, inputs[0], density, Rect.Empty));
+        return EffectiveScale.At(ClampDensity(description, inputs[0].Bounds, supplies[0], density, Rect.Empty));
     }
 }
 

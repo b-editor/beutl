@@ -318,14 +318,14 @@ public class Renderer : IRenderer
     {
     }
 
-    public void Render(CompositionFrame frame) => RenderWithWarning(frame);
+    public void Render(CompositionFrame frame) => RenderWithDiagnostics(frame);
 
-    internal string? RenderWithWarning(CompositionFrame frame)
+    internal PreviewRenderDiagnostics RenderWithDiagnostics(CompositionFrame frame)
     {
         _dispatcher.VerifyAccess();
         frame.CancellationToken.ThrowIfCancellationRequested();
         if (IsGraphicsRendering)
-            return null;
+            return default;
 
         try
         {
@@ -342,16 +342,16 @@ public class Renderer : IRenderer
         }
     }
 
-    private string? RenderObjects(CompositionFrame frame)
+    private PreviewRenderDiagnostics RenderObjects(CompositionFrame frame)
     {
         var pendingEntries = new List<Entry>();
-        string? warning;
+        PreviewRenderDiagnostics diagnostics;
         try
         {
             PrepareEntries(frame, pendingEntries);
 
             _completeTarget.UpdateRoots(pendingEntries.Select(static entry => (RenderNode)entry.Node));
-            warning = _frameRenderer.RenderWithWarning(_immediateCanvas, null, frame.CancellationToken);
+            diagnostics = _frameRenderer.RenderWithDiagnostics(_immediateCanvas, null, frame.CancellationToken);
         }
         finally
         {
@@ -361,10 +361,10 @@ public class Renderer : IRenderer
         InvalidateEntryBounds(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
         _frameContainsScene3D = frame.ContainsScene3D;
-        if (warning is not null)
+        if (diagnostics.Warning is { } warning)
             s_logger.LogWarning("A render contribution was skipped. {Reason}", warning);
 
-        return warning;
+        return diagnostics;
     }
 
     private void PrepareEntries(CompositionFrame frame, List<Entry> destination)
