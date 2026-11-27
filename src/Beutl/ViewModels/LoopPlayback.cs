@@ -10,6 +10,7 @@ internal sealed class LoopPlayback
 {
     public static readonly MediaTime BufferDuration = MediaTime.FromSeconds(0.1);
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(10);
+    private static readonly MediaTime s_audioLookAhead = BufferDuration + BufferDuration;
 
     private readonly Rational _rate;
     private readonly int _sampleRate;
@@ -24,10 +25,19 @@ internal sealed class LoopPlayback
         _rate = rate;
         _sampleRate = sampleRate;
         _nextRange = nextRange;
-        _passes.Add(CreatePass(first, 0, 0, firstTime));
+        _passes.Add(CreatePass(first, 0, 0, 0, firstTime));
     }
 
     public event Action? PassAdded;
+
+    internal int RetainedPassCount
+    {
+        get
+        {
+            lock (_passes)
+                return _passes.Count;
+        }
+    }
 
     public int? EndPosition
     {
@@ -77,19 +87,24 @@ internal sealed class LoopPlayback
         return false;
     }
 
-    public void DiscardBefore(int position)
+    private void DiscardPlayedPasses(long sample)
     {
         lock (_passes)
         {
-            while (_passes.Count > 1 && _passes[0].EndPosition <= position)
-                _passes.RemoveAt(0);
+            // Keep the pass covering the oldest possible audio position and its predecessor.
+            int remove = 0;
+            while (remove + 1 < _passes.Count && _passes[remove + 1].EndSample <= sample)
+                remove++;
+            _passes.RemoveRange(0, remove);
         }
     }
 
-    public int GetPosition(MediaTime elapsed)
+    public int GetPosition(MediaTime elapsed) => GetPosition(elapsed, out _);
+
+    public int GetPosition(MediaTime elapsed, out Pass pass)
     {
         long sample = ToSample(elapsed);
-        Pass pass = FindBySample(sample);
+        pass = FindBySample(sample);
         if (sample >= pass.EndSample) return pass.EndPosition;
         long sourceSample = pass.SourceSample + Math.Max(0, sample - pass.Sample);
         MediaTime time = MediaTime.FromSamples(sourceSample, _sampleRate);
@@ -111,6 +126,9 @@ internal sealed class LoopPlayback
 
     public AudioBuffer ComposeAudio(MediaTime elapsed, int channels, Func<TimeRange, AudioBuffer?> compose)
     {
+        // The sinks queue at most two buffers ahead of playback. Trim by audio progress so a
+        // blocked renderer or UI cannot keep passes alive, and keep the whole buffer being filled.
+        DiscardPlayedPasses(ToSample(elapsed - s_audioLookAhead));
         long start = ToSample(elapsed);
         int count = (int)(ToSample(elapsed + BufferDuration) - start);
         var buffer = new AudioBuffer(_sampleRate, channels, count);
@@ -176,7 +194,7 @@ internal sealed class LoopPlayback
             }
 
             Pass previous = _passes[^1];
-            _passes.Add(CreatePass(range, previous.EndPosition, previous.EndSample));
+            _passes.Add(CreatePass(range, previous.EndPosition, previous.EndSample, previous.Position));
         }
 
         PassAdded?.Invoke();
@@ -196,13 +214,13 @@ internal sealed class LoopPlayback
         }
     }
 
-    private Pass CreatePass(PlaybackRange range, int position, long sample, MediaTime? firstTime = null)
+    private Pass CreatePass(PlaybackRange range, int position, long sample, int previousPosition, MediaTime? firstTime = null)
     {
         long last = FrameSample(range.EndFrame);
         long first = firstTime is { } time
             ? Math.Min(last - 1, time.ToSamples(_sampleRate, MidpointRounding.ToPositiveInfinity))
             : FrameSample(range.StartFrame);
-        return new Pass(range, position, sample, first, sample + last - first);
+        return new Pass(range, position, sample, first, sample + last - first, previousPosition);
     }
 
     private long FrameSample(int frame)
@@ -220,7 +238,8 @@ internal sealed class LoopPlayback
 
     private long ToSample(MediaTime time) => time.ToSamples(_sampleRate, MidpointRounding.AwayFromZero);
 
-    internal readonly record struct Pass(PlaybackRange Range, int Position, long Sample, long SourceSample, long EndSample)
+    internal readonly record struct Pass(
+        PlaybackRange Range, int Position, long Sample, long SourceSample, long EndSample, int PreviousPosition)
     {
         public int EndPosition => Position + Range.EndFrame - Range.StartFrame;
 

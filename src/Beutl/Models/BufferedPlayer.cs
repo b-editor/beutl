@@ -50,6 +50,7 @@ internal sealed class BufferedPlayer : IDisposable
     private readonly TaskCompletionSource? _firstFrameReady;
     private readonly IDisposable _disposable;
     private int? _requestedFrame;
+    private int _loopRenderFrom = int.MinValue;
     private RenderFailure? _renderFailure;
     private volatile bool _isDisposed;
     // The next frame to render and the end of the range; the render thread alone uses them.
@@ -160,7 +161,7 @@ internal sealed class BufferedPlayer : IDisposable
         int editVersion;
         lock (_queue)
         {
-            _frame = _restartFrame ?? _frame;
+            _frame = Math.Max(_restartFrame ?? _frame, Volatile.Read(ref _loopRenderFrom));
             _restartFrame = null;
             position = _frame;
             editVersion = _editVersion;
@@ -282,6 +283,7 @@ internal sealed class BufferedPlayer : IDisposable
         lock (_queue)
         {
             wake = _restartFrame.HasValue
+                || Volatile.Read(ref _loopRenderFrom) > _frame
                 || (reason == WaitingAtEnd && _loop?.TryGetPass(_frame, out _) == true)
                 || (reason == WaitingForRoom && !IsQueueFull(_editViewModel.Renderer.Value));
         }
@@ -542,6 +544,14 @@ internal sealed class BufferedPlayer : IDisposable
     public void Skipped(int requestedFrame)
     {
         _requestedFrame = requestedFrame;
+    }
+
+    public void SkipCompletedPasses(int position)
+    {
+        // A draw may already be in flight. Start the next one in the current pass even if
+        // an edit invalidated queued frames and would otherwise rewind the producer.
+        Volatile.Write(ref _loopRenderFrom, position);
+        Wake();
     }
 
     public void Dispose()

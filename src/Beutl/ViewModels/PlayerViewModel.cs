@@ -516,6 +516,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         return Volatile.Read(ref _activeTicker)?.CurrentTime ?? _editorClock.CurrentTime.Value;
     }
 
+    internal (int AudioPassPosition, int RetainedPassCount)? GetLoopPlaybackState()
+        => Volatile.Read(ref _activeTicker)?.GetLoopPlaybackState();
+
     public void Play()
     {
         if (_isDisposing || _isPausing || IsPlaying.Value) return;
@@ -612,6 +615,18 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     private async Task<bool> PlayInternal(int generation, CancellationToken playbackToken, bool restarting)
     {
+        // Pause closes admission before its UI drain runs. A queued playback worker must be
+        // able to stop at that point without waiting for the UI to capture the selection.
+        bool canStart = false;
+        if (!TryApplyLogged(generation, () =>
+        {
+            canStart = !IsPlaybackStartupCanceled(playbackToken);
+            if (!canStart) IsPlaying.Value = false;
+        }) || !canStart)
+        {
+            return false;
+        }
+
         Scene scene = null!;
         FrameCacheManager frameCacheManager = null!;
         Rational rate = default;
@@ -624,8 +639,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // still owns it; no native calls or composition run inside this short ownership lock.
         if (!await TryApplyOnUIThreadAsync(generation, () =>
         {
-            if (playbackToken.IsCancellationRequested || _isPausing || _stopRequested || _isDisposing
-                || !_isEnabled.Value || Scene is not { } currentScene)
+            if (IsPlaybackStartupCanceled(playbackToken) || !_isEnabled.Value || Scene is not { } currentScene)
             {
                 IsPlaying.Value = false;
                 return;
@@ -772,6 +786,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
         return false;
     }
+
+    private bool IsPlaybackStartupCanceled(CancellationToken playbackToken)
+        => playbackToken.IsCancellationRequested || _isPausing || _stopRequested || _isDisposing;
 
     private void PresentPlaybackFrame(BufferedPlayer.Frame frame, MediaTime outputTime, Rational rate, int generation)
     {

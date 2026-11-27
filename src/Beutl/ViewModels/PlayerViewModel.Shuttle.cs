@@ -1,4 +1,5 @@
-﻿using Beutl.ProjectSystem;
+﻿using Beutl.Models;
+using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -119,105 +120,121 @@ public partial class PlayerViewModel
             IsPlaying.Value = true;
         });
 
-        _playbackTask = Task.Run(async () =>
+        _playbackTask = Task.Run(() => RunShuttlePlaybackAsync(scene, rate, generation));
+    }
+
+    private async Task RunShuttlePlaybackAsync(Scene scene, Rational rate, int generation)
+    {
+        TimeSpan tick = TimeSpan.FromSeconds(1d / rate.ToDouble());
+        MediaTime frameDuration = MediaTime.FromFrames(1, rate);
+        PlaybackRange? selectedPass = null;
+        bool firstTick = true;
+        MediaTime position = default;
+        MediaTime lastPublished = default;
+        DateTime lastTime = DateTime.UtcNow;
+
+        try
         {
-            try
+            if (!_sessionGuard.TryApply(generation, () => scene.Edited -= OnSceneEdited))
+                return;
+
+            // Keep the render subscription and apply each tick's clock update on the UI thread.
+            while (_isShuttling && IsPlaying.Value && _sessionGuard.Owns(generation))
             {
-                TimeSpan tick = TimeSpan.FromSeconds(1d / rate.ToDouble());
-                MediaTime frame = MediaTime.FromFrames(1, rate);
+                bool advancing = false;
+                if (!await TryApplyOnUIThreadAsync(generation, () => advancing = Advance()) || !advancing)
+                    break;
 
-                if (!_sessionGuard.TryApply(generation, () => scene.Edited -= OnSceneEdited))
+                await Task.Delay(tick).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            // Only restore shared state while this shuttle still owns the session; a Pause()
+            // timeout that disowned it must not let this late finally stomp a newer session.
+            _sessionGuard.TryApply(generation, () =>
+            {
+                _isShuttling = false;
+                IsPlaying.Value = false;
+                PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
+                PlaybackSpeed.Value = 1.0f;
+                ReattachSceneEdited();
+            });
+        }
+
+        bool Advance()
+        {
+            if (_isPausing || !_isShuttling || !IsPlaying.Value || Scene == null)
+                return false;
+
+            var direction = PlaybackDirection.Value;
+            if (direction == ViewModels.PlaybackDirection.Stopped)
+                return false;
+
+            bool forward = direction == ViewModels.PlaybackDirection.Forward;
+            bool looping = IsLoopEnabled.Value;
+            if (!looping) selectedPass = null;
+            else if (firstTick) selectedPass = GetSelectedLoopRange(scene, rate);
+            bool firstStep = firstTick;
+            firstTick = false;
+
+            var range = GetBounds();
+            DateTime now = DateTime.UtcNow;
+            TimeSpan elapsed = now - lastTime;
+            lastTime = now;
+
+            MediaTime playhead = _editorClock.CurrentTime.Value;
+            MediaTime currentTime = !firstStep && playhead == lastPublished ? position : playhead;
+            MediaTime next = currentTime + MediaTime.FromSeconds(elapsed.TotalSeconds * PlaybackSpeed.Value * (forward ? 1 : -1));
+            bool insideRange = currentTime >= range.Start && currentTime < range.End;
+            if (!insideRange)
+            {
+                // Enter a selected range at the end the shuttle moves from, as normal playback enters at its start.
+                if (selectedPass.HasValue) next = forward ? range.Start : range.Last;
+                else if (currentTime >= range.End ? forward : !forward) return false;
+                else if (next < MediaTime.Zero)
                 {
-                    return;
-                }
-                // 既存の CurrentFrame 購読は維持して UpdateCurrentFrame 経由でレンダリングを行う
-
-                DateTime lastTime = DateTime.UtcNow;
-                while (_isShuttling
-                       && IsPlaying.Value
-                       && Scene != null
-                       && _sessionGuard.Owns(generation))
-                {
-                    var direction = PlaybackDirection.Value;
-                    if (direction == ViewModels.PlaybackDirection.Stopped)
-                        break;
-
-                    // シャトル再生中に Scene.Start / Duration が変更されても追従できるよう毎回取得
-                    MediaTime sceneStart = default, sceneEnd = default;
-                    if (!_sessionGuard.TryApply(generation, () =>
-                        {
-                            sceneStart = scene.Start.Value;
-                            sceneEnd = sceneStart + scene.Duration.Value;
-                        }))
-                        break;
-
-                    DateTime now = DateTime.UtcNow;
-                    TimeSpan elapsed = now - lastTime;
-                    lastTime = now;
-
-                    float speed = PlaybackSpeed.Value;
-                    int sign = direction == ViewModels.PlaybackDirection.Forward ? 1 : -1;
-                    MediaTime delta = MediaTime.FromSeconds(elapsed.TotalSeconds * speed * sign);
-                    MediaTime currentTime = _editorClock.CurrentTime.Value;
-                    MediaTime next = currentTime + delta;
-
-                    // 範囲外から再生開始した場合はその位置から自然に再生する。
-                    // シーン範囲内に入った時点で通常のループ・境界判定に切り替わる。
-                    bool insideRange = currentTime >= sceneStart && currentTime < sceneEnd;
-                    if (insideRange)
-                    {
-                        MediaTime minTime = sceneStart;
-                        MediaTime maxTime = sceneEnd - frame;
-                        if (IsLoopEnabled.Value)
-                        {
-                            if (next > sceneEnd) next = minTime;
-                            if (next < sceneStart) next = maxTime;
-                        }
-                        else
-                        {
-                            if (next >= sceneEnd) { next = maxTime; break; }
-                            if (next < sceneStart) { next = minTime; break; }
-                        }
-
-                        if (next < minTime) next = minTime;
-                        if (next > maxTime) next = maxTime;
-                    }
-                    else
-                    {
-                        // 範囲外: シーン範囲に向かう方向のみ進行を許可する。
-                        bool movingTowardRange = currentTime >= sceneEnd ? sign < 0 : sign > 0;
-                        if (!movingTowardRange) break;
-                        if (next < MediaTime.Zero) { next = MediaTime.Zero; break; }
-                    }
-
-                    MediaTime target = next;
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                    {
-                        _sessionGuard.TryApply(generation, () =>
-                        {
-                            if (Scene != null)
-                            {
-                                _editorClock.Seek(target);
-                            }
-                        });
-                    });
-
-                    await Task.Delay(tick).ConfigureAwait(false);
+                    if (currentTime <= MediaTime.Zero) return false;
+                    next = MediaTime.Zero;
                 }
             }
-            finally
+            else if (next >= range.End || next < range.Start)
             {
-                // Only restore shared state while this shuttle still owns the session; a Pause()
-                // timeout that disowned it must not let this late finally stomp a newer session.
-                _sessionGuard.TryApply(generation, () =>
+                if (forward ? currentTime < range.Last : currentTime > range.Start)
                 {
-                    _isShuttling = false;
-                    IsPlaying.Value = false;
-                    PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
-                    PlaybackSpeed.Value = 1.0f;
-                    ReattachSceneEdited();
-                });
+                    // Show the boundary frame if the elapsed step jumped over it; without loop, stop there next tick.
+                    next = forward ? range.Last : range.Start;
+                }
+                else if (!looping)
+                {
+                    return false;
+                }
+                else
+                {
+                    selectedPass = GetSelectedLoopRange(scene, rate);
+                    range = GetBounds();
+                    next = forward ? range.Start : range.Last;
+                }
             }
-        });
+
+            // At slow speeds the clock must keep advancing through the last frame, even while the playhead stays on it.
+            position = next;
+            lastPublished = insideRange && next > range.Last ? range.Last : next;
+            _editorClock.Seek(lastPublished);
+            return true;
+        }
+
+        (MediaTime Start, MediaTime End, MediaTime Last) GetBounds()
+        {
+            if (selectedPass is { } selection)
+            {
+                return (MediaTime.FromFrames(selection.StartFrame, rate), MediaTime.FromFrames(selection.EndFrame, rate),
+                    MediaTime.FromFrames(selection.EndFrame - 1, rate));
+            }
+
+            MediaTime start = scene.Start.Value;
+            MediaTime end = start + scene.Duration.Value;
+            return (start, end, end - frameDuration);
+        }
     }
 }

@@ -30,7 +30,6 @@ public partial class PlayerViewModel
         // The newest frame waiting for the UI thread, and whether a post that shows it is queued.
         private PendingFrame? _pendingFrame;
         private int _framePostQueued;
-        private int _boundaryPostPending;
         // Set on the UI thread once the run has ended; whatever the run posts after that changes nothing.
         private bool _retired;
 
@@ -86,12 +85,22 @@ public partial class PlayerViewModel
             _retired = true;
         }
 
-        private int ComputeExpectFrame()
+        public (int AudioPassPosition, int RetainedPassCount)? GetLoopPlaybackState()
+        {
+            if (_loop == null) return null;
+
+            ComputeExpectFrame(out LoopPlayback.Pass pass);
+            return (pass.Position, _loop.RetainedPassCount);
+        }
+
+        private int ComputeExpectFrame(out LoopPlayback.Pass pass)
         {
             MediaTime elapsed = ClockTime - _startTime;
             if (elapsed < MediaTime.Zero) elapsed = MediaTime.Zero;
-            return _loop?.GetPosition(elapsed)
-                ?? (int)elapsed.ToFrame(_rate, MidpointRounding.ToNegativeInfinity) + _startFrame;
+            if (_loop != null) return _loop.GetPosition(elapsed, out pass);
+
+            pass = default;
+            return (int)elapsed.ToFrame(_rate, MidpointRounding.ToNegativeInfinity) + _startFrame;
         }
 
         private bool StopForRenderFailure()
@@ -144,7 +153,7 @@ public partial class PlayerViewModel
                     return;
                 }
 
-                var expectFrame = ComputeExpectFrame();
+                int expectFrame = ComputeExpectFrame(out LoopPlayback.Pass audioPass);
                 bool reachedEnd = _loop == null
                     ? expectFrame >= _endFrame
                     : _loop.EndPosition is int end && expectFrame >= end && _nextExpectedFrame >= end;
@@ -176,7 +185,14 @@ public partial class PlayerViewModel
                     return;
                 }
 
-                if (expectFrame < _nextExpectedFrame || Volatile.Read(ref _boundaryPostPending) != 0)
+                if (_loop != null && _nextExpectedFrame < audioPass.Position)
+                {
+                    _nextExpectedFrame = audioPass.Position;
+                    _playerImpl.SkipCompletedPasses(audioPass.Position);
+                }
+
+                if (expectFrame < _nextExpectedFrame
+                    || Volatile.Read(ref _pendingFrame) is { Boundary: true } pending && pending.Frame.Position >= audioPass.Position)
                 {
                     return;
                 }
@@ -201,12 +217,18 @@ public partial class PlayerViewModel
                         _tcs.TrySetResult(true);
                         return;
                     }
+
+                    if (_loop != null && frame.Position < audioPass.PreviousPosition)
+                    {
+                        frame.Dispose();
+                        continue;
+                    }
                     Show(frame);
 
                     // タイマーが正確じゃないから、だんだんとフレームがずれてくる
                     // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
                     // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
-                    _nextExpectedFrame = frame.Position + 1;
+                    _nextExpectedFrame = Math.Max(_nextExpectedFrame, frame.Position + 1);
                     if (expectFrame <= frame.Position)
                     {
                         break;
@@ -235,8 +257,7 @@ public partial class PlayerViewModel
                     return;
                 }
 
-                _playerImpl.Skipped(ComputeExpectFrame() + 1);
-                _loop?.DiscardBefore(_nextExpectedFrame - 1);
+                _playerImpl.Skipped(ComputeExpectFrame(out _) + 1);
             }
             catch (Exception ex)
             {
@@ -257,11 +278,16 @@ public partial class PlayerViewModel
             MediaTime time = MediaTime.FromFrames(frame.Time, _rate);
             MediaTime outputTime = time;
             bool boundary = false;
-            if (_loop?.TryGetPass(frame.Position, out LoopPlayback.Pass pass) == true)
+            if (_loop != null)
             {
+                if (!_loop.TryGetPass(frame.Position, out LoopPlayback.Pass pass))
+                {
+                    frame.Dispose();
+                    return;
+                }
+
                 outputTime = _startTime + _loop.GetOutputTime(pass, frame.Time);
                 boundary = frame.Position == pass.Position || frame.Position == pass.EndPosition - 1;
-                if (boundary) Volatile.Write(ref _boundaryPostPending, 1);
             }
 
             Interlocked.Exchange(ref _pendingFrame, new PendingFrame(frame, outputTime, boundary))?.Frame.Dispose();
@@ -283,16 +309,21 @@ public partial class PlayerViewModel
                     return;
 
                 _owner._sessionGuard.TryApply(_generation, () =>
-                    _owner.PresentPlaybackFrame(frame, pending.OutputTime, _rate, _generation));
+                {
+                    if (_loop != null)
+                    {
+                        // An already rendered frame may cross one cut while it waits for the UI.
+                        ComputeExpectFrame(out LoopPlayback.Pass audioPass);
+                        if (frame.Position < audioPass.PreviousPosition) return;
+                    }
+
+                    _owner.PresentPlaybackFrame(frame, pending.OutputTime, _rate, _generation);
+                });
             }
             catch (Exception ex)
             {
                 // An exception that escapes a UI dispatcher job ends the process too.
                 Stop(ex);
-            }
-            finally
-            {
-                if (pending.Boundary) Volatile.Write(ref _boundaryPostPending, 0);
             }
         }
 

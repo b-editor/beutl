@@ -172,8 +172,8 @@ public sealed class SelectedRangePlaybackTests
             await HeadlessTestHelpers.WaitUntilAsync(() => shown.Count > 0, s_timeout, pump: false);
             ui.ChangeSelection(new FrameSelectionRange(Time(4), Time(8)));
             await HeadlessTestHelpers.WaitUntilAsync(() => HasWrap(shown, 7, 4), s_timeout, pump: false);
-            int lastSceneFrame = shown.FindLastIndex(frame => frame > 7);
-            Assert.That(lastSceneFrame, Is.GreaterThan(0), "the existing scene pass must finish before selected looping starts");
+            int lastSceneFrame = shown.LastIndexOf(14);
+            Assert.That(lastSceneFrame, Is.GreaterThan(0), "the scene must reach its last frame before selected looping starts");
             Assert.That(shown[lastSceneFrame + 1], Is.EqualTo(4));
             Assert.That(shown.Skip(lastSceneFrame + 1), Has.All.InRange(4, 7));
             Assert.That(playing, Is.EqualTo(new[] { true }));
@@ -182,6 +182,218 @@ public sealed class SelectedRangePlaybackTests
         {
             await editor.Player.Pause();
         }
+    }
+
+    [AvaloniaTest]
+    [TestCase(true, false, 9)]
+    [TestCase(false, false, 2)]
+    [TestCase(true, true, 6)]
+    [TestCase(false, true, 6)]
+    public async Task Shuttle_wraps_inside_the_selected_range(bool forward, bool fineGrain, int playhead)
+    {
+        const int first = 4;
+        const int last = 7;
+        EditViewModel editor = await OpenEditor(15);
+        bool capture = forward && fineGrain && HeadlessCapture.IsRequested;
+        if (capture)
+        {
+            await AddCard(editor, "First selected frame", "#264EA6", first, first + 1);
+            await AddCard(editor, "Last selected frame", "#995015", last, last + 1);
+        }
+
+        using var ui = new PlaybackWindow(editor, capture);
+        ui.Select(first, last + 1);
+        IEditorClock clock = editor.GetRequiredService<IEditorClock>();
+        clock.Seek(Time(playhead));
+        var shown = new List<int>();
+        using IDisposable subscription = clock.CurrentTime.Skip(1).Subscribe(time => shown.Add(Frame(time)));
+        editor.Player.IsLoopEnabled.Value = true;
+
+        try
+        {
+            StartShuttle(editor.Player, forward, fineGrain);
+            if (capture)
+            {
+                await ui.CaptureAsync(clock, last, "shuttle-range-end");
+                await ui.CaptureAsync(clock, first, "shuttle-range-start-after-wrap");
+            }
+
+            await HeadlessTestHelpers.WaitUntilAsync(() => HasWrap(shown, forward ? last : first, forward ? first : last),
+                s_timeout, pump: false);
+            Assert.Multiple(() =>
+            {
+                Assert.That(shown, Has.All.InRange(first, last));
+                if (playhead < first || playhead > last) Assert.That(shown[0], Is.EqualTo(forward ? first : last));
+                Assert.That(editor.Player.IsPlaying.Value, Is.True);
+            });
+        }
+        finally
+        {
+            await editor.Player.Pause();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task Shuttle_with_no_selection_wraps_the_whole_scene(bool forward)
+    {
+        EditViewModel editor = await OpenEditor(12);
+        editor.Scene.Start.Value = Time(2);
+        editor.Scene.Duration.Value = Time(8);
+        IEditorClock clock = editor.GetRequiredService<IEditorClock>();
+        clock.Seek(Time(6));
+        var shown = new List<int>();
+        using IDisposable subscription = clock.CurrentTime.Skip(1).Subscribe(time => shown.Add(Frame(time)));
+        editor.Player.IsLoopEnabled.Value = true;
+
+        try
+        {
+            StartShuttle(editor.Player, forward, fineGrain: true);
+            await HeadlessTestHelpers.WaitUntilAsync(() => HasWrap(shown, forward ? 9 : 2, forward ? 2 : 9),
+                s_timeout, pump: false);
+            Assert.That(shown, Has.All.InRange(2, 9));
+        }
+        finally
+        {
+            await editor.Player.Pause();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(true, false)]
+    [TestCase(false, false)]
+    [TestCase(true, true)]
+    public async Task Shuttle_uses_the_changed_selection_at_the_next_wrap(bool forward, bool clear)
+    {
+        EditViewModel editor = await OpenEditor(17);
+        using var ui = new PlaybackWindow(editor);
+        ui.Select(4, 8);
+        IEditorClock clock = editor.GetRequiredService<IEditorClock>();
+        clock.Seek(Time(6));
+        var shown = new List<int>();
+        using IDisposable subscription = clock.CurrentTime.Skip(1).Subscribe(time =>
+        {
+            shown.Add(Frame(time));
+            if (shown.Count == 1) ui.ChangeSelection(clear ? null : new FrameSelectionRange(Time(10), Time(14)));
+        });
+        editor.Player.IsLoopEnabled.Value = true;
+
+        try
+        {
+            StartShuttle(editor.Player, forward, fineGrain: true);
+            int firstOutside = -1;
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+                (firstOutside = shown.FindIndex(frame => frame is < 4 or > 7)) >= 0, s_timeout, pump: false);
+
+            Assert.That(firstOutside, Is.GreaterThan(0));
+            Assert.That(shown[firstOutside - 1], Is.EqualTo(forward ? 7 : 4));
+            Assert.That(shown[firstOutside], Is.EqualTo(clear ? 0 : forward ? 10 : 13));
+        }
+        finally
+        {
+            await editor.Player.Pause();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Shuttle_ignores_the_selection_when_looping_is_off()
+    {
+        EditViewModel editor = await OpenEditor(12);
+        using var ui = new PlaybackWindow(editor);
+        ui.Select(4, 8);
+        IEditorClock clock = editor.GetRequiredService<IEditorClock>();
+        clock.Seek(Time(6));
+        editor.Player.IsLoopEnabled.Value = false;
+
+        try
+        {
+            editor.Player.ShuttleForward();
+            await HeadlessTestHelpers.WaitUntilAsync(() => !editor.Player.IsPlaying.Value, s_timeout, pump: false);
+            Assert.That(Frame(clock.CurrentTime.Value), Is.GreaterThanOrEqualTo(8));
+        }
+        finally
+        {
+            await editor.Player.Pause();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Slow_frames_skip_completed_passes_and_keep_the_loop_history_bounded()
+    {
+        TestGpu.RequireAnyDevice();
+        const int frameRate = 40;
+        const int first = 4;
+        const int framesPerPass = 2;
+        var rate = new Rational(frameRate);
+        MediaTime firstTime = MediaTime.FromFrames(first, rate);
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("slow-selected-loop", 320, 240,
+            frameRate: frameRate, sampleRate: 48000, duration: MediaTime.FromSeconds(1));
+        PlayerViewModel player = editor.Player;
+        editor.FindToolTab<TimelineTabViewModel>()!.FrameSelection.Value =
+            new FrameSelectionRange(firstTime, MediaTime.FromFrames(first + framesPerPass, rate));
+        RenderThreadDrain.Drain(s_timeout);
+
+        using var stopDelay = new CancellationTokenSource();
+        CancellationToken delayToken = stopDelay.Token;
+        var frames = new List<(int VideoPosition, int LagInPasses)>();
+        using IDisposable clean = player.AcquireCleanPreview();
+        using IDisposable shown = player.CleanPreviewImage.Skip(1).Subscribe(_ =>
+        {
+            var frame = player.GetCleanPreviewFrame();
+            using (frame.Image)
+            {
+                if (frame.Image == null || player.GetLoopPlaybackState() is not { } state) return;
+
+                int videoPosition = (int)(frame.Time - firstTime).ToFrame(rate, MidpointRounding.AwayFromZero);
+                int lag = state.AudioPassPosition / framesPerPass - videoPosition / framesPerPass;
+                frames.Add((videoPosition, lag));
+            }
+        });
+
+        try
+        {
+            int maxRetained = 0;
+            // The producer queues one render job at a time. Interleave a delay at the same priority
+            // so every frame is slow, even when the renderer can reuse a previously drawn frame.
+            RenderThread.Dispatcher.Dispatch(DelayRendering, Threading.DispatchPriority.Medium, delayToken);
+            player.IsLoopEnabled.Value = true;
+            player.Play();
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            {
+                if (player.GetLoopPlaybackState() is not { } state) return false;
+
+                maxRetained = Math.Max(maxRetained, state.RetainedPassCount);
+                return state.AudioPassPosition >= 40 * framesPerPass && frames.Count >= 10
+                    && frames[^1].VideoPosition / framesPerPass >= state.AudioPassPosition / framesPerPass - 1;
+            }, s_timeout, message: "Audio and video did not advance through the short loop.", pump: false);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(frames.Select(frame => frame.LagInPasses), Has.All.InRange(-1, 1));
+                Assert.That(frames.Zip(frames.Skip(1)).Any(pair => pair.Second.VideoPosition > pair.First.VideoPosition + 1),
+                    Is.True, "The slow renderer must skip completed work to keep up.");
+                // Three 100 ms buffers of history at most, plus boundary overlap and the previous pass.
+                Assert.That(maxRetained, Is.LessThanOrEqualTo(8));
+            });
+        }
+        finally
+        {
+            stopDelay.Cancel();
+            await player.Pause();
+        }
+
+        void DelayRendering()
+        {
+            Thread.Sleep(40);
+            RenderThread.Dispatcher.Dispatch(DelayRendering, Threading.DispatchPriority.Medium, delayToken);
+        }
+    }
+
+    private static void StartShuttle(PlayerViewModel player, bool forward, bool fineGrain)
+    {
+        if (forward) player.ShuttleForward(fineGrain);
+        else player.ShuttleBackward(fineGrain);
     }
 
     private static MediaTime Time(int frame) => MediaTime.FromFrames(frame, new Rational(Rate));
