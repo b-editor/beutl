@@ -1,8 +1,17 @@
 ﻿using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
+
+internal enum SceneRemovalResult
+{
+    Removed,
+    SceneNotFound,
+    LastScene,
+    UnsavedChanges
+}
 
 /// <summary>
 /// Mutates a <see cref="Project"/>'s item list and writes the project to disk as one step, rolling
@@ -35,6 +44,27 @@ internal static class ProjectPersistence
     {
         ArgumentNullException.ThrowIfNull(project);
         RemoveItemAndPersist(project, item, () => StoreProject(project));
+    }
+
+    internal static SceneRemovalResult RemoveScene(Project project, Scene scene, bool hasUnsavedChanges, bool persist)
+    {
+        if (!project.Items.Contains(scene)) return SceneRemovalResult.SceneNotFound;
+        if (project.Items.OfType<Scene>().Take(2).Count() < 2) return SceneRemovalResult.LastScene;
+        if (hasUnsavedChanges) return SceneRemovalResult.UnsavedChanges;
+
+        if (persist)
+        {
+            // Write just the membership list. Other editors may still be editing their scene files.
+            RemoveItemAndPersist(project, scene, () => CoreSerializer.StoreToUri(
+                project, project.Uri ?? throw new InvalidOperationException("The project has no Uri to persist to."),
+                CoreSerializationMode.Write));
+        }
+        else
+        {
+            project.Items.Remove(scene);
+        }
+
+        return SceneRemovalResult.Removed;
     }
 
     /// <summary>A unit-test seam that replaces the persist step.</summary>

@@ -4,7 +4,9 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.Editor;
 using Beutl.Editor.Components.MissingMediaTab;
 using Beutl.Editor.Components.MissingMediaTab.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
+using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -16,7 +18,7 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.AgentHost;
 
 public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentEditFollower? follower = null)
-    : ILiveSessionBinding, ILiveMediaRepairBinding
+    : ILiveSessionBinding, ILiveElementTemplateBinding, ILiveMediaRepairBinding
 {
     private static readonly ILogger s_logger = Log.CreateLogger<EditViewModelLiveBinding>();
 
@@ -48,6 +50,30 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentE
                 return false;
             }
         }
+    }
+
+    IReadOnlyList<Element> ILiveElementTemplateBinding.GetSelectedElements()
+        => editViewModel.GetRequiredService<IEditorSelection>().GetTargetElements(editViewModel.Scene);
+
+    async ValueTask<ElementAddResult> ILiveElementTemplateBinding.AddTemplateAsync(
+        ElementDescription description, Func<Scene, Action?> captureValidation, CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (!IsAlive) throw new SessionUnavailableException();
+            var adder = (ElementAdderImpl)editViewModel.GetRequiredService<IElementAdder>();
+            return await adder.AddAsync([description], cancellationToken,
+                (commit, token) => ExecuteHistoryMutationAsync(
+                    _ => IsAlive,
+                    history =>
+                    {
+                        if (!IsAlive) throw new SessionUnavailableException();
+                        if (history.IsEditing) throw new UserEditingException();
+                        return commit();
+                    },
+                    token, LiveEditingSession.EditSessionWait),
+                captureValidation);
+        });
     }
 
     public void Invoke(Action action)

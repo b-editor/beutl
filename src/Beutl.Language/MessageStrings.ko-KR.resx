@@ -44,6 +44,12 @@
   <data name="ConfirmExcludeItem" xml:space="preserve">
     <value>이 항목을 프로젝트에서 제외하시겠습니까?</value>
   </data>
+  <data name="CannotRemoveLastScene" xml:space="preserve">
+    <value>프로젝트의 마지막 장면은 제외할 수 없습니다.</value>
+  </data>
+  <data name="SaveSceneBeforeRemoving" xml:space="preserve">
+    <value>제외하기 전에 이 장면의 변경 사항을 저장하세요.</value>
+  </data>
   <data name="FailedToOpenFileWithExtension" xml:space="preserve">
     <value>'{0}'(으)로 다음 파일을 열 수 없습니다.
 '{1}'</value>

@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -12,7 +13,7 @@ namespace Beutl.AgentHost;
 public sealed class EditorProjectSessionGateway(
     ProjectService projectService,
     EditorService editorService,
-    AgentEditFollower? follower = null) : IProjectSessionGateway
+    AgentEditFollower? follower = null) : IProjectSessionGateway, IProjectSceneRemovalGateway, ILiveProjectVersionControlGateway
 {
     public async ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
     {
@@ -123,6 +124,60 @@ public sealed class EditorProjectSessionGateway(
             LiveEditingSession session = BindScene(scene);
             return new ProjectSceneResult(scene, project, session);
         });
+    }
+
+    async ValueTask<SceneRemovalResult> IProjectSceneRemovalGateway.RemoveSceneAsync(
+        Guid sceneId, CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            Project project = projectService.CurrentProject.Value ?? throw new SessionUnavailableException();
+            Scene scene = ProjectOperations.FindSceneToRemove(project, sceneId);
+            return await editorService.RemoveSceneFromProjectAsync(projectService, project, scene, cancellationToken);
+        });
+    }
+
+    IProjectVersionControlService? ILiveProjectVersionControlGateway.GetVersionControl(IEditingSession activeSession)
+        => activeSession.ReadOnSession(() =>
+        {
+            RequireOpenProject(activeSession);
+            return editorService.ProjectVersionControlService.Value;
+        });
+
+    async ValueTask<CommitResult> ILiveProjectVersionControlGateway.CommitAsync(
+        IEditingSession activeSession, string message, CancellationToken cancellationToken)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (activeSession is not LiveEditingSession live || !live.IsAlive)
+                throw new SessionUnavailableException();
+
+            Project project = RequireOpenProject(activeSession);
+            if (editorService.ProjectVersionControlCoordinator is not VersionControlCoordinator coordinator)
+                throw new VersionControlLifecycleUnavailableException("Version control is not available.");
+
+            try
+            {
+                return await coordinator.CommitForAgentAsync(project, message, cancellationToken);
+            }
+            catch (VersionControlLifecycleUnavailableException ex)
+            {
+                throw new ReconcileException(new ToolError(ErrorCode.ValidationRejected, ex.Message, "project"));
+            }
+        });
+    }
+
+    private Project RequireOpenProject(IEditingSession activeSession)
+    {
+        if (projectService.CurrentTransition is not null
+            || projectService.CurrentProject.Value is not { } project
+            || activeSession.Root is not Scene scene
+            || !project.Items.Contains(scene))
+        {
+            throw new SessionUnavailableException();
+        }
+
+        return project;
     }
 
     private static void RequireSameProject(Project current, string requestedFullPath)

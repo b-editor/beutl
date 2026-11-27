@@ -80,13 +80,14 @@ internal sealed partial class GitCliVersionControlService
         RepositoryInfo repository,
         IGitCliRunner runner,
         string key,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool asBoolean = false)
     {
         try
         {
             GitCommandResult result = await runner.RunAsync(
                 repository,
-                ["config", "--get", key],
+                asBoolean ? ["config", "--type=bool", "--get", key] : ["config", "--get", key],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
             string value = result.Stdout.Trim();
