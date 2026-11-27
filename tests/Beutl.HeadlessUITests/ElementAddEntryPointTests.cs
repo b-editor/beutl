@@ -539,7 +539,9 @@ public class ElementAddEntryPointTests
         var window = new Window
         {
             Content = new EditView { DataContext = editor },
-            Width = 1200, Height = 750, RequestedThemeVariant = ThemeVariant.Dark
+            Width = 1200,
+            Height = 750,
+            RequestedThemeVariant = ThemeVariant.Dark
         };
 
         try
