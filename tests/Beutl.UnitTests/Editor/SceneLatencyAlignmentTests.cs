@@ -140,6 +140,45 @@ public class SceneLatencyAlignmentTests
 
     [TestCase(false)]
     [TestCase(true)]
+    public void PreviewAndExportKeepQueuedGroupSamplesWhenAFlowChildChanges(bool childStartsAtBoundary)
+    {
+        const int frames = Rate + Latency + 29;
+        int[] impulses = [Rate - Latency - 1, Rate - Latency, Rate - 1, Rate, frames - 1];
+        WithImpulseWave(frames, impulses, source =>
+        {
+            Scene scene = CreateScene(frames);
+            var groupElement = new Element { Length = { Value = scene.Duration.Value } };
+            groupElement.AddObject(new SoundGroup());
+            ((PortalObject)groupElement.Objects[0]).Count.Value = 2;
+            scene.Children.Add(groupElement);
+            AddSound(scene, source, 0, frames);
+            if (childStartsAtBoundary)
+                AddSound(scene, source, Rate, frames - Rate);
+            else
+                AddSound(scene, source, 0, Rate);
+            AddSound(scene, source, 0, frames, CreateLimiter());
+
+            using var preview = CreateComposer(scene);
+            MediaTime end = scene.Duration.Value;
+            using var first = preview.ComposePlayback(SampleRange(0, Rate), end)!;
+            using var last = preview.ComposePlayback(SampleRange(Rate, frames - Rate), end)!;
+            int before = childStartsAtBoundary ? 2 : 3;
+            int after = childStartsAtBoundary ? 3 : 2;
+            (int, int)[] peaks = [.. impulses.Select(position => (position, position < Rate ? before : after))];
+            AssertImpulses(first, 0, Rate, peaks);
+            AssertImpulses(last, Rate, frames - Rate, peaks);
+            AssertExportMatches(scene, first, last);
+
+            using var raw = CreateComposer(scene);
+            using var beforeSeek = raw.Compose(SampleRange(0, Rate))!;
+            const int seek = Rate + Latency;
+            using var afterSeek = raw.Compose(SampleRange(seek, frames - seek))!;
+            AssertImpulses(afterSeek, seek, frames - seek);
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public void PreviewAndExportKeepNestedFixedMixOnTheParentTimeline(bool trimEmbed)
     {
         const int clipEnd = Rate + 351;

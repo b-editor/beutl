@@ -451,16 +451,23 @@ public class PlayerViewModelQuiescenceTests
             using var first = (await firstRead.WaitAsync(TimeSpan.FromSeconds(5))).Audio;
             var queuedSnapshot = await queuedAuxiliary.WaitAsync(TimeSpan.FromSeconds(5));
             var activeSnapshot = await preview.ComposeAudioAsync(twoSeconds, second).WaitAsync(TimeSpan.FromSeconds(5));
+            int graphCount = sound.BlockStartsByGraph.Count;
             using var next = editor.Player.FillAudioData(second, editor.Scene, generation, CancellationToken.None).Audio;
 
             Assert.Multiple(() =>
             {
                 Assert.That(first, Is.Not.Null);
                 Assert.That(next, Is.Not.Null);
-                Assert.That(queuedSnapshot, Is.Null, "the queued read must re-check playback on the compose thread");
-                Assert.That(activeSnapshot, Is.Null, "new auxiliary reads must be declined while playback is active");
-                Assert.That(sound.BlockStarts, Is.EqualTo(new[] { MediaTime.Zero, second, twoSeconds }),
-                    "the second device read must keep the buffered input and continue the original graph");
+                foreach (var snapshot in new[] { queuedSnapshot, activeSnapshot })
+                {
+                    Assert.That(snapshot?.StartTime, Is.EqualTo(twoSeconds));
+                    Assert.That(snapshot?.SampleCount, Is.EqualTo(first?.SampleCount));
+                    Assert.That(snapshot?.Interleaved[0], Is.EqualTo(0.25f));
+                }
+                Assert.That(sound.BlockStartsByGraph.Count, Is.EqualTo(graphCount),
+                    "the second device read must reuse its graph");
+                Assert.That(sound.BlockStartsByGraph[0], Is.EqualTo(new[] { MediaTime.Zero, second, twoSeconds }),
+                    "the original graph must keep its buffered input and compose only the next block");
             });
         }
         finally
@@ -615,10 +622,14 @@ public sealed partial class PlaybackAudioReadProbe : Sound
 {
     public PlaybackAudioReadProbe() => ScanProperties<PlaybackAudioReadProbe>();
 
-    internal List<MediaTime> BlockStarts { get; } = [];
+    internal List<List<MediaTime>> BlockStartsByGraph { get; } = [];
 
     public override void Compose(AudioContext context, Sound.Resource resource)
-        => context.MarkAsOutput(context.AddNode(new ProbeNode(BlockStarts)));
+    {
+        var blockStarts = new List<MediaTime>();
+        BlockStartsByGraph.Add(blockStarts);
+        context.MarkAsOutput(context.AddNode(new ProbeNode(blockStarts)));
+    }
 
     public partial class Resource
     {
@@ -632,7 +643,10 @@ public sealed partial class PlaybackAudioReadProbe : Sound
         public override AudioBuffer Process(AudioProcessContext context)
         {
             blockStarts.Add(context.TimeRange.Start);
-            return new AudioBuffer(context.SampleRate, LastProcessedChannelCount, context.GetSampleCount());
+            var buffer = new AudioBuffer(context.SampleRate, LastProcessedChannelCount, context.GetSampleCount());
+            for (int ch = 0; ch < buffer.ChannelCount; ch++)
+                buffer.GetChannelData(ch).Fill(0.25f);
+            return buffer;
         }
     }
 }

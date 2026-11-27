@@ -34,13 +34,12 @@ public partial class PlayerViewModel
 
     async Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(MediaTime start, MediaTime duration, CancellationToken ct)
     {
-        // Admit idle composition alongside history mutations on the UI thread. Device playback
-        // owns the shared composer for the entire playback task, including loop restarts.
+        // Admit auxiliary composition alongside history mutations on the UI thread.
         return await await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
             lock (_renderRequestLock)
             {
-                if (_isDisposing || IsPlaybackActive)
+                if (_isDisposing || _isPausing)
                     return Task.FromResult<AudioFrameSnapshot?>(null);
 
                 SceneComposer? composer = EditViewModel.Composer.Value;
@@ -50,15 +49,26 @@ public partial class PlayerViewModel
                 return ComposeThread.Dispatcher.InvokeAsync(() =>
                 {
                     ct.ThrowIfCancellationRequested();
-                    // Playback may start or the UI may replace the composer while this read is queued.
-                    if (_isDisposing || IsPlaybackActive || composer.IsDisposed)
+                    if (_isDisposing || _isPausing || composer.IsDisposed)
                         return (AudioFrameSnapshot?)null;
+
+                    SceneCompositor compositor = composer.Compositor;
+                    Scene scene = compositor.Scene;
+                    // Choose the graph on the compose thread because playback may have started
+                    // while this request was queued. Its input cursor and decoders stay independent.
+                    using SceneComposer? auxiliary = IsPlaybackActive
+                        ? new SceneComposer(scene, compositor.Services, disableResourceShare: true,
+                            forceOriginalSource: compositor.ForceOriginalSource)
+                        {
+                            SampleRate = composer.SampleRate,
+                            ChannelLayout = composer.ChannelLayout,
+                        }
+                        : null;
 
                     AudioBuffer? audio;
                     try
                     {
-                        Scene scene = composer.Compositor.Scene;
-                        audio = composer.ComposePlayback(new TimeRange(start, duration), scene.Start.Value + scene.Duration.Value);
+                        audio = (auxiliary ?? composer).ComposePlayback(new TimeRange(start, duration), scene.Start.Value + scene.Duration.Value);
                     }
                     catch (ObjectDisposedException)
                     {

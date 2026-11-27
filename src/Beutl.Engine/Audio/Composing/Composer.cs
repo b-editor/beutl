@@ -534,14 +534,31 @@ public partial class Composer : IComposer
 
             context.BeginUpdate(entry.Nodes);
             sound.Compose(context, resource);
-            entry.OutputNodes = context.GetOutputNodes().ToArray();
+            AudioNode[] outputNodes = context.GetOutputNodes().ToArray();
+            entry.OutputNodes = outputNodes;
             context.EndUpdate();
 
             entry.Nodes.Clear();
             entry.Nodes.AddRange(context.Nodes);
 
             entry.FixedLatencies = null;
-            entry.ClearTail();
+            if (entry.IsDirty)
+            {
+                entry.ClearTail();
+            }
+            else
+            {
+                entry.TailBudgets.Clear();
+                // Reused outputs still own their queued audio when the flow inputs change.
+                if (entry.Delays is { } delays)
+                {
+                    foreach (AudioNode output in delays.Keys.ToArray())
+                    {
+                        if (!outputNodes.Contains(output, ReferenceEqualityComparer.Instance))
+                            delays.Remove(output);
+                    }
+                }
+            }
             entry.Version = resource.Version;
             entry.IsDirty = false;
         }

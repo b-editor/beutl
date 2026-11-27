@@ -75,7 +75,10 @@ public partial class Composer
             ? _alignmentLatency - latency
             : isPlayback ? _alignmentLatency : 0;
         if (delaySamples == 0)
+        {
+            entry.Delays?.Remove(node);
             return null;
+        }
 
         var delays = entry.Delays ??= new(ReferenceEqualityComparer.Instance);
         if (delays.TryGetValue(node, out AudioDelayLine? delay))
