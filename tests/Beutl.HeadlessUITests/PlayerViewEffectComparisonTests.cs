@@ -18,6 +18,8 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
+using Beutl.Graphics3D.Primitives;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Models;
@@ -169,6 +171,48 @@ public sealed class PlayerViewEffectComparisonTests
             cancel.Cancel();
             await placement.WaitAsync(TimeSpan.FromSeconds(10));
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Camera_tool_picks_a_3D_object_first_shown_during_comparison()
+    {
+        using var host = await ComparisonHost.OpenAsync(capture: HeadlessCapture.IsRequested);
+        var (window, editor, player, view, blur, _, _) = host;
+        var cube = new Cube3D();
+        var scene = new Scene3D
+        {
+            RenderWidth = { Value = 640 },
+            RenderHeight = { Value = 360 },
+            BackgroundColor = { Value = Colors.DarkCyan },
+            Objects = { cube },
+        };
+        await TestShell.AddElementAsync(editor, () => scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(4), layer: 1);
+
+        ChooseBlur(player, blur);
+        await WaitForComparison(view);
+        using var initial = player.EffectComparisonImage.Value!.Clone();
+        byte[] corner = CornerPixel(initial.Value).ToArray();
+        player.ApplyTimecodeSeek(MediaTime.FromSeconds(2));
+        await HeadlessTestHelpers.WaitUntilAsync(() =>
+        {
+            using var split = player.EffectComparisonImage.Value?.TryClone();
+            return split is not null && !CornerPixel(split.Value).SequenceEqual(corner);
+        }, message: "The comparison did not show the 3D scene.");
+
+        // Switch tools after the 3D frame has already been drawn. Click the cube just to the right of the divider.
+        player.SelectPreviewTool(PreviewTool.Camera3D);
+        Point inImage = view.ViewportTransform!.ToPreview(new Point(345, 180));
+        Point point = view.image.TranslatePoint(inImage, window)!.Value;
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+
+        Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id.Value));
+        Assert.That(view.effectComparisonOverlay.IsEffectivelyVisible, Is.True);
+        HeadlessTestHelpers.Render();
+        Capture(window, "05-camera-pick");
+
+        static Span<byte> CornerPixel(Bitmap bitmap)
+            => bitmap.GetRow(bitmap.Height / 10).Slice(bitmap.Width / 10 * bitmap.BytesPerPixel, bitmap.BytesPerPixel);
     }
 
     [AvaloniaTest]

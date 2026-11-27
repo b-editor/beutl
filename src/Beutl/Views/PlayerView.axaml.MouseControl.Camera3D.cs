@@ -141,7 +141,7 @@ public partial class PlayerView
             if (_scene3D == null || View.ViewportTransform is not { } viewport)
                 return;
 
-            var sceneResource = RenderThread.Dispatcher.Invoke(() => FindScene3DResource(), RenderThreadWait);
+            var sceneResource = RenderThread.Dispatcher.Invoke(PrepareScene3DForPick, RenderThreadWait);
             if (sceneResource?.Renderer == null)
                 return;
 
@@ -800,6 +800,30 @@ public partial class PlayerView
                 _scene3D = scene3D;
                 _camera = scene3D.Camera.Value;
             }
+        }
+
+        private Scene3D.Resource? PrepareScene3DForPick()
+        {
+            if (ViewModel.ComparisonTarget is not null)
+            {
+                // The comparison draws a detached scene. Draw the live frame on demand to populate
+                // the camera and object layout used to pick the objects this tool edits.
+                try
+                {
+                    var renderer = EditViewModel.Renderer.Value;
+                    var frame = renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value);
+                    if (!frame.ContainsScene3D)
+                        return null;
+                    renderer.Render(frame);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+                {
+                    s_logger.LogWarning(ex, "Could not prepare live 3D picking during effect comparison.");
+                    return null;
+                }
+            }
+
+            return FindScene3DResource();
         }
 
         private Scene3D.Resource? FindScene3DResource()
