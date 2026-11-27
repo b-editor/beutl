@@ -105,7 +105,7 @@ public partial class PackageInstaller
         TrackSyncOperation(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var lease = PackageFileLock.Open(PackageFileChangesLockPath);
+            using var lease = PackageFileLock.Acquire(PackageFileChangesLockPath, cancellationToken);
             if (IsRegistryIncompleteForClean(out PackageIdentity[] installed))
             {
                 throw new InvalidOperationException(

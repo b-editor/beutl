@@ -10,11 +10,12 @@ internal static class PackageFileLock
         => exception.HResult == (OperatingSystem.IsWindows() ? unchecked((int)0x80070020)
             : OperatingSystem.IsMacOS() || OperatingSystem.IsFreeBSD() ? 35 : 11);
 
-    public static FileStream Acquire(string path)
+    public static FileStream Acquire(string path, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try { return Open(path); }
             catch (IOException ex) when (IsContention(ex)) { Thread.Sleep(25); }
         }

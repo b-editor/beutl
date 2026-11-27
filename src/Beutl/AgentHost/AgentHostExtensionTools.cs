@@ -65,8 +65,11 @@ internal sealed class AgentHostExtensionTools(EditorService editor, ProjectServi
                 .Select(package => new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version)))
                 .ToLookup(package => package.Id, StringComparer.OrdinalIgnoreCase);
             var (installs, uninstalls) = app.GetResource<PackageChangesQueue>().GetProfileChanges();
-            var pending = installs.ToLookup(package => package.Id, StringComparer.OrdinalIgnoreCase);
-            var pendingRemoval = uninstalls.Select(package => package.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // The queue is shared with materials and templates, so keep only changes that belong to extensions.
+            PackageIdentity[] extensionInstalls = [.. installs.Where(IsExtension)];
+            PackageIdentity[] extensionUninstalls = [.. uninstalls.Where(IsExtension)];
+            var pending = extensionInstalls.ToLookup(package => package.Id, StringComparer.OrdinalIgnoreCase);
+            var pendingRemoval = extensionUninstalls.Select(package => package.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
             string[] names = [.. installed.Select(entry => entry.Key).Concat(loaded.Select(entry => entry.Key))
                 .Concat(pending.Select(entry => entry.Key)).Concat(pendingRemoval)
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)];
@@ -78,6 +81,41 @@ internal sealed class AgentHostExtensionTools(EditorService editor, ProjectServi
                 return new InstalledItem(name, installedVersion, loadedVersion, LatestVersion(pending[name]), pendingUninstall,
                     (installedVersion is not null && installedVersion != loadedVersion) || pending.Contains(name) || pendingUninstall);
             })]);
+
+            bool IsExtension(PackageIdentity package)
+            {
+                // An installed or loaded extension identifies every queued change for the same package.
+                if (installed.Contains(package.Id) || loaded.Contains(package.Id))
+                    return true;
+
+                try
+                {
+                    LocalPackage? local = PackageManager.ReadInstalledPackage(package);
+                    if (local is null)
+                    {
+                        string directory = Helper.ResolveInstalledDirectory(package);
+                        if (Directory.Exists(directory))
+                        {
+                            using var reader = new PackageFolderReader(directory);
+                            local = new LocalPackage(reader.NuspecReader);
+                        }
+                    }
+                    if (local is not null)
+                        return local.Tags.GetPackageKind() == PackageKind.Extension;
+
+                    // A failed install can leave the archive without extracting it.
+                    string archive = Helper.GetNupkgFilePath(package.Id, package.Version.ToString());
+                    if (!File.Exists(archive))
+                        return false;
+                    using FileStream stream = File.OpenRead(archive);
+                    return Helper.ReadLocalPackageFromNupkgFile(stream)?.Tags.GetPackageKind() == PackageKind.Extension;
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    s_logger.LogWarning(ex, "Could not determine the kind of pending package {PackageId}.", package.Id);
+                    return false;
+                }
+            }
         });
 
     [McpServerTool(Name = "install_extension", Destructive = false, Idempotent = true, OpenWorld = true)]
@@ -174,6 +212,8 @@ internal sealed class AgentHostExtensionTools(EditorService editor, ProjectServi
                     return null;
                 if (installedPackage.Tags.GetPackageKind() != PackageKind.Extension)
                     throw Invalid($"'{package.Id}' is not an extension package.", "packageId");
+                // A queued uninstall would remove this version at the next launch, so do not report it as settled.
+                RequireNoPendingChange(queue, package.Id);
                 return DescribeInstall(package, "already_installed", active.Length != 0, active.Length == 0);
             }
         }

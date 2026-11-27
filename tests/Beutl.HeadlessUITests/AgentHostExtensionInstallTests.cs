@@ -26,6 +26,7 @@ public sealed class AgentHostExtensionInstallTests
     private readonly List<string> _cleanup = [];
     private AppRootFileBackup _config = null!;
     private AppRootFileBackup _registry = null!;
+    private AppRootFileBackup _changes = null!;
     private string _directory = null!;
 
     [SetUp]
@@ -35,6 +36,8 @@ public sealed class AgentHostExtensionInstallTests
         _cleanup.Add(_directory);
         _config = new AppRootFileBackup("nuget.config");
         _registry = new AppRootFileBackup("installedPackages.json");
+        _changes = new AppRootFileBackup("packageChanges.json");
+        File.Delete(_changes.Path);
         Directory.CreateDirectory(Helper.LocalSourcePath);
         File.WriteAllText(_config.Path,
             """<configuration><packageSources><clear /><add key="Beutl Local Packages" value="packageSource" /></packageSources></configuration>""");
@@ -44,6 +47,7 @@ public sealed class AgentHostExtensionInstallTests
     public void TearDown()
     {
         TestPackages.Delete(_cleanup);
+        _changes.Dispose();
         _registry.Dispose();
         _config.Dispose();
     }
@@ -118,6 +122,9 @@ public sealed class AgentHostExtensionInstallTests
                 ["path"] = otherArchive
             }), "extension_archive_conflict");
         }
+
+        app.GetResource<PackageChangesQueue>().UninstallQueue(package);
+        AssertError(await client.CallToolAsync("install_extension", arguments), "extension_change_pending");
         await UnloadAsync(app, package);
     }
 
@@ -259,6 +266,75 @@ public sealed class AgentHostExtensionInstallTests
         Assert.That(secondInFirst.RestartRequired, Is.True);
     }
 
+    [AvaloniaTest]
+    public async Task Pending_data_package_is_not_listed_as_an_extension()
+    {
+        await TestReset.ResetShellAsync();
+        PackageIdentity data = NewPackage();
+        PackageIdentity extension = NewPackage();
+        TestPackages.CreateExtracted(data, data: true);
+        TestPackages.CreateExtracted(extension, data: false, loadable: true);
+        using var store = new PackageStore(data, []);
+        await using var app = CreateApplication(store, out EditorService editor);
+        PackageChangesQueue queue = app.GetResource<PackageChangesQueue>();
+        queue.InstallQueue(data);
+        queue.InstallQueue(extension);
+
+        var tools = new AgentHostExtensionTools(editor, TestShell.Project);
+        var response = await tools.ListInstalledExtensions();
+
+        string[] ids = [.. response.Value!.Extensions.Select(item => item.PackageId)];
+        Assert.That(ids, Does.Contain(extension.Id));
+        Assert.That(ids, Does.Not.Contain(data.Id));
+        Assert.That(response.Value.Extensions.Single(item => item.PackageId == extension.Id).PendingInstallVersion,
+            Is.EqualTo(extension.Version.ToString()));
+    }
+
+    [AvaloniaTest]
+    public async Task Cleanup_waits_for_an_active_package_file_change()
+    {
+        await TestReset.ResetShellAsync();
+        PackageIdentity anchor = NewPackage();
+        TestPackages.CreateExtracted(anchor, data: false);
+        new InstalledPackageRepository().UpgradePackagesAndDeferNotifications(anchor)();
+        using var store = new PackageStore(anchor, []);
+        await using var app = CreateApplication(store, out _);
+        var installer = app.GetResource<PackageInstaller>();
+        PackageCleanContext context = installer.PrepareForClean();
+        string lockPath = Path.Combine(Helper.AppRoot, ".package-file-changes.lock");
+
+        Task clean;
+        using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            clean = Task.Run(() => installer.Clean(context, new Progress<double>()));
+            await Task.Delay(200);
+            Assert.That(clean.IsCompleted, Is.False);
+        }
+
+        await clean.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    [AvaloniaTest]
+    public async Task Insecure_redirect_of_a_url_archive_is_rejected()
+    {
+        await TestReset.ResetShellAsync();
+        PackageIdentity package = NewPackage();
+        using var store = new PackageStore(package, TestPackages.CreateExtensionNupkg(package))
+        {
+            RedirectToInsecureUrl = true
+        };
+        await using var app = CreateApplication(store, out EditorService editor);
+        await using var host = CreateHost(editor, _directory, "extension-install-token");
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+
+        AssertError(await client.CallToolAsync("install_extension",
+            new Dictionary<string, object?> { ["url"] = DownloadUrl }), "extension_install_failed");
+        Assert.That(new InstalledPackageRepository().ExistsPackage(package), Is.False);
+        Assert.That(Directory.Exists(Helper.PackagePathResolver.GetInstallPath(package)), Is.False);
+        Assert.That(store.Downloads, Is.EqualTo(1));
+    }
+
     private static JsonObject FindExtension(JsonObject response, string packageId)
         => response["extensions"]!.AsArray().OfType<JsonObject>().Single(item => item["packageId"]!.GetValue<string>() == packageId);
 
@@ -318,6 +394,7 @@ public sealed class AgentHostExtensionInstallTests
         public Func<CancellationToken, Task>? BeforeDownload { get; init; }
         public bool CorrectHash { get; init; } = true;
         public bool PurchaseRequired { get; init; }
+        public bool RedirectToInsecureUrl { get; init; }
         public int Downloads { get; private set; }
         public string? SearchType { get; private set; }
 
@@ -331,7 +408,10 @@ public sealed class AgentHostExtensionInstallTests
             {
                 Downloads++;
                 if (BeforeDownload is not null) await BeforeDownload(cancellationToken);
-                content = new ByteArrayContent(archive);
+                var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(archive) };
+                if (RedirectToInsecureUrl)
+                    response.RequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://packages.example.test/test.nupkg");
+                return response;
             }
             else if (path == "/api/v3/discover/search")
             {

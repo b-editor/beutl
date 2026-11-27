@@ -579,6 +579,15 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
         using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
         {
+            // A redirect must not downgrade an HTTPS package download to plain HTTP.
+            if (downloadUri.Scheme == Uri.UriSchemeHttps
+                && response.RequestMessage?.RequestUri is { } finalUri
+                && finalUri.Scheme != Uri.UriSchemeHttps)
+            {
+                throw new HttpRequestException(
+                    $"The package download was redirected from HTTPS to '{finalUri.Scheme}'.");
+            }
+
             response.EnsureSuccessStatusCode();
             long? contentLength = response.Content.Headers.ContentLength;
 
