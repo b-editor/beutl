@@ -76,6 +76,7 @@ public sealed class AgentTabViewTests
             HeadlessTestHelpers.Render(4);
             var emptyState = view.FindControl<Beutl.Controls.EmptyState>("EmptyState")!;
             Assert.That(emptyState.IsEffectivelyVisible, Is.True);
+            Assert.That(((FluentIcons.Avalonia.Fluent.FluentIcon)emptyState.Icon!).Icon, Is.EqualTo(FluentIcons.Common.Icon.Bot));
             Assert.That(emptyState.Title, Is.EqualTo(AgentStrings.EmptyTitle));
             Assert.That(emptyState.Description, Is.EqualTo(viewModel.ProviderStatusLabel));
             var recent = view.FindControl<ItemsControl>("RecentThreads")!;

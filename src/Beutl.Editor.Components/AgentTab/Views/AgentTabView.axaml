@@ -36,7 +36,7 @@
                                              Title="{x:Static lang:AgentStrings.EmptyTitle}"
                                              Description="{Binding ProviderStatusLabel}">
                             <controls:EmptyState.Icon>
-                                <icons:FluentIcon Icon="Sparkle" />
+                                <icons:FluentIcon Icon="Bot" />
                             </controls:EmptyState.Icon>
                         </controls:EmptyState>
                         <ItemsControl x:Name="StarterPrompts" ItemsSource="{Binding StarterPrompts}"
