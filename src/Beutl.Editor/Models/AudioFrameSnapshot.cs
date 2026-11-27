@@ -9,5 +9,8 @@ public sealed record class AudioFrameSnapshot(
     // Distinguishes repeated timestamps after a seek or loop in remote previews.
     internal long PlaybackId { get; init; }
 
+    // Loop audio keeps its scene time for the editor and its continuous output time for remote preview.
+    internal MediaTime? OutputTime { get; init; }
+
     public int SampleCount => ChannelCount == 0 ? 0 : Interleaved.Length / ChannelCount;
 }

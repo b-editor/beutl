@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TimelineTab.Models;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -114,6 +115,7 @@ public sealed partial class TimelineTabView
         {
             if (_mouseFlag == MouseFlags.RangeSelectionPressed)
             {
+                CommitFrameSelection(ViewModel, overlay.SelectionRange.X, pointerPt.Position.X);
                 overlay.SelectionRange = default;
             }
             else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } releasedMarker)
@@ -183,7 +185,7 @@ public sealed partial class TimelineTabView
         Rect rect = overlay.SelectionRange.Normalize().Intersect(bounds).Intersect(viewport);
         if (rect == default)
         {
-            viewModel.ClearSelected();
+            viewModel.ClearSelectedElements();
             return;
         }
 
@@ -196,6 +198,20 @@ public sealed partial class TimelineTabView
         int endLayer = viewModel.ToLayerNumber(rect.Bottom);
 
         viewModel.SelectRange(timeRange, startLayer, endLayer);
+    }
+
+    private static void CommitFrameSelection(TimelineTabViewModel viewModel, double anchor, double end)
+    {
+        float scale = viewModel.Options.Value.Scale;
+        Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+        MediaTime first = Math.Min(anchor, end).PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        MediaTime last = Math.Max(anchor, end).PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        MediaTime sceneStart = viewModel.Scene.Start.Value.RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        MediaTime sceneEnd = (viewModel.Scene.Start.Value + viewModel.Scene.Duration.Value)
+            .RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        if (first < sceneStart) first = sceneStart;
+        if (last > sceneEnd) last = sceneEnd;
+        viewModel.FrameSelection.Value = first < last ? new FrameSelectionRange(first, last) : null;
     }
 
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -229,7 +245,7 @@ public sealed partial class TimelineTabView
             else if (command || (!seeks && !IsOnClip(e)))
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;
-                ViewModel.ClearSelected();
+                viewModel.ClearSelectedElements();
 
                 overlay.SelectionRange = new(pointerPt.Position, default(Size));
             }

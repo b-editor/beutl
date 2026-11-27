@@ -143,6 +143,7 @@ public sealed partial class TimelineTabView : UserControl
     private void OnDataContextDetached(TimelineTabViewModel obj)
     {
         ClearDragReadout();
+        Scale.SetFrameSelection(null);
         ViewModel = null;
         ClearElementViewport();
         _recycledElementViews.Clear();
@@ -155,6 +156,7 @@ public sealed partial class TimelineTabView : UserControl
     private void OnDataContextAttached(TimelineTabViewModel vm)
     {
         ViewModel = vm;
+        vm.FrameSelection.Subscribe(Scale.SetFrameSelection).DisposeWith(_disposables);
         ContentScroll.GetObservable(ScrollViewer.ViewportProperty)
             .Subscribe(viewport => vm.ViewportWidth.Value = viewport.Width)
             .DisposeWith(_disposables);

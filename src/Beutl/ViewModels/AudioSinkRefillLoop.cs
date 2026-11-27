@@ -24,7 +24,7 @@ internal sealed class AudioSinkRefillLoop
     // The rate used for the clock until the first composed buffer reports its own.
     public required int SampleRate { get; init; }
 
-    // Composes one second of audio starting at the given time, and reports where the scene ends.
+    // Composes one buffer of audio starting at the given time, and reports where playback ends.
     public required Func<MediaTime, (AudioBuffer? Audio, MediaTime SceneEnd)> Compose { get; init; }
 
     // Called with every composed buffer and its start time after it is queued.
@@ -34,6 +34,10 @@ internal sealed class AudioSinkRefillLoop
 
     // Called when the sink has audio but did not advance within the startup deadline.
     public Action? OnStartupStalled { get; init; }
+
+    public MediaTime BufferDuration { get; init; } = s_bufferDuration;
+
+    public TimeSpan RefillInterval { get; init; } = PollInterval;
 
     public Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = Task.Delay;
 
@@ -46,7 +50,7 @@ internal sealed class AudioSinkRefillLoop
         bool audioClockValid = false;
         long lastPlayedSamples = -1;
         int stalledPolls = 0;
-        int maxStalledPolls = (int)Math.Ceiling(StallTimeout / PollInterval);
+        int maxStalledPolls = (int)Math.Ceiling(StallTimeout / RefillInterval);
 
         // Counts polls in which the sink played nothing and reports when it has stalled for too long.
         bool HasStalled()
@@ -60,11 +64,10 @@ internal sealed class AudioSinkRefillLoop
         void AnchorClock()
         {
             if (!hasAudio || !audioClockValid) return;
-            double seconds = (double)Sink.PlayedSamples / sampleRate;
-            Clock.Anchor(StartTime + MediaTime.FromSeconds(seconds));
+            Clock.Anchor(StartTime + MediaTime.FromSamples(Sink.PlayedSamples, sampleRate));
         }
 
-        // Composes the next second and queues it, in a new buffer or in the oldest processed one.
+        // Composes the next buffer and queues it, in a new buffer or in the oldest processed one.
         void FillAndQueue(bool reuseProcessedBuffer)
         {
             token.ThrowIfCancellationRequested();
@@ -73,7 +76,7 @@ internal sealed class AudioSinkRefillLoop
             sceneEndTime = bufferData.SceneEnd;
             using AudioBuffer? audio = bufferData.Audio;
             token.ThrowIfCancellationRequested();
-            cur += s_bufferDuration;
+            cur += BufferDuration;
             if (audio != null && !hasAudio)
             {
                 sampleRate = audio.SampleRate;
@@ -129,7 +132,7 @@ internal sealed class AudioSinkRefillLoop
 
                 AnchorClock();
 
-                await Delay(PollInterval, token).ConfigureAwait(false);
+                await Delay(RefillInterval, token).ConfigureAwait(false);
                 if (cur >= sceneEndTime)
                     break;
 
@@ -142,7 +145,7 @@ internal sealed class AudioSinkRefillLoop
             {
                 Sink.ReleaseProcessedBuffers();
                 AnchorClock();
-                await Delay(PollInterval, token).ConfigureAwait(false);
+                await Delay(RefillInterval, token).ConfigureAwait(false);
                 if (HasStalled())
                     return;
             }

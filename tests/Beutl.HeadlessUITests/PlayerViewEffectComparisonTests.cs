@@ -12,6 +12,8 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
+using Beutl.Editor.Components.TimelineTab.Models;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -366,6 +368,88 @@ public sealed class PlayerViewEffectComparisonTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Selected_range_wrap_keeps_the_comparison_pair_on_the_displayed_frame()
+    {
+        const int first = 4;
+        const int last = 9;
+        var rate = new Rational(10);
+        using var host = await ComparisonHost.OpenAsync(frameRate: 10);
+        var (window, editor, player, view, blur, _, _) = host;
+        AddFrameMarker(first, Colors.Red);
+        AddFrameMarker(last, Colors.Blue);
+        ChooseBlur(player, blur);
+        await WaitForComparison(view);
+
+        var timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        timeline.FrameSelection.Value = new FrameSelectionRange(Time(first), Time(last + 1));
+        var clock = editor.GetRequiredService<IEditorClock>();
+        clock.Seek(MediaTime.Zero);
+        player.IsLoopEnabled.Value = true;
+
+        var shown = new List<int>();
+        var ends = new List<(int Frame, bool HasSplit, Color Left, Color Right)>();
+        using IDisposable subscription = clock.CurrentTime.Subscribe(time =>
+        {
+            if (!player.IsPlaying.Value) return;
+            int frame = (int)time.ToFrame(rate, MidpointRounding.AwayFromZero);
+            shown.Add(frame);
+            if (frame is not (first or last)) return;
+
+            using var split = player.EffectComparisonImage.Value?.TryClone();
+            ends.Add((frame, ComparisonMatchesNormal(player, expected: false),
+                split is null ? default : Sample(split.Value, 0.25, 1.0 / 24),
+                split is null ? default : Sample(split.Value, 0.75, 1.0 / 24)));
+        });
+
+        try
+        {
+            player.Play();
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => shown.Zip(shown.Skip(1)).Any(pair => pair is (last, first)),
+                TimeSpan.FromSeconds(20), message: "Comparison playback did not wrap the selected range.", pump: false);
+
+            Assert.That(shown[0], Is.EqualTo(first));
+            Assert.That(shown, Has.All.InRange(first, last));
+            foreach (var (frame, hasSplit, left, right) in ends)
+            {
+                Color expected = frame == first ? Colors.Red : Colors.Blue;
+                Assert.Multiple(() =>
+                {
+                    Assert.That(hasSplit, Is.True, $"Frame {frame} has a visible before/after split.");
+                    Assert.That(left, Is.EqualTo(expected), $"Bypassed side of frame {frame}.");
+                    Assert.That(right, Is.EqualTo(expected), $"Normal side of frame {frame}.");
+                });
+            }
+        }
+        finally
+        {
+            await player.Pause();
+        }
+
+        if (HeadlessCapture.IsRequested)
+        {
+            HeadlessTestHelpers.Render();
+            Capture(window, "06-selected-range-comparison");
+        }
+
+        MediaTime Time(int frame) => MediaTime.FromFrames(frame, rate);
+
+        void AddFrameMarker(int frame, Color color)
+        {
+            var element = new Element { Start = { Value = Time(frame) }, Length = { Value = Time(1) }, ZIndex = { Value = 1 } };
+            element.AddObject(new RectShape
+            {
+                Width = { Value = 640 },
+                Height = { Value = 32 },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                Fill = { Value = new SolidColorBrush(color) },
+            });
+            editor.Scene.Children.Add(element);
+        }
+    }
+
     private static readonly Color[] s_editColors = [Colors.Red, Colors.Lime, Colors.Blue, Colors.Yellow, Colors.Magenta];
 
     private static (SolidColorBrush Fill, ComparisonRenderProbe Probe) AddComparisonProbe(EditViewModel editor)
@@ -490,11 +574,11 @@ public sealed class PlayerViewEffectComparisonTests
         FilterEffectGroup Nested,
         HueRotate Hue) : IDisposable
     {
-        public static async Task<ComparisonHost> OpenAsync(bool capture = false)
+        public static async Task<ComparisonHost> OpenAsync(bool capture = false, int frameRate = 30)
         {
             TestGpu.RequireAnyDevice();
             (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(
-                "effect-comparison", 640, 360, duration: MediaTime.FromSeconds(20));
+                "effect-comparison", 640, 360, frameRate: frameRate, duration: MediaTime.FromSeconds(20));
             var config = TestShell.Configuration.EditorConfig;
             config.UseHdrPreview.Value = false;
             config.IsOnionSkinEnabled.Value = false;

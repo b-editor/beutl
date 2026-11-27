@@ -17,6 +17,8 @@ internal sealed class BufferedPlayer : IDisposable
         Ref<Bitmap> Bitmap, int Time, Ref<Bitmap>? CleanBitmap = null, PreviewRenderDiagnostics Diagnostics = default,
         PlayerViewModel.EffectComparisonFrame? Comparison = null) : IDisposable
     {
+        public int Position { get; init; } = Time;
+
         public void Dispose()
         {
             Bitmap.Dispose();
@@ -41,11 +43,14 @@ internal sealed class BufferedPlayer : IDisposable
     private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
     private readonly CancellationToken _playbackToken;
     private readonly Rational _rate;
+    private readonly LoopPlayback? _loop;
     // The consumer waits at most one frame for the producer, so a stalled render cannot hold the timer thread.
     private readonly TimeSpan _renderWait;
     private readonly BufferedPlayerWaitGate _waitRenderGate;
+    private readonly TaskCompletionSource? _firstFrameReady;
     private readonly IDisposable _disposable;
     private int? _requestedFrame;
+    private int _loopRenderFrom = int.MinValue;
     private RenderFailure? _renderFailure;
     private volatile bool _isDisposed;
     // The next frame to render and the end of the range; the render thread alone uses them.
@@ -62,6 +67,8 @@ internal sealed class BufferedPlayer : IDisposable
     private volatile bool _producerStopped;
 
     public bool ProducerStopped => _producerStopped;
+
+    public Task FirstFrameReady => _firstFrameReady?.Task ?? Task.CompletedTask;
 
     // The memory the queued frames may take; tests lower it to check the bound with small frames.
     internal long ReadAheadBytes { get; init; } = ReadAheadBudget.Bytes;
@@ -84,11 +91,13 @@ internal sealed class BufferedPlayer : IDisposable
     public BufferedPlayer(
         EditViewModel editViewModel,
         IReactiveProperty<bool> isPlaying, Rational rate,
-        CancellationToken playbackToken)
+        CancellationToken playbackToken, LoopPlayback? loop = null)
     {
         _editViewModel = editViewModel;
         _isPlaying = isPlaying;
         _rate = rate;
+        _loop = loop;
+        if (loop != null) _firstFrameReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _renderWait = TimeSpan.FromSeconds(1d / rate.ToDouble());
         _playbackToken = playbackToken;
         _waitRenderGate = new(() => _isDisposed || _producerStopped || _playbackToken.IsCancellationRequested || !_isPlaying.Value);
@@ -102,6 +111,7 @@ internal sealed class BufferedPlayer : IDisposable
         _scene.Edited += OnSceneEdited;
         _editViewModel.Player.CleanPreviewChanged += OnPreviewFrameRequirementsChanged;
         _editViewModel.Player.EffectComparisonTargetChanged += OnPreviewFrameRequirementsChanged;
+        if (_loop != null) _loop.PassAdded += OnPassAdded;
     }
 
     // The caller computes the range once, from the playhead it starts the ticker and the audio from.
@@ -131,7 +141,7 @@ internal sealed class BufferedPlayer : IDisposable
         {
             Volatile.Write(ref _renderFailure, null);
             _producerStopped = false;
-            _frame = startFrame;
+            _frame = _loop == null ? startFrame : 0;
             _endFrame = endFrame;
             if (IsCanceled)
             {
@@ -147,16 +157,17 @@ internal sealed class BufferedPlayer : IDisposable
     // One frame per job, queued behind the jobs queued meanwhile, so a UI query waits for one frame at most.
     private void RenderNextFrame()
     {
-        int frame;
+        int position;
         int editVersion;
         lock (_queue)
         {
-            _frame = _restartFrame ?? _frame;
+            _frame = Math.Max(_restartFrame ?? _frame, Volatile.Read(ref _loopRenderFrom));
             _restartFrame = null;
-            frame = _frame;
+            position = _frame;
             editVersion = _editVersion;
         }
 
+        int frame = position;
         SceneRenderer? activeRenderer = null;
         FrameCacheManager? activeCacheManager = null;
         bool stop = true;
@@ -178,14 +189,17 @@ internal sealed class BufferedPlayer : IDisposable
                 return;
             }
 
-            // Playback ends by the clock; until then an edit may drop frames to draw again.
-            if (frame >= _endFrame)
+            // A looping producer waits here until the audio queue plans the next pass.
+            LoopPlayback.Pass pass = default;
+            if (_loop != null ? !_loop.TryGetPass(position, out pass) : position >= _endFrame)
             {
                 _logger.LogInformation("Rendering completed.");
                 stop = false;
                 Park(WaitingAtEnd);
                 return;
             }
+
+            if (_loop != null) frame = pass.GetFrame(position);
 
             // A rendered frame is queued as a full-size snapshot (one from the frame cache is smaller), so
             // the lead is bounded by memory rather than by a fixed frame count.
@@ -198,7 +212,7 @@ internal sealed class BufferedPlayer : IDisposable
 
             MediaTime time = MediaTime.FromFrames(frame, _rate);
 
-            EnqueueResult result = TryEnqueueFrame(activeRenderer, activeCacheManager, frame, time, editVersion);
+            EnqueueResult result = TryEnqueueFrame(activeRenderer, activeCacheManager, frame, position, time, editVersion);
             if (result == EnqueueResult.Canceled)
                 return;
 
@@ -210,20 +224,27 @@ internal sealed class BufferedPlayer : IDisposable
             }
 
             _waitRenderGate.Cancel();
+            if (position == 0) _firstFrameReady?.TrySetResult();
             if (!ShouldStopProducing)
+            {
+                if (_loop != null && position == pass.Position)
+                    _editViewModel.BufferStatus.StartTime.Value = time;
                 _editViewModel.BufferStatus.EndTime.Value = time;
+            }
 
             int? requestedFrame = _requestedFrame;
-            if (requestedFrame > frame)
+            if (requestedFrame > position)
             {
                 _logger.LogDebug(
                     "Frame delay detected. Requested frame {RequestedFrame} is greater than current frame {Frame}",
-                    requestedFrame, frame);
-                frame = requestedFrame.Value + (requestedFrame.Value - frame) * 2;
+                    requestedFrame, position);
+                int skipTo = requestedFrame.Value + (requestedFrame.Value - position) * 2;
+                // Keep the first and last frames even if the producer has to skip inside a pass.
+                position = _loop == null ? skipTo : Math.Max(position, Math.Min(skipTo, pass.EndPosition - 2));
                 _requestedFrame = null;
             }
 
-            _frame = frame + 1;
+            _frame = position + 1;
             Schedule();
         }
         catch (ObjectDisposedException ex) when (
@@ -252,6 +273,8 @@ internal sealed class BufferedPlayer : IDisposable
 
     private void Schedule() => RenderThread.Dispatcher.Dispatch(RenderNextFrame, Threading.DispatchPriority.Medium);
 
+    private void OnPassAdded() => Wake();
+
     // Waits without a job. Exchange fences against the wakers', so the re-check sees a wake that came before it.
     private void Park(int reason)
     {
@@ -260,6 +283,8 @@ internal sealed class BufferedPlayer : IDisposable
         lock (_queue)
         {
             wake = _restartFrame.HasValue
+                || Volatile.Read(ref _loopRenderFrom) > _frame
+                || (reason == WaitingAtEnd && _loop?.TryGetPass(_frame, out _) == true)
                 || (reason == WaitingForRoom && !IsQueueFull(_editViewModel.Renderer.Value));
         }
 
@@ -282,6 +307,7 @@ internal sealed class BufferedPlayer : IDisposable
     private void StopProducer()
     {
         _producerStopped = true;
+        _firstFrameReady?.TrySetResult();
         _waitRenderGate.Cancel();
         if (_isDisposed)
             DisposeQueuedFrames();
@@ -336,7 +362,7 @@ internal sealed class BufferedPlayer : IDisposable
             }
 
             if (dropped.Count > 0)
-                _restartFrame = Math.Min(_restartFrame ?? int.MaxValue, dropped[0].Time);
+                _restartFrame = Math.Min(_restartFrame ?? int.MaxValue, dropped[0].Position);
 
             // Under the lock, so a frame job that sees the new count also finds these frames gone from the cache.
             FrameCacheManager cacheManager = _editViewModel.FrameCacheManager.Value;
@@ -382,10 +408,10 @@ internal sealed class BufferedPlayer : IDisposable
     // Queues the frame from the cache, or renders, queues and caches it. A frame rendered across an edit is shown
     // but not cached, so edits that come faster than frames render cannot hold playback.
     private EnqueueResult TryEnqueueFrame(
-        SceneRenderer renderer, FrameCacheManager cacheManager, int frame, MediaTime time, int editVersion)
+        SceneRenderer renderer, FrameCacheManager cacheManager, int frame, int position, MediaTime time, int editVersion)
     {
         if (_editViewModel.Player.ComparisonTarget is { } comparison)
-            return TryEnqueueComparisonFrame(renderer, frame, time, comparison);
+            return TryEnqueueComparisonFrame(renderer, frame, position, time, comparison);
 
         // cacheは参照を既に追加されている
         if (cacheManager.TryGetWithDiagnostics(frame, out Ref<Bitmap>? cache, out PreviewRenderDiagnostics diagnostics))
@@ -396,7 +422,7 @@ internal sealed class BufferedPlayer : IDisposable
                     return EnqueueResult.Canceled;
 
                 using var clean = _editViewModel.Player.CreatePlaybackCleanFrame(renderer, cache, time);
-                return TryQueue(new(cache.Clone(), frame, clean?.Clone(), diagnostics));
+                return TryQueue(new Frame(cache.Clone(), frame, clean?.Clone(), diagnostics) { Position = position });
             }
         }
 
@@ -411,7 +437,7 @@ internal sealed class BufferedPlayer : IDisposable
                 return EnqueueResult.Canceled;
 
             using var clean = _editViewModel.Player.CreatePlaybackCleanFrame(renderer, bitmap);
-            EnqueueResult result = TryQueue(new(bitmap.Clone(), frame, clean?.Clone(), diagnostics));
+            EnqueueResult result = TryQueue(new Frame(bitmap.Clone(), frame, clean?.Clone(), diagnostics) { Position = position });
             // Outside the lock, which the consumer waits for. An edit since the frame was queued may have deleted
             // its cache before this Add, so the frame is taken back out.
             if (result == EnqueueResult.Queued && !EditedSince(editVersion))
@@ -426,7 +452,7 @@ internal sealed class BufferedPlayer : IDisposable
     }
 
     private EnqueueResult TryEnqueueComparisonFrame(
-        SceneRenderer preview, int frame, MediaTime time, PlayerViewModel.EffectComparisonTarget target)
+        SceneRenderer preview, int frame, int position, MediaTime time, PlayerViewModel.EffectComparisonTarget target)
     {
         // Hold one captured scene for both draws. An edit can make a newer capture available while this pair runs.
         PlayerViewModel player = _editViewModel.Player;
@@ -443,7 +469,11 @@ internal sealed class BufferedPlayer : IDisposable
 
         using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
         using var clean = player.CreatePlaybackCleanFrame(renderer, bitmap);
-        return TryQueue(new(bitmap.Clone(), frame, clean?.Clone(), diagnostics, new(comparison.Target, comparison.Before.Clone())));
+        return TryQueue(new Frame(bitmap.Clone(), frame, clean?.Clone(), diagnostics,
+            new(comparison.Target, comparison.Before.Clone()))
+        {
+            Position = position
+        });
     }
 
     // Takes the bitmap. A frame after the first one an edit dropped would come out of order, so it is drawn again.
@@ -469,12 +499,15 @@ internal sealed class BufferedPlayer : IDisposable
             return _editVersion != editVersion;
     }
 
-    public bool TryDequeue(out Frame frame)
+    public bool TryDequeue(out Frame frame) => TryDequeue(int.MaxValue, out frame);
+
+    public bool TryDequeue(int maxPosition, out Frame frame)
     {
-        if (!TryTake(out frame))
+        if (!TryTake(maxPosition, out frame, out bool waitingForRender))
         {
+            if (!waitingForRender) return false;
             WaitRender();
-            if (!TryTake(out frame))
+            if (!TryTake(maxPosition, out frame, out _))
                 return false;
         }
 
@@ -483,10 +516,20 @@ internal sealed class BufferedPlayer : IDisposable
         return true;
     }
 
-    private bool TryTake(out Frame frame)
+    private bool TryTake(int maxPosition, out Frame frame, out bool waitingForRender)
     {
         lock (_queue)
-            return _queue.TryDequeue(out frame);
+        {
+            waitingForRender = !_queue.TryPeek(out Frame next);
+            if (!waitingForRender && next.Position <= maxPosition)
+            {
+                frame = _queue.Dequeue();
+                return true;
+            }
+
+            frame = default;
+            return false;
+        }
     }
 
     private void WaitRender()
@@ -504,6 +547,14 @@ internal sealed class BufferedPlayer : IDisposable
         _requestedFrame = requestedFrame;
     }
 
+    public void SkipCompletedPasses(int position)
+    {
+        // A draw may already be in flight. Start the next one in the current pass even if
+        // an edit invalidated queued frames and would otherwise rewind the producer.
+        Volatile.Write(ref _loopRenderFrom, position);
+        Wake();
+    }
+
     public void Dispose()
     {
         try
@@ -514,6 +565,7 @@ internal sealed class BufferedPlayer : IDisposable
             _scene.Edited -= OnSceneEdited;
             _editViewModel.Player.CleanPreviewChanged -= OnPreviewFrameRequirementsChanged;
             _editViewModel.Player.EffectComparisonTargetChanged -= OnPreviewFrameRequirementsChanged;
+            if (_loop != null) _loop.PassAdded -= OnPassAdded;
             _waitRenderGate.Cancel();
             // A parked producer runs once more to see the disposal and stop.
             Wake();
