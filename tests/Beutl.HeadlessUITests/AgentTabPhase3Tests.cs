@@ -403,6 +403,7 @@ public sealed class AgentTabPhase3Tests
             Assert.That(group.ThoughtCount, Is.EqualTo(2));
             Assert.That(toggle.IsChecked, Is.Not.True);
             Assert.That(view.GetVisualDescendants().OfType<AgentToolView>().Count(tool => tool.IsEffectivelyVisible), Is.EqualTo(0));
+            Capture(view, window, "phase3-step-group-collapsed");
 
             Click(toggle);
             HeadlessTestHelpers.Render(4);
@@ -411,6 +412,7 @@ public sealed class AgentTabPhase3Tests
                 .Where(button => button.Name == "ThinkingToggle" && button.IsEffectivelyVisible)
                 .ToArray();
             Assert.That(thoughts, Has.Length.EqualTo(2));
+            Capture(view, window, "phase3-step-group-expanded");
 
             Click(thoughts[0]);
             HeadlessTestHelpers.Render(4);
