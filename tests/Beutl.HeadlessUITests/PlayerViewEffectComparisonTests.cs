@@ -306,8 +306,14 @@ public sealed class PlayerViewEffectComparisonTests
     public async Task Comparison_playback_advances_during_edits_to_every_pair()
     {
         using var host = await ComparisonHost.OpenAsync();
-        var (_, editor, player, _, blur, _, _) = host;
+        var (_, editor, player, _, blur, nested, _) = host;
         var (fill, probe) = AddComparisonProbe(editor);
+        // Use the opacity of a solid bar to identify the compared effect's revision.
+        blur.Sigma.Value = BtlSize.Empty;
+        var opacity = new OpacityEffect();
+        nested.Children.Add(opacity);
+        const int opacityStep = 25;
+
         // Keep the paused editor playhead outside the edited elements. The producer plays those
         // elements from frame zero without starting a native audio device.
         editor.GetRequiredService<IEditorClock>().Seek(MediaTime.FromSeconds(18));
@@ -315,8 +321,9 @@ public sealed class PlayerViewEffectComparisonTests
         RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
 
         player.IsPlaying.Value = true;
-        ChooseBlur(player, blur);
-        Edit(blur, fill, 0);
+        player.ToggleEffectComparison();
+        Assert.That(((IEffectComparisonSelection)player).TryChooseComparisonEffect(opacity), Is.True);
+        EditPlaybackRevision(0);
         using var buffer = new BufferedPlayer(editor, player.IsPlaying, new Rational(30), CancellationToken.None);
         var gate = probe.BlockNextPair();
         try
@@ -327,14 +334,22 @@ public sealed class PlayerViewEffectComparisonTests
                 await gate.Entered.WaitAsync(TimeSpan.FromSeconds(10));
                 using var previous = gate;
                 gate = probe.BlockNextPair();
-                Edit(blur, fill, revision + 1);
+                EditPlaybackRevision(revision + 1);
                 HeadlessTestHelpers.Settle();
                 previous.Dispose();
 
                 using BufferedPlayer.Frame frame = await TakeAsync(buffer);
                 Assert.That(frame.Time, Is.EqualTo(revision));
-                Assert.That(frame.Comparison?.Target.Effect, Is.SameAs(blur));
-                AssertRevision(frame.Comparison!.Before.Value, frame.Bitmap.Value, revision);
+                Assert.That(frame.Comparison?.Target.Effect, Is.SameAs(opacity));
+                Bitmap before = frame.Comparison!.Before.Value;
+                Bitmap after = frame.Bitmap.Value;
+                AssertRevision(before, after, revision);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(Sample(before, 0.75, 0.5).A, Is.EqualTo(byte.MaxValue), $"Bypassed opacity of edit {revision}.");
+                    double expectedAlpha = byte.MaxValue * (revision * opacityStep / 100.0);
+                    Assert.That(Sample(after, 0.75, 0.5).A, Is.EqualTo(expectedAlpha).Within(1), $"Applied opacity of edit {revision}.");
+                });
             }
         }
         finally
@@ -342,6 +357,12 @@ public sealed class PlayerViewEffectComparisonTests
             player.IsPlaying.Value = false;
             gate.Dispose();
             await HeadlessTestHelpers.WaitUntilAsync(() => buffer.ProducerStopped, pump: false);
+        }
+
+        void EditPlaybackRevision(int revision)
+        {
+            opacity.Opacity.Value = revision * opacityStep;
+            fill.Color.Value = s_editColors[revision];
         }
     }
 
@@ -381,19 +402,17 @@ public sealed class PlayerViewEffectComparisonTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(Sample(before, 1), Is.EqualTo(s_editColors[revision]), $"Bypassed side of edit {revision}.");
-            Assert.That(Sample(after, 3), Is.EqualTo(s_editColors[revision]), $"Normal side of edit {revision}.");
+            Assert.That(Sample(before, 0.25, 1.0 / 24), Is.EqualTo(s_editColors[revision]), $"Bypassed side of edit {revision}.");
+            Assert.That(Sample(after, 0.75, 1.0 / 24), Is.EqualTo(s_editColors[revision]), $"Normal side of edit {revision}.");
         });
+    }
 
-        static Color Sample(Bitmap bitmap, int quarter)
-        {
-            const int bytesPerPixel = 4;
-            using Bitmap bgra = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
-            int x = bgra.Width * quarter / 4;
-            int y = bgra.Height / 24;
-            var pixel = bgra.GetRow(y).Slice(x * bytesPerPixel, bytesPerPixel);
-            return Color.FromArgb(pixel[3], pixel[2], pixel[1], pixel[0]);
-        }
+    private static Color Sample(Bitmap bitmap, double x, double y)
+    {
+        const int bytesPerPixel = 4;
+        using Bitmap bgra = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
+        var pixel = bgra.GetRow((int)(bgra.Height * y)).Slice((int)(bgra.Width * x) * bytesPerPixel, bytesPerPixel);
+        return Color.FromArgb(pixel[3], pixel[2], pixel[1], pixel[0]);
     }
 
     private static async Task<BufferedPlayer.Frame> TakeAsync(BufferedPlayer buffer)
