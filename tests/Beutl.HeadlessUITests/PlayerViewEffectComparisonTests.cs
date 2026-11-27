@@ -89,9 +89,14 @@ public sealed class PlayerViewEffectComparisonTests
 
         Bitmap split = player.EffectComparisonImage.Value!.Value;
         byte[] initialPixels = split.GetPixelSpan().ToArray();
-        Point from = HeadlessTestHelpers.Center(view.effectComparisonDivider, window);
+        IPointer? pressedPointer = null;
+        view.effectComparisonDivider.AddHandler(InputElement.PointerPressedEvent,
+            (_, e) => { pressedPointer = e.Pointer; }, handledEventsToo: true);
+        Point from = await WaitForDividerReadyAsync(view, player, window);
         Point to = from + new Avalonia.Vector(view.image.Bounds.Width * 0.22, 0);
         window.MouseDown(from, MouseButton.Left);
+        Assert.That(pressedPointer?.Captured, Is.SameAs(view.effectComparisonDivider),
+            "The press on the divider did not start a drag.");
         window.MouseMove(to, RawInputModifiers.LeftMouseButton);
         window.MouseUp(to, MouseButton.Left);
         HeadlessTestHelpers.Render(3);
@@ -525,6 +530,35 @@ public sealed class PlayerViewEffectComparisonTests
 
     private static Task WaitForComparison(PlayerView view)
         => HeadlessTestHelpers.WaitUntilAsync(() => view.effectComparisonOverlay.IsEffectivelyVisible);
+
+    // The overlay turns visible before its divider has been laid out, and a press before that render lands
+    // outside the divider. Wait until the divider covers the frame, sits at the compared fraction and is the
+    // element the press reaches.
+    private static async Task<Point> WaitForDividerReadyAsync(PlayerView view, PlayerViewModel player, Window window)
+    {
+        Panel divider = view.effectComparisonDivider;
+        Point point = default;
+        await HeadlessTestHelpers.WaitUntilAsync(() =>
+        {
+            HeadlessTestHelpers.Render();
+            point = HeadlessTestHelpers.Center(divider, window);
+            return view.image.Bounds.Width > 0
+                && divider.IsEffectivelyVisible
+                && divider.Bounds.Height > 0
+                && Math.Abs(point.X - DividerX(view, window, player.EffectComparisonDivider)) <= 1
+                && window.InputHitTest(point) is Visual hit
+                && (hit == divider || divider.IsVisualAncestorOf(hit));
+        }, message: "The comparison divider was not ready to be dragged.");
+        HeadlessTestHelpers.Render();
+        return HeadlessTestHelpers.Center(divider, window);
+    }
+
+    private static double DividerX(PlayerView view, Window window, double fraction)
+    {
+        Point left = view.image.TranslatePoint(default, window)!.Value;
+        Point right = view.image.TranslatePoint(new Point(view.image.Bounds.Width, 0), window)!.Value;
+        return left.X + ((right.X - left.X) * fraction);
+    }
 
     private static async Task ClickAsync(Window window, Control control)
     {
