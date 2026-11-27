@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Text;
 using Avalonia.Threading;
 using Beutl.Agents;
 using Beutl.Editor.Components.AgentTab.ViewModels;
@@ -15,7 +17,9 @@ internal sealed partial class AgentThreadController : AgentBindable
     private readonly IAgentWorkspaceHost _host;
     private readonly AgentProjectThreadSessions _project;
     private readonly ObservableCollection<AgentQueuedMessage> _queue = [];
+    private readonly ConcurrentQueue<(ActiveTurn Turn, AgentTimelineEvent Entry)> _pendingTimeline = new();
     private readonly AgentThreadTimeline _transcript;
+    private int _drainScheduled;
     private Task? _loading;
     private Task? _run;
     private ActiveTurn? _active;
@@ -313,7 +317,7 @@ internal sealed partial class AgentThreadController : AgentBindable
             try
             {
                 var callbacks = new AgentTurnCallbacks(
-                    entry => Dispatcher.UIThread.Post(() => Receive(turn, entry), DispatcherPriority.Normal),
+                    entry => EnqueueTimeline(turn, entry),
                     ShowPermissionAsync, ShowQuestionAsync);
                 outcome = await _host.RunTurnAsync(message.Editor, _project.ProjectPath, message.Provider,
                     message.CreateRequest(ThreadId, turn.Id), message.IncludeSceneContext, message.Attachments, message.Mentions,
@@ -329,7 +333,7 @@ internal sealed partial class AgentThreadController : AgentBindable
 
             // The runtime posts timeline events before returning. Drain those posts before
             // allowing another turn to take over the controller.
-            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Normal);
+            await Dispatcher.UIThread.InvokeAsync(DrainPendingTimeline, DispatcherPriority.Normal);
             if (turn.Steering is { } steering)
                 await steering;
             FinishInteractions();
@@ -368,6 +372,69 @@ internal sealed partial class AgentThreadController : AgentBindable
         _active = null;
         _run = null;
         PublishState();
+    }
+
+    private void EnqueueTimeline(ActiveTurn turn, AgentTimelineEvent entry)
+    {
+        _pendingTimeline.Enqueue((turn, entry));
+        if (Interlocked.Exchange(ref _drainScheduled, 1) == 0)
+            Dispatcher.UIThread.Post(DrainPendingTimeline, DispatcherPriority.Normal);
+    }
+
+    private void DrainPendingTimeline()
+    {
+        Interlocked.Exchange(ref _drainScheduled, 0);
+        if (_pendingTimeline.IsEmpty)
+            return;
+
+        // Coalesce adjacent text/reasoning deltas within one UI pass to avoid re-parsing Markdown per token.
+        var batch = new List<(ActiveTurn Turn, AgentTimelineEvent Entry)>();
+        while (_pendingTimeline.TryDequeue(out var item))
+            batch.Add(item);
+
+        for (int i = 0; i < batch.Count; i++)
+        {
+            var (turn, entry) = batch[i];
+            if (entry is AgentAssistantTextDelta firstText)
+            {
+                StringBuilder? merged = null;
+                while (i + 1 < batch.Count
+                    && batch[i + 1].Turn == turn
+                    && batch[i + 1].Entry is AgentAssistantTextDelta nextText
+                    && nextText.ThreadId == firstText.ThreadId
+                    && nextText.TurnId == firstText.TurnId
+                    && nextText.ParentToolCallId == firstText.ParentToolCallId
+                    && nextText.MessageId == firstText.MessageId)
+                {
+                    merged ??= new StringBuilder(firstText.Text);
+                    merged.Append(nextText.Text);
+                    i++;
+                }
+                if (merged is not null)
+                    entry = firstText with { Text = merged.ToString() };
+            }
+            else if (entry is AgentReasoningDelta firstReasoning)
+            {
+                StringBuilder? merged = null;
+                while (i + 1 < batch.Count
+                    && batch[i + 1].Turn == turn
+                    && batch[i + 1].Entry is AgentReasoningDelta nextReasoning
+                    && nextReasoning.ThreadId == firstReasoning.ThreadId
+                    && nextReasoning.TurnId == firstReasoning.TurnId
+                    && nextReasoning.ParentToolCallId == firstReasoning.ParentToolCallId)
+                {
+                    merged ??= new StringBuilder(firstReasoning.Text);
+                    merged.Append(nextReasoning.Text);
+                    i++;
+                }
+                if (merged is not null)
+                    entry = firstReasoning with { Text = merged.ToString() };
+            }
+            Receive(turn, entry);
+        }
+
+        if (!_pendingTimeline.IsEmpty && Interlocked.Exchange(ref _drainScheduled, 1) == 0)
+            Dispatcher.UIThread.Post(DrainPendingTimeline, DispatcherPriority.Normal);
     }
 
     private void Receive(ActiveTurn turn, AgentTimelineEvent entry)

@@ -42,6 +42,7 @@
     <StackPanel Spacing="4">
         <ToggleButton x:Name="ToolToggle" Classes="agent-disclosure" IsVisible="{Binding !IsBackgroundWork}"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="26" Padding="4,3"
+                      IsCheckedChanged="OnInlineExpandChanged"
                       IsHitTestVisible="{Binding CanExpand}" Focusable="{Binding CanExpand}"
                       AutomationProperties.Name="{Binding ToolName}" AutomationProperties.HelpText="{Binding Status}" ToolTip.Tip="{Binding Status}">
             <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
@@ -92,7 +93,7 @@
                     </Panel>
                 </Grid>
             </Expander.Header>
-            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolDetails}" Margin="12,6,4,4" />
+            <ContentControl x:Name="WorkDetailsHost" ContentTemplate="{StaticResource ToolDetails}" Margin="12,6,4,4" />
         </Expander>
 
         <ItemsControl ItemsSource="{Binding Images}" Margin="23,0,0,2" IsVisible="{Binding !!Images.Count}">
@@ -112,9 +113,11 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <Border IsVisible="{Binding !!#ToolToggle.IsChecked}" Margin="9,0,0,2" Padding="9,6"
+        <Border x:Name="InlineDetailsBorder" IsVisible="False" Margin="9,0,0,2" Padding="9,6"
                 CornerRadius="{DynamicResource ControlCornerRadius}" Background="{DynamicResource ControlAltFillColorSecondaryBrush}">
-            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolDetails}" IsVisible="{Binding !IsBackgroundWork}" />
+            <ScrollViewer x:Name="ToolDetailsScroll" MaxHeight="260" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <ContentControl x:Name="InlineDetailsHost" ContentTemplate="{StaticResource ToolDetails}" />
+            </ScrollViewer>
         </Border>
     </StackPanel>
 </UserControl>

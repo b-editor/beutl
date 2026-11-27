@@ -131,8 +131,12 @@ internal sealed partial class AgentThreadTimeline
     {
         foreach (var scope in _reasoning.Keys.Where(scope => scope.TurnId == entry.TurnId).ToArray())
             FinishReasoning(entry, scope.ParentId);
+        bool finishedHeader = false;
         if (entry.TurnId is { } turnId && _turnHeaders.TryGetValue(turnId, out var header) && header.IsRunning)
+        {
             header.Finish(entry);
+            finishedHeader = true;
+        }
         if (_activityTurn == entry.TurnId)
         {
             _activityTurn = null;
@@ -140,5 +144,7 @@ internal sealed partial class AgentThreadTimeline
             _phaseTool = null;
             NotifyPhase();
         }
+        if (finishedHeader)
+            TurnLayoutChanged?.Invoke();
     }
 }

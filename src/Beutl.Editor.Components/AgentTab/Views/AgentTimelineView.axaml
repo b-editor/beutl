@@ -34,8 +34,12 @@
         <Style Selector="md|MarkdownTextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource BeutlUIFontFamily}" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="LineHeight" Value="23" />
             <Setter Property="SelectionBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
             <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+        </Style>
+        <Style Selector="md|CodeBlock md|MarkdownTextBlock">
+            <Setter Property="LineHeight" Value="18" />
         </Style>
         <Style Selector="md|MarkdownRenderer md|CodeInline">
             <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
@@ -197,15 +201,24 @@
         <DataTemplate DataType="vm:AgentReasoningItem" x:DataType="vm:AgentReasoningItem">
             <StackPanel>
                 <ToggleButton x:Name="ThinkingToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
+                              IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                               MinHeight="24" Padding="4,2" AutomationProperties.Name="{Binding Summary}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <TextBlock Text="{Binding Summary}" Classes="agent-caption agent-disclosure-label" FontSize="12" VerticalAlignment="Center" />
                         <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph" />
                     </StackPanel>
                 </ToggleButton>
-                <Border IsVisible="{Binding !!#ThinkingToggle.IsChecked}" Margin="8,2,0,2" Padding="9,4"
+                <Border IsVisible="{Binding IsExpanded}" Margin="8,2,0,2" Padding="9,4"
                         CornerRadius="{DynamicResource ControlCornerRadius}" Background="{DynamicResource ControlAltFillColorSecondaryBrush}">
-                    <SelectableTextBlock Text="{Binding Text}" Classes="agent-secondary" TextWrapping="Wrap" />
+                    <ContentControl Content="{Binding ExpandedContent}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:AgentReasoningItem">
+                                <ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                    <SelectableTextBlock Text="{Binding Text}" Classes="agent-secondary" TextWrapping="Wrap" />
+                                </ScrollViewer>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
                 </Border>
             </StackPanel>
         </DataTemplate>
@@ -215,6 +228,7 @@
         <DataTemplate DataType="vm:AgentToolGroupItem" x:DataType="vm:AgentToolGroupItem">
             <StackPanel Spacing="3">
                 <ToggleButton x:Name="ToolGroupToggle" Classes="agent-disclosure" HorizontalAlignment="Left"
+                              IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                               AutomationProperties.Name="{Binding Label}" MinHeight="26" Padding="4,3">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <icons:FluentIcon Classes="agent-status agent-disclosure-glyph" Icon="Wrench" VerticalAlignment="Center" />
@@ -224,8 +238,8 @@
                         <icons:FluentIcon Classes="agent-status agent-chevron agent-disclosure-glyph" />
                     </StackPanel>
                 </ToggleButton>
-                <Border Margin="9,0,0,0" Padding="7,0,0,0" IsVisible="{Binding !!#ToolGroupToggle.IsChecked}">
-                    <ItemsControl ItemsSource="{Binding Tools}" />
+                <Border Margin="9,0,0,0" Padding="7,0,0,0" IsVisible="{Binding IsExpanded}">
+                    <ItemsControl ItemsSource="{Binding VisibleTools}" />
                 </Border>
             </StackPanel>
         </DataTemplate>
@@ -268,6 +282,7 @@
                 <StackPanel Spacing="4">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
                         <ToggleButton x:Name="HistoryToggle" Classes="agent-disclosure" Padding="2,3"
+                                      IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                       IsHitTestVisible="{Binding HasChanges}" Focusable="{Binding HasChanges}"
                                       AutomationProperties.Name="{Binding DisplayText}">
@@ -286,17 +301,23 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <Border IsVisible="{Binding !!#HistoryToggle.IsChecked}" Margin="5,0,0,3" Padding="11,2,0,0">
-                        <StackPanel Spacing="4">
-                            <ItemsControl ItemsSource="{Binding Changes}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="x:String">
-                                        <TextBlock Classes="agent-secondary" Margin="0,1" Text="{Binding}" TextWrapping="Wrap" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Classes="agent-caption" Text="{Binding MoreChanges}" IsVisible="{Binding HasMoreChanges}" />
-                        </StackPanel>
+                    <Border IsVisible="{Binding IsExpanded}" Margin="5,0,0,3" Padding="11,2,0,0">
+                        <ContentControl Content="{Binding ExpandedContent}">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate x:DataType="vm:AgentHistoryItem">
+                                    <StackPanel Spacing="4">
+                                        <ItemsControl ItemsSource="{Binding Changes}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="x:String">
+                                                    <TextBlock Classes="agent-secondary" Margin="0,1" Text="{Binding}" TextWrapping="Wrap" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Classes="agent-caption" Text="{Binding MoreChanges}" IsVisible="{Binding HasMoreChanges}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
                     </Border>
                 </StackPanel>
             </Border>
@@ -316,7 +337,7 @@
                 </ToggleButton>
                 <Border Classes="agent-turn-divider" />
                 <StackPanel x:Name="TurnWorkBody" IsVisible="{Binding IsExpanded}" Spacing="4">
-                    <ItemsControl ItemsSource="{Binding Entries}">
+                    <ItemsControl ItemsSource="{Binding VisibleEntries}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
@@ -351,21 +372,27 @@
 
     <Grid>
         <ScrollViewer x:Name="TimelineScroll" HorizontalScrollBarVisibility="Disabled" ScrollChanged="OnTimelineScrollChanged">
-            <StackPanel Margin="12,12,12,10" Spacing="7">
-                <ItemsControl ItemsSource="{Binding DisplayTimeline}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate><StackPanel Spacing="7" /></ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
-                <ContentControl IsVisible="{Binding ShowStandaloneLiveStatus}" Content="{Binding}"
-                                ContentTemplate="{StaticResource LiveStatusTemplate}" />
-            </StackPanel>
+            <Border Classes="agent-wide-gutter">
+                <StackPanel x:Name="TimelineContentColumn" MaxWidth="740" Margin="12,12,12,10" Spacing="7">
+                    <ItemsControl ItemsSource="{Binding DisplayTimeline}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Spacing="7" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <ContentControl IsVisible="{Binding ShowStandaloneLiveStatus}" Content="{Binding}"
+                                    ContentTemplate="{StaticResource LiveStatusTemplate}" />
+                </StackPanel>
+            </Border>
         </ScrollViewer>
-        <Button x:Name="ScrollToBottomButton" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,17,12"
-                IsVisible="False" Width="34" Height="34" CornerRadius="17" Padding="0" Click="OnScrollToBottom"
-                Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
-                ToolTip.Tip="{x:Static lang:AgentStrings.ScrollToBottom}" AutomationProperties.Name="{x:Static lang:AgentStrings.ScrollToBottom}">
-            <icons:FluentIcon Icon="ArrowDown" FontSize="16" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-        </Button>
+        <Border Classes="agent-wide-gutter">
+            <Panel MaxWidth="740">
+                <Button x:Name="ScrollToBottomButton" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,17,12"
+                        IsVisible="False" Width="34" Height="34" CornerRadius="17" Padding="0" Click="OnScrollToBottom"
+                        Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                        ToolTip.Tip="{x:Static lang:AgentStrings.ScrollToBottom}" AutomationProperties.Name="{x:Static lang:AgentStrings.ScrollToBottom}">
+                    <icons:FluentIcon Icon="ArrowDown" FontSize="16" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                </Button>
+            </Panel>
+        </Border>
     </Grid>
 </UserControl>

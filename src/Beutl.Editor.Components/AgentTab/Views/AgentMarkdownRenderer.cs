@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Logging;
 using Beutl.Utilities;
+using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
 using FluentIcons.Common;
 using LiveMarkdown.Avalonia;
@@ -20,13 +22,51 @@ internal sealed class AgentMarkdownRenderer : MarkdownRenderer
     private static readonly MarkdownPipeline s_pipeline = CreatePipeline();
     private static readonly ILogger s_logger = Log.CreateLogger<AgentMarkdownRenderer>();
 
+    internal static Action<string> LaunchUrl { get; set; } = DefaultLaunchUrl;
+
     public AgentMarkdownRenderer()
     {
         UpdateProducer = new MarkdownUpdateProducer { Pipeline = s_pipeline };
         AddHandler(CodeBlock.CopyingToClipboardEvent, OnCopyCode);
+        LinkClick += OnLinkClick;
     }
 
     protected override Type StyleKeyOverride => typeof(MarkdownRenderer);
+
+    private async void OnLinkClick(object? sender, LinkClickedEventArgs e)
+    {
+        e.Handled = true;
+        if (e.HRef is not { IsAbsoluteUri: true } uri || uri.Scheme is not ("https" or "http"))
+            return;
+        if (TopLevel.GetTopLevel(this) is not { } owner)
+            return;
+
+        string url = uri.AbsoluteUri;
+        var dialog = new FAContentDialog
+        {
+            Title = ExtensionsStrings.OpenUrl_Title,
+            Content = new SelectableTextBlock
+            {
+                Text = string.Format(CultureInfo.CurrentCulture, ExtensionsStrings.OpenUrl_Content, url),
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap
+            },
+            PrimaryButtonText = Strings.Open,
+            CloseButtonText = Strings.Cancel
+        };
+
+        try
+        {
+            if (await dialog.ShowAsync(owner) is FAContentDialogResult.Primary)
+                LaunchUrl(url);
+        }
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
+        {
+            s_logger.LogWarning(ex, "Could not open an agent Markdown link.");
+        }
+    }
+
+    private static void DefaultLaunchUrl(string url)
+        => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
 
     private static async void OnCopyCode(object? sender, RoutedEventArgs e)
     {

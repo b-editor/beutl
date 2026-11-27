@@ -586,6 +586,10 @@ public sealed class AgentTabPolishViewTests
             {
                 dark ? AgentPermissionDecision.AllowAlways : AgentPermissionDecision.RejectOnce, AgentPermissionDecision.AllowOnce
             }));
+            var workToggle = view.GetVisualDescendants().OfType<ToggleButton>().Single(toggle => toggle.Name == "TurnStatsToggle");
+            Assert.That(workToggle.IsChecked, Is.False);
+            Click(workToggle);
+            HeadlessTestHelpers.Render(4);
             Assert.That(view.GetVisualDescendants().OfType<Grid>().Count(grid => grid.Classes.Contains("agent-resolution") && grid.IsEffectivelyVisible),
                 Is.EqualTo(2));
         }

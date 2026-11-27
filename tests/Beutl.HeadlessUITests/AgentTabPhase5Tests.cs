@@ -35,6 +35,111 @@ namespace Beutl.HeadlessUITests;
 public sealed class AgentTabPhase5Tests
 {
     [AvaloniaTest]
+    public async Task ToolDetailsScrollLazilyShimmerUsesAbsoluteCoordinatesAndWideLayoutCentersAt740()
+    {
+        using var ui = new JapaneseDock();
+        await using var workspace = new AgentTabTestWorkspace();
+        var finish = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        string longOutput = string.Join("\n", Enumerable.Range(1, 60).Select(i => $"line {i:00}: rendering frame preview output"));
+        workspace.Bridge.Script = async (request, ct) =>
+        {
+            var (thread, turn, _, _) = request;
+            var now = DateTimeOffset.UtcNow;
+            workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now, "cmd1", "Codex command",
+                Input: System.Text.Json.JsonSerializer.SerializeToElement("cat long.log")));
+            workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, now.AddMilliseconds(20), "cmd1", AgentToolStatus.Completed,
+                [new("text", longOutput)]));
+            workspace.Bridge.Emit(new AgentToolCallStarted(thread, turn, now.AddMilliseconds(40), "tool1", "render_storyboard", "beutl"));
+            await finish.Task.WaitAsync(ct);
+            workspace.Bridge.Emit(new AgentToolCallCompleted(thread, turn, now.AddMilliseconds(200), "tool1", AgentToolStatus.Completed,
+                [new("text", "done")]));
+            workspace.Bridge.Emit(new AgentAssistantMessageCompleted(thread, turn, now.AddMilliseconds(240),
+                "確認が完了しました。\n詳細は [Beutl ガイド](https://beutl.beditor.net/docs) を確認してください。\n\n複数行の文章でも行間にゆとりを持たせて読みやすくしています。"));
+        };
+
+        using var model = workspace.CreateWorkspace(workspace.Editor);
+        await model.InitializeAsync();
+        var (view, window) = Open(model);
+        var originalLaunch = AgentMarkdownRenderer.LaunchUrl;
+        string? launchedUrl = null;
+        AgentMarkdownRenderer.LaunchUrl = url => launchedUrl = url;
+        try
+        {
+            model.Prompt = "ストーリーボードを確認して";
+            _ = model.SendAsync();
+            await HeadlessTestHelpers.WaitUntilAsync(() => Visible<AgentShimmerTextBlock>(view, "LiveTurnStatus") is { IsLive: true });
+            HeadlessTestHelpers.Render(4);
+
+            // 1. Shimmer uses pixel-space Absolute coordinates so Latin + Japanese runs share one continuous sweep.
+            var liveStatus = Visible<AgentShimmerTextBlock>(view, "LiveTurnStatus")!;
+            Assert.That(liveStatus.Foreground, Is.InstanceOf<LinearGradientBrush>());
+            var gradient = (LinearGradientBrush)liveStatus.Foreground!;
+            Assert.That(gradient.StartPoint.Unit, Is.EqualTo(RelativeUnit.Absolute));
+            Assert.That(gradient.EndPoint.Unit, Is.EqualTo(RelativeUnit.Absolute));
+            Capture(view, "polish-shimmer-mixed");
+
+            // 2. Collapsed tool details are lazily omitted from the visual tree; expanding constrains height and scrolls.
+            Assert.That(view.GetVisualDescendants().OfType<ScrollViewer>().Any(sv => sv.Name == "ToolDetailsScroll" && sv.IsEffectivelyVisible), Is.False);
+            var cmdToggle = view.GetVisualDescendants().OfType<ToggleButton>()
+                .Single(toggle => toggle.Name == "ToolToggle" && toggle.DataContext is AgentToolItem { ToolCallId: "cmd1" });
+            Assert.That(cmdToggle.FindAncestorOfType<AgentToolView>()!.FindControl<ContentControl>("InlineDetailsHost")!.Content, Is.Null);
+            Click(cmdToggle);
+            HeadlessTestHelpers.Render(4);
+            var detailsScroll = view.GetVisualDescendants().OfType<ScrollViewer>().Single(sv => sv.Name == "ToolDetailsScroll" && sv.IsEffectivelyVisible);
+            Assert.That(detailsScroll.Bounds.Height, Is.LessThanOrEqualTo(260.5));
+            Assert.That(detailsScroll.Extent.Height, Is.GreaterThan(detailsScroll.Viewport.Height));
+            Capture(view, "polish-tool-scroll");
+
+            finish.TrySetResult();
+            await HeadlessTestHelpers.WaitUntilAsync(() => !model.IsRunning);
+            HeadlessTestHelpers.Render(4);
+
+            // 3. Work section auto-collapses when finished and lazily unloads its children.
+            var workSection = model.DisplayTimeline.OfType<AgentTurnWorkItem>().Single();
+            Assert.That(workSection.IsExpanded, Is.False);
+            Assert.That(workSection.VisibleEntries, Is.Null);
+
+            // 4. Markdown body line-height is comfortably spaced and links open with confirmation dialog.
+            var markdownText = view.GetVisualDescendants().OfType<MarkdownTextBlock>().First();
+            Assert.That(markdownText.LineHeight, Is.GreaterThanOrEqualTo(22));
+            var renderer = view.GetVisualDescendants().OfType<AgentMarkdownRenderer>().Single();
+            renderer.RaiseEvent(new LinkClickedEventArgs(MarkdownTextBlock.LinkClickEvent, renderer, new Uri("https://beutl.beditor.net/docs")));
+            await HeadlessTestHelpers.WaitUntilAsync(() => window.GetVisualDescendants().OfType<FluentAvalonia.UI.Controls.FAContentDialog>().Any());
+            var dialog = window.GetVisualDescendants().OfType<FluentAvalonia.UI.Controls.FAContentDialog>().Single();
+            var primaryButton = dialog.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Name == "PrimaryButton");
+            Click(primaryButton);
+            await HeadlessTestHelpers.WaitUntilAsync(() => launchedUrl == "https://beutl.beditor.net/docs");
+            Assert.That(launchedUrl, Is.EqualTo("https://beutl.beditor.net/docs"));
+
+            // 5. Responsive wide padding (>= 550px) and MaxWidth=740 centered layout on wide panels.
+            Assert.That(view.Classes.Contains("wide"), Is.False);
+            window.Width = 600;
+            HeadlessTestHelpers.Render(4);
+            Assert.That(view.Classes.Contains("wide"), Is.True);
+            var timelineColumn = view.GetVisualDescendants().OfType<StackPanel>().Single(panel => panel.Name == "TimelineContentColumn");
+            var bottomDeck = view.FindControl<Grid>("BottomDeck")!;
+            Assert.That(timelineColumn.TranslatePoint(default, view)!.Value.X, Is.GreaterThanOrEqualTo(28));
+            Capture(view, "polish-wide-600");
+
+            window.Width = 1040;
+            HeadlessTestHelpers.Render(4);
+            Assert.That(timelineColumn.Bounds.Width, Is.LessThanOrEqualTo(740.5));
+            Assert.That(bottomDeck.Bounds.Width, Is.LessThanOrEqualTo(740.5));
+            double deckLeft = bottomDeck.TranslatePoint(default, view)!.Value.X;
+            double deckRight = view.Bounds.Width - (deckLeft + bottomDeck.Bounds.Width);
+            Assert.That(Math.Abs(deckLeft - deckRight), Is.LessThanOrEqualTo(2.0));
+            Capture(view, "polish-wide-1040");
+        }
+        finally
+        {
+            AgentMarkdownRenderer.LaunchUrl = originalLaunch;
+            finish.TrySetResult();
+            Close(window);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task AssistantImagesAreLocalValidatedThumbnailsAndOpenTheLightbox()
     {
         using var ui = new JapaneseDock();
@@ -152,11 +257,11 @@ public sealed class AgentTabPhase5Tests
                 Assert.That(model.DisplayTimeline.IndexOf(steer), Is.EqualTo(2));
                 Assert.That(steer.TurnId, Is.EqualTo(first.TurnId));
                 Assert.That(first.Header.IsRunning, Is.False);
+                Assert.That(first.IsExpanded, Is.False);
                 Assert.That(second.Header.IsRunning, Is.True);
+                Assert.That(second.IsExpanded, Is.True);
                 Assert.That(model.ShowStandaloneLiveStatus, Is.False);
             });
-            Click(Find<Button>(view, "TurnStatsToggle", first));
-            Assert.That(first.IsExpanded, Is.False);
             continueWork.SetResult();
             await HeadlessTestHelpers.WaitUntilAsync(() => second.Entries.Count == 1);
             Assert.That(first.IsExpanded, Is.False);
@@ -164,26 +269,27 @@ public sealed class AgentTabPhase5Tests
             finish.SetResult();
             await turn.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.That(model.DisplayTimeline.Last(), Is.InstanceOf<AgentAssistantItem>().With.Property(nameof(AgentAssistantItem.IsFinalTurnResponse)).True);
-
-            Click(Find<Button>(view, "TurnStatsToggle", first));
-            Find<ScrollViewer>(view, "TimelineScroll").Offset = default;
-            Capture(view, "phase5-steer-split");
-            Click(Find<Button>(view, "TurnStatsToggle", first));
-            Click(Find<Button>(view, "TurnStatsToggle", second));
             Assert.That(model.DisplayTimeline.OfType<AgentTurnWorkItem>().All(section => !section.IsExpanded), Is.True);
             Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(control =>
                 control.Text == steer.Text && control.IsEffectivelyVisible), Is.True);
             Capture(view, "phase5-steer-collapsed");
 
+            Click(Find<Button>(view, "TurnStatsToggle", first));
+            Click(Find<Button>(view, "TurnStatsToggle", second));
+            Find<ScrollViewer>(view, "TimelineScroll").Offset = default;
+            Capture(view, "phase5-steer-split");
+            Click(Find<Button>(view, "TurnStatsToggle", second));
+            Assert.That(model.DisplayTimeline.OfType<AgentTurnWorkItem>().Select(section => section.IsExpanded), Is.EqualTo(new[] { true, false }));
+
             var layout = new JsonObject();
             model.WriteToJson(layout);
             var entries = await workspace.Runtime.LoadTimelineAsync(workspace.ProjectPath, model.SelectedThread!.Id);
             model.Controller!.Transcript.Restore(entries);
-            Assert.That(model.DisplayTimeline.OfType<AgentTurnWorkItem>().Select(section => section.IsExpanded), Is.EqualTo(new[] { false, false }));
+            Assert.That(model.DisplayTimeline.OfType<AgentTurnWorkItem>().Select(section => section.IsExpanded), Is.EqualTo(new[] { true, false }));
             using var reopened = workspace.CreateWorkspace(workspace.Editor);
             reopened.ReadFromJson(JsonNode.Parse(layout.ToJsonString())!.AsObject());
             await reopened.InitializeAsync();
-            Assert.That(reopened.DisplayTimeline.OfType<AgentTurnWorkItem>().Select(section => section.IsExpanded), Is.EqualTo(new[] { false, false }));
+            Assert.That(reopened.DisplayTimeline.OfType<AgentTurnWorkItem>().Select(section => section.IsExpanded), Is.EqualTo(new[] { true, false }));
             Assert.That(reopened.DisplayTimeline.OfType<AgentUserItem>().Last().Text, Is.EqualTo(steer.Text));
         }
         finally

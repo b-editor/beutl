@@ -98,6 +98,12 @@ public sealed class AgentTabPhase3Tests
             Assert.That(view.GetVisualDescendants().OfType<Border>().Any(border => border.Name == "SentFileChip"
                 && border.IsEffectivelyVisible && border.DataContext is AgentMessageAttachmentItem { Label: "timing-notes.txt" }), Is.True);
 
+            var stats = Find<ToggleButton>(view, "TurnStatsToggle");
+            Assert.That(stats.IsEffectivelyVisible, Is.True);
+            Assert.That(stats.IsChecked, Is.False);
+            Click(stats);
+            HeadlessTestHelpers.Render(4);
+
             var group = model.Timeline.OfType<AgentToolGroupItem>().Single();
             var toggle = Find<ToggleButton>(view, "ToolGroupToggle");
             Assert.That(group.Tools.Select(tool => tool.ToolName), Is.EqualTo(new[] { "Read", "get_scene", "inspect_element" }));
@@ -120,8 +126,6 @@ public sealed class AgentTabPhase3Tests
                 Is.EqualTo("{\n  \"titleFadeFrames\": 12\n}"));
             Assert.That(((FluentIcon)code.Content!).Icon, Is.EqualTo(Icon.Checkmark));
             await HeadlessTestHelpers.WaitUntilAsync(() => ((FluentIcon)code.Content!).Icon == Icon.Copy);
-            var stats = Find<ToggleButton>(view, "TurnStatsToggle");
-            Assert.That(stats.IsEffectivelyVisible, Is.True);
             Assert.That(ToolTip.GetTip(stats), Does.Contain(1024.ToString("N0")).And.Contain("216").And.Contain("800")
                 .And.Not.Contain("GPT-6.2 Sol"));
             Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(text => Equals(ToolTip.GetTip(text), sender.TimeDetail)
@@ -404,6 +408,8 @@ public sealed class AgentTabPhase3Tests
             await run.WaitAsync(TimeSpan.FromSeconds(10));
             HeadlessTestHelpers.Render(5);
             Assert.That(live.IsEffectivelyVisible, Is.False);
+            Click(Find<ToggleButton>(view, "TurnStatsToggle"));
+            HeadlessTestHelpers.Render(4);
             Assert.That(Find<ToggleButton>(view, "ThinkingToggle").Content, Is.Not.Null);
             var thought = model.Timeline.OfType<AgentReasoningItem>().Single();
             Assert.That(thought.IsFinished, Is.True);

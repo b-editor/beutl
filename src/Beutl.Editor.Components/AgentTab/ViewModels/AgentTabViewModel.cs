@@ -516,14 +516,14 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             _restoreNewThread = id == "draft";
             _restoredThreadId = Guid.TryParse(id, out Guid parsed) ? parsed : null;
         }
-        if (json["AgentCollapsedWork"] is JsonArray sections)
+        if (json["AgentExpandedWork"] is JsonArray sections)
         {
             foreach (var node in sections.OfType<JsonObject>())
             {
                 if (node["ThreadId"] is JsonValue thread && thread.TryGetValue(out Guid threadId)
                     && node["TurnId"] is JsonValue turn && turn.TryGetValue(out Guid turnId)
                     && node["Segment"] is JsonValue segment && segment.TryGetValue(out int index) && index >= 0)
-                    _collapsedWork.Add((threadId, turnId, index));
+                    _expandedWork.Add((threadId, turnId, index));
             }
         }
     }
@@ -535,16 +535,17 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             json["AgentThreadId"] = id.Value.ToString("D");
         else if (_draftLoaded || _restoreNewThread)
             json["AgentThreadId"] = "draft";
-        if (_collapsedWork.Count > 0)
+        json.Remove("AgentCollapsedWork");
+        if (_expandedWork.Count > 0)
         {
             var sections = new JsonArray();
-            foreach (var (threadId, turnId, segment) in _collapsedWork)
+            foreach (var (threadId, turnId, segment) in _expandedWork)
                 sections.Add(new JsonObject { ["ThreadId"] = threadId, ["TurnId"] = turnId, ["Segment"] = segment });
-            json["AgentCollapsedWork"] = sections;
+            json["AgentExpandedWork"] = sections;
         }
         else
         {
-            json.Remove("AgentCollapsedWork");
+            json.Remove("AgentExpandedWork");
         }
     }
 

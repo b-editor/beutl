@@ -130,6 +130,17 @@ internal sealed class AgentReasoningItem(Guid? turnId, DateTimeOffset startedAt)
 {
     public string Summary { get; private set => Set(ref field, value); } = AgentStrings.Thinking;
     public bool IsFinished { get; private set; }
+    public bool IsExpanded
+    {
+        get;
+        set
+        {
+            if (Set(ref field, value))
+                Notify(nameof(ExpandedContent));
+        }
+    }
+
+    public AgentReasoningItem? ExpandedContent => IsExpanded ? this : null;
 
     public string Text
     {
@@ -394,6 +405,17 @@ internal sealed class AgentToolItem : AgentTimelineItemViewModel, IDisposable
 internal sealed class AgentToolGroupItem(Guid? turnId) : AgentTimelineItemViewModel(turnId)
 {
     public ObservableCollection<AgentToolItem> Tools { get; } = [];
+    public bool IsExpanded
+    {
+        get;
+        set
+        {
+            if (Set(ref field, value))
+                Notify(nameof(VisibleTools));
+        }
+    }
+
+    public ObservableCollection<AgentToolItem>? VisibleTools => IsExpanded ? Tools : null;
     public bool HasFailure => Tools.Any(tool => tool.IsFailed);
     public string Label
     {
@@ -496,17 +518,37 @@ internal sealed class AgentTimelineDividerItem(Guid? turnId, string text, Icon i
 internal sealed class AgentTurnWorkItem(AgentTurnStatsItem header, bool expanded, Action<bool> setExpanded)
     : AgentTimelineItemViewModel(header.TurnId)
 {
+    private bool _wasRunning = header.IsRunning;
+
     public AgentTurnStatsItem Header { get; } = header;
     public ObservableCollection<AgentTimelineItemViewModel> Entries { get; } = [];
+    public ObservableCollection<AgentTimelineItemViewModel>? VisibleEntries => IsExpanded ? Entries : null;
     public bool IsExpanded
     {
         get;
         set
         {
             if (Set(ref field, value))
+            {
+                Notify(nameof(VisibleEntries));
                 setExpanded(value);
+            }
         }
     } = expanded;
+
+    internal void SyncRunningState(bool manuallyExpanded)
+    {
+        if (Header.IsRunning)
+        {
+            _wasRunning = true;
+            return;
+        }
+        if (!_wasRunning)
+            return;
+        _wasRunning = false;
+        if (IsExpanded != manuallyExpanded)
+            IsExpanded = manuallyExpanded;
+    }
 }
 
 internal sealed class AgentPlanItem(AgentPlanUpdated entry) : AgentTimelineItemViewModel(entry.TurnId)
@@ -565,6 +607,17 @@ internal sealed class AgentHistoryItem(AgentTurnHistoryRecorded entry, Func<Agen
     public int TransactionCount => entry.TransactionCount;
     public IReadOnlyList<string> Changes => entry.Changes ?? [];
     public bool HasChanges => Changes.Count > 0;
+    public bool IsExpanded
+    {
+        get;
+        set
+        {
+            if (Set(ref field, value))
+                Notify(nameof(ExpandedContent));
+        }
+    }
+
+    public AgentHistoryItem? ExpandedContent => IsExpanded ? this : null;
     public bool HasMoreChanges => HasChanges && TransactionCount > Changes.Count;
     public string MoreChanges => string.Format(CultureInfo.CurrentCulture, AgentStrings.MoreHistoryChanges,
         TransactionCount - Changes.Count);

@@ -277,6 +277,11 @@ public sealed class AgentTabViewTests
             await HeadlessTestHelpers.WaitUntilAsync(() => view.GetVisualDescendants().OfType<Border>().Any(border => border.Classes.Contains("Table")));
             HeadlessTestHelpers.Render(4);
 
+            var workToggle = view.GetVisualDescendants().OfType<ToggleButton>().Single(toggle => toggle.Name == "TurnStatsToggle");
+            Assert.That(workToggle.IsChecked, Is.False);
+            Click(window, workToggle);
+            HeadlessTestHelpers.Render(4);
+
             var rows = view.GetVisualDescendants().OfType<Grid>().Where(grid => grid.Classes.Contains("agent-resolution") && grid.IsEffectivelyVisible).ToArray();
             Assert.That(rows, Has.Length.EqualTo(2));
             Assert.That(rows.Select(row => row.Bounds.Height), Is.All.LessThanOrEqualTo(24));

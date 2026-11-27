@@ -11,7 +11,7 @@ internal sealed partial class AgentTabViewModel
     private static readonly AgentThreadTimeline s_emptyTranscript = new();
     private readonly ObservableCollection<AgentTimelineItemViewModel> _timeline = [];
     private readonly Dictionary<AgentTurnStatsItem, AgentTurnWorkItem> _workSections = [];
-    private readonly HashSet<(Guid ThreadId, Guid TurnId, int Segment)> _collapsedWork = [];
+    private readonly HashSet<(Guid ThreadId, Guid TurnId, int Segment)> _expandedWork = [];
     public ObservableCollection<AgentTimelineItemViewModel> DisplayTimeline { get; } = [];
     private AgentThreadTimeline Transcript => _controller?.Transcript ?? s_emptyTranscript;
 
@@ -216,17 +216,21 @@ internal sealed partial class AgentTabViewModel
         {
             if (item is AgentTurnStatsItem header && header.TurnId is { } id && _controller is { } controller)
             {
+                var key = (controller.ThreadId, id, header.Segment);
                 if (!_workSections.TryGetValue(header, out var section))
                 {
-                    var key = (controller.ThreadId, id, header.Segment);
-                    section = new AgentTurnWorkItem(header, !_collapsedWork.Contains(key), expanded =>
+                    section = new AgentTurnWorkItem(header, header.IsRunning || _expandedWork.Contains(key), expanded =>
                     {
-                        if (expanded)
-                            _collapsedWork.Remove(key);
-                        else
-                            _collapsedWork.Add(key);
+                        if (expanded && !header.IsRunning)
+                            _expandedWork.Add(key);
+                        else if (!expanded)
+                            _expandedWork.Remove(key);
                     });
                     _workSections.Add(header, section);
+                }
+                else
+                {
+                    section.SyncRunningState(_expandedWork.Contains(key));
                 }
                 var entries = new List<AgentTimelineItemViewModel>();
                 latest[id] = entries;
@@ -238,7 +242,7 @@ internal sealed partial class AgentTabViewModel
                 latest.Remove(userTurn);
                 display.Add(item);
             }
-            else if (item is not AgentAssistantItem { IsFinalTurnResponse: true }
+            else if (item is not AgentAssistantItem { IsFinalTurnResponse: true } and not AgentTimelineDividerItem
                 && item.TurnId is { } turnId && latest.TryGetValue(turnId, out var entries))
             {
                 entries.Add(item);

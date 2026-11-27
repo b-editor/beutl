@@ -351,16 +351,18 @@ public sealed class AgentTabPhase4Tests
             Assert.That(Find<TextBlock>(view, "TurnWorkTime"), Is.SameAs(header));
             Assert.That(Visible<AgentShimmerTextBlock>(view, "LiveTurnStatus"), Is.Null);
             Assert.That(live.Foreground, Is.Not.InstanceOf<LinearGradientBrush>());
-            Find<ScrollViewer>(view, "TimelineScroll").Offset = default;
-            Capture(view, "phase4-work-expanded");
-
-            Click(Find<ToggleButton>(view, "TurnStatsToggle"));
-            AssertDisclosureTransparent(Find<ToggleButton>(view, "TurnStatsToggle"));
             Assert.That(section.IsExpanded, Is.False);
             Assert.That(Visible<Button>(view, "ToolImageThumbnail"), Is.Null);
             Assert.That(Visible<StackPanel>(view, "AssistantFooter")?.DataContext, Is.SameAs(summary));
             window.Height = 580;
             Capture(view, "phase4-work-collapsed");
+
+            Click(Find<ToggleButton>(view, "TurnStatsToggle"));
+            AssertDisclosureTransparent(Find<ToggleButton>(view, "TurnStatsToggle"));
+            Assert.That(section.IsExpanded, Is.True);
+            Assert.That(Visible<Button>(view, "ToolImageThumbnail"), Is.Not.Null);
+            Find<ScrollViewer>(view, "TimelineScroll").Offset = default;
+            Capture(view, "phase4-work-expanded");
 
             var restored = new AgentThreadTimeline();
             restored.Restore(await workspace.Runtime.LoadTimelineAsync(workspace.ProjectPath, model.SelectedThread!.Id));

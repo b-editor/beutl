@@ -38,6 +38,12 @@
         <Setter Property="Foreground" Value="{DynamicResource AgentClaudeBrandBrush}" />
     </Style>
 
+    <Style Selector="Border.agent-wide-gutter">
+        <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="views|AgentTabView.wide Border.agent-wide-gutter">
+        <Setter Property="Padding" Value="18,0" />
+    </Style>
     <Style Selector="Border.agent-card">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />

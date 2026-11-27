@@ -13,6 +13,7 @@ namespace Beutl.Editor.Components.AgentTab.Views;
 
 internal sealed partial class AgentTabView : UserControl
 {
+    private const double WideLayoutThreshold = 550;
     private bool _escapePressed;
 
     public AgentTabView()
@@ -24,6 +25,13 @@ internal sealed partial class AgentTabView : UserControl
     }
 
     internal void FocusComposer() => Composer.FocusPrompt();
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == BoundsProperty)
+            Classes.Set("wide", Bounds.Width >= WideLayoutThreshold);
+    }
 
     protected override async void OnLoaded(RoutedEventArgs e)
     {
