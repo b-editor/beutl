@@ -231,7 +231,8 @@ internal partial class WebBrowserTabView
             _deferredNativeDownloads.Last!.Value.Source.Dispose();
             _deferredNativeDownloads.RemoveLast();
         }
-        _deferredNativeDownloads.AddFirst(new DeferredDownload(pending.Uri, pending.SuggestedName, source, pending.Handling));
+        _deferredNativeDownloads.AddFirst(new DeferredDownload(pending.Uri, pending.SuggestedName, source, pending.Handling,
+            Referrer: pending.Referrer));
         // It was waiting in the notification, and returns there rather than opening the options.
         _deferredOfferAfterDecline = true;
     }

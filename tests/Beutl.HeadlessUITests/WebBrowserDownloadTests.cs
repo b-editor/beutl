@@ -2031,6 +2031,39 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public async Task PreservedNativeDownloadKeepsItsUnknownPageMetadata()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var page = new Uri("https://original.example/page");
+        var next = new Uri("https://next.example/page");
+        var download = new Uri("https://files.example/download");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page, profile);
+        using var view = CreateView(vm, includesSubframes: false);
+        view.OnNativeNavigationCommitted(page);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
+        vm.Address.Value = download.AbsoluteUri;
+        view.NavigateFromAddress();
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = download });
+        view.OnWindowsNativeDownloadRequested(download, "file.mp3", new ResponseDownloadSource("file.mp3"));
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.True);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(profile.Downloads.Single().Referrer, Is.Null);
+    }
+
+    [AvaloniaTest]
     public void AmbiguousNavigationInvalidatesAnOfferWithoutReenablingDismissedRequests()
     {
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
