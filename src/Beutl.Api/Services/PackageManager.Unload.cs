@@ -129,7 +129,7 @@ public sealed partial class PackageManager
 
         if (info.LoadContext is { } loadContext)
         {
-            TryUnloadLoadContext(package, loadContext);
+            TryUnloadLoadContext(package.Name, loadContext);
         }
 
         // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext

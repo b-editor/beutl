@@ -1,11 +1,16 @@
 ﻿using System.Collections.Specialized;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.UnitTests.Api;
@@ -133,6 +138,177 @@ public class PackageManagerExtensionLifecycleTests
         Assert.That(SuccessfulViewExtension.UnloadCount, Is.EqualTo(1));
         Assert.That(FailingViewExtension.LoadCount, Is.EqualTo(1));
         Assert.That(FailingViewExtension.UnloadCount, Is.EqualTo(1));
+    }
+
+    [TestCase("new PluginLoadFailure()", "PluginLoadFailure")]
+    [TestCase("new PluginLoadFailure(throwWhenFormatted: true)", "PluginLoadFailure")]
+    [TestCase("new InvalidOperationException(\"plugin load failed\")", "System.InvalidOperationException")]
+    [TestCase("new ReflectionTypeLoadException([typeof(FailingExtension)], [], \"plugin load failed\")",
+        "System.Reflection.ReflectionTypeLoadException")]
+    public void LoadExtensionsAndRegister_CollectsLoadContextWhileDiagnosticIsRetained(
+        string exceptionExpression, string exceptionType)
+    {
+        (WeakReference context, Exception failure) = FailToLoadPlugin(exceptionExpression);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(CollectibleTypes.IsCollected(context), Is.True,
+                "The retained diagnostic still roots the failed plugin's load context.");
+            Assert.That(failure.ToString(), Does.Contain(exceptionType));
+            Assert.That(failure.Message, Does.Contain("plugin load failed"));
+            Assert.That(failure.StackTrace, Does.Contain("FailingExtension.Load"));
+        }
+        GC.KeepAlive(failure);
+    }
+
+    [Test]
+    public void LoadExtensionsAndRegister_CollectsLoadContextAfterDiagnosticIsReleased()
+    {
+        Assert.That(CollectibleTypes.IsCollected(FailToLoadPluginAndReleaseDiagnostic()), Is.True);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference FailToLoadPluginAndReleaseDiagnostic()
+        => FailToLoadPlugin("new PluginLoadFailure()").Context;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (WeakReference Context, Exception Failure) FailToLoadPlugin(string exceptionExpression)
+    {
+        const string pluginName = "PackageLoadFailurePlugin";
+        var package = new LocalPackage { Name = pluginName };
+        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
+        var compilation = CSharpCompilation.Create(
+            pluginName,
+            [CSharpSyntaxTree.ParseText($$"""
+                using System;
+                using System.Reflection;
+                using Beutl.Extensibility;
+
+                public sealed class PluginLoadFailure(bool throwWhenFormatted = false) : Exception("plugin load failed")
+                {
+                    public override string ToString()
+                        => throwWhenFormatted ? throw new PluginLoadFailure() : base.ToString();
+                }
+
+                [Export]
+                public sealed class FailingExtension : Extension
+                {
+                    public override void Load(IExtensionContext context) => throw {{exceptionExpression}};
+                }
+                """)],
+            [MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+             MetadataReference.CreateFromFile(Path.Combine(Path.GetDirectoryName(typeof(object).Assembly.Location)!, "System.Runtime.dll")),
+             MetadataReference.CreateFromFile(typeof(Extension).Assembly.Location)],
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.That(result.Success, Is.True, string.Join(Environment.NewLine, result.Diagnostics));
+        stream.Position = 0;
+
+        // The plugin ships no private dependencies. Its Beutl references resolve in the host.
+        DirectoryInfo pluginDirectory = Directory.CreateTempSubdirectory();
+        try
+        {
+            var loadContext = new PluginLoadContext(pluginDirectory.FullName);
+            Assembly assembly = loadContext.LoadFromStream(stream);
+            Type[] extensionTypes = assembly.GetExportedTypes();
+            var context = new WeakReference(loadContext, trackResurrection: true);
+
+            var failure = Assert.Catch(() => manager.LoadExtensionsAndRegister(
+                null, package, [assembly], loadContext, extensionTypes));
+
+            Assert.That(failure!.Message, Does.Contain("plugin load failed"));
+            Assert.That(provider.AllExtensions, Is.Empty);
+            Assert.That(manager.LoadedPackage, Is.Empty);
+            return (context, failure);
+        }
+        finally
+        {
+            pluginDirectory.Delete();
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void LoadBuiltInExtensions_RollsBackCommandsAndSettings_AndCanRetry(bool restoreSettingsFirst)
+    {
+        PackageManager manager = CreatePackageManager(out ContextCommandManager commands, out ExtensionProvider provider);
+        var first = new BuiltInViewExtension();
+        var second = new SecondBuiltInViewExtension { FailOnLoad = true };
+        var third = new ThirdBuiltInViewExtension();
+        BuiltInViewExtension[] extensions = [first, second, third];
+        int packageId = restoreSettingsFirst ? new LocalPackage().LocalId : LocalPackage.Reserved0;
+
+        var failure = Assert.Throws<InvalidOperationException>(() =>
+            manager.LoadBuiltInExtensions(packageId, extensions, restoreSettingsFirst ? extensions : null));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(failure!.Message, Is.EqualTo("built-in load failed"));
+            Assert.That(first.LoadCount, Is.EqualTo(1));
+            Assert.That(second.LoadCount, Is.EqualTo(1));
+            Assert.That(third.LoadCount, Is.Zero);
+            Assert.That(first.UnloadCount, Is.EqualTo(1));
+            Assert.That(second.UnloadCount, Is.EqualTo(1));
+            Assert.That(third.UnloadCount, Is.Zero);
+            Assert.That(provider.AllExtensions, Is.Empty);
+            foreach (BuiltInViewExtension extension in extensions)
+            {
+                Assert.That(commands.GetDefinitions(extension.GetType()), Is.Empty);
+                extension.Settings.Change();
+                Assert.That(extension.Settings.SaveCount, Is.Zero, extension.GetType().Name);
+            }
+        }
+
+        second.FailOnLoad = false;
+        manager.LoadBuiltInExtensions(packageId, extensions, restoreSettingsFirst ? extensions : null);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(provider.AllExtensions, Is.EqualTo(extensions));
+            Assert.That(manager.LoadedPackage, Is.Empty);
+            foreach (BuiltInViewExtension extension in extensions)
+            {
+                Assert.That(commands.GetDefinitions(extension.GetType()), Has.Exactly(1).Items);
+                extension.Settings.Change();
+                Assert.That(extension.Settings.SaveCount, Is.EqualTo(1), extension.GetType().Name);
+            }
+        }
+    }
+
+    private class BuiltInViewExtension : ViewExtension
+    {
+        public override TrackingSettings Settings { get; } = new();
+        public override IEnumerable<ContextCommandDefinition> ContextCommands => [new(GetType().Name)];
+        public bool FailOnLoad { get; set; }
+        public int LoadCount { get; private set; }
+        public int UnloadCount { get; private set; }
+
+        public override void Load(IExtensionContext context)
+        {
+            LoadCount++;
+            if (FailOnLoad)
+                throw new InvalidOperationException("built-in load failed");
+        }
+
+        public override void Unload(IExtensionContext context) => UnloadCount++;
+    }
+
+    private sealed class SecondBuiltInViewExtension : BuiltInViewExtension;
+
+    private sealed class ThirdBuiltInViewExtension : BuiltInViewExtension;
+
+    private sealed class TrackingSettings : ExtensionSettings
+    {
+        public int SaveCount { get; private set; }
+
+        public void Change() => OnChanged();
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            SaveCount++;
+            base.Serialize(context);
+        }
     }
 
     [Test]
