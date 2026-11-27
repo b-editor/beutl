@@ -130,9 +130,9 @@ public abstract partial class Sound : EngineObject
 
         AudioNode currentNode = gainNode;
 
-        if (Effect.Value != null && Effect.Value.IsEnabled.Value)
+        if (Effect.Value is { IsEnabled.Value: true } effect)
         {
-            currentNode = Effect.Value.CreateNode(context, currentNode);
+            currentNode = context.CreateSoundEffectChain(effect, currentNode);
         }
 
         if (sourceSampleRate.HasValue)

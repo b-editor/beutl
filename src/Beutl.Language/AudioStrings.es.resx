@@ -368,4 +368,46 @@
   <data name="AudioEffectCategory_DelayAndModulation" xml:space="preserve">
     <value>Retardo y modulación</value>
   </data>
+  <data name="DuckingEffect" xml:space="preserve">
+    <value>Ducking</value>
+  </data>
+  <data name="DuckingEffect_LibraryDescription" xml:space="preserve">
+    <value>Reduce el volumen de este sonido cuando el audio de las capas seleccionadas supera el umbral.</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers" xml:space="preserve">
+    <value>Capas de origen</value>
+  </data>
+  <data name="DuckingEffect_SourceLayers_Description" xml:space="preserve">
+    <value>Selecciona las capas cuyo audio debe bajar el volumen de este sonido.</value>
+  </data>
+  <data name="DuckingEffect_Threshold" xml:space="preserve">
+    <value>Umbral (dBFS)</value>
+  </data>
+  <data name="DuckingEffect_Threshold_Description" xml:space="preserve">
+    <value>La reducción comienza cuando la capa seleccionada más fuerte supera este nivel.</value>
+  </data>
+  <data name="DuckingEffect_Reduction" xml:space="preserve">
+    <value>Reducción (dB)</value>
+  </data>
+  <data name="DuckingEffect_Reduction_Description" xml:space="preserve">
+    <value>Cuánto baja el volumen de este sonido mientras la reducción está activa.</value>
+  </data>
+  <data name="DuckingEffect_Attack" xml:space="preserve">
+    <value>Ataque (ms)</value>
+  </data>
+  <data name="DuckingEffect_Attack_Description" xml:space="preserve">
+    <value>Tiempo para alcanzar la reducción completa cuando una capa de origen supera el umbral.</value>
+  </data>
+  <data name="DuckingEffect_Release" xml:space="preserve">
+    <value>Liberación (ms)</value>
+  </data>
+  <data name="DuckingEffect_Release_Description" xml:space="preserve">
+    <value>Tiempo para recuperar el nivel original cuando las capas de origen dejan de sonar.</value>
+  </data>
+  <data name="DuckingEffect_NoSourceLayers" xml:space="preserve">
+    <value>No hay otras capas disponibles.</value>
+  </data>
+  <data name="DuckingEffect_LayerNumber" xml:space="preserve">
+    <value>Capa {0}</value>
+  </data>
 </root>

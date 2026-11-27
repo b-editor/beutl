@@ -21,5 +21,7 @@ public readonly record struct CompositionFrame(
 {
     internal bool ContainsScene3D { get; init; }
 
+    internal Func<int, Guid>? AudioLayerId { get; init; }
+
     public CancellationToken CancellationToken { get; init; }
 }

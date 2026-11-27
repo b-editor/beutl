@@ -35,13 +35,13 @@ public sealed class PitchShiftNode : AudioNode
 
     public required IProperty<float> Semitones { get; init; }
 
+    internal bool ReadsAhead => Semitones.Value != 0 || AnimationSampler.IsAnimated(Semitones);
+
     public override AudioBuffer Process(AudioProcessContext context)
         => RecordProcessedOutput(ProcessCore(context, draining: false));
 
     public override AudioBuffer Flush(AudioProcessContext context)
         => RecordProcessedOutput(ProcessCore(context, draining: true));
-
-    private bool IsUnshifted => Semitones.Value == 0 && !AnimationSampler.IsAnimated(Semitones);
 
     private AudioBuffer ProcessCore(AudioProcessContext context, bool draining)
     {
@@ -49,7 +49,7 @@ public sealed class PitchShiftNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Pitch shift node requires exactly one input.");
 
-        if (IsUnshifted)
+        if (!ReadsAhead)
         {
             // Whatever follows starts over from the position it is asked for.
             _lastTimeRangeEnd = null;

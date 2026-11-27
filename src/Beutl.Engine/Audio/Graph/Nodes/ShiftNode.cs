@@ -12,6 +12,8 @@ public class ShiftNode : AudioNode
     // A sound's offset, read for each window in place of Shift so that an expression on it takes effect.
     internal IExpressionProperty<MediaTime>? Offset { get; init; }
 
+    internal bool ShiftsTime => Offset is { HasExpression: true } || GetStaticShift() != MediaTime.Zero;
+
     // An offset under an expression is known for one window only, which bounds no end.
     internal override double? GetFiniteSourceEndSample(int sampleRate)
         => Offset is { HasExpression: true }

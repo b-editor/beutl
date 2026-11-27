@@ -31,6 +31,7 @@ internal sealed class AudioSpeedMapping : IDisposable
     public MediaTime PreviewStartDelta { get; set; }
     public bool IsInvalidated { get; private set; }
     public float StaticSpeed => Normalize(CurrentPercent) / 100f;
+    public bool RemapsTime => HasExpression || IsAnimated || StaticSpeed != 1f;
 
     // Keyframes vary the speed within a window only while no expression sits on top of them.
     public bool IsAnimated => Animation is not null;
@@ -287,6 +288,8 @@ internal sealed class AudioSpeedMapping : IDisposable
 // Used by tail accounting to convert sample budgets through any speed-based node.
 internal interface IAudioTimeMappingNode
 {
+    bool RemapsTime { get; }
+
     void SetPreviewStartDelta(MediaTime delta);
 
     bool TryGetDrainSpeedFactor(int sampleRate, out double speed);

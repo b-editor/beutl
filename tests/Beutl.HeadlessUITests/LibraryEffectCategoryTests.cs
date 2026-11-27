@@ -372,6 +372,6 @@ public sealed class LibraryEffectCategoryTests
         await viewModel.SearchTask;
 
         Assert.That(viewModel.Items.Select(item => ((SingleTypeLibraryItem)item.UserData).ImplementationType),
-            Is.EquivalentTo(new[] { typeof(CompressorEffect), typeof(LimiterEffect), typeof(GateEffect) }));
+            Is.EquivalentTo(new[] { typeof(CompressorEffect), typeof(DuckingEffect), typeof(LimiterEffect), typeof(GateEffect) }));
     }
 }
