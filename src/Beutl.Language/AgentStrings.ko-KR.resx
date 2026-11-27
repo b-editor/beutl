@@ -473,7 +473,7 @@
     <value>터미널에서 {0}을(를) 설치한 후 다시 확인하세요.</value>
   </data>
   <data name="DiagnosticExecutablePath" xml:space="preserve">
-    <value>AI 에이전트 설정에서 {0}의 실행 파일 경로를 확인하세요.</value>
+    <value>에이전트 설정에서 {0}의 실행 파일 경로를 확인하세요.</value>
   </data>
   <data name="DiagnosticSignIn" xml:space="preserve">
     <value>터미널에서 {0}에 로그인한 후 다시 확인하세요.</value>
@@ -491,7 +491,7 @@
     <value>잠시 기다렸다가 다시 시도하거나 다른 모델 또는 제공자를 선택하세요.</value>
   </data>
   <data name="DiagnosticCheckMcp" xml:space="preserve">
-    <value>AI 에이전트 설정을 열고 Beutl MCP 구성을 확인하세요.</value>
+    <value>에이전트 설정을 열고 Beutl MCP 구성을 확인하세요.</value>
   </data>
   <data name="DiagnosticReviewDetails" xml:space="preserve">
     <value>기술 세부 정보를 확인한 후 다시 시도하세요.</value>
@@ -506,7 +506,7 @@
     <value>설정 열기</value>
   </data>
   <data name="DiagnosticOpenAiAgentSettings" xml:space="preserve">
-    <value>AI 에이전트 설정 열기</value>
+    <value>에이전트 설정 열기</value>
   </data>
   <data name="DiagnosticRecheck" xml:space="preserve">
     <value>다시 확인</value>
@@ -515,10 +515,10 @@
     <value>기술 세부 정보</value>
   </data>
   <data name="SendToAgent" xml:space="preserve">
-    <value>AI 에이전트로 보내기</value>
+    <value>에이전트로 보내기</value>
   </data>
   <data name="SendFrameToAgent" xml:space="preserve">
-    <value>현재 프레임을 AI 에이전트로 보내기</value>
+    <value>현재 프레임을 에이전트로 보내기</value>
   </data>
   <data name="MentionObject" xml:space="preserve">
     <value>개체</value>

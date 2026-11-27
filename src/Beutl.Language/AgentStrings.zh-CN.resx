@@ -473,7 +473,7 @@
     <value>在终端中安装 {0}，然后重新检查。</value>
   </data>
   <data name="DiagnosticExecutablePath" xml:space="preserve">
-    <value>请在 AI 智能体设置中检查 {0} 的可执行文件路径。</value>
+    <value>请在智能体设置中检查 {0} 的可执行文件路径。</value>
   </data>
   <data name="DiagnosticSignIn" xml:space="preserve">
     <value>在终端中登录 {0}，然后重新检查。</value>
@@ -491,7 +491,7 @@
     <value>请稍后重试，或选择其他模型或提供商。</value>
   </data>
   <data name="DiagnosticCheckMcp" xml:space="preserve">
-    <value>打开 AI 智能体设置，检查 Beutl MCP 配置。</value>
+    <value>打开智能体设置，检查 Beutl MCP 配置。</value>
   </data>
   <data name="DiagnosticReviewDetails" xml:space="preserve">
     <value>请查看技术详情后重试。</value>
@@ -506,7 +506,7 @@
     <value>打开设置</value>
   </data>
   <data name="DiagnosticOpenAiAgentSettings" xml:space="preserve">
-    <value>打开 AI 智能体设置</value>
+    <value>打开智能体设置</value>
   </data>
   <data name="DiagnosticRecheck" xml:space="preserve">
     <value>重新检查</value>
@@ -515,10 +515,10 @@
     <value>技术详情</value>
   </data>
   <data name="SendToAgent" xml:space="preserve">
-    <value>发送到 AI 智能体</value>
+    <value>发送到智能体</value>
   </data>
   <data name="SendFrameToAgent" xml:space="preserve">
-    <value>将当前帧发送到 AI 智能体</value>
+    <value>将当前帧发送到智能体</value>
   </data>
   <data name="MentionObject" xml:space="preserve">
     <value>对象</value>

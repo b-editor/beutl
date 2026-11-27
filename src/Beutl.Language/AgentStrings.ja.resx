@@ -691,7 +691,7 @@
     <value>ターミナルで {0} をインストールし、再確認してください。</value>
   </data>
   <data name="DiagnosticExecutablePath" xml:space="preserve">
-    <value>AI エージェント設定で {0} の実行ファイルのパスを確認してください。</value>
+    <value>エージェント設定で {0} の実行ファイルのパスを確認してください。</value>
   </data>
   <data name="DiagnosticSignIn" xml:space="preserve">
     <value>ターミナルで {0} にログインし、再確認してください。</value>
@@ -709,7 +709,7 @@
     <value>時間をおいて再試行するか、別のモデルやプロバイダーを選んでください。</value>
   </data>
   <data name="DiagnosticCheckMcp" xml:space="preserve">
-    <value>AI エージェント設定を開き、Beutl MCP の構成を確認してください。</value>
+    <value>エージェント設定を開き、Beutl MCP の構成を確認してください。</value>
   </data>
   <data name="DiagnosticReviewDetails" xml:space="preserve">
     <value>技術的な詳細を確認し、再試行してください。</value>
@@ -724,7 +724,7 @@
     <value>設定を開く</value>
   </data>
   <data name="DiagnosticOpenAiAgentSettings" xml:space="preserve">
-    <value>AI エージェント設定を開く</value>
+    <value>エージェント設定を開く</value>
   </data>
   <data name="DiagnosticRecheck" xml:space="preserve">
     <value>再確認</value>
@@ -733,10 +733,10 @@
     <value>技術的な詳細</value>
   </data>
   <data name="SendToAgent" xml:space="preserve">
-    <value>AI エージェントに送る</value>
+    <value>エージェントに送る</value>
   </data>
   <data name="SendFrameToAgent" xml:space="preserve">
-    <value>現在のフレームを AI エージェントに送る</value>
+    <value>現在のフレームをエージェントに送る</value>
   </data>
   <data name="MentionObject" xml:space="preserve">
     <value>オブジェクト</value>

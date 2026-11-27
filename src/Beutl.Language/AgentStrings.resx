@@ -691,7 +691,7 @@
     <value>Install {0} in a terminal, then recheck.</value>
   </data>
   <data name="DiagnosticExecutablePath" xml:space="preserve">
-    <value>Check the executable path for {0} in AI Agent settings.</value>
+    <value>Check the executable path for {0} in Agent settings.</value>
   </data>
   <data name="DiagnosticSignIn" xml:space="preserve">
     <value>Sign in to {0} in a terminal, then recheck.</value>
@@ -709,7 +709,7 @@
     <value>Wait a moment and retry, or choose another model or provider.</value>
   </data>
   <data name="DiagnosticCheckMcp" xml:space="preserve">
-    <value>Open AI Agent settings and check the Beutl MCP configuration.</value>
+    <value>Open Agent settings and check the Beutl MCP configuration.</value>
   </data>
   <data name="DiagnosticReviewDetails" xml:space="preserve">
     <value>Review the technical details and try again.</value>
@@ -724,7 +724,7 @@
     <value>Open settings</value>
   </data>
   <data name="DiagnosticOpenAiAgentSettings" xml:space="preserve">
-    <value>Open AI Agent settings</value>
+    <value>Open Agent settings</value>
   </data>
   <data name="DiagnosticRecheck" xml:space="preserve">
     <value>Recheck</value>
@@ -733,10 +733,10 @@
     <value>Technical details</value>
   </data>
   <data name="SendToAgent" xml:space="preserve">
-    <value>Send to AI Agent</value>
+    <value>Send to Agent</value>
   </data>
   <data name="SendFrameToAgent" xml:space="preserve">
-    <value>Send current frame to AI Agent</value>
+    <value>Send current frame to Agent</value>
   </data>
   <data name="MentionObject" xml:space="preserve">
     <value>Object</value>

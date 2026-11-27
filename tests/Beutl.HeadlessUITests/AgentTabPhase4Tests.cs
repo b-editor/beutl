@@ -235,7 +235,15 @@ public sealed class AgentTabPhase4Tests
             Assert.That(model.FilteredThreads.Select(row => row.Thread.Id), Does.Not.Contain(archived.Id));
 
             var switcher = Find<Button>(bar, "ThreadSwitcherButton");
+            var switcherPresenter = switcher.GetVisualDescendants().OfType<ContentPresenter>()
+                .Single(presenter => presenter.Name == "PART_ContentPresenter");
+            window.MouseMove(switcher.TranslatePoint(new Point(switcher.Bounds.Width / 2, switcher.Bounds.Height / 2), window)!.Value);
+            await HeadlessTestHelpers.WaitUntilAsync(() => switcher.IsPointerOver);
+            Assert.That(switcher.Opacity, Is.EqualTo(0.8));
+            Assert.That(switcherPresenter.Background, Is.EqualTo(Brushes.Transparent));
             Click(switcher);
+            await HeadlessTestHelpers.WaitUntilAsync(() => switcher.Opacity == 0.5);
+            Assert.That(switcherPresenter.Background, Is.EqualTo(Brushes.Transparent));
             var search = bar.FindControl<TextBox>("ThreadSearchBox")!;
             var archivedToggle = bar.FindControl<CheckBox>("ShowArchivedThreads")!;
             Click(archivedToggle);

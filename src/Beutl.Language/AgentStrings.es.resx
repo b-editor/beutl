@@ -515,10 +515,10 @@
     <value>Detalles técnicos</value>
   </data>
   <data name="SendToAgent" xml:space="preserve">
-    <value>Enviar al agente de IA</value>
+    <value>Enviar al agente</value>
   </data>
   <data name="SendFrameToAgent" xml:space="preserve">
-    <value>Enviar el fotograma actual al agente de IA</value>
+    <value>Enviar el fotograma actual al agente</value>
   </data>
   <data name="MentionObject" xml:space="preserve">
     <value>Objeto</value>

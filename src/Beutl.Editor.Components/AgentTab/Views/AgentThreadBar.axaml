@@ -10,7 +10,7 @@
              x:DataType="vm:AgentTabViewModel">
     <controls:ToolTabBar>
         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="2" VerticalAlignment="Center">
-            <Button x:Name="ThreadSwitcherButton" Theme="{StaticResource TransparentButton}" Padding="7,4" MinHeight="28"
+            <Button x:Name="ThreadSwitcherButton" Theme="{StaticResource AgentLiteButtonTheme}" Padding="4,4" MinHeight="28"
                     HorizontalAlignment="Left" HorizontalContentAlignment="Stretch" IsEnabled="{Binding CanManage}"
                     ToolTip.Tip="{Binding ThreadPickerTooltip}" ToolTip.ShowOnDisabled="True"
                     AutomationProperties.Name="{x:Static lang:AgentStrings.ThreadPicker}" AutomationProperties.HelpText="{Binding ThreadPickerTooltip}">
