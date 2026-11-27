@@ -186,6 +186,7 @@ public sealed class AgentTabEditorActionsTests
         string elementLink = $"beutl://element/{clip.Id.Value:D}";
         string objectLink = $"beutl://object/{shape.Id.Value:D}?element={clip.Id.Value:D}&scene={scene.Id.Value:D}&property=Width";
         string fileUri = new Uri(file).AbsoluteUri;
+        string bareFilePath = file.Replace('\\', '/');
         string keyFrameLink = $"beutl://object/{keyFrame.Id.Value:D}";
         string markerLink = $"beutl://object/{marker.Id.Value:D}";
         string elementTimeLink = $"{elementLink}?time=9.02";
@@ -210,7 +211,7 @@ public sealed class AgentTabEditorActionsTests
 
             [Credits start]({timeSceneLink}) · [Credits end]({sceneLink}) · [Return to opening]({sceneObjectLink})
 
-            [Open notes by file URI]({fileUri}) · [Beutl guide]({website})
+            [Open notes by file URI]({fileUri}) · [Open notes by path](<{bareFilePath}>) · [Beutl guide]({website})
 
             [Removed layer]({staleLink}) · [Removed notes]({staleFile})
             """;
@@ -292,6 +293,8 @@ public sealed class AgentTabEditorActionsTests
             await HeadlessTestHelpers.WaitUntilAsync(() => launches.Count == 1);
             ClickLink(agentView, fileUri);
             await HeadlessTestHelpers.WaitUntilAsync(() => launches.Count == 2);
+            ClickLink(agentView, bareFilePath);
+            await HeadlessTestHelpers.WaitUntilAsync(() => launches.Count == 3);
             ProcessStartInfo expected = FileManagerLauncher.CreateStartInfo(file, isDirectory: false);
             foreach (var launch in launches)
             {
@@ -310,7 +313,7 @@ public sealed class AgentTabEditorActionsTests
             ClickLink(agentView, staleLink);
             ClickLink(agentView, staleFile);
             await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Count(IsMissingWarning) == 2);
-            Assert.That(launches, Has.Count.EqualTo(2));
+            Assert.That(launches, Has.Count.EqualTo(3));
         }
         finally
         {

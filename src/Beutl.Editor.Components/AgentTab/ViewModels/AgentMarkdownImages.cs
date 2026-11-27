@@ -16,7 +16,7 @@ internal static class AgentMarkdownImages
         var images = new List<AgentImagePreview>();
         foreach (var image in Markdown.Parse(text, s_pipeline).Descendants<LinkInline>())
         {
-            if (!image.IsImage || AgentMarkdownLocalPath.Decode(image.Url, allowAbsolutePath: true) is not { } destination
+            if (!image.IsImage || AgentMarkdownLocalPath.Decode(image.Url, allowAbsolutePath: true, allowQueryOrFragment: true) is not { } destination
                 || AgentMarkdownLocalPath.Resolve(destination, projectDirectory) is not { IsDirectory: false, FullPath: var path })
                 continue;
 

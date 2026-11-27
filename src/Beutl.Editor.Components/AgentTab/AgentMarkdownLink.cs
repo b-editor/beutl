@@ -16,7 +16,7 @@ internal sealed record AgentMarkdownLink(
         if (uri is null)
             return null;
         if (!uri.IsAbsoluteUri || uri.Scheme != "beutl")
-            return AgentMarkdownLocalPath.Decode(uri.OriginalString) is { } path ? new(AgentMarkdownLinkKind.LocalFile, LocalPath: path) : null;
+            return AgentMarkdownLocalPath.Decode(uri.OriginalString, allowAbsolutePath: true) is { } path ? new(AgentMarkdownLinkKind.LocalFile, LocalPath: path) : null;
         if (uri.UserInfo.Length != 0 || !uri.IsDefaultPort || uri.Fragment.Length != 0 || uri.AbsolutePath.Length < 2
             || ParseQuery(uri.Query) is not { } query)
             return null;

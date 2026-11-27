@@ -4,7 +4,7 @@ namespace Beutl.Editor.Components.AgentTab;
 
 internal sealed record AgentMarkdownLocalPath(string FullPath, bool IsDirectory)
 {
-    internal static string? Decode(string? destination, bool allowAbsolutePath = false)
+    internal static string? Decode(string? destination, bool allowAbsolutePath = false, bool allowQueryOrFragment = false)
     {
         if (string.IsNullOrWhiteSpace(destination))
             return null;
@@ -18,7 +18,7 @@ internal sealed record AgentMarkdownLocalPath(string FullPath, bool IsDirectory)
             return HasNetworkPrefix(uri.LocalPath) ? null : uri.LocalPath;
         }
 
-        if (!allowAbsolutePath && destination.AsSpan().ContainsAny('?', '#'))
+        if (!allowQueryOrFragment && destination.AsSpan().ContainsAny('?', '#'))
             return null;
 
         string path = Uri.UnescapeDataString(destination);

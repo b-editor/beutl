@@ -47,8 +47,6 @@ public sealed class AgentMarkdownLinkTests
     [TestCase("//example.test/share/notes.txt")]
     [TestCase(@"\\example.test\share\notes.txt")]
     [TestCase("%2F%2Fexample.test/share/notes.txt")]
-    [TestCase("/notes.txt")]
-    [TestCase("C:/notes.txt")]
     [TestCase("#notes")]
     [TestCase("beutl://time/NaN")]
     [TestCase("beutl://time/Infinity")]
@@ -70,11 +68,16 @@ public sealed class AgentMarkdownLinkTests
         using var directory = new TemporaryProject();
         string file = Path.Combine(directory.Root, "media", "clip notes.txt");
         string absoluteUri = new Uri(file).AbsoluteUri;
+        string bareAbsolute = file.Replace('\\', '/');
+        string outsideFile = Path.Combine(Path.GetDirectoryName(directory.Root)!, "outside.txt");
 
         Assert.Multiple(() =>
         {
             Assert.That(directory.Resolve("media/clip%20notes.txt"), Is.EqualTo(new AgentMarkdownLocalPath(file, false)));
             Assert.That(directory.Resolve(absoluteUri), Is.EqualTo(new AgentMarkdownLocalPath(file, false)));
+            Assert.That(directory.Resolve(file), Is.EqualTo(new AgentMarkdownLocalPath(file, false)));
+            Assert.That(directory.Resolve(bareAbsolute), Is.EqualTo(new AgentMarkdownLocalPath(file, false)));
+            Assert.That(directory.Resolve(outsideFile), Is.EqualTo(new AgentMarkdownLocalPath(outsideFile, false)));
             Assert.That(directory.Resolve("media/"), Is.EqualTo(new AgentMarkdownLocalPath(Path.Combine(directory.Root, "media") + Path.DirectorySeparatorChar, true))
                 .Or.EqualTo(new AgentMarkdownLocalPath(Path.Combine(directory.Root, "media"), true)));
             Assert.That(directory.Resolve("missing.txt"), Is.Null);
@@ -82,6 +85,12 @@ public sealed class AgentMarkdownLinkTests
             Assert.That(directory.Resolve("media/%2e%2e/%2e%2e/outside.txt"), Is.Null);
             Assert.That(Parse(absoluteUri + "?x=1"), Is.Null);
             Assert.That(Parse(absoluteUri + "#preview"), Is.Null);
+            Assert.That(Parse(bareAbsolute + "?x=1"), Is.Null);
+            Assert.That(Parse(bareAbsolute + "#preview"), Is.Null);
+            if (OperatingSystem.IsWindows())
+                Assert.That(Parse("/notes.txt"), Is.Null);
+            else
+                Assert.That(Parse("C:/notes.txt"), Is.Null);
         });
     }
 
