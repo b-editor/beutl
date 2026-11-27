@@ -62,9 +62,16 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         await _sourceHandlers.DisposeAsync();
     }
 
-    public async ValueTask<ElementAddResult> AddAsync(
+    public ValueTask<ElementAddResult> AddAsync(
         IReadOnlyList<ElementDescription> descriptions,
         CancellationToken cancellationToken)
+        => AddAsync(descriptions, cancellationToken, runCommit: null, captureValidation: null);
+
+    internal async ValueTask<ElementAddResult> AddAsync(
+        IReadOnlyList<ElementDescription> descriptions,
+        CancellationToken cancellationToken,
+        Func<Func<ElementAddResult>, CancellationToken, ValueTask<ElementAddResult>>? runCommit,
+        Func<Scene, Action?>? captureValidation)
     {
         using AsyncOperationLifetime.Operation operation = _operations.TryEnter()
             ?? throw new ObjectDisposedException(nameof(ElementAdderImpl));
@@ -83,6 +90,8 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 handlerLeases,
                 preflightLeases,
                 materializationResources,
+                runCommit,
+                captureValidation,
                 operationToken);
             return result;
         }
@@ -104,6 +113,8 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         ICollection<IElementSourceHandlerLease> handlerLeases,
         ICollection<IElementSourcePreflight> preflightLeases,
         ICollection<ElementMaterializationResource> materializationResources,
+        Func<Func<ElementAddResult>, CancellationToken, ValueTask<ElementAddResult>>? runCommit,
+        Func<Scene, Action?>? captureValidation,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(descriptions);
@@ -134,12 +145,15 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         if (materializationFailure is not null)
             return materializationFailure;
 
+        ElementAddResult Commit() => CommitBatch(
+            scene, sceneId, plans, itemResults, groups, arrangements, captureValidation, cancellationToken);
+
+        if (runCommit is not null)
+            return await runCommit(Commit, cancellationToken);
+
         // A batch prepared while an edit session is open, such as an AI result, is added after the session ends.
         ElementAddResult? result = null;
-        await _context.HistoryManager.RunAfterEditAsync(
-            () => result = CommitBatch(
-                scene, sceneId, plans, itemResults, groups, arrangements, cancellationToken),
-            cancellationToken);
+        await _context.HistoryManager.RunAfterEditAsync(() => result = Commit(), cancellationToken);
 
         return result!;
     }
@@ -330,6 +344,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         List<ElementAddItemResult> itemResults,
         List<ImmutableHashSet<Guid>> groups,
         List<bool> arrangements,
+        Func<Scene, Action?>? captureValidation,
         CancellationToken cancellationToken)
     {
         CommitValidationFailure? commitValidation = RevalidateBeforeCommit(
@@ -357,6 +372,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 if (gatedCommitValidation is not null)
                     return;
 
+                Action? validate = captureValidation?.Invoke(scene);
                 var layerEnds = new Dictionary<(int Layer, bool StacksAboveScene), MediaTime>();
                 int? firstFreeLayer = null;
                 int? audioLayerDelta = null;
@@ -417,6 +433,8 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 {
                     scene.Groups.AddRange(groups);
                 }
+
+                validate?.Invoke();
             }, CommandNames.AddElement, cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

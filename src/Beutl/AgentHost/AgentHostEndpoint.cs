@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Live;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Configuration;
+using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
@@ -420,6 +421,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         builder.Services
             .AddSingleton(_editorService.AppServices.GetRequiredService<LibraryService>())
+            .AddSingleton(_editorService.AppServices.GetRequiredService<ObjectTemplateService>())
             .AddSingleton<Beutl.AgentToolkit.Schema.SchemaGenerator>()
             .AddSingleton(_projectService.Fonts)
             .AddSingleton<Beutl.AgentToolkit.Sessions.IOpenProjectFonts>(new OpenProjectFonts(_projectService))

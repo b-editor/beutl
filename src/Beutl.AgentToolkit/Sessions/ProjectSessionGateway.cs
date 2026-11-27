@@ -1,4 +1,6 @@
-﻿using Beutl.ProjectSystem;
+﻿using Beutl.Editor.VersionControl;
+using Beutl.ProjectSystem;
+using Beutl.Services;
 
 namespace Beutl.AgentToolkit.Sessions;
 
@@ -22,9 +24,21 @@ public interface IProjectSessionGateway
     ValueTask<ProjectSceneResult> AddSceneAsync(IEditingSession activeSession, SceneCreateOptions options, CancellationToken cancellationToken = default);
 }
 
+internal interface IProjectSceneRemovalGateway
+{
+    ValueTask<SceneRemovalResult> RemoveSceneAsync(Guid sceneId, CancellationToken cancellationToken);
+}
+
+internal interface ILiveProjectVersionControlGateway
+{
+    IProjectVersionControlService? GetVersionControl(IEditingSession activeSession);
+
+    ValueTask<CommitResult> CommitAsync(IEditingSession activeSession, string message, CancellationToken cancellationToken);
+}
+
 public sealed class FileProjectSessionGateway(
     FileSessionSource fileSessions,
-    AgentSessionManager sessions) : IProjectSessionGateway
+    AgentSessionManager sessions) : IProjectSessionGateway, IProjectSceneRemovalGateway
 {
     public ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
     {
@@ -71,9 +85,30 @@ public sealed class FileProjectSessionGateway(
             // open_project/create_project swap between the caller's session lookup and this call must
             // not add the scene to the newly opened project.
             scene = ProjectOperations.AddScene(session.Project, options);
-            session.MarkDirty();
+            session.MarkProjectDirty();
             session.SetActiveScene(scene);
         });
         return ValueTask.FromResult(new ProjectSceneResult(scene, session.Project, session));
+    }
+
+    ValueTask<SceneRemovalResult> IProjectSceneRemovalGateway.RemoveSceneAsync(Guid sceneId, CancellationToken cancellationToken)
+    {
+        if (sessions.CurrentSession is not FileEditingSession session)
+            throw new SessionUnavailableException();
+
+        return ValueTask.FromResult(session.EditOnSession(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Scene scene = ProjectOperations.FindSceneToRemove(session.Project, sceneId);
+            SceneRemovalResult result = ProjectPersistence.RemoveScene(
+                session.Project, scene, session.HasUnsavedChanges(scene), persist: false);
+            if (result == SceneRemovalResult.Removed)
+            {
+                session.MarkProjectDirty();
+                if (ReferenceEquals(session.Scene, scene))
+                    session.SetActiveScene(session.Project.Items.OfType<Scene>().First());
+            }
+            return result;
+        }, cancellationToken));
     }
 }

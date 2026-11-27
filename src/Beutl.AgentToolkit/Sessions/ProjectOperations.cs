@@ -94,6 +94,19 @@ public static class ProjectOperations
         return scene;
     }
 
+    internal static Scene FindSceneToRemove(Project project, Guid id)
+    {
+        Scene[] matches = project.Items.OfType<Scene>().Where(scene => scene.Id.Value == id).Take(2).ToArray();
+        return matches.Length switch
+        {
+            1 => matches[0],
+            0 => throw new ReconcileException(new ToolError(
+                ErrorCode.StaleHandle, "The scene is not in the project.", id.ToString())),
+            _ => throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected, "More than one scene in the project has this ID.", id.ToString()))
+        };
+    }
+
     // Save mutates the open graph BEFORE the fallible project write (rehoming out-of-project
     // sidecars, nulling duplicates, assigning missing URIs); a failed save must be able to put the
     // original locations back so the project is left exactly as it was.

@@ -44,6 +44,12 @@
   <data name="ConfirmExcludeItem" xml:space="preserve">
     <value>是否要将此项目从项目中排除？</value>
   </data>
+  <data name="CannotRemoveLastScene" xml:space="preserve">
+    <value>无法移除项目中的最后一个场景。</value>
+  </data>
+  <data name="SaveSceneBeforeRemoving" xml:space="preserve">
+    <value>请先保存此场景的更改，再将其移除。</value>
+  </data>
   <data name="FailedToOpenFileWithExtension" xml:space="preserve">
     <value>无法使用“{0}”打开以下文件。
 “{1}”</value>
