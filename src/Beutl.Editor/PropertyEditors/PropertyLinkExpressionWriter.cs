@@ -59,11 +59,16 @@ internal sealed class PropertyLinkExpressionWriter<TValue> : PropertyLinkExpress
             return false;
         }
 
+        // CanReplace(null, [value, animation]): the kept value and animation must not still hold what could not be
+        // loaded, or the element stays protected and saving drops the link.
         object? animation = (_adapter as IAnimatablePropertyAdapter)?.Animation;
-        if (ElementEditability.CanRepair(_element, new object?[] { _adapter.GetValue(), animation }, _scene)
-            || ElementEditability.CanRepairDroppedValue(_element, _adapter.GetEngineProperty(), _scene)
-            || (_adapter is EnginePropertyAdapter<Easing> { Object: KeyFrame keyFrame }
-                && ElementEditability.CanRepair(_element, keyFrame, _scene)))
+        bool canReplace = ElementEditability.CanRepair(_element, null, _scene)
+                          || ElementEditability.CanRepairDroppedValue(_element, _adapter.GetEngineProperty(), _scene)
+                          || (_adapter is EnginePropertyAdapter<Easing> { Object: KeyFrame keyFrame }
+                              && ElementEditability.CanRepair(_element, keyFrame, _scene));
+        if (canReplace
+            && !(_element is { IsRecoveryProtected: true }
+                 && SceneRecovery.HoldsRecoveryBlocker(new object?[] { _adapter.GetValue(), animation })))
         {
             error = null;
             return true;
