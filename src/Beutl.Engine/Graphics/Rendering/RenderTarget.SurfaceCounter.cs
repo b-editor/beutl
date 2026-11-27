@@ -1,4 +1,5 @@
-﻿using Beutl.Threading;
+﻿using Beutl.Graphics.Rendering.Requests;
+using Beutl.Threading;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -9,10 +10,19 @@ public partial class RenderTarget
     {
         private readonly Dispatcher? _dispatcher = Dispatcher.Current;
         private volatile int _refs = 1;
+        private RenderTargetLeaseSession? _liveByteSession;
+        private long _approximateBytes = approximateBytes;
 
         public T? Value { get; private set; } = value;
 
         public int RefCount => _refs;
+
+        public void TrackLiveBytes(RenderTargetLeaseSession session, long byteSize)
+        {
+            // Set before publishing the target. Shallow copies keep this charge on the shared backing counter.
+            _liveByteSession = session;
+            _approximateBytes = byteSize;
+        }
 
         public void AddRef()
         {
@@ -71,12 +81,20 @@ public partial class RenderTarget
 
         private void ReleaseValue(T value)
         {
-            if (deferRelease && GpuResourceReclaimQueue.TryDefer(value, approximateBytes))
+            if (deferRelease && GpuResourceReclaimQueue.TryDefer(value, _approximateBytes))
             {
                 return;
             }
 
-            value.Dispose();
+            try
+            {
+                value.Dispose();
+            }
+            finally
+            {
+                _liveByteSession?.ReleaseLiveBytes(_approximateBytes);
+                _liveByteSession = null;
+            }
         }
     }
 }

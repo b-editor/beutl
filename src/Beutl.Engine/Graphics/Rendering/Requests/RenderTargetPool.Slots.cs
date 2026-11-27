@@ -84,13 +84,8 @@ internal sealed partial class RenderTargetPool
         if (!_ownedSlots.Contains(slot))
             return;
 
-        RenderTargetLease? liveLease = slot.ActiveLease;
-        if (liveLease is not null)
-        {
-            liveLease.State = RenderTargetLeaseState.Evicted;
-            slot.ActiveLease = null;
-            _leasedTargets--;
-        }
+        if (slot.ActiveLease is { } lease)
+            DischargeLease(lease, RenderTargetLeaseState.Evicted);
         RemoveOwnedSlot(slot);
         _evictions++;
         try
@@ -104,6 +99,14 @@ internal sealed partial class RenderTargetPool
             else
                 failures?.Add(ex);
         }
+    }
+
+    private void DischargeLease(RenderTargetLease lease, RenderTargetLeaseState state)
+    {
+        lease.State = state;
+        lease.Slot.ActiveLease = null;
+        _leasedTargets--;
+        lease.Session.ReleaseLiveBytes(lease.Slot.ByteSize);
     }
 
     private void RemoveOwnedSlot(TargetSlot slot)
