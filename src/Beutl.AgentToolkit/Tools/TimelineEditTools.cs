@@ -209,7 +209,7 @@ public sealed partial class TimelineEditTools(
         return RequireElement(scene.Children.Where(element => element.Id.Value == id), id);
     }
 
-    private static Element[] ReadElements(Scene scene, string[] elementIds, bool includeLinked)
+    internal static Element[] ReadElements(Scene scene, string[] elementIds, bool includeLinked)
     {
         if (elementIds is not { Length: > 0 })
             throw InvalidEdit("Supply at least one element ID.", nameof(elementIds));

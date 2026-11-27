@@ -1453,6 +1453,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ExportSubtitles_Format" xml:space="preserve">
     <value>Formato de archivo</value>
   </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>Selecciona clips o capas para exportar.</value>
+  </data>
   <data name="ExportSubtitles_NoText" xml:space="preserve">
     <value>No se encontraron clips de texto.</value>
   </data>
@@ -1933,6 +1936,12 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Archivo de subtítulos</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>Selecciona un archivo SRT, ASS o WebVTT.</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>La plantilla debe contener un objeto de texto.</value>
   </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>No se pudo leer ningún subtítulo de {0}.</value>

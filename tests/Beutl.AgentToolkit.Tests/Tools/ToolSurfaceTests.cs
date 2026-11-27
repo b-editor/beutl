@@ -24,6 +24,7 @@ public sealed class ToolSurfaceTests
         typeof(HistoryTools),
         typeof(MissingMediaTools),
         typeof(ProjectAssetTools),
+        typeof(SubtitleTools),
         typeof(RenderTools)
     ];
 
@@ -93,6 +94,9 @@ public sealed class ToolSurfaceTests
             "relink_missing_media",
             "inspect_project_assets",
             "organize_project_assets",
+            "import_subtitles",
+            "list_subtitles",
+            "export_subtitles",
             "plan_composition",
             "apply_composition",
             "render_still",
@@ -125,7 +129,7 @@ public sealed class ToolSurfaceTests
             {
                 "apply_edit", "undo", "render_still", "duplicate_elements", "ripple_trim", "roll_elements", "slide_elements",
                 "find_gaps", "close_all_gaps", "split_on_silence", "scan_missing_media", "relink_missing_media",
-                "save_object_template", "apply_object_template"
+                "save_object_template", "apply_object_template", "import_subtitles", "list_subtitles", "export_subtitles"
             }));
             Assert.That(sessionTools.Where(name => !AgentHostSceneRouting.AcceptsScene(name)), Is.Empty);
         });

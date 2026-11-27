@@ -33,8 +33,8 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         _context = context;
         _sourceHandlers = new ElementSourceHandlerRegistry(
         [
-            new ElementSourceHandlerRegistration(new EngineObjectSourceHandler(this)),
-            new ElementSourceHandlerRegistration(new ElementTemplateSourceHandler(this)),
+            new ElementSourceHandlerRegistration(new EngineObjectSourceHandler()),
+            new ElementSourceHandlerRegistration(new ElementTemplateSourceHandler()),
             new ElementSourceHandlerRegistration(new ElementSetTemplateSourceHandler()),
             new ElementSourceHandlerRegistration(new FileSourceHandler(this)),
         ],
@@ -393,17 +393,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                     if (description.StacksAboveScene)
                     {
                         firstFreeLayer ??= scene.GetFirstFreeLayer();
-                        foreach (Element element in elements)
-                        {
-                            element.ZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer.Value, element.ZIndex.Value);
-                            // A matte in a set names a layer of the set, which has just moved.
-                            if (arrangements[index]
-                                && element.MatteSourceKind.Value == MatteSourceKind.Layer
-                                && element.MatteSourceZIndex.Value is { } source)
-                            {
-                                element.MatteSourceZIndex.Value = scene.CountUnlockedLayers(firstFreeLayer.Value, source);
-                            }
-                        }
+                        ElementPlacementHelper.StackAboveScene(scene, firstFreeLayer.Value, elements, arrangements[index]);
                     }
 
                     if (description.PlaceOnSeparateAudioTrack)
@@ -413,7 +403,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                     }
                     else if (arrangements[index])
                     {
-                        PlaceTogether(scene, elements);
+                        ElementPlacementHelper.PlaceTogether(scene, elements);
                     }
 
                     foreach (Element element in elements)
@@ -454,15 +444,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         ElementAddResult result = ElementAddResult.Succeeded(itemResults);
         _logger.LogInformation("Added {Count} elements successfully.", result.Elements.Count);
         return result;
-    }
-
-    // Moves elements that keep their arrangement to the free place nearest where they are, clear of the scene as it
-    // is now, earlier items of the batch included, so they can be added as they are. Throwing rolls the batch back.
-    private static void PlaceTogether(Scene scene, IReadOnlyList<Element> elements)
-    {
-        GroupPlacement placement = ElementPlacementHelper.FindFreePlacement(scene, elements)
-            ?? throw new InvalidOperationException("No free place was found for elements that keep their arrangement.");
-        ElementPlacementHelper.MoveTogether(elements, placement.StartDelta, placement.LayerDelta);
     }
 
     private static int FindFileImportAudioLayerDelta(Scene scene, IReadOnlyList<ElementAddItemResult> items, int firstAudio)

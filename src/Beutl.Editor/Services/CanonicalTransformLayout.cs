@@ -92,6 +92,13 @@ internal static class CanonicalTransformLayout
             : null;
     }
 
+    internal static void Insert(IProperty<Transform?> property, Transform item)
+    {
+        TransformGroup group = EngineObjectGroups.GetOrCreateGroup<Transform, TransformGroup>(
+            property.Value, group => property.Value = group, group => group.Children, out _);
+        group.Children.Insert(GetInsertionIndex(group.Children, item), item);
+    }
+
     /// <summary>
     /// The index at which a new child takes the place <see cref="Ensure"/> gives it: the first enabled translate goes
     /// on top, the first enabled rotation right below it, and anything else at the end.

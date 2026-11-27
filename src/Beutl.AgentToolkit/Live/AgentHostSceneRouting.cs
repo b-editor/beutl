@@ -27,6 +27,7 @@ public static class AgentHostSceneRouting
         "read_version_control_status", "read_version_control_history", "commit_project",
         "read_node_graph", "edit_node_graph",
         "generate_proxies", "read_proxy_status", "remove_proxies", "scan_missing_media", "relink_missing_media",
+        "import_subtitles", "list_subtitles", "export_subtitles",
         "plan_composition", "apply_composition", "measure_object_bounds",
         "undo", "redo", "read_history", "render_still", "render_storyboard",
         "measure_frame_differences", "export_video", "add_scene", "save_project"

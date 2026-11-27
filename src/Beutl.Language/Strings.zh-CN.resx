@@ -1453,6 +1453,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ExportSubtitles_Format" xml:space="preserve">
     <value>文件格式</value>
   </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>请选择要导出的片段或图层。</value>
+  </data>
   <data name="ExportSubtitles_NoText" xml:space="preserve">
     <value>未找到文本片段。</value>
   </data>
@@ -1933,6 +1936,12 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕文件</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>请选择 SRT、ASS 或 WebVTT 文件。</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>模板必须包含文本对象。</value>
   </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>无法从 {0} 读取字幕。</value>

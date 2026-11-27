@@ -18,7 +18,7 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.AgentHost;
 
 public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentEditFollower? follower = null)
-    : ILiveSessionBinding, ILiveElementTemplateBinding, ILiveMediaRepairBinding
+    : ILiveSessionBinding, ILiveElementBinding, ILiveMediaRepairBinding
 {
     private static readonly ILogger s_logger = Log.CreateLogger<EditViewModelLiveBinding>();
 
@@ -52,17 +52,18 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentE
         }
     }
 
-    IReadOnlyList<Element> ILiveElementTemplateBinding.GetSelectedElements()
+    IReadOnlyList<Element> ILiveElementBinding.GetSelectedElements()
         => editViewModel.GetRequiredService<IEditorSelection>().GetTargetElements(editViewModel.Scene);
 
-    async ValueTask<ElementAddResult> ILiveElementTemplateBinding.AddTemplateAsync(
-        ElementDescription description, Func<Scene, Action?> captureValidation, CancellationToken cancellationToken)
+    async ValueTask<ElementAddResult> ILiveElementBinding.AddElementsAsync(
+        Scene scene, IReadOnlyList<ElementDescription> descriptions,
+        Func<Scene, Action?> captureValidation, CancellationToken cancellationToken)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (!IsAlive) throw new SessionUnavailableException();
+            if (!IsAlive || !ReferenceEquals(scene, ActiveScene)) throw new SessionUnavailableException();
             var adder = (ElementAdderImpl)editViewModel.GetRequiredService<IElementAdder>();
-            return await adder.AddAsync([description], cancellationToken,
+            return await adder.AddAsync(descriptions, cancellationToken,
                 (commit, token) => ExecuteHistoryMutationAsync(
                     _ => IsAlive,
                     history =>

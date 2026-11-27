@@ -85,7 +85,7 @@ Pass `sceneId` for live saves and applications. For a file-backed session, use `
 | Analyze audio rhythm | `analyze_audio_rhythm` | Reports estimated beats and onsets. |
 | Generate or edit media with AI and follow jobs | `list_ai_models`, `generate_image`, `edit_image`, `generate_video`, `edit_video`, `list_ai_jobs`, `read_ai_job`, `cancel_ai_job` | Live editor tools. |
 | Transcribe speech | `transcribe_audio`, `read_ai_job` | Live tool that produces a timed transcript. |
-| Import, edit, or export a caption document | — | No tool for the editor's subtitle file and cue workflow, including subtitle export. |
+| Import, inspect, edit, or export subtitles | `import_subtitles`, `list_subtitles`, `apply_edit`, `export_subtitles` | Imports SRT, ASS, and WebVTT as editable text clips. Lists cues with timing and element IDs. Exports clips or layers to a subtitle file. |
 | Preview frames or compare rendered frames | `render_still`, `render_storyboard`, `measure_frame_differences` | Covers frame output and measurement. |
 | Control preview playback and playhead | — | No tool for interactive preview transport. |
 | Export video and manage render jobs | `export_video`, `read_render_job`, `cancel_render_job` | File-backed and live export. |
@@ -97,5 +97,11 @@ Proxy tools use the running editor's queue and cache. Pass `sceneId` and, from t
 `inspect_project_assets` reports absolute paths, file kinds, sizes in bytes, element IDs, and issues for the whole project. Pass eligible row paths to `organize_project_assets` with `action` set to `collect`, `quarantine`, `restore`, or `delete`. Use the row's main path for a bundle. Collection copies files into `resources/` and saves all affected references across the project. Quarantine and restore move files and preserve project documents. Permanent deletion takes one quarantined path per call and requires `confirmDelete: true`. The response lists the affected files and their destinations.
 
 Both asset tools use the open project in a live editor. Pass `sceneId` to identify that project by one of its scenes without opening the scene tab. From stdio, pass `instanceId` to target a running editor or use `open_project` or `create_project` to select the active file session. In a file session, call `save_project` after adding or removing a scene before collecting assets.
+
+`import_subtitles` takes an absolute `path` ending in `.srt`, `.ass`, `.ssa`, or `.vtt`. It keeps the file's cue times and places the clips above the scene on unlocked layers, separating overlapping cues. Pass a saved text object, element, or element-set `templateId` from `list_templates` or `list_element_templates` to use it in place of Beutl's default subtitle styling. The import returns the created element IDs, the number of cues imported, and whether any cues were skipped. One undo removes the batch. Use `save_project` to persist a file-session import.
+
+`list_subtitles` returns each text clip's `elementId`, `layer`, `startSeconds`, `endSeconds`, and extracted `text`. Pass `layers` to filter by timeline ZIndex. Use `read_document` with the clip ID as `rootId` to identify its text object. Use `apply_edit` to change `Text`, `Start`, or `Length`, or use the timeline tools for timing edits. These edits honor clip and layer locks.
+
+`export_subtitles` takes a nonempty `elementIds` or `layers` list and an absolute `outputPath` ending in `.srt`, `.ass`, or `.vtt`. The editor's subtitle exporter extracts the text, sorts the cues, and counts clips without readable text in `skippedClipCount`. Replacing an existing file requires `confirmOverwrite: true`. Pass `sceneId` to target a live scene for any subtitle tool and `instanceId` to reach it from stdio.
 
 The tool registrations are in the [shared AgentToolkit server](../../src/Beutl.AgentToolkit/AgentToolkitMcpServer.cs) and the [in-app host](../../src/Beutl/AgentHost/AgentHostEndpoint.cs).

@@ -126,27 +126,35 @@ public class ProxyJobQueueTests
     [Test]
     public async Task Cancellation_callback_can_query_the_queue_without_lock_inversion()
     {
-        ProxyJobQueue? queue = null;
-        var callbackCompleted = new TaskCompletionSource(
+        TimeSpan timeout = TimeSpan.FromSeconds(5);
+        var generator = new ControlledBlockingGenerator();
+        await using var queue = new ProxyJobQueue(generator);
+        var jobCanceled = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var generator = new CancellationCallbackGenerator(() =>
+        queue.JobChanged += (_, e) =>
         {
-            _ = queue!.Pending();
-            callbackCompleted.TrySetResult();
-        });
-        await using var activeQueue = new ProxyJobQueue(generator);
-        queue = activeQueue;
-        ProxyJob job = await activeQueue.EnqueueAsync(
+            if (e.Kind == ProxyJobChangeKind.Canceled)
+                jobCanceled.TrySetResult();
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(
             CreateFingerprint("cancellation-callback-query.mov"),
             ProxyPreset.Quarter);
-        await generator.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await generator.WaitForStartedCountAsync(1);
 
-        await Task.Run(() => activeQueue.Cancel(job.JobId))
-            .WaitAsync(TimeSpan.FromSeconds(5));
-        await callbackCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await WaitForTerminalAsync(job);
+        // Keep the query callback registered through cancellation, independently of generator cleanup.
+        IReadOnlyList<ProxyJob>? pendingDuringCancellation = null;
+        using CancellationTokenRegistration registration =
+            job.CancellationToken.Register(() => pendingDuringCancellation = queue.Pending());
 
-        Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+        await Task.Run(() => queue.Cancel(job.JobId)).WaitAsync(timeout);
+        await jobCanceled.Task.WaitAsync(timeout);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pendingDuringCancellation, Is.EqualTo(new[] { job }));
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+        });
     }
 
     [Test]

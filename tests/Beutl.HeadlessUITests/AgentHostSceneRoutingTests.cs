@@ -49,7 +49,8 @@ public sealed class AgentHostSceneRoutingTests
                 "apply_edit", "read_document", "undo", "render_still", "add_scene", "save_project",
                 "split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap",
                 "duplicate_elements", "roll_elements", "slide_elements",
-                "split_on_silence", "find_gaps", "close_all_gaps", "save_object_template", "apply_object_template"
+                "split_on_silence", "find_gaps", "close_all_gaps", "save_object_template", "apply_object_template",
+                "import_subtitles", "list_subtitles", "export_subtitles"
             ];
             foreach (string name in sceneTools)
             {
@@ -152,6 +153,64 @@ public sealed class AgentHostSceneRoutingTests
         JsonObject status = Success(await client.CallToolAsync("read_operation_status"));
         Assert.That(status["hasActiveSession"]!.GetValue<bool>(), Is.False,
             "A new request must not inherit a previous call's scene binding.");
+    }
+
+    [AvaloniaTest]
+    public async Task Subtitle_tools_use_the_background_scene_and_its_undo_history()
+    {
+        (Scene first, Scene second, string directory) = await CreateScenesAsync();
+        string path = Path.Combine(directory, "captions.srt");
+        await File.WriteAllTextAsync(path, """
+            1
+            00:00:01,234 --> 00:00:01,800
+            On the second scene
+
+            2
+            00:00:01,500 --> 00:00:02,456
+            Overlapping caption
+            """);
+        second.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } });
+
+        await using var host = CreateHost();
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+        var import = Target(second.Id.Value);
+        import["path"] = path;
+        AssertError(await client.CallToolAsync("import_subtitles", new Dictionary<string, object?> { ["path"] = path }),
+            ErrorCode.ValidationRejected);
+        string[] ids = Success(await client.CallToolAsync("import_subtitles", import))["createdElementIds"]!
+            .AsArray().Select(item => item!.GetValue<string>()).ToArray();
+        JsonArray cues = Success(await client.CallToolAsync("list_subtitles", Target(second.Id.Value)))["cues"]!.AsArray();
+        JsonArray firstCues = Success(await client.CallToolAsync("list_subtitles", Target(first.Id.Value)))["cues"]!.AsArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(cues.Select(cue => cue!["elementId"]!.GetValue<string>()), Is.EqualTo(ids));
+            Assert.That(cues.Select(cue => cue!["layer"]!.GetValue<int>()), Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(cues[0]!["text"]!.GetValue<string>(), Is.EqualTo("On the second scene"));
+            Assert.That(cues[0]!["startSeconds"]!.GetValue<double>(), Is.EqualTo(1.234).Within(0.000001));
+            Assert.That(firstCues, Is.Empty);
+            Assert.That(SelectedScene(), Is.SameAs(first));
+        });
+
+        string outputPath = Path.Combine(directory, "captions.vtt");
+        var export = Target(first.Id.Value);
+        export["outputPath"] = outputPath;
+        export["elementIds"] = ids;
+        AssertError(await client.CallToolAsync("export_subtitles", export), ErrorCode.StaleHandle);
+        Assert.That(File.Exists(outputPath), Is.False);
+        export["sceneId"] = second.Id.Value.ToString();
+        Assert.That(Success(await client.CallToolAsync("export_subtitles", export))["cueCount"]!.GetValue<int>(), Is.EqualTo(2));
+        Assert.That(await File.ReadAllTextAsync(outputPath), Does.Contain("00:00:01.234 --> 00:00:01.800"));
+
+        JsonObject undone = Success(await client.CallToolAsync("undo", Target(second.Id.Value)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(undone["applied"]!.AsArray(), Has.Count.EqualTo(1));
+            Assert.That(second.Children, Is.Empty);
+            Assert.That(second.IsLayerLocked(0), Is.True);
+            Assert.That(first.Children, Is.Empty);
+            Assert.That(SelectedScene(), Is.SameAs(first));
+        });
     }
 
     [AvaloniaTest]

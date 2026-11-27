@@ -34,12 +34,13 @@ public interface ILiveSessionBinding
         TimeSpan? sessionWait = null);
 }
 
-internal interface ILiveElementTemplateBinding
+internal interface ILiveElementBinding
 {
     IReadOnlyList<Element> GetSelectedElements();
 
-    ValueTask<ElementAddResult> AddTemplateAsync(
-        ElementDescription description, Func<Scene, Action?> captureValidation, CancellationToken cancellationToken);
+    ValueTask<ElementAddResult> AddElementsAsync(
+        Scene scene, IReadOnlyList<ElementDescription> descriptions,
+        Func<Scene, Action?> captureValidation, CancellationToken cancellationToken);
 }
 
 internal interface ILiveMediaRepairBinding
