@@ -14,6 +14,8 @@ public sealed class AudioContext : IDisposable
     private readonly HashSet<AudioNode> _outputNodes = new(ReferenceEqualityComparer.Instance);
     private List<AudioNode>? _previousNodes;
     private AudioNode? _currentNode;
+    private List<DuckingNode>? _deferredDucking;
+    private bool _buildingSoundEffects;
     private bool _disposed;
 
     public int SampleRate { get; }
@@ -33,6 +35,35 @@ public sealed class AudioContext : IDisposable
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
             field = value;
         }
+    }
+
+    internal AudioNode CreateSoundEffectChain(AudioEffect effect, AudioNode input, out List<DuckingNode>? duckingNodes)
+    {
+        bool wasBuildingSoundEffects = _buildingSoundEffects;
+        var previousDucking = _deferredDucking;
+        _buildingSoundEffects = true;
+        _deferredDucking = null;
+
+        AudioNode output;
+        try
+        {
+            output = effect.CreateNode(this, input);
+        }
+        finally
+        {
+            duckingNodes = _deferredDucking;
+            _deferredDucking = previousDucking;
+            _buildingSoundEffects = wasBuildingSoundEffects;
+        }
+        return output;
+    }
+
+    internal bool TryDeferDucking(DuckingNode node)
+    {
+        if (!_buildingSoundEffects) return false;
+
+        (_deferredDucking ??= []).Add(node);
+        return true;
     }
 
     public AudioContext(int sampleRate, int channelCount)

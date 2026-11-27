@@ -49,8 +49,19 @@ public sealed partial class DuckingEffect : AudioEffect
         if (sources.Length == 0)
             return inputNode;
 
-        // Read the sidechain on the composition's sample grid. Converting the input here keeps the
-        // converter's read-ahead on the input side of the envelope, within the available sidechain block.
+        var node = new DuckingNode
+        {
+            SourceLayerIds = sources,
+            ClipStart = this.FindHierarchicalParent<Sound>()?.Start ?? Start,
+            Threshold = Threshold,
+            Reduction = Reduction,
+            Attack = Attack,
+            Release = Release,
+        };
+        if (context.TryDeferDucking(node))
+            return inputNode;
+
+        // Direct graph builders have no sound effect chain to defer to.
         if (context.ChainSampleRate != context.SampleRate)
         {
             var resample = context.CreateResampleNode(context.ChainSampleRate);
@@ -59,15 +70,7 @@ public sealed partial class DuckingEffect : AudioEffect
             context.ChainSampleRate = context.SampleRate;
         }
 
-        var node = context.AddNode(new DuckingNode
-        {
-            SourceLayerIds = sources,
-            ClipStart = this.FindHierarchicalParent<Sound>()?.Start ?? Start,
-            Threshold = Threshold,
-            Reduction = Reduction,
-            Attack = Attack,
-            Release = Release,
-        });
+        context.AddNode(node);
         context.Connect(inputNode, node);
         return node;
     }

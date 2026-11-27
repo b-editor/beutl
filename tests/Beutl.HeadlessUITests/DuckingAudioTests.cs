@@ -129,6 +129,29 @@ public sealed class DuckingAudioTests
     }
 
     [AvaloniaTest]
+    public void Ducking_before_time_stretch_keeps_the_music_lowered_across_composition_blocks()
+    {
+        using var fixture = new WaveScene(first: _ => 0.40f, second: _ => 0f);
+        var effects = new AudioEffectGroup();
+        fixture.Music.Effect.Value = effects;
+        effects.Children.Add(fixture.Ducking);
+        effects.Children.Add(new TimeStretchEffect { Speed = { Value = 200f } });
+
+        var (chunked, _) = RenderPreview(fixture.Scene);
+        var (whole, _) = RenderPreview(fixture.Scene, blockSize: Frames(DurationMs));
+
+        // A 200% stretch makes the music end at 640 ms. Check its steady level across several blocks
+        // after the attack and before the stretched WAV ends.
+        var steadyMusic = chunked[Frames(MusicStartMs + AttackMs)..Frames(600)];
+        Assert.Multiple(() =>
+        {
+            Assert.That(steadyMusic.Min(), Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(steadyMusic.Max(), Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            AssertBits(chunked, whole);
+        });
+    }
+
+    [AvaloniaTest]
     public void A_scene_without_ducking_preserves_the_wav_samples_and_mix_bits()
     {
         using var fixture = new WaveScene();
@@ -170,7 +193,7 @@ public sealed class DuckingAudioTests
         Assert.That(left[Frames(800)], Is.EqualTo(s_duckedLevel).Within(1e-6f));
     }
 
-    private static (float[] Left, float[] Right) RenderPreview(Scene scene)
+    private static (float[] Left, float[] Right) RenderPreview(Scene scene, int blockSize = 5760)
     {
         using var composer = new SceneComposer(scene, new SceneRenderServices(TestShell.FontManager, TestShell.Decoders))
         {
@@ -179,7 +202,6 @@ public sealed class DuckingAudioTests
         };
         var left = new float[Frames(DurationMs)];
         var right = new float[left.Length];
-        const int blockSize = 5760;
         for (int start = 0; start < left.Length; start += blockSize)
         {
             int count = Math.Min(blockSize, left.Length - start);
