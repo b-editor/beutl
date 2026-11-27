@@ -1,6 +1,6 @@
 # 🎬 Beutl
 
-[English](README.md) / __Japanese__
+[English](README.md) / __Japanese__ / [Türkçe](README.tr.md)
 
 ![](https://img.shields.io/github/issues/b-editor/beutl)
 ![](https://img.shields.io/github/forks/b-editor/beutl)
