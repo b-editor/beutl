@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
+using Beutl.Extensibility;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -29,13 +30,7 @@ public class CommandPaletteSearchTests
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
         try
         {
-            MainViewModel main = TestShell.MainViewModel;
-            var commands = new ContextCommandManager(new ContextCommandSettingsStore());
-            commands.Register(MainViewExtension.Instance);
-            commands.Register(TimelineTabExtension.Instance);
-            var service = new CommandPaletteService(commands, new CommandPaletteHandlerProvider(() => main, main.EditorService),
-                () => main.MenuBar, main.EditorService, main.ExtensionProvider);
-            using var palette = new CommandPaletteViewModel(service, main.EditorService);
+            using var palette = CreatePalette(TimelineTabExtension.Instance);
             var view = new CommandPaletteView { DataContext = palette };
             var window = new Window { Content = view, Width = 420, Height = 360 };
             try
@@ -65,5 +60,57 @@ public class CommandPaletteSearchTests
         {
             CultureInfo.CurrentUICulture = previousCulture;
         }
+    }
+
+    [AvaloniaTest]
+    public async Task English_and_Japanese_matches_rank_names_before_descriptions_and_categories()
+    {
+        string[] expectedOrder = [SceneEditorExtension.PreviewZoomFitCommandId, "editor.togglePreviewCheckerboard", "main.saveAll"];
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+        try
+        {
+            await TestShell.OpenNewSceneAsync("command-palette-ranking");
+            using var palette = CreatePalette(SceneEditorExtension.Instance);
+            palette.Open();
+
+            // Each match follows a letter in both languages, with the same word-boundary scoring.
+            var english = await SearchAsync(palette, "iew");
+            var japanese = await SearchAsync(palette, "表示");
+
+            Assert.That(english.Select(match => match.Id), Is.EqualTo(expectedOrder));
+            Assert.That(english, Is.EqualTo(japanese));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+            await TestReset.ResetShellAsync();
+        }
+
+        async Task<(string Id, int Relevance)[]> SearchAsync(CommandPaletteViewModel palette, string query)
+        {
+            // Start from an empty list so every result item is created with the query's score.
+            palette.Query.Value = "no matching command";
+            await CommandPaletteTestHost.UntilAsync(() => palette.HasNoResults.Value);
+            palette.Query.Value = query;
+            await CommandPaletteTestHost.UntilAsync(() => palette.FilteredCommands.Count > 0);
+
+            return palette.FilteredCommands
+                .Where(item => expectedOrder.Contains(item.Command.Id))
+                .Select(item => (item.Command.Id, item.Relevance))
+                .ToArray();
+        }
+    }
+
+    private static CommandPaletteViewModel CreatePalette(ViewExtension extension)
+    {
+        MainViewModel main = TestShell.MainViewModel;
+        var commands = new ContextCommandManager(new ContextCommandSettingsStore());
+        commands.Register(MainViewExtension.Instance);
+        commands.Register(extension);
+
+        var service = new CommandPaletteService(commands, new CommandPaletteHandlerProvider(() => main, main.EditorService),
+            () => main.MenuBar, main.EditorService, main.ExtensionProvider);
+        return new CommandPaletteViewModel(service, main.EditorService);
     }
 }
