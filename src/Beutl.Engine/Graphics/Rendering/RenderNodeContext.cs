@@ -114,7 +114,10 @@ public sealed partial class RenderNodeContext
     /// <summary>
     /// Gets the sanitized request-wide ceiling for intermediate working densities.
     /// </summary>
-    /// <remarks>The value is positive finite or positive infinity.</remarks>
+    /// <remarks>
+    /// The value is positive finite or positive infinity. Allocation separately enforces the device's
+    /// per-target extent and the request's total live target bytes.
+    /// </remarks>
     public float MaxWorkingScale
     {
         get { VerifyActive(); return _maxWorkingScale; }

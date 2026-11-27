@@ -51,6 +51,37 @@ public sealed class FFmpegReaderVideoSeekTests
         AssertSeeksMatch(_path, threads);
     }
 
+    [Test]
+    public void ThumbnailReaderDownscalesAndCanSwitchFromKeyframeToExact()
+    {
+        var options = new MediaOptions(MediaMode.Video) { VideoThumbnailHeight = 16 };
+        var settings = new FFmpegDecodingSettings();
+        settings.ThreadCount.Value = 1;
+        using var exact = new FFmpegReader(_path, options, settings);
+        using var thumbnail = new FFmpegReader(_path, options, settings);
+        Assert.That(thumbnail.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(96, 64)), "slot layout uses source dimensions");
+        byte[] keyframe = Read(exact, 50, false);
+        byte[] target = Read(exact, 60, false);
+        Assert.That(target, Is.Not.EqualTo(keyframe), "the fixture distinguishes keyframe and exact reads");
+        Assert.That(Read(thumbnail, 60, true), Is.EqualTo(keyframe));
+        Assert.That(Read(thumbnail, 60, false), Is.EqualTo(target));
+        Assert.That(Read(thumbnail, 85, true), Is.EqualTo(Read(exact, 85, false)),
+            "a distant keyframe falls back to the accurate frame");
+
+        static byte[] Read(FFmpegReader reader, int frame, bool allowKeyframe)
+        {
+            var pixels = new byte[24 * 16 * 4];
+            Assert.That(reader.ReadVideo(frame, pixels, out var info, allowKeyframe), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That((info.Width, info.Height), Is.EqualTo((24, 16)));
+                Assert.That(info.DataLength, Is.EqualTo(pixels.Length));
+                Assert.That(info.BytesPerPixel, Is.EqualTo(4));
+            });
+            return pixels;
+        }
+    }
+
     [TestCase("late-video.mp4")]
     [TestCase("marker-bframes-no-edit.mp4")]
     [TestCase("marker-bframes.mp4")]

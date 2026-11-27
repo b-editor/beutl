@@ -615,7 +615,7 @@ public sealed partial class EditViewModel
     // Workers write the elements while the user can go on editing, which can also stop one from being read. What that
     // touched is written again in one go on the thread that edits, so the files hold the elements as they are at that
     // moment. Edits after it belong to the next save.
-    private void StoreElements(Scene scene, Element[] elements)
+    private long StoreElements(Scene scene, Element[] elements)
     {
         var unread = new ConcurrentBag<Element>();
         // These block on the disk, and what the user does meanwhile can need a pool thread.
@@ -632,7 +632,7 @@ public sealed partial class EditViewModel
             }
         });
 
-        Dispatcher.UIThread.Invoke(() =>
+        return Dispatcher.UIThread.Invoke(() =>
         {
             HashSet<Element> again = [.. unread];
             foreach (Element element in scene.Children)
@@ -642,6 +642,7 @@ public sealed partial class EditViewModel
             }
 
             _unsavedElements.Clear();
+            return _sceneChangeRevision;
         });
     }
 
@@ -663,6 +664,7 @@ public sealed partial class EditViewModel
             ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
         UnsavedSceneStorage.SaveRelocation relocation = new(scene, sceneUri);
         bool savedAll;
+        long savedRevision;
         // A failure at any step restores the project, scene, element and resource files this
         // save replaced, instead of leaving the files written before it on disk.
         using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
@@ -673,7 +675,8 @@ public sealed partial class EditViewModel
                 Element[] elements = GetElementsToSave(scene, relocation);
                 savedAll = elements.Length == scene.Children.Count;
                 _unsavedElements.Clear();
-                await Task.Run(() => transaction.WriteInBatch(() => StoreElements(scene, elements)));
+                long revision = 0;
+                await Task.Run(() => transaction.WriteInBatch(() => revision = StoreElements(scene, elements)));
                 // The scene is stored without SaveReferencedObjects, which would store the children
                 // again, so its fingerprint file is saved, or removed, here too.
                 scene.SaveMediaFingerprintFile();
@@ -681,6 +684,7 @@ public sealed partial class EditViewModel
                 // after every referenced file is durable at its new location.
                 CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);
                 transaction.Commit();
+                savedRevision = revision;
             }
             catch
             {
@@ -692,6 +696,7 @@ public sealed partial class EditViewModel
         }
 
         relocation.Commit();
+        _savedSceneChangeRevision = savedRevision;
         // This walk also grows with the scene, and closing the project reports what the saves in between did not.
         if (savedAll && scene.FindHierarchicalParent<Project>() is { } project)
             await Task.Run(() => DuplicateIds.Report(project, "save"));

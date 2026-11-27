@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Layout;
 using Avalonia.Styling;
+using Beutl.Editor.Components.PropertyEditors;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
@@ -125,6 +126,61 @@ public class PreviewWorkingScaleIndicatorTests
             await HeadlessTestHelpers.WaitUntilAsync(() => editor.Renderer.Value.OutputScale > 0.8f,
                 message: "The wider panel did not raise the Fit scale.");
             await ExpectMarkerAsync(editor.Player, indicator, visible: false);
+        }
+        finally
+        {
+            window.Close();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ComparisonShowsTheAfterFrameWorkingScale()
+    {
+        var (_, _, editor) = await TestShell.OpenNewSceneAsync("comparison-preview-density", 320, 180,
+            duration: MediaTime.FromSeconds(4));
+        PlayerViewModel player = editor.Player;
+        var view = new PlayerView { DataContext = player };
+        var window = new Window { Content = view, Width = 720, Height = 420 };
+        try
+        {
+            DrawableGroup group = CreateMosaic(1280, 720, 25);
+            var effect = (MosaicEffect)group.FilterEffect.Value!;
+            effect.IsEnabled.Value = false;
+            await TestShell.AddElementAsync(editor, () => group, MediaTime.Zero, MediaTime.FromSeconds(4));
+            window.Show();
+            player.ToggleEffectComparison();
+            Assert.That(((IEffectComparisonSelection)player).TryChooseComparisonEffect(effect), Is.True);
+            var indicator = view.FindControl<Border>("previewWorkingScaleIndicator")!;
+            await ExpectMarkerAsync(player, indicator, visible: false, () => view.effectComparisonOverlay.IsEffectivelyVisible);
+
+            effect.IsEnabled.Value = true;
+            await ExpectMarkerAsync(player, indicator, visible: true);
+            Assert.That(view.effectComparisonOverlay.IsEffectivelyVisible, Is.True);
+            HeadlessTestHelpers.Render(3);
+            var labelPosition = Avalonia.VisualExtensions.TranslatePoint(view.afterEffectComparisonLabel, default, view.previewViewport);
+            var labelBounds = new Avalonia.Rect(labelPosition!.Value, view.afterEffectComparisonLabel.Bounds.Size);
+            Assert.That(indicator.Bounds.Intersects(labelBounds), Is.False);
+            HeadlessCapture.SaveIfRequested(window, nameof(PreviewWorkingScaleIndicatorTests), "comparison");
+
+            player.IsPlaying.Value = true;
+            using var buffer = new BufferedPlayer(editor, player.IsPlaying, player.FrameRate.Value, CancellationToken.None);
+            try
+            {
+                buffer.Start(new PlaybackRange(0, 30));
+                await HeadlessTestHelpers.WaitUntilAsync(() => buffer.QueuedFrames > 0);
+                Assert.That(buffer.TryDequeue(out BufferedPlayer.Frame frame), Is.True);
+                using (frame)
+                {
+                    Assert.That(frame.Comparison?.Target.Effect, Is.SameAs(effect));
+                    Assert.That(frame.Diagnostics.IsWorkingScaleClamped, Is.True);
+                }
+            }
+            finally
+            {
+                player.IsPlaying.Value = false;
+                await HeadlessTestHelpers.WaitUntilAsync(() => buffer.ProducerStopped, pump: false);
+            }
         }
         finally
         {

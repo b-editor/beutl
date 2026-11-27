@@ -83,6 +83,8 @@ public sealed class VideoSource : MediaSource
 
         public MediaReader? MediaReader => _reader;
 
+        internal long ThumbnailProxyVersion => _loadedProxyResolverVersion;
+
         public bool IsOffline => _offlineBitmap != null;
 
         public int GetFrameIndex(MediaTime position)
@@ -246,12 +248,14 @@ public sealed class VideoSource : MediaSource
                     PreferProxy = context.PreferProxy,
                     PreferredProxyPreset = context.PreferredProxyPreset,
                     Deinterlace = deinterlace,
+                    IsBackground = context.IsThumbnail,
+                    VideoThumbnailHeight = context.VideoThumbnailHeight,
                 };
                 string path = videoSource.Uri.LocalPath;
                 // Encoding keeps its own reader; other resources share the file's readers. The key includes this
                 // source's proxy version, so an original opened because no proxy resolved is shared only until a
                 // proxy is registered. A reader without video never serves others.
-                _reader = context.DisableResourceShare
+                _reader = context.DisableResourceShare || context.IsThumbnail
                     ? MediaReader.Open(path, options, decoders)
                     : SharedMediaReaders.Shared.Open(
                         SharedMediaReaders.Key.ForFile(decoders, path, MediaMode.Video, context.PreferProxy,

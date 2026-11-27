@@ -46,6 +46,7 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
 
     public HostedGitRepositoryService? Service { get; }
     public AuthenticatedUser? User => _api?.AuthenticatedUser.Value;
+    public AuthenticatedUser? RepositoryListUser { get; private set; }
     public ReactivePropertySlim<bool> NeedsSignIn { get; }
     public ReactivePropertySlim<bool> CanSignIn { get; }
     public ReactivePropertySlim<IReadOnlyList<GitRepositorySummary>> Repositories { get; }
@@ -104,6 +105,7 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
                 return;
 
             _loaded = true;
+            RepositoryListUser = user;
             _all = repositories;
             NeedsSignIn.Value = false;
             UpdateFilter();
@@ -125,6 +127,29 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
                     IsLoading.Value = false;
             }
         }
+    }
+
+    public async Task DeleteAsync(Guid repositoryId, AuthenticatedUser expectedUser)
+    {
+        if (_disposed || Service is null)
+            return;
+
+        try
+        {
+            await Service.DeleteAsync(repositoryId, _lifetime.Token, expectedUser);
+        }
+        catch (HostedGitApiException ex) when (ex.Error == HostedGitError.NotFound)
+        {
+            // The repository may already have been deleted from another client.
+        }
+
+        if (_disposed || !ReferenceEquals(User, expectedUser) || !ReferenceEquals(RepositoryListUser, expectedUser))
+            return;
+
+        _load?.Cancel();
+        string id = repositoryId.ToString("D");
+        _all = _all.Where(repo => !string.Equals(repo.Id, id, StringComparison.OrdinalIgnoreCase)).ToArray();
+        UpdateFilter();
     }
 
     public void ShowError(Exception exception)
@@ -149,6 +174,7 @@ internal sealed class HostedRepositoryPickerViewModel : IDisposable
         _load = null;
         IsLoading.Value = false;
         _loaded = false;
+        RepositoryListUser = null;
         _all = [];
         _requestError = null;
         NeedsSignIn.Value = User is null;

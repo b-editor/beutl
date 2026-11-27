@@ -118,7 +118,7 @@ public partial class Composer
         {
             if (node is ClipNode { InlineDrainAttempted: true } clipNode)
             {
-                int latency = clipNode.GetDrainLatencySamples(sampleRate);
+                int latency = clipNode.InlineDrainLatencySamples ?? clipNode.GetDrainLatencySamples(sampleRate);
                 AudioLatency.ThrowIfNegative(clipNode, latency, "drain latency");
 
                 branches.Add(new InlineDrainBranch(
@@ -126,6 +126,15 @@ public partial class Composer
                     clipNode.InlinePaddingSamples,
                     downstreamLatency,
                     outputScale));
+                return;
+            }
+
+            if (node is MixerNode { TracksCompensatedBranchTails: true } trackedMixer)
+            {
+                // Child clips can end in different windows. The mixer's remaining budget includes
+                // both their queued compensation samples and the live siblings absent from the scan.
+                branches.Add(new InlineDrainBranch(
+                    trackedMixer.GetDrainLatencySamples(sampleRate), 0, downstreamLatency, outputScale));
                 return;
             }
 
@@ -161,13 +170,18 @@ public partial class Composer
             }
 
             foreach (AudioNode input in node.Inputs)
+            {
+                int branchLatency = node is MixerNode mixer
+                    ? mixer.GetBranchCompensationSamples(input, nextSampleRate)
+                    : 0;
                 CollectInlineDrainBranches(
                     input,
                     nextSampleRate,
                     branches,
                     visited,
-                    nextDownstreamLatency,
+                    AudioLatency.SaturatingAdd(nextDownstreamLatency, branchLatency),
                     nextOutputScale);
+            }
         }
         finally
         {

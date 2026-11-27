@@ -1227,6 +1227,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>要素を複製する前にプロジェクトを保存してください。</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>すべての複製を配置できる、0 以上のレイヤー番号を指定してください。</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>複製した要素のディスクへの書き込みに失敗しました。</value>
   </data>
@@ -1505,6 +1508,36 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="ExportProject" xml:space="preserve">
     <value>プロジェクトをエクスポート…</value>
   </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>字幕をエクスポート…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>字幕をエクスポート</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>エクスポートするクリップ</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>選択中の要素</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>タイムラインのレイヤー</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>クリップがあるレイヤーはありません。</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>ファイル形式</value>
+  </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>書き出すクリップまたはレイヤーを選択してください。</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>テキストクリップが見つかりませんでした。</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>テキストのないクリップを {0} 件スキップしました。</value>
+  </data>
   <data name="ImportProject" xml:space="preserve">
     <value>プロジェクトをインポート…</value>
   </data>
@@ -1610,6 +1643,36 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="EnterTemplateName" xml:space="preserve">
     <value>テンプレート名を入力</value>
   </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>テンプレートには有効なファイル名を指定してください。</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>有効な ID を指定してください。</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>オブジェクトをテンプレートとして保存できませんでした。</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>テンプレート「{0}」が見つかりませんでした。</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>テンプレート「{0}」からオブジェクトを作成できませんでした。</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>シーンドキュメント内に ID「{0}」を持つオブジェクトが複数あります。</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>シーンドキュメント内に ID「{0}」を持つオブジェクトがありません。</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>プロパティ「{1}」には型「{2}」が必要です。型「{0}」のテンプレートは適用できません。</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>「{1}」には 0 から {0} までのインデックスを指定してください。</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>「{0}」にテンプレートを適用するには、置き換えるオブジェクトプロパティ、またはオブジェクトのリストと挿入位置を指定してください。</value>
+  </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
   </data>
@@ -1660,6 +1723,9 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>メニュー</value>
+  </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>{0}を開く</value>
   </data>
   <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
     <value>値を入力…</value>
@@ -2964,6 +3030,12 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕ファイル</value>
   </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>SRT、ASS、WebVTT のいずれかのファイルを選択してください。</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>テキストオブジェクトを含むテンプレートを指定してください。</value>
+  </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>{0} から字幕を読み取れませんでした。</value>
   </data>
@@ -3887,6 +3959,24 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>プレビューの透明な部分を、黒ではなく市松模様の上に表示します。</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>フィルターエフェクトを比較</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>現在のフレームを、指定したフィルターエフェクトの適用前後で比較します。</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>プロパティエディターで比較するフィルターエフェクトを選択してください。</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>適用前: {0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>適用後</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>エフェクト比較の境界線</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>プレビューの拡大率</value>
   </data>
@@ -4159,6 +4249,15 @@ GetProperty&lt;T&gt;("path", time) または GetProperty&lt;T&gt;(guid, "propert
   </data>
   <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
     <value>リポジトリからクローン…</value>
+  </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>リモートリポジトリを削除</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>リモートリポジトリを削除…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>リポジトリを削除しています…</value>
   </data>
   <data name="HostedGit_BeutlRepositories" xml:space="preserve">
     <value>Beutl リポジトリ</value>

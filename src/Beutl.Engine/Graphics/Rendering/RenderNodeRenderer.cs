@@ -53,14 +53,15 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderNode root,
         RenderNodeRenderRequest defaultRequest,
         IRenderTargetFactory? targetFactory,
-        RenderProgramCaches? programCaches)
+        RenderProgramCaches? programCaches,
+        RenderTargetPoolOptions? targetPoolOptions = null)
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(defaultRequest);
 
         Root = root;
         DefaultRequest = CopyAndSanitizeRequest(defaultRequest);
-        _targetPool = new RenderTargetPool(targetFactory);
+        _targetPool = new RenderTargetPool(targetFactory, targetPoolOptions);
         _structuralPlanCache = new StructuralPlanCache();
         _programCaches = programCaches ?? RenderProgramCaches.CreateWithSharedPrograms();
     }

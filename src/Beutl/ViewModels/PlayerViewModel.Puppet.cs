@@ -3,6 +3,7 @@ using System.Reactive.Linq;
 using Avalonia.Threading;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -30,7 +31,8 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
 
     private void InitializePuppetPinEditor()
     {
-        EditorPreviewImage = _puppetPlacementImage.CombineLatest(PreviewImage, static (placement, preview) => placement ?? preview)
+        EditorPreviewImage = _puppetPlacementImage.CombineLatest(PreviewImage, EffectComparisonImage,
+                static (placement, preview, comparison) => comparison ?? placement ?? preview)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         _puppetPlacementImage.DisposeWith(_disposables);
@@ -109,6 +111,7 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
         if (_isDisposing || cancellationToken.IsCancellationRequested) return true;
 
         StopPuppetPinPlacement();
+        EndEffectComparison();
         PointPick.Value?.Cancel();
         using var request = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _puppetPlacement = request;
@@ -137,28 +140,36 @@ public partial class PlayerViewModel : IPreviewPuppetPinEditor
             {
                 int revision = Volatile.Read(ref sceneRevision);
                 IReadOnlySet<EngineObject>? after = GetEditingStageDisabledEffects(effect);
+                EngineObject? graph = FindEditingGraph(effect);
                 var capture = await RenderThread.Dispatcher.InvokeAsync(() =>
                 {
                     using SceneRenderer renderer = EditViewModel.CreatePreviewRenderer(scene, scale, disableResourceShare: true);
                     renderer.CacheOptions = RenderCacheOptions.Disabled;
-                    // Show the same effect stage that supplies the placement mesh. Later effects may move its pixels.
+                    // Show the frame that supplies the mesh and its downstream graph transform.
                     renderer.Compositor.DisabledObjects = after;
+                    using var graphPlacement = graph is not null ? EffectEditingPlacement.Begin(effect, graph) : null;
                     Puppet.PinPlacement? capturedPlacement = effect.CapturePinPlacement(() => renderer.Render(
                         renderer.Compositor.EvaluateGraphics(time, frameRate, request.Token)));
-                    var stageImage = after is not null && capturedPlacement is not null ? Ref<Bitmap>.Create(renderer.Snapshot()) : null;
-                    return (Placement: capturedPlacement, Image: stageImage);
+                    Matrix? downstream = graphPlacement is null ? Matrix.Identity : graphPlacement.GetTransform();
+                    var stageImage = capturedPlacement is not null && downstream is { } mapped
+                        && (after is not null || mapped != Matrix.Identity)
+                        ? Ref<Bitmap>.Create(renderer.Snapshot())
+                        : null;
+                    return (Placement: capturedPlacement, Image: stageImage, Transform: downstream);
                 }, ct: request.Token);
                 using var image = capture.Image;
                 if (request.IsCancellationRequested) return true;
                 if (revision != Volatile.Read(ref sceneRevision)) continue;
-                if (capture.Placement is not { } placement) return false;
+                if (capture.Placement is not { } placement || capture.Transform is not { } transform
+                    || !transform.TryInvert(out Matrix drawableToStage)) return false;
 
                 // Refresh the transform after the isolated renderer has released the render thread.
                 ReplaceImage(_puppetPlacementImage, image);
                 _editorSelection.Select(effect, notifyIfSelected: true);
                 PuppetPin? pin = null;
                 pickRevision = revision;
-                livePick = new PreviewPointPick(_ => { }, effect, point => (pin = placement.CreatePin(point)) is not null);
+                livePick = new PreviewPointPick(_ => { }, effect,
+                    point => (pin = placement.CreatePin(drawableToStage.Transform(point))) is not null);
                 await StartPointPick(livePick, request.Token);
                 livePick = null;
                 if (request.IsCancellationRequested) return true;

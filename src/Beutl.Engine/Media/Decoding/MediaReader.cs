@@ -53,6 +53,10 @@ public abstract class MediaReader : IDisposable
 
     public abstract bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image);
 
+    /// <summary>Reads a thumbnail from a dedicated reader. Readers may ignore the keyframe hint.</summary>
+    public virtual bool ReadVideoThumbnail(int frame, bool allowKeyframe, [NotNullWhen(true)] out Ref<Bitmap>? image)
+        => ReadVideo(frame, out image);
+
     /// <summary>
     /// Decodes audio samples starting at <paramref name="start"/>.
     /// </summary>

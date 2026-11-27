@@ -1196,6 +1196,9 @@
   <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
     <value>复制剪辑之前请先保存项目。</value>
   </data>
+  <data name="Duplicate_InvalidLayer" xml:space="preserve">
+    <value>请选择编号不小于 0 且能容纳所有副本的目标图层。</value>
+  </data>
   <data name="Duplicate_IOFailed" xml:space="preserve">
     <value>无法将复制的元素写入磁盘。</value>
   </data>
@@ -1429,6 +1432,36 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ExportProject" xml:space="preserve">
     <value>导出项目…</value>
   </data>
+  <data name="ExportSubtitlesMenu" xml:space="preserve">
+    <value>导出字幕…</value>
+  </data>
+  <data name="ExportSubtitles" xml:space="preserve">
+    <value>导出字幕</value>
+  </data>
+  <data name="ExportSubtitles_Source" xml:space="preserve">
+    <value>要导出的片段</value>
+  </data>
+  <data name="ExportSubtitles_SelectedElements" xml:space="preserve">
+    <value>选中的元素</value>
+  </data>
+  <data name="ExportSubtitles_Layers" xml:space="preserve">
+    <value>时间轴图层</value>
+  </data>
+  <data name="ExportSubtitles_NoLayers" xml:space="preserve">
+    <value>没有包含片段的图层。</value>
+  </data>
+  <data name="ExportSubtitles_Format" xml:space="preserve">
+    <value>文件格式</value>
+  </data>
+  <data name="ExportSubtitles_SelectSource" xml:space="preserve">
+    <value>请选择要导出的片段或图层。</value>
+  </data>
+  <data name="ExportSubtitles_NoText" xml:space="preserve">
+    <value>未找到文本片段。</value>
+  </data>
+  <data name="ExportSubtitles_SkippedClips" xml:space="preserve">
+    <value>已跳过 {0} 个没有文本的片段。</value>
+  </data>
   <data name="ImportProject" xml:space="preserve">
     <value>导入项目…</value>
   </data>
@@ -1535,6 +1568,36 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="EnterTemplateName" xml:space="preserve">
     <value>输入模板名称</value>
   </data>
+  <data name="TemplateInvalidName" xml:space="preserve">
+    <value>请为模板指定有效的文件名。</value>
+  </data>
+  <data name="TemplateInvalidId" xml:space="preserve">
+    <value>请指定有效的 ID。</value>
+  </data>
+  <data name="TemplateObjectSaveFailed" xml:space="preserve">
+    <value>Beutl 无法将此对象保存为模板。</value>
+  </data>
+  <data name="TemplateNotFound" xml:space="preserve">
+    <value>找不到模板“{0}”。</value>
+  </data>
+  <data name="TemplateInstantiationFailed" xml:space="preserve">
+    <value>无法从模板“{0}”创建对象。</value>
+  </data>
+  <data name="TemplateObjectAmbiguous" xml:space="preserve">
+    <value>场景文档中有多个对象使用 ID“{0}”。</value>
+  </data>
+  <data name="TemplateObjectNotFound" xml:space="preserve">
+    <value>场景文档中没有 ID 为“{0}”的对象。</value>
+  </data>
+  <data name="TemplateTypeMismatch" xml:space="preserve">
+    <value>模板类型“{0}”与属性“{1}”不兼容。该属性需要类型“{2}”。</value>
+  </data>
+  <data name="TemplateIndexOutOfRange" xml:space="preserve">
+    <value>请为“{1}”指定 0 到 {0} 之间的索引。</value>
+  </data>
+  <data name="TemplateInvalidProperty" xml:space="preserve">
+    <value>要在“{0}”应用模板，请指定要替换的对象属性，或指定对象列表及其插入索引。</value>
+  </data>
   <data name="Preset_YouTube_1080p60" xml:space="preserve">
     <value>YouTube 1080p 60fps</value>
   </data>
@@ -1585,6 +1648,9 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>菜单</value>
+  </data>
+  <data name="CommandPalette_OpensToolTab" xml:space="preserve">
+    <value>打开{0}</value>
   </data>
   <data name="OnionSkin" xml:space="preserve">
     <value>洋葱皮</value>
@@ -1870,6 +1936,12 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕文件</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedFormat" xml:space="preserve">
+    <value>请选择 SRT、ASS 或 WebVTT 文件。</value>
+  </data>
+  <data name="SubtitleFile_UnsupportedTemplate" xml:space="preserve">
+    <value>模板必须包含文本对象。</value>
   </data>
   <data name="SubtitleFile_CouldNotRead" xml:space="preserve">
     <value>无法从 {0} 读取字幕。</value>
@@ -3889,6 +3961,24 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="TogglePreviewCheckerboard_Description" xml:space="preserve">
     <value>在预览中将透明部分显示在棋盘格上，而不是黑色上。</value>
   </data>
+  <data name="CompareFilterEffect" xml:space="preserve">
+    <value>比较滤镜效果</value>
+  </data>
+  <data name="CompareFilterEffect_Description" xml:space="preserve">
+    <value>比较当前帧应用和未应用指定滤镜效果时的画面。</value>
+  </data>
+  <data name="ChooseFilterEffectToCompare" xml:space="preserve">
+    <value>在属性编辑器中选择要比较的滤镜效果。</value>
+  </data>
+  <data name="EffectComparisonBefore" xml:space="preserve">
+    <value>应用前：{0}</value>
+  </data>
+  <data name="EffectComparisonAfter" xml:space="preserve">
+    <value>应用后</value>
+  </data>
+  <data name="EffectComparisonDivider" xml:space="preserve">
+    <value>效果比较分隔线</value>
+  </data>
   <data name="PreviewZoom" xml:space="preserve">
     <value>预览缩放</value>
   </data>
@@ -4164,6 +4254,15 @@ GetProperty&lt;T&gt;("path", time) 或 GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="HostedGit_CloneRepositoryMenu" xml:space="preserve">
     <value>克隆仓库…</value>
+  </data>
+  <data name="HostedGit_DeleteRepository" xml:space="preserve">
+    <value>删除远程仓库</value>
+  </data>
+  <data name="HostedGit_DeleteRepositoryMenu" xml:space="preserve">
+    <value>删除远程仓库…</value>
+  </data>
+  <data name="HostedGit_DeletingRepository" xml:space="preserve">
+    <value>正在删除仓库…</value>
   </data>
   <data name="HostedGit_BeutlRepositories" xml:space="preserve">
     <value>Beutl 仓库</value>

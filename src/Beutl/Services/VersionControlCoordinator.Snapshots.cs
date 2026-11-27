@@ -14,9 +14,16 @@ internal partial class VersionControlCoordinator
         return RunOnUiThreadAsync(() => CommitManualCoreAsync(message, cancellationToken));
     }
 
+    internal Task<CommitResult> CommitForAgentAsync(Project project, string message, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        return RunOnUiThreadAsync(() => CommitManualCoreAsync(message, cancellationToken, expectedProject: project));
+    }
+
     private async Task<CommitResult> CommitManualCoreAsync(
         string message,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Project? expectedProject = null)
     {
         using OperationLease operation = await BeginOperationAsync(cancellationToken);
         using IDisposable? worktreeMutation = await TryBeginWorktreeMutationAsync(operation.CancellationToken);
@@ -24,6 +31,9 @@ internal partial class VersionControlCoordinator
         {
             throw new InvalidOperationException(Strings.VersionControl_WorkspaceBusy);
         }
+
+        if (expectedProject is not null && !ReferenceEquals(_projectService.CurrentProject.Value, expectedProject))
+            throw new VersionControlLifecycleUnavailableException("The targeted project is no longer open.");
 
         CancellationToken operationCancellation = operation.CancellationToken;
         IProjectVersionControlBackend service = GetTrackedBackend();
@@ -34,9 +44,10 @@ internal partial class VersionControlCoordinator
             return await SaveAndCommitManualWithEditorSuspensionAsync(
                 service,
                 trimmedMessage,
-                operationCancellation);
+                operationCancellation,
+                interactive: expectedProject is null);
         }
-        catch (GitIdentityRequiredException)
+        catch (GitIdentityRequiredException) when (expectedProject is null)
         {
             GitIdentity? identity = await RequestIdentityAsync(operationCancellation);
             if (identity is null)
@@ -56,23 +67,24 @@ internal partial class VersionControlCoordinator
     private async Task<CommitResult> SaveAndCommitManualWithEditorSuspensionAsync(
         IProjectVersionControlBackend service,
         string message,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool interactive = true)
     {
         // A manual version has to record what the user sees. Keep the editor frozen after the
         // save until Git and its message hooks publish the commit, so visible edits cannot land
         // after the captured tree. An identity prompt runs between helper calls with editors
         // enabled; the retry therefore acquires a fresh suspension and saves again.
         using IDisposable editorSuspension = SuspendEditorsBehindActivity(ProjectLifecycleActivity.CommittingVersion);
+        await service.CheckManualCommitBeforeSaveAsync(interactive, cancellationToken);
         if (_projectService.CurrentProject.Value is { } project
             && !await TrySaveOpenProjectAsync(project, cancellationToken))
         {
             throw new InvalidOperationException(MessageStrings.OperationFailed);
         }
 
-        return await service.CommitAllAsync(
-            message,
-            SnapshotKind.Manual,
-            cancellationToken);
+        return interactive
+            ? await service.CommitAllAsync(message, SnapshotKind.Manual, cancellationToken)
+            : await service.CommitNonInteractiveAsync(message, cancellationToken);
     }
 
     private async Task CommitSaveSnapshotAsync(

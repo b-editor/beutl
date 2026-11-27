@@ -44,14 +44,21 @@ internal sealed class ProjectAssetCoordinator(ProjectService projects, EditorSer
         else if (existing == null) browser.Dispose();
     }
 
-    public async Task<ProjectAssetPreview> PreviewAsync(Project project, CancellationToken token)
+    public Task<ProjectAssetPreview> PreviewAsync(Project project, CancellationToken token)
+        => ScanAsync(project, (paths, references) => _assets.Analyze(paths, references, Guid.NewGuid(), token).Preview, token);
+
+    internal Task<ProjectAssetService.Inspection> InspectAsync(Project project, CancellationToken token)
+        => ScanAsync(project, (paths, references) => _assets.Inspect(paths, references, token), token, includeElementIds: true);
+
+    private async Task<T> ScanAsync<T>(Project project, Func<ProjectAssetPaths, ProjectAssetReferences, T> scan,
+        CancellationToken token, bool includeElementIds = false)
     {
         VerifyCurrentProject(project);
         var paths = new ProjectAssetPaths(project);
-        ProjectAssetReferences references = Capture(project, token);
-        var analysis = await Task.Run(() => _assets.Analyze(paths, references, Guid.NewGuid(), token), token);
+        ProjectAssetReferences references = Capture(project, token, includeElementIds);
+        T result = await Task.Run(() => scan(paths, references), token);
         VerifyCurrentProject(project);
-        return analysis.Preview;
+        return result;
     }
 
     public Task ApplyAsync(Project project, ProjectAssetPreview preview, ProjectAssetAction action,
@@ -86,7 +93,7 @@ internal sealed class ProjectAssetCoordinator(ProjectService projects, EditorSer
             AssetsChanged?.Invoke();
         }, token);
 
-    private ProjectAssetReferences Capture(Project project, CancellationToken token)
+    private ProjectAssetReferences Capture(Project project, CancellationToken token, bool includeElementIds = false)
     {
         Dispatcher.UIThread.VerifyAccess();
         var contexts = editors.TabItems.Select(item => item.Context.Value).OfType<IEditorContext>().ToArray();
@@ -95,7 +102,7 @@ internal sealed class ProjectAssetCoordinator(ProjectService projects, EditorSer
                 && (obj is not IHierarchical hierarchical || !ReferenceEquals(hierarchical.FindHierarchicalParent<Project>(), project)));
         var history = contexts.Select(context => context.GetService(typeof(HistoryManager))).OfType<HistoryManager>()
             .SelectMany(history => history.GetRetainedOperations());
-        return ProjectAssetReferences.Capture(project, otherObjects, history, token);
+        return ProjectAssetReferences.Capture(project, otherObjects, history, token, includeElementIds);
     }
 
     private void VerifyCurrentProject(Project project)

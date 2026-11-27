@@ -8,6 +8,9 @@ public sealed class LiveEditingSession : IEditingSession
 {
     private readonly ILiveSessionBinding _binding;
 
+    internal ILiveElementBinding Elements
+        => _binding as ILiveElementBinding ?? throw new SessionUnavailableException();
+
     internal LiveEditingSession(Media.FontManager fonts, string sessionId, ILiveSessionBinding binding)
     {
         Fonts = fonts;
@@ -44,6 +47,8 @@ public sealed class LiveEditingSession : IEditingSession
     public bool IsDirty => false;
 
     public bool IsAlive => _binding.IsAlive && _binding.ActiveScene is not null && _binding.ActiveHistory is not null;
+
+    internal ILiveMediaRepairBinding? MediaRepair => _binding as ILiveMediaRepairBinding;
 
     // Run the liveness check on the editor's dispatcher (via the binding) instead of dereferencing
     // editor-owned Scene/History from the MCP request thread. LiveEditingSession.Invoke guards on

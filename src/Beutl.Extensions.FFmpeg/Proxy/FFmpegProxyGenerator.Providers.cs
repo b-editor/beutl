@@ -1,5 +1,4 @@
-﻿using Beutl.Audio;
-using Beutl.Extensibility;
+﻿using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
@@ -43,22 +42,6 @@ public sealed partial class FFmpegProxyGenerator
 
                 return ValueTask.FromResult<Bitmap?>(bitmapRef.Value.Clone());
             }
-        }
-
-        public void Dispose()
-        {
-        }
-    }
-
-    private sealed class SilentSampleProvider : ISampleProvider
-    {
-        public long SampleCount => 0;
-
-        public long SampleRate => 44100;
-
-        public ValueTask<AudioBuffer?> ReadNextSamples(int length)
-        {
-            return ValueTask.FromResult<AudioBuffer?>(null);
         }
 
         public void Dispose()

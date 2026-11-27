@@ -85,12 +85,15 @@ public partial class Scene
     /// caller owns the single commit boundary.
     /// </summary>
     public int CloseAllGaps(bool autoAdjustDuration = true)
+        => CloseAllGaps(null, autoAdjustDuration);
+
+    internal int CloseAllGaps(IReadOnlySet<int>? layers, bool autoAdjustDuration)
     {
         int closed = 0;
         MediaTime? movedEnd = null;
         foreach (IGrouping<int, Element> layer in Children.GroupBy(e => e.ZIndex.Value))
         {
-            if (!IsLayerLocked(layer.Key))
+            if ((layers == null || layers.Contains(layer.Key)) && !IsLayerLocked(layer.Key))
             {
                 closed += CloseLayerGaps(layer, ref movedEnd);
             }

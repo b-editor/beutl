@@ -17,33 +17,41 @@ using ModelContextProtocol.Client;
 
 namespace Beutl.AgentToolkit.Tests.Tools;
 
-public sealed class TimelineEditToolsTests
+public sealed partial class TimelineEditToolsTests
 {
     [Test]
     public async Task The_stdio_schema_exposes_required_edit_inputs_and_optional_live_targeting()
     {
-        var inputs = new Dictionary<string, string[]>
+        var inputs = new Dictionary<string, (string[] Required, string[] Optional)>
         {
-            ["split_elements"] = ["elementIds", "timeSeconds"],
-            ["slip_elements"] = ["elementIds", "deltaSeconds"],
-            ["ripple_delete"] = ["elementIds"],
-            ["ripple_trim"] = ["elementId", "edge", "timeSeconds"],
-            ["close_gap"] = ["elementId"]
+            ["split_elements"] = (["elementIds", "timeSeconds"], []),
+            ["slip_elements"] = (["elementIds", "deltaSeconds"], []),
+            ["ripple_delete"] = (["elementIds"], []),
+            ["duplicate_elements"] = (["elementIds", "timeSeconds", "layer"], []),
+            ["ripple_trim"] = (["elementId", "edge", "timeSeconds"], ["includeLinked"]),
+            ["roll_elements"] = (["elementId", "edge", "deltaSeconds"], []),
+            ["slide_elements"] = (["elementIds", "deltaSeconds"], []),
+            ["close_gap"] = (["elementId"], []),
+            ["find_gaps"] = ([], ["layers"]),
+            ["close_all_gaps"] = ([], ["layers"]),
+            ["split_on_silence"] = ([], ["elementIds", "layers", "thresholdDb", "minimumMilliseconds", "paddingMilliseconds", "mode", "includeLinked"])
         };
         await using InProcessAgentToolkitServer server = await InProcessAgentToolkitServer.StartAsync(TestWorkspace.CreateDirectory());
         IList<McpClientTool> tools = await server.Client.ListToolsAsync();
 
-        foreach ((string name, string[] required) in inputs)
+        foreach (var (name, (required, optional)) in inputs)
         {
             McpClientTool tool = tools.Single(tool => tool.Name == name);
             JsonElement properties = tool.JsonSchema.GetProperty("properties");
             Assert.Multiple(() =>
             {
                 Assert.That(tool.Description, Is.Not.Empty, name);
-                Assert.That(tool.JsonSchema.GetProperty("required").EnumerateArray().Select(item => item.GetString()),
-                    Is.EquivalentTo(required), name);
+                string?[] requiredFields = tool.JsonSchema.TryGetProperty("required", out var fields)
+                    ? fields.EnumerateArray().Select(item => item.GetString()).ToArray()
+                    : [];
+                Assert.That(requiredFields, Is.EquivalentTo(required), name);
                 Assert.That(properties.EnumerateObject().Select(item => item.Name),
-                    Is.EquivalentTo(required.Concat(["instanceId", "sceneId"])), name);
+                    Is.EquivalentTo(required.Concat(optional).Concat(["instanceId", "sceneId"])), name);
             });
         }
     }
@@ -212,6 +220,8 @@ public sealed class TimelineEditToolsTests
         Element preceding = AddElement(scene, 0, 2);
         Element target = AddElement(scene, 2, 2);
         Element following = AddElement(scene, 4, 2);
+        Element groupMember = AddElement(scene, 2, 2, layer: 1);
+        scene.Groups.Add(ImmutableHashSet.Create(target.Id.Value, groupMember.Id.Value));
         var original = target.Range;
         using var session = new AgentToolkitTestSession(scene);
         await using InProcessAgentToolkitServer server = await StartAsync(session);
@@ -223,10 +233,13 @@ public sealed class TimelineEditToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Value!.Changed, Is.True);
+            Assert.That(result.Value.ChangedElementIds,
+                Is.EquivalentTo(new[] { Id(target), Id(edge == "start" ? preceding : following) }));
             Assert.That(target.Start.Value, Is.EqualTo(MediaTime.FromSeconds(edge == "start" ? 3 : 2)));
             Assert.That(target.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(preceding.Start.Value, Is.EqualTo(MediaTime.FromSeconds(precedingStart)));
             Assert.That(following.Start.Value, Is.EqualTo(MediaTime.FromSeconds(followingStart)));
+            Assert.That(groupMember.Range, Is.EqualTo(original));
         });
         await UndoOnlyEditAsync(server.Client);
         Assert.Multiple(() =>
@@ -267,7 +280,8 @@ public sealed class TimelineEditToolsTests
 
     [Test]
     public async Task Timeline_tools_never_modify_a_user_locked_element_or_layer(
-        [Values("split_elements", "slip_elements", "ripple_delete", "ripple_trim", "close_gap")] string tool,
+        [Values("split_elements", "slip_elements", "ripple_delete", "duplicate_elements", "ripple_trim",
+            "roll_elements", "slide_elements", "close_gap", "split_on_silence", "close_all_gaps")] string tool,
         [Values] bool layerLocked)
     {
         Scene scene = TestWorkspace.CreateScene();
@@ -284,7 +298,7 @@ public sealed class TimelineEditToolsTests
 
         var result = await CallAsync(server.Client, tool, EditArguments(tool, target, anchor));
 
-        if (tool == "close_gap")
+        if (tool is "close_gap" or "close_all_gaps")
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.Changed, Is.False);
@@ -326,7 +340,10 @@ public sealed class TimelineEditToolsTests
         using var session = new AgentToolkitTestSession(scene);
         await using InProcessAgentToolkitServer server = await StartAsync(session);
 
-        foreach (string tool in new[] { "split_elements", "slip_elements", "ripple_trim" })
+        foreach (string tool in new[]
+        {
+            "split_elements", "slip_elements", "duplicate_elements", "ripple_trim", "roll_elements", "slide_elements", "split_on_silence"
+        })
         {
             var result = await CallAsync(server.Client, tool, EditArguments(tool, target, anchor));
             Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), tool);
@@ -334,6 +351,8 @@ public sealed class TimelineEditToolsTests
 
         var close = await CallAsync(server.Client, "close_gap", ("elementId", Id(anchor)));
         Assert.That(close.Value?.Changed, Is.False);
+        var closeAll = await CallAsync(server.Client, "close_all_gaps");
+        Assert.That(closeAll.Value?.ClosedGapCount, Is.Zero);
         Assert.That(session.History.UndoCount, Is.Zero);
 
         var removal = await CallAsync(server.Client, "ripple_delete", ("elementIds", new[] { Id(target) }));
@@ -386,8 +405,13 @@ public sealed class TimelineEditToolsTests
             "split_elements" => [("elementIds", new[] { Id(target) }), ("timeSeconds", 3)],
             "slip_elements" => [("elementIds", new[] { Id(target) }), ("deltaSeconds", 1)],
             "ripple_delete" => [("elementIds", new[] { Id(target) })],
+            "duplicate_elements" => [("elementIds", new[] { Id(target) }), ("timeSeconds", 5), ("layer", 1)],
             "ripple_trim" => [("elementId", Id(target)), ("edge", "end"), ("timeSeconds", 3)],
+            "roll_elements" => [("elementId", Id(target)), ("edge", "end"), ("deltaSeconds", 1)],
+            "slide_elements" => [("elementIds", new[] { Id(target) }), ("deltaSeconds", 1)],
             "close_gap" => [("elementId", Id(anchor))],
+            "close_all_gaps" => [],
+            "split_on_silence" => [("elementIds", new[] { Id(target) })],
             _ => throw new ArgumentOutOfRangeException(nameof(tool))
         };
 

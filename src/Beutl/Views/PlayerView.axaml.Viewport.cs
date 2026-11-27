@@ -152,6 +152,8 @@ public partial class PlayerView
             view.FrameRect = GetFrameRectIn(view) ?? default;
 
         checkerboardBackground.FrameRect = GetFrameRectIn(previewViewport);
+        if (effectComparisonOverlay.IsVisible)
+            ArrangeEffectComparisonOverlay();
     }
 
     private Rect? GetFrameRectIn(Visual target)

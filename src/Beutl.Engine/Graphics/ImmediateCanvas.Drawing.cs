@@ -169,7 +169,7 @@ public partial class ImmediateCanvas
         }
     }
 
-    private static Bitmap? RecoverVideoCodeValues(VideoSource.Resource source, Bitmap bitmap,
+    internal static Bitmap? RecoverVideoCodeValues(VideoSource.Resource source, Bitmap bitmap,
         VideoTransferInterpretation interpretation, out BitmapColorSpace? colorSpaceOverride)
     {
         colorSpaceOverride = null;

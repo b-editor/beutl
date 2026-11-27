@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 using Avalonia.Controls;
@@ -321,12 +322,12 @@ public class TimelineEditModeThumbnailPreviewTests
             && strip.GetMissingIndices(0, clip.VideoThumbnailCount.Value - 1).Count == 0);
         int baseCount = clip.VideoThumbnailCount.Value;
 
-        // Queue a rebuild for the zoomed layout behind a render-thread operation.
-        await using var pause = new DispatcherPause(RenderThread.Dispatcher);
-        await pause.Entered;
+        // Hold the zoom rebuild in its dedicated decoder until the drag has captured the old layout.
+        using var pause = PreviewMediaDecoder.PauseNextBackgroundOpen(video.Source.Value!.Uri.LocalPath);
         timeline.Options.Value = timeline.Options.Value with { Scale = 1.5f };
         HeadlessTestHelpers.Render(3);
         clip.InvalidateAndUpdateThumbnails();
+        await pause.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         double baseWidth = strip.Bounds.Width;
         HeadlessCapture.SaveIfRequested(view.Window, nameof(TimelineEditModeThumbnailPreviewTests), $"{captureName}-before");
 
@@ -726,6 +727,8 @@ public class TimelineEditModeThumbnailPreviewTests
     {
         using var config = new PreviewConfigScope();
         ElementViewModel clip = await OpenAudioClip(startSeconds: 1, lengthSeconds: 2, offsetSeconds: 1, sourceSeconds: 6);
+        // An animated gain uses the composer, so pausing it also pauses the replacement waveform.
+        Animate(clip.Model.Objects.OfType<SourceSound>().Single().Gain, 100, 100);
         using var view = new TimelineViewScope(clip, width: 1200);
         await WaitForWaveformReady(clip, view.Waveform);
 
@@ -855,18 +858,55 @@ public class TimelineEditModeThumbnailPreviewTests
 
     private sealed class PreviewMediaDecoder : IDecoderInfo
     {
+        private static readonly ConcurrentDictionary<string, OpenPause> s_pauses = new();
+
         public string Name => "Timeline preview test decoder";
         public IEnumerable<string> VideoExtensions() => [".preview-video"];
         public IEnumerable<string> AudioExtensions() => [".preview-tone"];
 
+        public static OpenPause PauseNextBackgroundOpen(string file)
+        {
+            var pause = new OpenPause(file);
+            if (!s_pauses.TryAdd(file, pause))
+                throw new InvalidOperationException("A decoder open is already paused for this file.");
+            return pause;
+        }
+
         public MediaReader? Open(string file, MediaOptions options)
-            => Path.GetExtension(file) switch
+        {
+            if (options.IsBackground && s_pauses.TryRemove(file, out var pause))
+                pause.Wait();
+
+            return Path.GetExtension(file) switch
             {
                 ".preview-video" => new PreviewVideoReader(),
                 ".preview-tone" => new ToneAudioReader(44100, 2, MediaTime.FromSeconds(
                     double.Parse(File.ReadAllText(file), System.Globalization.CultureInfo.InvariantCulture))),
                 _ => null
             };
+        }
+
+        internal sealed class OpenPause(string file) : IDisposable
+        {
+            private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public Task Entered => _entered.Task;
+
+            public void Wait()
+            {
+                _entered.TrySetResult();
+                _released.Task.WaitAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult();
+            }
+
+            public void Release() => _released.TrySetResult();
+
+            public void Dispose()
+            {
+                s_pauses.TryRemove(new KeyValuePair<string, OpenPause>(file, this));
+                Release();
+            }
+        }
     }
 
     private sealed class PreviewVideoReader : MediaReader

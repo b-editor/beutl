@@ -529,15 +529,10 @@ public class IpcConnectionMultiplexedTests
         // 受信ループが loopCt を無視してハングしても、Dispose は 5 秒で待機を諦めて残りを解放する。
         // 実時間で 5 秒待つ。
         var pipe = new HangingPipeStream();
-        var conn = new IpcConnection(pipe);
+        using var conn = new IpcConnection(pipe);
         conn.StartMultiplexedReceive();
 
-        // 受信ループが確実に ReadAsync の hang に入った状態にしてから Dispose を呼ぶ。
-        // pending dict に 1 件入った = SendAsync が完走 = ループは ReadAsync 待機中。
-        int id = conn.NextId();
-        var req = IpcMessage.CreateSimple(id, RequestType);
-        _ = Task.Run(() => conn.SendAndReceiveAsync(req).AsTask());
-        await WaitUntil(() => conn.PendingRequestCount == 1, TimeSpan.FromSeconds(2), "request enters pending dict");
+        await AwaitWithTimeout(pipe.ReadStarted, TimeSpan.FromSeconds(5), "the receive loop starts reading");
 
         var sw = Stopwatch.StartNew();
         Assert.DoesNotThrow(() => conn.Dispose());
@@ -649,32 +644,46 @@ public class IpcConnectionMultiplexedTests
     }
 
     /// <summary>
-    /// ReadAsync が永久に完了しない PipeStream。Dispose の Wait タイムアウト経路を
+    /// キャンセルを無視し、パイプが破棄されるまで ReadAsync が完了しない PipeStream。
+    /// Dispose の Wait タイムアウト経路を
     /// 検証する目的でだけ使う。
     /// </summary>
     private sealed class HangingPipeStream : PipeStream
     {
+        private readonly TaskCompletionSource<bool> _readStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<int> _blockedRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public HangingPipeStream() : base(PipeDirection.InOut, 4096) { }
 
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            // 同期 Read は使わない想定だが、最低限ハングさせる。
-            new TaskCompletionSource<int>().Task.GetAwaiter().GetResult();
-            return 0;
-        }
+        public Task<bool> ReadStarted => _readStarted.Task;
+
+        public override int Read(byte[] buffer, int offset, int count) => ReadUntilDisposed().GetAwaiter().GetResult();
 
         public override int Read(Span<byte> buffer) => Read(Array.Empty<byte>(), 0, 0);
 
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-            => new ValueTask<int>(new TaskCompletionSource<int>().Task);
+            => new(ReadUntilDisposed());
 
         public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-            => new TaskCompletionSource<int>().Task;
+            => ReadUntilDisposed();
 
         public override void Write(byte[] buffer, int offset, int count) { }
 
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
+
+        private Task<int> ReadUntilDisposed()
+        {
+            _readStarted.TrySetResult(true);
+            return _blockedRead.Task;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing)
+                _blockedRead.TrySetResult(0);
+        }
     }
 
     /// <summary>

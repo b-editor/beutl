@@ -291,7 +291,7 @@ public class CustomFilterEffectContext
         if (!source.IsMaterialized)
             return new EffectTarget();
 
-        EffectTarget? replacement = AllocateReplacement(source, FactoryBackedSession);
+        EffectTarget? replacement = AllocateReplacement(source);
         if (replacement != null)
         {
             return replacement;
@@ -330,10 +330,7 @@ public class CustomFilterEffectContext
         // Every consumer of this target is a full-frame shader pass: its load op either clears the
         // attachment or the shader provably writes every pixel, so the pool's own clear - and the two
         // layout transitions around it - would be undone before anything read them.
-        EffectTarget? replacement = AllocateReplacement(
-            source,
-            RenderTargetLeaseSession,
-            clearContents: false);
+        EffectTarget? replacement = AllocateReplacement(source, native: true);
         if (replacement != null)
             return replacement;
 
@@ -348,17 +345,16 @@ public class CustomFilterEffectContext
     }
 
     /// <summary>
-    /// Allocates a same-footprint replacement for <paramref name="source"/>, through the caller's lease session
-    /// when there is one, and reports a declined allocation as <see langword="null"/>.
+    /// Allocates a same-footprint replacement for <paramref name="source"/> and reports a declined allocation
+    /// as <see langword="null"/>.
     /// </summary>
-    private EffectTarget? AllocateReplacement(
-        EffectTarget source,
-        RenderTargetLeaseSession? leaseSession,
-        bool clearContents = true)
+    private EffectTarget? AllocateReplacement(EffectTarget source, bool native = false)
     {
-        if (leaseSession is not null)
+        PixelSize size = source.Placement.DeviceBounds.Size;
+        RenderTargetLeaseSession? leaseSession = RenderTargetLeaseSession;
+        if (leaseSession is not null && (leaseSession.HasTargetFactory || native))
         {
-            RenderTargetLease? lease = leaseSession.TryAcquire(source.Placement.DeviceBounds.Size, clearContents);
+            RenderTargetLease? lease = leaseSession.TryAcquire(size, clearContents: !native);
             if (lease is null)
                 return null;
 
@@ -373,9 +369,7 @@ public class CustomFilterEffectContext
             }
         }
 
-        using RenderTarget? renderTarget = RenderTarget.Create(
-            source.Placement.DeviceBounds.Width,
-            source.Placement.DeviceBounds.Height);
+        using RenderTarget? renderTarget = RenderTarget.CreateUnpooled(size, leaseSession);
         return renderTarget is null ? null : source.CreateReplacement(renderTarget);
     }
 
@@ -604,10 +598,6 @@ public class CustomFilterEffectContext
             return new EffectTarget();
         }
     }
-
-    // Only a caller-supplied factory redirects allocation through the lease session.
-    private RenderTargetLeaseSession? FactoryBackedSession
-        => RenderTargetLeaseSession is { HasTargetFactory: true } session ? session : null;
 
     /// <summary>
     /// Opens an <see cref="ImmediateCanvas"/> over <paramref name="target"/>'s buffer.

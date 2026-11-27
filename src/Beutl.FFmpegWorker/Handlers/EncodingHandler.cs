@@ -90,7 +90,10 @@ internal sealed class EncodingHandler
         encodingSettings.Acceleration.Value = (FFmpegEncodingSettings.AccelerationOptions)request.Acceleration;
         encodingSettings.ThreadCount.Value = request.ThreadCount;
 
-        var controller = new FFmpegEncodingController(request.OutputFile, encodingSettings);
+        var controller = new FFmpegEncodingController(request.OutputFile, encodingSettings)
+        {
+            VideoOnly = request.VideoOnly,
+        };
 
         // Video settings
         controller.VideoSettings.SourceSize.Value = new PixelSize(request.SourceWidth, request.SourceHeight);

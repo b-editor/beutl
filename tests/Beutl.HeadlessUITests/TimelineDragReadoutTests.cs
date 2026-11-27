@@ -136,6 +136,39 @@ public class TimelineDragReadoutTests
     }
 
     [AvaloniaTest]
+    public async Task RippleTrim_ShiftsTheFollowerOnceForAGroupedEdgeOnOneLayer()
+    {
+        using var configuration = await ResetWithFormat(TimeDisplayFormat.Frames);
+        using var host = await TimelineTestHost.CreateAsync("ripple-shared-edge", Seconds(10), [Clip(0, 2, 0), Clip(2, 1, 0)]);
+        host.Model.IsSnapEnabled.Value = false;
+        host.Model.IsRippleEnabled.Value = true;
+        Element first = host.Scene.Children.Single(clip => clip.Start.Value == MediaTime.Zero);
+        Element follower = host.Scene.Children.Single(clip => clip.Start.Value == Seconds(2));
+        var second = new Element { Start = { Value = Seconds(1) }, Length = { Value = Seconds(1) } };
+        second.Uri = new Uri(host.Scene.Uri!, $"{second.Id.Value:N}.belm");
+        second.AddObject(new RectShape());
+        host.Scene.AddChild(second, ElementOverlapHandling.Allow);
+        host.Scene.Groups.Add([first.Id.Value, second.Id.Value]);
+        HeadlessTestHelpers.Settle();
+
+        Point press = WindowPosition(host, Seconds(2)) - new Vector(2, 0);
+        host.Window.MouseMove(press);
+        host.Window.MouseDown(press, MouseButton.Left);
+        Point release = WindowPosition(host, Seconds(3));
+        MovePointer(host, release);
+        host.Window.MouseUp(release, MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Range.End, Is.EqualTo(Seconds(3)));
+            Assert.That(second.Range.End, Is.EqualTo(Seconds(3)));
+            Assert.That(follower.Start.Value, Is.EqualTo(Seconds(3)));
+        });
+        HeadlessCapture.SaveIfRequested(host.Window, nameof(TimelineDragReadoutTests), "ripple-shared-edge");
+    }
+
+    [AvaloniaTest]
     public async Task DragReadout_FitsTheScrolledViewportAndDisappearsOnEscape()
     {
         using var configuration = await ResetWithFormat(TimeDisplayFormat.Timecode);

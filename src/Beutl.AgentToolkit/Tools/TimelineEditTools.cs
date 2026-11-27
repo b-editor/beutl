@@ -7,7 +7,6 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Language;
-using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
 using ModelContextProtocol.Server;
@@ -19,10 +18,24 @@ public sealed record TimelineEditResponse(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyList<string>? CreatedElementIds = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    IReadOnlyList<string>? SkippedLockedElementIds = null);
+    IReadOnlyList<string>? SkippedLockedElementIds = null)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? ChangedElementIds { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<TimelineSilenceRange>? RemovedRanges { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ClosedGapCount { get; init; }
+}
+
+public sealed record TimelineGap(int Layer, double StartSeconds, double EndSeconds);
+
+public sealed record FindGapsResponse(IReadOnlyList<TimelineGap> Gaps);
 
 [McpServerToolType]
-public sealed class TimelineEditTools(
+public sealed partial class TimelineEditTools(
     AgentSessionManager sessions, GlobalConfiguration configuration, DecoderRegistry decoders) : ToolBase
 {
     [McpServerTool(Name = "split_elements")]
@@ -38,8 +51,7 @@ public sealed class TimelineEditTools(
             MediaTime at = ReadFrameTime(scene, timeSeconds, nameof(timeSeconds));
             HashSet<Element> originalChildren = [.. scene.Children];
             new ElementStructureService(history, configuration.EditorConfig, decoders).Split(scene, elements, at);
-            string[] created = scene.Children.Where(element => !originalChildren.Contains(element))
-                .Select(element => element.Id.Value.ToString()).ToArray();
+            string[] created = ElementIds(scene.Children.Where(element => !originalChildren.Contains(element)));
             return new TimelineEditResponse(created.Length > 0, CreatedElementIds: created);
         }, cancellationToken);
 
@@ -70,37 +82,6 @@ public sealed class TimelineEditTools(
             return new TimelineEditResponse(true);
         }, cancellationToken, removingElements: true);
 
-    [McpServerTool(Name = "ripple_trim")]
-    [Description("Moves one element edge and ripples neighboring clips on the same layer. The editor may clamp the requested edge position.")]
-    public ValueTask<ToolResult<TimelineEditResponse>> RippleTrim(
-        [Description("Element ID from read_document_summary.")]
-        string elementId,
-        [Description("Edge to move: start or end.")]
-        string edge,
-        [Description("New edge position in seconds from timeline zero, rounded to the nearest frame.")]
-        double timeSeconds,
-        CancellationToken cancellationToken = default)
-        => EditElements([elementId], CommandNames.MoveElement, (scene, history, elements) =>
-        {
-            Element element = elements[0];
-            bool trimStart = edge switch
-            {
-                "start" => true,
-                "end" => false,
-                _ => throw InvalidEdit("Choose 'start' or 'end'.", nameof(edge))
-            };
-            MediaTime at = ReadFrameTime(scene, timeSeconds, nameof(timeSeconds));
-            TimeRange original = element.Range;
-            MediaTime start = trimStart ? at : original.Start;
-            MediaTime end = trimStart ? original.End : at;
-            if (start == original.Start && end == original.End) return new TimelineEditResponse(false);
-
-            var request = new ElementResizeRequest(element, start, end - start, element.ZIndex.Value);
-            MediaTime duration = scene.Duration.Value;
-            new ElementResizeService(history, configuration.EditorConfig, decoders).Resize(scene, [request], ripple: true);
-            return new TimelineEditResponse(element.Range != original || scene.Duration.Value != duration);
-        }, cancellationToken);
-
     [McpServerTool(Name = "close_gap")]
     [Description("Closes the first gap after an element's contiguous run on its layer by shifting unlocked followers left up to the first locked clip.")]
     public ValueTask<ToolResult<TimelineEditResponse>> CloseGap(
@@ -109,10 +90,37 @@ public sealed class TimelineEditTools(
         CancellationToken cancellationToken = default)
         => EditTimeline(CommandNames.CloseGap, (scene, history) =>
         {
-            Guid id = ReadElementId(elementId);
-            Element anchor = RequireElement(scene.Children.Where(element => element.Id.Value == id), id);
+            Element anchor = ReadElement(scene, elementId);
             bool changed = new ElementGapService(history, configuration.EditorConfig).CloseGapAfter(scene, anchor);
             return new TimelineEditResponse(changed);
+        }, cancellationToken);
+
+    [McpServerTool(Name = "find_gaps", ReadOnly = true)]
+    [Description("Lists gaps between clips per layer, in timeline seconds. Includes gaps blocked by locks. Leading and trailing space is excluded.")]
+    public ToolResult<FindGapsResponse> FindGaps(
+        [Description("Optional timeline layer indices (ZIndex). Omit to inspect all layers.")]
+        int[]? layers = null)
+        => Execute(() =>
+        {
+            IEditingSession session = sessions.RequireSession();
+            HashSet<int>? selectedLayers = layers?.ToHashSet();
+            return session.ReadOnSession(() => new FindGapsResponse(
+                RequireSceneRoot(session).EnumerateGaps()
+                    .Where(gap => selectedLayers == null || selectedLayers.Contains(gap.ZIndex))
+                    .Select(gap => new TimelineGap(gap.ZIndex, gap.Range.Start.ToSeconds(), gap.Range.End.ToSeconds()))
+                    .ToArray()));
+        });
+
+    [McpServerTool(Name = "close_all_gaps")]
+    [Description("Closes gaps between clips on the selected layers, shifting unlocked followers left. Locked layers are skipped and locked clips act as barriers. Returns the number of gaps closed.")]
+    public ValueTask<ToolResult<TimelineEditResponse>> CloseAllGaps(
+        [Description("Optional timeline layer indices (ZIndex). Omit to edit all layers.")]
+        int[]? layers = null,
+        CancellationToken cancellationToken = default)
+        => EditTimeline(CommandNames.CloseAllGaps, (scene, history) =>
+        {
+            int closed = new ElementGapService(history, configuration.EditorConfig).CloseAllGaps(scene, layers?.ToHashSet());
+            return new TimelineEditResponse(closed > 0) { ClosedGapCount = closed };
         }, cancellationToken);
 
     private ValueTask<ToolResult<TimelineEditResponse>> EditElements(
@@ -120,83 +128,106 @@ public sealed class TimelineEditTools(
         string commandName,
         Func<Scene, HistoryManager, Element[], TimelineEditResponse> edit,
         CancellationToken cancellationToken,
-        bool removingElements = false)
-        => EditTimeline(commandName, (scene, history) =>
+        bool removingElements = false,
+        bool includeLinked = false)
+        => EditTimeline(commandName, (scene, history) => EditUnlockedElements(scene,
+            ReadElements(scene, elementIds, includeLinked), elements => edit(scene, history, elements), removingElements),
+            cancellationToken);
+
+    private static TimelineEditResponse EditUnlockedElements(Scene scene, IEnumerable<Element> elements,
+        Func<Element[], TimelineEditResponse> edit, bool removingElements = false)
+    {
+        var editable = new List<Element>();
+        var locked = new List<Element>();
+        foreach (Element element in elements)
         {
-            if (elementIds is not { Length: > 0 })
-                throw InvalidEdit("Supply at least one element ID.", nameof(elementIds));
+            // A removal leaves the retained file intact. Like the UI, it checks only user locks.
+            bool isLocked = removingElements ? scene.IsElementLockedByUser(element) : scene.IsElementLocked(element);
+            (isLocked ? locked : editable).Add(element);
+        }
 
-            var byId = scene.Children.ToLookup(element => element.Id.Value);
-            var editable = new List<Element>();
-            var locked = new List<Element>();
-            foreach (Guid id in elementIds.Select(ReadElementId).Distinct())
-            {
-                Element element = RequireElement(byId[id], id);
-                // A removal leaves the retained file intact. Like the UI, it checks only user locks.
-                bool isLocked = removingElements ? scene.IsElementLockedByUser(element) : scene.IsElementLocked(element);
-                (isLocked ? locked : editable).Add(element);
-            }
+        if (editable.Count == 0) throw LockedEdit(scene, locked[0]);
 
-            if (editable.Count == 0)
-            {
-                Element firstLocked = locked[0];
-                throw new ReconcileException(Reconciler.CreateLockedElementError(scene, firstLocked, firstLocked.Id.Value.ToString()));
-            }
-
-            TimelineEditResponse result = edit(scene, history, [.. editable]);
-            return locked.Count == 0 ? result : result with
-            {
-                SkippedLockedElementIds = locked.Select(element => element.Id.Value.ToString()).ToArray()
-            };
-        }, cancellationToken);
+        TimelineEditResponse result = edit([.. editable]);
+        return locked.Count == 0 ? result : result with { SkippedLockedElementIds = ElementIds(locked) };
+    }
 
     private ValueTask<ToolResult<TimelineEditResponse>> EditTimeline(
         string commandName, Func<Scene, HistoryManager, TimelineEditResponse> edit, CancellationToken cancellationToken)
-        => ExecuteAsync(async () =>
+        => ExecuteAsync(() => ApplyTimelineAsync(sessions.RequireSession(), commandName, edit, cancellationToken));
+
+    private static async ValueTask<TimelineEditResponse> ApplyTimelineAsync(
+        IEditingSession session, string commandName, Func<Scene, HistoryManager, TimelineEditResponse> edit,
+        CancellationToken cancellationToken)
+    {
+        if (session is LiveEditingSession live)
         {
-            IEditingSession session = sessions.RequireSession();
-            if (session is LiveEditingSession live)
-            {
-                return await live.ExecuteHistoryMutationAsync(
-                    static _ => true,
-                    history =>
-                    {
-                        // The user can start another gesture while playback drains.
-                        if (history.IsEditing) throw new UserEditingException();
-                        return ApplyEdit(history);
-                    },
-                    cancellationToken, waitForEditSession: true).ConfigureAwait(false);
-            }
-
-            return session.EditOnSession(() => ApplyEdit(session.History), cancellationToken);
-
-            TimelineEditResponse ApplyEdit(HistoryManager history)
-            {
-                Scene scene = RequireSceneRoot(session);
-                TimelineEditResponse result = new(false);
-                history.ExecuteInTransaction(() =>
+            return await live.ExecuteHistoryMutationAsync(
+                static _ => true,
+                history =>
                 {
-                    var checkTransitions = scene.HasTransitions
-                        ? Reconciler.CaptureLockedTransitionCheck(scene, [.. scene.Children.Where(scene.IsElementLockedByUser)])
-                        : null;
-                    // The session records the mutation. An unsubscribed history lets services issue their
-                    // own commits while the session can still roll back a rejected edit.
-                    using var serviceHistory = new HistoryManager(new OperationSequenceGenerator());
-                    result = edit(scene, serviceHistory);
-                    if (result.Changed && checkTransitions?.Invoke(scene) is { } error)
-                    {
-                        throw new ReconcileException(error);
-                    }
-                }, commandName, cancellationToken: cancellationToken);
-                if (result.Changed) session.MarkDirtyIfFileSession();
-                return result;
-            }
-        });
+                    // The user can start another gesture while playback drains.
+                    if (history.IsEditing) throw new UserEditingException();
+                    return ApplyEdit(history);
+                },
+                cancellationToken, waitForEditSession: true).ConfigureAwait(false);
+        }
+
+        return session.EditOnSession(() => ApplyEdit(session.History), cancellationToken);
+
+        TimelineEditResponse ApplyEdit(HistoryManager history)
+        {
+            Scene scene = RequireSceneRoot(session);
+            TimelineEditResponse result = new(false);
+            history.ExecuteInTransaction(() =>
+            {
+                var checkTransitions = scene.HasTransitions
+                    ? Reconciler.CaptureLockedTransitionCheck(scene, [.. scene.Children.Where(scene.IsElementLockedByUser)])
+                    : null;
+                // The session records the mutation. An unsubscribed history lets services issue their
+                // own commits while the session can still roll back a rejected edit.
+                using var serviceHistory = new HistoryManager(new OperationSequenceGenerator());
+                result = edit(scene, serviceHistory);
+                if (result.Changed && checkTransitions?.Invoke(scene) is { } error)
+                {
+                    throw new ReconcileException(error);
+                }
+            }, commandName, cancellationToken: cancellationToken);
+            if (result.Changed) session.MarkDirtyIfFileSession();
+            return result;
+        }
+    }
 
     private static Guid ReadElementId(string value)
         => Guid.TryParse(value, out Guid id) && id != Guid.Empty
             ? id
             : throw InvalidEdit("Supply a valid element ID from read_document_summary.", value);
+
+    private static Element ReadElement(Scene scene, string elementId)
+    {
+        Guid id = ReadElementId(elementId);
+        return RequireElement(scene.Children.Where(element => element.Id.Value == id), id);
+    }
+
+    internal static Element[] ReadElements(Scene scene, string[] elementIds, bool includeLinked)
+    {
+        if (elementIds is not { Length: > 0 })
+            throw InvalidEdit("Supply at least one element ID.", nameof(elementIds));
+
+        var byId = scene.Children.ToLookup(element => element.Id.Value);
+        Guid[] ids = elementIds.Select(ReadElementId).Distinct().ToArray();
+        Element[] selected = ids.Select(id => RequireElement(byId[id], id)).ToArray();
+        if (!includeLinked) return selected;
+
+        Element[] members = DuplicateHelper.FindWithGroupSiblings(scene, ids);
+        foreach (Element member in members)
+        {
+            Guid id = member.Id.Value;
+            RequireElement(byId[id], id);
+        }
+
+        return members;
+    }
 
     private static Element RequireElement(IEnumerable<Element> matches, Guid id)
     {
@@ -230,4 +261,10 @@ public sealed class TimelineEditTools(
 
     private static ReconcileException InvalidEdit(string message, string? target)
         => new(new ToolError(ErrorCode.ValidationRejected, message, target));
+
+    private static ReconcileException LockedEdit(Scene scene, Element element)
+        => new(Reconciler.CreateLockedElementError(scene, element, element.Id.Value.ToString()));
+
+    private static string[] ElementIds(IEnumerable<Element> elements)
+        => elements.Select(element => element.Id.Value.ToString()).ToArray();
 }

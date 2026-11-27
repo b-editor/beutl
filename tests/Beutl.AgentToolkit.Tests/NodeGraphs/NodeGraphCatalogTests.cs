@@ -37,6 +37,10 @@ public sealed class NodeGraphCatalogTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Value!.NodeTypes.Select(type => type.Type), Does.Contain(nameof(ShaderFullscreenPassNode)).And.Contain("FilterEffectNode<Blur>"));
+            Assert.That(result.Value.NodeTypes.Single(type => type.Type == nameof(GeometryShapeNode)).DisplayName,
+                Is.EqualTo(GraphicsStrings.GeometryShapeNode));
+            Assert.That(result.Value.NodeTypes.Single(type => type.Type == "FactoryNode<DrawableBrush>").DisplayName,
+                Is.EqualTo(GraphicsStrings.DrawableBrushNode));
             Assert.That(result.Value.NodeTypes.All(type => type.Members is null && type.Discriminator is null), Is.True);
             Assert.That(JsonSerializer.Serialize(result, JsonSerializerOptions.Web).Length, Is.LessThan(28_000));
         });

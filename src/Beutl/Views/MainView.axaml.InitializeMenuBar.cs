@@ -58,6 +58,7 @@ public partial class MainView
         }).AddTo(_disposables);
         viewModel.MenuBar.OpenFile.Subscribe(OnOpenFile).AddTo(_disposables);
         viewModel.MenuBar.ImportMedia.Subscribe(OnImportMedia).AddTo(_disposables);
+        viewModel.MenuBar.ExportSubtitles.Subscribe(OnExportSubtitles).AddTo(_disposables);
         viewModel.MenuBar.EnableVersionControl.Subscribe(
             () => EnableVersionControlAsync(viewModel)).AddTo(_disposables);
         viewModel.MenuBar.CommitVersion.Subscribe(
@@ -201,7 +202,21 @@ public partial class MainView
             {
                 try
                 {
-                    ProjectPersistence.RemoveItemAndPersist(project, projItem);
+                    if (projItem is Scene scene)
+                    {
+                        SceneRemovalResult result = await mv.EditorService.RemoveSceneFromProjectAsync(
+                            mv.ProjectService, project, scene, CancellationToken.None);
+                        if (result is SceneRemovalResult.LastScene or SceneRemovalResult.UnsavedChanges)
+                        {
+                            Notifications.ShowWarning(Strings.RemoveFromProjectMenu, result == SceneRemovalResult.LastScene
+                                ? MessageStrings.CannotRemoveLastScene
+                                : MessageStrings.SaveSceneBeforeRemoving);
+                        }
+                    }
+                    else
+                    {
+                        ProjectPersistence.RemoveItemAndPersist(project, projItem);
+                    }
                 }
                 catch (Exception ex)
                 {

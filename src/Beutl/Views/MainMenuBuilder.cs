@@ -18,7 +18,8 @@ internal static class MainMenuBuilder
     // Puts the menus first and takes them out again when disposables is disposed.
     public static void AddMenus(Menu menu, IReadOnlyList<MainMenuItem> items, CompositeDisposable disposables)
     {
-        Control[] menus = [.. items.Select(item => CreateMenuItem(item, disposables)).OfType<Control>()];
+        var editFocus = new InWindowEditMenuFocus(menu, disposables);
+        Control[] menus = [.. items.Select(item => CreateMenuItem(item, menu, editFocus, disposables)).OfType<Control>()];
         for (int i = 0; i < menus.Length; i++)
             menu.Items.Insert(i, menus[i]);
 
@@ -34,7 +35,7 @@ internal static class MainMenuBuilder
         disposables.Add(Disposable.Create(() => Array.ForEach(menus, item => menu.Items.Remove(item))));
     }
 
-    private static Control? CreateMenuItem(MainMenuItem item, CompositeDisposable disposables)
+    private static Control? CreateMenuItem(MainMenuItem item, Menu menu, InWindowEditMenuFocus editFocus, CompositeDisposable disposables)
     {
         if (item.IsInNativeMenuOnly)
             return null;
@@ -49,6 +50,16 @@ internal static class MainMenuBuilder
             InputGesture = GetGesture(item),
             Icon = item.Icon is { } icon ? new FluentIcon { Icon = icon } : item.IconSource
         };
+        if (item.EditAction is { } action and not (StandardEditAction.Undo or StandardEditAction.Redo))
+        {
+            var command = new FocusedEditCommand(action, item.Command!, menu)
+            {
+                Availability = item.EditActionAvailability,
+                InWindowFocus = editFocus
+            };
+            disposables.Add(command.FollowFocus());
+            menuItem.Command = command;
+        }
         FollowGesture(item, gesture => menuItem.InputGesture = gesture, disposables);
         if (item.IsVisible is { } isVisible)
             disposables.Add(isVisible.Subscribe(visible => menuItem.IsVisible = visible));
@@ -58,7 +69,8 @@ internal static class MainMenuBuilder
             IList children = items is INotifyCollectionChanged
                 ? (IList)(menuItem.ItemsSource = new AvaloniaList<Control>())
                 : menuItem.Items;
-            Follow<Control>(items, CreateMenuItem, children.Insert, children.RemoveAt, disposables);
+            Follow<Control>(items, (entry, entries) => CreateMenuItem(entry, menu, editFocus, entries),
+                children.Insert, children.RemoveAt, disposables);
         }
 
         return menuItem;
@@ -71,7 +83,7 @@ internal static class MainMenuBuilder
         if (item.Header is null)
             return new NativeMenuItemSeparator();
 
-        KeyGesture? gesture = item.InWindowGestureExtensionType is null ? GetGesture(item) : null;
+        KeyGesture? gesture = GetGesture(item, native: true);
         var menuItem = new NativeMenuItem
         {
             Header = item.Header,
@@ -116,9 +128,10 @@ internal static class MainMenuBuilder
         return menuItem;
     }
 
-    private static KeyGesture? GetGesture(MainMenuItem item) => item switch
+    private static KeyGesture? GetGesture(MainMenuItem item, bool native = false) => item switch
     {
-        { GestureCommand: { } id } => GetCommandGestureExtension.GetKeyGesture(item.InWindowGestureExtensionType ?? typeof(MainViewExtension), id),
+        { GestureCommand: { } id } when !native || item.InWindowGestureExtensionType is null
+            => GetCommandGestureExtension.GetKeyGesture(item.InWindowGestureExtensionType ?? typeof(MainViewExtension), id),
         // Leave the text box's Cmd+Backspace gesture available for deleting to the start of the line.
         { EditAction: StandardEditAction.Delete } => null,
         { EditAction: { } action } => FocusedEditCommand.GetKeyGesture(action),

@@ -8,6 +8,7 @@ using Beutl.Graphics.Transitions;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Primitives;
+using Beutl.Graphics3D.Skyboxes;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -67,6 +68,19 @@ public class FlowInputDiagnosticsTests
 
         scene3D.Objects.Add(new Cube3D());
         Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+    }
+
+    [Test]
+    public void Scene3DCanUseAnEnabledSkyboxWithoutAnObject()
+    {
+        var scene = new Scene();
+        var skybox = new ProceduralSkybox();
+        var scene3D = new Scene3D { Skybox = { Value = skybox } };
+        Element receiver = AddClip(scene, scene3D, layer: 0, start: 0, duration: 2);
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.Empty);
+
+        skybox.IsEnabled.Value = false;
+        Assert.That(FlowInputDiagnostics.FindMissingInputs(scene, receiver), Is.EqualTo(new[] { scene3D }));
     }
 
     [Test]

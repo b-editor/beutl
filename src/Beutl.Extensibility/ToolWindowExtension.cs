@@ -23,6 +23,12 @@ public abstract class ToolWindowExtension : Extension
 
     public virtual bool CanMultiple => false;
 
+    /// <summary>
+    /// Gets the commands available as keyboard shortcuts while the tool window is open.
+    /// Context commands run on the window's <see cref="IToolWindowContext"/>.
+    /// </summary>
+    public virtual IEnumerable<ContextCommandDefinition> ContextCommands => [];
+
     /// <summary>Gets the tool window icon as a FluentAvalonia 3 <see cref="FAIconSource"/>.</summary>
     /// <remarks>See docs/extension-authoring/avalonia-12-migration.md for the migration steps.</remarks>
     public virtual FAIconSource? GetIcon() => null;

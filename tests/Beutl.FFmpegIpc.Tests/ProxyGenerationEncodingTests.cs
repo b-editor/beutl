@@ -28,6 +28,32 @@ public sealed class ProxyGenerationEncodingTests
         Converters = { new JsonStringEnumConverter() },
     };
 
+    [Test]
+    public async Task GenerateAsync_WritesExactlyOneVideoStream()
+    {
+        DecodingWorkerTestHelpers.RequireDecodingWorker();
+        string source = Path.Combine(AppContext.BaseDirectory, "Fixtures", "deinterlace-offset-tff.mp4");
+        string root = Directory.CreateTempSubdirectory("beutl-proxy-streams-").FullName;
+        try
+        {
+            var decoders = new DecoderRegistry(new());
+            decoders.Register(new FFmpegDecoderInfo(new FFmpegDecodingSettings()));
+            var store = new ProxyStore(root);
+            var generator = new FFmpegProxyGenerator(store, new Beutl.Services.NotificationService(), decoders);
+            var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Half);
+
+            await generator.GenerateAsync(job);
+
+            var entry = store.TryGet(job.Source, job.Preset);
+            Assert.That(entry, Is.Not.Null);
+            Assert.That(Mp4TrackTable.ReadTypes(Path.Combine(root, entry!.ProxyFileRelative)), Is.EqualTo(new[] { "vide" }));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [TestCase("deinterlace-tff.mp4", 120, 240)]
     [TestCase("deinterlace-offset-tff.mp4", 15, 29)]
     public async Task GenerateAsync_UsesTheSameFieldGridAsLiveDecode(string fileName, int inputFrames, int outputFrames)
