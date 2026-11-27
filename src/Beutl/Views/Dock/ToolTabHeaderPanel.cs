@@ -74,6 +74,9 @@ public sealed class ToolTabHeaderPanel : Panel
             height = Math.Max(height, child.DesiredSize.Height);
         }
 
+        // Docking can change the measured tab widths while the header keeps the same arrange rect.
+        InvalidateArrange();
+
         return new Size(stripWidth + buttonWidth, height);
     }
 
