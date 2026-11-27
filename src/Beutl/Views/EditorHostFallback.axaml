@@ -443,9 +443,12 @@
                                                          Text="{x:Static local:EditorHostFallback.FileManagerMenuHeader}" />
                                     <ui:FAMenuFlyoutItem Click="DeleteRecentItem_Click" IsVisible="{CompiledBinding !IsRemoteOnly}"
                                                          Text="{x:Static lang:Strings.Remove}" />
-                                    <ui:FAMenuFlyoutSeparator IsVisible="{CompiledBinding !IsRemoteOnly}" />
+                                    <ui:FAMenuFlyoutSeparator />
                                     <ui:FAMenuFlyoutItem Click="DeleteRecentProjectFromDisk_Click"
                                                          IsVisible="{CompiledBinding !IsRemoteOnly}" Text="{x:Static lang:Strings.DeleteFromDiskMenu}" />
+                                    <ui:FAMenuFlyoutItem Click="DeleteHostedRepository_Click"
+                                                         IsVisible="{CompiledBinding RepositoryLabel.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                         Text="{x:Static lang:Strings.HostedGit_DeleteRepositoryMenu}" />
                                 </ui:FAMenuFlyout>
                             </Setter>
                         </Style>

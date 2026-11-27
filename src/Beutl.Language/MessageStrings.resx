@@ -529,6 +529,9 @@ Do you want to restart the application?</value>
   <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
     <value>Permanently delete this project's folder and everything in it? This cannot be undone.</value>
   </data>
+  <data name="ConfirmDeleteHostedRepository" xml:space="preserve">
+    <value>This permanently deletes the repository and its history from Beutl.&#10;You can still open local copies.</value>
+  </data>
   <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
     <value>This project is not in a folder of its own, so only the project file will be deleted; its scenes and other files stay on disk. Permanently delete the project file? This cannot be undone.</value>
   </data>

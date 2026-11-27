@@ -530,6 +530,9 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="ConfirmDeleteProjectFolderFromDisk" xml:space="preserve">
     <value>¿Eliminar permanentemente la carpeta de este proyecto y todo su contenido? Esta acción no se puede deshacer.</value>
   </data>
+  <data name="ConfirmDeleteHostedRepository" xml:space="preserve">
+    <value>Se eliminarán permanentemente el repositorio y su historial de Beutl.&#10;Podrás seguir abriendo las copias locales.</value>
+  </data>
   <data name="ConfirmDeleteProjectFileFromDisk" xml:space="preserve">
     <value>Este proyecto no está en una carpeta propia, así que solo se eliminará el archivo del proyecto; sus escenas y demás archivos permanecerán en el disco. ¿Eliminar permanentemente el archivo del proyecto? Esta acción no se puede deshacer.</value>
   </data>
