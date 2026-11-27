@@ -97,7 +97,11 @@ internal sealed class PropertyLinkSelectionService(INotificationService notifica
         {
             string message = error ?? MessageStrings.OperationFailed;
             if (source.Editor is { IsDisposed: false })
+            {
                 _failure.Value = new PropertyLinkFailure(source, message);
+                // The shown menu took it synchronously; a menu built later must not reopen an old error.
+                _failure.Value = null;
+            }
             else
                 notifications.ShowError(Strings.LinkToAnotherProperty, message);
         }
