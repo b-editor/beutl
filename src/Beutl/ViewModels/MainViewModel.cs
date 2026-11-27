@@ -136,9 +136,10 @@ public sealed partial class MainViewModel : BasePageViewModel
         var agentLogger = Log.CreateLogger<AgentRuntimeManager>();
         _agentRuntimeManager = new AgentRuntimeManager(new WorkerAgentRuntimeBridge(logger: agentLogger),
             new AgentThreadStore(beutlHome), logger: agentLogger);
-        _editorService.AgentWorkspaceHost = new BeutlAgentWorkspaceHost(
+        var agentWorkspaceHost = new BeutlAgentWorkspaceHost(
             _agentRuntimeManager, _agentHostEndpoint, Configuration.AiAgentConfig, beutlHome, CreateSettingsDialog,
             appServices.GetService<IAgentNotificationSoundPlayer>());
+        _editorService.AgentWorkspaceHost = agentWorkspaceHost;
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         _aiJobCompletionNotifier = new AiJobCompletionNotifier(
             _beutlClients.GetResource<IAiJobMonitor>().Snapshot,
@@ -172,7 +173,8 @@ public sealed partial class MainViewModel : BasePageViewModel
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             OpenAiJobCenter,
             AppServices.GetRequiredService<AppUpdateController>().Status,
-            AppServices.GetRequiredService<AppUpdateController>().ShowDialog);
+            AppServices.GetRequiredService<AppUpdateController>().ShowDialog,
+            agentWorkspaceHost.ThreadSessions.RunningCount);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 

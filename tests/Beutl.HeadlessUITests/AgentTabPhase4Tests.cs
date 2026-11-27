@@ -315,14 +315,14 @@ public sealed class AgentTabPhase4Tests
             model.Prompt = "冒頭のシーンを点検して、タイトルの位置とフェードを整えて";
             Task running = model.SendAsync();
             await ready.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            await HeadlessTestHelpers.WaitUntilAsync(() => Visible<AgentShimmerTextBlock>(view, "LiveTurnStatus")?.Foreground is LinearGradientBrush
+            await HeadlessTestHelpers.WaitUntilAsync(() => Visible<AgentShimmerTextBlock>(view, "LiveTurnStatus")?.ShimmerMaskBrush is not null
                 && Visible<ToggleButton>(view, "ToolGroupToggle") is not null
                 && Visible<Button>(view, "ToolImageThumbnail") is not null);
             var header = Find<TextBlock>(view, "TurnWorkTime");
             var section = model.DisplayTimeline.OfType<AgentTurnWorkItem>().Single();
             Assert.That(model.DisplayTimeline, Is.EqualTo(new AgentTimelineItemViewModel[] { model.Timeline.OfType<AgentUserItem>().Single(), section }));
             var live = Visible<AgentShimmerTextBlock>(view, "LiveTurnStatus")!;
-            var gradient = (LinearGradientBrush)live.Foreground!;
+            var gradient = live.ShimmerMaskBrush!;
             double previous = gradient.StartPoint.Point.X;
             await HeadlessTestHelpers.WaitUntilAsync(() => gradient.StartPoint.Point.X != previous);
             Assert.That(live.HorizontalAlignment, Is.EqualTo(HorizontalAlignment.Left));
@@ -358,6 +358,7 @@ public sealed class AgentTabPhase4Tests
             Assert.That(section.Entries.OfType<AgentAssistantItem>().Single().CanCopy, Is.False);
             Assert.That(Find<TextBlock>(view, "TurnWorkTime"), Is.SameAs(header));
             Assert.That(Visible<AgentShimmerTextBlock>(view, "LiveTurnStatus"), Is.Null);
+            Assert.That(live.ShimmerMaskBrush, Is.Null);
             Assert.That(live.Foreground, Is.Not.InstanceOf<LinearGradientBrush>());
             Assert.That(section.IsExpanded, Is.False);
             Assert.That(Visible<Button>(view, "ToolImageThumbnail"), Is.Null);
@@ -415,6 +416,85 @@ public sealed class AgentTabPhase4Tests
 
     private static T Find<T>(Control root, string name) where T : Control
         => root.GetVisualDescendants().OfType<T>().First(control => control.Name == name);
+
+    [AvaloniaTest]
+    public void ShimmerSweepsContinuouslyAcrossMultipleWordsAndScripts()
+    {
+        var shimmer = new AgentShimmerTextBlock
+        {
+            Text = "Read get_scene ファイルを読み込み中",
+            FontSize = 16,
+            MutedBrush = new SolidColorBrush(Color.FromRgb(70, 70, 70)),
+            HighlightBrush = new SolidColorBrush(Colors.White),
+            IsLive = true,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var host = new Border
+        {
+            Width = 360,
+            Height = 40,
+            Background = Brushes.Black,
+            Padding = new Thickness(8, 0),
+            Child = shimmer
+        };
+        var window = new Window
+        {
+            Width = 360,
+            Height = 40,
+            Content = host,
+            RequestedThemeVariant = ThemeVariant.Dark
+        };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(4);
+
+            double MeasureMaxLuminance(double phase, int startX, int endX)
+            {
+                shimmer.TestPhaseOverride = phase;
+                shimmer.UpdateMask(0);
+                HeadlessTestHelpers.Render(2);
+                using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(360, 40));
+                bitmap.Render(host);
+                using var stream = new MemoryStream();
+                bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                stream.Position = 0;
+                using var skBitmap = SkiaSharp.SKBitmap.Decode(stream);
+                double max = 0;
+                for (int y = 0; y < skBitmap.Height; y++)
+                {
+                    for (int x = startX; x < Math.Min(endX, skBitmap.Width); x++)
+                    {
+                        var pixel = skBitmap.GetPixel(x, y);
+                        double luminance = (pixel.Red + pixel.Green + pixel.Blue) / 3.0;
+                        if (luminance > max)
+                            max = luminance;
+                    }
+                }
+                return max;
+            }
+
+            // At phase 0.2 the shimmer band sits over the left Latin word ("Read") and not the right CJK text.
+            double leftEarly = MeasureMaxLuminance(0.2, 8, 70);
+            double rightEarly = MeasureMaxLuminance(0.2, 220, 320);
+            // At phase 0.8 the shimmer band sits over the right CJK text and not the left Latin word.
+            double leftLate = MeasureMaxLuminance(0.8, 8, 70);
+            double rightLate = MeasureMaxLuminance(0.8, 220, 320);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(leftEarly, Is.GreaterThan(150));
+                Assert.That(leftEarly - rightEarly, Is.GreaterThan(50));
+                Assert.That(rightLate, Is.GreaterThan(150));
+                Assert.That(rightLate - leftLate, Is.GreaterThan(50));
+            });
+        }
+        finally
+        {
+            Close(window);
+        }
+    }
 
     private static T? Visible<T>(Control root, string name) where T : Control
         => root.GetVisualDescendants().OfType<T>().FirstOrDefault(control => control.Name == name && control.IsEffectivelyVisible);

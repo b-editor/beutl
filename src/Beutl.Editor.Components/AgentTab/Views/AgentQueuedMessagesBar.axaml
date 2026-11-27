@@ -36,7 +36,7 @@
                                             Click="OnPromote" IsEnabled="{Binding $parent[views:AgentQueuedMessagesBar].((vm:AgentTabViewModel)DataContext).CanPromoteQueuedMessage}"
                                             ToolTip.Tip="{Binding $parent[views:AgentQueuedMessagesBar].((vm:AgentTabViewModel)DataContext).PromoteQueuedMessageLabel}"
                                             AutomationProperties.Name="{Binding $parent[views:AgentQueuedMessagesBar].((vm:AgentTabViewModel)DataContext).PromoteQueuedMessageLabel}">
-                                        <icons:FluentIcon Icon="Flash" FontSize="13" />
+                                        <icons:FluentIcon Icon="ArrowUp" FontSize="13" />
                                     </Button>
                                     <Button Theme="{StaticResource ToolTabBarIconButtonTheme}" Width="24" Height="24" Padding="0"
                                             Click="OnEdit" IsEnabled="{Binding $parent[views:AgentQueuedMessagesBar].((vm:AgentTabViewModel)DataContext).CanEditQueuedMessage}"

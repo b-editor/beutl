@@ -1,3 +1,5 @@
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using Beutl.Agents;
 using Beutl.Logging;
 using Beutl.Services;
@@ -11,16 +13,26 @@ internal sealed class AgentThreadSessionHub(string beutlHome, IAgentNotification
 {
     private readonly AgentDraftStore _drafts = new(beutlHome);
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly BehaviorSubject<int> _runningCount = new(0);
     private readonly Dictionary<string, AgentProjectThreadSessions> _projects =
         new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
+    public IObservable<int> RunningCount => _runningCount.DistinctUntilChanged();
 
     public AgentProjectThreadSessions ForProject(string projectPath)
     {
         ObjectDisposedException.ThrowIf(_lifetime.IsCancellationRequested, this);
         string path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectPath));
         if (!_projects.TryGetValue(path, out var project))
-            _projects.Add(path, project = new(path, _drafts, _lifetime.Token, soundPlayer));
+            _projects.Add(path, project = new(path, _drafts, _lifetime.Token, soundPlayer, NotifyRunningChanged));
         return project;
+    }
+
+    private void NotifyRunningChanged()
+    {
+        if (_lifetime.IsCancellationRequested)
+            return;
+        _runningCount.OnNext(_projects.Values.Sum(project => project.RunningCount));
     }
 
     public async ValueTask DisposeAsync()
@@ -31,6 +43,8 @@ internal sealed class AgentThreadSessionHub(string beutlHome, IAgentNotification
         await _lifetime.CancelAsync();
         await Task.WhenAll(_projects.Values.Select(project => project.ShutdownAsync()));
         _projects.Clear();
+        _runningCount.OnNext(0);
+        _runningCount.Dispose();
         _lifetime.Dispose();
     }
 }
@@ -38,7 +52,7 @@ internal sealed class AgentThreadSessionHub(string beutlHome, IAgentNotification
 internal enum AgentThreadNotificationKind { Approval, Question, Completed, Failed }
 
 internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore drafts, CancellationToken lifetime,
-    IAgentNotificationSoundPlayer? soundPlayer)
+    IAgentNotificationSoundPlayer? soundPlayer, Action? onRunningChanged = null)
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AgentProjectThreadSessions>();
     private readonly Dictionary<Guid, AgentThreadController> _controllers = [];
@@ -48,6 +62,7 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
 
     public string ProjectPath => path;
     public CancellationToken Lifetime => lifetime;
+    public int RunningCount => _controllers.Values.Count(controller => controller.IsRunning);
     public event Action<Guid>? StateChanged;
     public event Action<Guid, AgentThreadMetadata?>? MetadataChanged;
     public event Action<Guid, DateTimeOffset?, DateTimeOffset?>? ActivityChanged;
@@ -64,7 +79,11 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
 
     public AgentThreadController? Find(Guid threadId) => _controllers.GetValueOrDefault(threadId);
 
-    public void PublishState(Guid threadId) => StateChanged?.Invoke(threadId);
+    public void PublishState(Guid threadId)
+    {
+        onRunningChanged?.Invoke();
+        StateChanged?.Invoke(threadId);
+    }
 
     public void PublishMetadata(AgentThreadMetadata thread)
     {
@@ -176,7 +195,10 @@ internal sealed class AgentProjectThreadSessions(string path, AgentDraftStore dr
     public async Task RemoveAsync(Guid threadId)
     {
         if (_controllers.Remove(threadId, out var controller))
+        {
             await controller.ShutdownAsync();
+            onRunningChanged?.Invoke();
+        }
         MetadataChanged?.Invoke(threadId, null);
         await QueueDraftWrite(() => drafts.DeleteAsync(path, threadId));
     }

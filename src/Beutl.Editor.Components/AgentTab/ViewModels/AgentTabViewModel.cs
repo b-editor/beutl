@@ -197,7 +197,7 @@ internal sealed partial class AgentTabViewModel : AgentBindable, IToolContext
             return $"{SendLabel}\n{string.Format(SendSteers ? AgentStrings.QueuePromptShortcut : AgentStrings.SteerPromptShortcut, shortcut)}";
         }
     }
-    public Icon SendIcon => SendSteers ? Icon.Flash : Icon.ArrowUp;
+    public Icon SendIcon => Icon.ArrowUp;
 
     internal void ApplyStarterPrompt(AgentStarterPrompt starter)
     {

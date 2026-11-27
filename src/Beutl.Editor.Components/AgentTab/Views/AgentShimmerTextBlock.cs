@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -20,7 +21,9 @@ internal sealed class AgentShimmerTextBlock : TextBlock
     private static DispatcherTimer? s_timer;
 
     private readonly List<IDisposable> _visibilitySubscriptions = [];
-    private LinearGradientBrush? _gradient;
+    private LinearGradientBrush? _maskBrush;
+    private TextLayout? _highlightLayout;
+    private double _renderedWidth;
     private long _started;
     private bool _running;
     private bool _subscribingVisibility;
@@ -28,6 +31,9 @@ internal sealed class AgentShimmerTextBlock : TextBlock
     public bool IsLive { get => GetValue(IsLiveProperty); set => SetValue(IsLiveProperty, value); }
     public IBrush MutedBrush { get => GetValue(MutedBrushProperty); set => SetValue(MutedBrushProperty, value); }
     public IBrush HighlightBrush { get => GetValue(HighlightBrushProperty); set => SetValue(HighlightBrushProperty, value); }
+
+    internal LinearGradientBrush? ShimmerMaskBrush => _maskBrush;
+    internal double? TestPhaseOverride { get; set; }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -39,6 +45,7 @@ internal sealed class AgentShimmerTextBlock : TextBlock
     {
         ClearVisibilitySubscriptions();
         StopAnimation();
+        DisposeHighlightLayout();
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -48,12 +55,85 @@ internal sealed class AgentShimmerTextBlock : TextBlock
         if (change.Property == IsLiveProperty || change.Property == IsVisibleProperty
             || change.Property == MutedBrushProperty || change.Property == HighlightBrushProperty)
         {
+            if (change.Property == HighlightBrushProperty)
+                DisposeHighlightLayout();
             RefreshAnimation();
+        }
+        else if (change.Property == TextProperty || change.Property == FontFamilyProperty
+            || change.Property == FontSizeProperty || change.Property == FontStyleProperty
+            || change.Property == FontWeightProperty || change.Property == FontStretchProperty
+            || change.Property == TextAlignmentProperty || change.Property == TextWrappingProperty
+            || change.Property == TextTrimmingProperty || change.Property == TextDecorationsProperty
+            || change.Property == FlowDirectionProperty || change.Property == LineHeightProperty
+            || change.Property == LetterSpacingProperty || change.Property == MaxLinesProperty
+            || change.Property == FontFeaturesProperty || change.Property == PaddingProperty)
+        {
+            DisposeHighlightLayout();
         }
         else if (_running && change.Property == BoundsProperty)
         {
-            UpdateGradient(Stopwatch.GetTimestamp());
+            DisposeHighlightLayout();
+            UpdateMask(Stopwatch.GetTimestamp());
         }
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        Size size = base.ArrangeOverride(finalSize);
+        DisposeHighlightLayout();
+        return size;
+    }
+
+    protected override void RenderTextLayout(DrawingContext context, Point origin)
+    {
+        base.RenderTextLayout(context, origin);
+        if (!_running || _maskBrush is null || string.IsNullOrEmpty(Text))
+            return;
+
+        TextLayout? highlight = GetOrCreateHighlightLayout();
+        if (highlight is null)
+            return;
+
+        double width = Math.Max(TextLayout.WidthIncludingTrailingWhitespace, 1);
+        double height = Math.Max(TextLayout.Height, 1);
+        _renderedWidth = width;
+
+        // Draw the solid highlight text through a single control-wide opacity mask so Avalonia's
+        // per-run glyph translation in TextLineImpl cannot restart the gradient on each word/script run.
+        var maskBounds = new Rect(origin.X, origin.Y, width, height);
+        using (context.PushOpacityMask(_maskBrush, maskBounds))
+        {
+            highlight.Draw(context, origin);
+        }
+    }
+
+    private TextLayout? GetOrCreateHighlightLayout()
+    {
+        if (string.IsNullOrEmpty(Text))
+            return null;
+
+        return _highlightLayout ??= new TextLayout(
+            Text,
+            new Typeface(FontFamily, FontStyle, FontWeight, FontStretch),
+            FontSize,
+            HighlightBrush,
+            textAlignment: TextAlignment,
+            textWrapping: TextWrapping,
+            textTrimming: TextTrimming,
+            textDecorations: TextDecorations,
+            flowDirection: FlowDirection,
+            maxWidth: TextLayout.MaxWidth,
+            maxHeight: TextLayout.MaxHeight,
+            lineHeight: LineHeight,
+            letterSpacing: LetterSpacing,
+            maxLines: MaxLines,
+            fontFeatures: FontFeatures);
+    }
+
+    private void DisposeHighlightLayout()
+    {
+        _highlightLayout?.Dispose();
+        _highlightLayout = null;
     }
 
     private void EnsureVisibilitySubscriptions()
@@ -89,6 +169,7 @@ internal sealed class AgentShimmerTextBlock : TextBlock
 
     private void RefreshAnimation()
     {
+        Foreground = MutedBrush;
         if (!IsLive || !this.IsAttachedToVisualTree())
         {
             ClearVisibilitySubscriptions();
@@ -103,39 +184,45 @@ internal sealed class AgentShimmerTextBlock : TextBlock
             return;
         }
 
-        var muted = (MutedBrush as ISolidColorBrush)?.Color ?? Colors.Gray;
-        var highlight = (HighlightBrush as ISolidColorBrush)?.Color ?? Colors.White;
-        _gradient ??= new LinearGradientBrush();
-        _gradient.GradientStops =
-        [
-            new GradientStop(muted, 0),
-            new GradientStop(muted, .18),
-            new GradientStop(highlight, .5),
-            new GradientStop(muted, .82),
-            new GradientStop(muted, 1)
-        ];
-        Foreground = _gradient;
+        if (_maskBrush is null)
+        {
+            _maskBrush = new LinearGradientBrush
+            {
+                GradientStops =
+                [
+                    new GradientStop(Colors.Transparent, 0),
+                    new GradientStop(Colors.Transparent, .18),
+                    new GradientStop(Colors.White, .5),
+                    new GradientStop(Colors.Transparent, .82),
+                    new GradientStop(Colors.Transparent, 1)
+                ]
+            };
+        }
+
         if (!_running)
         {
             _running = true;
             _started = Stopwatch.GetTimestamp();
             Register(this);
         }
-        UpdateGradient(Stopwatch.GetTimestamp());
+        UpdateMask(Stopwatch.GetTimestamp());
     }
 
-    private void UpdateGradient(long now)
+    internal void UpdateMask(long now)
     {
-        if (_gradient is not { } gradient)
+        if (_maskBrush is not { } mask)
             return;
-        // Use control-local pixel coordinates (RelativeUnit.Absolute) so mixed Latin/CJK font runs
-        // share one continuous sweep instead of restarting the gradient per shaped run.
-        double width = Math.Max(Bounds.Width, 64);
-        double band = Math.Clamp(width * 0.48, 48, 160);
-        double phase = Stopwatch.GetElapsedTime(_started, now).TotalSeconds % 1.6 / 1.6;
-        double start = -band + phase * (width + band);
-        gradient.StartPoint = new RelativePoint(start, 0, RelativeUnit.Absolute);
-        gradient.EndPoint = new RelativePoint(start + band, 0, RelativeUnit.Absolute);
+
+        double textWidth = _renderedWidth > 1
+            ? Math.Max(_renderedWidth, 64)
+            : Math.Max(Bounds.Width - Padding.Left - Padding.Right, 64);
+        double bandPixels = Math.Clamp(textWidth * 0.48, 48, 160);
+        double band = bandPixels / textWidth;
+        double phase = TestPhaseOverride ?? (Stopwatch.GetElapsedTime(_started, now).TotalSeconds % 1.6 / 1.6);
+        double start = -band + phase * (1.0 + band);
+        mask.StartPoint = new RelativePoint(start, 0, RelativeUnit.Relative);
+        mask.EndPoint = new RelativePoint(start + band, 0, RelativeUnit.Relative);
+        InvalidateVisual();
     }
 
     private void StopAnimation()
@@ -145,8 +232,10 @@ internal sealed class AgentShimmerTextBlock : TextBlock
             _running = false;
             Unregister(this);
         }
-        _gradient = null;
+        _maskBrush = null;
+        DisposeHighlightLayout();
         Foreground = MutedBrush;
+        InvalidateVisual();
     }
 
     private static void Register(AgentShimmerTextBlock block)
@@ -179,7 +268,7 @@ internal sealed class AgentShimmerTextBlock : TextBlock
         foreach (var block in s_active.ToArray())
         {
             if (block.IsEffectivelyVisible)
-                block.UpdateGradient(now);
+                block.UpdateMask(now);
             else
                 block.StopAnimation();
         }
