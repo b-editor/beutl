@@ -211,8 +211,10 @@ public sealed class AgentTabPhase5Tests
             Capture(view, "phase5-markdown-images");
 
             Click(Find<Button>(view, "AssistantImageThumbnail"));
-            await HeadlessTestHelpers.WaitUntilAsync(() => window.OwnedWindows.OfType<AgentImageLightboxWindow>().Any());
-            var lightbox = window.OwnedWindows.OfType<AgentImageLightboxWindow>().Single();
+            await HeadlessTestHelpers.WaitUntilAsync(() => OverlayLayer.GetOverlayLayer(window)?.Children.OfType<AgentImageLightbox>().Any() == true);
+            HeadlessTestHelpers.Render(4);
+            var lightbox = OverlayLayer.GetOverlayLayer(window)!.Children.OfType<AgentImageLightbox>().Single();
+            Assert.That(Find<Border>(lightbox, "Backdrop").Bounds.Size, Is.EqualTo(window.ClientSize));
             Assert.That(Find<Image>(lightbox, "FullImage").Source, Is.Not.Null);
             lightbox.Close();
             var restoredEvents = await workspace.Runtime.LoadTimelineAsync(workspace.ProjectPath, model.SelectedThread!.Id);

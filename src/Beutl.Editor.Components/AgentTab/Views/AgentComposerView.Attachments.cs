@@ -13,7 +13,7 @@ internal sealed partial class AgentComposerView
     private static async void OnOpenAttachmentImage(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: AgentAttachment { HasThumbnail: true } attachment } button)
-            await AgentImageLightboxWindow.OpenAsync(button, attachment.Label, attachment.Path, () => AgentImagePreview.LoadFile(attachment.Path));
+            await AgentImageLightbox.OpenAsync(button, attachment.Label, attachment.Path, () => AgentImagePreview.LoadFile(attachment.Path));
     }
 
     private static readonly DataFormat<byte[]>[] s_encodedImageFormats =

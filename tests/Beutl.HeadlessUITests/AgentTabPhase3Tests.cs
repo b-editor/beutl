@@ -78,8 +78,9 @@ public sealed class AgentTabPhase3Tests
             HeadlessTestHelpers.Render(5);
             Click(Find<Button>(view, "ComposerImageThumbnail"));
             var preview = await LightboxAsync(window);
+            Assert.That(Find<Border>(preview, "Backdrop").Bounds.Size, Is.EqualTo(window.ClientSize));
             HeadlessTestHelpers.Click(Find<Border>(preview, "Backdrop"), new Point(4, 4), ticks: 3);
-            await HeadlessTestHelpers.WaitUntilAsync(() => !window.OwnedWindows.Contains(preview));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !HasLightbox(window));
 
             model.Prompt = "Check the opening title against this frame and my timing notes.";
             await model.SendAsync();
@@ -144,26 +145,34 @@ public sealed class AgentTabPhase3Tests
             double fit = image.Width;
             Click(Find<Button>(preview, "ZoomInButton"));
             Assert.That(image.Width, Is.GreaterThan(fit));
-            Capture(preview, preview, "phase3-lightbox");
+            Capture(window, window, "phase3-lightbox");
             Click(Find<Button>(preview, "ZoomOutButton"));
             Assert.That(image.Width, Is.EqualTo(fit).Within(0.5));
             Click(Find<Button>(preview, "ActualSizeButton"));
-            Assert.That(image.Width, Is.EqualTo(720 / preview.RenderScaling));
+            Assert.That(image.Width, Is.EqualTo(720 / window.RenderScaling));
             Click(Find<Button>(preview, "FitImageButton"));
             Assert.That(image.Width, Is.EqualTo(fit).Within(0.5));
             Click(Find<Button>(preview, "CopyImagePathButton"));
-            Assert.That(await preview.Clipboard!.TryGetTextAsync(), Is.EqualTo(framePath));
+            Assert.That(await window.Clipboard!.TryGetTextAsync(), Is.EqualTo(framePath));
             Click(Find<Button>(preview, "CopyImageButton"));
-            Assert.That((await preview.Clipboard!.TryGetBitmapAsync())?.PixelSize, Is.EqualTo(new PixelSize(720, 432)));
-            preview.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
-            await HeadlessTestHelpers.WaitUntilAsync(() => !window.OwnedWindows.Contains(preview));
+            Assert.That((await window.Clipboard!.TryGetBitmapAsync())?.PixelSize, Is.EqualTo(new PixelSize(720, 432)));
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !HasLightbox(window));
 
+            window.Width = 1440;
+            window.Height = 900;
+            HeadlessTestHelpers.Render(4);
             Click(Find<Button>(view, "ToolImageThumbnail"));
             preview = await LightboxAsync(window);
+            var backdrop = Find<Border>(preview, "Backdrop");
+            var card = Find<Border>(preview, "LightboxCard");
+            Assert.That(backdrop.Bounds.Size, Is.EqualTo(window.ClientSize));
+            Assert.That(card.Bounds.Width, Is.LessThan(window.ClientSize.Width));
+            Assert.That(card.Bounds.Height, Is.LessThan(window.ClientSize.Height));
             Assert.That(((Bitmap)Find<Image>(preview, "FullImage").Source!).PixelSize, Is.EqualTo(new PixelSize(720, 432)));
             Assert.That(Find<Button>(preview, "CopyImagePathButton").IsEffectivelyVisible, Is.False);
             Click(Find<Button>(preview, "CloseImageButton"));
-            await HeadlessTestHelpers.WaitUntilAsync(() => !window.OwnedWindows.Contains(preview));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !HasLightbox(window));
 
             File.Delete(framePath);
             Click(Find<Button>(view, "SentImageThumbnail"));
@@ -610,11 +619,14 @@ public sealed class AgentTabPhase3Tests
         HeadlessCapture.SaveIfRequested(control, string.Empty, name);
     }
 
-    private static async Task<AgentImageLightboxWindow> LightboxAsync(Window owner)
+    private static bool HasLightbox(Window owner) =>
+        OverlayLayer.GetOverlayLayer(owner)?.Children.OfType<AgentImageLightbox>().Any() == true;
+
+    private static async Task<AgentImageLightbox> LightboxAsync(Window owner)
     {
-        await HeadlessTestHelpers.WaitUntilAsync(() => owner.OwnedWindows.OfType<AgentImageLightboxWindow>().Any());
+        await HeadlessTestHelpers.WaitUntilAsync(() => HasLightbox(owner));
         HeadlessTestHelpers.Render(6);
-        return owner.OwnedWindows.OfType<AgentImageLightboxWindow>().Single();
+        return OverlayLayer.GetOverlayLayer(owner)!.Children.OfType<AgentImageLightbox>().Single();
     }
 
     internal static string CreateFrame(string path)

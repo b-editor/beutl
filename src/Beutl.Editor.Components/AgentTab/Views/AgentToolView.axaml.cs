@@ -41,6 +41,6 @@ internal sealed partial class AgentToolView : UserControl
     private static async void OnOpenToolImage(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: AgentImagePreview preview } button)
-            await AgentImageLightboxWindow.OpenAsync(button, preview);
+            await AgentImageLightbox.OpenAsync(button, preview);
     }
 }
