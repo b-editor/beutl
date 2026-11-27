@@ -270,6 +270,25 @@ public partial class MainViewModel
         }
         try
         {
+            if (_editorService.AgentWorkspaceHost is { } workspace)
+                await workspace.ThreadSessions.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop the external agent threads during shutdown.");
+        }
+        try
+        {
+            // In-flight turns may still need the live MCP endpoint while cancellation drains.
+            await _agentRuntimeManager.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop the external agent runtime during shutdown.");
+        }
+
+        try
+        {
             // The host uses project/editor services, so join its complete lifecycle before
             // closing either service.
             await _agentHostEndpoint.StopAsync();

@@ -53,18 +53,27 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentE
 
     public void InvokeEdit(Action action, TimeSpan sessionWait, CancellationToken cancellationToken)
     {
+        var turn = AgentTurnHistoryTracker.RequestTurn;
+        void Edit()
+        {
+            if (turn is null)
+                InvokeAndFollow(action);
+            else
+                turn.TrackEdit(editViewModel.HistoryManager, () => InvokeAndFollow(action));
+        }
+
         if (Dispatcher.UIThread.CheckAccess())
         {
             // The UI thread cannot wait for the user's gesture, which needs that thread to end.
             if (editViewModel.HistoryManager.IsEditing)
                 throw new UserEditingException();
 
-            InvokeAndFollow(action);
+            Edit();
             return;
         }
 
         Dispatcher.UIThread.InvokeAsync(
-                () => RunAfterEditSessionAsync(() => InvokeAndFollow(action), sessionWait, cancellationToken))
+                () => RunAfterEditSessionAsync(Edit, sessionWait, cancellationToken))
             .GetAwaiter()
             .GetResult();
     }

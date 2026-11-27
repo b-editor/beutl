@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Components;
 using Beutl.Language;
 using Beutl.ViewModels.SettingsPages;
 
@@ -11,6 +12,38 @@ public sealed partial class AiAgentSettingsPage : UserControl
     public AiAgentSettingsPage()
     {
         InitializeComponent();
+    }
+
+    private async void BrowseClaudeExecutable_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AiAgentSettingsPageViewModel vm && await PickExecutableAsync() is { } path && DataContext == vm)
+            vm.RuntimeSettings.ClaudeCodeExecutablePath.Value = path;
+    }
+
+    private async void BrowseCodexExecutable_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AiAgentSettingsPageViewModel vm && await PickExecutableAsync() is { } path && DataContext == vm)
+            vm.RuntimeSettings.CodexExecutablePath.Value = path;
+    }
+
+    private async Task<string?> PickExecutableAsync()
+    {
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { CanOpen: true } storage)
+            return null;
+
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = SettingsStrings.AiAgents_RuntimeSelectExecutable,
+            AllowMultiple = false,
+        });
+        using var ownership = SharedFilePickerOptions.OwnStorageFiles(files);
+        return files.FirstOrDefault()?.TryGetLocalPath();
+    }
+
+    private void RemoveRuntimeProvider_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AgentCustomProviderItem item } && DataContext is AiAgentSettingsPageViewModel vm)
+            vm.RuntimeSettings.RemoveProvider(item.Id);
     }
 
     private async void BrowseProjectRoot_Click(object? sender, RoutedEventArgs e)

@@ -1,0 +1,115 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentToolView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:imaging="using:Avalonia.Media.Imaging"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentToolItem">
+    <UserControl.Resources>
+        <DataTemplate x:Key="ToolStatus" x:DataType="vm:AgentToolItem">
+            <Panel Width="14" Height="14" VerticalAlignment="Center">
+                <ui:FAProgressRing IsVisible="{Binding IsRunning}" IsActive="{Binding IsRunning}"
+                                   Width="13" Height="13" MinWidth="0" MinHeight="0"
+                                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                <icons:FluentIcon Icon="{Binding StatusIcon}" Classes="agent-status" Classes.success="{Binding IsSuccessful}"
+                                  Classes.failure="{Binding IsFailed}" IsVisible="{Binding !IsRunning}" />
+            </Panel>
+        </DataTemplate>
+        <DataTemplate x:Key="ToolDetails" x:DataType="vm:AgentToolItem">
+            <StackPanel Spacing="7">
+                <StackPanel Spacing="3" IsVisible="{Binding Input, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Classes="agent-caption" Text="{x:Static lang:AgentStrings.ToolInput}" />
+                    <SelectableTextBlock Classes="agent-secondary" FontFamily="monospace" Text="{Binding Input}" TextWrapping="Wrap" />
+                </StackPanel>
+                <ItemsControl ItemsSource="{Binding Children}" IsVisible="{Binding !!Children.Count}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="3" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <StackPanel Spacing="3" IsVisible="{Binding Output, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Classes="agent-caption" Text="{x:Static lang:AgentStrings.ToolOutput}" />
+                    <SelectableTextBlock Classes="agent-secondary" FontFamily="monospace" Text="{Binding Output}" TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:AgentToolItem"><views:AgentToolView /></DataTemplate>
+        <DataTemplate DataType="vm:AgentAssistantItem" x:DataType="vm:AgentAssistantItem">
+            <SelectableTextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" Margin="4,3" />
+        </DataTemplate>
+        <DataTemplate DataType="vm:AgentReasoningItem" x:DataType="vm:AgentReasoningItem">
+            <StackPanel Margin="4,3" Spacing="3">
+                <TextBlock Classes="agent-caption" Text="{x:Static lang:AgentStrings.Thinking}" />
+                <SelectableTextBlock Classes="agent-secondary" Text="{Binding Text}" TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+    <StackPanel Spacing="4">
+        <ToggleButton x:Name="ToolToggle" Theme="{StaticResource TransparentToggleButton}" IsVisible="{Binding !IsBackgroundWork}"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="26" Padding="4,3"
+                      IsHitTestVisible="{Binding CanExpand}" Focusable="{Binding CanExpand}"
+                      AutomationProperties.Name="{Binding ToolName}" AutomationProperties.HelpText="{Binding Status}" ToolTip.Tip="{Binding Status}">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="6">
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolStatus}" />
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding ToolName}" MaxWidth="145" MaxLines="1"
+                           TextTrimming="CharacterEllipsis" FontFamily="monospace" FontSize="12.5" FontWeight="Medium" />
+                <Border Grid.Column="2" CornerRadius="4" Padding="5,1" Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                        VerticalAlignment="Center" IsVisible="{Binding ServerName, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding ServerName}" Classes="agent-caption" MaxWidth="68" TextTrimming="CharacterEllipsis" />
+                </Border>
+                <TextBlock Grid.Column="3" Classes="agent-caption" VerticalAlignment="Center" Text="{Binding ActivitySummary}"
+                           FontSize="12" MaxLines="1" TextTrimming="CharacterEllipsis" />
+                <icons:FluentIcon Grid.Column="4" Classes="agent-chevron" IsVisible="{Binding CanExpand}"
+                                  Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+            </Grid>
+        </ToggleButton>
+
+        <Expander x:Name="WorkExpander" Theme="{StaticResource ToolTabExpanderTheme}" IsVisible="{Binding IsBackgroundWork}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                  AutomationProperties.Name="{Binding Title}" AutomationProperties.HelpText="{Binding Status}">
+            <Expander.Header>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="4,0" ToolTip.Tip="{Binding Title}">
+                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolStatus}" />
+                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" FontSize="12.5" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                            <TextBlock Text="{Binding WorkKindLabel}" Classes="agent-caption" MaxWidth="112" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="1" Text="{Binding WorkPreview}" Classes="agent-caption" TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </Grid>
+                    </StackPanel>
+                    <Border Grid.Column="2" IsVisible="{Binding HasChildTools}" Padding="5,1" VerticalAlignment="Center"
+                            CornerRadius="{DynamicResource ControlCornerRadius}" ToolTip.Tip="{Binding ChildToolCountLabel}"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                        <TextBlock Text="{Binding ChildToolCount}" Classes="agent-caption" />
+                    </Border>
+                </Grid>
+            </Expander.Header>
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolDetails}" Margin="12,6,4,4" />
+        </Expander>
+
+        <ItemsControl ItemsSource="{Binding Images}" Margin="23,0,0,2" IsVisible="{Binding !!Images.Count}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel ItemSpacing="5" LineSpacing="5" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="imaging:Bitmap">
+                    <Border CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                            ClipToBounds="True" HorizontalAlignment="Left">
+                        <Image Source="{Binding}" Stretch="Uniform" StretchDirection="DownOnly" MaxHeight="156" />
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Border IsVisible="{Binding !!#ToolToggle.IsChecked}" Margin="9,0,0,2" Padding="9,6" CornerRadius="6"
+                Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="2,0,0,0">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ToolDetails}" IsVisible="{Binding !IsBackgroundWork}" />
+        </Border>
+    </StackPanel>
+</UserControl>

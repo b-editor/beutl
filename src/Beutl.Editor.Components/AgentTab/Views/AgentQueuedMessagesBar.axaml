@@ -1,0 +1,59 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentQueuedMessagesBar"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:agent="using:Beutl.Editor.Components.AgentTab"
+             xmlns:i="using:Avalonia.Xaml.Interactivity"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <Border Classes="agent-card" Padding="7,5">
+        <StackPanel Spacing="3">
+            <TextBlock Text="{x:Static lang:AgentStrings.QueuedMessages}" Classes="agent-caption"
+                       FontWeight="SemiBold" Margin="4,1,4,0" />
+            <ScrollViewer MaxHeight="112" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="QueueRows" ItemsSource="{Binding QueuedMessages}" IsEnabled="{Binding CanManageQueue}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="agent:AgentQueuedMessage">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4" MinHeight="27">
+                                <i:Interaction.Behaviors>
+                                    <views:AgentQueuedMessageDragBehavior DragControl="{Binding #ReorderHandle}" />
+                                </i:Interaction.Behaviors>
+                                <Button x:Name="ReorderHandle" Theme="{StaticResource ToolTabBarIconButtonTheme}" Width="23" Height="24"
+                                        Padding="0" Cursor="SizeNorthSouth" KeyDown="OnReorderKeyDown"
+                                        IsEnabled="{Binding $parent[views:AgentQueuedMessagesBar].((vm:AgentTabViewModel)DataContext).CanReorderQueuedMessages}"
+                                        ToolTip.Tip="{x:Static lang:AgentStrings.ReorderQueuedMessageHint}"
+                                        AutomationProperties.Name="{x:Static lang:AgentStrings.ReorderQueuedMessage}"
+                                        AutomationProperties.HelpText="{x:Static lang:AgentStrings.ReorderQueuedMessageHint}">
+                                    <icons:FluentIcon Icon="ReOrderDotsVertical" FontSize="14"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                </Button>
+                                <TextBlock Grid.Column="1" Text="{Binding Preview}" TextTrimming="CharacterEllipsis" MaxLines="1" FontSize="12"
+                                           ToolTip.Tip="{Binding Preview}" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Theme="{StaticResource ToolTabBarIconButtonTheme}" Width="24" Height="24" Padding="0"
+                                            Click="OnPromote" IsEnabled="{Binding $parent[views:AgentQueuedMessagesBar].((vm:AgentTabViewModel)DataContext).CanPromoteQueuedMessage}"
+                                            ToolTip.Tip="{Binding $parent[views:AgentQueuedMessagesBar].((vm:AgentTabViewModel)DataContext).PromoteQueuedMessageLabel}"
+                                            AutomationProperties.Name="{Binding $parent[views:AgentQueuedMessagesBar].((vm:AgentTabViewModel)DataContext).PromoteQueuedMessageLabel}">
+                                        <icons:FluentIcon Icon="Flash" FontSize="13" />
+                                    </Button>
+                                    <Button Theme="{StaticResource ToolTabBarIconButtonTheme}" Width="24" Height="24" Padding="0"
+                                            Click="OnEdit" IsEnabled="{Binding $parent[views:AgentQueuedMessagesBar].((vm:AgentTabViewModel)DataContext).CanEditQueuedMessage}"
+                                            ToolTip.Tip="{x:Static lang:AgentStrings.EditQueuedMessage}" AutomationProperties.Name="{x:Static lang:AgentStrings.EditQueuedMessage}">
+                                        <icons:FluentIcon Icon="Edit" FontSize="13" />
+                                    </Button>
+                                    <Button Theme="{StaticResource ToolTabBarIconButtonTheme}" Width="24" Height="24" Padding="0"
+                                            Click="OnRemove"
+                                            ToolTip.Tip="{x:Static lang:AgentStrings.RemoveQueuedMessage}" AutomationProperties.Name="{x:Static lang:AgentStrings.RemoveQueuedMessage}">
+                                        <icons:FluentIcon Icon="Dismiss" FontSize="13" />
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </StackPanel>
+    </Border>
+</UserControl>

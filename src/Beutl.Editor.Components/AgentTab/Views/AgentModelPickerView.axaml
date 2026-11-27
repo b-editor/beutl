@@ -1,0 +1,115 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentModelPickerView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <Grid RowDefinitions="Auto,Auto">
+        <Grid x:Name="PickerBody" ColumnDefinitions="44,*,156" RowDefinitions="*,0" Height="306">
+            <Border x:Name="ProviderRail" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="ModelProviderRows" ItemsSource="{Binding ModelProviders}" Margin="6,8">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AgentModelProviderRow">
+                                <ToggleButton Theme="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}"
+                                              IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                              Click="OnBrowseProvider"
+                                              Width="32" Height="32" Padding="0" HorizontalAlignment="Center"
+                                              ToolTip.Tip="{Binding Provider.Name}"
+                                              AutomationProperties.Name="{Binding Provider.Name}"
+                                              AutomationProperties.HelpText="{Binding Provider.Availability}">
+                                    <views:AgentProviderIcon Kind="{Binding Kind}" Width="18" Height="18" />
+                                </ToggleButton>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+
+            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="8,8,8,6" RowSpacing="6">
+                <TextBox x:Name="ModelSearchBox" Classes="clearButton"
+                         controls:TextBoxAttachment.EnterDownBehavior="None"
+                         Height="30" MinHeight="30" FontSize="12.5" Padding="6,4,6,4"
+                         VerticalContentAlignment="Center"
+                         Text="{Binding ModelSearch, Mode=TwoWay}"
+                         PlaceholderText="{x:Static lang:AgentStrings.ModelSearch}"
+                         AutomationProperties.Name="{x:Static lang:AgentStrings.ModelSearch}">
+                    <TextBox.InnerLeftContent>
+                        <icons:FluentIcon Icon="Search" FontSize="13" Margin="8,0,0,0" VerticalAlignment="Center"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </TextBox.InnerLeftContent>
+                </TextBox>
+                <ListBox x:Name="ModelRows" Grid.Row="1" ItemsSource="{Binding ModelRows}"
+                         SelectionMode="Single" Background="Transparent" BorderThickness="0" Padding="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         SelectionChanged="OnModelSelectionChanged">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem" x:DataType="vm:AgentModelRow">
+                            <Setter Property="IsEnabled" Value="{Binding CanSelect}" />
+                            <Setter Property="Padding" Value="8,4,8,4" />
+                            <Setter Property="MinHeight" Value="30" />
+                            <Setter Property="AutomationProperties.Name" Value="{Binding Model.DisplayName}" />
+                            <Setter Property="ToolTip.Tip" Value="{Binding Model.DisplayName}" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AgentModelRow">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" VerticalAlignment="Center">
+                                <views:AgentProviderIcon Kind="{Binding Kind}" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding Model.DisplayName}" FontSize="12.5" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Grid.Row="2" x:Name="ShowMoreModels" Theme="{StaticResource TransparentButton}" IsVisible="{Binding ShowMoreModels}"
+                        Content="{x:Static lang:AgentStrings.ModelShowMore}" HorizontalAlignment="Left" Height="28" Padding="8,2"
+                        Click="OnShowMoreModels" />
+            </Grid>
+
+            <Border Grid.Column="2" x:Name="EffortPane" BorderThickness="1,0,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                <Grid RowDefinitions="Auto,*" Margin="8,8,8,6" RowSpacing="6">
+                    <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" Height="30">
+                        <TextBlock Text="{x:Static lang:AgentStrings.ReasoningEffort}" FontSize="12" Margin="4,0"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                    </Border>
+                    <Panel Grid.Row="1">
+                        <TextBlock Text="{x:Static lang:AgentStrings.EffortUnavailable}" Classes="agent-caption" Margin="4,6"
+                                   TextWrapping="Wrap" IsVisible="{Binding !ModelEfforts.Count}" />
+                        <ListBox x:Name="EffortRows" ItemsSource="{Binding ModelEfforts}"
+                                 SelectionMode="Single" Background="Transparent" BorderThickness="0" Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 SelectionChanged="OnEffortSelectionChanged">
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem" x:DataType="vm:AgentEffortRow">
+                                    <Setter Property="Padding" Value="8,4,8,4" />
+                                    <Setter Property="MinHeight" Value="30" />
+                                    <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                                </Style>
+                            </ListBox.Styles>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AgentEffortRow">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{x:Static lang:AgentStrings.EffortDefault}" Classes="agent-caption"
+                                                   IsVisible="{Binding ShowDefaultBadge}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Panel>
+                </Grid>
+            </Border>
+        </Grid>
+        <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" Padding="8,4">
+            <views:AgentPermissionModePicker HorizontalAlignment="Right" />
+        </Border>
+    </Grid>
+</UserControl>

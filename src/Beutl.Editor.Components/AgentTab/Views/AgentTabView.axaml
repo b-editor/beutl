@@ -1,0 +1,99 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentTabView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <UserControl.Styles>
+        <StyleInclude Source="AgentTabStyles.axaml" />
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <views:AgentThreadBar />
+        <ui:FAInfoBar Grid.Row="1" Margin="12,8,12,0" Severity="Error" IsClosable="False"
+                      IsOpen="{Binding Error, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"
+                      Message="{Binding Error}" />
+
+        <views:AgentTimelineView Grid.Row="2" IsVisible="{Binding !ShowEmptyState}" />
+
+        <Grid Grid.Row="2" RowDefinitions="*,Auto" IsVisible="{Binding ShowEmptyState}">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="18,18,18,24" Spacing="10" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Border Width="42" Height="42" HorizontalAlignment="Center"
+                            CornerRadius="{DynamicResource ControlCornerRadius}" BorderThickness="1"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                        <icons:FluentIcon Icon="Sparkle" FontSize="21" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                    </Border>
+                    <TextBlock Text="{x:Static lang:AgentStrings.EmptyTitle}" FontSize="20" FontWeight="SemiBold"
+                               TextWrapping="Wrap" TextAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <Ellipse Classes="agent-provider-dot" Classes.available="{Binding ProviderIsAvailable}" />
+                        <TextBlock Classes="agent-secondary" Text="{Binding ProviderStatusLabel}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <ItemsControl x:Name="StarterPrompts" ItemsSource="{Binding StarterPrompts}"
+                                  HorizontalAlignment="Center" Margin="0,8,0,0" IsEnabled="{Binding CanManage}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6" ItemsAlignment="Center" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AgentStarterPrompt">
+                                <Button Click="OnStarterPrompt"
+                                        AutomationProperties.Name="{Binding Label}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <icons:FluentIcon Icon="{Binding Icon}" FontSize="12" />
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="1" Margin="12,0,12,6" Spacing="4" IsVisible="{Binding !!RecentThreads.Count}">
+                <TextBlock Text="{x:Static lang:AgentStrings.RecentThreads}" Classes="agent-caption"
+                           FontWeight="SemiBold" Margin="6,0,0,2" />
+                <ItemsControl x:Name="RecentThreads" ItemsSource="{Binding RecentThreads}" IsEnabled="{Binding CanManage}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AgentThreadRow">
+                            <Button Theme="{StaticResource TransparentButton}" Click="OnRecentThread"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="6,4" MinHeight="36"
+                                    AutomationProperties.Name="{Binding Thread.Title}">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
+                                    <icons:FluentIcon Icon="Chat" FontSize="14" VerticalAlignment="Center"
+                                                      Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                    <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Thread.Title}" FontSize="13" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                        <TextBlock Classes="agent-caption" Text="{Binding ProviderName}" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Classes="agent-caption" Text="{Binding UpdatedAt}" VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="3" RowDefinitions="Auto,Auto,Auto">
+            <views:AgentBackgroundWorkBar Margin="10,0,10,4" IsVisible="{Binding HasBackgroundWork}" />
+            <views:AgentQueuedMessagesBar Grid.Row="1" Margin="10,0,10,4" IsVisible="{Binding HasQueuedMessages}" />
+            <Panel Grid.Row="2">
+                <views:AgentComposerView x:Name="Composer" IsVisible="{Binding ShowComposer}" />
+                <views:AgentPermissionCard x:Name="ActivePermissionCard" Margin="10,4,10,10"
+                                           DataContext="{Binding ActivePermission}"
+                                           IsVisible="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).HasActivePermission}" />
+                <views:AgentQuestionCard x:Name="ActiveQuestionCard" Margin="10,4,10,10"
+                                         DataContext="{Binding ActiveQuestion}"
+                                         IsVisible="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).ShowQuestionCard}" />
+            </Panel>
+        </Grid>
+    </Grid>
+</UserControl>

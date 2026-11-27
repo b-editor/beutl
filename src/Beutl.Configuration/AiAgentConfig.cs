@@ -1,9 +1,13 @@
 ﻿using System.ComponentModel;
 
 using System.Reactive;
+using System.Text.Json.Serialization;
 using Beutl.Serialization;
 
 namespace Beutl.Configuration;
+
+[JsonConverter(typeof(JsonStringEnumConverter<AgentComposerSendKey>))]
+public enum AgentComposerSendKey { Enter, CtrlEnter }
 
 // #2852 removed the agent workspace root (agent tools take absolute paths), so a stored WorkspaceRoot is dropped
 // rather than kept as an unknown member.
@@ -47,6 +51,30 @@ public sealed partial class AiAgentConfig : ConfigurationBase
 
     public IProperty<string> StdioArguments { get; } = Property.CreateValue("");
 
+    // An empty provider ID selects the first detected runtime.
+    public IProperty<string> DefaultRuntimeProviderId { get; } = Property.CreateValue("");
+
+    public IProperty<string> DefaultPermissionMode { get; } = Property.CreateValue("Auto");
+
+    public IProperty<string> DefaultModel { get; } = Property.CreateValue("");
+
+    public IProperty<string> DefaultReasoningEffort { get; } = Property.CreateValue("");
+
+    public IProperty<bool> SteerOnSend { get; } = Property.CreateValue(false);
+
+    public IProperty<AgentComposerSendKey> ComposerSendKey { get; } = Property.CreateValue(AgentComposerSendKey.Enter);
+
+    public IProperty<string> ClaudeCodeExecutablePath { get; } = Property.CreateValue("");
+
+    public IProperty<string> CodexExecutablePath { get; } = Property.CreateValue("");
+
+    public IProperty<string> CustomRuntimeProvidersJson { get; } = Property.CreateValue("");
+
+    public event EventHandler<PropertyChangedEventArgs>? RuntimeSettingsChanged;
+
+    public void RequestRuntimeProviderRefresh()
+        => RuntimeSettingsChanged?.Invoke(this, new PropertyChangedEventArgs(null));
+
     // Experimental: move the editor to each live MCP edit and rendered frame. Off by default because it
     // takes over the selection, playhead and scroll position.
     public IProperty<bool> FollowLiveMcpEdits { get; } = Property.CreateValue(false);
@@ -57,6 +85,13 @@ public sealed partial class AiAgentConfig : ConfigurationBase
         if (args.PropertyName is not (nameof(Id) or nameof(Name)))
         {
             OnChanged();
+        }
+
+        if (args.PropertyName is nameof(DefaultRuntimeProviderId) or nameof(DefaultPermissionMode) or nameof(DefaultModel)
+            or nameof(DefaultReasoningEffort) or nameof(SteerOnSend) or nameof(ComposerSendKey)
+            or nameof(ClaudeCodeExecutablePath) or nameof(CodexExecutablePath) or nameof(CustomRuntimeProvidersJson))
+        {
+            RuntimeSettingsChanged?.Invoke(this, args);
         }
     }
 

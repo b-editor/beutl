@@ -63,6 +63,8 @@
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.JavaScript.LibNode" Version="26.1.7" />
+    <PackageVersion Include="Microsoft.JavaScript.NodeApi" Version="0.9.44" />
     <PackageVersion Include="ModelContextProtocol" Version="2.4.0" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
     <PackageVersion Include="ModelContextProtocol.Extensions.Skills" Version="2.4.0" />

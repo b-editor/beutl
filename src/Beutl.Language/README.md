@@ -8,6 +8,7 @@
 | `AudioStrings` | Beutl.Audio 名前空間のクラス用 |
 | `GraphicsStrings` | Beutl.Graphics, Beutl.Graphics3D, Beutl.Media 名前空間のクラス用 |
 | `SettingsStrings` | 設定画面用 |
+| `AgentStrings` | エージェントタブ用 |
 | `ExtensionsStrings` | 拡張機能画面用 |
 | `TutorialStrings` | チュートリアル画面用 |
 | `StatusStrings` | タイトルバーのステータスポップアップ用 |

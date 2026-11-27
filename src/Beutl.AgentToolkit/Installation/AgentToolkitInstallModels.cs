@@ -96,4 +96,8 @@ public sealed record BackedUpFile(string Path, string BackupPath);
 
 public sealed record AgentToolkitMcpServerCommand(
     string Command,
-    IReadOnlyList<string> Arguments);
+    IReadOnlyList<string> Arguments)
+{
+    public static string[] ParseArguments(string text)
+        => text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+}

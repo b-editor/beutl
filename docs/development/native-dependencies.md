@@ -38,6 +38,7 @@ These are not ours to patch, so they have no exit condition: they move with thei
 | HarfBuzz | `HarfBuzzSharp`, `HarfBuzzSharp.NativeAssets.Linux` | [harfbuzz/harfbuzz](https://github.com/harfbuzz/harfbuzz) |
 | Avalonia's platform libraries | Avalonia's packages, transitively | [AvaloniaUI/Avalonia](https://github.com/AvaloniaUI/Avalonia) |
 | macOS terminal launcher | `RoyalApps.RoyalTerminal.Terminal.Pty.Unix`, via `RoyalApps.RoyalTerminal.Avalonia` | [RoyalTerminal](https://github.com/royalapplications/RoyalTerminal) |
+| libnode | `Microsoft.JavaScript.LibNode`, used by `Beutl.Agents.Worker` to embed Node.js | [microsoft/node-api-dotnet](https://github.com/microsoft/node-api-dotnet) |
 | FFmpeg | Not bundled: downloaded from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) on Windows and Linux and installed with Homebrew on macOS, for the GPL worker only (see the [license boundary](gpl-mit-boundary.md)) | [FFmpeg/FFmpeg](https://github.com/FFmpeg/FFmpeg) |
 
 ## How the committed binaries are checked

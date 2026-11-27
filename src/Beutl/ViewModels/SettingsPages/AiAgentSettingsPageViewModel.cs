@@ -80,7 +80,10 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         Install = new AsyncReactiveCommand()
             .WithSubscribe(InstallAsync)
             .DisposeWith(_disposables);
+        RuntimeSettings = new AiAgentRuntimeSettingsViewModel(config).DisposeWith(_disposables);
     }
+
+    public AiAgentRuntimeSettingsViewModel RuntimeSettings { get; }
 
     public IReadOnlyList<AgentChoiceItem> AgentChoices { get; }
 
@@ -230,7 +233,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             SelectedScope.Value.Scope,
             AgentToolkitInstallOptions.DefaultServerName,
             McpCommand.Value,
-            ParseArguments(McpArguments.Value),
+            AgentToolkitMcpServerCommand.ParseArguments(McpArguments.Value),
             McpServerEnvironment());
 
     // The server discovers the editors of this profile through BEUTL_HOME and authenticates to
@@ -409,7 +412,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             McpServersPropertyName = targets.McpServersPropertyName,
             McpTypeValue = targets.McpTypeValue,
             McpCommand = McpCommand.Value,
-            McpArguments = ParseArguments(McpArguments.Value),
+            McpArguments = AgentToolkitMcpServerCommand.ParseArguments(McpArguments.Value),
             McpEnvironment = McpServerEnvironment(),
         };
     }
@@ -585,13 +588,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     private static string FirstNonEmpty(string configured, string fallback)
     {
         return string.IsNullOrWhiteSpace(configured) ? fallback : configured;
-    }
-
-    private static IReadOnlyList<string> ParseArguments(string text)
-    {
-        return text
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToArray();
     }
 
     public void Dispose()

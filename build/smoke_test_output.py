@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Start the helper executables of a published Beutl output and check that each one comes up.
 
-Nuke merges Beutl.FFmpegWorker and the stdio MCP host, Beutl.AgentToolkit.Mcp, into the app's publish
-output and skips every file the app already has. A file that merge leaves out, or a copy the helper
-cannot load, passes the build and fails only when a user's machine starts the helper. So start both:
+Nuke merges the helpers into the app's publish output and skips every file the app already has.
+A file the merge leaves out, or a copy the helper cannot load, can pass the build and fail only at runtime.
 
 - Beutl.FFmpegWorker, with an empty BEUTL_HOME, must exit with 2 (FFmpeg not found), which the app
   answers by offering to install FFmpeg. Exit code 4 means the worker started but could not initialize.
 - Beutl.AgentToolkit.Mcp must answer a JSON-RPC initialize request on stdio with a result, write
   nothing but JSON-RPC messages to stdout, and exit with 0 when its stdin closes, as it does when an
   agent stops it.
+- Beutl.Agents.Worker must load its embedded Node runtime and bridge, answer JSON-RPC ping and
+  shutdown requests on stdio, and exit with 0 when its stdin closes.
 """
 
 import argparse
@@ -27,6 +28,7 @@ from pathlib import Path
 
 WORKER = "Beutl.FFmpegWorker"
 MCP_HOST = "Beutl.AgentToolkit.Mcp"
+AGENT_WORKER = "Beutl.Agents.Worker"
 
 # The exit codes of src/Beutl.FFmpegWorker/Program.cs.
 FFMPEG_NOT_FOUND = 2
@@ -47,8 +49,10 @@ INITIALIZE = {
         "clientInfo": {"name": "beutl-smoke-test", "version": "1.0.0"},
     },
 }
+PING = {"jsonrpc": "2.0", "id": 1, "method": "ping"}
+SHUTDOWN = {"jsonrpc": "2.0", "id": 2, "method": "shutdown"}
 
-# The longest the MCP host may take to exit after its stdin closes.
+# The longest a helper may take to shut down.
 SHUTDOWN_SECONDS = 10
 
 
@@ -118,20 +122,31 @@ def is_json_rpc(message):
     return "id" in message and ("result" in message) != ("error" in message)
 
 
-def parse_message(line):
+def reject_json_constant(constant):
+    raise ValueError(f"Invalid JSON constant {constant}")
+
+
+def parse_message(line, helper):
     try:
-        message = json.loads(line)
+        message = json.loads(line.decode("utf-8"), parse_constant=reject_json_constant)
     except ValueError:
         message = None
     if not is_json_rpc(message):
-        # Anything but JSON-RPC on stdout, a JSON log line included, breaks every MCP client.
+        # A log line on stdout breaks protocol parsing.
         text = line.decode("utf-8", "replace").rstrip()
-        raise Failure(f"{MCP_HOST} wrote a line that is not JSON-RPC to stdout: {text[:200]}")
+        raise Failure(f"{helper} wrote a line that is not JSON-RPC to stdout: {text[:200]}")
     return message
 
 
-def read_response(process, lines, timeout, grace):
-    """Returns the message that answers INITIALIZE. Notifications and requests of the server are skipped."""
+def request_response(process, lines, helper, request, timeout, grace, *, strict=False):
+    """Sends an NDJSON request and returns the matching response within the deadline."""
+    method = request["method"]
+    try:
+        process.stdin.write(json.dumps(request).encode("utf-8") + b"\n")
+        process.stdin.flush()
+    except OSError:
+        pass  # If the process already exited, stdout EOF reports how.
+
     deadline = time.monotonic() + timeout
     while True:
         try:
@@ -140,19 +155,24 @@ def read_response(process, lines, timeout, grace):
                 raise queue.Empty
             line = lines.get(timeout=remaining)
         except queue.Empty:
-            raise Failure(f"{MCP_HOST} did not answer initialize within {timeout:g} s.")
+            raise Failure(f"{helper} did not answer {method} within {timeout:g} s.")
         if line is None:
             try:
                 code = process.wait(timeout=grace)
             except subprocess.TimeoutExpired:
-                raise Failure(f"{MCP_HOST} closed its stdout before it answered initialize.")
-            raise Failure(f"{MCP_HOST} {describe_exit(code)} before it answered initialize.")
-        message = parse_message(line)
-        if message.get("id") == INITIALIZE["id"] and "method" not in message:
+                raise Failure(f"{helper} closed its stdout before it answered {method}.")
+            raise Failure(f"{helper} {describe_exit(code)} before it answered {method}.")
+        message = parse_message(line, helper)
+        if type(message.get("id")) is int and message["id"] == request["id"] and "method" not in message:
+            if strict and not line.endswith(b"\n"):
+                raise Failure(f"{helper} sent a {method} response without a newline.")
             return message
+        if strict:
+            raise Failure(f"{helper} wrote an unexpected JSON-RPC message while waiting for {method}: "
+                          f"{json.dumps(message)[:500]}")
 
 
-def check_response(message):
+def check_initialize_response(message):
     summary = json.dumps(message)[:500]
     if "error" in message:
         raise Failure(f"{MCP_HOST} answered initialize with an error: {summary}")
@@ -165,6 +185,15 @@ def check_response(message):
             f"protocol {result['protocolVersion']}.")
 
 
+def check_ping_response(message):
+    result = message.get("result")
+    if not isinstance(result, dict) or not isinstance(result.get("nodeVersion"), str) \
+            or not result["nodeVersion"].strip() or type(result.get("processId")) is not int or result["processId"] <= 0:
+        raise Failure(f"{AGENT_WORKER} answered ping without a valid nodeVersion and processId result: "
+                      f"{json.dumps(message)[:500]}")
+    return f"{AGENT_WORKER} answered ping: Node.js {result['nodeVersion']}, PID {result['processId']}."
+
+
 def close_stdin(process):
     try:
         process.stdin.close()
@@ -174,34 +203,46 @@ def close_stdin(process):
 
 def check_mcp_host(path, home, timeout):
     """Starts the MCP host as an agent does, expects a result for initialize and a clean exit at the end of stdin."""
+    return check_rpc_helper(path, home, timeout, MCP_HOST, INITIALIZE, check_initialize_response)
+
+
+def check_agent_worker(path, home, timeout):
+    """Checks that the agent worker loads Node, answers ping, and shuts down cleanly."""
+    return check_rpc_helper(path, home, timeout, AGENT_WORKER, PING, check_ping_response, shutdown=SHUTDOWN)
+
+
+def check_rpc_helper(path, home, timeout, helper, request, check_response, *, shutdown=None):
     grace = min(SHUTDOWN_SECONDS, timeout)
+    method = request["method"]
     with tempfile.TemporaryFile() as stderr:
         try:
             process = subprocess.Popen(
                 [str(path)], env=helper_environment(home), cwd=home,
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr)
         except OSError as error:
-            raise Failure(f"{MCP_HOST} could not be started: {error}")
+            raise Failure(f"{helper} could not be started: {error}")
         lines = queue.Queue()
         reader = threading.Thread(target=forward_lines, args=(process.stdout, lines), daemon=True)
         reader.start()
         try:
-            try:
-                process.stdin.write(json.dumps(INITIALIZE).encode("utf-8") + b"\n")
-                process.stdin.flush()
-            except OSError:
-                pass  # It exited before reading; read_response reports how.
-            summary = check_response(read_response(process, lines, timeout, grace))
+            summary = check_response(request_response(process, lines, helper, request, timeout, grace,
+                                                       strict=shutdown is not None))
+            if shutdown is not None:
+                response = request_response(process, lines, helper, shutdown, grace, grace, strict=True)
+                if "error" in response or response["result"] is not None:
+                    raise Failure(f"{helper} did not acknowledge shutdown: {json.dumps(response)[:500]}")
             close_stdin(process)
             try:
                 code = process.wait(timeout=grace)
             except subprocess.TimeoutExpired:
-                raise Failure(f"{MCP_HOST} answered initialize but did not exit within {grace:g} s "
+                raise Failure(f"{helper} answered {method} but did not exit within {grace:g} s "
                               "after its stdin closed.")
             if code != 0:
-                raise Failure(f"{MCP_HOST} answered initialize but {describe_exit(code)} after its stdin closed.")
+                raise Failure(f"{helper} answered {method} but {describe_exit(code)} after its stdin closed.")
             # What it wrote after the answer, up to its exit, reaches the client as well.
             reader.join(grace)
+            if shutdown is not None and reader.is_alive():
+                raise Failure(f"{helper} did not close stdout after shutdown.")
             while True:
                 try:
                     line = lines.get_nowait()
@@ -209,7 +250,10 @@ def check_mcp_host(path, home, timeout):
                     break
                 if line is None:
                     break
-                parse_message(line)
+                message = parse_message(line, helper)
+                if shutdown is not None:
+                    raise Failure(f"{helper} wrote an unexpected JSON-RPC message after shutdown: "
+                                  f"{json.dumps(message)[:500]}")
             return summary
         except Failure as failure:
             close_stdin(process)
@@ -246,13 +290,14 @@ def main(arguments=None):
         parser.error("--timeout must be positive")
 
     directory = args.directory.resolve()
-    missing = [name for name in (WORKER, MCP_HOST) if not executable(directory, name).is_file()]
+    missing = [name for name in (WORKER, MCP_HOST, AGENT_WORKER) if not executable(directory, name).is_file()]
     if missing:
         print(f"::error::{args.directory} has no {' or '.join(missing)}; expected the publish output.")
         parser.exit(1)
 
     failures = 0
-    checks = [(check_worker, executable(directory, WORKER)), (check_mcp_host, executable(directory, MCP_HOST))]
+    checks = [(check_worker, executable(directory, WORKER)), (check_mcp_host, executable(directory, MCP_HOST)),
+              (check_agent_worker, executable(directory, AGENT_WORKER))]
     for check, path in checks:
         # Each helper gets a profile of its own, empty as on a first start.
         with tempfile.TemporaryDirectory(prefix="beutl-home-") as home:

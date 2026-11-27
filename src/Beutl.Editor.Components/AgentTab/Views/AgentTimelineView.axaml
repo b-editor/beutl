@@ -1,0 +1,154 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentTimelineView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:md="using:LiveMarkdown.Avalonia"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="ForegroundColor" Color="{DynamicResource TextFillColorPrimary}" />
+            <SolidColorBrush x:Key="BorderColor" Color="{DynamicResource DividerStrokeColorDefault}" />
+            <SolidColorBrush x:Key="CardBackgroundColor" Color="{DynamicResource ControlFillColorDefault}" />
+            <SolidColorBrush x:Key="SecondaryCardBackgroundColor" Color="{DynamicResource ControlFillColorDefault}" />
+            <SolidColorBrush x:Key="CodeInlineColor" Color="{DynamicResource TextFillColorPrimary}" />
+            <SolidColorBrush x:Key="QuoteBorderColor" Color="{DynamicResource ControlStrokeColorDefault}" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml" />
+        <Style Selector="md|MarkdownTextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource BeutlUIFontFamily}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+            <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+        </Style>
+        <Style Selector="md|MarkdownRenderer md|CodeInline">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            <Setter Property="Padding" Value="3,0" />
+        </Style>
+        <Style Selector="md|MarkdownRenderer md|Link, md|MarkdownRenderer md|Link:clicked">
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+        </Style>
+        <Style Selector="md|MarkdownRenderer Border.Table">
+            <Setter Property="BorderBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Margin" Value="0,4" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="vm:AgentUserItem" x:DataType="vm:AgentUserItem">
+            <Border Classes="agent-card" HorizontalAlignment="Right" Margin="36,0,0,0" Padding="11,8">
+                <SelectableTextBlock Text="{Binding Text}" FontSize="14" TextWrapping="Wrap" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentAssistantItem" x:DataType="vm:AgentAssistantItem">
+            <StackPanel Margin="2,2,2,0" Spacing="3">
+                <views:AgentMarkdownRenderer MarkdownBuilder="{Binding Markdown}" />
+                <Button HorizontalAlignment="Left" Width="24" Height="23" Padding="0" Click="OnCopyResponse"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}" IsVisible="{Binding CanCopy}"
+                        ToolTip.Tip="{x:Static lang:AgentStrings.CopyResponse}" AutomationProperties.Name="{x:Static lang:AgentStrings.CopyResponse}">
+                    <icons:FluentIcon Icon="Copy" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </Button>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentReasoningItem" x:DataType="vm:AgentReasoningItem">
+            <StackPanel>
+                <ToggleButton x:Name="ThinkingToggle" Theme="{StaticResource TransparentToggleButton}" HorizontalAlignment="Left"
+                              MinHeight="24" Padding="4,2" AutomationProperties.Name="{x:Static lang:AgentStrings.Thinking}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{x:Static lang:AgentStrings.Thinking}" FontSize="12" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        <icons:FluentIcon Classes="agent-chevron" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                    </StackPanel>
+                </ToggleButton>
+                <Border IsVisible="{Binding !!#ThinkingToggle.IsChecked}" Margin="8,2,0,2" Padding="9,2"
+                        BorderThickness="2,0,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+                    <SelectableTextBlock Text="{Binding Text}" Classes="agent-secondary" TextWrapping="Wrap" />
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentToolItem"><views:AgentToolView /></DataTemplate>
+
+        <DataTemplate DataType="vm:AgentPlanItem" x:DataType="vm:AgentPlanItem">
+            <Border Padding="10,8" CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                <StackPanel Spacing="5">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{x:Static lang:AgentStrings.Plan}" FontSize="13" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="{Binding Progress}" Classes="agent-caption" VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock Classes="agent-secondary" Text="{Binding Explanation}" TextWrapping="Wrap"
+                               IsVisible="{Binding Explanation, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                    <ItemsControl ItemsSource="{Binding Steps}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AgentPlanRow">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7" Margin="0,2" AutomationProperties.Name="{Binding StatusText}">
+                                    <icons:FluentIcon Icon="{Binding StatusIcon}" Classes="agent-status"
+                                                      Classes.success="{Binding IsCompleted}" Classes.active="{Binding IsInProgress}"
+                                                      VerticalAlignment="Top" Margin="0,1,0,0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Text}" Classes="agent-secondary" TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentInteractionItem" x:DataType="vm:AgentInteractionItem">
+            <Grid Classes="agent-resolution" ColumnDefinitions="Auto,*" ColumnSpacing="7" MinHeight="22" Margin="4,0">
+                <icons:FluentIcon Icon="{Binding ResolutionIcon}" Classes="agent-status" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Classes="agent-secondary" Text="{Binding ResolutionText}" MaxLines="1" TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" ToolTip.Tip="{Binding ResolutionText}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentHistoryItem" x:DataType="vm:AgentHistoryItem">
+            <Border Classes="agent-card" Padding="10,6">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
+                    <icons:FluentIcon Icon="History" FontSize="14" VerticalAlignment="Center"
+                                      Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                    <TextBlock Grid.Column="1" Classes="agent-secondary" Text="{Binding DisplayText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    <Button Grid.Column="2" Command="{Binding RevertAsync}" IsVisible="{Binding CanRevert}" Theme="{StaticResource TransparentButton}"
+                            AutomationProperties.Name="{x:Static lang:AgentStrings.RevertTurn}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <icons:FluentIcon Icon="ArrowUndo" FontSize="13" />
+                            <TextBlock Text="{x:Static lang:AgentStrings.RevertTurn}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="vm:AgentNoticeItem" x:DataType="vm:AgentNoticeItem">
+            <ui:FAInfoBar IsOpen="True" IsClosable="False" Severity="{Binding Severity}" Message="{Binding Message}" />
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <ScrollViewer x:Name="TimelineScroll" HorizontalScrollBarVisibility="Disabled" ScrollChanged="OnTimelineScrollChanged">
+        <StackPanel Margin="12,12,12,10" Spacing="7">
+            <ItemsControl ItemsSource="{Binding Timeline}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Spacing="7" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <StackPanel IsVisible="{Binding IsRunning}" Orientation="Horizontal" Spacing="7" Margin="4,1,0,1">
+                <ui:FAProgressRing IsActive="{Binding IsRunning}" Width="12" Height="12" MinWidth="0" MinHeight="0"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBlock Classes="agent-caption" Text="{x:Static lang:AgentStrings.Working}" VerticalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

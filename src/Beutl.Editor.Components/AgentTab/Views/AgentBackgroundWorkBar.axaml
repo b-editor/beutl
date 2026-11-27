@@ -1,0 +1,78 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentBackgroundWorkBar"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:agent="using:Beutl.Editor.Components.AgentTab"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <UserControl.Resources>
+        <DataTemplate x:Key="WorkBarSection" x:DataType="agent:AgentBackgroundWorkGroup">
+            <Button Classes="agent-work-section" Theme="{StaticResource TransparentButton}" Click="OnOpenWork"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="7,0" MinHeight="32"
+                    AutomationProperties.Name="{Binding Label}" ToolTip.Tip="{Binding Summary}">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
+                    <icons:FluentIcon Icon="{Binding Icon}" Classes="agent-status" Classes.active="{Binding IsRunning}"
+                                      VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Summary}" FontSize="11.5" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" MaxLines="1" />
+                    <Border Grid.Column="2" Width="1" Height="13" VerticalAlignment="Center"
+                            Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                    <TextBlock Grid.Column="3" Classes="agent-caption" Text="{Binding Counter}" VerticalAlignment="Center" />
+                </Grid>
+            </Button>
+        </DataTemplate>
+        <DataTemplate x:Key="WorkFlyoutSection" x:DataType="agent:AgentBackgroundWorkGroup">
+            <StackPanel Spacing="3">
+                <TextBlock Text="{Binding Label}" Classes="agent-caption" FontWeight="SemiBold" Margin="8,2,4,0" />
+                <ItemsControl ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemTemplate><DataTemplate><views:AgentToolView /></DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+    <Border x:Name="WorkCard" Classes="agent-card" Padding="0" MinHeight="34">
+        <FlyoutBase.AttachedFlyout>
+            <Flyout Placement="TopEdgeAlignedLeft" VerticalOffset="-5"
+                    FlyoutPresenterClasses="agent-background-work" OverlayDismissEventPassThrough="True">
+                <Grid x:Name="WorkFlyoutBody" RowDefinitions="Auto,*">
+                    <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" Padding="12,8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <TextBlock Text="{x:Static lang:AgentStrings.BackgroundWork}" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1" Text="{Binding BackgroundWorkCount}" Classes="agent-caption" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="7" Margin="4,5,4,4">
+                            <ContentControl Content="{Binding BackgroundCommands}" ContentTemplate="{StaticResource WorkFlyoutSection}"
+                                            IsVisible="{Binding BackgroundCommands.HasItems}" />
+                            <ContentControl Content="{Binding Subagents}" ContentTemplate="{StaticResource WorkFlyoutSection}"
+                                            IsVisible="{Binding HasSubagents}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Flyout>
+        </FlyoutBase.AttachedFlyout>
+        <Grid ColumnDefinitions="*,Auto">
+            <UniformGrid Rows="1">
+                <ContentControl x:Name="BackgroundCommandSection" Content="{Binding BackgroundCommands}"
+                                ContentTemplate="{StaticResource WorkBarSection}" IsVisible="{Binding BackgroundCommands.HasItems}" />
+                <Panel x:Name="SubagentSection" IsVisible="{Binding HasSubagents}">
+                    <ContentControl Content="{Binding Subagents}" ContentTemplate="{StaticResource WorkBarSection}" />
+                    <Border Width="1" Height="18" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False"
+                            IsVisible="{Binding BackgroundCommands.HasItems}" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                </Panel>
+            </UniformGrid>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="0,0,4,0" VerticalAlignment="Center"
+                        IsVisible="{Binding IsRunning}">
+                <Border Width="1" Height="18" VerticalAlignment="Center" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                <Button Theme="{StaticResource ToolTabBarIconButtonTheme}" Command="{Binding StopAsync}" IsEnabled="{Binding CanStop}"
+                        Width="24" Height="24" Padding="0" ToolTip.Tip="{x:Static lang:AgentStrings.Stop}"
+                        AutomationProperties.Name="{x:Static lang:AgentStrings.Stop}">
+                    <icons:FluentIcon Icon="Stop" IconVariant="Filled" FontSize="10" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

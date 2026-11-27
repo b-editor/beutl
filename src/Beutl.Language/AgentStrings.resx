@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>Agent</value>
+  </data>
+  <data name="ThreadPicker" xml:space="preserve">
+    <value>Threads</value>
+  </data>
+  <data name="NewThread" xml:space="preserve">
+    <value>New thread</value>
+  </data>
+  <data name="RenameThread" xml:space="preserve">
+    <value>Rename thread</value>
+  </data>
+  <data name="ThreadName" xml:space="preserve">
+    <value>Thread name</value>
+  </data>
+  <data name="DeleteThread" xml:space="preserve">
+    <value>Delete thread</value>
+  </data>
+  <data name="DeleteConfirm" xml:space="preserve">
+    <value>Delete this thread and its conversation?</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Provider" xml:space="preserve">
+    <value>Provider</value>
+  </data>
+  <data name="ProviderAvailable" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="ProviderUnavailable" xml:space="preserve">
+    <value>Unavailable</value>
+  </data>
+  <data name="PermissionMode" xml:space="preserve">
+    <value>Permissions</value>
+  </data>
+  <data name="Supervised" xml:space="preserve">
+    <value>Supervised</value>
+  </data>
+  <data name="AutoAcceptEdits" xml:space="preserve">
+    <value>Auto-accept edits</value>
+  </data>
+  <data name="Auto" xml:space="preserve">
+    <value>Auto</value>
+  </data>
+  <data name="FullAccess" xml:space="preserve">
+    <value>Full access</value>
+  </data>
+  <data name="FollowEdits" xml:space="preserve">
+    <value>Follow live edits</value>
+  </data>
+  <data name="SceneContext" xml:space="preserve">
+    <value>Scene context</value>
+  </data>
+  <data name="SceneContextTooltip" xml:space="preserve">
+    <value>Include the scene, playhead, and selection</value>
+  </data>
+  <data name="CurrentFrame" xml:space="preserve">
+    <value>Current frame</value>
+  </data>
+  <data name="AttachCurrentFrame" xml:space="preserve">
+    <value>Attach current frame</value>
+  </data>
+  <data name="AttachFile" xml:space="preserve">
+    <value>Add files</value>
+  </data>
+  <data name="RemoveAttachment" xml:space="preserve">
+    <value>Remove attachment</value>
+  </data>
+  <data name="Prompt" xml:space="preserve">
+    <value>Message the agent…</value>
+  </data>
+  <data name="Send" xml:space="preserve">
+    <value>Send</value>
+  </data>
+  <data name="Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Thinking" xml:space="preserve">
+    <value>Thinking</value>
+  </data>
+  <data name="Tool" xml:space="preserve">
+    <value>Tool</value>
+  </data>
+  <data name="ToolInput" xml:space="preserve">
+    <value>Input</value>
+  </data>
+  <data name="ToolOutput" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Plan" xml:space="preserve">
+    <value>Plan</value>
+  </data>
+  <data name="Pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="Running" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="ToolImageUnavailable" xml:space="preserve">
+    <value>Image preview unavailable.</value>
+  </data>
+  <data name="PermissionRequest" xml:space="preserve">
+    <value>APPROVAL NEEDED</value>
+  </data>
+  <data name="AllowOnce" xml:space="preserve">
+    <value>Allow once</value>
+  </data>
+  <data name="AllowAlways" xml:space="preserve">
+    <value>Allow for session</value>
+  </data>
+  <data name="RejectOnce" xml:space="preserve">
+    <value>Reject once</value>
+  </data>
+  <data name="RejectAlways" xml:space="preserve">
+    <value>Always reject</value>
+  </data>
+  <data name="RequestClosed" xml:space="preserve">
+    <value>Request closed</value>
+  </data>
+  <data name="Question" xml:space="preserve">
+    <value>INPUT NEEDED</value>
+  </data>
+  <data name="ChooseOption" xml:space="preserve">
+    <value>Choose an option</value>
+  </data>
+  <data name="YourAnswer" xml:space="preserve">
+    <value>Type an answer</value>
+  </data>
+  <data name="Submit" xml:space="preserve">
+    <value>Submit</value>
+  </data>
+  <data name="Answered" xml:space="preserve">
+    <value>Answered</value>
+  </data>
+  <data name="TurnEditCount" xml:space="preserve">
+    <value>Scene edits in this turn: {0}</value>
+  </data>
+  <data name="RevertTurn" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="TurnReverted" xml:space="preserve">
+    <value>Turn reverted.</value>
+  </data>
+  <data name="HistoryChanged" xml:space="preserve">
+    <value>The scene history has changed. This turn can no longer be reverted as a group.</value>
+  </data>
+  <data name="RevertUnavailable" xml:space="preserve">
+    <value>The original editor session is unavailable.</value>
+  </data>
+  <data name="TurnStopped" xml:space="preserve">
+    <value>Turn stopped.</value>
+  </data>
+  <data name="HistorySaveFailed" xml:space="preserve">
+    <value>Unable to save the turn’s edit count.</value>
+  </data>
+  <data name="EditorUnavailable" xml:space="preserve">
+    <value>The scene editor is unavailable.</value>
+  </data>
+  <data name="ThreadBusy" xml:space="preserve">
+    <value>This agent thread is already running.</value>
+  </data>
+  <data name="FrameCaptureFailed" xml:space="preserve">
+    <value>Unable to save the current frame.</value>
+  </data>
+  <data name="McpLauncherMissing" xml:space="preserve">
+    <value>The Beutl MCP launcher could not be found.</value>
+  </data>
+  <data name="McpNotReady" xml:space="preserve">
+    <value>Live MCP did not start in time. The agent can continue while it starts.</value>
+  </data>
+  <data name="TurnFailed" xml:space="preserve">
+    <value>The agent turn failed.</value>
+  </data>
+  <data name="ThreadActions" xml:space="preserve">
+    <value>Thread actions</value>
+  </data>
+  <data name="SearchThreads" xml:space="preserve">
+    <value>Search conversations…</value>
+  </data>
+  <data name="NoThreadsFound" xml:space="preserve">
+    <value>No conversations found.</value>
+  </data>
+  <data name="RefreshThreads" xml:space="preserve">
+    <value>Refresh conversations</value>
+  </data>
+  <data name="RecentThreads" xml:space="preserve">
+    <value>Recent conversations</value>
+  </data>
+  <data name="ProviderLocked" xml:space="preserve">
+    <value>This conversation uses the provider it was started with.</value>
+  </data>
+  <data name="NoProvider" xml:space="preserve">
+    <value>No provider selected</value>
+  </data>
+  <data name="SupervisedDescription" xml:space="preserve">
+    <value>Ask before commands and file changes.</value>
+  </data>
+  <data name="AutoAcceptEditsDescription" xml:space="preserve">
+    <value>Auto-approve edits, ask before other actions.</value>
+  </data>
+  <data name="AutoDescription" xml:space="preserve">
+    <value>Supported providers approve routine actions; others still ask.</value>
+  </data>
+  <data name="FullAccessDescription" xml:space="preserve">
+    <value>Allow commands and edits without prompts.</value>
+  </data>
+  <data name="EmptyTitle" xml:space="preserve">
+    <value>What should we edit?</value>
+  </data>
+  <data name="StarterReviewFrame" xml:space="preserve">
+    <value>Review this frame</value>
+  </data>
+  <data name="StarterReviewFramePrompt" xml:space="preserve">
+    <value>Review the frame at the playhead and suggest ways to improve the composition.</value>
+  </data>
+  <data name="StarterSuggestCuts" xml:space="preserve">
+    <value>Find cut points</value>
+  </data>
+  <data name="StarterSuggestCutsPrompt" xml:space="preserve">
+    <value>Look at this scene and suggest cut points that improve the pacing.</value>
+  </data>
+  <data name="StarterRefineTitle" xml:space="preserve">
+    <value>Refine the title</value>
+  </data>
+  <data name="StarterRefineTitlePrompt" xml:space="preserve">
+    <value>Review the opening title and suggest improvements to its placement and animation.</value>
+  </data>
+  <data name="RunningPrompt" xml:space="preserve">
+    <value>Type a follow-up message</value>
+  </data>
+  <data name="Working" xml:space="preserve">
+    <value>Generating a response…</value>
+  </data>
+  <data name="CopyResponse" xml:space="preserve">
+    <value>Copy response</value>
+  </data>
+  <data name="ComposerAdd" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="AttachSceneContext" xml:space="preserve">
+    <value>Attach scene context</value>
+  </data>
+  <data name="RemoveSceneContext" xml:space="preserve">
+    <value>Remove scene context</value>
+  </data>
+  <data name="ModelPicker" xml:space="preserve">
+    <value>Choose a model</value>
+  </data>
+  <data name="ModelSearch" xml:space="preserve">
+    <value>Search models…</value>
+  </data>
+  <data name="ModelProviderDefault" xml:space="preserve">
+    <value>Provider default</value>
+  </data>
+  <data name="ModelShowMore" xml:space="preserve">
+    <value>Show more</value>
+  </data>
+  <data name="UseCustomModel" xml:space="preserve">
+    <value>Use “{0}”</value>
+  </data>
+  <data name="ReasoningEffort" xml:space="preserve">
+    <value>Reasoning</value>
+  </data>
+  <data name="EffortDefault" xml:space="preserve">
+    <value>Default</value>
+  </data>
+  <data name="EffortUnavailable" xml:space="preserve">
+    <value>No reasoning options</value>
+  </data>
+  <data name="EffortNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="EffortMinimal" xml:space="preserve">
+    <value>Minimal</value>
+  </data>
+  <data name="EffortLow" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="EffortMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="EffortHigh" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="EffortExtraHigh" xml:space="preserve">
+    <value>Extra High</value>
+  </data>
+  <data name="EffortMax" xml:space="preserve">
+    <value>Max</value>
+  </data>
+  <data name="EffortUltra" xml:space="preserve">
+    <value>Ultra</value>
+  </data>
+  <data name="AllowToolQuestion" xml:space="preserve">
+    <value>Allow “{0}” to run?</value>
+  </data>
+  <data name="ApprovalAllowOnce" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="ApprovalAllowAlways" xml:space="preserve">
+    <value>Yes, and don’t ask again for this session</value>
+  </data>
+  <data name="ApprovalReject" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="ApprovalSubmit" xml:space="preserve">
+    <value>Submit</value>
+  </data>
+  <data name="QuestionOther" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="QuestionBack" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="QuestionSkip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="QuestionSkipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="QuestionNext" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Subagent" xml:space="preserve">
+    <value>Subagent</value>
+  </data>
+  <data name="Subagents" xml:space="preserve">
+    <value>Subagents</value>
+  </data>
+  <data name="SubagentToolCount" xml:space="preserve">
+    <value>{0} child tool calls</value>
+  </data>
+  <data name="BackgroundCommand" xml:space="preserve">
+    <value>Background command</value>
+  </data>
+  <data name="BackgroundCommands" xml:space="preserve">
+    <value>Background commands</value>
+  </data>
+  <data name="BackgroundWork" xml:space="preserve">
+    <value>Background work</value>
+  </data>
+  <data name="SuggestionCommand" xml:space="preserve">
+    <value>Command</value>
+  </data>
+  <data name="SuggestionSkill" xml:space="preserve">
+    <value>Skill</value>
+  </data>
+  <data name="ComposerSuggestions" xml:space="preserve">
+    <value>Commands and skills</value>
+  </data>
+  <data name="QueuedMessages" xml:space="preserve">
+    <value>Queued messages</value>
+  </data>
+  <data name="QueueMessage" xml:space="preserve">
+    <value>Queue message</value>
+  </data>
+  <data name="SendQueuedMessage" xml:space="preserve">
+    <value>Send now</value>
+  </data>
+  <data name="SteerNow" xml:space="preserve">
+    <value>Steer now</value>
+  </data>
+  <data name="SteerPromptShortcut" xml:space="preserve">
+    <value>Steer current turn ({0})</value>
+  </data>
+  <data name="EditQueuedMessage" xml:space="preserve">
+    <value>Edit queued message</value>
+  </data>
+  <data name="RemoveQueuedMessage" xml:space="preserve">
+    <value>Remove queued message</value>
+  </data>
+  <data name="ApprovalQueuePosition" xml:space="preserve">
+    <value>{0} / {1}</value>
+  </data>
+  <data name="PreviousApproval" xml:space="preserve">
+    <value>Previous approval</value>
+  </data>
+  <data name="NextApproval" xml:space="preserve">
+    <value>Next approval</value>
+  </data>
+  <data name="ThreadNeedsAttention" xml:space="preserve">
+    <value>Waiting for your response</value>
+  </data>
+  <data name="SteerFailed" xml:space="preserve">
+    <value>Could not steer the turn. Your message is still queued.</value>
+  </data>
+  <data name="ReorderQueuedMessage" xml:space="preserve">
+    <value>Reorder message</value>
+  </data>
+  <data name="ReorderQueuedMessageHint" xml:space="preserve">
+    <value>Drag to reorder or use ↑ and ↓</value>
+  </data>
+  <data name="ActiveRunSendAction" xml:space="preserve">
+    <value>Send while a turn is running</value>
+  </data>
+  <data name="QueuePromptShortcut" xml:space="preserve">
+    <value>Queue follow-up ({0})</value>
+  </data>
+  <data name="MentionScene" xml:space="preserve">
+    <value>Scene</value>
+  </data>
+  <data name="MentionElement" xml:space="preserve">
+    <value>Element</value>
+  </data>
+  <data name="MentionFile" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="MentionSceneDetail" xml:space="preserve">
+    <value>{0} × {1} · {2:0.##} fps · {3:0.##} s</value>
+  </data>
+  <data name="MentionElementDetail" xml:space="preserve">
+    <value>{0:0.###}–{1:0.###} s · Layer {2}</value>
+  </data>
+  <data name="PastedImage" xml:space="preserve">
+    <value>Pasted image</value>
+  </data>
+  <data name="PastedText" xml:space="preserve">
+    <value>Pasted text</value>
+  </data>
+  <data name="PastedTextDetail" xml:space="preserve">
+    <value>{0:N0} lines · {1:N0} chars</value>
+  </data>
+  <data name="PasteFailed" xml:space="preserve">
+    <value>Could not paste from the clipboard.</value>
+  </data>
+</root>

@@ -22,6 +22,7 @@
     <File Path="version.json" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="tests\Beutl.Agents.Tests\Beutl.Agents.Tests.csproj" />
     <Project Path="tests\Beutl.AgentToolkit.Tests\Beutl.AgentToolkit.Tests.csproj" />
     <Project Path="tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj" />
     <Project Path="tests\Beutl.Benchmarks\Beutl.Benchmarks.csproj" />
@@ -43,6 +44,9 @@
   <Project Path="sdk\Beutl.Extensibility.Sdk\Beutl.Extensibility.Sdk.csproj" />
   <Project Path="src\Beutl.AgentToolkit\Beutl.AgentToolkit.csproj" />
   <Project Path="src\Beutl.AgentToolkit.Mcp\Beutl.AgentToolkit.Mcp.csproj" />
+  <Project Path="src\Beutl.Agents\Beutl.Agents.csproj" />
+  <Project Path="src\Beutl.Agents.NodeBridge\Beutl.Agents.NodeBridge.csproj" />
+  <Project Path="src\Beutl.Agents.Worker\Beutl.Agents.Worker.csproj" />
   <Project Path="src/Beutl.Editor/Beutl.Editor.csproj" />
   <Project Path="src\Beutl.Api\Beutl.Api.csproj" />
   <Project Path="src\Beutl.Configuration\Beutl.Configuration.csproj" />

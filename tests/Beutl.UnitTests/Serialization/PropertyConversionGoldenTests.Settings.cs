@@ -16,6 +16,7 @@ public partial class PropertyConversionGoldenTests
     [Test]
     public void TheSettingsSections()
     {
+        const string proxyStorePath = "/golden/proxies";
         // In the order GlobalConfiguration writes them, each with values that do not depend on the machine.
         var json = new JsonObject
         {
@@ -62,11 +63,12 @@ public partial class PropertyConversionGoldenTests
                 InstallScope = { Value = "user" },
                 ProjectRoot = { Value = "/golden" },
                 InstallSubagents = { Value = false },
+                ComposerSendKey = { Value = AgentComposerSendKey.CtrlEnter },
                 FollowLiveMcpEdits = { Value = true },
             }),
             ["ProxyStore"] = CoreSerializer.SerializeToJsonObject(new ProxyStoreConfig
             {
-                StoreRootPath = { Value = "/golden/proxies" },
+                StoreRootPath = { Value = proxyStorePath },
                 MaxTotalBytes = { Value = 1024 },
                 DefaultPreset = { Value = 1 },
             }),
@@ -79,6 +81,10 @@ public partial class PropertyConversionGoldenTests
             ["Update"] = CoreSerializer.SerializeToJsonObject(new UpdateConfig { AutoDownload = { Value = false } }),
         };
 
+        // Verify the normalized path, then use the same fixture value on every OS.
+        var proxyStore = (JsonObject)json["ProxyStore"]!;
+        Assert.That((string?)proxyStore["StoreRootPath"], Is.EqualTo(Path.GetFullPath(proxyStorePath)));
+        proxyStore["StoreRootPath"] = proxyStorePath;
         AssertGolden(json, "settings");
     }
 
@@ -168,6 +174,9 @@ public partial class PropertyConversionGoldenTests
         var settings = (ICoreSerializable)Activator.CreateInstance(type)!;
 
         CoreSerializer.PopulateFromJsonObject(settings, type, (JsonObject)expected.DeepClone());
+
+        if (settings is ProxyStoreConfig)
+            expected["StoreRootPath"] = Path.GetFullPath((string)expected["StoreRootPath"]!);
 
         Assert.That(CoreSerializer.SerializeToJsonObject(settings).ToJsonString(), Is.EqualTo(expected.ToJsonString()));
     }

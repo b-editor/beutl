@@ -1,0 +1,73 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentPermissionCard"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:views="using:Beutl.Editor.Components.AgentTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentPermissionItem">
+    <Border Classes="agent-card" Padding="9,8">
+        <StackPanel Spacing="7">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                <TextBlock Text="{Binding ApprovalQuestion}" FontSize="14" FontWeight="SemiBold"
+                           TextWrapping="Wrap" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="1" VerticalAlignment="Center"
+                            IsVisible="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).HasMultiplePermissions, FallbackValue=False}">
+                    <Button Theme="{StaticResource ToolTabBarIconButtonTheme}" Width="23" Height="23" Padding="0"
+                            Command="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).PreviousPermission}"
+                            IsEnabled="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).CanShowPreviousPermission}"
+                            ToolTip.Tip="{x:Static lang:AgentStrings.PreviousApproval}" AutomationProperties.Name="{x:Static lang:AgentStrings.PreviousApproval}">
+                        <icons:FluentIcon Icon="ChevronLeft" FontSize="12" />
+                    </Button>
+                    <TextBlock x:Name="PermissionQueueCounter" Classes="agent-secondary" VerticalAlignment="Center"
+                               Text="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).PermissionQueuePosition}" />
+                    <Button Theme="{StaticResource ToolTabBarIconButtonTheme}" Width="23" Height="23" Padding="0"
+                            Command="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).NextPermission}"
+                            IsEnabled="{Binding $parent[views:AgentTabView].((vm:AgentTabViewModel)DataContext).CanShowNextPermission}"
+                            ToolTip.Tip="{x:Static lang:AgentStrings.NextApproval}" AutomationProperties.Name="{x:Static lang:AgentStrings.NextApproval}">
+                        <icons:FluentIcon Icon="ChevronRight" FontSize="12" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+            <Border Background="{DynamicResource ControlAltFillColorSecondaryBrush}" CornerRadius="{DynamicResource ControlCornerRadius}" Padding="8,6"
+                    IsVisible="{Binding Description, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}">
+                <ScrollViewer MaxHeight="90" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <SelectableTextBlock Text="{Binding Description}" FontFamily="monospace" FontSize="12" TextWrapping="Wrap"
+                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </ScrollViewer>
+            </Border>
+            <ListBox x:Name="PermissionOptions" ItemsSource="{Binding Options}" SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}"
+                     SelectionMode="AlwaysSelected"
+                     Background="Transparent" BorderThickness="0" Padding="0" Focusable="True"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     AutomationProperties.Name="{Binding ApprovalQuestion}">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Padding" Value="14,6,10,6" />
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AgentPermissionChoice">
+                        <Grid ColumnDefinitions="19,*" ColumnSpacing="3">
+                            <TextBlock Text="{Binding Number, StringFormat='{}{0}.'}" Classes="agent-secondary" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Label}" FontSize="13" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Detail}" Classes="agent-caption" FontFamily="monospace" TextTrimming="CharacterEllipsis"
+                                           IsVisible="{Binding Detail, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <Button x:Name="SubmitPermission" Classes="accent"
+                    Command="{Binding SubmitSelected}" HorizontalAlignment="Right"
+                    AutomationProperties.Name="{x:Static lang:AgentStrings.ApprovalSubmit}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{x:Static lang:AgentStrings.ApprovalSubmit}" VerticalAlignment="Center" />
+                    <TextBlock Text="↵" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Border>
+</UserControl>

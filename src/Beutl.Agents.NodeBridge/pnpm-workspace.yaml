@@ -1,0 +1,2 @@
+ignoredOptionalDependencies:
+  - '@anthropic-ai/claude-agent-sdk-*'

@@ -860,4 +860,42 @@
   <data name="ExtensionUpdates_Always" xml:space="preserve">
     <value>Actualizar siempre</value>
   </data>
+  <data name="AiAgents_Runtime" xml:space="preserve"><value>Entorno de agentes integrado</value></data>
+  <data name="AiAgents_RuntimeDefaultProvider" xml:space="preserve"><value>Proveedor predeterminado</value></data>
+  <data name="AiAgents_RuntimeDefaultPermission" xml:space="preserve"><value>Modo de permisos predeterminado</value></data>
+  <data name="AiAgents_RuntimeDefaultModel" xml:space="preserve"><value>Modelo predeterminado</value></data>
+  <data name="AiAgents_RuntimeProviderDefault" xml:space="preserve"><value>Predeterminado del proveedor</value></data>
+  <data name="AiAgents_RuntimeAuto" xml:space="preserve"><value>Automático</value></data>
+  <data name="AiAgents_RuntimeDetectedProviders" xml:space="preserve"><value>Proveedores integrados detectados</value></data>
+  <data name="AiAgents_RuntimeRecheck" xml:space="preserve"><value>Volver a comprobar</value></data>
+  <data name="AiAgents_RuntimeExecutableOverride" xml:space="preserve"><value>Ejecutable personalizado</value></data>
+  <data name="AiAgents_RuntimeClaudePath" xml:space="preserve"><value>Ejecutable de Claude Code</value></data>
+  <data name="AiAgents_RuntimeCodexPath" xml:space="preserve"><value>Ejecutable de Codex</value></data>
+  <data name="AiAgents_RuntimeSelectExecutable" xml:space="preserve"><value>Elige un ejecutable del agente</value></data>
+  <data name="AiAgents_RuntimeChecking" xml:space="preserve"><value>Comprobando…</value></data>
+  <data name="AiAgents_RuntimeAvailable" xml:space="preserve"><value>Disponible · {0}</value></data>
+  <data name="AiAgents_RuntimeNotFound" xml:space="preserve"><value>No se encontró</value></data>
+  <data name="AiAgents_RuntimeProbeFailed" xml:space="preserve"><value>No se pudo comprobar el ejecutable</value></data>
+  <data name="AiAgents_RuntimeCustomProviders" xml:space="preserve"><value>Proveedores ACP personalizados</value></data>
+  <data name="AiAgents_RuntimeAddProvider" xml:space="preserve"><value>Añadir proveedor</value></data>
+  <data name="AiAgents_RuntimeRemove" xml:space="preserve"><value>Quitar</value></data>
+  <data name="AiAgents_RuntimeId" xml:space="preserve"><value>ID</value></data>
+  <data name="AiAgents_RuntimeDisplayName" xml:space="preserve"><value>Nombre visible</value></data>
+  <data name="AiAgents_RuntimeCommand" xml:space="preserve"><value>Comando</value></data>
+  <data name="AiAgents_RuntimeArgumentsPlaceholder" xml:space="preserve"><value>Un argumento por línea</value></data>
+  <data name="AiAgents_RuntimeRequiredFields" xml:space="preserve"><value>Introduce el ID, el nombre visible y el comando.</value></data>
+  <data name="AiAgents_RuntimeDuplicateId" xml:space="preserve"><value>Ya hay un proveedor con este ID.</value></data>
+  <data name="AiAgents_RuntimeInvalidProviders" xml:space="preserve"><value>No se pudieron leer los proveedores personalizados guardados. Corrige CustomRuntimeProvidersJson en la configuración de Beutl para editarlos aquí.</value></data>
+  <data name="AiAgents_RuntimeComposerSendKey" xml:space="preserve">
+    <value>Tecla de envío del editor</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyEnter" xml:space="preserve">
+    <value>Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCtrlEnter" xml:space="preserve">
+    <value>Ctrl+Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCommandEnter" xml:space="preserve">
+    <value>⌘+Enter</value>
+  </data>
 </root>

@@ -875,4 +875,94 @@
   <data name="ExtensionUpdates_Always" xml:space="preserve">
     <value>常に自動更新</value>
   </data>
+  <data name="AiAgents_Runtime" xml:space="preserve">
+    <value>内蔵エージェントランタイム（AgentTab）</value>
+  </data>
+  <data name="AiAgents_RuntimeDefaultProvider" xml:space="preserve">
+    <value>既定のプロバイダー</value>
+  </data>
+  <data name="AiAgents_RuntimeDefaultPermission" xml:space="preserve">
+    <value>既定の権限モード</value>
+  </data>
+  <data name="AiAgents_RuntimeDefaultModel" xml:space="preserve">
+    <value>既定のモデル</value>
+  </data>
+  <data name="AiAgents_RuntimeProviderDefault" xml:space="preserve">
+    <value>プロバイダーの既定値</value>
+  </data>
+  <data name="AiAgents_RuntimeAuto" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="AiAgents_RuntimeDetectedProviders" xml:space="preserve">
+    <value>内蔵プロバイダーの検出状況</value>
+  </data>
+  <data name="AiAgents_RuntimeRecheck" xml:space="preserve">
+    <value>再検出</value>
+  </data>
+  <data name="AiAgents_RuntimeExecutableOverride" xml:space="preserve">
+    <value>実行ファイルのパス</value>
+  </data>
+  <data name="AiAgents_RuntimeClaudePath" xml:space="preserve">
+    <value>Claude Code の実行ファイル</value>
+  </data>
+  <data name="AiAgents_RuntimeCodexPath" xml:space="preserve">
+    <value>Codex の実行ファイル</value>
+  </data>
+  <data name="AiAgents_RuntimeSelectExecutable" xml:space="preserve">
+    <value>エージェントの実行ファイルを選択</value>
+  </data>
+  <data name="AiAgents_RuntimeChecking" xml:space="preserve">
+    <value>検出中…</value>
+  </data>
+  <data name="AiAgents_RuntimeAvailable" xml:space="preserve">
+    <value>利用可能 · {0}</value>
+  </data>
+  <data name="AiAgents_RuntimeNotFound" xml:space="preserve">
+    <value>見つかりません</value>
+  </data>
+  <data name="AiAgents_RuntimeProbeFailed" xml:space="preserve">
+    <value>実行ファイルの検出に失敗しました</value>
+  </data>
+  <data name="AiAgents_RuntimeCustomProviders" xml:space="preserve">
+    <value>カスタム ACP プロバイダー</value>
+  </data>
+  <data name="AiAgents_RuntimeAddProvider" xml:space="preserve">
+    <value>プロバイダーを追加</value>
+  </data>
+  <data name="AiAgents_RuntimeRemove" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="AiAgents_RuntimeId" xml:space="preserve">
+    <value>ID</value>
+  </data>
+  <data name="AiAgents_RuntimeDisplayName" xml:space="preserve">
+    <value>表示名</value>
+  </data>
+  <data name="AiAgents_RuntimeCommand" xml:space="preserve">
+    <value>コマンド</value>
+  </data>
+  <data name="AiAgents_RuntimeArgumentsPlaceholder" xml:space="preserve">
+    <value>引数を 1 行に 1 つ</value>
+  </data>
+  <data name="AiAgents_RuntimeRequiredFields" xml:space="preserve">
+    <value>ID、表示名、コマンドを入力してください。</value>
+  </data>
+  <data name="AiAgents_RuntimeDuplicateId" xml:space="preserve">
+    <value>この ID のプロバイダーはすでに登録されています。</value>
+  </data>
+  <data name="AiAgents_RuntimeInvalidProviders" xml:space="preserve">
+    <value>保存されたカスタムプロバイダーを読み込めませんでした。ここで編集するには、Beutl の設定ファイルで CustomRuntimeProvidersJson を修正してください。</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKey" xml:space="preserve">
+    <value>コンポーザーの送信キー</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyEnter" xml:space="preserve">
+    <value>Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCtrlEnter" xml:space="preserve">
+    <value>Ctrl+Enter</value>
+  </data>
+  <data name="AiAgents_RuntimeComposerSendKeyCommandEnter" xml:space="preserve">
+    <value>⌘+Enter</value>
+  </data>
 </root>

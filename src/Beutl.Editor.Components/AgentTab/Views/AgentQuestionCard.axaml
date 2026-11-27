@@ -1,0 +1,76 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentQuestionCard"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentQuestionItem">
+    <Border Classes="agent-card" Padding="9,8">
+        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Border HorizontalAlignment="Left" Padding="7,3" CornerRadius="4"
+                        Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                    <TextBlock Classes="agent-caption" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                               Text="{Binding CurrentQuestion.Header, TargetNullValue={x:Static lang:AgentStrings.Question}}" />
+                </Border>
+                <TextBlock Grid.Column="1" x:Name="QuestionStep" Classes="agent-caption" VerticalAlignment="Center"
+                           IsVisible="{Binding HasSteps}" Text="{Binding StepLabel}" />
+            </Grid>
+
+            <ScrollViewer Grid.Row="1" MaxHeight="245" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="7" DataContext="{Binding CurrentQuestion}" x:DataType="vm:AgentQuestionAnswer">
+                    <TextBlock Text="{Binding Question}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <ListBox x:Name="SingleOptions" ItemsSource="{Binding SingleOptions}" IsVisible="{Binding HasSingleOptions}"
+                             SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}" SelectionMode="AlwaysSelected"
+                             Background="Transparent" BorderThickness="0" Padding="0" Focusable="True"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                             AutomationProperties.Name="{Binding Question}">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem"><Setter Property="Padding" Value="14,6,10,6" /></Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AgentQuestionChoice">
+                                <Grid ColumnDefinitions="19,*" ColumnSpacing="3">
+                                    <TextBlock Text="{Binding Number, StringFormat='{}{0}.'}" Classes="agent-secondary" />
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Text="{Binding Label}" FontSize="13" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Description}" Classes="agent-caption" TextWrapping="Wrap"
+                                                   IsVisible="{Binding Description, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <ItemsControl x:Name="MultiOptions" ItemsSource="{Binding Options}" IsVisible="{Binding HasMultiOptions}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AgentQuestionChoice">
+                                <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Padding="7,4" HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="{Binding Label}">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Label}" FontSize="13" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Description}" Classes="agent-caption" TextWrapping="Wrap"
+                                                   IsVisible="{Binding Description, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+                                    </StackPanel>
+                                </CheckBox>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <CheckBox x:Name="MultiOther" IsVisible="{Binding ShowMultiOther}" Padding="7,4"
+                              IsChecked="{Binding OtherChecked, Mode=TwoWay}" Content="{x:Static lang:AgentStrings.QuestionOther}" />
+                    <TextBox x:Name="AnswerBox" IsVisible="{Binding ShowAnswerBox}" Text="{Binding Text, Mode=TwoWay}"
+                             PasswordChar="{Binding PasswordChar}" PlaceholderText="{x:Static lang:AgentStrings.YourAnswer}"
+                             AutomationProperties.Name="{Binding Question}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                <Button x:Name="QuestionBack" Click="OnBack" IsVisible="{Binding HasSteps}" IsEnabled="{Binding CanGoBack}"
+                        Content="{x:Static lang:AgentStrings.QuestionBack}" />
+                <Button x:Name="QuestionSkip" Click="OnSkip" IsEnabled="{Binding CanSkip}"
+                        Content="{x:Static lang:AgentStrings.QuestionSkip}" />
+                <Button x:Name="QuestionAdvance" Classes="accent" Click="OnAdvance" IsEnabled="{Binding CanAdvance}"
+                        Content="{Binding AdvanceLabel}" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

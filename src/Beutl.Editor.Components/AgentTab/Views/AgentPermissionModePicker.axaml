@@ -1,0 +1,63 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentPermissionModePicker"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <UserControl.Styles>
+        <Style Selector="ComboBox:disabled">
+            <Setter Property="Opacity" Value="0.6" />
+        </Style>
+        <Style Selector="ComboBox:disabled /template/ Border#Background">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="ComboBox.compact">
+            <Setter Property="MinWidth" Value="26" />
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBox.compact /template/ Border#Background">
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ComboBox.compact /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="ComboBox.compact /template/ :is(Control)#DropDownGlyph">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="ComboBox.compact /template/ ContentPresenter#ContentPresenter TextBlock.agent-permission-label">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </UserControl.Styles>
+
+    <ComboBox x:Name="PermissionComboBox"
+              Theme="{StaticResource LiteComboBoxStyle}"
+              ItemsSource="{Binding PermissionModes}"
+              IsEnabled="{Binding CanConfigure}"
+              MinWidth="0"
+              MinHeight="28"
+              Height="28"
+              Padding="5,0,0,0"
+              VerticalAlignment="Center"
+              VerticalContentAlignment="Center"
+              SelectionChanged="OnSelectionChanged"
+              ToolTip.Tip="{Binding SelectedPermissionMode.Label}"
+              AutomationProperties.Name="{x:Static lang:AgentStrings.PermissionMode}">
+        <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:AgentPermissionChoiceItem">
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <icons:FluentIcon Icon="{Binding Icon}" FontSize="15" VerticalAlignment="Center"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Classes="agent-permission-label" Text="{Binding Label}" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </DataTemplate>
+        </ComboBox.ItemTemplate>
+    </ComboBox>
+</UserControl>

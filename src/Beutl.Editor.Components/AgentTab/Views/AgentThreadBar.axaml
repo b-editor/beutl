@@ -1,0 +1,142 @@
+<UserControl x:Class="Beutl.Editor.Components.AgentTab.Views.AgentThreadBar"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.Editor.Components.AgentTab.ViewModels"
+             x:DataType="vm:AgentTabViewModel">
+    <controls:ToolTabBar>
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="2" VerticalAlignment="Center">
+            <Button x:Name="ThreadSwitcherButton" Theme="{StaticResource TransparentButton}" Padding="7,4" MinHeight="28"
+                    HorizontalAlignment="Left" HorizontalContentAlignment="Stretch" IsEnabled="{Binding CanManage}"
+                    ToolTip.Tip="{Binding ThreadTitle}" ToolTip.ShowOnDisabled="True"
+                    AutomationProperties.Name="{x:Static lang:AgentStrings.ThreadPicker}" AutomationProperties.HelpText="{Binding ThreadTitle}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="7">
+                    <TextBlock Text="{Binding ThreadTitle}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <icons:FluentIcon Grid.Column="1" Icon="ChevronDown" FontSize="11" VerticalAlignment="Center"
+                                      Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                </Grid>
+                <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedLeft" FlyoutPresenterClasses="agent-thread-picker"
+                            Opening="OnThreadPickerOpening" Opened="OnThreadPickerOpened">
+                        <StackPanel Width="282" Spacing="6">
+                            <TextBox x:Name="ThreadSearchBox" Text="{Binding ThreadSearch, Mode=TwoWay}" FontSize="12"
+                                     MinHeight="30" PlaceholderText="{x:Static lang:AgentStrings.SearchThreads}"
+                                     AutomationProperties.Name="{x:Static lang:AgentStrings.SearchThreads}" />
+                            <TextBlock IsVisible="{Binding !FilteredThreads.Count}" Classes="agent-secondary" Margin="6"
+                                       Text="{x:Static lang:AgentStrings.NoThreadsFound}" />
+                            <ScrollViewer MaxHeight="262" HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl x:Name="ThreadMatches" ItemsSource="{Binding FilteredThreads}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AgentThreadRow">
+                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="2">
+                                                <Button Theme="{StaticResource TransparentButton}" Click="OnSelectThread"
+                                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                        Padding="6,5" AutomationProperties.Name="{Binding Thread.Title}">
+                                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                                                        <StackPanel Spacing="1">
+                                                            <TextBlock Text="{Binding Thread.Title}" TextTrimming="CharacterEllipsis" FontSize="13"
+                                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                            <TextBlock Classes="agent-caption" Text="{Binding ProviderName}" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                        <Panel Grid.Column="1" VerticalAlignment="Center">
+                                                            <ui:FAProgressRing x:Name="ThreadRunningIndicator" Width="14" Height="14" MinWidth="0" MinHeight="0"
+                                                                               IsActive="{Binding ShowsRunningIndicator}" IsVisible="{Binding ShowsRunningIndicator}"
+                                                                               ToolTip.Tip="{x:Static lang:AgentStrings.Running}"
+                                                                               AutomationProperties.Name="{x:Static lang:AgentStrings.Running}" />
+                                                            <icons:FluentIcon x:Name="ThreadAttentionIndicator" Icon="Alert" IconVariant="Filled" FontSize="14"
+                                                                              IsVisible="{Binding NeedsAttention}"
+                                                                              Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                                                              ToolTip.Tip="{x:Static lang:AgentStrings.ThreadNeedsAttention}"
+                                                                              AutomationProperties.Name="{x:Static lang:AgentStrings.ThreadNeedsAttention}" />
+                                                        </Panel>
+                                                        <icons:FluentIcon Grid.Column="2" Icon="Checkmark" FontSize="13" IsVisible="{Binding IsSelected}"
+                                                                          VerticalAlignment="Center"
+                                                                          Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                                    </Grid>
+                                                </Button>
+                                                <Button Grid.Column="1" Theme="{StaticResource ToolTabBarIconButtonTheme}" Click="OnBeginRename"
+                                                        Width="26" Height="26" Padding="0"
+                                                        ToolTip.Tip="{x:Static lang:AgentStrings.RenameThread}"
+                                                        AutomationProperties.Name="{x:Static lang:AgentStrings.RenameThread}">
+                                                    <icons:FluentIcon Icon="Edit" FontSize="13" />
+                                                </Button>
+                                                <Button Grid.Column="2" Theme="{StaticResource ToolTabBarIconButtonTheme}" Click="OnBeginDelete"
+                                                        Width="26" Height="26" Padding="0" Margin="0,0,2,0" IsEnabled="{Binding CanDelete}"
+                                                        ToolTip.Tip="{x:Static lang:AgentStrings.DeleteThread}"
+                                                        AutomationProperties.Name="{x:Static lang:AgentStrings.DeleteThread}">
+                                                    <icons:FluentIcon Icon="Delete" FontSize="13" />
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+                <FlyoutBase.AttachedFlyout>
+                    <Flyout Placement="BottomEdgeAlignedLeft" FlyoutPresenterClasses="agent-thread-picker"
+                            Opened="OnThreadActionOpened" Closed="OnThreadActionClosed">
+                        <Panel Width="248">
+                            <StackPanel x:Name="RenameForm" Spacing="8">
+                                <TextBlock Text="{x:Static lang:AgentStrings.RenameThread}" FontSize="13" FontWeight="SemiBold" />
+                                <TextBox x:Name="RenameTextBox" PlaceholderText="{x:Static lang:AgentStrings.ThreadName}"
+                                         AutomationProperties.Name="{x:Static lang:AgentStrings.ThreadName}" />
+                                <Button Click="OnCommitThreadAction" Classes="accent"
+                                        IsEnabled="{Binding #RenameTextBox.Text, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"
+                                        Content="{x:Static lang:AgentStrings.Save}" HorizontalAlignment="Right" />
+                            </StackPanel>
+                            <StackPanel x:Name="DeleteForm" Spacing="8">
+                                <TextBlock Text="{x:Static lang:AgentStrings.DeleteConfirm}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock x:Name="DeleteTitle" Classes="agent-secondary" TextTrimming="CharacterEllipsis" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="5">
+                                    <Button Click="OnCancelThreadAction" Content="{x:Static lang:AgentStrings.Cancel}" />
+                                    <Button Click="OnCommitThreadAction" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                            Content="{x:Static lang:AgentStrings.Delete}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Panel>
+                    </Flyout>
+                </FlyoutBase.AttachedFlyout>
+            </Button>
+
+            <Button Grid.Column="1" Theme="{StaticResource ToolTabBarIconButtonTheme}" Command="{Binding NewThreadAsync}"
+                    IsEnabled="{Binding CanManage}" Width="26" Height="26" Padding="0"
+                    ToolTip.Tip="{x:Static lang:AgentStrings.NewThread}" AutomationProperties.Name="{x:Static lang:AgentStrings.NewThread}">
+                <icons:FluentIcon Icon="Add" FontSize="15" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Button>
+            <ToggleButton Grid.Column="2" Theme="{StaticResource ToolTabVisibilityToggleButtonTheme}"
+                          IsChecked="{Binding FollowLiveMcpEdits, Mode=TwoWay}" Width="26" Height="26" Padding="0"
+                          ToolTip.Tip="{x:Static lang:AgentStrings.FollowEdits}" AutomationProperties.Name="{x:Static lang:AgentStrings.FollowEdits}" />
+            <Button Grid.Column="3" Theme="{StaticResource ToolTabBarIconButtonTheme}" IsEnabled="{Binding CanManage}" IsVisible="{Binding ShowComposer}"
+                    Width="26" Height="26" Padding="0" ToolTip.Tip="{x:Static lang:AgentStrings.ThreadActions}"
+                    AutomationProperties.Name="{x:Static lang:AgentStrings.ThreadActions}">
+                <icons:FluentIcon Icon="MoreHorizontal" FontSize="15" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                        <MenuItem Header="{x:Static lang:AgentStrings.RenameThread}" Click="OnBeginRename" IsEnabled="{Binding CanManageSelected}">
+                            <MenuItem.Icon><icons:FluentIcon Icon="Edit" FontSize="14" /></MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="{x:Static lang:AgentStrings.DeleteThread}" Click="OnBeginDelete" IsEnabled="{Binding CanDeleteSelected}">
+                            <MenuItem.Icon><icons:FluentIcon Icon="Delete" FontSize="14" /></MenuItem.Icon>
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Header="{x:Static lang:AgentStrings.RefreshThreads}" Command="{Binding RefreshThreadsAsync}">
+                            <MenuItem.Icon><icons:FluentIcon Icon="ArrowClockwise" FontSize="14" /></MenuItem.Icon>
+                        </MenuItem>
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
+            <Button Grid.Column="3" x:Name="StopForPermission" Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                    Width="26" Height="26" Padding="0" IsVisible="{Binding !ShowComposer}" IsEnabled="{Binding CanStop}"
+                    Command="{Binding StopAsync}" ToolTip.Tip="{x:Static lang:AgentStrings.Stop}" AutomationProperties.Name="{x:Static lang:AgentStrings.Stop}">
+                <icons:FluentIcon Icon="Stop" IconVariant="Filled" FontSize="11" />
+            </Button>
+        </Grid>
+    </controls:ToolTabBar>
+</UserControl>

@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Editor.Components.AgentTab;
 using Beutl.Editor.Components.AiWorkspaceTab;
 using Beutl.Editor.Components.AudioVisualizerTab;
 using Beutl.Editor.Components.ChannelMapProperties;
@@ -74,6 +75,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
         AiWorkspaceTabExtension.Instance,
+        AgentTabExtension.Instance,
         HistoryTabExtension.Instance,
         TransitionTabExtension.Instance,
         SilenceSplitTabExtension.Instance,
