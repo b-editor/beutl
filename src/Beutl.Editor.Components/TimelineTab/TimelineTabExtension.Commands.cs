@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reactive;
 using System.Runtime.InteropServices;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TimelineTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
@@ -17,11 +18,23 @@ namespace Beutl.Services.PrimitiveImpls;
 public sealed partial class TimelineTabExtension : IContextCommandEditorStateNotifier
 {
     internal const string ToggleGroupCommandId = "timeline.toggleGroup";
+    internal const string PasteAttributesCommandId = "timeline.pasteAttributes";
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
         Command("timeline.paste", Strings.Paste, Strings.Paste_Description,
             [new("Ctrl+V"), new("Cmd+V", OSPlatform.OSX)], timeline => timeline.Paste.ExecuteAsync(), opensToolTab: true),
+        new ContextCommandDefinition<TimelineTabViewModel>(PasteAttributesCommandId, Strings.PasteAttributes, Strings.PasteAttributes_Description, [])
+        {
+            Scope = ContextCommandScope.Extension,
+            CanExecute = execution => PasteAttributesCommand.AvailableKinds(execution.EditorContext) != 0,
+            ExecuteAsync = execution => execution.EditorContext is { } editor
+                ? PasteAttributesCommand.ExecuteAsync(editor, ElementAttributeKinds.All)
+                : Task.CompletedTask,
+            CanExecuteOn = (timeline, execution) => !execution.IsFromTextInput
+                && PasteAttributesCommand.AvailableKinds(timeline.EditorContext) != 0,
+            ExecuteOnAsync = (timeline, _) => PasteAttributesCommand.ExecuteAsync(timeline.EditorContext, ElementAttributeKinds.All)
+        },
         // From their gestures, Rename and Split also run on the focused clip.
         new ContextCommandDefinition<ElementViewModel>("timeline.rename", Strings.Rename, Strings.Rename_Description,
             [new("F2"), new("Enter", OSPlatform.OSX)])
@@ -241,7 +254,9 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
             .Select(_ => Unit.Default) ?? Observable.Empty<Unit>();
         IObservable<Unit> time = editorContext.GetService<IEditorClock>()?.CurrentTime
             .Select(_ => Unit.Default) ?? Observable.Empty<Unit>();
-        return selection.Merge(time);
+        return editorContext.Object is Scene scene && editorContext.GetService<IEditorSelection>() is not null
+            ? selection.Merge(time).Merge(PasteAttributesCommand.ObserveTargets(editorContext, scene))
+            : selection.Merge(time);
     }
 
     private static async Task RenameAsync(

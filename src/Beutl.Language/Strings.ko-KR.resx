@@ -215,6 +215,21 @@
   <data name="Copy" xml:space="preserve">
     <value>복사</value>
   </data>
+  <data name="PasteAttributes" xml:space="preserve">
+    <value>속성 붙여넣기</value>
+  </data>
+  <data name="PasteAttributes_All" xml:space="preserve">
+    <value>모두</value>
+  </data>
+  <data name="PasteAttributes_VideoEffects" xml:space="preserve">
+    <value>비디오 효과</value>
+  </data>
+  <data name="PasteAttributes_AudioEffects" xml:space="preserve">
+    <value>오디오 효과</value>
+  </data>
+  <data name="PasteAttributes_Animations" xml:space="preserve">
+    <value>애니메이션</value>
+  </data>
   <data name="Paste" xml:space="preserve">
     <value>붙여넣기</value>
   </data>
@@ -1171,6 +1186,9 @@
   </data>
   <data name="GotoTimecode_OutOfRange" xml:space="preserve">
     <value>타임코드가 범위를 벗어났습니다.</value>
+  </data>
+  <data name="PasteAttributes_Description" xml:space="preserve">
+    <value>복사한 클립의 호환되는 모든 속성을 선택한 클립에 붙여넣습니다.</value>
   </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>복사한 데이터를 붙여넣습니다.</value>

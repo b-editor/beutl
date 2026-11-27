@@ -33,7 +33,7 @@ public sealed class TimelineContextMenuTests
         {
             Strings.EnableElement, Strings.Lock, Strings.EditingMode, null,
             Strings.Split, Strings.SplitByCurrentFrame, Strings.AutoSplitBySilenceMenu, null,
-            Strings.Cut, Strings.Copy, Strings.Duplicate, Strings.Delete, Strings.RenameMenu, Strings.ChangeToOriginalLength, null,
+            Strings.Cut, Strings.Copy, Strings.PasteAttributes, Strings.Duplicate, Strings.Delete, Strings.RenameMenu, Strings.ChangeToOriginalLength, null,
             Strings.BulkSelection, Strings.GroupSelectedElements, Strings.UngroupSelectedElements, null,
             Strings.ChangeColor, Strings.DisableThumbnails, null,
             Strings.TrackMatte, GraphicsStrings.ClipTransition, null,

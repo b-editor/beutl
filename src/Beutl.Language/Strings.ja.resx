@@ -249,6 +249,21 @@
   <data name="StartTime" xml:space="preserve">
     <value>開始時間</value>
   </data>
+  <data name="PasteAttributes" xml:space="preserve">
+    <value>属性を貼り付け</value>
+  </data>
+  <data name="PasteAttributes_All" xml:space="preserve">
+    <value>すべて</value>
+  </data>
+  <data name="PasteAttributes_VideoEffects" xml:space="preserve">
+    <value>映像エフェクト</value>
+  </data>
+  <data name="PasteAttributes_AudioEffects" xml:space="preserve">
+    <value>音声エフェクト</value>
+  </data>
+  <data name="PasteAttributes_Animations" xml:space="preserve">
+    <value>アニメーション</value>
+  </data>
   <data name="Paste" xml:space="preserve">
     <value>貼り付け</value>
   </data>
@@ -1202,6 +1217,9 @@
   </data>
   <data name="GotoTimecode_OutOfRange" xml:space="preserve">
     <value>タイムコードが範囲外です。</value>
+  </data>
+  <data name="PasteAttributes_Description" xml:space="preserve">
+    <value>コピーしたクリップの属性を、選択したクリップの対応する項目に貼り付けます。</value>
   </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>コピーしたデータをペーストします。</value>

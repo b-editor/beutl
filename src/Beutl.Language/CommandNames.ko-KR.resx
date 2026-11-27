@@ -26,6 +26,9 @@
   <data name="DeleteElement" xml:space="preserve">
     <value>요소 삭제</value>
   </data>
+  <data name="PasteAttributes" xml:space="preserve">
+    <value>속성 붙여넣기</value>
+  </data>
   <data name="PasteElement" xml:space="preserve">
     <value>요소 붙여넣기</value>
   </data>

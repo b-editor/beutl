@@ -215,6 +215,21 @@
   <data name="Copy" xml:space="preserve">
     <value>Copiar</value>
   </data>
+  <data name="PasteAttributes" xml:space="preserve">
+    <value>Pegar atributos</value>
+  </data>
+  <data name="PasteAttributes_All" xml:space="preserve">
+    <value>Todo</value>
+  </data>
+  <data name="PasteAttributes_VideoEffects" xml:space="preserve">
+    <value>Efectos de vídeo</value>
+  </data>
+  <data name="PasteAttributes_AudioEffects" xml:space="preserve">
+    <value>Efectos de audio</value>
+  </data>
+  <data name="PasteAttributes_Animations" xml:space="preserve">
+    <value>Animaciones</value>
+  </data>
   <data name="Paste" xml:space="preserve">
     <value>Pegar</value>
   </data>
@@ -1171,6 +1186,9 @@
   </data>
   <data name="GotoTimecode_OutOfRange" xml:space="preserve">
     <value>El código de tiempo está fuera de rango.</value>
+  </data>
+  <data name="PasteAttributes_Description" xml:space="preserve">
+    <value>Pega los atributos compatibles de un clip copiado en los clips seleccionados.</value>
   </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>Pegar los datos copiados.</value>

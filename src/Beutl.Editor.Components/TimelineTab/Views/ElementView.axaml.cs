@@ -136,6 +136,7 @@ public sealed partial class ElementView : UserControl
         split.IsEnabled = editable;
         autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
+        PopulatePasteAttributesMenu(viewModel);
         duplicate.IsEnabled = viewModel.Timeline.CanDuplicateSelectedElements();
         // Recovery protection makes a clip read-only but still lets it be removed.
         delete.IsEnabled = !viewModel.IsLockedByUser.Value;
@@ -151,6 +152,27 @@ public sealed partial class ElementView : UserControl
         PopulateTrackMatteMenu(viewModel);
         PopulateTransitionMenu(viewModel, editable);
         PopulateAnimationMenu(viewModel, editable);
+    }
+
+    private void PopulatePasteAttributesMenu(ElementViewModel viewModel)
+    {
+        var editor = viewModel.Timeline.EditorContext;
+        ElementAttributeKinds available = PasteAttributesCommand.AvailableKinds(editor, viewModel.Model);
+        pasteAttributesMenu.Items.Clear();
+        pasteAttributesMenu.IsEnabled = available != 0;
+        foreach (var (kind, label) in PasteAttributesCommand.Choices)
+        {
+            var item = new FAMenuFlyoutItem { Text = label, IsEnabled = (available & kind) != 0 };
+            if (kind == ElementAttributeKinds.All)
+            {
+                item.InputGesture = GetCommandGestureExtension.GetKeyGesture(
+                    typeof(TimelineTabExtension), TimelineTabExtension.PasteAttributesCommandId);
+            }
+
+            item.Click += async (_, _) => await PasteAttributesCommand.ExecuteAsync(
+                editor, kind, viewModel.Model, TopLevel.GetTopLevel(this)?.Clipboard);
+            pasteAttributesMenu.Items.Add(item);
+        }
     }
 
     private void AutoSplitBySilence_Click(object? sender, RoutedEventArgs e)

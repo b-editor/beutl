@@ -21,6 +21,9 @@
   <data name="DeleteElement" xml:space="preserve">
     <value>要素を削除</value>
   </data>
+  <data name="PasteAttributes" xml:space="preserve">
+    <value>属性を貼り付け</value>
+  </data>
   <data name="PasteElement" xml:space="preserve">
     <value>要素を貼り付け</value>
   </data>

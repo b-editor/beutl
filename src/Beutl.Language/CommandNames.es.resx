@@ -26,6 +26,9 @@
   <data name="DeleteElement" xml:space="preserve">
     <value>Eliminar elemento</value>
   </data>
+  <data name="PasteAttributes" xml:space="preserve">
+    <value>Pegar atributos</value>
+  </data>
   <data name="PasteElement" xml:space="preserve">
     <value>Pegar elemento</value>
   </data>

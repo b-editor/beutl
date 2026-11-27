@@ -140,6 +140,11 @@
                         <icons:FluentIconSource Icon="Copy" />
                     </ui:FAMenuFlyoutItem.IconSource>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutSubItem x:Name="pasteAttributesMenu" Text="{x:Static lang:Strings.PasteAttributes}">
+                    <ui:FAMenuFlyoutSubItem.IconSource>
+                        <icons:FluentIconSource Icon="ClipboardPaste" />
+                    </ui:FAMenuFlyoutSubItem.IconSource>
+                </ui:FAMenuFlyoutSubItem>
                 <ui:FAMenuFlyoutItem x:Name="duplicate"
                                      usage:UsageTracking.Feature="Timeline.Duplicate"
                                      Click="Duplicate_Click"

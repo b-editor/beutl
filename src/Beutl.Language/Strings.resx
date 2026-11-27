@@ -221,6 +221,21 @@
   <data name="Copy" xml:space="preserve">
     <value>Copy</value>
   </data>
+  <data name="PasteAttributes" xml:space="preserve">
+    <value>Paste Attributes</value>
+  </data>
+  <data name="PasteAttributes_All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="PasteAttributes_VideoEffects" xml:space="preserve">
+    <value>Video Effects</value>
+  </data>
+  <data name="PasteAttributes_AudioEffects" xml:space="preserve">
+    <value>Audio Effects</value>
+  </data>
+  <data name="PasteAttributes_Animations" xml:space="preserve">
+    <value>Animations</value>
+  </data>
   <data name="Paste" xml:space="preserve">
     <value>Paste</value>
   </data>
@@ -1207,6 +1222,9 @@
   </data>
   <data name="GotoTimecode_OutOfRange" xml:space="preserve">
     <value>Timecode is out of range.</value>
+  </data>
+  <data name="PasteAttributes_Description" xml:space="preserve">
+    <value>Paste all compatible attributes from a copied clip onto the selected clips.</value>
   </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>Paste the copied data.</value>

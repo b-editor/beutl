@@ -1901,6 +1901,7 @@ timeline.nudgeRightFrame
 timeline.nudgeRightLarge
 timeline.nudgeRightSecond
 timeline.paste
+timeline.pasteAttributes
 timeline.rename
 timeline.resetZoom
 timeline.saveAsTemplate

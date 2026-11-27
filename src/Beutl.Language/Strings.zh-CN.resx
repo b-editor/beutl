@@ -215,6 +215,21 @@
   <data name="Copy" xml:space="preserve">
     <value>复制</value>
   </data>
+  <data name="PasteAttributes" xml:space="preserve">
+    <value>粘贴属性</value>
+  </data>
+  <data name="PasteAttributes_All" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="PasteAttributes_VideoEffects" xml:space="preserve">
+    <value>视频效果</value>
+  </data>
+  <data name="PasteAttributes_AudioEffects" xml:space="preserve">
+    <value>音频效果</value>
+  </data>
+  <data name="PasteAttributes_Animations" xml:space="preserve">
+    <value>动画</value>
+  </data>
   <data name="Paste" xml:space="preserve">
     <value>粘贴</value>
   </data>
@@ -1171,6 +1186,9 @@
   </data>
   <data name="GotoTimecode_OutOfRange" xml:space="preserve">
     <value>时间码超出范围。</value>
+  </data>
+  <data name="PasteAttributes_Description" xml:space="preserve">
+    <value>将已复制片段的所有兼容属性粘贴到选中的片段。</value>
   </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>粘贴复制的数据。</value>

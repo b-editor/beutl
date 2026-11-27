@@ -2,6 +2,8 @@
 using System.Windows.Input;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.DockLayoutTab;
+using Beutl.Editor.Components.TimelineTab;
+using Beutl.Editor.Services;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Dock;
@@ -128,6 +130,7 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                     Command = MenuBar.PasteLayer, EditAction = StandardEditAction.Paste,
                     GestureCommand = "timeline.paste", InWindowGestureExtensionType = typeof(TimelineTabExtension)
                 },
+                CreatePasteAttributesMenu(),
                 new(Strings.Delete)
                 {
                     Command = MenuBar.DeleteLayer,
@@ -264,6 +267,35 @@ public sealed partial class MainViewModel : IContextCommandStateNotifier
                 }
             }));
         return new ReadOnlyObservableCollection<MainMenuItem>(items);
+    }
+
+    private MainMenuItem CreatePasteAttributesMenu()
+    {
+        IObservable<ElementAttributeKinds> available = ObserveSelectedEditor()
+            .Select(editor => editor is EditViewModel sceneEditor
+                ? sceneEditor.IsEnabled.CombineLatest(PasteAttributesCommand.ObserveTargets(sceneEditor, sceneEditor.Scene),
+                    (_, _) => PasteAttributesCommand.AvailableKinds(sceneEditor))
+                : Observable.Return((ElementAttributeKinds)0))
+            .Switch().DistinctUntilChanged().ObserveOnUIDispatcher().Replay(1).RefCount();
+        return new MainMenuItem(Strings.PasteAttributes)
+        {
+            Icon = Icon.ClipboardPaste,
+            Items = [.. PasteAttributesCommand.Choices.Select(choice =>
+            {
+                var command = new AsyncReactiveCommand(available.Select(kinds => (kinds & choice.Kind) != 0))
+                    .WithSubscribe(() => EnabledSceneEditor is { } editor
+                        ? PasteAttributesCommand.ExecuteAsync(editor, choice.Kind)
+                        : Task.CompletedTask);
+                _menuSubscriptions.Add(command);
+                return new MainMenuItem(choice.Label)
+                {
+                    Command = command,
+                    GestureCommand = choice.Kind == ElementAttributeKinds.All ? TimelineTabExtension.PasteAttributesCommandId : null,
+                    InWindowGestureExtensionType = typeof(TimelineTabExtension),
+                    BlockNativeCommandWhileDialogOpen = true
+                };
+            })]
+        };
     }
 
     private MainMenuItem[] CreateSceneMarkerAndPlaybackMenus()

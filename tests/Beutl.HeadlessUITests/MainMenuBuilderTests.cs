@@ -346,6 +346,8 @@ public sealed class MainMenuBuilderTests
                 Assert.That(commands, Is.SubsetOf(definitions.Select(entry => entry.Definition.Id)));
                 Assert.That(
                     definitions.Where(entry => commands.Contains(entry.Definition.Id)
+                        // An explicit empty list reserves the command for user-assigned shortcuts.
+                        && entry.Definition.KeyGestures is not { Length: 0 }
                         && !entry.KeyGestures.Any(gesture => gesture.KeyGesture is not null
                             && (group.Key != typeof(MainViewExtension) || gesture.Platform == OSPlatform.OSX)))
                         .Select(entry => entry.Definition.Id),
@@ -571,14 +573,17 @@ public sealed class MainMenuBuilderTests
                 MenuItem[] editItems = [.. tops.Single(item => Equals(item.Header, Strings.Edit)).Items.OfType<MenuItem>()];
                 Assert.That(editItems.Select(item => item.Header), Is.EqualTo(new[]
                 {
-                    Strings.Undo, Strings.Redo, Strings.Cut, Strings.Copy, Strings.Paste, Strings.Delete, Strings.SelectAll
+                    Strings.Undo, Strings.Redo, Strings.Cut, Strings.Copy, Strings.Paste, Strings.PasteAttributes, Strings.Delete, Strings.SelectAll
                 }));
                 Assert.That(editItems[0].Command, Is.SameAs(menuBar.Undo));
                 Assert.That(editItems[1].Command, Is.SameAs(menuBar.Redo));
-                Assert.That(editItems.Skip(2).Select(item => ((FocusedEditCommand)item.Command!).Fallback), Is.EqualTo(new ICommand[]
+                Assert.That(editItems.Select(item => item.Command).OfType<FocusedEditCommand>().Select(command => command.Fallback), Is.EqualTo(new ICommand[]
                 {
                     menuBar.CutLayer, menuBar.CopyLayer, menuBar.PasteLayer, menuBar.DeleteLayer, menuBar.SelectAll
                 }));
+                NativeMenuItem pasteAttributes = NativeEntry(native, Strings.Edit, Strings.PasteAttributes);
+                Assert.That(pasteAttributes.Menu!.Items.OfType<NativeMenuItem>().Select(item => item.Header),
+                    Is.EqualTo(editItems.Single(item => Equals(item.Header, Strings.PasteAttributes)).Items.OfType<MenuItem>().Select(item => item.Header)));
                 Assert.That(editItems.All(item => item.HotKey is null), Is.True);
                 MenuItem fullScreen = tops.Single(item => Equals(item.Header, Strings.View)).Items.OfType<MenuItem>()
                     .Single(item => Equals(item.Header, Strings.ToggleFullScreen));

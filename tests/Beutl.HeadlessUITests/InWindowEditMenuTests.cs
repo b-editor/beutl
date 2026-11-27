@@ -7,15 +7,18 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
+using Beutl.Api.Services;
 using Beutl.Editor.Components;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TerminalTab.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -129,6 +132,60 @@ public sealed class InWindowEditMenuTests
             Assert.That(timeline.Focus(), Is.True);
             host.RunEdit(header, keyboard);
         }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Paste_attributes_all_works_from_the_edit_menu_and_a_custom_shortcut(bool keyboard)
+    {
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("edit-paste-attributes");
+        var source = new RectShape { Transform = { Value = new TranslateTransform(80, 40) } };
+        var target = new RectShape();
+        await TestShell.AddElementAsync(editor, () => source, MediaTime.Zero, MediaTime.FromSeconds(1));
+        await TestShell.AddElementAsync(editor, () => target, MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
+        using var host = new EditMenuWindow();
+        TimelineTabView timeline = host.Window.GetVisualDescendants().OfType<TimelineTabView>().Single();
+        Assert.That(timeline.Focus(), Is.True);
+        var selection = editor.GetRequiredService<IEditorSelection>();
+        selection.Select(scene.Children[0]);
+        host.RunEdit(Strings.Copy, keyboard: false);
+        Assert.That(await host.Clipboard.TryGetValueAsync(BeutlDataFormats.Element), Is.Not.Null);
+        selection.Select(scene.Children[1]);
+        Assert.That(timeline.Focus(), Is.True);
+
+        if (keyboard)
+        {
+            ContextCommandManager commands = TestShell.MainViewModel.ContextCommandManager;
+            ContextCommandEntry entry = commands.GetDefinitions().Single(command => command.Definition.Id == TimelineTabExtension.PasteAttributesCommandId);
+            Assert.That(ContextCommandManager.CurrentGestures(entry), Is.Empty);
+            var platform = ContextCommandManager.CurrentPlatform;
+            try
+            {
+                commands.ChangeKeyGesture(entry, new KeyGesture(Key.F8, KeyModifiers.Alt), platform);
+                host.Window.KeyPressQwerty(PhysicalKey.F8, RawInputModifiers.Alt);
+                host.Window.KeyReleaseQwerty(PhysicalKey.F8, RawInputModifiers.Alt);
+                await HeadlessTestHelpers.WaitUntilAsync(() => target.Transform.Value is TranslateTransform);
+            }
+            finally
+            {
+                commands.ResetKeyGestures(entry, platform);
+            }
+        }
+        else
+        {
+            host.OpenEdit(keyboard: false);
+            MenuItem subMenu = host.FindEditItem(Strings.PasteAttributes);
+            subMenu.IsSubMenuOpen = true;
+            HeadlessTestHelpers.Render(3);
+            MenuItem all = subMenu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.PasteAttributes_All));
+            Assert.That(all.IsEffectivelyEnabled, Is.True);
+            HeadlessTestHelpers.Click(all, move: true);
+            await HeadlessTestHelpers.WaitUntilAsync(() => target.Transform.Value is TranslateTransform);
+        }
+
+        Assert.That(((TranslateTransform)target.Transform.Value!).X.Value, Is.EqualTo(80));
+        Assert.That(scene.Children.Count, Is.EqualTo(2));
     }
 
     [AvaloniaTest]
