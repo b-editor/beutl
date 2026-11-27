@@ -342,6 +342,41 @@ public sealed class DuckingAudioTests
     }
 
     [AvaloniaTest]
+    public void Replaying_a_block_after_silencing_the_grouped_child_does_not_keep_ducking()
+    {
+        using var fixture = new WaveScene(groupNarration: true);
+        fixture.SecondVoiceLayer.IsAudioMuted.Value = true;
+        fixture.Ducking.SourceLayers.Clear();
+        fixture.Ducking.SourceLayers.Add(fixture.FirstVoiceLayer);
+        using var composer = new SceneComposer(fixture.Scene, new SceneRenderServices(TestShell.FontManager, TestShell.Decoders))
+        {
+            SampleRate = SampleRate,
+            ChannelLayout = AudioChannelLayout.Stereo,
+        };
+        // The leading block leaves a loud peak segment that overlaps the start of the block under test.
+        var leading = new TimeRange(MediaTime.Zero, MediaTime.FromSamples(12500, SampleRate));
+        const int blockStart = 10500;
+        const int probe = 1950; // block frame 10500 + 1950 = 12450, 259.375 ms
+        var block = new TimeRange(MediaTime.FromSamples(blockStart, SampleRate),
+            MediaTime.FromSamples(6500, SampleRate));
+
+        using AudioBuffer seed = composer.Compose(leading)!;
+        using AudioBuffer loud = composer.Compose(block)!;
+        float loudLevel = loud.GetChannelData(0)[probe];
+
+        // The same tap and composer see the block again, now with a silent child.
+        fixture.FirstVoice.Gain.Value = 0f;
+        using AudioBuffer silent = composer.Compose(block)!;
+        float silentLevel = silent.GetChannelData(0)[probe];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loudLevel, Is.EqualTo(s_duckedLevel).Within(1e-6f));
+            Assert.That(silentLevel, Is.EqualTo(MusicLevel));
+        });
+    }
+
+    [AvaloniaTest]
     public void A_group_without_ducking_preserves_the_wav_samples_and_mix_bits()
     {
         using var fixture = new WaveScene(groupNarration: true);

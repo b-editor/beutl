@@ -29,8 +29,10 @@ internal sealed class LevelTapNode : AudioNode
     // Called by the composer before the owning entry is processed for a new output block.
     internal void BeginBlock(TimeRange block)
     {
+        // Segments are valid only for forward progress. A replay of the same block (or any move backwards) starts
+        // a new pass, so data recorded for those times must not be max-merged with the old pass.
         bool discontinuity = _hasBlock
-            && (block.Start < _lastBlock.Start
+            && (block.Start <= _lastBlock.Start
                 || block.Start > _lastBlock.End + AudioProcessContext.TimestampQuantizationTolerance);
         if (discontinuity)
         {
@@ -95,7 +97,18 @@ internal sealed class LevelTapNode : AudioNode
             }
         }
 
-        _segments.Add(new PeakSegment(context.TimeRange.Start + TimeOffset, context.SampleRate, peaks, count));
+        MediaTime start = context.TimeRange.Start + TimeOffset;
+        // A read that re-covers time from this pass replaces the older data instead of max-merging with it.
+        for (int i = _segments.Count - 1; i >= 0; i--)
+        {
+            if (_segments[i].Start >= start)
+            {
+                Return(_segments[i].Buffer);
+                _segments.RemoveAt(i);
+            }
+        }
+
+        _segments.Add(new PeakSegment(start, context.SampleRate, peaks, count));
         if (_segments.Count > MaxSegments)
         {
             PeakSegment oldest = _segments[0];
