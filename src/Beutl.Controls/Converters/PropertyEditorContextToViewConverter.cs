@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
+using Avalonia.LogicalTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
 
@@ -19,10 +20,8 @@ public sealed class PropertyEditorContextToViewConverter(bool hideMenu) : IValue
         {
             if (PropertyEditorHost.TryCreateControl(viewModel, PropertyEditorSurface.Panel, out var control))
             {
-                if (hideMenu && control is PropertyEditor pe)
-                {
-                    pe.MenuContent = null;
-                }
+                if (hideMenu)
+                    HideMenuOf(control);
 
                 if (viewModel is IServiceProvider services
                     && services.GetService(typeof(IPropertyEditorControlHost)) is IPropertyEditorControlHost host)
@@ -43,6 +42,22 @@ public sealed class PropertyEditorContextToViewConverter(bool hideMenu) : IValue
         else
         {
             return BindingNotification.Null;
+        }
+    }
+
+    // The row may sit in a host's wrapper, so find it rather than expect the control itself to be the editor.
+    private static void HideMenuOf(Control control)
+    {
+        if (control is PropertyEditor editor)
+        {
+            editor.MenuContent = null;
+            return;
+        }
+
+        foreach (ILogical child in control.GetLogicalChildren())
+        {
+            if (child is Control nested)
+                HideMenuOf(nested);
         }
     }
 

@@ -166,6 +166,11 @@
                         </MultiBinding>
                     </ui:FAMenuFlyoutItem.IsEnabled>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="linkToAnotherPropertyItem"
+                                   Click="LinkToAnotherProperty_Click"
+                                   IsEnabled="{Binding CanEditProperty.Value}"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.LinkToAnotherProperty}" />
                 <ui:FAMenuFlyoutSeparator x:Name="copyPropertyPathSeparator" IsVisible="False" />
                 <ui:FAMenuFlyoutItem x:Name="copyPropertyPathItem"
                                    Click="CopyPropertyPath_Click"

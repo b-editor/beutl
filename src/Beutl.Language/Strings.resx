@@ -767,6 +767,12 @@
   <data name="CopyGetPropertyCode" xml:space="preserve">
     <value>Copy GetProperty Code</value>
   </data>
+  <data name="LinkToAnotherProperty" xml:space="preserve">
+    <value>Link to another property</value>
+  </data>
+  <data name="LinkToAnotherProperty_Prompt" xml:space="preserve">
+    <value>Click the property to link to. Press Esc to cancel.</value>
+  </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>Change to Original Length</value>
   </data>

@@ -15,11 +15,13 @@ namespace Beutl.Editor.Components.ElementPropertyTab.Views;
 
 public sealed partial class ElementPropertyTabView : UserControl
 {
+    private readonly PropertyLinkSelectionAttachment _linkSelection;
     private IDisposable? _revealSubscription;
 
     public ElementPropertyTabView()
     {
         InitializeComponent();
+        _linkSelection = new PropertyLinkSelectionAttachment(this, linkSelectionPrompt);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
     }
@@ -27,6 +29,7 @@ public sealed partial class ElementPropertyTabView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        _linkSelection.SetDataContext(DataContext);
         _revealSubscription?.Dispose();
         // Selecting a new element rebuilds the items and expanding one relays out its editors, so
         // look for the containers once that layout pass has run.

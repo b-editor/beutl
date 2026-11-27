@@ -4,6 +4,7 @@
              xmlns:controls="using:Beutl.Controls"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.ElementPropertyTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModel="using:Beutl.Editor.Components.ElementPropertyTab.ViewModels"
@@ -14,6 +15,17 @@
              pe:PropertyEditorGrid.IsAlignmentScope="True"
              mc:Ignorable="d">
     <DockPanel>
+        <!--  Says what a click does while a property waits for the one it should follow.  -->
+        <Border x:Name="linkSelectionPrompt"
+                DockPanel.Dock="Top"
+                Padding="12,6"
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1"
+                IsVisible="False">
+            <TextBlock Text="{x:Static lang:Strings.LinkToAnotherProperty_Prompt}" TextWrapping="Wrap" />
+        </Border>
+
         <!--  While several elements are selected, says what an edit leaves out: the locked ones, or all of them when they share nothing.  -->
         <ContentControl x:Name="multipleElementsBanner"
                         Content="{Binding MultipleElements.Value}"

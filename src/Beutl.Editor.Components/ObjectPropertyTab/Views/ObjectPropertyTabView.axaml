@@ -12,28 +12,41 @@
              d:DesignWidth="800"
              x:DataType="viewModel:ObjectPropertyTabViewModel"
              mc:Ignorable="d">
-    <ScrollViewer>
-        <StackPanel>
-            <controls:ToolTabBar x:Name="ToolBar">
-                <Button x:Name="BackButton"
-                        HorizontalAlignment="Left"
-                        usage:UsageTracking.Feature="ObjectProperty.Back"
-                        AutomationProperties.Name="{x:Static lang:Strings.Back}"
-                        Command="{Binding Back}"
-                        IsEnabled="{Binding CanBack.Value}"
-                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
-                        ToolTip.Tip="{x:Static lang:Strings.Back}">
-                    <icons:FluentIcon Icon="ArrowLeft" FontSize="16" />
-                </Button>
-            </controls:ToolTabBar>
+    <DockPanel>
+        <!--  Says what a click does while a property waits for the one it should follow.  -->
+        <Border x:Name="linkSelectionPrompt"
+                DockPanel.Dock="Top"
+                Padding="12,6"
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1"
+                IsVisible="False">
+            <TextBlock Text="{x:Static lang:Strings.LinkToAnotherProperty_Prompt}" TextWrapping="Wrap" />
+        </Border>
 
-            <ItemsControl x:Name="PropertyList" DataContext="{Binding ChildContext.Value}" ItemsSource="{Binding Properties}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </StackPanel>
-    </ScrollViewer>
+        <ScrollViewer>
+            <StackPanel>
+                <controls:ToolTabBar x:Name="ToolBar">
+                    <Button x:Name="BackButton"
+                            HorizontalAlignment="Left"
+                            usage:UsageTracking.Feature="ObjectProperty.Back"
+                            AutomationProperties.Name="{x:Static lang:Strings.Back}"
+                            Command="{Binding Back}"
+                            IsEnabled="{Binding CanBack.Value}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                            ToolTip.Tip="{x:Static lang:Strings.Back}">
+                        <icons:FluentIcon Icon="ArrowLeft" FontSize="16" />
+                    </Button>
+                </controls:ToolTabBar>
+
+                <ItemsControl x:Name="PropertyList" DataContext="{Binding ChildContext.Value}" ItemsSource="{Binding Properties}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </UserControl>

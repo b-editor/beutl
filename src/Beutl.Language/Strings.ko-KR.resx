@@ -737,6 +737,12 @@
   <data name="CopyGetPropertyCode" xml:space="preserve">
     <value>GetProperty 코드 복사</value>
   </data>
+  <data name="LinkToAnotherProperty" xml:space="preserve">
+    <value>다른 속성에 연결</value>
+  </data>
+  <data name="LinkToAnotherProperty_Prompt" xml:space="preserve">
+    <value>연결할 속성을 클릭하세요. Esc 키를 누르면 취소됩니다.</value>
+  </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>원본 길이로 변경</value>
   </data>

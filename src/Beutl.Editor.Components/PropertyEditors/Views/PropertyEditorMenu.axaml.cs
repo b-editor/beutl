@@ -26,6 +26,7 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 public sealed partial class PropertyEditorMenu : UserControl
 {
     private IDisposable? _componentSubscription;
+    private IDisposable? _linkFailureSubscription;
     private ExpressionEditorFlyout? _expressionFlyout;
     private int _deinterlaceProbeVersion;
 
@@ -63,11 +64,20 @@ public sealed partial class PropertyEditorMenu : UserControl
 
         _componentSubscription?.Dispose();
         _componentSubscription = null;
+        _linkFailureSubscription?.Dispose();
+        _linkFailureSubscription = null;
         if (DataContext is PropertyEditorViewModel model)
         {
             _componentSubscription = model.SeparatedProperties.CombineLatest(model.HasExpression)
                 .Subscribe(state => UpdateActionVisibility(model, state.First != null));
             model.Own(_componentSubscription);
+            if (model.GetService<IPropertyLinkSelection>() is { } linkSelection)
+            {
+                _linkFailureSubscription = linkSelection.Failure
+                    .Where(failure => failure is not null && failure.Source.Matches(model))
+                    .Subscribe(failure => ShowLinkFailure(model, failure!.Error));
+                model.Own(_linkFailureSubscription);
+            }
         }
         else
         {
@@ -187,6 +197,9 @@ public sealed partial class PropertyEditorMenu : UserControl
         expressionSeparator.IsVisible = editExpressionItem.IsVisible || removeExpressionItem.IsVisible;
 
         bool isEngineProperty = model?.PropertyAdapter.GetEngineProperty() != null;
+        linkToAnotherPropertyItem.IsVisible = supportsExpression && isEngineProperty
+            && model is { EditsSeveralElements: false }
+            && model.GetService<IPropertyLinkSelection>() != null;
         bool asksWhichProperty = model?.EditedProperties.Count > 1 && !separated;
         copyPropertyPathItem.IsVisible = isEngineProperty;
         copyGetPropertyCodeItem.IsVisible = isEngineProperty;
@@ -344,36 +357,67 @@ public sealed partial class PropertyEditorMenu : UserControl
         if (DataContext is PropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
             && SupportsTextExpression(viewModel))
         {
-            string? currentExpression = viewModel.GetExpressionString();
+            ShowExpressionEditor(viewModel, viewModel.ExpressionError);
+        }
+    }
 
-            var flyout = new ExpressionEditorFlyout();
-            flyout.Placement = PlacementMode.BottomEdgeAlignedRight;
-            flyout.ExpressionText = currentExpression ?? "";
-            flyout.ErrorMessage = viewModel.ExpressionError;
-            if (viewModel.ExpressionExample is { } example)
+    private void ShowExpressionEditor(PropertyEditorViewModel viewModel, string? initialError)
+    {
+        string? currentExpression = viewModel.GetExpressionString();
+
+        var flyout = new ExpressionEditorFlyout();
+        flyout.Placement = PlacementMode.BottomEdgeAlignedRight;
+        flyout.ExpressionText = currentExpression ?? "";
+        flyout.ErrorMessage = initialError;
+        if (viewModel.ExpressionExample is { } example)
+        {
+            flyout.ExpressionHint = string.Format(Strings.Expression_ReturnsBothValues, example);
+            flyout.ExpressionPlaceholder = example;
+        }
+        flyout.Confirmed += (_, args) =>
+        {
+            if (string.IsNullOrWhiteSpace(args.ExpressionText))
             {
-                flyout.ExpressionHint = string.Format(Strings.Expression_ReturnsBothValues, example);
-                flyout.ExpressionPlaceholder = example;
-            }
-            flyout.Confirmed += (_, args) =>
-            {
-                if (string.IsNullOrWhiteSpace(args.ExpressionText))
+                if (viewModel.HasExpression.Value)
                 {
-                    if (viewModel.HasExpression.Value)
-                    {
-                        viewModel.RemoveExpression();
-                    }
-
-                    return;
+                    viewModel.RemoveExpression();
                 }
 
-                args.IsValid = viewModel.SetExpression(args.ExpressionText, out var error);
-                args.Error = error;
-            };
+                return;
+            }
 
-            _expressionFlyout = flyout;
-            flyout.ShowAt(this);
+            args.IsValid = viewModel.SetExpression(args.ExpressionText, out var error);
+            args.Error = error;
+        };
+
+        _expressionFlyout = flyout;
+        flyout.ShowAt(this);
+    }
+
+    // A link failed, so show its error the way the expression editor does, over the old expression.
+    private void ShowLinkFailure(PropertyEditorViewModel viewModel, string error)
+    {
+        if (_expressionFlyout is { IsOpen: true }) return;
+
+        if (!viewModel.IsDisposed && viewModel.CanEditProperty.Value && SupportsTextExpression(viewModel))
+        {
+            ShowExpressionEditor(viewModel, error);
         }
+    }
+
+    private void LinkToAnotherProperty_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not PropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
+            || viewModel.GetService<IPropertyLinkSelection>() is not { } linkSelection)
+        {
+            return;
+        }
+
+        // Choosing the item of the property that is picking again ends the picking.
+        if (linkSelection.IsSelectingLinkTarget.Value && linkSelection.IsSource(viewModel))
+            linkSelection.CancelLinkSelection();
+        else
+            linkSelection.BeginLinkSelection(viewModel);
     }
 
     private static bool SupportsTextExpression(PropertyEditorViewModel viewModel)

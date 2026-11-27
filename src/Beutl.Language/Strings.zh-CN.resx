@@ -737,6 +737,12 @@
   <data name="CopyGetPropertyCode" xml:space="preserve">
     <value>复制 GetProperty 代码</value>
   </data>
+  <data name="LinkToAnotherProperty" xml:space="preserve">
+    <value>链接到其他属性</value>
+  </data>
+  <data name="LinkToAnotherProperty_Prompt" xml:space="preserve">
+    <value>单击要链接到的属性。按 Esc 取消。</value>
+  </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>更改为原始长度</value>
   </data>

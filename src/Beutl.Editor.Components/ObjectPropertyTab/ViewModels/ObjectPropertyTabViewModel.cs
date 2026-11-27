@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,7 +9,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 
-public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
+public sealed class ObjectPropertyTabViewModel : IPinnableToolContext, IPropertyLinkSelectionHost
 {
     private const int MaxCachedEditors = 7;
     private const int MaxBackStackLength = 31;
@@ -22,12 +23,14 @@ public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
     private readonly ConditionalWeakTable<ICoreObject, IServiceProvider> _providers = new();
     private readonly ReactivePropertySlim<bool> _canBack = new();
     private readonly ToolTabPin _pin;
+    private readonly IPropertyLinkSelection? _linkSelection;
     private IHierarchical? _watchedTarget;
 
     public ObjectPropertyTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
         _factory = editorContext.GetRequiredService<IPropertiesEditorFactory>();
+        _linkSelection = editorContext.GetService<IPropertyLinkSelection>();
         _pin = new ToolTabPin(ChildContext.Select(child => child != null)).DisposeWith(_disposables);
 
         // Going back would change what a pinned tab shows.
@@ -60,6 +63,8 @@ public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
     }
 
     public ToolTabExtension Extension => ObjectPropertyTabExtension.Instance;
+
+    IPropertyLinkSelection? IPropertyLinkSelectionHost.LinkSelection => _linkSelection;
 
     public ReactiveProperty<IPropertiesEditorViewModel?> ChildContext { get; } = new();
 
@@ -220,6 +225,7 @@ public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
     public void Dispose()
     {
         _disposables.Dispose();
+        _linkSelection?.CancelLinkSelection();
         WatchTarget(null);
         ChildContext.Value = null;
         foreach (IPropertiesEditorViewModel editor in _cache)

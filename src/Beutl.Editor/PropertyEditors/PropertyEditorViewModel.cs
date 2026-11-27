@@ -573,6 +573,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         return true;
     }
 
+    // Captures what writes this property's expression after this editor is disposed, as the element panel does
+    // when it shows another element while a link target is picked.
+    internal virtual PropertyLinkExpressionWriter? CreateLinkExpressionWriter() => null;
+
     public virtual void RemoveExpression()
     {
     }
